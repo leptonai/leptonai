@@ -1,0 +1,10 @@
+click
+flask
+python-dotenv
+rich
+loguru
+
+huggingface_hub
+diffusers[torch]
+sentence-transformers
+transformers
