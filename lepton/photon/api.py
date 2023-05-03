@@ -8,6 +8,17 @@ from lepton.config import CACHE_DIR
 
 
 def create(name: str, model: Any) -> Photon:
+    """
+    Create a photon from a model.
+
+    :param str name: name of the photon
+    :param Any model: model to create the photon from
+
+    :return: the created photon
+    :rtype: Photon
+
+    :raises ValueError: if the model is not supported
+    """
     if isinstance(model, str):
         model_parts = model.split(":")
         schema = model_parts[0]
@@ -23,7 +34,19 @@ def create(name: str, model: Any) -> Photon:
     raise ValueError(f"Failed to create photon: name={name}, model={model}")
 
 
-def save(photon, to: str = None):
+def save(photon, to: str = None) -> str:
+    """
+    Save a photon to a file. By default, the file is saved in the
+    cache directory (``{CACHE_DIR} / {name}.photon``)
+
+    :param Photon photon: photon to save
+    :param str to: path to save the photon to
+
+    :return: path to the saved photon
+    :rtype: str
+
+    :raises FileExistsError: if the file already exists at the target path
+    """
     if to is None:
         to = CACHE_DIR / f"{photon.name}.photon"
     if os.path.exists(to):
@@ -41,6 +64,13 @@ def save(photon, to: str = None):
 
 
 def load(path: str) -> Photon:
+    """
+    Load a photon from a file.
+    :param str path: path to the photon file
+
+    :return: the loaded photon
+    :rtype: Photon
+    """
     with zipfile.ZipFile(path, "r") as f:
         # TODO: add registry to dispatch and pass the whole zip file
         # to corresponding creator
