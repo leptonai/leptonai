@@ -6,7 +6,6 @@ import { theme, ThemeConfig } from "antd";
 export class ThemeService {
   readonly shareToken: ThemeConfig["token"] = {
     colorPrimary: "#2F80ED",
-    borderRadius: 0,
   };
 
   readonly presetThemes = {
@@ -19,11 +18,6 @@ export class ThemeService {
     dark: {
       token: {
         ...this.shareToken,
-        colorBgLayout: "#000000",
-        colorBgContainer: "#1f1f1f",
-        colorBorder: "#969593",
-        colorBorderSecondary: "#313131",
-        colorTextSecondary: "#969593",
       },
       algorithm: theme.darkAlgorithm,
     },

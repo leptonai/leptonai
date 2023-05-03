@@ -15,8 +15,8 @@ const Header = styled.div`
   justify-content: space-between;
 `;
 const Title = styled.div`
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 400;
   flex: 1 1 auto;
   height: 100%;
   display: flex;
