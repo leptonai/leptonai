@@ -66,8 +66,8 @@ def list():
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon", default=None)
 @click.option("--model", "-m", help="Model Spec", default=None)
-@click.option("--path", "-p", help="Path to .photon file", default=None)
-@click.option("--port", help="Port to run on", default=8080)
+@click.option("--file", "-f", "path", help="Path to .photon file", default=None)
+@click.option("--port", "-p", help="Port to run on", default=8080)
 @click.pass_context
 def run(ctx, name, model, path, port):
     if name is None and path is None:

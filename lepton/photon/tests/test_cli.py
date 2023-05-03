@@ -13,6 +13,7 @@ from loguru import logger
 import requests
 
 from lepton import config
+from lepton.photon.base import find_photon
 from lepton.cli import lepton as cli
 
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
@@ -102,7 +103,7 @@ class TestPhotonCli(unittest.TestCase):
             runner = CliRunner()
             runner.invoke(cli, ["photon", "create", "-n", name, "-m", model[0]])
 
-        proc, port = photon_run_server(name, model[0])
+        proc, port = photon_run_server(name=name, model=model[0])
         res = requests.post(
             f"http://127.0.0.1:{port}/run",
             json=model[1],
@@ -125,11 +126,36 @@ class TestPhotonCli(unittest.TestCase):
                 with self.subTest(create_first=create_first, model=model[0]):
                     self._test_photon_run(create_first, model)
 
+    def test_photon_run_path(self):
+        name = random_name()
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["photon", "create", "-n", name, "-m", self.transformers_model[0]]
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue("created" in result.output)
+
+        path = find_photon(name)
+        self.assertIsNotNone(path)
+
+        proc, port = photon_run_server(path=path, model=self.transformers_model[0])
+        res = requests.post(
+            f"http://127.0.0.1:{port}/run",
+            json=self.transformers_model[1],
+        )
+        proc.kill()
+        if res.status_code != 200:
+            logger.warning(f"Client: {res.status_code} {res.text}")
+            logger.warning(f"Server: {proc.stdout.read().decode('utf-8')}")
+            logger.warning(f"Server: {proc.stderr.read().decode('utf-8')}")
+        self.assertEqual(res.status_code, 200)
+
     def test_photon_run_post_file(self):
         name = random_name()
 
         for model in [self.wav2vec2_model, self.whisper_model]:
-            proc, port = photon_run_server(name, model[0])
+            proc, port = photon_run_server(name=name, model=model[0])
             with tempfile.NamedTemporaryFile() as f:
                 f.write(requests.get(model[1]["inputs"]).content)
                 f.flush()
