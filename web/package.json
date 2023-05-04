@@ -16,6 +16,7 @@
     "@emotion/react": "^11.10.8",
     "@emotion/styled": "^11.10.8",
     "antd": "^5.4.6",
+    "dayjs": "^1.11.7",
     "injection-js": "^2.4.0",
     "observable-hooks": "^4.2.1",
     "react": "^18.2.0",

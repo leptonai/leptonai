@@ -11,6 +11,9 @@ import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { Dashboard } from "@lepton-dashboard/routers/dashboard";
 import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
 import { Root } from "@lepton-dashboard/components/root";
+import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { TitleService } from "@lepton-dashboard/services/title.service.ts";
 
 const router = createBrowserRouter([
   {
@@ -22,7 +25,7 @@ const router = createBrowserRouter([
         element: <Dashboard />,
       },
       {
-        path: "models",
+        path: "models/*",
         element: <Models />,
       },
       {
@@ -39,7 +42,9 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <DIContainer providers={[ThemeService]}>
+    <DIContainer
+      providers={[ThemeService, TitleService, ModelService, DeploymentService]}
+    >
       <ThemeProvider>
         <Root>
           <RouterProvider router={router} />

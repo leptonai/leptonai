@@ -5,19 +5,24 @@ import { theme, ThemeConfig } from "antd";
 @Injectable()
 export class ThemeService {
   readonly shareToken: ThemeConfig["token"] = {
-    colorPrimary: "#2F80ED",
+    borderRadius: 2,
+    controlOutlineWidth: 0,
   };
 
-  readonly presetThemes = {
+  readonly presetThemes: { [key: string]: ThemeConfig } = {
     default: {
       token: {
         ...this.shareToken,
+        colorPrimary: "#000",
+        boxShadowTertiary:
+          "0 1px 2px 0 rgba(0, 0, 0, 0.03),0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)",
       },
       algorithm: theme.defaultAlgorithm,
     },
     dark: {
       token: {
         ...this.shareToken,
+        colorPrimary: "#fff",
       },
       algorithm: theme.darkAlgorithm,
     },
