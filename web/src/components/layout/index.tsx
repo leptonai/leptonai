@@ -9,7 +9,8 @@ import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 
 const Container = styled.div`
   height: 100%;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 `;
 
 const Main = styled.div`

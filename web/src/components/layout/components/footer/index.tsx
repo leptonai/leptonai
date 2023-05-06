@@ -11,10 +11,12 @@ import {
 } from "@ant-design/icons";
 const Container = styled.div`
   height: 60px;
+  overflow: hidden;
   display: flex;
   align-items: center;
   padding: 0 24px;
   justify-content: space-between;
+  flex-wrap: wrap;
 `;
 
 const Logo = styled.div`
@@ -22,6 +24,8 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 100%;
+  margin-right: 24px;
 `;
 const Text = styled.div`
   margin-left: 8px;

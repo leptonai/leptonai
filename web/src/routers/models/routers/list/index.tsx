@@ -1,21 +1,10 @@
 import { FC, useMemo, useState } from "react";
-import styled from "@emotion/styled";
 import { Col, Input, Row } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { Card } from "@lepton-dashboard/routers/models/components/card";
-
-const Filter = styled.div`
-  display: flex;
-  width: 100%;
-  margin-bottom: 24px;
-`;
-
-const Search = styled.div`
-  flex: 1 1 auto;
-`;
+import { ModelCard } from "@lepton-dashboard/routers/models/components/model-card";
 
 export const List: FC = () => {
   const modelService = useInject(ModelService);
@@ -30,24 +19,24 @@ export const List: FC = () => {
     );
   }, [groupedModels, search]);
   return (
-    <>
-      <Filter>
-        <Search>
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            prefix={<SearchOutlined />}
-            placeholder="Search"
-          />
-        </Search>
-      </Filter>
-      <Row gutter={[16, 16]} wrap>
-        {filteredModels.map((group) => (
-          <Col flex="1" key={group.name}>
-            <Card group={group} />
-          </Col>
-        ))}
-      </Row>
-    </>
+    <Row gutter={[8, 24]}>
+      <Col flex={1}>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          prefix={<SearchOutlined />}
+          placeholder="Search"
+        />
+      </Col>
+      <Col span={24}>
+        <Row gutter={[16, 16]} wrap>
+          {filteredModels.map((group) => (
+            <Col flex="1" key={group.name}>
+              <ModelCard group={group} />
+            </Col>
+          ))}
+        </Row>
+      </Col>
+    </Row>
   );
 };

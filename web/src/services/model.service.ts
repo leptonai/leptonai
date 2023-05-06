@@ -83,7 +83,7 @@ export class ModelService {
       map((list) => list.find((item) => item.name === name))
     );
   }
-  getModel(id: string): Observable<Model | undefined> {
+  getById(id: string): Observable<Model | undefined> {
     return this.list().pipe(map((list) => list.find((item) => item.id === id)));
   }
 }

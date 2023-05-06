@@ -6,10 +6,12 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { DockerIcon } from "@lepton-dashboard/components/icons/logo";
 import dayjs from "dayjs";
 import { RocketOutlined } from "@ant-design/icons";
-import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { Link } from "@lepton-dashboard/components/link";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import { DetailDescription } from "@lepton-dashboard/routers/models/components/detail-description";
+import { Card } from "@lepton-dashboard/components/card";
+import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
+import { useNavigate } from "react-router-dom";
 
 const Left = styled.div`
   flex: 1 1 auto;
@@ -20,23 +22,10 @@ const Right = styled.div`
 const DockerDetail = styled.div`
   width: 400px;
 `;
-export const Card: FC<{ group: GroupedModel }> = ({ group }) => {
+export const ModelCard: FC<{ group: GroupedModel }> = ({ group }) => {
   const model = group.latest;
   const theme = useAntdTheme();
-  const Container = useMemo(
-    () => styled.div`
-      padding: 16px;
-      background-color: ${theme.colorBgContainer};
-      border-color: ${theme.colorBorder};
-      border-radius: ${theme.borderRadius}px;
-      border-style: solid;
-      border-width: 1px;
-      box-shadow: ${theme.boxShadowTertiary};
-      display: flex;
-      position: relative;
-    `,
-    [theme]
-  );
+  const navigate = useNavigate();
   const Title = useMemo(
     () => styled.div`
       font-size: 16px;
@@ -62,7 +51,7 @@ export const Card: FC<{ group: GroupedModel }> = ({ group }) => {
     [theme]
   );
   return (
-    <Container>
+    <Card direction="horizontal">
       <Left>
         <Title>
           <Link to={`../versions/${group.name}`}>{model.name}</Link>
@@ -100,10 +89,14 @@ export const Card: FC<{ group: GroupedModel }> = ({ group }) => {
         </Space>
       </Left>
       <Right>
-        <Button size="middle" icon={<RocketOutlined />}>
+        <Button
+          onClick={() => navigate(`../../deployments/create/${model.id}`)}
+          size="middle"
+          icon={<RocketOutlined />}
+        >
           Deploy
         </Button>
       </Right>
-    </Container>
+    </Card>
   );
 };

@@ -5,6 +5,7 @@ import { ReplaySubject } from "rxjs";
 export class TitleService {
   title$ = new ReplaySubject<string>(1);
   setTitle(title: string) {
+    document.title = `${title} | Lepton AI | Scalable and Effective AI Application Platform`;
     this.title$.next(title);
   }
 }

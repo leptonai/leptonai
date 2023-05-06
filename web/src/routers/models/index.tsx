@@ -20,7 +20,7 @@ export const Models: FC = () => {
         <Route path="list" element={<List />} />
         <Route path="versions/:name" element={<Versions />} />
         <Route path="detail/:id" element={<Detail />} />
-        <Route path="*" element={<Navigate to="list" />} />
+        <Route path="*" element={<Navigate to="list" replace />} />
       </Routes>
     </Container>
   );

@@ -29,12 +29,12 @@ const router = createBrowserRouter([
         element: <Models />,
       },
       {
-        path: "deployments",
+        path: "deployments/*",
         element: <Deployments />,
       },
       {
         path: "*",
-        element: <Navigate to="dashboard" />,
+        element: <Navigate to="dashboard" replace />,
       },
     ],
   },

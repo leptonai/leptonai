@@ -1,11 +1,12 @@
 import { FC, useEffect } from "react";
 import styled from "@emotion/styled";
-import { Card, Col, Row, Statistic } from "antd";
+import { Col, Row, Statistic } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { TitleService } from "@lepton-dashboard/services/title.service.ts";
+import { Card } from "@lepton-dashboard/components/card";
 
 const Container = styled.div`
   flex: 1 1 auto;
@@ -18,7 +19,10 @@ export const Dashboard: FC = () => {
     titleService.setTitle("Dashboard");
   }, [titleService]);
   const deploymentService = useInject(DeploymentService);
-  const models = useStateFromObservable(() => modelService.list(), []);
+  const groupedModels = useStateFromObservable(
+    () => modelService.listGroup(),
+    []
+  );
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
     []
@@ -26,13 +30,13 @@ export const Dashboard: FC = () => {
   return (
     <Container>
       <Row gutter={[16, 32]}>
-        <Col span={5}>
-          <Card bordered={false}>
-            <Statistic title="Total Models" value={models.length} />
+        <Col flex="200px">
+          <Card direction="horizontal">
+            <Statistic title="Total Models" value={groupedModels.length} />
           </Card>
         </Col>
-        <Col span={5}>
-          <Card bordered={false}>
+        <Col flex="200px">
+          <Card direction="horizontal">
             <Statistic title="Total Deployments" value={deployments.length} />
           </Card>
         </Col>

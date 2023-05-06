@@ -1,5 +1,5 @@
 import { Injectable } from "injection-js";
-import { Observable, of } from "rxjs";
+import { map, Observable, of } from "rxjs";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 
 @Injectable()
@@ -7,60 +7,42 @@ export class DeploymentService {
   list(): Observable<Deployment[]> {
     return of([
       {
-        id: "deployment-1",
-        name: "dolly-v1.2",
-        photon_id: "photon-1",
-        status: {
-          state: "terminated",
-          endpoint: {
-            internal_endpoint: "http://10.0.0.1:8000",
-            external_endpoint: "https://example.com/dolly-v1.2",
-          },
-        },
-        resource_requirement: {
-          cpu: 4,
-          memory: 4,
-          min_replica: 1,
-        },
-      },
-      {
-        id: "deployment-2",
-        name: "dolly-v1.3",
-        photon_id: "photon-2",
+        id: "8d14bcd1282bf94a52cf3b04fa46bcae",
+        created_at: 1683229033569,
+        name: "my-lepton-deployment",
+        photon_id: "d9114fdefb8444c4c07804df1738b98e",
         status: {
           state: "running",
-          endpoint: {
-            internal_endpoint: "http://10.0.0.2:8080",
-            external_endpoint: "https://example.com/dolly-v1.3",
-          },
+          endpoint: { internal_endpoint: "", external_endpoint: "" },
         },
         resource_requirement: {
-          cpu: 2,
-          memory: 8,
-          accelerator_type: "Nvidia V100",
+          cpu: 1,
+          memory: 8192,
+          accelerator_type: "nvidia-tesla-p100",
           accelerator_num: 2,
-          min_replica: 2,
+          min_replicas: 1,
         },
       },
       {
-        id: "deployment-3",
-        name: "dolly-v1.4",
-        photon_id: "photon-3",
+        id: "97d2ca52c18149e2832b103b73551dae",
+        created_at: 1683255310712,
+        name: "my-lepton-deployment",
+        photon_id: "d9114fdefb8444c4c07804df1738b98e",
         status: {
           state: "running",
-          endpoint: {
-            internal_endpoint: "http://10.0.0.3:5000",
-            external_endpoint: "https://example.com/dolly-v1.4",
-          },
+          endpoint: { internal_endpoint: "", external_endpoint: "" },
         },
         resource_requirement: {
-          cpu: 8,
-          memory: 16,
-          accelerator_type: "Nvidia A100",
-          accelerator_num: 4,
-          min_replica: 3,
+          cpu: 1,
+          memory: 8192,
+          accelerator_type: "nvidia-tesla-p100",
+          accelerator_num: 2,
+          min_replicas: 1,
         },
       },
     ]);
+  }
+  getById(id: string): Observable<Deployment | undefined> {
+    return this.list().pipe(map((list) => list.find((item) => item.id === id)));
   }
 }

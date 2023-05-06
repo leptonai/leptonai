@@ -7,7 +7,8 @@ export const Hoverable: FC<PropsWithChildren> = ({ children }) => {
   return (
     <div
       css={css`
-        color: inherit;
+        cursor: default;
+        color: ${theme.colorTextTertiary};
         &:hover {
           color: ${theme.colorTextHeading};
         }

@@ -14,6 +14,7 @@ const Container = styled.div`
   padding: 0 24px;
   display: flex;
   flex: 0 0 60px;
+  flex-wrap: wrap;
 `;
 
 const LogoContainer = styled.div`
@@ -23,6 +24,7 @@ const LogoContainer = styled.div`
   align-items: center;
   justify-content: center;
   font-size: 36px;
+  margin-right: 24px;
 `;
 
 const MenuContainer = styled.div`
@@ -43,6 +45,7 @@ export const Header: FC = () => {
       margin-left: 16px;
       color: ${theme.colorTextTertiary};
       font-weight: 300;
+      cursor: default;
     `,
     [theme]
   );
@@ -75,7 +78,6 @@ export const Header: FC = () => {
             css={css`
               width: 300px;
             `}
-            bordered={false}
             prefix={<SearchOutlined />}
             placeholder="Type / to search"
           />
