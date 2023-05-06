@@ -8,20 +8,29 @@ export const Card: FC<
     extra?: ReactNode;
     direction?: "vertical" | "horizontal";
     borderless?: boolean;
+    shadowless?: boolean;
   }>
-> = ({ children, title, extra, direction, borderless = false }) => {
+> = ({
+  children,
+  title,
+  extra,
+  direction,
+  borderless = false,
+  shadowless = false,
+}) => {
   const theme = useAntdTheme();
   return (
     <div
       css={css`
         display: flex;
         flex-direction: column;
+        overflow: hidden;
         background-color: ${theme.colorBgContainer};
         border-color: ${theme.colorBorder};
         border-radius: ${theme.borderRadius}px;
         border-style: solid;
         border-width: ${borderless ? 0 : "1px"};
-        box-shadow: ${theme.boxShadowTertiary};
+        box-shadow: ${shadowless ? "none" : theme.boxShadowTertiary};
       `}
     >
       {(title || extra) && (

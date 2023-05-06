@@ -4,9 +4,9 @@ import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { DeploymentCard } from "@lepton-dashboard/routers/deployments/components/deployment-card";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useNavigate } from "react-router-dom";
+import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 
 export const List: FC = () => {
   const deploymentService = useInject(DeploymentService);
@@ -29,6 +29,7 @@ export const List: FC = () => {
     <Row gutter={[8, 24]}>
       <Col flex={1}>
         <Input
+          autoFocus
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           prefix={<SearchOutlined />}
@@ -69,7 +70,7 @@ export const List: FC = () => {
           dataSource={filteredDeployments}
           renderItem={(deployment) => (
             <AntdList.Item style={{ padding: 0, display: "block" }}>
-              <DeploymentCard deployment={deployment} />
+              <DeploymentCard deployment={deployment} borderless />
             </AntdList.Item>
           )}
         />

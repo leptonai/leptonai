@@ -1,24 +1,30 @@
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { Card } from "@lepton-dashboard/components/card";
-import { Badge, Col, Divider, Row, Space, Tooltip, Typography } from "antd";
+import { Col, Divider, Row, Space, Tooltip, Typography } from "antd";
 import dayjs from "dayjs";
 import { Link } from "@lepton-dashboard/components/link";
 import { css } from "@emotion/react";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
-import { KeyValue } from "@lepton-dashboard/routers/deployments/components/key-value";
 import { CloseOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import { Status } from "@lepton-dashboard/routers/deployments/components/status";
+import { KeyValue } from "@lepton-dashboard/components/key-value";
 
-export const DeploymentCard: FC<{ deployment: Deployment }> = ({
-  deployment,
-}) => {
+export const DeploymentCard: FC<{
+  deployment: Deployment;
+  borderless?: boolean;
+  shadowless?: boolean;
+}> = ({ deployment, borderless = false, shadowless = false }) => {
   return (
-    <Card borderless>
-      <Row gutter={16}>
-        <Col flex="1 1 auto">
+    <Card borderless={borderless} shadowless={shadowless}>
+      <Row gutter={16} wrap={true}>
+        <Col flex="600px">
           <KeyValue
             value={
-              <Link to={`../detail/${deployment.id}/mode/view`}>
+              <Link
+                to={`/deployments/detail/${deployment.id}/mode/view`}
+                relative="route"
+              >
                 <span
                   css={css`
                     font-size: 16px;
@@ -37,20 +43,43 @@ export const DeploymentCard: FC<{ deployment: Deployment }> = ({
               </Typography.Text>
             }
           />
-        </Col>
-        <Col flex="350px">
+          <Space split={<Divider type="vertical" />}>
+            <KeyValue
+              title="MEM"
+              value={`${deployment.resource_requirement.memory} MB`}
+            />
+            <KeyValue title="CPU" value={deployment.resource_requirement.cpu} />
+          </Space>
           <KeyValue
+            title="Accelerator"
             value={
-              <Badge
-                status={
-                  deployment.status.state === "running"
-                    ? "success"
-                    : "processing"
-                }
-                text={deployment.status.state.toUpperCase()}
-              />
+              deployment.resource_requirement.accelerator_type ? (
+                <>
+                  {deployment.resource_requirement.accelerator_type}
+                  <CloseOutlined
+                    css={css`
+                      margin: 0 4px;
+                    `}
+                  />
+                  {deployment.resource_requirement.accelerator_num}
+                </>
+              ) : (
+                "No Accelerator"
+              )
             }
           />
+        </Col>
+        <Col flex="auto">
+          <Space
+            style={{ display: "flex" }}
+            split={<Divider type="vertical" />}
+          >
+            <KeyValue value={<Status status={deployment.status.state} />} />
+            <KeyValue
+              title="Min Replicas"
+              value={deployment.resource_requirement.min_replicas}
+            />
+          </Space>
           <Space split={<Divider type="vertical" />}>
             <Tooltip title={deployment.status.endpoint.external_endpoint}>
               <span>
@@ -63,37 +92,8 @@ export const DeploymentCard: FC<{ deployment: Deployment }> = ({
               </span>
             </Tooltip>
           </Space>
-        </Col>
-        <Col flex="450px">
-          <Space split={<Divider type="vertical" />}>
-            <KeyValue
-              title="Min Replicas"
-              value={deployment.resource_requirement.min_replicas}
-            />
-            <KeyValue
-              title="MEM"
-              value={`${deployment.resource_requirement.memory} MB`}
-            />
-            <KeyValue title="CPU" value={deployment.resource_requirement.cpu} />
-          </Space>
           <KeyValue
-            title="Accelerator"
-            value={
-              <>
-                {deployment.resource_requirement.accelerator_type}
-                <CloseOutlined
-                  css={css`
-                    margin: 0 4px;
-                  `}
-                />
-                {deployment.resource_requirement.accelerator_num}
-              </>
-            }
-          />
-        </Col>
-        <Col flex="300px">
-          <KeyValue
-            title="Created Time"
+            title="Create Time"
             value={dayjs(deployment.created_at).format("lll")}
           />
           <Space split={<Divider type="vertical" />}>
@@ -101,7 +101,8 @@ export const DeploymentCard: FC<{ deployment: Deployment }> = ({
               value={
                 <Link
                   icon={<EyeOutlined />}
-                  to={`../detail/${deployment.id}/mode/view`}
+                  to={`/deployments/detail/${deployment.id}/mode/view`}
+                  relative="route"
                 >
                   View
                 </Link>
@@ -111,7 +112,8 @@ export const DeploymentCard: FC<{ deployment: Deployment }> = ({
               value={
                 <Link
                   icon={<EditOutlined />}
-                  to={`../detail/${deployment.id}/mode/edit`}
+                  to={`/deployments/detail/${deployment.id}/mode/edit`}
+                  relative="route"
                 >
                   Edit
                 </Link>

@@ -4,7 +4,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 
 const Container = styled.div`
-  height: 32px;
+  height: 36px;
   display: flex;
   align-items: center;
 `;
@@ -13,11 +13,21 @@ const Key = styled.div`
   display: flex;
   margin-right: 8px;
   align-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
 `;
 const Value = styled.div`
   height: 100%;
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  overflow: hidden;
+`;
+const Ellipsis = styled.div`
+  width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 `;
 export const KeyValue: FC<{ title?: ReactNode; value: ReactNode }> = ({
   title,
@@ -29,6 +39,7 @@ export const KeyValue: FC<{ title?: ReactNode; value: ReactNode }> = ({
       {title && (
         <Key
           css={css`
+            white-space: nowrap;
             color: ${theme.colorTextTertiary};
           `}
         >
@@ -40,7 +51,7 @@ export const KeyValue: FC<{ title?: ReactNode; value: ReactNode }> = ({
           color: ${theme.colorText};
         `}
       >
-        {value}
+        <Ellipsis>{value}</Ellipsis>
       </Value>
     </Container>
   );

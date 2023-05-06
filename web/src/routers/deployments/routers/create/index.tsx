@@ -89,21 +89,20 @@ export const Create: FC = () => {
               autoComplete="off"
             >
               <Form.Item
-                label="Name"
+                label="Model"
+                name="model"
+                rules={[{ required: true, message: "Please select model" }]}
+              >
+                <Cascader options={options} />
+              </Form.Item>
+              <Form.Item
+                label="Deployment Name"
                 name="name"
                 rules={[
                   { required: true, message: "Please input deployment name" },
                 ]}
               >
                 <Input autoFocus />
-              </Form.Item>
-
-              <Form.Item
-                label="Model"
-                name="model"
-                rules={[{ required: true, message: "Please select model" }]}
-              >
-                <Cascader options={options} />
               </Form.Item>
               <Form.Item
                 label="Min Replicas"

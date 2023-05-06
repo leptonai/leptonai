@@ -5,9 +5,6 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button, Input, Space } from "antd";
 import { SearchOutlined, UserOutlined } from "@ant-design/icons";
 import { LeptonIcon } from "@lepton-dashboard/components/icons/logo";
-import { useInject } from "@lepton-libs/di";
-import { TitleService } from "@lepton-dashboard/services/title.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 
 const Container = styled.div`
   height: 60px;
@@ -15,6 +12,7 @@ const Container = styled.div`
   display: flex;
   flex: 0 0 60px;
   flex-wrap: wrap;
+  overflow: hidden;
 `;
 
 const LogoContainer = styled.div`
@@ -37,8 +35,6 @@ const MenuContainer = styled.div`
 
 export const Header: FC = () => {
   const theme = useAntdTheme();
-  const titleService = useInject(TitleService);
-  const title = useStateFromObservable(() => titleService.title$, undefined);
   const Text = useMemo(
     () => styled.div`
       font-size: 22px;
@@ -59,17 +55,10 @@ export const Header: FC = () => {
         <LeptonIcon />
         <Text
           css={css`
-            font-weight: 200;
-          `}
-        >
-          /
-        </Text>
-        <Text
-          css={css`
             color: ${theme.colorTextHeading};
           `}
         >
-          {title}
+          Lepton AI
         </Text>
       </LogoContainer>
       <MenuContainer>

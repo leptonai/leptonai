@@ -1,4 +1,4 @@
-import { Badge, Menu, MenuProps } from "antd";
+import { Badge, Tabs, TabsProps } from "antd";
 import styled from "@emotion/styled";
 import { FC, useMemo } from "react";
 import {
@@ -16,10 +16,13 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 
 const Container = styled.div`
   position: sticky;
-  padding: 0 8px;
-  z-index: 1;
-  flex: 0 0 45px;
+  padding: 0 24px;
+  z-index: 2;
+  flex: 0 0 46px;
   top: 0;
+  .ant-tabs-nav::before {
+    display: none;
+  }
 `;
 const StyledBadge = styled(Badge)`
   margin-left: 12px;
@@ -34,32 +37,36 @@ export const Nav: FC = () => {
     () => deploymentService.list(),
     []
   );
-  const menuItems: MenuProps["items"] = useMemo(
+  const menuItems: TabsProps["items"] = useMemo(
     () => [
       {
-        label: <>Dashboard</>,
+        label: (
+          <>
+            <AppstoreOutlined />
+            Dashboard
+          </>
+        ),
         key: "/dashboard",
-        icon: <AppstoreOutlined />,
       },
       {
         label: (
           <>
+            <ExperimentOutlined />
             Models
             <StyledBadge size="small" color="#ccc" count={models.length} />
           </>
         ),
         key: "/models",
-        icon: <ExperimentOutlined />,
       },
       {
         label: (
           <>
+            <RocketOutlined />
             Deployments
             <StyledBadge size="small" color="#ccc" count={deployments.length} />
           </>
         ),
         key: "/deployments",
-        icon: <RocketOutlined />,
       },
     ],
     [deployments, models]
@@ -67,15 +74,10 @@ export const Nav: FC = () => {
   const theme = useAntdTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const selectedKeys = useMemo(() => {
-    const matchKey = menuItems.find((item) =>
+  const selectedKey = useMemo(() => {
+    return menuItems.find((item) =>
       location.pathname.startsWith(`${item?.key}`)
     )?.key;
-    if (matchKey) {
-      return [`${matchKey}`];
-    } else {
-      return [];
-    }
   }, [location.pathname, menuItems]);
   const navigateTo = (key: string) => {
     navigate(key);
@@ -88,12 +90,12 @@ export const Nav: FC = () => {
         box-shadow: ${theme.boxShadowTertiary};
       `}
     >
-      <Menu
-        selectedKeys={selectedKeys}
-        onClick={({ key }) => navigateTo(key)}
-        style={{ borderBottom: "none" }}
-        mode="horizontal"
+      <Tabs
+        tabBarGutter={32}
+        tabBarStyle={{ marginBottom: 0 }}
+        activeKey={selectedKey}
         items={menuItems}
+        onTabClick={(key) => navigateTo(key)}
       />
     </Container>
   );

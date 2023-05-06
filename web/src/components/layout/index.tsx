@@ -9,12 +9,14 @@ import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 
 const Container = styled.div`
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
 `;
 
 const Main = styled.div`
   min-height: 100%;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -32,7 +34,7 @@ export const Layout: FC = () => {
   return (
     <Container
       css={css`
-        background: ${theme.colorBgContainer};
+        background: ${theme.colorBgLayout};
       `}
     >
       <FullHeight>

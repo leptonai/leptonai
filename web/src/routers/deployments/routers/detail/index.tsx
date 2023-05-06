@@ -17,6 +17,7 @@ import { EditOutlined, RocketOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
+import { Status } from "@lepton-dashboard/routers/deployments/components/status";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -82,7 +83,7 @@ export const Detail: FC = () => {
               {dayjs(deployment.created_at).format("lll")}
             </Descriptions.Item>
             <Descriptions.Item label="Status">
-              {deployment.status.state.toUpperCase()}
+              <Status status={deployment.status.state} />
             </Descriptions.Item>
             <Descriptions.Item label="Internal Endpoint">
               {deployment.status.endpoint.internal_endpoint || "-"}
@@ -105,6 +106,7 @@ export const Detail: FC = () => {
             <Descriptions.Item label="Min Replicas">
               {editMode ? (
                 <InputNumber
+                  autoFocus
                   value={minReplicas}
                   onChange={(e) => setMinReplicas(e)}
                 />

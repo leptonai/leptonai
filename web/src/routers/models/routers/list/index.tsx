@@ -4,7 +4,7 @@ import { SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { ModelCard } from "@lepton-dashboard/routers/models/components/model-card";
+import { ModelGroupCard } from "../../../../components/model-group-card";
 
 export const List: FC = () => {
   const modelService = useInject(ModelService);
@@ -22,6 +22,7 @@ export const List: FC = () => {
     <Row gutter={[8, 24]}>
       <Col flex={1}>
         <Input
+          autoFocus
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           prefix={<SearchOutlined />}
@@ -32,7 +33,7 @@ export const List: FC = () => {
         <Row gutter={[16, 16]} wrap>
           {filteredModels.map((group) => (
             <Col flex="1" key={group.name}>
-              <ModelCard group={group} />
+              <ModelGroupCard group={group} />
             </Col>
           ))}
         </Row>

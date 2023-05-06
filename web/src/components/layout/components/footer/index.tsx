@@ -45,6 +45,7 @@ export const Footer: FC = () => {
       css={css`
         border-top: 1px solid ${theme.colorBorder};
         font-weight: normal;
+        background: ${theme.colorBgContainer};
       `}
     >
       <Logo>

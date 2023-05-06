@@ -3,13 +3,11 @@ import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { Breadcrumb, Col, Descriptions, Row } from "antd";
-import { DetailDescription } from "@lepton-dashboard/routers/models/components/detail-description";
-import dayjs from "dayjs";
+import { Breadcrumb, Col, Row } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { ExperimentOutlined } from "@ant-design/icons";
-import { Card } from "@lepton-dashboard/components/card";
+import { ModelCard } from "@lepton-dashboard/components/model-card";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -48,19 +46,7 @@ export const Detail: FC = () => {
         </BreadcrumbHeader>
       </Col>
       <Col span={24}>
-        <Card title="Detail">
-          <DetailDescription model={model}>
-            <Descriptions.Item label="Name">{model.name}</Descriptions.Item>
-            <Descriptions.Item label="Id">{model.id}</Descriptions.Item>
-            <Descriptions.Item label="Created Time">
-              {dayjs(model.created_at).format("lll")}
-            </Descriptions.Item>
-
-            <Descriptions.Item label="Source">
-              {model.model_source}
-            </Descriptions.Item>
-          </DetailDescription>
-        </Card>
+        <ModelCard model={model} detail={true} />
       </Col>
     </Row>
   ) : null;
