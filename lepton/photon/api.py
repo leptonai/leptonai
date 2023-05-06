@@ -34,33 +34,20 @@ def create(name: str, model: Any) -> Photon:
     raise ValueError(f"Failed to create photon: name={name}, model={model}")
 
 
-def save(photon, to: str = None) -> str:
+def save(photon, path: str = None) -> str:
     """
     Save a photon to a file. By default, the file is saved in the
     cache directory (``{CACHE_DIR} / {name}.photon``)
 
     :param Photon photon: photon to save
-    :param str to: path to save the photon to
+    :param str path: path to save the photon to
 
     :return: path to the saved photon
     :rtype: str
 
     :raises FileExistsError: if the file already exists at the target path
     """
-    if to is None:
-        to = CACHE_DIR / f"{photon.name}.photon"
-    if os.path.exists(to):
-        raise FileExistsError(f"Failed to save photon: file {to} already exists")
-    with zipfile.ZipFile(to, "w") as f:
-        f.writestr(
-            "metadata.json",
-            json.dumps(photon.metadata),
-        )
-        for name, file_path in photon.extra_files.items():
-            f.write(os.path.join(photon.name, name), file_path)
-
-        add_photon(photon.name, photon.model, to)
-    return to
+    return photon.save(path)
 
 
 def load(path: str) -> Photon:
@@ -71,11 +58,4 @@ def load(path: str) -> Photon:
     :return: the loaded photon
     :rtype: Photon
     """
-    with zipfile.ZipFile(path, "r") as f:
-        # TODO: add registry to dispatch and pass the whole zip file
-        # to corresponding creator
-        with f.open("metadata.json") as config:
-            metadata = json.load(config)
-        photon = create(metadata["name"], metadata["model"])
-        # TODO: load extra files
-    return photon
+    return Photon.load(path)

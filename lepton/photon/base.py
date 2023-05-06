@@ -1,38 +1,67 @@
+import json
 import os
+import zipfile
 
+from lepton.config import CACHE_DIR
 from lepton.db import DB
 from lepton.registry import Registry
 
-
 schema_registry = Registry()
 type_registry = Registry()
+type_str_registry = Registry()
 
 
 class Photon:
-    name: str
-    model: str
-    path: str
+    photon_type = "base"
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        for base in cls.__bases__:
+            if issubclass(base, Photon) and base.photon_type == cls.photon_type:
+                # do not override load if its photon_type the same as parent class
+                break
+        else:
+            type_str_registry.register(cls.photon_type, cls.load)
 
     def __init__(self, name: str, model: str):
         self.name = name
         self.model = model
 
+    def save(self, path: str = None):
+        if path is None:
+            path = CACHE_DIR / f"{self.name}.photon"
+        if os.path.exists(path):
+            raise FileExistsError(f"Failed to save photon: file {path} already exists")
+        with zipfile.ZipFile(path, "w") as f:
+            f.writestr(
+                "metadata.json",
+                json.dumps(self.metadata),
+            )
+            for name, content in self.extra_files.items():
+                file_path = os.path.join(name)
+                f.writestr(file_path, content)
+
+        add_photon(self.name, self.model, path)
+        return path
+
+    @staticmethod
+    def load(path: str):
+        with zipfile.ZipFile(path, "r") as photon_file:
+            # TODO: add registry to dispatch and pass the whole zip file
+            # to corresponding creator
+            with photon_file.open("metadata.json") as config:
+                metadata = json.load(config)
+            photon_type = metadata["type"]
+            photon = type_str_registry.get(photon_type)(photon_file, metadata)
+            return photon
+
     @property
     def metadata(self):
-        return {"name": self.name, "model": self.model}
+        return {"name": self.name, "model": self.model, "type": self.photon_type}
 
     @property
     def extra_files(self):
         return {}
-
-    def run(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def run_as_server(self):
-        raise NotImplementedError
-
-    def __call__(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
 
     def __str__(self):
         return f"Photon(name={self.name}, model={self.model})"

@@ -36,7 +36,7 @@ def create(name, model):
     try:
         api.save(photon)
     except Exception as e:
-        console.print(f"Failed to save Photon:{e}")
+        console.print(f'Failed to save Photon: "{e}"')
         sys.exit(1)
     console.print(f"Photon [green]{name}[/green] created")
 
@@ -84,7 +84,7 @@ def run(ctx, name, model, path, port):
         else:
             sys.exit(1)
     photon = api.load(path)
-    photon.run_as_server(port)
+    photon.launch(port=port)
 
 
 def add_command(click_group):

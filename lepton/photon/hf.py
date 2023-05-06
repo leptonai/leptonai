@@ -1,8 +1,21 @@
+from abc import abstractmethod
+import functools
+from typing import List
+
+import numpy as np
 from huggingface_hub import model_info
 from loguru import logger
 import transformers
 
-from .base import Photon, schema_registry, type_registry
+from fastapi.responses import StreamingResponse
+
+from lepton.registry import Registry
+from .base import schema_registry, type_registry
+from .runner import RunnerPhoton, handler, send_pil_img
+from .hf_runner import pipeline_registry
+
+task_cls_registry = Registry()
+
 
 SUPPORTED_TASKS = [
     # diffusers
@@ -41,17 +54,27 @@ schemas = ["hf", "huggingface"]
 transformers_types = (transformers.PreTrainedModel, transformers.Pipeline)
 
 
-class HuggingfacePhoton(Photon):
-    def __init__(self, name: str, model: str):
-        model_parts = model.split(":")
+class HuggingfacePhoton(RunnerPhoton):
+    photon_type: str = "hf"
+
+    image: str = "lepton:photon-hf-runner"
+    args: list = ["--shm-size=1g"]
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        task_cls_registry.register(cls.hf_task, cls)
+
+    @classmethod
+    def _parse_model_str(cls, model_str):
+        model_parts = model_str.split(":")
         if len(model_parts) != 2:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (can not parse model name)'
+                f'Unsupported Huggingface model: "{model_str}" (can not parse model name)'
             )
         schema = model_parts[0]
         if schema not in schemas:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (unknown schema: "{schema}")'
+                f'Unsupported Huggingface model: "{model_str}" (unknown schema: "{schema}")'
             )
         hf_model_id = model_parts[1]
         if "@" in hf_model_id:
@@ -61,55 +84,73 @@ class HuggingfacePhoton(Photon):
         mi = model_info(hf_model_id, revision=revision)
 
         try:
-            task = mi.pipeline_tag
+            hf_task = mi.pipeline_tag
         except AttributeError:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (can not find corresponding task)'
+                f'Unsupported Huggingface model: "{model_str}" (can not find corresponding task)'
             )
-        if task not in SUPPORTED_TASKS:
+        if hf_task not in SUPPORTED_TASKS:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (task: "{task}")'
+                f'Unsupported Huggingface model: "{model_str}" (task: "{hf_task}")'
             )
 
         # 8 chars should be enough to identify a commit
         hf_revision = mi.sha[:8]
         model = f"{schema}:{hf_model_id}@{hf_revision}"
+
+        return model, hf_task, hf_model_id, hf_revision
+
+    def __init__(self, name: str, model: str):
+        model, hf_task, hf_model_id, hf_revision = self._parse_model_str(model)
         super().__init__(name, model)
 
-        self.hf_task = task
         self.hf_model = hf_model_id
         self.hf_revision = hf_revision
 
-        self._in_process_runner = None
-
     @property
     def metadata(self):
-        from .hf_runner import HuggingfaceServerRunner
-
         res = super().metadata
+        res.pop("py_obj")
         res.update(
             {
                 "task": self.hf_task,
-                "image": HuggingfaceServerRunner.image,
-                "args": HuggingfaceServerRunner.args,
+                "image": self.image,
+                "args": self.args,
             }
         )
         return res
 
+    @property
+    def extra_files(self):
+        res = super().extra_files
+        res.pop(self.obj_pkl_filename)
+        res.pop(self.cls_src_filename)
+        return res
+
+    @functools.cached_property
+    def pipeline(self):
+        pipeline_creator = pipeline_registry.get(self.hf_task)
+        logger.info(
+            f"Creating pipeline for {self.hf_task}(model={self.hf_model}, revision={self.hf_revision})"
+        )
+        pipeline = pipeline_creator(
+            task=self.hf_task,
+            model=self.hf_model,
+            revision=self.hf_revision,
+        )
+        return pipeline
+
     def run(self, *args, **kwargs):
-        from .hf_runner import HuggingfaceInProcessRunner
-
-        if self._in_process_runner is None:
-            self._in_process_runner = HuggingfaceInProcessRunner(self)
-        return self._in_process_runner.run(*args, **kwargs)
-
-    def run_as_server(self, port: int = 8080):
-        from .hf_runner import HuggingfaceServerRunner
-
-        return HuggingfaceServerRunner(self, port).run()
+        return self.pipeline(*args, **kwargs)
 
     @classmethod
-    def create_from_model(cls, name, model):
+    def create_from_model_str(cls, name, model_str):
+        _, hf_task, _, _ = cls._parse_model_str(model_str)
+        task_cls = task_cls_registry.get(hf_task)
+        return task_cls(name, model_str)
+
+    @classmethod
+    def create_from_model_obj(cls, name, model):
         if not isinstance(model, transformers_types):
             raise ValueError(f"Unsupported model type: {type(model)}")
 
@@ -134,8 +175,80 @@ class HuggingfacePhoton(Photon):
             logger.warning(f"Can not get revision for model {model_name}: {e}")
             revision = None
 
-        return cls(name, f"hf:{model_name}")
+        return cls.create_from_model_str(name, f"hf:{model_name}")
+
+    @classmethod
+    def load(cls, photon_file, metadata):
+        name = metadata["name"]
+        model = metadata["model"]
+        return cls.create_from_model_str(name, model)
 
 
-schema_registry.register(schemas, HuggingfacePhoton)
-type_registry.register(transformers_types, HuggingfacePhoton.create_from_model)
+schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
+type_registry.register(transformers_types, HuggingfacePhoton.create_from_model_obj)
+
+
+class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
+    hf_task: str = "text-generation"
+
+    @handler("run")
+    def run_handler(
+        self,
+        inputs: str | List[str],
+        top_k: int | None = None,
+        top_p: float | None = None,
+        temperature: float | None = 1.0,
+        repetition_penalty: float | None = None,
+        max_new_tokens: int | None = None,
+        max_time: float | None = None,
+        return_full_text: bool = True,
+        num_return_sequences: int = 1,
+        do_sample: bool = True,
+    ) -> str | List[str]:
+        res = self.run(
+            inputs,
+            top_k=top_k,
+            top_p=top_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            max_new_tokens=max_new_tokens,
+            max_time=max_time,
+            return_full_text=return_full_text,
+            num_return_sequences=num_return_sequences,
+            do_sample=do_sample,
+        )
+        if len(res) == 1:
+            return res[0]["generated_text"]
+        else:
+            return [r["generated_text"] for r in res]
+
+
+class HuggingfaceASRPhoton(HuggingfacePhoton):
+    hf_task: str = "automatic-speech-recognition"
+
+    @handler("run")
+    def run_handler(self, inputs: str) -> str:
+        res = self.run(inputs)
+        return res["text"]
+
+
+class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
+    hf_task: str = "text-to-image"
+
+    @handler("run", response_class=StreamingResponse)
+    def run_handler(
+        self,
+        prompt: str,
+        height: int | None = None,
+        width: int | None = None,
+        num_inference_steps: int = 50,
+        **kwargs,
+    ):
+        res = self.run(
+            prompt,
+            height=height,
+            width=width,
+            num_inference_steps=num_inference_steps,
+            **kwargs,
+        )
+        return send_pil_img(res.images[0])

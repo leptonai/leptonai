@@ -1,7 +1,10 @@
 click
-flask
+cloudpickle
+fastapi
+python-multipart
 python-dotenv
 rich
+uvicorn
 loguru
 
 huggingface_hub

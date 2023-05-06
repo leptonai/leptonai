@@ -19,7 +19,7 @@ extensions = [
     "autoapi.sphinx",
 ]
 
-autoapi_modules = {'lepton': {'prune': True, 'output': 'generated'}}
+autoapi_modules = {"lepton": {"prune": True, "output": "generated"}}
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

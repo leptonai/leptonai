@@ -48,5 +48,9 @@ def photon_run_server(name=None, path=None, model=None, port=8083):
         # "running" never showed up in the output, which means the
         # server failed to start
         proc.kill()
-        raise RuntimeError(f"Photon server failed to start:{os.linesep}{os.linesep.join(lines)}")
+        stdout = proc.stdout.read().decode("utf-8")
+        stderr = os.linesep.join(lines)
+        raise RuntimeError(
+            f"Photon server failed to start:\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        )
     return proc, port
