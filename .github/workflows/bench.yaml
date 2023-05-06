@@ -1,0 +1,32 @@
+name: benchmark
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        pip install -U pip setuptools
+        sudo apt-get install -y ffmpeg	
+    - name: Run Benchmark
+      run: |
+        pip install -e .
+        cd lepton/bench/gpt2
+        pip install -r requirements.txt
+        ./run.sh 8088
