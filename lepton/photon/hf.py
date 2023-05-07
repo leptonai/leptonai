@@ -1,7 +1,7 @@
 from abc import abstractmethod
-import functools
-from typing import List
+from typing import List, Union, Optional
 
+from backports.cached_property import cached_property
 import numpy as np
 from huggingface_hub import model_info
 from loguru import logger
@@ -127,7 +127,7 @@ class HuggingfacePhoton(RunnerPhoton):
         res.pop(self.cls_src_filename)
         return res
 
-    @functools.cached_property
+    @cached_property
     def pipeline(self):
         pipeline_creator = pipeline_registry.get(self.hf_task)
         logger.info(
@@ -194,17 +194,17 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
     @handler("run")
     def run_handler(
         self,
-        inputs: str | List[str],
-        top_k: int | None = None,
-        top_p: float | None = None,
-        temperature: float | None = 1.0,
-        repetition_penalty: float | None = None,
-        max_new_tokens: int | None = None,
-        max_time: float | None = None,
+        inputs: Union[str, List[str]],
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+        max_time: Optional[float] = None,
         return_full_text: bool = True,
         num_return_sequences: int = 1,
         do_sample: bool = True,
-    ) -> str | List[str]:
+    ) -> Union[str, List[str]]:
         res = self.run(
             inputs,
             top_k=top_k,
@@ -239,8 +239,8 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
     def run_handler(
         self,
         prompt: str,
-        height: int | None = None,
-        width: int | None = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         num_inference_steps: int = 50,
         **kwargs,
     ):
