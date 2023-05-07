@@ -20,7 +20,7 @@ import { Root } from "@lepton-dashboard/components/root";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service.ts";
 import { App as AntdApp } from "antd";
 import { css } from "@emotion/react";
-import { ApiLocalService } from "@lepton-dashboard/services/api.local.service.ts";
+import { ApiServerService } from "@lepton-dashboard/services/api.server.service.ts";
 
 const router = createBrowserRouter([
   {
@@ -69,7 +69,7 @@ function App() {
         InitializerService,
         RefreshService,
         HttpClientService,
-        { provide: ApiService, useClass: ApiLocalService },
+        { provide: ApiService, useClass: ApiServerService },
       ]}
     >
       <ThemeProvider>

@@ -8,7 +8,7 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 @Injectable()
 export class ApiServerService implements ApiService {
   private host =
-    "http://k8s-default-leptonse-42c1558c73-1362585501.us-east-1.elb.amazonaws.com";
+    "https://vercel-proxy-one-murex.vercel.app/httpproxy/k8s-default-leptonse-42c1558c73-1362585501.us-east-1.elb.amazonaws.com";
   listModels(): Observable<Model[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }

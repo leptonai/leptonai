@@ -80,7 +80,7 @@ export const DeploymentCard: FC<{
               </Typography.Text>
             }
           />
-          <Space split={<Divider type="vertical" />}>
+          <Space size={4} split={<Divider type="vertical" />}>
             <KeyValue
               title="MEM"
               value={`${deployment.resource_requirement.memory} MB`}
@@ -108,6 +108,7 @@ export const DeploymentCard: FC<{
         </Col>
         <Col flex="auto">
           <Space
+            size={4}
             style={{ display: "flex" }}
             split={<Divider type="vertical" />}
           >
@@ -117,7 +118,7 @@ export const DeploymentCard: FC<{
               value={deployment.resource_requirement.min_replicas}
             />
           </Space>
-          <Space split={<Divider type="vertical" />}>
+          <Space size={4} split={<Divider type="vertical" />}>
             <Tooltip title={deployment.status.endpoint.external_endpoint}>
               <span>
                 <KeyValue value={<Hoverable>External Endpoint</Hoverable>} />
@@ -133,7 +134,7 @@ export const DeploymentCard: FC<{
             title="Create Time"
             value={dayjs(deployment.created_at).format("lll")}
           />
-          <Space split={<Divider type="vertical" />}>
+          <Space size={4} split={<Divider type="vertical" />}>
             {!modelPage && (
               <KeyValue
                 value={
