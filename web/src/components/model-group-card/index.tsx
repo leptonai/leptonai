@@ -86,7 +86,7 @@ export const ModelGroupCard: FC<{
                   </Hoverable>
                 </span>
               </Popover>
-              {model.model_source}
+              {model.model_source || "-"}
             </Space>
           </ModelSource>
         </Left>

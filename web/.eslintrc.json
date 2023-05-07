@@ -40,6 +40,7 @@
     "@typescript-eslint/no-non-null-assertion": "off",
     "react-refresh/only-export-components": "warn",
     "react/self-closing-comp": "error",
+    "@typescript-eslint/no-explicit-any": "error",
     "react/jsx-curly-brace-presence": "error",
     "react/react-in-jsx-scope": "off",
     "react/display-name": "off",

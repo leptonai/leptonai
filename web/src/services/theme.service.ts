@@ -23,12 +23,16 @@ export class ThemeService {
         Badge: {
           colorPrimary: "#2F80ED",
         },
+        Notification: {
+          width: 500,
+          fontSize: 12,
+        },
       },
     },
     dark: {
       token: {
         ...this.shareToken,
-        colorPrimary: "#fff",
+        controlItemBgActive: "#e6f4ff",
       },
       algorithm: theme.darkAlgorithm,
     },

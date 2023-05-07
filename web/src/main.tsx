@@ -1,4 +1,4 @@
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import App from "@lepton-dashboard/app.tsx";
 import "./index.css";
@@ -10,7 +10,7 @@ dayjs.extend(LocalizedFormat);
 dayjs.extend(relativeTime);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
+  <StrictMode>
     <App />
-  </React.StrictMode>
+  </StrictMode>
 );

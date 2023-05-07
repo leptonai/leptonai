@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import {
+  App,
   Breadcrumb,
   Button,
   Col,
@@ -24,13 +25,13 @@ import { mergeMap } from "rxjs";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const editMode = mode === "edit";
   const deploymentService = useInject(DeploymentService);
   const [minReplicas, setMinReplicas] = useState<number | null>(null);
-
   const deployment = useStateFromObservable(
-    () => deploymentService.getById(id!),
+    () => deploymentService.id(id!),
     undefined,
     {
       next: (value) =>
@@ -38,12 +39,11 @@ export const Detail: FC = () => {
     }
   );
   const modelService = useInject(ModelService);
-
   const model = useStateFromObservable(
     () =>
       deploymentService
-        .getById(id!)
-        .pipe(mergeMap((d) => modelService.getById(d!.photon_id))),
+        .id(id!)
+        .pipe(mergeMap((d) => modelService.id(d!.photon_id))),
     undefined
   );
 
@@ -120,6 +120,7 @@ export const Detail: FC = () => {
               {editMode ? (
                 <InputNumber
                   value={minReplicas}
+                  min={0}
                   onChange={(e) => setMinReplicas(e)}
                 />
               ) : (
@@ -129,7 +130,31 @@ export const Detail: FC = () => {
           </Descriptions>
           {editMode && (
             <Space style={{ marginTop: "24px" }}>
-              <Button type="primary">Save</Button>
+              <Button
+                type="primary"
+                onClick={() => {
+                  if (minReplicas !== null && minReplicas !== undefined) {
+                    void message.loading({
+                      content: "Update deployment, please wait...",
+                      duration: 0,
+                      key: "update-deployment",
+                    });
+                    deploymentService
+                      .update(deployment.id, minReplicas)
+                      .subscribe({
+                        next: () => {
+                          message.destroy("update-deployment");
+                          navigate("../view", { relative: "path" });
+                        },
+                        error: () => {
+                          message.destroy("update-deployment");
+                        },
+                      });
+                  }
+                }}
+              >
+                Save
+              </Button>
               <Button onClick={() => navigate("../view", { relative: "path" })}>
                 Cancel
               </Button>
@@ -140,7 +165,7 @@ export const Detail: FC = () => {
       <Col span={24}>
         <Card title="Model Detail">
           <ModelCard
-            detail={true}
+            inModel={true}
             borderless
             shadowless
             paddingless

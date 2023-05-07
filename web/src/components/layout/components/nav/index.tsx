@@ -32,7 +32,7 @@ const StyledBadge = styled(Badge)`
 export const Nav: FC = () => {
   const modelService = useInject(ModelService);
   const deploymentService = useInject(DeploymentService);
-  const models = useStateFromObservable(() => modelService.listGroup(), []);
+  const models = useStateFromObservable(() => modelService.groups(), []);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
     []

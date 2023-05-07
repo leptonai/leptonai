@@ -1,48 +1,35 @@
 import { Injectable } from "injection-js";
-import { map, Observable, of } from "rxjs";
+import { BehaviorSubject, map, Observable, tap } from "rxjs";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import { ApiService } from "@lepton-dashboard/services/api.service.ts";
 
 @Injectable()
 export class DeploymentService {
+  private list$ = new BehaviorSubject<Deployment[]>([]);
   list(): Observable<Deployment[]> {
-    return of([
-      {
-        id: "8d14bcd1282bf94a52cf3b04fa46bcae",
-        created_at: 1683229033569,
-        name: "my-lepton-deployment",
-        photon_id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
-        status: {
-          state: "running",
-          endpoint: { internal_endpoint: "", external_endpoint: "" },
-        },
-        resource_requirement: {
-          cpu: 1,
-          memory: 8192,
-          accelerator_type: "nvidia-tesla-p100",
-          accelerator_num: 2,
-          min_replicas: 1,
-        },
-      },
-      {
-        id: "97d2ca52c18149e2832b103b73551dae",
-        created_at: 1683255310712,
-        name: "my-lepton-deployment",
-        photon_id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
-        status: {
-          state: "running",
-          endpoint: { internal_endpoint: "", external_endpoint: "" },
-        },
-        resource_requirement: {
-          cpu: 1,
-          memory: 8192,
-          accelerator_type: "nvidia-tesla-p100",
-          accelerator_num: 2,
-          min_replicas: 1,
-        },
-      },
-    ]);
+    return this.list$;
   }
-  getById(id: string): Observable<Deployment | undefined> {
+
+  id(id: string): Observable<Deployment | undefined> {
     return this.list().pipe(map((list) => list.find((item) => item.id === id)));
   }
+
+  refresh() {
+    return this.apiService.listDeployments().pipe(
+      map((item) => item.sort((a, b) => b.created_at - a.created_at)),
+      tap((l) => this.list$.next(l))
+    );
+  }
+
+  create(deployment: Partial<Deployment>): Observable<void> {
+    return this.apiService.createDeployment(deployment);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.apiService.deleteDeployment(id);
+  }
+  update(id: string, miniReplicas: number): Observable<void> {
+    return this.apiService.updateDeployment(id, miniReplicas);
+  }
+  constructor(private apiService: ApiService) {}
 }

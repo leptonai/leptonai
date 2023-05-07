@@ -26,10 +26,7 @@ export const Dashboard: FC = () => {
     titleService.setTitle("Dashboard");
   }, [titleService]);
   const deploymentService = useInject(DeploymentService);
-  const groupedModels = useStateFromObservable(
-    () => modelService.listGroup(),
-    []
-  );
+  const groupedModels = useStateFromObservable(() => modelService.groups(), []);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
     []

@@ -9,7 +9,9 @@ export const DetailDescription: FC<PropsWithChildren<{ model: Model }>> = ({
   return (
     <Descriptions bordered size="small" column={1}>
       {children}
-      <Descriptions.Item label="Image URL">{model.image_url}</Descriptions.Item>
+      <Descriptions.Item label="Image URL">
+        {model.image_url || "-"}
+      </Descriptions.Item>
       {model.exposed_ports && (
         <Descriptions.Item label="Exposed Ports">
           {model.exposed_ports?.join(", ")}

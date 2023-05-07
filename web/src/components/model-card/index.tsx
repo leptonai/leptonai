@@ -1,11 +1,14 @@
 import { FC } from "react";
 import { Card } from "@lepton-dashboard/components/card";
-import { Col, Divider, Row, Space } from "antd";
+import { App, Button, Col, Divider, Popconfirm, Row, Space } from "antd";
 import { Model } from "@lepton-dashboard/interfaces/model.ts";
 import { Link } from "@lepton-dashboard/components/link";
-import { EyeOutlined, RocketOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined, RocketOutlined } from "@ant-design/icons";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
 import dayjs from "dayjs";
+import { useInject } from "@lepton-libs/di";
+import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 
 export const ModelCard: FC<{
   model?: Model;
@@ -13,6 +16,7 @@ export const ModelCard: FC<{
   shadowless?: boolean;
   paddingless?: boolean;
   detail?: boolean;
+  inModel?: boolean;
   action?: boolean;
   id?: boolean;
 }> = ({
@@ -21,9 +25,13 @@ export const ModelCard: FC<{
   paddingless = false,
   shadowless = false,
   detail = false,
+  inModel = false,
   action = true,
   id = true,
 }) => {
+  const { message } = App.useApp();
+  const modelService = useInject(ModelService);
+  const refreshService = useInject(RefreshService);
   return (
     <Card
       paddingless={paddingless}
@@ -33,17 +41,19 @@ export const ModelCard: FC<{
       {model && (
         <Row gutter={16} wrap={true}>
           <Col flex="auto">
-            {detail && <KeyValue title="Name" value={model.name} />}
+            {(detail || inModel) && (
+              <KeyValue title="Name" value={model.name} />
+            )}
             {id && <KeyValue title="ID" value={model.id} />}
-            <KeyValue title="Model source" value={model.model_source} />
-            <KeyValue title="Image URL" value={model.image_url} />
+            <KeyValue title="Model source" value={model.model_source || "-"} />
+            <KeyValue title="Image URL" value={model.image_url || "-"} />
             <KeyValue
               title="Exposed Ports"
               value={model.exposed_ports?.join(", ") || "-"}
             />
           </Col>
           <Col flex="auto">
-            {detail && (
+            {(detail || inModel) && (
               <KeyValue
                 title="Create Time"
                 value={dayjs(model.created_at).format("lll")}
@@ -84,6 +94,42 @@ export const ModelCard: FC<{
                     }
                   />
                 )}
+                <KeyValue
+                  value={
+                    <Popconfirm
+                      title="Delete the model"
+                      description="Are you sure to delete?"
+                      onConfirm={() => {
+                        void message.loading({
+                          content: `Deleting model ${model.id}, please wait...`,
+                          key: "delete-model",
+                          duration: 0,
+                        });
+                        modelService.delete(model.id).subscribe({
+                          next: () => {
+                            message.destroy("delete-model");
+                            void message.success(
+                              `Successfully deleted model ${model.id}`
+                            );
+                            refreshService.refresh();
+                          },
+                          error: () => {
+                            message.destroy("delete-model");
+                          },
+                        });
+                      }}
+                    >
+                      <Button
+                        type="link"
+                        danger
+                        style={{ padding: 0 }}
+                        icon={<DeleteOutlined />}
+                      >
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  }
+                />
               </Space>
             )}
           </Col>

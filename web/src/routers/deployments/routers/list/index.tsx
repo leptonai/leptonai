@@ -33,10 +33,7 @@ export const List: FC = () => {
     name ? [name] : []
   );
   const modelService = useInject(ModelService);
-  const groupedModels = useStateFromObservable(
-    () => modelService.listGroup(),
-    []
-  );
+  const groupedModels = useStateFromObservable(() => modelService.groups(), []);
   const options = groupedModels.map((g) => {
     return {
       value: g.name,

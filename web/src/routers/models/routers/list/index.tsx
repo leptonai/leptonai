@@ -9,10 +9,7 @@ import { DeploymentService } from "@lepton-dashboard/services/deployment.service
 
 export const List: FC = () => {
   const modelService = useInject(ModelService);
-  const groupedModels = useStateFromObservable(
-    () => modelService.listGroup(),
-    []
-  );
+  const groupedModels = useStateFromObservable(() => modelService.groups(), []);
   const [search, setSearch] = useState<string>("");
   const filteredModels = useMemo(() => {
     return groupedModels.filter(

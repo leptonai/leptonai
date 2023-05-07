@@ -26,7 +26,7 @@ export const Versions: FC = () => {
   const { name } = useParams();
   const modelService = useInject(ModelService);
   const groupedModel = useStateFromObservable(
-    () => modelService.getGroup(name!),
+    () => modelService.groupId(name!),
     undefined
   );
   const theme = useAntdTheme();
@@ -73,6 +73,7 @@ export const Versions: FC = () => {
             `}
             items={models.map((m) => {
               return {
+                key: m.id,
                 color: theme.colorTextSecondary,
                 dot: <ExperimentOutlined />,
                 children: (

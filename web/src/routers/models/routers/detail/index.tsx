@@ -15,10 +15,7 @@ import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 export const Detail: FC = () => {
   const { id } = useParams();
   const modelService = useInject(ModelService);
-  const model = useStateFromObservable(
-    () => modelService.getById(id!),
-    undefined
-  );
+  const model = useStateFromObservable(() => modelService.id(id!), undefined);
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),

@@ -15,7 +15,7 @@ export const Link: FC<
     <RouterLink
       css={css`
         color: inherit;
-        display: flex;
+        display: inline-flex;
         &:hover {
           color: ${theme.colorTextHeading};
           text-decoration: underline;

@@ -1,13 +1,25 @@
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { Card } from "@lepton-dashboard/components/card";
-import { Col, Divider, Popover, Row, Space, Tooltip, Typography } from "antd";
+import {
+  App,
+  Button,
+  Col,
+  Divider,
+  Popconfirm,
+  Popover,
+  Row,
+  Space,
+  Tooltip,
+  Typography,
+} from "antd";
 import dayjs from "dayjs";
 import { Link } from "@lepton-dashboard/components/link";
 import { css } from "@emotion/react";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import {
   CloseOutlined,
+  DeleteOutlined,
   EditOutlined,
   ExperimentOutlined,
   EyeOutlined,
@@ -18,6 +30,8 @@ import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 
 export const DeploymentCard: FC<{
   deployment: Deployment;
@@ -31,10 +45,13 @@ export const DeploymentCard: FC<{
   modelPage = false,
 }) => {
   const modelService = useInject(ModelService);
+  const refreshService = useInject(RefreshService);
+  const deploymentService = useInject(DeploymentService);
   const model = useStateFromObservable(
-    () => modelService.getById(deployment.photon_id),
+    () => modelService.id(deployment.photon_id),
     undefined
   );
+  const { message } = App.useApp();
   return (
     <Card borderless={borderless} shadowless={shadowless}>
       <Row gutter={16} wrap={true}>
@@ -165,6 +182,43 @@ export const DeploymentCard: FC<{
                 >
                   Edit
                 </Link>
+              }
+            />
+            <KeyValue
+              value={
+                <Popconfirm
+                  title="Delete the deployment"
+                  description="Are you sure to delete?"
+                  onConfirm={() => {
+                    void message.loading({
+                      content: `Deleting deployment ${deployment.name}, please wait...`,
+                      key: "delete-deployment",
+                      duration: 0,
+                    });
+                    deploymentService.delete(deployment.id).subscribe({
+                      next: () => {
+                        message.destroy("delete-deployment");
+                        void message.success(
+                          `Successfully deleted deployment ${deployment.name}`
+                        );
+                        refreshService.refresh();
+                      },
+                      error: () => {
+                        message.destroy("delete-deployment");
+                      },
+                    });
+                  }}
+                >
+                  <Button
+                    style={{ padding: 0 }}
+                    danger
+                    size="small"
+                    type="link"
+                    icon={<DeleteOutlined />}
+                  >
+                    Delete
+                  </Button>
+                </Popconfirm>
               }
             />
           </Space>
