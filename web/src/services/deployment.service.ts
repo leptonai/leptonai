@@ -10,7 +10,7 @@ export class DeploymentService {
         id: "8d14bcd1282bf94a52cf3b04fa46bcae",
         created_at: 1683229033569,
         name: "my-lepton-deployment",
-        photon_id: "d9114fdefb8444c4c07804df1738b98e",
+        photon_id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
         status: {
           state: "running",
           endpoint: { internal_endpoint: "", external_endpoint: "" },
@@ -27,7 +27,7 @@ export class DeploymentService {
         id: "97d2ca52c18149e2832b103b73551dae",
         created_at: 1683255310712,
         name: "my-lepton-deployment",
-        photon_id: "d9114fdefb8444c4c07804df1738b98e",
+        photon_id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
         status: {
           state: "running",
           endpoint: { internal_endpoint: "", external_endpoint: "" },

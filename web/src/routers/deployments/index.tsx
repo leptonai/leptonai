@@ -19,7 +19,7 @@ export const Deployments: FC = () => {
     <Container>
       <Routes>
         <Route path="create/:id?" element={<Create />} />
-        <Route path="list" element={<List />} />
+        <Route path="list/:name?" element={<List />} />
         <Route path="detail/:id/mode/:mode" element={<Detail />} />
         <Route path="*" element={<Navigate to="list" replace />} />
       </Routes>

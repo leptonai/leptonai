@@ -5,6 +5,7 @@ import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { ModelGroupCard } from "../../../../components/model-group-card";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 
 export const List: FC = () => {
   const modelService = useInject(ModelService);
@@ -18,6 +19,11 @@ export const List: FC = () => {
       (e) => JSON.stringify(e).indexOf(search) !== -1
     );
   }, [groupedModels, search]);
+  const deploymentService = useInject(DeploymentService);
+  const deployments = useStateFromObservable(
+    () => deploymentService.list(),
+    []
+  );
   return (
     <Row gutter={[8, 24]}>
       <Col flex={1}>
@@ -33,7 +39,14 @@ export const List: FC = () => {
         <Row gutter={[16, 16]} wrap>
           {filteredModels.map((group) => (
             <Col flex="1" key={group.name}>
-              <ModelGroupCard group={group} />
+              <ModelGroupCard
+                deploymentCount={
+                  deployments.filter((i) =>
+                    group.data.some((m) => m.id === i.photon_id)
+                  ).length
+                }
+                group={group}
+              />
             </Col>
           ))}
         </Row>

@@ -40,7 +40,17 @@ export const Dashboard: FC = () => {
         type: "Model",
         name: g.name,
         operation: g.data.length > 1 ? "updated" : "created",
-        children: <ModelGroupCard shadowless group={g} />,
+        children: (
+          <ModelGroupCard
+            deploymentCount={
+              deployments.filter((i) =>
+                g.data.some((m) => m.id === i.photon_id)
+              ).length
+            }
+            shadowless
+            group={g}
+          />
+        ),
         date: g.latest.created_at,
         id: `model-${g.name}`,
       };
@@ -59,12 +69,12 @@ export const Dashboard: FC = () => {
   return (
     <Container>
       <Row gutter={[16, 24]}>
-        <Col flex="300px">
+        <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
           <Card direction="horizontal">
             <Statistic title="Total Models" value={groupedModels.length} />
           </Card>
         </Col>
-        <Col flex="300px">
+        <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
           <Card direction="horizontal">
             <Statistic title="Total Deployments" value={deployments.length} />
           </Card>

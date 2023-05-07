@@ -1,9 +1,16 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { ModelService } from "@lepton-dashboard/services/model.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { Breadcrumb, Col, Row, Timeline, Typography } from "antd";
+import {
+  Breadcrumb,
+  Col,
+  List as AntdList,
+  Row,
+  Timeline,
+  Typography,
+} from "antd";
 import { Link } from "@lepton-dashboard/components/link";
 import { ExperimentOutlined } from "@ant-design/icons";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
@@ -12,6 +19,8 @@ import { ModelCard } from "@lepton-dashboard/components/model-card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";
+import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 
 export const Versions: FC = () => {
   const { name } = useParams();
@@ -21,7 +30,18 @@ export const Versions: FC = () => {
     undefined
   );
   const theme = useAntdTheme();
+  const deploymentService = useInject(DeploymentService);
+  const deployments = useStateFromObservable(
+    () => deploymentService.list(),
+    []
+  );
+  const filteredDeployments = useMemo(() => {
+    const ids =
+      groupedModel?.data.filter((m) => m.name === name).map((i) => i.id) || [];
+    return deployments.filter((d) => ids.indexOf(d.photon_id) !== -1);
+  }, [deployments, name, groupedModel]);
   const models = groupedModel?.data || [];
+
   return (
     <Row gutter={[0, 24]}>
       <Col span={24}>
@@ -63,11 +83,24 @@ export const Versions: FC = () => {
                     >
                       Create at {dayjs(m.created_at).format("lll")}
                     </Typography.Paragraph>
-                    <ModelCard shadowless={true} model={m} />
+                    <ModelCard action={true} shadowless={true} model={m} />
                   </Col>
                 ),
               };
             })}
+          />
+        </Card>
+      </Col>
+      <Col span={24}>
+        <Card title="Deployments" paddingless>
+          <AntdList
+            itemLayout="horizontal"
+            dataSource={filteredDeployments}
+            renderItem={(deployment) => (
+              <AntdList.Item style={{ padding: 0, display: "block" }}>
+                <DeploymentCard modelPage deployment={deployment} borderless />
+              </AntdList.Item>
+            )}
           />
         </Card>
       </Col>

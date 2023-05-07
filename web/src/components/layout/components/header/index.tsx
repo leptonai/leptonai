@@ -13,6 +13,7 @@ const Container = styled.div`
   flex: 0 0 60px;
   flex-wrap: wrap;
   overflow: hidden;
+  z-index: 2;
 `;
 
 const LogoContainer = styled.div`

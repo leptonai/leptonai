@@ -91,6 +91,7 @@ export const Nav: FC = () => {
       `}
     >
       <Tabs
+        moreIcon={null}
         tabBarGutter={32}
         tabBarStyle={{ marginBottom: 0 }}
         activeKey={selectedKey}

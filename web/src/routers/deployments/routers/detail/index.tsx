@@ -18,6 +18,9 @@ import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
 import { Status } from "@lepton-dashboard/routers/deployments/components/status";
+import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { mergeMap } from "rxjs";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -33,6 +36,15 @@ export const Detail: FC = () => {
       next: (value) =>
         setMinReplicas(value?.resource_requirement?.min_replicas ?? null),
     }
+  );
+  const modelService = useInject(ModelService);
+
+  const model = useStateFromObservable(
+    () =>
+      deploymentService
+        .getById(id!)
+        .pipe(mergeMap((d) => modelService.getById(d!.photon_id))),
+    undefined
   );
 
   return deployment ? (
@@ -58,9 +70,10 @@ export const Detail: FC = () => {
           />
         </BreadcrumbHeader>
       </Col>
+
       <Col span={24}>
         <Card
-          title="Detail"
+          title="Deployment Detail"
           extra={
             !editMode && (
               <Button
@@ -74,7 +87,7 @@ export const Detail: FC = () => {
             )
           }
         >
-          <Descriptions bordered size="small" column={2}>
+          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Name">
               {deployment.name}
             </Descriptions.Item>
@@ -106,7 +119,6 @@ export const Detail: FC = () => {
             <Descriptions.Item label="Min Replicas">
               {editMode ? (
                 <InputNumber
-                  autoFocus
                   value={minReplicas}
                   onChange={(e) => setMinReplicas(e)}
                 />
@@ -123,6 +135,17 @@ export const Detail: FC = () => {
               </Button>
             </Space>
           )}
+        </Card>
+      </Col>
+      <Col span={24}>
+        <Card title="Model Detail">
+          <ModelCard
+            detail={true}
+            borderless
+            shadowless
+            paddingless
+            model={model}
+          />
         </Card>
       </Col>
     </Row>

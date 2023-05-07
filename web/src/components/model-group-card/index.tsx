@@ -19,18 +19,19 @@ const Container = styled.div`
 const Left = styled.div`
   flex: 1 1 auto;
   max-width: 600px;
+  padding-right: 12px;
 `;
 const Right = styled.div`
   flex: 0 0 100px;
-  margin-left: 12px;
 `;
 const DockerDetail = styled.div`
   width: 400px;
 `;
 export const ModelGroupCard: FC<{
   group: GroupedModel;
+  deploymentCount: number;
   shadowless?: boolean;
-}> = ({ group, shadowless = false }) => {
+}> = ({ group, deploymentCount, shadowless = false }) => {
   const model = group.latest;
   const theme = useAntdTheme();
   const navigate = useNavigate();
@@ -67,7 +68,27 @@ export const ModelGroupCard: FC<{
               {model.name}
             </Link>
           </Title>
-          <ModelSource>{model.model_source}</ModelSource>
+          <ModelSource>
+            <Space>
+              <Popover
+                placement="bottomLeft"
+                content={
+                  <DockerDetail>
+                    <ThemeProvider token={{ fontSize: 12 }}>
+                      <DetailDescription model={model} />
+                    </ThemeProvider>
+                  </DockerDetail>
+                }
+              >
+                <span>
+                  <Hoverable>
+                    <DockerIcon />
+                  </Hoverable>
+                </span>
+              </Popover>
+              {model.model_source}
+            </Space>
+          </ModelSource>
         </Left>
         <Right>
           <Button
@@ -84,22 +105,6 @@ export const ModelGroupCard: FC<{
       </Container>
 
       <Space size={0} split={<Divider type="vertical" />}>
-        <Popover
-          placement="bottomLeft"
-          content={
-            <DockerDetail>
-              <ThemeProvider token={{ fontSize: 12 }}>
-                <DetailDescription model={model} />
-              </ThemeProvider>
-            </DockerDetail>
-          }
-        >
-          <Description>
-            <Hoverable>
-              <DockerIcon />
-            </Hoverable>
-          </Description>
-        </Popover>
         <Description>
           <Link to={`/models/detail/${model.id}`} relative="route">
             Updated {dayjs(model.created_at).format("ll")}
@@ -110,6 +115,11 @@ export const ModelGroupCard: FC<{
             {group.data.length > 1
               ? `${group.data.length} versions`
               : "1 version"}
+          </Link>
+        </Description>
+        <Description>
+          <Link to={`/deployments/list/${model.name}`} relative="route">
+            {deploymentCount} deployments
           </Link>
         </Description>
       </Space>

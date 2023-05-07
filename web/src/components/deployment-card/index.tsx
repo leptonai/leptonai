@@ -1,20 +1,40 @@
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { Card } from "@lepton-dashboard/components/card";
-import { Col, Divider, Row, Space, Tooltip, Typography } from "antd";
+import { Col, Divider, Popover, Row, Space, Tooltip, Typography } from "antd";
 import dayjs from "dayjs";
 import { Link } from "@lepton-dashboard/components/link";
 import { css } from "@emotion/react";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
-import { CloseOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import {
+  CloseOutlined,
+  EditOutlined,
+  ExperimentOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
 import { Status } from "@lepton-dashboard/routers/deployments/components/status";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
+import { useInject } from "@lepton-libs/di";
+import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { ModelCard } from "@lepton-dashboard/components/model-card";
 
 export const DeploymentCard: FC<{
   deployment: Deployment;
   borderless?: boolean;
   shadowless?: boolean;
-}> = ({ deployment, borderless = false, shadowless = false }) => {
+  modelPage?: boolean;
+}> = ({
+  deployment,
+  borderless = false,
+  shadowless = false,
+  modelPage = false,
+}) => {
+  const modelService = useInject(ModelService);
+  const model = useStateFromObservable(
+    () => modelService.getById(deployment.photon_id),
+    undefined
+  );
   return (
     <Card borderless={borderless} shadowless={shadowless}>
       <Row gutter={16} wrap={true}>
@@ -97,6 +117,34 @@ export const DeploymentCard: FC<{
             value={dayjs(deployment.created_at).format("lll")}
           />
           <Space split={<Divider type="vertical" />}>
+            {!modelPage && (
+              <KeyValue
+                value={
+                  <Popover
+                    content={
+                      <ModelCard
+                        detail
+                        id={false}
+                        action={false}
+                        model={model}
+                        borderless
+                        shadowless
+                      />
+                    }
+                  >
+                    <span>
+                      <Link
+                        icon={<ExperimentOutlined />}
+                        to={`/models/detail/${model?.id}`}
+                        relative="route"
+                      >
+                        Model
+                      </Link>
+                    </span>
+                  </Popover>
+                }
+              />
+            )}
             <KeyValue
               value={
                 <Link
@@ -104,7 +152,7 @@ export const DeploymentCard: FC<{
                   to={`/deployments/detail/${deployment.id}/mode/view`}
                   relative="route"
                 >
-                  View
+                  Detail
                 </Link>
               }
             />

@@ -30,7 +30,7 @@ export const Create: FC = () => {
   const { id } = useParams();
   const options = groupedModels.map((g) => {
     return {
-      value: g.name,
+      value: g.latest.id,
       label: g.name,
       children: g.data.map((i) => {
         return {
@@ -43,7 +43,7 @@ export const Create: FC = () => {
   const initModel = useMemo(() => {
     const targetMode =
       groupedModels.find((g) => g.latest.id === id) || groupedModels[0];
-    return [targetMode?.name, id || targetMode?.latest.id];
+    return [targetMode?.latest.id, id || targetMode?.latest.id];
   }, [id, groupedModels]);
   return (
     <Row gutter={[0, 24]}>

@@ -9,11 +9,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-}
-
-body {
-  height: 100vh;
-  overflow: hidden;
+  height: 100%;
 }
 
 #root {

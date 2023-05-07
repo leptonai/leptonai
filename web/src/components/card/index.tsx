@@ -9,6 +9,7 @@ export const Card: FC<
     direction?: "vertical" | "horizontal";
     borderless?: boolean;
     shadowless?: boolean;
+    paddingless?: boolean;
   }>
 > = ({
   children,
@@ -17,6 +18,7 @@ export const Card: FC<
   direction,
   borderless = false,
   shadowless = false,
+  paddingless = false,
 }) => {
   const theme = useAntdTheme();
   return (
@@ -54,7 +56,7 @@ export const Card: FC<
       )}
       <div
         css={css`
-          padding: 16px;
+          padding: ${paddingless ? 0 : "16px"};
           display: ${direction ? "flex" : "block"};
           flex-direction: ${direction === "vertical" ? "column" : "row"};
         `}
