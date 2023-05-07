@@ -6,6 +6,7 @@ python-dotenv
 rich
 uvicorn
 loguru
+requests
 
 huggingface_hub
 diffusers[torch]

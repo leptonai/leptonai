@@ -1,5 +1,6 @@
 import json
 import os
+import requests
 from typing import Any
 import zipfile
 from .base import schema_registry, type_registry, Photon, add_photon
@@ -59,3 +60,13 @@ def load(path: str) -> Photon:
     :rtype: Photon
     """
     return Photon.load(path)
+
+def push(path, url: str):
+    """
+    Push a photon to a remote server.
+    :param str path: path to the photon file
+    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    """
+    with open(path, 'rb') as file:
+        response = requests.post(url + "/photons", files={'file': file})
+        response.raise_for_status()

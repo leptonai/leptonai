@@ -86,6 +86,16 @@ def run(ctx, name, model, path, port):
     photon = api.load(path)
     photon.launch(port=port)
 
+@photon.command()
+@click.option("--name", "-n", help="Name of the Photon")
+@click.option("--remote_url", "-r", help="Remote URL of the Lepton Server")
+def push(name, remote_url):
+    path = find_photon(name)
+    if path is None or not os.path.exists(path):
+        console.print(f'Photon "{name}" [red]does not exist[/]')
+        sys.exit(1)
+    api.push(path, remote_url)
+    console.print(f'Photon "{name}" [green]pushed[/]')
 
 def add_command(click_group):
     click_group.add_command(photon)
