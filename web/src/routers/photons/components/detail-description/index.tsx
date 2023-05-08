@@ -1,35 +1,35 @@
 import { FC, PropsWithChildren } from "react";
 import { Descriptions } from "antd";
-import { Model } from "@lepton-dashboard/interfaces/model.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 
-export const DetailDescription: FC<PropsWithChildren<{ model: Model }>> = ({
-  model,
+export const DetailDescription: FC<PropsWithChildren<{ photon: Photon }>> = ({
+  photon,
   children,
 }) => {
   return (
     <Descriptions bordered size="small" column={1}>
       {children}
       <Descriptions.Item label="Image URL">
-        {model.image_url || "-"}
+        {photon.image || "-"}
       </Descriptions.Item>
-      {model.exposed_ports && (
+      {photon.exposed_ports && (
         <Descriptions.Item label="Exposed Ports">
-          {model.exposed_ports?.join(", ")}
+          {photon.exposed_ports?.join(", ")}
         </Descriptions.Item>
       )}
-      {model.requirement_dependency && (
+      {photon.requirement_dependency && (
         <Descriptions.Item label="Requirement Dependency">
-          {model.requirement_dependency?.join(", ")}
+          {photon.requirement_dependency?.join(", ")}
         </Descriptions.Item>
       )}
-      {model.container_args && (
+      {photon.container_args && (
         <Descriptions.Item label="Container Args">
-          {model.container_args?.join(", ")}
+          {photon.container_args?.join(", ")}
         </Descriptions.Item>
       )}
-      {model.entrypoint && (
+      {photon.entrypoint && (
         <Descriptions.Item label="Entrypoint">
-          {model.entrypoint}
+          {photon.entrypoint}
         </Descriptions.Item>
       )}
     </Descriptions>

@@ -1,6 +1,6 @@
 import { Injectable } from "injection-js";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 import { BehaviorSubject, forkJoin, switchMap, tap } from "rxjs";
 
@@ -13,7 +13,7 @@ export class InitializerService {
         switchMap(() => {
           return forkJoin([
             this.deploymentService.refresh(),
-            this.modelService.refresh(),
+            this.photonService.refresh(),
           ]);
         }),
         tap(() => this.initialized$.next(true))
@@ -23,7 +23,7 @@ export class InitializerService {
 
   constructor(
     private deploymentService: DeploymentService,
-    private modelService: ModelService,
+    private photonService: PhotonService,
     private refreshService: RefreshService
   ) {}
 }

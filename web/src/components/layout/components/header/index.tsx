@@ -4,7 +4,7 @@ import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button, Input, Space } from "antd";
 import { SearchOutlined, UserOutlined } from "@ant-design/icons";
-import { LeptonIcon } from "@lepton-dashboard/components/icons/logo";
+import { LeptonIcon } from "@lepton-dashboard/components/icons";
 
 const Container = styled.div`
   height: 60px;
@@ -41,7 +41,7 @@ export const Header: FC = () => {
       font-size: 22px;
       margin-left: 16px;
       color: ${theme.colorTextTertiary};
-      font-weight: 300;
+      font-weight: 400;
       cursor: default;
     `,
     [theme]

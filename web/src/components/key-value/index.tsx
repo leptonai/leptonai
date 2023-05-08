@@ -4,7 +4,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 
 const Container = styled.div`
-  height: 36px;
+  height: 32px;
   display: flex;
   align-items: center;
 `;

@@ -22,15 +22,16 @@ export const Loading: FC = () => {
     <Container
       css={css`
         background: ${theme.colorBgContainer};
+        min-height: 200px;
       `}
     >
-      <svg width="100px" height="100px" x="0px" y="0px" viewBox="0 0 85 85">
+      <svg width="60px" height="60px" x="0px" y="0px" viewBox="0 0 85 85">
         <path
           css={css`
             fill-rule: evenodd;
             clip-rule: evenodd;
             fill: #2d9cdb;
-            animation: ${hideShow} 2s ease infinite;
+            animation: ${hideShow} 1s ease infinite;
           `}
           d="M75.9,48.1V36.9c0-2,0-3.1-0.1-3.9c0-0.4-0.1-0.6-0.1-0.7c-0.1-0.3-0.2-0.5-0.4-0.7c-0.1,0-0.2-0.2-0.6-0.4
 	c-0.7-0.5-1.6-1-3.3-2l-9.7-5.6c-1.7-1-2.7-1.5-3.4-1.9c-0.4-0.2-0.6-0.3-0.6-0.3c-0.3-0.1-0.6-0.1-0.9,0c-0.1,0-0.3,0.1-0.6,0.3
@@ -82,7 +83,7 @@ export const Loading: FC = () => {
         <path
           css={css`
             fill: #2d9cdb;
-            animation: ${hideShow} 1.5s ease infinite;
+            animation: ${hideShow} 1s ease infinite;
           `}
           d="M51.2,24.5c-1.1-0.9-2.6-1.7-4.9-3.1l-3.8-2.2l-3.8,2.2c-2.3,1.4-3.8,2.2-4.9,3.1l8,4.6
 	c0.2,0.1,0.5,0.3,0.7,0.4c0.2-0.1,0.4-0.3,0.7-0.4L51.2,24.5z"

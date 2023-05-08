@@ -1,6 +1,6 @@
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
-import { Model } from "@lepton-dashboard/interfaces/model.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { ApiService } from "@lepton-dashboard/services/api.service.ts";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service.ts";
@@ -9,12 +9,16 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 export class ApiServerService implements ApiService {
   private host =
     "https://vercel-proxy-one-murex.vercel.app/httpproxy/k8s-default-leptonse-42c1558c73-1362585501.us-east-1.elb.amazonaws.com";
-  listModels(): Observable<Model[]> {
+  listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }
 
-  deleteModel(id: string): Observable<void> {
+  deletePhoton(id: string): Observable<void> {
     return this.httpClientService.delete(`${this.host}/photons/${id}`);
+  }
+
+  createPhoton(body: FormData): Observable<void> {
+    return this.httpClientService.post(`${this.host}/photons`, body);
   }
 
   listDeployments(): Observable<Deployment[]> {

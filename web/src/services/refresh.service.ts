@@ -6,7 +6,7 @@ import {
   interval,
   map,
   merge,
-  share,
+  ReplaySubject,
   startWith,
   Subject,
   switchMap,
@@ -20,7 +20,7 @@ export class RefreshService {
   );
 
   private readonly manual$ = new Subject<boolean>();
-  private readonly navigation$ = new Subject<string>();
+  private readonly navigation$ = new ReplaySubject<string>(1);
 
   private readonly visibility$ = fromEvent(window, "visibilitychange").pipe(
     map((e) => !(e.target as Document).hidden)
@@ -42,7 +42,6 @@ export class RefreshService {
     startWith(true),
     debounceTime(300),
     switchMap((active) => (active ? this.interval$ : EMPTY)),
-    debounceTime(300),
-    share()
+    debounceTime(300)
   );
 }

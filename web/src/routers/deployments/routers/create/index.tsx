@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import {
   App,
   Breadcrumb,
@@ -13,11 +13,11 @@ import {
 } from "antd";
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
+import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { RocketOutlined } from "@ant-design/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { useInject } from "@lepton-libs/di";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
@@ -30,17 +30,25 @@ interface RawForm {
   accelerator_type?: string;
   cpu: number;
   memory: number;
-  model: string[];
+  photon: string[];
 }
 
 export const Create: FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const modelService = useInject(ModelService);
+  const [loading, setLoading] = useState(false);
+  const photonService = useInject(PhotonService);
   const deploymentService = useInject(DeploymentService);
-  const groupedModels = useStateFromObservable(() => modelService.groups(), []);
+  const deployments = useStateFromObservable(
+    () => deploymentService.list(),
+    []
+  );
+  const groupedPhotons = useStateFromObservable(
+    () => photonService.groups(),
+    []
+  );
   const { id } = useParams();
-  const options = groupedModels.map((g) => {
+  const options = groupedPhotons.map((g) => {
     return {
       value: g.latest.id,
       label: g.name,
@@ -52,16 +60,17 @@ export const Create: FC = () => {
       }),
     };
   });
-  const initModel = useMemo(() => {
+  const initPhoton = useMemo(() => {
     const targetMode =
-      groupedModels.find((g) => g.latest.id === id) || groupedModels[0];
+      groupedPhotons.find((g) => g.latest.id === id) || groupedPhotons[0];
     return [targetMode?.latest.id, id || targetMode?.latest.id];
-  }, [id, groupedModels]);
+  }, [id, groupedPhotons]);
 
   const createDeployment = (d: RawForm) => {
+    setLoading(true);
     const deployment = {
       name: d.name,
-      photon_id: d.model[d.model.length - 1],
+      photon_id: d.photon[d.photon.length - 1],
       resource_requirement: {
         memory: d.memory,
         cpu: d.cpu,
@@ -80,9 +89,11 @@ export const Create: FC = () => {
         message.destroy("create-deployment");
         void message.success("Create deployment success");
         navigate("/deployments");
+        setLoading(false);
       },
       error: () => {
         message.destroy("create-deployment");
+        setLoading(false);
       },
     });
   };
@@ -111,7 +122,7 @@ export const Create: FC = () => {
       </Col>
       <Col span={24}>
         <Card title="Create Deployment">
-          {groupedModels.length ? (
+          {groupedPhotons.length ? (
             <Form
               css={css`
                 margin-top: 12px;
@@ -121,19 +132,18 @@ export const Create: FC = () => {
               wrapperCol={{ span: 16 }}
               style={{ maxWidth: 600 }}
               initialValues={{
-                name: "deployment",
                 min_replicas: 1,
                 cpu: 1,
                 memory: 8192,
-                model: initModel,
+                photon: initPhoton,
               }}
               onFinish={(e) => createDeployment(e)}
               autoComplete="off"
             >
               <Form.Item
-                label="Model"
-                name="model"
-                rules={[{ required: true, message: "Please select model" }]}
+                label="Photon"
+                name="photon"
+                rules={[{ required: true, message: "Please select photon" }]}
               >
                 <Cascader options={options} />
               </Form.Item>
@@ -141,18 +151,61 @@ export const Create: FC = () => {
                 label="Deployment Name"
                 name="name"
                 rules={[
+                  {
+                    pattern:
+                      /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z]([-a-z0-9]*[a-z0-9])?)*$/,
+                    message: "Deployment name invalid",
+                  },
                   { required: true, message: "Please input deployment name" },
+                  () => ({
+                    validator(_, value) {
+                      if (!deployments.find((d) => d.name === value)) {
+                        return Promise.resolve();
+                      } else {
+                        return Promise.reject(
+                          new Error("The name has already been taken")
+                        );
+                      }
+                    },
+                  }),
                 ]}
               >
-                <Input autoFocus />
+                <Input autoFocus placeholder="Deployment name" />
               </Form.Item>
-              <Form.Item label="Min Replicas" name="min_replicas">
+              <Form.Item
+                label="Min Replicas"
+                name="min_replicas"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please input min replicas",
+                  },
+                ]}
+              >
                 <InputNumber style={{ width: "100%" }} min={0} />
               </Form.Item>
-              <Form.Item label="CPU" name="cpu">
+              <Form.Item
+                label="CPU"
+                name="cpu"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please input cpu number",
+                  },
+                ]}
+              >
                 <InputNumber style={{ width: "100%" }} min={1} />
               </Form.Item>
-              <Form.Item label="Memory" name="memory">
+              <Form.Item
+                label="Memory"
+                name="memory"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please input memory",
+                  },
+                ]}
+              >
                 <InputNumber
                   style={{ width: "100%" }}
                   min={1}
@@ -172,13 +225,13 @@ export const Create: FC = () => {
                 />
               </Form.Item>
               <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
-                <Button type="primary" htmlType="submit">
+                <Button loading={loading} type="primary" htmlType="submit">
                   Create
                 </Button>
               </Form.Item>
             </Form>
           ) : (
-            <Empty description="No models yet, Please upload model first" />
+            <Empty description="No photons yet, Please upload photon first" />
           )}
         </Card>
       </Col>

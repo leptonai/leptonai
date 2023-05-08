@@ -3,7 +3,7 @@ import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button } from "antd";
-import { LeptonFillIcon } from "@lepton-dashboard/components/icons/logo";
+import { LeptonFillIcon } from "@lepton-dashboard/components/icons";
 import {
   GithubOutlined,
   ReadOutlined,

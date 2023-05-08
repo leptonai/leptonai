@@ -16,7 +16,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useNavigate, useParams } from "react-router-dom";
 import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 import dayjs from "dayjs";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 
 export const List: FC = () => {
   const { name } = useParams();
@@ -29,12 +29,15 @@ export const List: FC = () => {
   const theme = useAntdTheme();
   const [search, setSearch] = useState<string>("");
   const [status, setStatus] = useState<string[]>(["starting", "running"]);
-  const [modelFilters, setModelFilters] = useState<string[]>(
+  const [photonFilters, setPhotonFilters] = useState<string[]>(
     name ? [name] : []
   );
-  const modelService = useInject(ModelService);
-  const groupedModels = useStateFromObservable(() => modelService.groups(), []);
-  const options = groupedModels.map((g) => {
+  const photonService = useInject(PhotonService);
+  const groupedPhotons = useStateFromObservable(
+    () => photonService.groups(),
+    []
+  );
+  const options = groupedPhotons.map((g) => {
     return {
       value: g.name,
       label: g.name,
@@ -47,10 +50,11 @@ export const List: FC = () => {
     };
   });
   const filteredDeployments = useMemo(() => {
-    const [name, id] = modelFilters;
+    const [name, id] = photonFilters;
     const ids = id
       ? [id]
-      : groupedModels.find((m) => m.name === name)?.data.map((i) => i.id) || [];
+      : groupedPhotons.find((m) => m.name === name)?.data.map((i) => i.id) ||
+        [];
     return deployments.filter(
       (d) =>
         status.indexOf(d.status.state) !== -1 &&
@@ -58,7 +62,7 @@ export const List: FC = () => {
         ((ids.length > 0 && ids.indexOf(d.photon_id) !== -1) ||
           ids.length === 0)
     );
-  }, [deployments, search, status, modelFilters, groupedModels]);
+  }, [deployments, search, status, photonFilters, groupedPhotons]);
   return (
     <Row gutter={[8, 24]}>
       <Col flex={1}>
@@ -72,13 +76,13 @@ export const List: FC = () => {
       </Col>
       <Col flex="200px">
         <Cascader
-          value={modelFilters}
+          value={photonFilters}
           allowClear
-          placeholder="Select Model"
+          placeholder="Select Photon"
           style={{ width: "100%" }}
           options={options}
           changeOnSelect
-          onChange={(d) => setModelFilters((d as string[]) || [])}
+          onChange={(d) => setPhotonFilters((d as string[]) || [])}
         />
       </Col>
       <Col flex="300px">
@@ -101,6 +105,7 @@ export const List: FC = () => {
       </Col>
       <Col flex="180px">
         <Button
+          type="primary"
           block
           icon={<PlusOutlined />}
           onClick={() => navigate("../create", { relative: "path" })}
@@ -113,6 +118,7 @@ export const List: FC = () => {
           style={{
             border: `1px solid ${theme.colorBorder}`,
             boxShadow: theme.boxShadowTertiary,
+            background: theme.colorBgContainer,
           }}
           itemLayout="horizontal"
           dataSource={filteredDeployments}

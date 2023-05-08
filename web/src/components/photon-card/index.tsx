@@ -1,36 +1,36 @@
 import { FC } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { App, Button, Col, Divider, Popconfirm, Row, Space } from "antd";
-import { Model } from "@lepton-dashboard/interfaces/model.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import { Link } from "@lepton-dashboard/components/link";
 import { DeleteOutlined, EyeOutlined, RocketOutlined } from "@ant-design/icons";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
 import dayjs from "dayjs";
 import { useInject } from "@lepton-libs/di";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 
-export const ModelCard: FC<{
-  model?: Model;
+export const PhotonCard: FC<{
+  photon?: Photon;
   borderless?: boolean;
   shadowless?: boolean;
   paddingless?: boolean;
   detail?: boolean;
-  inModel?: boolean;
+  inPhoton?: boolean;
   action?: boolean;
   id?: boolean;
 }> = ({
-  model,
+  photon,
   borderless = false,
   paddingless = false,
   shadowless = false,
   detail = false,
-  inModel = false,
+  inPhoton = false,
   action = true,
   id = true,
 }) => {
   const { message } = App.useApp();
-  const modelService = useInject(ModelService);
+  const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
   return (
     <Card
@@ -38,43 +38,43 @@ export const ModelCard: FC<{
       borderless={borderless}
       shadowless={shadowless}
     >
-      {model && (
+      {photon && (
         <Row gutter={16} wrap={true}>
           <Col flex="auto">
-            {(detail || inModel) && (
-              <KeyValue title="Name" value={model.name} />
+            {(detail || inPhoton) && (
+              <KeyValue title="Name" value={photon.name} />
             )}
-            {id && <KeyValue title="ID" value={model.id} />}
-            <KeyValue title="Model source" value={model.model_source || "-"} />
-            <KeyValue title="Image URL" value={model.image_url || "-"} />
+            {id && <KeyValue title="ID" value={photon.id} />}
+            <KeyValue title="Model" value={photon.model || "-"} />
             <KeyValue
               title="Exposed Ports"
-              value={model.exposed_ports?.join(", ") || "-"}
+              value={photon.exposed_ports?.join(", ") || "-"}
+            />
+            <KeyValue
+              title="Requirements"
+              value={photon.requirement_dependency?.join(", ") || "-"}
             />
           </Col>
           <Col flex="auto">
-            {(detail || inModel) && (
+            {(detail || inPhoton) && (
               <KeyValue
                 title="Create Time"
-                value={dayjs(model.created_at).format("lll")}
+                value={dayjs(photon.created_at).format("lll")}
               />
             )}
-            <KeyValue
-              title="Requirements"
-              value={model.requirement_dependency?.join(", ") || "-"}
-            />
+            <KeyValue title="Image URL" value={photon.image || "-"} />
             <KeyValue
               title="Container Args"
-              value={model.container_args?.join(", ") || "-"}
+              value={photon.container_args?.join(", ") || "-"}
             />
-            <KeyValue title="Entrypoint" value={model.entrypoint || "-"} />
+            <KeyValue title="Entrypoint" value={photon.entrypoint || "-"} />
             {action && (
               <Space split={<Divider type="vertical" />}>
                 <KeyValue
                   value={
                     <Link
                       icon={<RocketOutlined />}
-                      to={`/deployments/create/${model.id}`}
+                      to={`/deployments/create/${photon.id}`}
                       relative="route"
                     >
                       Deploy
@@ -86,7 +86,7 @@ export const ModelCard: FC<{
                     value={
                       <Link
                         icon={<EyeOutlined />}
-                        to={`/models/detail/${model.id}`}
+                        to={`/photons/detail/${photon.id}`}
                         relative="route"
                       >
                         Detail
@@ -97,24 +97,24 @@ export const ModelCard: FC<{
                 <KeyValue
                   value={
                     <Popconfirm
-                      title="Delete the model"
+                      title="Delete the photon"
                       description="Are you sure to delete?"
                       onConfirm={() => {
                         void message.loading({
-                          content: `Deleting model ${model.id}, please wait...`,
-                          key: "delete-model",
+                          content: `Deleting photon ${photon.id}, please wait...`,
+                          key: "delete-photon",
                           duration: 0,
                         });
-                        modelService.delete(model.id).subscribe({
+                        photonService.delete(photon.id).subscribe({
                           next: () => {
-                            message.destroy("delete-model");
+                            message.destroy("delete-photon");
                             void message.success(
-                              `Successfully deleted model ${model.id}`
+                              `Successfully deleted photon ${photon.id}`
                             );
                             refreshService.refresh();
                           },
                           error: () => {
-                            message.destroy("delete-model");
+                            message.destroy("delete-photon");
                           },
                         });
                       }}

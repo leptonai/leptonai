@@ -1,21 +1,21 @@
 import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { Breadcrumb, Col, List as AntdList, Row } from "antd";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
+import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
-import { ExperimentOutlined } from "@ant-design/icons";
-import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
+import { PhotonIcon } from "@lepton-dashboard/components/icons";
 
 export const Detail: FC = () => {
   const { id } = useParams();
-  const modelService = useInject(ModelService);
-  const model = useStateFromObservable(() => modelService.id(id!), undefined);
+  const photonService = useInject(PhotonService);
+  const photon = useStateFromObservable(() => photonService.id(id!), undefined);
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
@@ -25,7 +25,7 @@ export const Detail: FC = () => {
     return deployments.filter((d) => d.photon_id === id);
   }, [deployments, id]);
 
-  return model ? (
+  return photon ? (
     <Row gutter={[0, 24]}>
       <Col span={24}>
         <BreadcrumbHeader>
@@ -34,32 +34,34 @@ export const Detail: FC = () => {
               {
                 title: (
                   <>
-                    <ExperimentOutlined />
-                    <Link to="../../models">
-                      <span>Models</span>
+                    <PhotonIcon />
+                    <Link to="../../photons">
+                      <span>Photons</span>
                     </Link>
                   </>
                 ),
               },
               {
                 title: (
-                  <Link to={`../../versions/${model.name}`}>{model.name}</Link>
+                  <Link to={`../../versions/${photon.name}`}>
+                    {photon.name}
+                  </Link>
                 ),
               },
               {
-                title: model.id,
+                title: photon.id,
               },
             ]}
           />
         </BreadcrumbHeader>
       </Col>
       <Col span={24}>
-        <Card title="Model Detail">
-          <ModelCard
+        <Card title="Photon Detail">
+          <PhotonCard
             paddingless
             borderless
             shadowless
-            model={model}
+            photon={photon}
             detail={true}
           />
         </Card>
@@ -71,7 +73,7 @@ export const Detail: FC = () => {
             dataSource={filteredDeployments}
             renderItem={(deployment) => (
               <AntdList.Item style={{ padding: 0, display: "block" }}>
-                <DeploymentCard modelPage deployment={deployment} borderless />
+                <DeploymentCard photonPage deployment={deployment} borderless />
               </AntdList.Item>
             )}
           />

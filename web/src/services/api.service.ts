@@ -1,12 +1,13 @@
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
-import { Model } from "@lepton-dashboard/interfaces/model.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 
 @Injectable()
 export abstract class ApiService {
-  abstract listModels(): Observable<Model[]>;
-  abstract deleteModel(id: string): Observable<void>;
+  abstract listPhotons(): Observable<Photon[]>;
+  abstract deletePhoton(id: string): Observable<void>;
+  abstract createPhoton(body: FormData): Observable<void>;
 
   abstract listDeployments(): Observable<Deployment[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;

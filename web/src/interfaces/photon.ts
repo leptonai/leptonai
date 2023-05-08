@@ -1,8 +1,8 @@
-export interface Model {
+export interface Photon {
   id: string;
   name: string;
-  model_source: string;
-  image_url: string;
+  model: string;
+  image: string;
   created_at: number;
   exposed_ports?: number[];
   requirement_dependency?: string[];
@@ -10,8 +10,8 @@ export interface Model {
   entrypoint?: string;
 }
 
-export interface GroupedModel {
+export interface GroupedPhoton {
   name: string;
-  data: Model[];
-  latest: Model;
+  data: Photon[];
+  latest: Photon;
 }

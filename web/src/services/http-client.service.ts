@@ -1,12 +1,16 @@
 import { Injectable } from "injection-js";
 import { map, Observable } from "rxjs";
 import { fromPromise } from "rxjs/internal/observable/innerFrom";
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 
 @Injectable()
 export class HttpClientService {
-  post<T>(url: string, body: unknown): Observable<T> {
-    return fromPromise(axios.post(url, body)).pipe(map((r) => r.data));
+  post<T>(
+    url: string,
+    body: unknown,
+    config?: AxiosRequestConfig<unknown>
+  ): Observable<T> {
+    return fromPromise(axios.post(url, body, config)).pipe(map((r) => r.data));
   }
   get<T>(url: string): Observable<T> {
     return fromPromise(axios.get(url)).pipe(map((d) => d.data));

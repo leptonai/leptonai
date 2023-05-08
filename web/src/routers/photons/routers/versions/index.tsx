@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import {
   Breadcrumb,
@@ -12,21 +12,21 @@ import {
   Typography,
 } from "antd";
 import { Link } from "@lepton-dashboard/components/link";
-import { ExperimentOutlined } from "@ant-design/icons";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
+import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Card } from "@lepton-dashboard/components/card";
-import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";
 import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { PhotonIcon } from "@lepton-dashboard/components/icons";
 
 export const Versions: FC = () => {
   const { name } = useParams();
-  const modelService = useInject(ModelService);
-  const groupedModel = useStateFromObservable(
-    () => modelService.groupId(name!),
+  const photonService = useInject(PhotonService);
+  const groupedPhoton = useStateFromObservable(
+    () => photonService.groupId(name!),
     undefined
   );
   const theme = useAntdTheme();
@@ -37,10 +37,10 @@ export const Versions: FC = () => {
   );
   const filteredDeployments = useMemo(() => {
     const ids =
-      groupedModel?.data.filter((m) => m.name === name).map((i) => i.id) || [];
+      groupedPhoton?.data.filter((m) => m.name === name).map((i) => i.id) || [];
     return deployments.filter((d) => ids.indexOf(d.photon_id) !== -1);
-  }, [deployments, name, groupedModel]);
-  const models = groupedModel?.data || [];
+  }, [deployments, name, groupedPhoton]);
+  const photons = groupedPhoton?.data || [];
 
   return (
     <Row gutter={[0, 24]}>
@@ -51,9 +51,9 @@ export const Versions: FC = () => {
               {
                 title: (
                   <>
-                    <ExperimentOutlined />
-                    <Link to="../../models">
-                      <span>Models</span>
+                    <PhotonIcon />
+                    <Link to="../../photons">
+                      <span>Photons</span>
                     </Link>
                   </>
                 ),
@@ -71,11 +71,11 @@ export const Versions: FC = () => {
             css={css`
               padding: 8px 0;
             `}
-            items={models.map((m) => {
+            items={photons.map((m) => {
               return {
                 key: m.id,
                 color: theme.colorTextSecondary,
-                dot: <ExperimentOutlined />,
+                dot: <PhotonIcon />,
                 children: (
                   <Col key={m.id} span={24}>
                     <Typography.Paragraph
@@ -84,7 +84,7 @@ export const Versions: FC = () => {
                     >
                       Create at {dayjs(m.created_at).format("lll")}
                     </Typography.Paragraph>
-                    <ModelCard action={true} shadowless={true} model={m} />
+                    <PhotonCard action={true} shadowless={true} photon={m} />
                   </Col>
                 ),
               };
@@ -99,7 +99,7 @@ export const Versions: FC = () => {
             dataSource={filteredDeployments}
             renderItem={(deployment) => (
               <AntdList.Item style={{ padding: 0, display: "block" }}>
-                <DeploymentCard modelPage deployment={deployment} borderless />
+                <DeploymentCard photonPage deployment={deployment} borderless />
               </AntdList.Item>
             )}
           />

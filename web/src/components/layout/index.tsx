@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import styled from "@emotion/styled";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -6,6 +6,7 @@ import { css } from "@emotion/react";
 import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { Nav } from "@lepton-dashboard/components/layout/components/nav";
 import { Footer } from "@lepton-dashboard/components/layout/components/footer";
+import { Loading } from "@lepton-dashboard/components/loading";
 
 const Container = styled.div`
   height: 100%;
@@ -45,7 +46,9 @@ export const Layout: FC = () => {
             background: ${theme.colorBgLayout};
           `}
         >
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </Main>
       </FullHeight>
 

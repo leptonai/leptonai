@@ -4,13 +4,10 @@ import {
   Navigate,
   RouterProvider,
 } from "react-router-dom";
-import { Models } from "@lepton-dashboard/routers/models";
-import { Deployments } from "@lepton-dashboard/routers/deployments";
 import { Layout } from "@lepton-dashboard/components/layout";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
-import { Dashboard } from "@lepton-dashboard/routers/dashboard";
 import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { TitleService } from "@lepton-dashboard/services/title.service.ts";
 import { ApiService } from "@lepton-dashboard/services/api.service.ts";
@@ -21,6 +18,25 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 import { App as AntdApp } from "antd";
 import { css } from "@emotion/react";
 import { ApiServerService } from "@lepton-dashboard/services/api.server.service.ts";
+import { lazy } from "react";
+import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
+const Dashboard = lazy(() =>
+  import("@lepton-dashboard/routers/dashboard").then((e) => ({
+    default: e.Dashboard,
+  }))
+);
+
+const Photons = lazy(() =>
+  import("@lepton-dashboard/routers/photons").then((e) => ({
+    default: e.Photons,
+  }))
+);
+
+const Deployments = lazy(() =>
+  import("@lepton-dashboard/routers/deployments").then((e) => ({
+    default: e.Deployments,
+  }))
+);
 
 const router = createBrowserRouter([
   {
@@ -43,8 +59,8 @@ const router = createBrowserRouter([
         element: <Dashboard />,
       },
       {
-        path: "models/*",
-        element: <Models />,
+        path: "photons/*",
+        element: <Photons />,
       },
       {
         path: "deployments/*",
@@ -64,11 +80,12 @@ function App() {
       providers={[
         ThemeService,
         TitleService,
-        ModelService,
+        PhotonService,
         DeploymentService,
         InitializerService,
         RefreshService,
         HttpClientService,
+        NotificationService,
         { provide: ApiService, useClass: ApiServerService },
       ]}
     >

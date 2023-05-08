@@ -16,6 +16,7 @@ export const Link: FC<
       css={css`
         color: inherit;
         display: inline-flex;
+        align-items: center;
         &:hover {
           color: ${theme.colorTextHeading};
           text-decoration: underline;

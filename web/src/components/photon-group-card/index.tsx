@@ -1,14 +1,14 @@
 import { FC, useMemo } from "react";
-import { GroupedModel } from "@lepton-dashboard/interfaces/model.ts";
+import { GroupedPhoton } from "@lepton-dashboard/interfaces/photon.ts";
 import { Button, Divider, Popover, Space } from "antd";
 import styled from "@emotion/styled";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { DockerIcon } from "@lepton-dashboard/components/icons/logo";
+import { DockerIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 import dayjs from "dayjs";
 import { RocketOutlined } from "@ant-design/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
-import { DetailDescription } from "@lepton-dashboard/routers/models/components/detail-description";
+import { DetailDescription } from "@lepton-dashboard/routers/photons/components/detail-description";
 import { Card } from "@lepton-dashboard/components/card";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { useNavigate } from "react-router-dom";
@@ -27,12 +27,12 @@ const Right = styled.div`
 const DockerDetail = styled.div`
   width: 400px;
 `;
-export const ModelGroupCard: FC<{
-  group: GroupedModel;
+export const PhotonGroupCard: FC<{
+  group: GroupedPhoton;
   deploymentCount: number;
   shadowless?: boolean;
 }> = ({ group, deploymentCount, shadowless = false }) => {
-  const model = group.latest;
+  const photon = group.latest;
   const theme = useAntdTheme();
   const navigate = useNavigate();
   const Title = useMemo(
@@ -43,7 +43,7 @@ export const ModelGroupCard: FC<{
     `,
     [theme]
   );
-  const ModelSource = useMemo(
+  const PhotonSource = useMemo(
     () => styled.div`
       font-size: 14px;
       color: ${theme.colorTextSecondary};
@@ -64,18 +64,22 @@ export const ModelGroupCard: FC<{
       <Container>
         <Left>
           <Title>
-            <Link to={`/models/versions/${model.name}`} relative="route">
-              {model.name}
+            <Link
+              icon={<PhotonIcon />}
+              to={`/photons/versions/${photon.name}`}
+              relative="route"
+            >
+              {photon.name}
             </Link>
           </Title>
-          <ModelSource>
+          <PhotonSource>
             <Space>
               <Popover
                 placement="bottomLeft"
                 content={
                   <DockerDetail>
                     <ThemeProvider token={{ fontSize: 12 }}>
-                      <DetailDescription model={model} />
+                      <DetailDescription photon={photon} />
                     </ThemeProvider>
                   </DockerDetail>
                 }
@@ -86,14 +90,14 @@ export const ModelGroupCard: FC<{
                   </Hoverable>
                 </span>
               </Popover>
-              {model.model_source || "-"}
+              {photon.model || "-"}
             </Space>
-          </ModelSource>
+          </PhotonSource>
         </Left>
         <Right>
           <Button
             onClick={() =>
-              navigate(`/deployments/create/${model.id}`, {
+              navigate(`/deployments/create/${photon.id}`, {
                 relative: "route",
               })
             }
@@ -106,19 +110,19 @@ export const ModelGroupCard: FC<{
 
       <Space size={0} split={<Divider type="vertical" />}>
         <Description>
-          <Link to={`/models/detail/${model.id}`} relative="route">
-            Updated {dayjs(model.created_at).format("ll")}
+          <Link to={`/photons/detail/${photon.id}`} relative="route">
+            Updated {dayjs(photon.created_at).format("ll")}
           </Link>
         </Description>
         <Description>
-          <Link to={`/models/versions/${model.name}`} relative="route">
+          <Link to={`/photons/versions/${photon.name}`} relative="route">
             {group.data.length > 1
               ? `${group.data.length} versions`
               : "1 version"}
           </Link>
         </Description>
         <Description>
-          <Link to={`/deployments/list/${model.name}`} relative="route">
+          <Link to={`/deployments/list/${photon.name}`} relative="route">
             {deploymentCount} deployments
           </Link>
         </Description>

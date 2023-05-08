@@ -20,35 +20,35 @@ import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import {
   CloseOutlined,
   DeleteOutlined,
-  EditOutlined,
-  ExperimentOutlined,
   EyeOutlined,
+  RocketOutlined,
 } from "@ant-design/icons";
 import { Status } from "@lepton-dashboard/routers/deployments/components/status";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
 import { useInject } from "@lepton-libs/di";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { PhotonIcon } from "@lepton-dashboard/components/icons";
 
 export const DeploymentCard: FC<{
   deployment: Deployment;
   borderless?: boolean;
   shadowless?: boolean;
-  modelPage?: boolean;
+  photonPage?: boolean;
 }> = ({
   deployment,
   borderless = false,
   shadowless = false,
-  modelPage = false,
+  photonPage = false,
 }) => {
-  const modelService = useInject(ModelService);
+  const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
-  const model = useStateFromObservable(
-    () => modelService.id(deployment.photon_id),
+  const photon = useStateFromObservable(
+    () => photonService.id(deployment.photon_id),
     undefined
   );
   const { message } = App.useApp();
@@ -58,19 +58,20 @@ export const DeploymentCard: FC<{
         <Col flex="600px">
           <KeyValue
             value={
-              <Link
-                to={`/deployments/detail/${deployment.id}/mode/view`}
-                relative="route"
+              <span
+                css={css`
+                  font-size: 16px;
+                  font-weight: 500;
+                `}
               >
-                <span
-                  css={css`
-                    font-size: 16px;
-                    font-weight: 500;
-                  `}
+                <Link
+                  icon={<RocketOutlined />}
+                  to={`/deployments/detail/${deployment.id}/mode/view`}
+                  relative="route"
                 >
                   {deployment.name}
-                </span>
-              </Link>
+                </Link>
+              </span>
             }
           />
           <KeyValue
@@ -80,7 +81,7 @@ export const DeploymentCard: FC<{
               </Typography.Text>
             }
           />
-          <Space size={4} split={<Divider type="vertical" />}>
+          <Space split={<Divider type="vertical" />}>
             <KeyValue
               title="MEM"
               value={`${deployment.resource_requirement.memory} MB`}
@@ -108,7 +109,6 @@ export const DeploymentCard: FC<{
         </Col>
         <Col flex="auto">
           <Space
-            size={4}
             style={{ display: "flex" }}
             split={<Divider type="vertical" />}
           >
@@ -118,7 +118,7 @@ export const DeploymentCard: FC<{
               value={deployment.resource_requirement.min_replicas}
             />
           </Space>
-          <Space size={4} split={<Divider type="vertical" />}>
+          <Space split={<Divider type="vertical" />}>
             <Tooltip title={deployment.status.endpoint.external_endpoint}>
               <span>
                 <KeyValue value={<Hoverable>External Endpoint</Hoverable>} />
@@ -134,29 +134,30 @@ export const DeploymentCard: FC<{
             title="Create Time"
             value={dayjs(deployment.created_at).format("lll")}
           />
-          <Space size={4} split={<Divider type="vertical" />}>
-            {!modelPage && (
+          <Space split={<Divider type="vertical" />}>
+            {!photonPage && (
               <KeyValue
                 value={
                   <Popover
                     content={
-                      <ModelCard
+                      <PhotonCard
                         detail
                         id={false}
                         action={false}
-                        model={model}
+                        photon={photon}
                         borderless
+                        paddingless
                         shadowless
                       />
                     }
                   >
                     <span>
                       <Link
-                        icon={<ExperimentOutlined />}
-                        to={`/models/detail/${model?.id}`}
+                        icon={<PhotonIcon />}
+                        to={`/photons/detail/${photon?.id}`}
                         relative="route"
                       >
-                        Model
+                        Photon
                       </Link>
                     </span>
                   </Popover>
@@ -171,17 +172,6 @@ export const DeploymentCard: FC<{
                   relative="route"
                 >
                   Detail
-                </Link>
-              }
-            />
-            <KeyValue
-              value={
-                <Link
-                  icon={<EditOutlined />}
-                  to={`/deployments/detail/${deployment.id}/mode/edit`}
-                  relative="route"
-                >
-                  Edit
                 </Link>
               }
             />

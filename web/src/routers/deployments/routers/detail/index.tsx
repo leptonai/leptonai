@@ -12,16 +12,17 @@ import {
   Row,
   Space,
 } from "antd";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/models/components/breadcrumb-header";
+import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { EditOutlined, RocketOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
 import { Status } from "@lepton-dashboard/routers/deployments/components/status";
-import { ModelService } from "@lepton-dashboard/services/model.service.ts";
-import { ModelCard } from "@lepton-dashboard/components/model-card";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { mergeMap } from "rxjs";
+import { Request } from "@lepton-dashboard/routers/deployments/components/request";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -38,12 +39,12 @@ export const Detail: FC = () => {
         setMinReplicas(value?.resource_requirement?.min_replicas ?? null),
     }
   );
-  const modelService = useInject(ModelService);
-  const model = useStateFromObservable(
+  const photonService = useInject(PhotonService);
+  const photon = useStateFromObservable(
     () =>
       deploymentService
         .id(id!)
-        .pipe(mergeMap((d) => modelService.id(d!.photon_id))),
+        .pipe(mergeMap((d) => photonService.id(d!.photon_id))),
     undefined
   );
 
@@ -163,13 +164,16 @@ export const Detail: FC = () => {
         </Card>
       </Col>
       <Col span={24}>
-        <Card title="Model Detail">
-          <ModelCard
-            inModel={true}
+        <Request url={deployment.status.endpoint.external_endpoint} />
+      </Col>
+      <Col span={24}>
+        <Card title="Photon Detail">
+          <PhotonCard
+            inPhoton={true}
             borderless
             shadowless
             paddingless
-            model={model}
+            photon={photon}
           />
         </Card>
       </Col>
