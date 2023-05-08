@@ -52,16 +52,25 @@ def remove(name):
 
 
 @photon.command()
-def list():
+@click.option("--remote_url", "-r", help="Remote URL of the Lepton Server", default=None)
+def list(remote_url):
     table = Table(title="Photons")
     table.add_column("Name")
     table.add_column("Model")
-    paths = find_all_photons()
-    for (path,) in paths:
-        photon = api.load(path)
-        table.add_row(photon.name, photon.model)
+    
+    if remote_url is not None:
+        table.add_column("ID")
+        # TODO: Add Creation Time and other metadata
+        photons = api.list_remote(remote_url)
+        for photon in photons:
+            table.add_row(photon["name"], photon["model"], photon["id"])
+    else:
+        paths = find_all_photons()
+        for (path,) in paths:
+            photon = api.load(path)
+            table.add_row(photon.name, photon.model)
+            
     console.print(table)
-
 
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon", default=None)

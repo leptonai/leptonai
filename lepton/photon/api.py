@@ -70,3 +70,12 @@ def push(path, url: str):
     with open(path, 'rb') as file:
         response = requests.post(url + "/photons", files={'file': file})
         response.raise_for_status()
+
+def list_remote(url: str):
+    """
+    List the photons on a remote server.
+    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    """
+    response = requests.get(url + "/photons")
+    response.raise_for_status()
+    return response.json()
