@@ -57,8 +57,8 @@ class TestPhotonCli(unittest.TestCase):
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abcd", "-m", self.diffusers_model[0]]
         )
-        assert result.exit_code == 1
-        assert "already exists" in result.output.lower()
+        assert result.exit_code == 0
+        assert "created" in result.output.lower()
 
     def test_photon_list(self):
         runner = CliRunner()

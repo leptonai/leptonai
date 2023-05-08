@@ -19,14 +19,6 @@ def photon():
 @click.option("--name", "-n", help="Name of the Photon")
 @click.option("--model", "-m", help="Model spec")
 def create(name, model):
-    path = find_photon(name)
-    if path is not None:
-        photon = api.load(path)
-        console.print(
-            f'Photon "{photon.name}" [red]already exists[/] (model is "{photon.model}")'
-        )
-        sys.exit(1)
-
     console.print(f"Creating Photon: [green]{name}[/green]")
     try:
         photon = api.create(name=name, model=model)
@@ -52,25 +44,39 @@ def remove(name):
 
 
 @photon.command()
-@click.option("--remote_url", "-r", help="Remote URL of the Lepton Server", default=None)
+@click.option(
+    "--remote_url", "-r", help="Remote URL of the Lepton Server", default=None
+)
 def list(remote_url):
-    table = Table(title="Photons")
-    table.add_column("Name")
-    table.add_column("Model")
-    
     if remote_url is not None:
-        table.add_column("ID")
         # TODO: Add Creation Time and other metadata
         photons = api.list_remote(remote_url)
-        for photon in photons:
-            table.add_row(photon["name"], photon["model"], photon["id"])
+        records = [
+            (photon["name"], photon["model"], photon["id"]) for photon in photons
+        ]
     else:
-        paths = find_all_photons()
-        for (path,) in paths:
-            photon = api.load(path)
-            table.add_row(photon.name, photon.model)
-            
+        records = find_all_photons()
+        records = [
+            (name, model, id_) for id_, name, model, path, creation_time in records
+        ]
+
+    table = Table(title="Photons", show_lines=True)
+    table.add_column("Name")
+    table.add_column("Model")
+    table.add_column("ID")
+
+    records_by_name = {}
+    for name, model, id_ in records:
+        records_by_name.setdefault(name, []).append((model, id_))
+    for name, sub_records in records_by_name.items():
+        model_table = Table(show_header=False, box=None)
+        id_table = Table(show_header=False, box=None)
+        for model, id_ in sub_records:
+            model_table.add_row(model)
+            id_table.add_row(id_)
+        table.add_row(name, model_table, id_table)
     console.print(table)
+
 
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon", default=None)
@@ -95,6 +101,7 @@ def run(ctx, name, model, path, port):
     photon = api.load(path)
     photon.launch(port=port)
 
+
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon")
 @click.option("--remote_url", "-r", help="Remote URL of the Lepton Server")
@@ -105,6 +112,7 @@ def push(name, remote_url):
         sys.exit(1)
     api.push(path, remote_url)
     console.print(f'Photon "{name}" [green]pushed[/]')
+
 
 def add_command(click_group):
     click_group.add_command(photon)

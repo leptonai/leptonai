@@ -29,9 +29,18 @@ class Photon:
 
     def save(self, path: str = None):
         if path is None:
-            path = CACHE_DIR / f"{self.name}.photon"
-        if os.path.exists(path):
-            raise FileExistsError(f"Failed to save photon: file {path} already exists")
+            # assuming maximum 1000 versions for now
+            for version in range(1000):
+                if version == 0:
+                    path = CACHE_DIR / f"{self.name}.photon"
+                else:
+                    path = CACHE_DIR / f"{self.name}.{version}.photon"
+                if not os.path.exists(path):
+                    break
+            else:
+                raise ValueError(
+                    f"Can not find a valid path for creating photon {self.name}"
+                )
         with zipfile.ZipFile(path, "w") as f:
             f.writestr(
                 "metadata.json",
@@ -41,7 +50,7 @@ class Photon:
                 file_path = os.path.join(name)
                 f.writestr(file_path, content)
 
-        add_photon(self.name, self.model, path)
+        add_photon(self.name, self.model, str(path))
         return path
 
     @staticmethod
@@ -69,33 +78,38 @@ class Photon:
 
 def add_photon(name: str, model: str, path: str):
     DB.cursor().execute(
-        """INSERT INTO photon (name, model, path) VALUES (?, ?, ?)""",
-        (name, model, str(path)),
+        """INSERT INTO photon (id, name, model, path, creation_time) VALUES (?, ?, ?, ?, strftime('%s','now'))""",
+        (path, name, model, path),  # use path as local id
     )
     DB.commit()
 
 
 def find_all_photons():
-    res = DB.cursor().execute("SELECT path FROM photon")
-    paths = res.fetchall()
-    return paths
+    res = DB.cursor().execute("SELECT * FROM photon ORDER BY creation_time DESC")
+    records = res.fetchall()
+    return records
 
 
 def find_photon(name):
-    res = DB.cursor().execute("SELECT path FROM photon WHERE name = ?", (name,))
-    path_or_none = res.fetchone()
-    if path_or_none is None:
+    res = DB.cursor().execute(
+        "SELECT * FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
+    )
+    record_or_none = res.fetchone()
+    if record_or_none is None:
         return None
     else:
-        return path_or_none[0]
+        return record_or_none[0]
 
 
 def remove_photon(name):
-    res = DB.cursor().execute("SELECT path FROM photon WHERE name = ?", (name,))
+    res = DB.cursor().execute(
+        "SELECT path FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
+    )
     path_or_none = res.fetchone()
-    if path_or_none is not None:
-        path = path_or_none[0]
-        if os.path.exists(path):
-            os.remove(path)
-    DB.cursor().execute("DELETE FROM photon WHERE name = ?", (name,))
+    if path_or_none is None:
+        return
+    path = path_or_none[0]
+    if os.path.exists(path):
+        os.remove(path)
+    DB.cursor().execute("DELETE FROM photon WHERE name = ? AND path = ?", (name, path))
     DB.commit()
