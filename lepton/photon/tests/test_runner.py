@@ -1,13 +1,15 @@
 import os
 import tempfile
-from textwrap import dedent
 
 # Set cache dir to a temp dir before importing anything from lepton
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
+import json
+from textwrap import dedent
 import sys
 import unittest
+import zipfile
 
 import requests
 import torch
@@ -120,6 +122,19 @@ class Counter(Runner):
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.json(), 0)
             proc.kill()
+
+    def test_photon_file_metadata(self):
+        name = random_name()
+        runner = CustomRunner(name=name)
+        path = runner.save()
+        with zipfile.ZipFile(path, "r") as photon_file:
+            with photon_file.open("metadata.json") as metadata_file:
+                metadata = json.load(metadata_file)
+        self.assertEqual(metadata["name"], name)
+        self.assertEqual(metadata["model"], "CustomRunner")
+        self.assertTrue("image" in metadata)
+        self.assertTrue("args" in metadata)
+        self.assertGreater(len(metadata.get("requirement_dependency")), 0)
 
 
 if __name__ == "__main__":

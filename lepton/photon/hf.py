@@ -106,16 +106,16 @@ class HuggingfacePhoton(RunnerPhoton):
 
         self.hf_model = hf_model_id
         self.hf_revision = hf_revision
+        self.hf_task = hf_task
 
     @property
     def metadata(self):
         res = super().metadata
         res.pop("py_obj")
+        res["requirement_dependency"].clear()
         res.update(
             {
                 "task": self.hf_task,
-                "image": self.image,
-                "args": self.args,
             }
         )
         return res

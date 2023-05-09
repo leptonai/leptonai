@@ -56,8 +56,6 @@ class Photon:
     @staticmethod
     def load(path: str):
         with zipfile.ZipFile(path, "r") as photon_file:
-            # TODO: add registry to dispatch and pass the whole zip file
-            # to corresponding creator
             with photon_file.open("metadata.json") as config:
                 metadata = json.load(config)
             photon_type = metadata["type"]

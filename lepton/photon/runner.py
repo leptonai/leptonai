@@ -102,6 +102,9 @@ class RunnerPhoton(Photon):
     photon_type: str = "runner"
     obj_pkl_filename: str = "obj.pkl"
 
+    image: str = "lepton:photon-py-runner"
+    args: list = ["--shm-size=1g"]
+
     def __init__(self, name=None, model=None):
         if name is None:
             name = self.__class__.__qualname__
@@ -111,6 +114,26 @@ class RunnerPhoton(Photon):
         self.routes = get_routes(self.__class__)
         self._init_called = False
         self._init_res = None
+
+    @staticmethod
+    def get_pip_deps():
+        # ref: https://stackoverflow.com/a/31304042
+        try:
+            from pip._internal.operations import freeze
+        except ImportError:  # pip < 10.0
+            from pip.operations import freeze
+
+        pkgs = freeze.freeze()
+
+        filtered_pkgs = []
+        for pkg in pkgs:
+            if pkg.startswith("-e"):
+                # TODO: capture local editable packages
+                continue
+            if pkg.startswith(f"pytest"):
+                continue
+            filtered_pkgs.append(pkg)
+        return filtered_pkgs
 
     @property
     def metadata(self):
@@ -131,6 +154,21 @@ class RunnerPhoton(Photon):
             "name": self.__class__.__qualname__,
             "obj_pkl_file": self.obj_pkl_filename,
         }
+
+        try:
+            requirement_dependency = self.get_pip_deps()
+        except Exception as e:
+            logger.warning(f"Failed to get pip dependencies: {e}")
+            requirement_dependency = []
+        res.update({"requirement_dependency": self.get_pip_deps()})
+
+        res.update(
+            {
+                "image": self.image,
+                "args": self.args,
+            }
+        )
+
         return res
 
     @property
