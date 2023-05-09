@@ -9,6 +9,7 @@ from typing import Callable, Any
 
 from fastapi import FastAPI, Request, APIRouter
 from loguru import logger
+from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
@@ -206,7 +207,15 @@ class RunnerPhoton(Photon):
         title = self.name.replace(".", "_")
         app = FastAPI(title=title)
         self._register_routes(app)
+        self._collect_metrics(app)
         return uvicorn.run(app, host=host, port=port, log_level=log_level)
+
+    def _collect_metrics(self, app):
+        instrumentator = Instrumentator().instrument(app)
+
+        @app.on_event("startup")
+        async def _startup():
+            instrumentator.expose(app, endpoint="/metrics")
 
     def _register_routes(self, app):
         api_router = APIRouter()

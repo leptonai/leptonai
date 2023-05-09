@@ -11,6 +11,7 @@ import sys
 import unittest
 import zipfile
 
+from loguru import logger
 import requests
 import torch
 
@@ -135,6 +136,33 @@ class Counter(Runner):
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
         self.assertGreater(len(metadata.get("requirement_dependency")), 0)
+
+    def test_metrics(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        name = random_name()
+        runner = CustomRunner(name=name)
+        path = runner.save()
+
+        proc, port = photon_run_server(path=path)
+
+        for x in range(5):
+            res = requests.post(
+                f"http://127.0.0.1:{port}/some_path",
+                json={"x": float(x)},
+            )
+            self.assertEqual(res.status_code, 200)
+        res = requests.get(f"http://127.0.0.1:{port}/metrics")
+        self.assertEqual(res.status_code, 200)
+        self.assertRegex(
+            res.text, r'http_request_duration_seconds_count{handler="/some_path"}'
+        )
+        proc.kill()
 
 
 if __name__ == "__main__":
