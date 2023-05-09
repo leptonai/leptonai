@@ -34,15 +34,26 @@ def create(name, model):
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon")
-def remove(name):
+@click.option("--name", "-n", help="Name of the Photon (The lastest version of the Photon will be used)")
+@click.option("--id", "-i", help="ID of the Photon")
+@click.option(
+    "--remote_url", "-r", help="Remote URL of the Lepton Server", default=None
+)
+def remove(name, id, remote_url):
+    if remote_url is not None:
+        # TODO: Support remove remote by name
+        if api.remove_remote(remote_url, id):
+            console.print(f'Remote photon "{id}" [green]removed[/]')
+        else:
+            console.print(f'Remote photon "{id}" [red]does not exist[/]')
+        return
+
     if find_photon(name) is None:
         console.print(f'Photon "{name}" [red]does not exist[/]')
         sys.exit(1)
     remove_photon(name)
     console.print(f'Photon "{name}" [green]removed[/]')
-
-
+        
 @photon.command()
 @click.option(
     "--remote_url", "-r", help="Remote URL of the Lepton Server", default=None

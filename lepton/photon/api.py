@@ -82,3 +82,14 @@ def list_remote(url: str):
     response = requests.get(url + "/photons")
     response.raise_for_status()
     return response.json()
+
+def remove_remote(url:str, id: str):
+    """
+    Remove a photon from a remote server.
+    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str id: id of the photon to remove
+    """
+    response = requests.delete(url + "/photons/" + id)
+    if response.status_code == 404:return False
+    response.raise_for_status()
+    return True
