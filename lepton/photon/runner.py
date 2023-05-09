@@ -63,7 +63,7 @@ def create_model_for_func(func: Callable):
         config = None
 
     InputModel = pydantic.create_model(
-        f"Input",
+        f"{func.__name__.capitalize()}Input",
         **params,
         **keyword_only_params,
         __config__=config,
@@ -77,7 +77,7 @@ def create_model_for_func(func: Callable):
         arbitrary_types_allowed = True
 
     OutputModel = pydantic.create_model(
-        f"Output",
+        f"{func.__name__.capitalize()}Output",
         input=InputModel,
         output=(return_type, None),
         __config__=Config,
