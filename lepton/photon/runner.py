@@ -160,7 +160,7 @@ class RunnerPhoton(Photon):
         except Exception as e:
             logger.warning(f"Failed to get pip dependencies: {e}")
             requirement_dependency = []
-        res.update({"requirement_dependency": self.get_pip_deps()})
+        res.update({"requirement_dependency": requirement_dependency})
 
         res.update(
             {
