@@ -124,7 +124,6 @@ class HuggingfacePhoton(RunnerPhoton):
     def extra_files(self):
         res = super().extra_files
         res.pop(self.obj_pkl_filename)
-        res.pop(self.cls_src_filename)
         return res
 
     @cached_property

@@ -1,5 +1,6 @@
 import os
 import tempfile
+from textwrap import dedent
 
 # Set cache dir to a temp dir before importing anything from lepton
 tmpdir = tempfile.mkdtemp()
@@ -69,7 +70,56 @@ class TestRunner(unittest.TestCase):
             f"http://localhost:{port}/some_path",
             json={"x": x},
         )
+        proc.kill()
         self.assertEqual(res.status_code, 200)
+
+    def test_runner_cli(self):
+        with tempfile.NamedTemporaryFile(suffix=".py") as f:
+            f.write(
+                dedent(
+                    """
+from lepton.photon.runner import RunnerPhoton as Runner, handler
+
+
+class Counter(Runner):
+    def init(self):
+        self.counter = 0
+
+    @handler("add")
+    def add(self, x: int) -> int:
+        self.counter += x
+        return self.counter
+
+    @handler("sub")
+    def sub(self, x: int) -> int:
+        self.counter -= x
+        return self.counter
+"""
+                ).encode("utf-8")
+            )
+            f.flush()
+            proc, port = photon_run_server(name="counter", model=f"py:{f.name}:Counter")
+            res = requests.post(
+                f"http://127.0.0.1:{port}/add",
+                json={"x": 1},
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), 1)
+
+            res = requests.post(
+                f"http://127.0.0.1:{port}/add",
+                json={"x": 1},
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), 2)
+
+            res = requests.post(
+                f"http://127.0.0.1:{port}/sub",
+                json={"x": 2},
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), 0)
+            proc.kill()
 
 
 if __name__ == "__main__":

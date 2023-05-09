@@ -2,7 +2,9 @@ from abc import ABC, abstractmethod
 import functools
 import cloudpickle
 from io import BytesIO
+import importlib
 import inspect
+import os
 from typing import Callable, Any
 
 from fastapi import FastAPI, Request, APIRouter
@@ -11,7 +13,9 @@ import pydantic
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
 
-from .base import Photon
+from .base import Photon, schema_registry
+
+schemas = ["py"]
 
 
 def send_file(content, media_type):
@@ -97,7 +101,6 @@ def get_routes(var):
 class RunnerPhoton(Photon):
     photon_type: str = "runner"
     obj_pkl_filename: str = "obj.pkl"
-    cls_src_filename: str = "cls.py"
 
     def __init__(self, name=None, model=None):
         if name is None:
@@ -106,7 +109,8 @@ class RunnerPhoton(Photon):
             model = self.__class__.__qualname__
         super().__init__(name=name, model=model)
         self.routes = get_routes(self.__class__)
-        self.init()
+        self._init_called = False
+        self._init_res = None
 
     @property
     def metadata(self):
@@ -126,7 +130,6 @@ class RunnerPhoton(Photon):
         res["py_obj"] = {
             "name": self.__class__.__qualname__,
             "obj_pkl_file": self.obj_pkl_filename,
-            "cls_src_file": self.cls_src_filename,
         }
         return res
 
@@ -136,7 +139,6 @@ class RunnerPhoton(Photon):
         res.update(
             {
                 self.obj_pkl_filename: cloudpickle.dumps(self),
-                self.cls_src_filename: inspect.getsource(self.__class__),
             }
         )
         return res
@@ -150,12 +152,18 @@ class RunnerPhoton(Photon):
     def init(self):
         pass
 
+    def call_init(self):
+        if not self._init_called:
+            self._init_res = self.init()
+            self._init_called = True
+        return self._init_res
+
     @abstractmethod
     def run(self, *args, **kwargs):
         raise NotImplementedError
 
     def launch(self, host="0.0.0.0", port=8080, log_level="info"):
-        self.init()
+        self.call_init()
 
         title = self.name.replace(".", "_")
         app = FastAPI(title=title)
@@ -165,26 +173,32 @@ class RunnerPhoton(Photon):
     def _register_routes(self, app):
         api_router = APIRouter()
         for path, (func, response_class) in self.routes.items():
-            method = func.__get__(self, self.__class__)
-            request_type, reponse_type = create_model_for_func(method)
-            vd = pydantic.decorator.ValidatedFunction(method, None)
 
-            async def typed_handler(request: request_type):
-                logger.info(request)
-                try:
-                    res = vd.execute(request)
-                except Exception as e:
-                    logger.error(e)
-                    return JSONResponse({"error": str(e)}, status_code=500)
+            def create_typed_handler(func, response_class):
+                method = func.__get__(self, self.__class__)
+                request_type, reponse_type = create_model_for_func(method)
+                vd = pydantic.decorator.ValidatedFunction(method, None)
+
+                async def typed_handler(request: request_type):
+                    logger.info(request)
+                    try:
+                        res = vd.execute(request)
+                    except Exception as e:
+                        logger.error(e)
+                        return JSONResponse({"error": str(e)}, status_code=500)
+                    else:
+                        if not isinstance(res, Response):
+                            res = JSONResponse(res)
+                        return res
+
+                if response_class is None:
+                    kwargs = {"response_model": reponse_type}
                 else:
-                    if not isinstance(res, Response):
-                        res = JSONResponse(res)
-                    return res
+                    kwargs = {"response_class": response_class}
 
-            if response_class is None:
-                kwargs = {"response_model": reponse_type}
-            else:
-                kwargs = {"response_class": response_class}
+                return typed_handler, kwargs
+
+            typed_handler, kwargs = create_typed_handler(func, response_class)
             api_router.add_api_route(
                 f"/{path}", typed_handler, methods=["POST"], **kwargs
             )
@@ -198,10 +212,41 @@ class RunnerPhoton(Photon):
             if path_ in routes:
                 raise ValueError(f"Path {path_} already exists: {routes[path_]}")
 
+            @functools.wraps(func)
+            def wrapped_func(self, *args, **kwargs):
+                self.call_init()
+                return func(self, *args, **kwargs)
+
             routes[path_] = (func, response_class)
-            return func
+            return wrapped_func
 
         return decorator
 
+    @classmethod
+    def create_from_model_str(cls, name, model_str):
+        model_parts = model_str.split(":")
+        if len(model_parts) != 3 or model_parts[0] not in schemas:
+            raise ValueError(f"Unsupported Python model string: {model_str}")
+        path, cls_name = model_parts[1:]
+        path_parts = os.path.splitext(os.path.basename(path))
+        if len(path_parts) != 2 or path_parts[1] != ".py":
+            raise ValueError(f"File path should be a Python file (.py): {path}")
+        module_name = path_parts[0]
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None:
+            raise ValueError(f"Could not import Python module from path: {path}")
+        module = importlib.util.module_from_spec(spec)
+        if spec.loader is None:
+            raise ValueError(f"Could not import Python module from path: {path}")
+        spec.loader.exec_module(module)
+        runner_cls = getattr(module, cls_name)
+        if not inspect.isclass(runner_cls) or not issubclass(runner_cls, cls):
+            raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
+        runner = runner_cls(name=name, model=model_str)
+        return runner
+
 
 handler = RunnerPhoton.handler
+
+
+schema_registry.register(schemas, RunnerPhoton.create_from_model_str)

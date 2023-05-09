@@ -4,6 +4,7 @@ import requests
 from typing import Any
 import zipfile
 from .base import schema_registry, type_registry, Photon, add_photon
+from . import runner  # noqa: F401
 from . import hf  # noqa: F401
 from lepton.config import CACHE_DIR
 
@@ -61,15 +62,17 @@ def load(path: str) -> Photon:
     """
     return Photon.load(path)
 
+
 def push(path, url: str):
     """
     Push a photon to a remote server.
     :param str path: path to the photon file
     :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
     """
-    with open(path, 'rb') as file:
-        response = requests.post(url + "/photons", files={'file': file})
+    with open(path, "rb") as file:
+        response = requests.post(url + "/photons", files={"file": file})
         response.raise_for_status()
+
 
 def list_remote(url: str):
     """
