@@ -49,8 +49,9 @@ class Photon:
             for name, content in self.extra_files.items():
                 file_path = os.path.join(name)
                 f.writestr(file_path, content)
-
-        add_photon(self.name, self.model, str(path))
+                
+         # use path as local id for now
+        add_photon(str(path), self.name, self.model, str(path))
         return path
 
     @staticmethod
@@ -74,10 +75,10 @@ class Photon:
         return f"Photon(name={self.name}, model={self.model})"
 
 
-def add_photon(name: str, model: str, path: str):
+def add_photon(id: str, name: str, model: str, path: str):
     DB.cursor().execute(
         """INSERT INTO photon (id, name, model, path, creation_time) VALUES (?, ?, ?, ?, strftime('%s','now'))""",
-        (path, name, model, path),  # use path as local id
+        (id, name, model, path),
     )
     DB.commit()
 

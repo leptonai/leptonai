@@ -93,3 +93,30 @@ def remove_remote(url:str, id: str):
     if response.status_code == 404:return False
     response.raise_for_status()
     return True
+
+def fetch(id: str, url: str, path: str):
+    """
+    Fetch a photon from a remote server.
+    :param str id: id of the photon to fetch
+    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str path: path to save the photon to
+    """
+    if path is None:
+        path = CACHE_DIR / f"tmp.{id}.photon"
+        need_rename = True 
+    
+    response = requests.get(url + "/photons/" + id + "?content=true", stream=True)
+    response.raise_for_status()
+    with open(path, "wb") as f:
+        f.write(response.content)
+
+    photon = load(path)
+    
+    if need_rename:
+        new_path = CACHE_DIR / f"{photon.name}.{id}.photon"
+        os.rename(path, new_path)
+    
+    # TODO: use remote creation time
+    add_photon(id, photon.name, photon.model, str(new_path))
+
+    return photon

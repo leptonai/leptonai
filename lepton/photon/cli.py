@@ -125,5 +125,13 @@ def push(name, remote_url):
     console.print(f'Photon "{name}" [green]pushed[/]')
 
 
+@photon.command()
+@click.option("--id", "-i", help="ID of the Photon")
+@click.option("--remote_url", "-r", help="Remote URL of the Lepton Server")
+@click.option("--file", "-f", "path", help="Path to .photon file", default=None)
+def fetch(id, remote_url, path): 
+    photon = api.fetch(id, remote_url, path) 
+    console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')
+
 def add_command(click_group):
     click_group.add_command(photon)
