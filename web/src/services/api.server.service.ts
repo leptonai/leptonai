@@ -7,8 +7,9 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 
 @Injectable()
 export class ApiServerService implements ApiService {
-  private host =
-    "https://vercel-proxy-one-murex.vercel.app/httpproxy/k8s-default-leptonse-42c1558c73-1362585501.us-east-1.elb.amazonaws.com";
+  private prefix = `https://rewrites-five.vercel.app/httpproxy/`;
+  private cluster = `k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com`;
+  private host = `${this.prefix}${this.cluster}`;
   listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }
@@ -40,6 +41,14 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.patch(`${this.host}/deployments/${id}`, {
       resource_requirement: {
         min_replica: miniReplicas,
+      },
+    });
+  }
+
+  requestDeployment(url: string, value: string): Observable<unknown> {
+    return this.httpClientService.post(`${this.prefix}${url}/run`, value, {
+      headers: {
+        "Content-Type": "application/json",
       },
     });
   }

@@ -31,5 +31,9 @@ export class DeploymentService {
   update(id: string, miniReplicas: number): Observable<void> {
     return this.apiService.updateDeployment(id, miniReplicas);
   }
+
+  request(id: string, value: string): Observable<unknown> {
+    return this.apiService.requestDeployment(id, value);
+  }
   constructor(private apiService: ApiService) {}
 }

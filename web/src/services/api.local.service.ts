@@ -120,4 +120,9 @@ export class ApiLocalService implements ApiService {
     console.log(id, miniReplicas);
     return EMPTY;
   }
+
+  requestDeployment(url: string, value: string): Observable<void> {
+    console.log(url, value);
+    return EMPTY;
+  }
 }

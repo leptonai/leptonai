@@ -3,32 +3,22 @@ import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
 import { Button, Form, Input } from "antd";
 import { useInject } from "@lepton-libs/di";
-import { HttpClientService } from "@lepton-dashboard/services/http-client.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 
 export const Request: FC<{ url: string }> = ({ url }) => {
-  const httpClientService = useInject(HttpClientService);
+  const deploymentService = useInject(DeploymentService);
   const [result, setResult] = useState("");
   const request = (value: string) => {
     setLoading(true);
-    httpClientService
-      .post(
-        `https://vercel-proxy-one-murex.vercel.app/httpproxy/${url}/run`,
-        value,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
-      .subscribe({
-        next: (data) => {
-          setResult(JSON.stringify(data));
-          setLoading(false);
-        },
-        error: () => {
-          setLoading(false);
-        },
-      });
+    deploymentService.request(url, value).subscribe({
+      next: (data) => {
+        setResult(JSON.stringify(data));
+        setLoading(false);
+      },
+      error: () => {
+        setLoading(false);
+      },
+    });
   };
   const [loading, setLoading] = useState(false);
   return (

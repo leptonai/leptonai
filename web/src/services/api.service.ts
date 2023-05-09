@@ -13,4 +13,5 @@ export abstract class ApiService {
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;
   abstract deleteDeployment(id: string): Observable<void>;
   abstract updateDeployment(id: string, miniReplicas: number): Observable<void>;
+  abstract requestDeployment(url: string, value: string): Observable<unknown>;
 }
