@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lepton-server-service
+spec:
+  selector:
+    app: lepton-server
+  ports:
+    - name: http
+      port: 20863
+      targetPort: 20863
