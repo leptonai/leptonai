@@ -48,7 +48,7 @@ export const List: FC = () => {
         {filteredPhotons.length > 0 ? (
           <Row gutter={[16, 16]} wrap>
             {filteredPhotons.map((group) => (
-              <Col flex="1" key={group.name}>
+              <Col xs={24} sm={24} md={12} lg={12} xl={12} key={group.name}>
                 <PhotonGroupCard
                   deploymentCount={
                     deployments.filter((i) =>

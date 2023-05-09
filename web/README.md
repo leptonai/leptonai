@@ -18,6 +18,13 @@ npm install
 
 ### 2. Running in dev mode
 
+Add `.env.development.local` file
+
+```
+PROXY_URL = https://rewrites-five.vercel.app/httpproxy/
+CLUSTER_URL = k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com
+```
+
 In the project directory, you can run:
 
 ```shell
