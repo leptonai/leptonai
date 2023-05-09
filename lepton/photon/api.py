@@ -120,3 +120,19 @@ def fetch(id: str, url: str, path: str):
     add_photon(id, photon.name, photon.model, str(new_path))
 
     return photon
+
+def remote_launch(id: str, url: str):
+    # TODO: check if the given id is a valid photon id
+    # TODO: get the photon name from the remote and use it as the deployment name
+    deployment = {
+        "name": "deployment-" + id,
+        "photon_id": id,
+        # TODO: support custom resource requirements
+        "resource_requirements": {
+            "cpu":1,
+            "memory": 1024,
+        }
+    }
+
+    response = requests.post(url + "/deployments", json=deployment)
+    response.raise_for_status()

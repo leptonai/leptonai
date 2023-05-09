@@ -94,8 +94,19 @@ def list(remote_url):
 @click.option("--model", "-m", help="Model Spec", default=None)
 @click.option("--file", "-f", "path", help="Path to .photon file", default=None)
 @click.option("--port", "-p", help="Port to run on", default=8080)
+@click.option("--remote_url", "-r", help="Remote URL of the Lepton Server", default=None)
+@click.option("--id", "-i", help="ID of the Photon", default=None)
 @click.pass_context
-def run(ctx, name, model, path, port):
+def run(ctx, name, model, path, port, remote_url, id):
+    if remote_url is not None:
+        if id is None: 
+            # TODO: Support run remote by name
+            # TODO: Support push and run if the Photon does not exist on remote
+            console.print("Must specify --id when running remote photon")
+            sys.exit(1)
+        api.remote_launch(id, remote_url)
+        return
+        
     if name is None and path is None:
         console.print("Must specify either --name or --path")
         sys.exit(1)
