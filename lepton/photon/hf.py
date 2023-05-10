@@ -129,6 +129,8 @@ class HuggingfacePhoton(RunnerPhoton):
     @cached_property
     def pipeline(self):
         pipeline_creator = pipeline_registry.get(self.hf_task)
+        if pipeline_creator is None:
+            raise ValueError(f"Could not find pipeline creator for {self.hf_task}")
         logger.info(
             f"Creating pipeline for {self.hf_task}(model={self.hf_model}, revision={self.hf_revision})"
         )
@@ -203,6 +205,7 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
         return_full_text: bool = True,
         num_return_sequences: int = 1,
         do_sample: bool = True,
+        **kwargs,
     ) -> Union[str, List[str]]:
         res = self.run(
             inputs,
@@ -215,8 +218,11 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
             return_full_text=return_full_text,
             num_return_sequences=num_return_sequences,
             do_sample=do_sample,
+            **kwargs,
         )
-        if len(res) == 1:
+        if isinstance(res, dict):
+            return res["generated_text"]
+        elif len(res) == 1:
             return res[0]["generated_text"]
         else:
             return [r["generated_text"] for r in res]
@@ -251,3 +257,44 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
             **kwargs,
         )
         return send_pil_img(res.images[0])
+
+
+class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
+    hf_task: str = "summarization"
+
+    @handler("run")
+    def run_handler(
+        self,
+        inputs: Union[str, List[str]],
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = None,
+        max_time: Optional[float] = None,
+        **kwargs,
+    ) -> Union[str, List[str]]:
+        # text_geneation pipeline is doing something similar to
+        # `kwargs.get("min_length", self.mode.config.min_length)`, so we can
+        # not pass min_length to pipeline if it's None
+        if min_length is not None:
+            kwargs["min_length"] = min_length
+        if max_length is not None:
+            kwargs["max_length"] = max_length
+
+        res = self.run(
+            inputs,
+            top_k=top_k,
+            top_p=top_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            **kwargs,
+        )
+        if isinstance(res, dict):
+            return res["summary_text"]
+        elif len(res) == 1:
+            return res[0]["summary_text"]
+        else:
+            return [r["summary_text"] for r in res]
