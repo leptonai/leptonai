@@ -18,7 +18,7 @@ var (
 	photonKind       = "Photon"
 	photonAPIVersion = "v1alpha1"
 	photonResource   = "photons"
-	crdNamespace     = "default"
+	photonNamespace  = "default"
 )
 
 func ReadAllPhotonCR() ([]*Photon, error) {
@@ -30,7 +30,7 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 		Version:  photonAPIVersion,
 		Resource: photonResource,
 	}
-	crd, err := dynamicClient.Resource(crdResource).Namespace(crdNamespace).List(
+	crd, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).List(
 		context.TODO(),
 		metav1.ListOptions{},
 	)
@@ -64,7 +64,7 @@ func DeletePhotonCR(metadata *Photon) error {
 		Version:  photonAPIVersion,
 		Resource: photonResource,
 	}
-	err := dynamicClient.Resource(crdResource).Namespace(crdNamespace).Delete(
+	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
 		uniqName(metadata.Name, metadata.ID),
 		metav1.DeleteOptions{},
@@ -97,7 +97,7 @@ func CreatePhotonCR(metadata *Photon) error {
 		Version:  photonAPIVersion,
 		Resource: photonResource,
 	}
-	result, err := dynamicClient.Resource(crdResource).Namespace(crdNamespace).Create(
+	result, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Create(
 		context.TODO(),
 		crd,
 		metav1.CreateOptions{},

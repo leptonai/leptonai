@@ -19,6 +19,8 @@ spec:
         - name: lepton-server
           image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-server:latest
           imagePullPolicy: Always
+          command: ["/app/lepton-server"]
+          args: ["--namespace", "default"]
           ports:
             - containerPort: 20863
           volumeMounts:

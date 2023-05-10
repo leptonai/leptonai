@@ -15,6 +15,7 @@ var (
 	leptonDeploymentKind       = "LeptonDeployment"
 	leptonDeploymentAPIVersion = "v1alpha1"
 	leptonDeploymentResource   = "leptondeployments"
+	leptonDeploymentNamespace  = "default"
 )
 
 func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstructured, error) {
@@ -38,7 +39,7 @@ func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstruc
 		Version:  leptonDeploymentAPIVersion,
 		Resource: leptonDeploymentResource,
 	}
-	result, err := dynamicClient.Resource(crdResource).Namespace(deploymentNamespace).Create(
+	result, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Create(
 		context.TODO(),
 		crd,
 		metav1.CreateOptions{},
@@ -62,7 +63,7 @@ func DeleteLeptonDeploymentCR(metadata *LeptonDeployment) error {
 		Version:  leptonDeploymentAPIVersion,
 		Resource: leptonDeploymentResource,
 	}
-	err := dynamicClient.Resource(crdResource).Namespace(deploymentNamespace).Delete(
+	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
 		uniqName(metadata.Name, metadata.ID),
 		metav1.DeleteOptions{},
@@ -83,7 +84,7 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 		Version:  leptonDeploymentAPIVersion,
 		Resource: leptonDeploymentResource,
 	}
-	crd, err := dynamicClient.Resource(crdResource).Namespace(deploymentNamespace).List(
+	crd, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).List(
 		context.TODO(),
 		metav1.ListOptions{},
 	)
@@ -123,7 +124,7 @@ func PatchLeptonDeploymentCR(ld *LeptonDeployment) error {
 		return err
 	}
 
-	_, err = dynamicClient.Resource(crdResource).Namespace(deploymentNamespace).Patch(
+	_, err = dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Patch(
 		context.TODO(),
 		uniqName(ld.Name, ld.ID),
 		types.MergePatchType,

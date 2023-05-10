@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -17,15 +15,6 @@ var (
 	bucketName   = "leptonai"
 	photonPrefix = "photons/"
 )
-
-func testS3Permission() {
-	currentTime := time.Now()
-	testData := []byte(currentTime.Format("2006-01-02 15:04:05"))
-	err := uploadToS3(bucketName, "test-permission", bytes.NewReader(testData))
-	if err != nil {
-		panic(err)
-	}
-}
 
 func mustInitS3Client() (*s3.Client, error) {
 	// Load AWS configuration from the environment or shared config file

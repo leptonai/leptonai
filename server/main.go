@@ -9,11 +9,14 @@ import (
 )
 
 func main() {
-	testS3 := flag.Bool("test", false, "test S3 permission")
+	namespace := flag.String("namespace", "default", "namespace to create resources")
 	flag.Parse()
-	if *testS3 {
-		testS3Permission()
-	}
+
+	photonNamespace = *namespace
+	leptonDeploymentNamespace = *namespace
+	deploymentNamespace = *namespace
+	serviceNamespace = *namespace
+	ingressNamespace = *namespace
 
 	fmt.Println("Starting the Lepton Server on :20863...")
 
