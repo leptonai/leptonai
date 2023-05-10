@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 	"time"
@@ -15,14 +14,18 @@ func photonDownloadHandler(c *gin.Context) {
 	photonMapRWLock.RLock()
 	metadata := photonById[uuid]
 	photonMapRWLock.RUnlock()
+	if metadata == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
+		return
+	}
 	body, err := downloadFromS3(bucketName, getPhotonS3ObjectName(metadata.Name, uuid))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to get photon: " + uuid + " from S3"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
 		return
 	}
 	ret, err := io.ReadAll(body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to get photon: " + uuid + " from S3"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
 		return
 	}
 	c.Data(http.StatusOK, "application/zip", ret)
@@ -38,7 +41,7 @@ func photonGetHandler(c *gin.Context) {
 		metadata := photonById[uuid]
 		photonMapRWLock.RUnlock()
 		if metadata == nil {
-			c.JSON(http.StatusNotFound, gin.H{"status": "Failed", "error": "not found", "message": "photon: " + uuid + " not found"})
+			c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 			return
 		}
 		c.JSON(http.StatusOK, metadata)
@@ -51,18 +54,18 @@ func photonDeleteHandler(c *gin.Context) {
 	metadata := photonById[uuid]
 	photonMapRWLock.RUnlock()
 	if metadata == nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": "Failed", "error": "not found", "message": "photon: " + uuid + " not found"})
+		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
 	}
 	err := deleteS3Object(bucketName, getPhotonS3ObjectName(metadata.Name, uuid))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to delete photon: " + uuid + " from S3"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " from S3: " + err.Error()})
 		return
 	}
 
 	err = DeletePhotonCR(metadata)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to delete photon: " + uuid + " from database"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " crd: " + err.Error()})
 		return
 	}
 
@@ -71,34 +74,25 @@ func photonDeleteHandler(c *gin.Context) {
 	delete(photonByName[metadata.Name], uuid)
 	photonMapRWLock.Unlock()
 
-	c.JSON(http.StatusOK, gin.H{"status": "OK", "message": "deleted " + uuid})
+	c.Status(http.StatusOK)
 }
 
 func photonListHandler(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
 	// TODO: have a well organized json return value
-	ret := "["
+	ret := make([]*Photon, 0)
+
 	photonMapRWLock.RLock()
 	retList := photonById
 	if name != "" {
 		retList = photonByName[name]
 	}
 	for _, metadata := range retList {
-		metadataJson, err := json.Marshal(*metadata)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to marshal metadata"})
-			photonMapRWLock.RUnlock()
-			return
-		}
-		ret += string(metadataJson) + ","
+		ret = append(ret, metadata)
 	}
 	photonMapRWLock.RUnlock()
-	if ret[len(ret)-1] == ',' {
-		ret = ret[:len(ret)-1]
-	}
-	ret += "]"
 
-	c.String(http.StatusOK, ret)
+	c.JSON(http.StatusOK, ret)
 }
 
 func photonPostHandler(c *gin.Context) {
@@ -106,7 +100,7 @@ func photonPostHandler(c *gin.Context) {
 	// TODO: improve the performance by using io.Pipe
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to read request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
@@ -114,7 +108,7 @@ func photonPostHandler(c *gin.Context) {
 
 	metadata, err := getPhotonFromMetadata(body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to get metadata from zip"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get photon metadata: " + err.Error()})
 		return
 	}
 
@@ -124,7 +118,7 @@ func photonPostHandler(c *gin.Context) {
 
 	err = CreatePhotonCR(metadata)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to create photon in database"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create photon crd: " + err.Error()})
 		return
 	}
 
@@ -135,7 +129,7 @@ func photonPostHandler(c *gin.Context) {
 	s3URL := getPhotonS3ObjectName(metadata.Name, uuid)
 	err = uploadToS3(bucketName, s3URL, bytes.NewReader(body))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "Failed", "error": err.Error(), "message": "failed to upload to S3"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
 		return
 	}
 
@@ -147,5 +141,5 @@ func photonPostHandler(c *gin.Context) {
 	photonByName[metadata.Name][uuid] = metadata
 	photonMapRWLock.Unlock()
 
-	c.JSON(http.StatusOK, gin.H{"status": "OK", "message": "created photon: " + uniqName(metadata.Name, uuid)})
+	c.JSON(http.StatusOK, metadata)
 }
