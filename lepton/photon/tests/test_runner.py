@@ -31,6 +31,17 @@ class CustomRunner(Runner):
         return self.nn(torch.tensor(x).reshape(1, 1)).item()
 
 
+class CustomRunnerWithCustomDeps(Runner):
+    requirement_dependency = ["torch"]
+
+    def init(self):
+        self.nn = torch.nn.Linear(1, 1)
+
+    @Runner.handler("some_path")
+    def run(self, x: float) -> float:
+        return self.nn(torch.tensor(x).reshape(1, 1)).item()
+
+
 class TestRunner(unittest.TestCase):
     def test_run(self):
         name = random_name()
@@ -136,6 +147,18 @@ class Counter(Runner):
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
         self.assertGreater(len(metadata.get("requirement_dependency")), 0)
+
+    def test_custom_requirement_dependency(self):
+        name = random_name()
+        runner = CustomRunnerWithCustomDeps(name=name)
+        path = runner.save()
+        with zipfile.ZipFile(path, "r") as photon_file:
+            with photon_file.open("metadata.json") as metadata_file:
+                metadata = json.load(metadata_file)
+        self.assertEqual(
+            metadata["requirement_dependency"],
+            CustomRunnerWithCustomDeps.requirement_dependency,
+        )
 
     def test_metrics(self):
         # pytest imports test files as top-level module which becomes

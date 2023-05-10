@@ -5,7 +5,7 @@ from io import BytesIO
 import importlib
 import inspect
 import os
-from typing import Callable, Any
+from typing import Callable, Any, List, Optional
 
 from fastapi import FastAPI, Request, APIRouter
 from loguru import logger
@@ -105,6 +105,7 @@ class RunnerPhoton(Photon):
 
     image: str = "lepton:photon-py-runner"
     args: list = ["--shm-size=1g"]
+    requirement_dependency: Optional[List[str]] = None
 
     def __init__(self, name=None, model=None):
         if name is None:
@@ -117,7 +118,7 @@ class RunnerPhoton(Photon):
         self._init_res = None
 
     @staticmethod
-    def get_pip_deps():
+    def _infer_requirement_dependency():
         # ref: https://stackoverflow.com/a/31304042
         try:
             from pip._internal.operations import freeze
@@ -135,6 +136,20 @@ class RunnerPhoton(Photon):
                 continue
             filtered_pkgs.append(pkg)
         return filtered_pkgs
+
+    @property
+    def _requirement_dependency(self):
+        # If users have specified the requirement_dependency, use it and do not
+        # try to infer
+        if self.requirement_dependency is not None:
+            return self.requirement_dependency
+
+        try:
+            requirement_dependency = self._infer_requirement_dependency()
+        except Exception as e:
+            logger.warning(f"Failed to get pip dependencies: {e}")
+            requirement_dependency = []
+        return requirement_dependency
 
     @property
     def metadata(self):
@@ -156,12 +171,7 @@ class RunnerPhoton(Photon):
             "obj_pkl_file": self.obj_pkl_filename,
         }
 
-        try:
-            requirement_dependency = self.get_pip_deps()
-        except Exception as e:
-            logger.warning(f"Failed to get pip dependencies: {e}")
-            requirement_dependency = []
-        res.update({"requirement_dependency": requirement_dependency})
+        res.update({"requirement_dependency": self._requirement_dependency})
 
         res.update(
             {
