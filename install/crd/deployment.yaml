@@ -41,9 +41,9 @@ spec:
                   type: object
                   properties:
                     cpu:
-                      type: string
+                      type: number
                     memory:
-                      type: string
+                      type: integer
                     accelerator_type:
                       type: string
                     accelerator_num:

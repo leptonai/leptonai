@@ -1,6 +1,8 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
 type LeptonDeployment struct {
 	ID                  string                              `json:"id"`
@@ -23,8 +25,8 @@ type LeptonDeploymentEndpoint struct {
 }
 
 type LeptonDeploymentResourceRequirement struct {
-	CPU             string  `json:"cpu"`
-	Memory          string  `json:"memory"`
+	CPU             float32 `json:"cpu"`
+	Memory          int64   `json:"memory"`
 	AcceleratorType string  `json:"accelerator_type"`
 	AcceleratorNum  float64 `json:"accelerator_num"`
 	MinReplicas     int     `json:"min_replicas"`

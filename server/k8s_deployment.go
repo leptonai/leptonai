@@ -85,14 +85,9 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	}
 
 	imageURL := defaultContainerImagePrefix + ph.Image
-	cpu, err := resource.ParseQuantity(ld.ResourceRequirement.CPU)
-	if err != nil {
-		return err
-	}
-	memory, err := resource.ParseQuantity(ld.ResourceRequirement.Memory)
-	if err != nil {
-		return err
-	}
+	cpu := resource.NewScaledQuantity(int64(ld.ResourceRequirement.CPU*1000), -3)
+	// TODO: we may want to change memory to BinarySI
+	memory := resource.NewScaledQuantity(ld.ResourceRequirement.Memory, 6)
 	// Define the main container
 	container := corev1.Container{
 		Name:            "main-container",
@@ -102,12 +97,12 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		Args:            []string{"-f", dest},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    cpu,
-				corev1.ResourceMemory: memory,
+				corev1.ResourceCPU:    *cpu,
+				corev1.ResourceMemory: *memory,
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    cpu,
-				corev1.ResourceMemory: memory,
+				corev1.ResourceCPU:    *cpu,
+				corev1.ResourceMemory: *memory,
 				// TODO add GPU
 			},
 		},
