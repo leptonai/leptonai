@@ -5,7 +5,6 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: lepton-server
-  namespace: default
 roleRef:
   kind: Role
   name: lepton-server-role

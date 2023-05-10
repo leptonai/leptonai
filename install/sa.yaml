@@ -2,4 +2,3 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: lepton-server
-  namespace: default
