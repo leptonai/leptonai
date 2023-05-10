@@ -266,30 +266,10 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
     def run_handler(
         self,
         inputs: Union[str, List[str]],
-        min_length: Optional[int] = None,
-        max_length: Optional[int] = None,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        temperature: Optional[float] = 1.0,
-        repetition_penalty: Optional[float] = None,
-        max_time: Optional[float] = None,
         **kwargs,
     ) -> Union[str, List[str]]:
-        # text_geneation pipeline is doing something similar to
-        # `kwargs.get("min_length", self.mode.config.min_length)`, so we can
-        # not pass min_length to pipeline if it's None
-        if min_length is not None:
-            kwargs["min_length"] = min_length
-        if max_length is not None:
-            kwargs["max_length"] = max_length
-
         res = self.run(
             inputs,
-            top_k=top_k,
-            top_p=top_p,
-            temperature=temperature,
-            repetition_penalty=repetition_penalty,
-            max_time=max_time,
             **kwargs,
         )
         if isinstance(res, dict):
