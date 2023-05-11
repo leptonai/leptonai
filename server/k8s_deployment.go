@@ -13,8 +13,6 @@ import (
 var (
 	awscliImageURL      = "amazon/aws-cli"
 	deploymentNamespace = "default"
-
-	defaultContainerImagePrefix = "605454121064.dkr.ecr.us-east-1.amazonaws.com/"
 )
 
 func patchDeployment(ld *LeptonDeployment) error {
@@ -84,14 +82,13 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		},
 	}
 
-	imageURL := defaultContainerImagePrefix + ph.Image
 	cpu := resource.NewScaledQuantity(int64(ld.ResourceRequirement.CPU*1000), -3)
 	// TODO: we may want to change memory to BinarySI
 	memory := resource.NewScaledQuantity(ld.ResourceRequirement.Memory, 6)
 	// Define the main container
 	container := corev1.Container{
 		Name:            "main-container",
-		Image:           imageURL,
+		Image:           ph.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"lepton", "photon", "run"},
 		Args:            []string{"-f", dest},
