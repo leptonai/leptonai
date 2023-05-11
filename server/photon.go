@@ -34,7 +34,7 @@ var (
 	photonMapRWLock = sync.RWMutex{}
 )
 
-func init() {
+func initPhotons() {
 	// Initialize the photon database
 	metadataList, err := ReadAllPhotonCR()
 	if err != nil {

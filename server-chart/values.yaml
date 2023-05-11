@@ -1,0 +1,23 @@
+replicaCount: 1
+namespace: default
+
+image:
+  repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-server
+  tag: "latest"
+  command: "/app/lepton-server"
+  args: "[\"--namespace\", \"default\"]"
+  pullPolicy: Always
+
+service:
+  port: 20863
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+    limits:
+      memory: "1024Mi"
+      cpu: "1"
+  secretName: aws-credentials
+
+env:
+  name: dev

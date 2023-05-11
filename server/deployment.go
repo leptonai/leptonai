@@ -38,7 +38,7 @@ var (
 	deploymentMapRWLock = sync.RWMutex{}
 )
 
-func init() {
+func initDeployments() {
 	// Initialize the photon database
 	metadataList, err := ReadAllLeptonDeploymentCR()
 	if err != nil {

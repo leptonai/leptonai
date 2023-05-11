@@ -1,7 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: "lepton-server-ingress"
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Values.namespace }}
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
@@ -14,6 +15,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: "lepton-server-service"
+                name: {{ .Release.Name }}-service
                 port:
-                  number: 20863
+                  number: {{ .Values.service.port }}

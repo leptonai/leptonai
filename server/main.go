@@ -54,6 +54,9 @@ func main() {
 	serviceNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
 
+	initPhotons()
+	initDeployments()
+
 	fmt.Println("Starting the Lepton Server on :20863...")
 
 	router := gin.Default()
