@@ -1,0 +1,485 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lepton AI",
+    "description": "The server for lepton ai\n\nSome useful links if somenone is extending the design here:\n- [Swagger Editor](https://editor.swagger.io/) I used this as reference\n- [The Pet Store repository](https://github.com/swagger-api/swagger-petstore)\n- [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)",
+    "version": "0.1.0.20230501"
+  },
+  "externalDocs": {
+    "description": "Find out more about Swagger",
+    "url": "http://swagger.io"
+  },
+  "servers": [
+    {
+      "url": "https://petstore3.swagger.io/api/v3"
+    }
+  ],
+  "tags": [
+    {
+      "name": "photon",
+      "description": "Operations about photon"
+    },
+    {
+      "name": "deployment",
+      "description": "Operations about deployment"
+    },
+    {
+      "name": "cluster info",
+      "description": "Operations about cluster info"
+    }
+  ],
+  "paths": {
+    "/clusters": {
+      "get": {
+        "tags": [
+          "cluster info"
+        ],
+        "description": "get cluster info such as version, config, etc",
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clusterVersion": {
+                      "type": "string",
+                      "example": "v0.1"
+                    },
+                    "kubeVersion": {
+                      "type": "string",
+                      "example": "minikube-v1.1"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clusters/nodes": {
+      "get": {
+        "tags": [
+          "cluster info"
+        ],
+        "description": "List all nodes within the cluster",
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Node"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/photons": {
+      "get": {
+        "tags": [
+          "photon"
+        ],
+        "description": "Get a list of photons",
+        "parameters" : [
+          {
+            "name": "photon_name",
+            "in": "query",
+            "description": "photon name used for filtering, leave it empty for not using it",
+            "required": false,
+            "explode": false,
+            "schema": {
+              "type": "string"
+            }
+          }          
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Photon"
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "photon"
+        ],
+        "description": "Create a new photon",
+        "operationId": "Create a new photon",
+        "requestBody": {
+          "content": {
+            "multipart/form-data" : {
+              "schema": {
+                "type" : "object",
+                "properties" : {
+                  "file": {
+                    "type": "binary",
+                    "format": "binary"
+                  }
+                }
+              }              
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/photons/{photon_id}": {
+      "get": {
+        "tags": [
+          "photon"
+        ],
+        "description": "Get photon",
+        "parameters" : [
+          {
+            "name": "content",
+            "in": "query",
+            "description": "true for returning the photon file to be downloaded, false for returing the meta data",
+            "schema": {
+              "type": "boolean"
+            }
+          }          
+        ],        
+        "responses": {
+          "200": {
+            "description": "Get meta data of the photon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Photon"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "photon"
+        ],
+        "description": "Delete photon by id"
+      }
+    },
+    "/deployments": {
+      "get": {
+        "tags": [
+          "deployment"
+        ],
+        "description": "Get a list of deployments",
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Deployment"
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "deployment"
+        ],
+        "description": "Create a new deployment",
+        "operationId": "Create a new deployment",
+        "requestBody": {
+          "description": "Create a new deployment",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Deployment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}": {
+      "patch" : {
+        "tags": [
+          "deployment"
+        ],
+        "description" : "Update the deployment",
+        "requestBody" : {
+          "description": "Update a deployment by id with num of replica",
+          "content": {
+            "application/json": {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "resource_requirement" : {
+                    "type" : "object",
+                    "properties" : {
+                      "min_replica" : {
+                        "type" : "integer",
+                        "example" : 1
+                      }
+                    }
+                  } 
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "deployment"
+        ],
+        "description": "Get deployment by id",
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "deployment"
+        ],
+        "description": "Delete deployment by id",
+        "operationId": "Delete deployment by id",
+        "requestBody": null,
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Photon": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "some-uuid",
+            "description" : "generated by the paltfrom"            
+          },
+          "name": {
+            "type": "string",
+            "description": "model name",
+            "example": "stabilityai/stablelm-tuned-alpha-chat_main"
+          },
+          "model": {
+            "type": "string",
+            "description": "model fetch info",
+            "example" : "hf:stabilityai/sd-1.5"
+          },
+          "requirement_dependency": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "pandas==0.23.1",
+              "transformers==4.27.1"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "image URL",
+            "example": "nvcr.io/nvidia/cuda:12.1.0-devel-ubuntu18.04"
+          },
+          "entrypoint": {
+            "type": "string",
+            "description": "shell command to start this model",
+            "example": "cd /root/data && python main.py"
+          },
+          "exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              8080,
+              5000
+            ]
+          },
+          "container_args" : {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "--shm=10g",
+              "--cidfile=/path/to/file"
+            ]            
+          },
+          "created_at" : {
+            "type" : "integer",
+            "description" : "generated by the paltfrom"
+          }
+        }
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "some-uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Deployment name",
+            "example": "dolly-v1.2"
+          },
+          "photon_id" :{
+            "type" : "string",
+            "description": "photon id generated by the platform",
+            "example" : "some-uuid"
+          },
+          "status" :{
+            "type" : "object",
+            "description": "status generated by the platform",
+            "properties" : {
+              "state" : {
+                "type" : "string",
+                "example" : "running",
+                "enum" : [
+                  "starting",
+                  "running"
+                ]
+              },
+              "endpoint" : {
+                "type" : "object",
+                "properties" : {
+                  "internal_endpoint" : {
+                    "type" : "string"
+                  },
+                  "external_endpoint" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          },
+          "resource_requirement" : {
+            "type" : "object",
+            "properties" : {
+              "cpu" : {
+                "type" : "double",
+                "example" : 0.5
+              },
+              "memory" : {
+                "type" : "integer",
+                "example" : 1000
+              },
+              "accelerator_type" : {
+                "type" : "string",
+                "example" : "Nvidia A100"
+              },
+              "accelerator_num" : {
+                "type" : "double"
+              },
+              "min_replica" : {
+                "type" : "integer",
+                "example" : 1
+              }
+            }
+          }
+        }
+      },
+      "Node": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "cn-beijing.192.168.1.1"
+          },
+          "ip": {
+            "type": "string",
+            "description": "Node IP",
+            "example": "192.168.1.1"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
