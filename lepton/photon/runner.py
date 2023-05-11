@@ -155,16 +155,7 @@ class RunnerPhoton(Photon):
     def metadata(self):
         res = super().metadata
 
-        res["routes"] = {}
-        for path, (func, response_class) in self.routes.items():
-            method = func.__get__(self, self.__class__)
-            request_type, repsonse_type = create_model_for_func(method)
-            res["routes"][path] = {
-                "path": path,
-                "handler_name": method.__name__,
-                "input_model": request_type.schema(),
-                "output_model": repsonse_type.schema(),
-            }
+        res["openapi"] = self._create_app().openapi()
 
         res["py_obj"] = {
             "name": self.__class__.__qualname__,
@@ -211,16 +202,20 @@ class RunnerPhoton(Photon):
     def run(self, *args, **kwargs):
         raise NotImplementedError
 
-    def launch(self, host="0.0.0.0", port=8080, log_level="info"):
-        self.call_init()
-
+    def _create_app(self):
         title = self.name.replace(".", "_")
         app = FastAPI(title=title)
         self._register_routes(app)
         self._collect_metrics(app)
+        return app
+
+    def launch(self, host="0.0.0.0", port=8080, log_level="info"):
+        self.call_init()
+        app = self._create_app()
         return uvicorn.run(app, host=host, port=port, log_level=log_level)
 
-    def _collect_metrics(self, app):
+    @staticmethod
+    def _collect_metrics(app):
         instrumentator = Instrumentator().instrument(app)
 
         @app.on_event("startup")
