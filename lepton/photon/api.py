@@ -83,16 +83,19 @@ def list_remote(url: str):
     response.raise_for_status()
     return response.json()
 
-def remove_remote(url:str, id: str):
+
+def remove_remote(url: str, id: str):
     """
     Remove a photon from a remote server.
     :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """
     response = requests.delete(url + "/photons/" + id)
-    if response.status_code == 404:return False
+    if response.status_code == 404:
+        return False
     response.raise_for_status()
     return True
+
 
 def fetch(id: str, url: str, path: str):
     """
@@ -103,23 +106,24 @@ def fetch(id: str, url: str, path: str):
     """
     if path is None:
         path = CACHE_DIR / f"tmp.{id}.photon"
-        need_rename = True 
-    
+        need_rename = True
+
     response = requests.get(url + "/photons/" + id + "?content=true", stream=True)
     response.raise_for_status()
     with open(path, "wb") as f:
         f.write(response.content)
 
     photon = load(path)
-    
+
     if need_rename:
         new_path = CACHE_DIR / f"{photon.name}.{id}.photon"
         os.rename(path, new_path)
-    
+
     # TODO: use remote creation time
     add_photon(id, photon.name, photon.model, str(new_path))
 
     return photon
+
 
 def remote_launch(id: str, url: str):
     # TODO: check if the given id is a valid photon id
@@ -129,9 +133,9 @@ def remote_launch(id: str, url: str):
         "photon_id": id,
         # TODO: support custom resource requirements
         "resource_requirements": {
-            "cpu":1,
+            "cpu": 1,
             "memory": 1024,
-        }
+        },
     }
 
     response = requests.post(url + "/deployments", json=deployment)

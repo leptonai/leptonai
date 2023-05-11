@@ -49,8 +49,8 @@ class Photon:
             for name, content in self.extra_files.items():
                 file_path = os.path.join(name)
                 f.writestr(file_path, content)
-                
-         # use path as local id for now
+
+        # use path as local id for now
         add_photon(str(path), self.name, self.model, str(path))
         return path
 
