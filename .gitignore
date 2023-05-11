@@ -110,6 +110,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# vector db stuff
+*.sqlite
+*.hnsw
+
 # Spyder project settings
 .spyderproject
 .spyproject
