@@ -34,5 +34,6 @@ jobs:
       run: |
         sudo apt-get install -y ffmpeg
         pip install -e .
+        pip install -r lepton/examples/requirements.txt
         pip install pytest pytest-cov
         pytest --cov=lepton

@@ -7,7 +7,7 @@ import inspect
 import os
 from typing import Callable, Any, List, Optional
 
-from fastapi import FastAPI, Request, APIRouter
+from fastapi import FastAPI, Request, APIRouter, HTTPException
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
@@ -238,6 +238,10 @@ class RunnerPhoton(Photon):
                         res = vd.execute(request)
                     except Exception as e:
                         logger.error(e)
+                        if isinstance(e, HTTPException):
+                            return JSONResponse(
+                                {"error": e.detail}, status_code=e.status_code
+                            )
                         return JSONResponse({"error": str(e)}, status_code=500)
                     else:
                         if not isinstance(res, Response):
