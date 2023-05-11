@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"strings"
 )
 
 func hash(text []byte) string {
@@ -10,6 +11,6 @@ func hash(text []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func uniqName(name, uuid string) string {
-	return name + "-" + uuid
+func joinNameByDash(elem ...string) string {
+	return strings.Join(elem, "-")
 }

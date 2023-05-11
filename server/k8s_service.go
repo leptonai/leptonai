@@ -24,7 +24,7 @@ func createService(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference) e
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"photon": uniqName(ph.Name, ph.ID),
+				"photon": joinNameByDash(ph.Name, ph.ID),
 			},
 			Ports: []corev1.ServicePort{
 				{

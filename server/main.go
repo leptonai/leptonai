@@ -1,22 +1,58 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gocloud.dev/blob"
+	_ "gocloud.dev/blob/s3blob"
+)
+
+var photonBucket *blob.Bucket
+var (
+	bucketTypeFlag   *string
+	bucketNameFlag   *string
+	bucketRegionFlag *string
+	photonPrefixFlag *string
+	namespaceFlag    *string
 )
 
 func main() {
-	namespace := flag.String("namespace", "default", "namespace to create resources")
+	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
+	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
+	bucketRegionFlag = flag.String("bucket-region", "us-east-1", "object store region")
+	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
+	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	flag.Parse()
 
-	photonNamespace = *namespace
-	leptonDeploymentNamespace = *namespace
-	deploymentNamespace = *namespace
-	serviceNamespace = *namespace
-	ingressNamespace = *namespace
+	// Create and verify the bucket.
+	var err error
+	photonBucket, err = blob.OpenBucket(context.TODO(),
+		fmt.Sprintf("%s://%s?region=%s&prefix=%s/",
+			*bucketTypeFlag,
+			*bucketNameFlag,
+			*bucketRegionFlag,
+			*photonPrefixFlag))
+	if err != nil {
+		panic(err)
+	}
+	accessible, err := photonBucket.IsAccessible(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	if !accessible {
+		panic("bucket is not accessible")
+	}
+
+	// Set the namespace for various resources.
+	photonNamespace = *namespaceFlag
+	leptonDeploymentNamespace = *namespaceFlag
+	deploymentNamespace = *namespaceFlag
+	serviceNamespace = *namespaceFlag
+	ingressNamespace = *namespaceFlag
 
 	fmt.Println("Starting the Lepton Server on :20863...")
 

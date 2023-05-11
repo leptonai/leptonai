@@ -27,7 +27,7 @@ func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstruc
 			"apiVersion": leptonAPIGroup + "/" + leptonDeploymentAPIVersion,
 			"kind":       leptonDeploymentKind,
 			"metadata": map[string]interface{}{
-				"name": uniqName(metadata.Name, metadata.ID),
+				"name": joinNameByDash(metadata.Name, metadata.ID),
 			},
 			"spec": *metadata,
 		},
@@ -65,7 +65,7 @@ func DeleteLeptonDeploymentCR(metadata *LeptonDeployment) error {
 	}
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
-		uniqName(metadata.Name, metadata.ID),
+		joinNameByDash(metadata.Name, metadata.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -126,7 +126,7 @@ func PatchLeptonDeploymentCR(ld *LeptonDeployment) error {
 
 	_, err = dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Patch(
 		context.TODO(),
-		uniqName(ld.Name, ld.ID),
+		joinNameByDash(ld.Name, ld.ID),
 		types.MergePatchType,
 		[]byte(fmt.Sprintf(`{"spec": %s}`, ldString)),
 		metav1.PatchOptions{},

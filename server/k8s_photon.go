@@ -66,7 +66,7 @@ func DeletePhotonCR(metadata *Photon) error {
 	}
 	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
-		uniqName(metadata.Name, metadata.ID),
+		joinNameByDash(metadata.Name, metadata.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -85,7 +85,7 @@ func CreatePhotonCR(metadata *Photon) error {
 			"apiVersion": leptonAPIGroup + "/" + photonAPIVersion,
 			"kind":       photonKind,
 			"metadata": map[string]interface{}{
-				"name": uniqName(metadata.Name, metadata.ID),
+				"name": joinNameByDash(metadata.Name, metadata.ID),
 			},
 			"spec": metadata,
 		},

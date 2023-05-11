@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -18,17 +18,12 @@ func photonDownloadHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
 	}
-	body, err := downloadFromS3(bucketName, getPhotonS3ObjectName(metadata.Name, uuid))
+	body, err := photonBucket.ReadAll(context.Background(), joinNameByDash(metadata.Name, uuid))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
 		return
 	}
-	ret, err := io.ReadAll(body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
-		return
-	}
-	c.Data(http.StatusOK, "application/zip", ret)
+	c.Data(http.StatusOK, "application/zip", body)
 }
 
 func photonGetHandler(c *gin.Context) {
@@ -57,7 +52,7 @@ func photonDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
 	}
-	err := deleteS3Object(bucketName, getPhotonS3ObjectName(metadata.Name, uuid))
+	err := photonBucket.Delete(context.Background(), joinNameByDash(metadata.Name, uuid))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " from S3: " + err.Error()})
 		return
@@ -126,8 +121,7 @@ func photonPostHandler(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	s3URL := getPhotonS3ObjectName(metadata.Name, uuid)
-	err = uploadToS3(bucketName, s3URL, bytes.NewReader(body))
+	err = photonBucket.WriteAll(context.TODO(), joinNameByDash(metadata.Name, uuid), body, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
 		return

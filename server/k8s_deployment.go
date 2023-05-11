@@ -61,13 +61,14 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	}
 
 	// use path.join?
-	s3URL := "s3://" + bucketName + "/" + getPhotonS3ObjectName(ph.Name, ph.ID)
-	dest := photonVolumeMountPath + "/" + uniqName(ph.Name, ph.ID)
+	s3URL := fmt.Sprintf("s3://%s/%s/%s", *bucketNameFlag, *photonPrefixFlag, joinNameByDash(ph.Name, ph.ID))
+	dest := photonVolumeMountPath + "/" + joinNameByDash(ph.Name, ph.ID)
 
 	// Define the init container
 	initContainer := corev1.Container{
 		Name:  "evn-preparation",
 		Image: awscliImageURL,
+		// TODO support other clouds
 		// aws s3 cp s3://my-bucket/example.txt ./example.txt
 		Command: []string{"aws", "s3", "cp", s3URL, dest},
 		VolumeMounts: []corev1.VolumeMount{
@@ -121,7 +122,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"photon": uniqName(ph.Name, ph.ID),
+				"photon": joinNameByDash(ph.Name, ph.ID),
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -142,7 +143,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 			Replicas: int32Ptr(int32(ld.ResourceRequirement.MinReplicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"photon": uniqName(ph.Name, ph.ID),
+					"photon": joinNameByDash(ph.Name, ph.ID),
 				},
 			},
 			Template: template,
