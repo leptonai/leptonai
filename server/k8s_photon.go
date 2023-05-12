@@ -46,10 +46,10 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 		if err != nil {
 			return nil, err
 		}
-		metadata := &Photon{}
+		metadata := &PhotonCr{}
 		json.Unmarshal(specStr, &metadata)
 
-		metadataList = append(metadataList, metadata)
+		metadataList = append(metadataList, convertCrToPhoton(metadata))
 	}
 
 	return metadataList, nil
@@ -87,7 +87,7 @@ func CreatePhotonCR(metadata *Photon) error {
 			"metadata": map[string]interface{}{
 				"name": joinNameByDash(metadata.Name, metadata.ID),
 			},
-			"spec": metadata,
+			"spec": convertPhotonToCr(metadata),
 		},
 	}
 

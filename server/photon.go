@@ -31,12 +31,12 @@ type PhotonCommon struct {
 
 type Photon struct {
 	PhotonCommon
-	OpenApiSchema string `json:"openapi_schema"`
+	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
 }
 
-type PhotonOutput struct {
+type PhotonCr struct {
 	PhotonCommon
-	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
+	OpenApiSchema string `json:"openapi_schema"`
 }
 
 var (
@@ -63,14 +63,24 @@ func initPhotons() {
 	}
 }
 
-func convertPhotonToOutput(photon *Photon) *PhotonOutput {
-	openApiSchema := make(map[string]interface{})
-	err := json.Unmarshal([]byte(photon.OpenApiSchema), &openApiSchema)
+func convertPhotonToCr(photon *Photon) *PhotonCr {
+	openApiSchemaBytes, err := json.Marshal(photon.OpenApiSchema)
 	if err != nil {
+		openApiSchemaBytes = nil
+	}
+	return &PhotonCr{
+		PhotonCommon:  photon.PhotonCommon,
+		OpenApiSchema: string(openApiSchemaBytes),
+	}
+}
+
+func convertCrToPhoton(cr *PhotonCr) *Photon {
+	var openApiSchema map[string]interface{}
+	if err := json.Unmarshal([]byte(cr.OpenApiSchema), &openApiSchema); err != nil {
 		openApiSchema = nil
 	}
-	return &PhotonOutput{
-		PhotonCommon:  photon.PhotonCommon,
+	return &Photon{
+		PhotonCommon:  cr.PhotonCommon,
 		OpenApiSchema: openApiSchema,
 	}
 }
@@ -115,11 +125,7 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 	photon.Model = metadata.Model
 	photon.Image = metadata.Image
 	photon.ContainerArgs = metadata.Args
-	openApiSchema, err := json.Marshal(metadata.OpenApiSchema)
-	if err != nil {
-		return nil, err
-	}
-	photon.OpenApiSchema = string(openApiSchema)
+	photon.OpenApiSchema = metadata.OpenApiSchema
 
 	return &photon, nil
 }
