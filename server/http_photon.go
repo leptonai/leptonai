@@ -39,7 +39,7 @@ func photonGetHandler(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 			return
 		}
-		c.JSON(http.StatusOK, metadata)
+		c.JSON(http.StatusOK, convertPhotonToOutput(metadata))
 	}
 }
 
@@ -75,7 +75,7 @@ func photonDeleteHandler(c *gin.Context) {
 func photonListHandler(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
 	// TODO: have a well organized json return value
-	ret := make([]*Photon, 0)
+	ret := make([]*PhotonOutput, 0)
 
 	photonMapRWLock.RLock()
 	retList := photonById
@@ -83,7 +83,7 @@ func photonListHandler(c *gin.Context) {
 		retList = photonByName[name]
 	}
 	for _, metadata := range retList {
-		ret = append(ret, metadata)
+		ret = append(ret, convertPhotonToOutput(metadata))
 	}
 	photonMapRWLock.RUnlock()
 
@@ -135,5 +135,5 @@ func photonPostHandler(c *gin.Context) {
 	photonByName[metadata.Name][uuid] = metadata
 	photonMapRWLock.Unlock()
 
-	c.JSON(http.StatusOK, metadata)
+	c.JSON(http.StatusOK, convertPhotonToOutput(metadata))
 }

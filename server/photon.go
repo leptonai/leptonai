@@ -17,17 +17,26 @@ type PhotonMetadata struct {
 	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
 }
 
+type PhotonCommon struct {
+	ID                    string   `json:"id"`
+	Name                  string   `json:"name"`
+	Model                 string   `json:"model"`
+	RequirementDependency []string `json:"requirement_dependency"`
+	Image                 string   `json:"image"`
+	Entrypoint            string   `json:"entrypoint"`
+	ExposedPorts          []int32  `json:"exposed_ports"`
+	ContainerArgs         []string `json:"container_args"`
+	CreatedAt             int64    `json:"created_at"`
+}
+
 type Photon struct {
-	ID                    string                 `json:"id"`
-	Name                  string                 `json:"name"`
-	Model                 string                 `json:"model"`
-	RequirementDependency []string               `json:"requirement_dependency"`
-	Image                 string                 `json:"image"`
-	Entrypoint            string                 `json:"entrypoint"`
-	ExposedPorts          []int32                `json:"exposed_ports"`
-	ContainerArgs         []string               `json:"container_args"`
-	CreatedAt             int64                  `json:"created_at"`
-	OpenApiSchema         map[string]interface{} `json:"openapi_schema"`
+	PhotonCommon
+	OpenApiSchema string `json:"openapi_schema"`
+}
+
+type PhotonOutput struct {
+	PhotonCommon
+	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
 }
 
 var (
@@ -51,6 +60,18 @@ func initPhotons() {
 			photonByName[m.Name] = make(map[string]*Photon)
 		}
 		photonByName[m.Name][m.ID] = m
+	}
+}
+
+func convertPhotonToOutput(photon *Photon) *PhotonOutput {
+	openApiSchema := make(map[string]interface{})
+	err := json.Unmarshal([]byte(photon.OpenApiSchema), &openApiSchema)
+	if err != nil {
+		openApiSchema = nil
+	}
+	return &PhotonOutput{
+		PhotonCommon:  photon.PhotonCommon,
+		OpenApiSchema: openApiSchema,
 	}
 }
 
@@ -94,7 +115,11 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 	photon.Model = metadata.Model
 	photon.Image = metadata.Image
 	photon.ContainerArgs = metadata.Args
-	photon.OpenApiSchema = metadata.OpenApiSchema
+	openApiSchema, err := json.Marshal(metadata.OpenApiSchema)
+	if err != nil {
+		return nil, err
+	}
+	photon.OpenApiSchema = string(openApiSchema)
 
 	return &photon, nil
 }

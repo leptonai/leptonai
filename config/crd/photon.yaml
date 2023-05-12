@@ -40,7 +40,7 @@ spec:
                 created_at:
                   type: integer
                 openapi_schema:
-                  type: object
+                  type: string
   scope: Namespaced
   names:
     plural: photons
