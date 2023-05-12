@@ -6,3 +6,4 @@ Quick Start
    Overview <overview>
    Installation <installation>
    Tutorial <tutorial>
+   Cheatsheet <CLI-cheatsheet>

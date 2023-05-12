@@ -12,3 +12,4 @@ Welcome to lepton's documentation!
    Quick Start <quickstart>
    Command Line <cli>
    API Reference <lepton>
+   Cheatsheet <CLI-cheatsheet>
