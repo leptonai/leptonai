@@ -24,14 +24,10 @@ export const Root: FC<PropsWithChildren> = ({ children }) => {
       },
       function (error) {
         if (error.response?.data?.message) {
-          const message = error.response.data.message;
-          const firstLetter = message.charAt(0);
-          const firstLetterCap = firstLetter.toUpperCase();
-          const remainingLetters = message.slice(1);
-          const capitalizedMessage = firstLetterCap + remainingLetters;
+          const message = error.response.data.code;
           notification.error({
-            message: capitalizedMessage,
-            description: error.response.data.error,
+            message,
+            description: error.response.data.message,
           });
         } else {
           notification.error({

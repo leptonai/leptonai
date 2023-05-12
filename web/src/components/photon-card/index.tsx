@@ -3,12 +3,13 @@ import { Card } from "@lepton-dashboard/components/card";
 import { App, Button, Col, Divider, Popconfirm, Row, Space } from "antd";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import { Link } from "@lepton-dashboard/components/link";
-import { DeleteOutlined, EyeOutlined, RocketOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
 import dayjs from "dayjs";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 
 export const PhotonCard: FC<{
   photon?: Photon;
@@ -73,7 +74,7 @@ export const PhotonCard: FC<{
                 <KeyValue
                   value={
                     <Link
-                      icon={<RocketOutlined />}
+                      icon={<DeploymentIcon />}
                       to={`/deployments/create/${photon.id}`}
                       relative="route"
                     >

@@ -10,8 +10,6 @@ export interface Photon {
   entrypoint?: string;
 }
 
-export interface GroupedPhoton {
-  name: string;
-  data: Photon[];
-  latest: Photon;
+export interface PhotonGroup extends Photon {
+  versions: Array<{ id: string; created_at: number }>;
 }

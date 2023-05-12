@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.0.1",
+    "@carbon/icons-react": "^11.19.0",
+    "@emotion/css": "^11.11.0",
     "@emotion/react": "^11.10.8",
     "@emotion/styled": "^11.10.8",
     "antd": "^5.4.6",
@@ -29,6 +31,7 @@
     "@commitlint/cli": "^17.6.1",
     "@commitlint/config-conventional": "^17.6.1",
     "@rollup/plugin-typescript": "^11.1.0",
+    "@types/carbon__icons-react": "^11.16.0",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
     "@typescript-eslint/eslint-plugin": "^5.57.1",

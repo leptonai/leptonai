@@ -6,7 +6,6 @@ export const Card: FC<
   PropsWithChildren<{
     title?: ReactNode;
     extra?: ReactNode;
-    direction?: "vertical" | "horizontal";
     borderless?: boolean;
     shadowless?: boolean;
     paddingless?: boolean;
@@ -15,7 +14,6 @@ export const Card: FC<
   children,
   title,
   extra,
-  direction,
   borderless = false,
   shadowless = false,
   paddingless = false,
@@ -57,8 +55,6 @@ export const Card: FC<
       <div
         css={css`
           padding: ${paddingless ? 0 : "16px"};
-          display: ${direction ? "flex" : "block"};
-          flex-direction: ${direction === "vertical" ? "column" : "row"};
         `}
       >
         {children}

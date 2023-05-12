@@ -1,31 +1,28 @@
 import { FC, useMemo, useState } from "react";
-import { Col, Empty, Input, Row } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { Col, Empty, Input, Row, Segmented } from "antd";
+import {
+  AppstoreOutlined,
+  BarsOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { PhotonGroupCard } from "../../../../components/photon-group-card";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/photons/components/upload";
+import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
 
 export const List: FC = () => {
   const photonService = useInject(PhotonService);
-  const groupedPhotons = useStateFromObservable(
-    () => photonService.groups(),
+  const photonGroups = useStateFromObservable(
+    () => photonService.listGroups(),
     []
   );
   const [search, setSearch] = useState<string>("");
-  const filteredPhotons = useMemo(() => {
-    return groupedPhotons.filter(
-      (e) => JSON.stringify(e).indexOf(search) !== -1
-    );
-  }, [groupedPhotons, search]);
-  const deploymentService = useInject(DeploymentService);
-  const deployments = useStateFromObservable(
-    () => deploymentService.list(),
-    []
-  );
+  const [view, setView] = useState("card");
+  const filteredPhotonGroups = useMemo(() => {
+    return photonGroups.filter((e) => JSON.stringify(e).indexOf(search) !== -1);
+  }, [photonGroups, search]);
   return (
     <Row gutter={[8, 24]}>
       <Col flex={1}>
@@ -36,6 +33,23 @@ export const List: FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               prefix={<SearchOutlined />}
+              suffix={
+                <Segmented
+                  size="small"
+                  value={view}
+                  onChange={(v) => setView(v as string)}
+                  options={[
+                    {
+                      value: "card",
+                      icon: <AppstoreOutlined />,
+                    },
+                    {
+                      value: "list",
+                      icon: <BarsOutlined />,
+                    },
+                  ]}
+                />
+              }
               placeholder="Search"
             />
           </Col>
@@ -45,18 +59,13 @@ export const List: FC = () => {
         </Row>
       </Col>
       <Col span={24}>
-        {filteredPhotons.length > 0 ? (
+        {filteredPhotonGroups.length > 0 ? (
           <Row gutter={[16, 16]} wrap>
-            {filteredPhotons.map((group) => (
-              <Col xs={24} sm={24} md={12} lg={12} xl={12} key={group.name}>
-                <PhotonGroupCard
-                  deploymentCount={
-                    deployments.filter((i) =>
-                      group.data.some((m) => m.id === i.photon_id)
-                    ).length
-                  }
-                  group={group}
-                />
+            {filteredPhotonGroups.map((group) => (
+              <Col sm={24} md={view === "card" ? 12 : 24} key={`${group.name}`}>
+                <Card>
+                  <PhotonItem photon={group} />
+                </Card>
               </Col>
             ))}
           </Row>

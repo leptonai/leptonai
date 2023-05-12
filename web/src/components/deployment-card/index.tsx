@@ -17,12 +17,7 @@ import dayjs from "dayjs";
 import { Link } from "@lepton-dashboard/components/link";
 import { css } from "@emotion/react";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
-import {
-  CloseOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  RocketOutlined,
-} from "@ant-design/icons";
+import { CloseOutlined, DeleteOutlined, EyeOutlined } from "@ant-design/icons";
 import { Status } from "@lepton-dashboard/routers/deployments/components/status";
 import { KeyValue } from "@lepton-dashboard/components/key-value";
 import { useInject } from "@lepton-libs/di";
@@ -31,7 +26,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
-import { PhotonIcon } from "@lepton-dashboard/components/icons";
+import { DeploymentIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 
 export const DeploymentCard: FC<{
   deployment: Deployment;
@@ -65,7 +60,7 @@ export const DeploymentCard: FC<{
                 `}
               >
                 <Link
-                  icon={<RocketOutlined />}
+                  icon={<DeploymentIcon />}
                   to={`/deployments/detail/${deployment.id}/mode/view`}
                   relative="route"
                 >

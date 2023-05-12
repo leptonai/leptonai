@@ -7,13 +7,12 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { TitleService } from "@lepton-dashboard/services/title.service.ts";
 import { Card } from "@lepton-dashboard/components/card";
-import { PhotonGroupCard } from "../../components/photon-group-card";
 import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 import dayjs from "dayjs";
-import { RocketOutlined } from "@ant-design/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { PhotonIcon } from "@lepton-dashboard/components/icons";
+import { DeploymentIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
+import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
 
 const Container = styled.div`
   flex: 1 1 auto;
@@ -27,8 +26,8 @@ export const Dashboard: FC = () => {
     titleService.setTitle("Dashboard");
   }, [titleService]);
   const deploymentService = useInject(DeploymentService);
-  const groupedPhotons = useStateFromObservable(
-    () => photonService.groups(),
+  const photonGroups = useStateFromObservable(
+    () => photonService.listGroups(),
     []
   );
   const deployments = useStateFromObservable(
@@ -36,23 +35,17 @@ export const Dashboard: FC = () => {
     []
   );
   const events = [
-    ...groupedPhotons.map((g) => {
+    ...photonGroups.map((g) => {
       return {
         type: "Photon",
         name: g.name,
-        operation: g.data.length > 1 ? "updated" : "created",
+        operation: g.versions.length > 1 ? "updated" : "created",
         children: (
-          <PhotonGroupCard
-            deploymentCount={
-              deployments.filter((i) =>
-                g.data.some((m) => m.id === i.photon_id)
-              ).length
-            }
-            shadowless
-            group={g}
-          />
+          <Card shadowless>
+            <PhotonItem photon={g} />
+          </Card>
         ),
-        date: g.latest.created_at,
+        date: g.created_at,
         id: `photon-${g.name}`,
       };
     }),
@@ -72,12 +65,12 @@ export const Dashboard: FC = () => {
     <Container>
       <Row gutter={[16, 24]}>
         <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
-          <Card direction="horizontal">
-            <Statistic title="Total Photons" value={groupedPhotons.length} />
+          <Card>
+            <Statistic title="Total Photons" value={photonGroups.length} />
           </Card>
         </Col>
         <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
-          <Card direction="horizontal">
+          <Card>
             <Statistic title="Total Deployments" value={deployments.length} />
           </Card>
         </Col>
@@ -92,7 +85,7 @@ export const Dashboard: FC = () => {
               return {
                 color: theme.colorTextSecondary,
                 dot:
-                  e.type === "Deployment" ? <RocketOutlined /> : <PhotonIcon />,
+                  e.type === "Deployment" ? <DeploymentIcon /> : <PhotonIcon />,
                 children: (
                   <Col key={e.id} span={24}>
                     <Typography.Paragraph

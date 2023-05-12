@@ -1,45 +1,46 @@
 import { Injectable } from "injection-js";
 import { BehaviorSubject, map, Observable, tap } from "rxjs";
-import { GroupedPhoton, Photon } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon, PhotonGroup } from "@lepton-dashboard/interfaces/photon.ts";
 import { ApiService } from "@lepton-dashboard/services/api.service.ts";
 
 @Injectable()
 export class PhotonService {
   private list$ = new BehaviorSubject<Photon[]>([]);
+
+  listGroups(): Observable<PhotonGroup[]> {
+    return this.list().pipe(
+      map((photons) => {
+        const photonGroups: PhotonGroup[] = [];
+        photons.forEach((photon) => {
+          const target = photonGroups.find((g) => g.name === photon.name);
+          if (target) {
+            target.versions.push({
+              id: photon.id,
+              created_at: photon.created_at,
+            });
+          } else {
+            photonGroups.push({
+              ...photon,
+              versions: [
+                {
+                  id: photon.id,
+                  created_at: photon.created_at,
+                },
+              ],
+            });
+          }
+        });
+        return photonGroups;
+      })
+    );
+  }
   list(): Observable<Photon[]> {
     return this.list$;
   }
 
-  groups(): Observable<GroupedPhoton[]> {
+  listByName(name: string): Observable<Photon[]> {
     return this.list().pipe(
-      map((photons) => {
-        const groupPhotons: GroupedPhoton[] = [];
-        photons.forEach((photon) => {
-          const target = groupPhotons.find((g) => g.name === photon.name);
-          if (target) {
-            target.data.push(photon);
-            if (
-              !target.latest ||
-              target.latest.created_at < photon.created_at
-            ) {
-              target.latest = photon;
-            }
-          } else {
-            groupPhotons.push({
-              name: photon.name,
-              data: [photon],
-              latest: photon,
-            });
-          }
-        });
-        return groupPhotons;
-      })
-    );
-  }
-
-  groupId(name: string): Observable<GroupedPhoton | undefined> {
-    return this.groups().pipe(
-      map((list) => list.find((item) => item.name === name))
+      map((list) => list.filter((item) => item.name === name))
     );
   }
 

@@ -29,7 +29,6 @@ export const Upload: FC = () => {
   };
   return (
     <AntdUpload
-      accept="application/zip"
       fileList={[]}
       beforeUpload={beforeUpload}
       style={{ width: "100%" }}

@@ -14,7 +14,6 @@ import {
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
-import { RocketOutlined } from "@ant-design/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
@@ -22,6 +21,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 
 interface RawForm {
   name: string;
@@ -43,16 +43,16 @@ export const Create: FC = () => {
     () => deploymentService.list(),
     []
   );
-  const groupedPhotons = useStateFromObservable(
-    () => photonService.groups(),
+  const photonGroups = useStateFromObservable(
+    () => photonService.listGroups(),
     []
   );
   const { id } = useParams();
-  const options = groupedPhotons.map((g) => {
+  const options = photonGroups.map((g) => {
     return {
-      value: g.latest.id,
+      value: g.id,
       label: g.name,
-      children: g.data.map((i) => {
+      children: g.versions.map((i) => {
         return {
           value: i.id,
           label: dayjs(i.created_at).format("lll"),
@@ -61,10 +61,9 @@ export const Create: FC = () => {
     };
   });
   const initPhoton = useMemo(() => {
-    const targetMode =
-      groupedPhotons.find((g) => g.latest.id === id) || groupedPhotons[0];
-    return [targetMode?.latest.id, id || targetMode?.latest.id];
-  }, [id, groupedPhotons]);
+    const targetMode = photonGroups.find((g) => g.id === id) || photonGroups[0];
+    return [targetMode?.id, id || targetMode?.id];
+  }, [id, photonGroups]);
 
   const createDeployment = (d: RawForm) => {
     setLoading(true);
@@ -106,7 +105,7 @@ export const Create: FC = () => {
               {
                 title: (
                   <>
-                    <RocketOutlined />
+                    <DeploymentIcon />
                     <Link to="../../deployments">
                       <span>Deployments</span>
                     </Link>
@@ -122,7 +121,7 @@ export const Create: FC = () => {
       </Col>
       <Col span={24}>
         <Card title="Create Deployment">
-          {groupedPhotons.length ? (
+          {photonGroups.length ? (
             <Form
               css={css`
                 margin-top: 12px;
@@ -145,7 +144,7 @@ export const Create: FC = () => {
                 name="photon"
                 rules={[{ required: true, message: "Please select photon" }]}
               >
-                <Cascader options={options} />
+                <Cascader showSearch options={options} />
               </Form.Item>
               <Form.Item
                 label="Deployment Name"

@@ -1,7 +1,6 @@
 import { Badge, Tabs, TabsProps } from "antd";
 import styled from "@emotion/styled";
 import { FC, useMemo } from "react";
-import { AppstoreOutlined, RocketOutlined } from "@ant-design/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -9,8 +8,13 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { PhotonIcon } from "@lepton-dashboard/components/icons";
+import {
+  CarbonIcon,
+  DeploymentIcon,
+  PhotonIcon,
+} from "@lepton-dashboard/components/icons";
 import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
+import { Dashboard } from "@carbon/icons-react";
 
 const Container = styled.div`
   position: sticky;
@@ -35,7 +39,7 @@ const PhotonLabel: FC = () => {
     () => notificationService.photonNotify$,
     false
   );
-  const photons = useStateFromObservable(() => photonService.groups(), []);
+  const photons = useStateFromObservable(() => photonService.listGroups(), []);
   return (
     <>
       <PhotonIcon />
@@ -63,7 +67,7 @@ const DeploymentLabel: FC = () => {
   );
   return (
     <>
-      <RocketOutlined />
+      <DeploymentIcon />
       Deployments
       <StyledBadge
         size="small"
@@ -77,7 +81,7 @@ const menuItems: TabsProps["items"] = [
   {
     label: (
       <>
-        <AppstoreOutlined />
+        <CarbonIcon icon={<Dashboard />} />
         Dashboard
       </>
     ),

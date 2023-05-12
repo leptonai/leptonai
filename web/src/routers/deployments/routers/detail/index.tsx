@@ -14,7 +14,7 @@ import {
 } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
-import { EditOutlined, RocketOutlined } from "@ant-design/icons";
+import { EditOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
@@ -23,6 +23,7 @@ import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { mergeMap } from "rxjs";
 import { Request } from "@lepton-dashboard/routers/deployments/components/request";
+import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -57,7 +58,7 @@ export const Detail: FC = () => {
               {
                 title: (
                   <>
-                    <RocketOutlined />
+                    <DeploymentIcon />
                     <Link to="../../deployments">
                       <span>Deployments</span>
                     </Link>

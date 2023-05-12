@@ -33,15 +33,15 @@ export const List: FC = () => {
     name ? [name] : []
   );
   const photonService = useInject(PhotonService);
-  const groupedPhotons = useStateFromObservable(
-    () => photonService.groups(),
+  const photonGroups = useStateFromObservable(
+    () => photonService.listGroups(),
     []
   );
-  const options = groupedPhotons.map((g) => {
+  const options = photonGroups.map((g) => {
     return {
       value: g.name,
       label: g.name,
-      children: g.data.map((i) => {
+      children: g.versions.map((i) => {
         return {
           value: i.id,
           label: dayjs(i.created_at).format("lll"),
@@ -53,7 +53,7 @@ export const List: FC = () => {
     const [name, id] = photonFilters;
     const ids = id
       ? [id]
-      : groupedPhotons.find((m) => m.name === name)?.data.map((i) => i.id) ||
+      : photonGroups.find((m) => m.name === name)?.versions.map((i) => i.id) ||
         [];
     return deployments.filter(
       (d) =>
@@ -62,7 +62,7 @@ export const List: FC = () => {
         ((ids.length > 0 && ids.indexOf(d.photon_id) !== -1) ||
           ids.length === 0)
     );
-  }, [deployments, search, status, photonFilters, groupedPhotons]);
+  }, [deployments, search, status, photonFilters, photonGroups]);
   return (
     <Row gutter={[8, 24]}>
       <Col flex={1}>
@@ -76,6 +76,7 @@ export const List: FC = () => {
       </Col>
       <Col flex="200px">
         <Cascader
+          showSearch
           value={photonFilters}
           allowClear
           placeholder="Select Photon"

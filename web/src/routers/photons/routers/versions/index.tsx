@@ -25,9 +25,9 @@ import { PhotonIcon } from "@lepton-dashboard/components/icons";
 export const Versions: FC = () => {
   const { name } = useParams();
   const photonService = useInject(PhotonService);
-  const groupedPhoton = useStateFromObservable(
-    () => photonService.groupId(name!),
-    undefined
+  const photons = useStateFromObservable(
+    () => photonService.listByName(name!),
+    []
   );
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
@@ -36,11 +36,9 @@ export const Versions: FC = () => {
     []
   );
   const filteredDeployments = useMemo(() => {
-    const ids =
-      groupedPhoton?.data.filter((m) => m.name === name).map((i) => i.id) || [];
+    const ids = photons.filter((m) => m.name === name).map((i) => i.id);
     return deployments.filter((d) => ids.indexOf(d.photon_id) !== -1);
-  }, [deployments, name, groupedPhoton]);
-  const photons = groupedPhoton?.data || [];
+  }, [deployments, name, photons]);
 
   return (
     <Row gutter={[0, 24]}>
@@ -82,7 +80,7 @@ export const Versions: FC = () => {
                       style={{ paddingTop: "1px" }}
                       type="secondary"
                     >
-                      Create at {dayjs(m.created_at).format("lll")}
+                      Created at {dayjs(m.created_at).format("lll")}
                     </Typography.Paragraph>
                     <PhotonCard action={true} shadowless={true} photon={m} />
                   </Col>
