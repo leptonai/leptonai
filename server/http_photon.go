@@ -113,7 +113,7 @@ func photonPostHandler(c *gin.Context) {
 
 	err = CreatePhotonCR(metadata)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create photon crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create photon CR: " + err.Error()})
 		return
 	}
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"sync"
+	"time"
 )
 
 type LeptonDeployment struct {
@@ -15,7 +16,7 @@ type LeptonDeployment struct {
 }
 
 type LeptonDeploymentStatus struct {
-	State    string                   `json:"state"`
+	State    DeploymentState          `json:"state"`
 	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
 }
 
@@ -34,7 +35,7 @@ type LeptonDeploymentResourceRequirement struct {
 
 var (
 	deploymentById      = make(map[string]*LeptonDeployment)
-	deploymentByName    = make(map[string]map[string]*LeptonDeployment)
+	deploymentByName    = make(map[string]*LeptonDeployment)
 	deploymentMapRWLock = sync.RWMutex{}
 )
 
@@ -49,9 +50,32 @@ func initDeployments() {
 	defer deploymentMapRWLock.Unlock()
 	for _, m := range metadataList {
 		deploymentById[m.ID] = m
-		if deploymentByName[m.Name] == nil {
-			deploymentByName[m.Name] = make(map[string]*LeptonDeployment)
+		deploymentByName[m.Name] = m
+	}
+
+	go periodCheckDeploymentState()
+}
+
+func periodCheckDeploymentState() {
+	for {
+		names := make([]string, 0, len(deploymentByName))
+		deployments := make([]*LeptonDeployment, 0, len(deploymentByName))
+		deploymentMapRWLock.RLock()
+		for name, deployment := range deploymentByName {
+			names = append(names, name)
+			deployments = append(deployments, deployment)
 		}
-		deploymentByName[m.Name][m.ID] = m
+		deploymentMapRWLock.RUnlock()
+
+		states := deploymentState(names...)
+
+		for i := range names {
+			if (deployments[i].Status.State == DeploymentStateEmpty) || (deployments[i].Status.State != DeploymentStateUnknown && states[i] != deployments[i].Status.State) {
+				deployments[i].Status.State = states[i]
+				PatchLeptonDeploymentCR(deployments[i])
+			}
+		}
+
+		time.Sleep(10 * time.Second)
 	}
 }

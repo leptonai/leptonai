@@ -35,10 +35,11 @@ func deploymentPostHandler(c *gin.Context) {
 	ld.ID = uuid
 	now := time.Now()
 	ld.CreatedAt = now.UnixMilli()
+	ld.Status.State = DeploymentStateStarting
 
 	ldcr, err := CreateLeptonDeploymentCR(&ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create deployment crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
 
@@ -49,8 +50,6 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
 	}
-
-	ld.Status.State = "running"
 
 	err = createService(&ld, photon, ownerref)
 	if err != nil {
@@ -81,10 +80,7 @@ func deploymentPostHandler(c *gin.Context) {
 
 	deploymentMapRWLock.Lock()
 	deploymentById[uuid] = &ld
-	if deploymentByName[ld.Name] == nil {
-		deploymentByName[ld.Name] = make(map[string]*LeptonDeployment)
-	}
-	deploymentByName[ld.Name][uuid] = &ld
+	deploymentByName[ld.Name] = &ld
 	deploymentMapRWLock.Unlock()
 
 	c.JSON(http.StatusOK, ld)
@@ -124,13 +120,20 @@ func deploymentPatchHandler(c *gin.Context) {
 		return
 	}
 
+	metadata.ResourceRequirement.MinReplicas = ld.ResourceRequirement.MinReplicas
+	metadata.Status.State = DeploymentStatePatching
+
+	err = PatchLeptonDeploymentCR(metadata)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + metadata.Name + ": " + err.Error()})
+		return
+	}
+
 	err = patchDeployment(metadata)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment " + metadata.Name + ": " + err.Error()})
 		return
 	}
-
-	metadata.ResourceRequirement.MinReplicas = ld.ResourceRequirement.MinReplicas
 
 	c.JSON(http.StatusOK, metadata)
 }
@@ -166,7 +169,7 @@ func deploymentDeleteHandler(c *gin.Context) {
 
 	deploymentMapRWLock.Lock()
 	delete(deploymentById, uuid)
-	delete(deploymentByName[metadata.Name], uuid)
+	delete(deploymentByName, metadata.Name)
 	deploymentMapRWLock.Unlock()
 
 	c.Status(http.StatusOK)

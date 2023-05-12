@@ -162,3 +162,42 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+type DeploymentState string
+
+const (
+	DeploymentStateEmpty            DeploymentState = ""
+	DeploymentStateRunning          DeploymentState = "Running"
+	DeploymentStatePartiallyRunning DeploymentState = "Partially Running"
+	DeploymentStateNotReady         DeploymentState = "Not Ready"
+	DeploymentStateStarting         DeploymentState = "Starting"
+	DeploymentStatePatching         DeploymentState = "Patching"
+	DeploymentStateUnknown          DeploymentState = "Unknown"
+)
+
+func deploymentState(names ...string) []DeploymentState {
+	// Create a Kubernetes client
+	clientset := mustInitK8sClientSet()
+
+	states := make([]DeploymentState, 0, len(names))
+	for _, name := range names {
+		// Get the deployment
+		deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			states = append(states, DeploymentStateUnknown)
+			continue
+		}
+
+		// Get the deployment status
+		status := deployment.Status
+		if status.Replicas == status.ReadyReplicas {
+			states = append(states, DeploymentStateRunning)
+		} else if status.ReadyReplicas > 0 {
+			states = append(states, DeploymentStatePartiallyRunning)
+		} else {
+			states = append(states, DeploymentStateNotReady)
+		}
+	}
+
+	return states
+}
