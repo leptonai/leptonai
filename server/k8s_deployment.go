@@ -166,13 +166,12 @@ func int32Ptr(i int32) *int32 { return &i }
 type DeploymentState string
 
 const (
-	DeploymentStateEmpty            DeploymentState = ""
-	DeploymentStateRunning          DeploymentState = "Running"
-	DeploymentStatePartiallyRunning DeploymentState = "Partially Running"
-	DeploymentStateNotReady         DeploymentState = "Not Ready"
-	DeploymentStateStarting         DeploymentState = "Starting"
-	DeploymentStatePatching         DeploymentState = "Patching"
-	DeploymentStateUnknown          DeploymentState = "Unknown"
+	DeploymentStateEmpty    DeploymentState = ""
+	DeploymentStateRunning  DeploymentState = "Running"
+	DeploymentStateNotReady DeploymentState = "Not Ready"
+	DeploymentStateStarting DeploymentState = "Starting"
+	DeploymentStateUpdating DeploymentState = "Updating"
+	DeploymentStateUnknown  DeploymentState = "Unknown"
 )
 
 func deploymentState(names ...string) []DeploymentState {
@@ -192,8 +191,6 @@ func deploymentState(names ...string) []DeploymentState {
 		status := deployment.Status
 		if status.Replicas == status.ReadyReplicas {
 			states = append(states, DeploymentStateRunning)
-		} else if status.ReadyReplicas > 0 {
-			states = append(states, DeploymentStatePartiallyRunning)
 		} else {
 			states = append(states, DeploymentStateNotReady)
 		}

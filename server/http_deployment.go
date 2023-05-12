@@ -121,7 +121,7 @@ func deploymentPatchHandler(c *gin.Context) {
 	}
 
 	metadata.ResourceRequirement.MinReplicas = ld.ResourceRequirement.MinReplicas
-	metadata.Status.State = DeploymentStatePatching
+	metadata.Status.State = DeploymentStateUpdating
 
 	err = PatchLeptonDeploymentCR(metadata)
 	if err != nil {
