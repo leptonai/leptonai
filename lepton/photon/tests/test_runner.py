@@ -147,8 +147,8 @@ class Counter(Runner):
         self.assertEqual(metadata["model"], "CustomRunner")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
-        self.assertTrue("openapi" in metadata)
-        self.assertTrue("/some_path" in metadata["openapi"]["paths"])
+        self.assertTrue("openapi_schema" in metadata)
+        self.assertTrue("/some_path" in metadata["openapi_schema"]["paths"])
         self.assertGreater(len(metadata.get("requirement_dependency")), 0)
 
     def test_custom_requirement_dependency(self):

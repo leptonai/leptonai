@@ -156,7 +156,7 @@ class RunnerPhoton(Photon):
     def metadata(self):
         res = super().metadata
 
-        res["openapi"] = self._create_app().openapi()
+        res["openapi_schema"] = self._create_app().openapi()
 
         res["py_obj"] = {
             "name": self.__class__.__qualname__,

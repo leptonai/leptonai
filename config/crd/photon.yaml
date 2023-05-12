@@ -39,6 +39,8 @@ spec:
                     type: string
                 created_at:
                   type: integer
+                openapi_schema:
+                  type: object
   scope: Namespaced
   names:
     plural: photons

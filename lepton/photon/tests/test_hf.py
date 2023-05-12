@@ -28,8 +28,8 @@ class TestHF(unittest.TestCase):
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
         self.assertTrue("task" in metadata)
-        self.assertTrue("openapi" in metadata)
-        self.assertTrue("/run" in metadata["openapi"]["paths"])
+        self.assertTrue("openapi_schema" in metadata)
+        self.assertTrue("/run" in metadata["openapi_schema"]["paths"])
         self.assertTrue("py_obj" not in metadata)
         self.assertEqual(len(metadata.get("requirement_dependency")), 0)
 
