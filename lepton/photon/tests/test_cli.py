@@ -140,7 +140,8 @@ Viaduct.  """,
             for model in [
                 self.diffusers_model,
                 self.transformers_model,
-                self.whisper_model,
+                # FIXME: this model needs ffmpeg, but Github CI currently fails to install it
+                # self.whisper_model,
                 self.wikihow_t5_model,
             ]:
                 with self.subTest(create_first=create_first, model=model[0]):

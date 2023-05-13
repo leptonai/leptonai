@@ -23,7 +23,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -U pip setuptools
-        sudo apt-get install -y ffmpeg	
     - name: Run Benchmark
       run: |
         pip install -e .

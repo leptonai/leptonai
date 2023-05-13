@@ -32,7 +32,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        sudo apt-get install -y ffmpeg
+        # sudo apt-get install -y ffmpeg
         pip install -e .
         pip install -r lepton/examples/requirements.txt
         pip install pytest pytest-cov
