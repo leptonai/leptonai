@@ -10,7 +10,7 @@ export const DataParser: FC<
   } & EmotionProps
 > = ({ date, prefix, suffix, className }) => {
   const format = dayjs(date).isSame(new Date(), "year")
-    ? "MMMM D, LT"
+    ? "MMMM D"
     : "MMMM D, YYYY";
   return (
     <span className={className} title={dayjs(date).format("L LT")}>

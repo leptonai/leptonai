@@ -10,7 +10,7 @@ export const DeploymentStatus: FC<{ status: string } & EmotionProps> = ({
     <Tag
       className={className}
       bordered={false}
-      color={status === "running" ? "success" : "processing"}
+      color={status === "Running" ? "success" : "processing"}
     >
       {status.toUpperCase()}
     </Tag>

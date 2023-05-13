@@ -18,12 +18,12 @@ import { EditOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
-import { Status } from "@lepton-dashboard/routers/deployments/components/status";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { mergeMap } from "rxjs";
 import { Request } from "@lepton-dashboard/routers/deployments/components/request";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
+import { DeploymentStatus } from "@lepton-dashboard/components/refactor/deployment-status";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -98,7 +98,7 @@ export const Detail: FC = () => {
               {dayjs(deployment.created_at).format("lll")}
             </Descriptions.Item>
             <Descriptions.Item label="Status">
-              <Status status={deployment.status.state} />
+              <DeploymentStatus status={deployment.status.state} />
             </Descriptions.Item>
             <Descriptions.Item label="Internal Endpoint">
               {deployment.status.endpoint.internal_endpoint || "-"}

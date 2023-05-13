@@ -28,7 +28,7 @@ export const List: FC = () => {
   );
   const theme = useAntdTheme();
   const [search, setSearch] = useState<string>("");
-  const [status, setStatus] = useState<string[]>(["starting", "running"]);
+  const [status, setStatus] = useState<string[]>([]);
   const [photonFilters, setPhotonFilters] = useState<string[]>(
     name ? [name] : []
   );
@@ -57,7 +57,7 @@ export const List: FC = () => {
         [];
     return deployments.filter(
       (d) =>
-        status.indexOf(d.status.state) !== -1 &&
+        (status.length === 0 || status.indexOf(d.status.state) !== -1) &&
         JSON.stringify(d).indexOf(search) !== -1 &&
         ((ids.length > 0 && ids.indexOf(d.photon_id) !== -1) ||
           ids.length === 0)
@@ -91,15 +91,25 @@ export const List: FC = () => {
           style={{ width: "100%" }}
           mode="multiple"
           value={status}
-          onChange={(v) => v.length > 0 && setStatus(v)}
+          placeholder="Deployment status"
+          onChange={(v) => setStatus(v)}
+          maxTagCount={1}
           options={[
             {
-              label: "STARTING",
-              value: "starting",
+              label: "NOT READY",
+              value: "Not Ready",
             },
             {
               label: "RUNNING",
-              value: "running",
+              value: "Running",
+            },
+            {
+              label: "STARTING",
+              value: "Starting",
+            },
+            {
+              label: "UPDATING",
+              value: "Updating",
             },
           ]}
         />

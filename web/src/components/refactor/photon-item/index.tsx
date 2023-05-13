@@ -36,8 +36,6 @@ export const PhotonItem: FC<{ photon?: PhotonGroup }> = ({ photon }) => {
           <Col flex="1 1 auto">
             <Link
               css={css`
-                font-size: 16px;
-                font-weight: 500;
                 color: ${theme.colorTextHeading};
               `}
               to={`/photons/versions/${photon.name}`}
@@ -45,6 +43,7 @@ export const PhotonItem: FC<{ photon?: PhotonGroup }> = ({ photon }) => {
             >
               <Description.Item
                 css={css`
+                  font-weight: 600;
                   font-size: 16px;
                 `}
                 icon={<PhotonIcon />}

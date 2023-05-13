@@ -16,7 +16,7 @@ export const PopoverDeploymentTable: FC<{
   return (
     <Popover
       open={deployments.length > 0 ? undefined : false}
-      overlayInnerStyle={{ padding: "2px" }}
+      overlayInnerStyle={{ padding: 0 }}
       placement="bottomLeft"
       content={
         <Table
@@ -24,7 +24,7 @@ export const PopoverDeploymentTable: FC<{
           size="small"
           showHeader={false}
           pagination={false}
-          bordered
+          bordered={false}
           rowKey="id"
           onRow={(record) => {
             return {
