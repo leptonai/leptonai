@@ -16,15 +16,13 @@ export const PopoverDeploymentTable: FC<{
   return (
     <Popover
       open={deployments.length > 0 ? undefined : false}
-      overlayInnerStyle={{ padding: 0 }}
       placement="bottomLeft"
       content={
         <Table
           rowClassName={classNameCss`cursor: pointer;`}
           size="small"
-          showHeader={false}
           pagination={false}
-          bordered={false}
+          bordered
           rowKey="id"
           onRow={(record) => {
             return {
@@ -34,14 +32,17 @@ export const PopoverDeploymentTable: FC<{
           }}
           columns={[
             {
+              title: "Status",
               dataIndex: ["status", "state"],
               render: (state) => <DeploymentStatus status={state} />,
             },
             {
+              title: "Name",
               dataIndex: "name",
               render: (v) => v,
             },
             {
+              title: "Created",
               dataIndex: "created_at",
               render: (data) => <DataParser date={data} />,
             },

@@ -2,7 +2,7 @@ import { FC } from "react";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon.ts";
 import { Description } from "../description";
 import { DataParser } from "@lepton-dashboard/components/refactor/data-parser";
-import { Button, Col, Row } from "antd";
+import { Button, Col, Row, Tag } from "antd";
 import { Link } from "@lepton-dashboard/components/link";
 import {
   CarbonIcon,
@@ -85,23 +85,17 @@ export const PhotonItem: FC<{ photon?: PhotonGroup }> = ({ photon }) => {
             font-size: 12px;
           `}
         >
-          <Description.Item
-            css={css`
-              padding: 0 8px;
-              background: ${relatedDeployments.length > 0
-                ? theme.colorSuccessBg
-                : theme.colorFillTertiary};
-              border: 1px solid ${theme.colorBorderSecondary};
-              border-radius: ${theme.borderRadius}px;
-            `}
-            icon={<DeploymentIcon />}
-            description={
-              <PopoverDeploymentTable
-                photon={photon}
-                deployments={relatedDeployments}
-              />
-            }
-          />
+          <Tag color={relatedDeployments.length > 0 ? "success" : "default"}>
+            <Description.Item
+              icon={<DeploymentIcon />}
+              description={
+                <PopoverDeploymentTable
+                  photon={photon}
+                  deployments={relatedDeployments}
+                />
+              }
+            />
+          </Tag>
           <Description.Item
             icon={<CarbonIcon icon={<Time />} />}
             description={
