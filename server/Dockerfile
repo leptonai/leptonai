@@ -1,5 +1,5 @@
 # Start from golang v1.20 base image
-FROM golang:1.20 as builder
+FROM golang:1.19 as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . /go/src/github.com/leptonai/lepton/

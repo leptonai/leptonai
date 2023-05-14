@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	leptonv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +30,7 @@ func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstruc
 			"metadata": map[string]interface{}{
 				"name": joinNameByDash(metadata.Name, metadata.ID),
 			},
-			"spec": *metadata,
+			"spec": convertDeploymentToCr(metadata),
 		},
 	}
 
@@ -100,10 +101,10 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 		if err != nil {
 			return nil, err
 		}
-		metadata := &LeptonDeployment{}
+		metadata := &leptonv1alpha1.LeptonDeploymentSpec{}
 		json.Unmarshal(specStr, &metadata)
 
-		metadataList = append(metadataList, metadata)
+		metadataList = append(metadataList, convertCrToDeployment(metadata))
 	}
 
 	return metadataList, nil
@@ -119,7 +120,7 @@ func PatchLeptonDeploymentCR(ld *LeptonDeployment) error {
 		Resource: leptonDeploymentResource,
 	}
 
-	ldString, err := json.Marshal(ld)
+	ldString, err := json.Marshal(convertDeploymentToCr(ld))
 	if err != nil {
 		return err
 	}

@@ -166,7 +166,6 @@ func int32Ptr(i int32) *int32 { return &i }
 type DeploymentState string
 
 const (
-	DeploymentStateEmpty    DeploymentState = ""
 	DeploymentStateRunning  DeploymentState = "Running"
 	DeploymentStateNotReady DeploymentState = "Not Ready"
 	DeploymentStateStarting DeploymentState = "Starting"

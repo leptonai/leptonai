@@ -1,8 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"time"
+
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type LeptonDeployment struct {
@@ -26,11 +30,11 @@ type LeptonDeploymentEndpoint struct {
 }
 
 type LeptonDeploymentResourceRequirement struct {
-	CPU             float32 `json:"cpu"`
+	CPU             float64 `json:"cpu"`
 	Memory          int64   `json:"memory"`
 	AcceleratorType string  `json:"accelerator_type"`
 	AcceleratorNum  float64 `json:"accelerator_num"`
-	MinReplicas     int     `json:"min_replicas"`
+	MinReplicas     int64   `json:"min_replicas"`
 }
 
 var (
@@ -59,23 +63,86 @@ func initDeployments() {
 func periodCheckDeploymentState() {
 	for {
 		names := make([]string, 0, len(deploymentByName))
-		deployments := make([]*LeptonDeployment, 0, len(deploymentByName))
+		lds := make([]*LeptonDeployment, 0, len(deploymentByName))
 		deploymentMapRWLock.RLock()
 		for name, deployment := range deploymentByName {
 			names = append(names, name)
-			deployments = append(deployments, deployment)
+			lds = append(lds, deployment)
 		}
 		deploymentMapRWLock.RUnlock()
 
 		states := deploymentState(names...)
 
-		for i := range names {
-			if (deployments[i].Status.State == DeploymentStateEmpty) || (deployments[i].Status.State != DeploymentStateUnknown && states[i] != deployments[i].Status.State) {
-				deployments[i].Status.State = states[i]
-				PatchLeptonDeploymentCR(deployments[i])
+		for i, ld := range lds {
+			if ld.Status.Endpoint.ExternalEndpoint == "" {
+				externalEndpoint, err := watchForIngressEndpoint(ingressName(ld))
+				if err != nil {
+					continue
+				}
+				ld.Status.Endpoint.ExternalEndpoint = externalEndpoint
+			}
+			if ld.Status.Endpoint.InternalEndpoint == "" {
+				ld.Status.Endpoint.InternalEndpoint = fmt.Sprintf("%s.%s.svc.cluster.local:8080", ld.Name, deploymentNamespace)
+			}
+			if states[i] != DeploymentStateUnknown && states[i] != ld.Status.State {
+				ld.Status.State = states[i]
 			}
 		}
 
 		time.Sleep(10 * time.Second)
+	}
+}
+
+func convertDeploymentToCr(d *LeptonDeployment) *leptonaiv1alpha1.LeptonDeploymentSpec {
+	return &leptonaiv1alpha1.LeptonDeploymentSpec{
+		ID:        d.ID,
+		CreatedAt: d.CreatedAt,
+		Name:      d.Name,
+		PhotonID:  d.PhotonID,
+		ModelID:   d.ModelID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			CPU:             resource.NewMilliQuantity(int64(d.ResourceRequirement.CPU*1000), resource.DecimalSI).String(),
+			Memory:          resource.NewQuantity(d.ResourceRequirement.Memory*1024*1024, resource.BinarySI).String(),
+			AcceleratorType: d.ResourceRequirement.AcceleratorType,
+			AcceleratorNum:  resource.NewQuantity(int64(d.ResourceRequirement.AcceleratorNum), resource.DecimalSI).String(),
+			MinReplicas:     d.ResourceRequirement.MinReplicas,
+		},
+	}
+}
+
+func convertCrToDeployment(cr *leptonaiv1alpha1.LeptonDeploymentSpec) *LeptonDeployment {
+	cpu, err := resource.ParseQuantity(cr.ResourceRequirement.CPU)
+	if err != nil {
+		cpu = resource.MustParse("1")
+	}
+	memory, err := resource.ParseQuantity(cr.ResourceRequirement.Memory)
+	if err != nil {
+		// TODO: what value should be set here?
+		memory = resource.MustParse("1Gi")
+	}
+	acceleratorNum, err := resource.ParseQuantity(cr.ResourceRequirement.AcceleratorNum)
+	if err != nil {
+		acceleratorNum = resource.MustParse("0")
+	}
+	return &LeptonDeployment{
+		ID:        cr.ID,
+		CreatedAt: cr.CreatedAt,
+		Name:      cr.Name,
+		PhotonID:  cr.PhotonID,
+		ModelID:   cr.ModelID,
+		Status: LeptonDeploymentStatus{
+			State: DeploymentStateUnknown,
+			Endpoint: LeptonDeploymentEndpoint{
+				InternalEndpoint: "",
+				ExternalEndpoint: "",
+			},
+		},
+		ResourceRequirement: LeptonDeploymentResourceRequirement{
+			CPU:             cpu.AsApproximateFloat64(),
+			Memory:          memory.Value() / 1024 / 1024,
+			AcceleratorType: cr.ResourceRequirement.AcceleratorType,
+			AcceleratorNum:  acceleratorNum.AsApproximateFloat64(),
+			MinReplicas:     cr.ResourceRequirement.MinReplicas,
+		},
 	}
 }

@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - lepton.ai
+  resources:
+  - leptondeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - lepton.ai
+  resources:
+  - leptondeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - lepton.ai
+  resources:
+  - leptondeployments/status
+  verbs:
+  - get
+  - patch
+  - update

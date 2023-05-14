@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -63,13 +62,6 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	externalEndpoint, err := watchForIngressEndpoint(ingressName(&ld))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get the external endpoint: " + err.Error()})
-		return
-	}
-	ld.Status.Endpoint.ExternalEndpoint = externalEndpoint
-	ld.Status.Endpoint.InternalEndpoint = fmt.Sprintf("%s.%s.svc.cluster.local:8080", ld.Name, deploymentNamespace)
 	err = PatchLeptonDeploymentCR(&ld)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to update the external endpoint to deployment crd: " + err.Error()})

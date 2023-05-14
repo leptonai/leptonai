@@ -1,0 +1,27 @@
+# permissions for end users to view leptondeployments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: leptondeployment-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: lepton-deployment-operator
+    app.kubernetes.io/part-of: lepton-deployment-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leptondeployment-viewer-role
+rules:
+- apiGroups:
+  - lepton.ai
+  resources:
+  - leptondeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - lepton.ai
+  resources:
+  - leptondeployments/status
+  verbs:
+  - get

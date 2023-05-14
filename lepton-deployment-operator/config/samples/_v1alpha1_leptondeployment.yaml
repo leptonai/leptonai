@@ -1,0 +1,12 @@
+apiVersion: lepton.ai/v1alpha1
+kind: LeptonDeployment
+metadata:
+  labels:
+    app.kubernetes.io/name: leptondeployment
+    app.kubernetes.io/instance: leptondeployment-sample
+    app.kubernetes.io/part-of: lepton-deployment-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: lepton-deployment-operator
+  name: leptondeployment-sample
+spec:
+  # TODO(user): Add fields here
