@@ -26,8 +26,8 @@ def photon():
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon")
-@click.option("--model", "-m", help="Model spec")
+@click.option("--name", "-n", help="Name of the Photon", required=True)
+@click.option("--model", "-m", help="Model spec", required=True)
 def create(name, model):
     console.print(f"Creating Photon: [green]{name}[/green]")
     try:
@@ -49,19 +49,28 @@ def create(name, model):
     "-n",
     help="Name of the Photon (The lastest version of the Photon will be used)",
 )
-@click.option("--id", "-i", help="ID of the Photon")
+@click.option("--id", "-i", "id_", help="ID of the Photon")
 @click.option(
-    "--remote_url", "-r", help="Remote URL of the Lepton Server", default=None
+    "--remote_url",
+    "-r",
+    help="Remote URL of the Lepton Server",
 )
-def remove(name, id, remote_url):
+def remove(name, id_, remote_url):
     remote_url = remote.get_remote_url(remote_url)
 
-    if remote_url is not None:
+    if remote_url is not None and id_ is None:
         # TODO: Support remove remote by name
-        if api.remove_remote(remote_url, id):
-            console.print(f'Remote photon "{id}" [green]removed[/]')
+        console.print("Must specify --id when removing remote photon")
+        sys.exit(1)
+    if remote_url is None and name is None:
+        console.print("Must specify --name when removing local photon")
+        sys.exit(1)
+
+    if remote_url is not None:
+        if api.remove_remote(remote_url, id_):
+            console.print(f'Remote photon "{id_}" [green]removed[/]')
         else:
-            console.print(f'Remote photon "{id}" [red]does not exist[/]')
+            console.print(f'Remote photon "{id_}" [red]does not exist[/]')
         return
 
     if find_photon(name) is None:
@@ -76,7 +85,6 @@ def remove(name, id, remote_url):
     "--remote_url",
     "-r",
     help="Remote URL of the Lepton Server",
-    default=None,
     callback=get_remote_url,
 )
 def list(remote_url):
@@ -111,14 +119,16 @@ def list(remote_url):
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon", default=None)
-@click.option("--model", "-m", help="Model Spec", default=None)
-@click.option("--file", "-f", "path", help="Path to .photon file", default=None)
+@click.option("--name", "-n", help="Name of the Photon")
+@click.option("--model", "-m", help="Model Spec")
+@click.option("--file", "-f", "path", help="Path to .photon file")
 @click.option("--port", "-p", help="Port to run on", default=8080)
 @click.option(
-    "--remote_url", "-r", help="Remote URL of the Lepton Server", default=None
+    "--remote_url",
+    "-r",
+    help="Remote URL of the Lepton Server",
 )
-@click.option("--id", "-i", help="ID of the Photon", default=None)
+@click.option("--id", "-i", help="ID of the Photon")
 @click.pass_context
 def run(ctx, name, model, path, port, remote_url, id):
     remote_url = remote.get_remote_url(remote_url)
@@ -150,7 +160,7 @@ def run(ctx, name, model, path, port, remote_url, id):
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon")
+@click.option("--name", "-n", help="Name of the Photon", required=True)
 @click.option(
     "--remote_url",
     "-r",
@@ -167,14 +177,14 @@ def push(name, remote_url):
 
 
 @photon.command()
-@click.option("--id", "-i", help="ID of the Photon")
+@click.option("--id", "-i", help="ID of the Photon", required=True)
 @click.option(
     "--remote_url",
     "-r",
     help="Remote URL of the Lepton Server",
     callback=get_remote_url,
 )
-@click.option("--file", "-f", "path", help="Path to .photon file", default=None)
+@click.option("--file", "-f", "path", help="Path to .photon file")
 def fetch(id, remote_url, path):
     photon = api.fetch(id, remote_url, path)
     console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')

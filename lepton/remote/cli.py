@@ -18,8 +18,8 @@ def remote():
 
 
 @remote.command()
-@click.option("--remote-name", "-n", help="Name of the remote cluster", default=None)
-@click.option("--remote-url", "-r", help="URL of the remote cluster", default=None)
+@click.option("--remote-name", "-n", help="Name of the remote cluster")
+@click.option("--remote-url", "-r", help="URL of the remote cluster")
 def login(remote_name, remote_url):
     clusters = load_cluster_info()["clusters"]
     if remote_name is not None:
@@ -41,10 +41,10 @@ def login(remote_name, remote_url):
         remote_name = console.input(
             f'Please enter the remote cluster name of "{remote_url}":'
         )
-        if len(remote_name) == 0: # TODO: ask the user to re-enter the name
+        if len(remote_name) == 0:  # TODO: ask the user to re-enter the name
             console.print(f"Remote cluster name cannot be empty")
             sys.exit(1)
-        
+
         console.print(f"TODO: authenticate")
         save_cluster(remote_name, remote_url)
         set_current_cluster(remote_name)
@@ -62,7 +62,7 @@ def logout():
 
 
 @remote.command()
-@click.option("--remote-name", "-n", help="Name of the remote cluster")
+@click.option("--remote-name", "-n", help="Name of the remote cluster", required=True)
 def remove(remote_name):
     remove_cluster(remote_name)
     console.print(f'Cluster "{remote_name}" [green]removed[/]')

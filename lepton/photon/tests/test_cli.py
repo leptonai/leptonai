@@ -59,6 +59,17 @@ Viaduct.  """,
 
     def test_photon_create(self):
         runner = CliRunner()
+
+        # missing required --name option
+        result = runner.invoke(cli, ["photon", "create", "-m", self.diffusers_model[0]])
+        assert result.exit_code != 0
+        assert "--name" in result.output.lower()
+
+        # missing required --model option
+        result = runner.invoke(cli, ["photon", "create", "-n", "abc"])
+        assert result.exit_code != 0
+        assert "--model" in result.output.lower()
+
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abc", "-m", self.diffusers_model[0]]
         )
@@ -102,6 +113,11 @@ Viaduct.  """,
         result = runner.invoke(cli, ["photon", "list"])
         assert result.exit_code == 0
         assert "abcdef" in result.output.lower()
+
+        # when deleting local photons, must specify name
+        result = runner.invoke(cli, ["photon", "remove"])
+        assert result.exit_code != 0
+        assert "--name" in result.output.lower()
 
         result = runner.invoke(cli, ["photon", "remove", "-n", "abcdef"])
         assert result.exit_code == 0
