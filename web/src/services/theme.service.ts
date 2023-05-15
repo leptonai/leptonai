@@ -1,6 +1,7 @@
 import { Injectable } from "injection-js";
-import { BehaviorSubject } from "rxjs";
+import { ReplaySubject } from "rxjs";
 import { theme, ThemeConfig } from "antd";
+import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
 
 @Injectable()
 export class ThemeService {
@@ -13,8 +14,10 @@ export class ThemeService {
     default: {
       token: {
         ...this.shareToken,
-        colorPrimary: "#000",
-        colorLink: "#000",
+        colorPrimary: "#1F2328",
+        colorLink: "#1F2328",
+        colorBgLayout: "#f6f8fa",
+        colorBorder: "#d0d7de",
         colorLinkHover: "#555",
         colorLinkActive: "#333",
         controlItemBgActive: "#e6f4ff",
@@ -35,7 +38,9 @@ export class ThemeService {
     dark: {
       token: {
         ...this.shareToken,
-        colorPrimary: "#eee",
+        colorPrimary: "#fff",
+        colorBgLayout: "#010409",
+        colorBgContainer: "#0d1117",
         colorLink: "#eee",
         colorLinkHover: "#555",
         colorLinkActive: "#333",
@@ -43,8 +48,8 @@ export class ThemeService {
       },
       components: {
         Button: {
-          colorPrimary: "#222",
-          colorPrimaryHover: "#444",
+          colorPrimary: "#21262d",
+          colorPrimaryHover: "#30363d",
         },
         Badge: {
           colorPrimary: "#2F80ED",
@@ -58,11 +63,22 @@ export class ThemeService {
     },
   };
 
-  public theme$ = new BehaviorSubject<ThemeConfig>(this.presetThemes.default);
+  public theme$ = new ReplaySubject<ThemeConfig>(1);
+
+  getValidTheme(): string {
+    const themeIndex = this.storageService.get("THEME") || "default";
+    const isValid = !!this.presetThemes[themeIndex];
+    return isValid ? themeIndex : "default";
+  }
 
   toggleTheme() {
-    this.theme$.getValue() === this.presetThemes.default
-      ? this.theme$.next(this.presetThemes.dark)
-      : this.theme$.next(this.presetThemes.default);
+    const reverseTheme =
+      this.getValidTheme() === "default" ? "dark" : "default";
+    this.storageService.set("THEME", reverseTheme);
+    this.theme$.next(this.presetThemes[reverseTheme]);
+  }
+
+  constructor(private storageService: StorageService) {
+    this.theme$.next(this.presetThemes[this.getValidTheme()]);
   }
 }

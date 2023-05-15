@@ -1,4 +1,4 @@
-import { Badge, Tabs, TabsProps } from "antd";
+import { Badge, Switch, Tabs, TabsProps } from "antd";
 import styled from "@emotion/styled";
 import { FC, useMemo } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -14,7 +14,8 @@ import {
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
 import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
-import { Workspace } from "@carbon/icons-react";
+import { AsleepFilled, LightFilled, Workspace } from "@carbon/icons-react";
+import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
 
 const Container = styled.div`
   position: sticky;
@@ -25,7 +26,18 @@ const Container = styled.div`
   .ant-tabs-nav::before {
     display: none;
   }
+  .ant-tabs-nav-operations {
+    display: none !important;
+  }
 `;
+
+const ThemeContainer = styled.div`
+  display: flex;
+  align-items: center;
+  padding-left: 24px;
+  justify-content: center;
+`;
+
 const StyledBadge = styled(Badge)`
   margin-left: 12px;
   top: -1px;
@@ -103,6 +115,7 @@ const menuItems: TabsProps["items"] = [
 export const Nav: FC = () => {
   const theme = useAntdTheme();
   const notificationService = useInject(NotificationService);
+  const themeService = useInject(ThemeService);
   const location = useLocation();
   const navigate = useNavigate();
   const selectedKey = useMemo(() => {
@@ -130,6 +143,25 @@ export const Nav: FC = () => {
       `}
     >
       <Tabs
+        tabBarExtraContent={{
+          right: (
+            <ThemeContainer>
+              <Switch
+                css={css`
+                  background: ${theme.colorPrimary} !important;
+                  .ant-switch-inner-checked,
+                  .ant-switch-inner-unchecked {
+                    color: ${theme.colorBgContainer} !important;
+                  }
+                `}
+                checked={themeService.getValidTheme() === "dark"}
+                onChange={() => themeService.toggleTheme()}
+                unCheckedChildren={<CarbonIcon icon={<LightFilled />} />}
+                checkedChildren={<CarbonIcon icon={<AsleepFilled />} />}
+              />
+            </ThemeContainer>
+          ),
+        }}
         moreIcon={null}
         tabBarGutter={32}
         tabBarStyle={{ marginBottom: 0 }}
