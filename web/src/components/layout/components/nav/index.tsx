@@ -14,7 +14,7 @@ import {
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
 import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
-import { Dashboard } from "@carbon/icons-react";
+import { Workspace } from "@carbon/icons-react";
 
 const Container = styled.div`
   position: sticky;
@@ -81,7 +81,7 @@ const menuItems: TabsProps["items"] = [
   {
     label: (
       <>
-        <CarbonIcon icon={<Dashboard />} />
+        <CarbonIcon icon={<Workspace />} />
         Dashboard
       </>
     ),

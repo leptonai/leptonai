@@ -10,7 +10,7 @@ import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/photons/components/upload";
-import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
+import { PhotonItem } from "../../../../components/photon-item";
 import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
 
 export const List: FC = () => {

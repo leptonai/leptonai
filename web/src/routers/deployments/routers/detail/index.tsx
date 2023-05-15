@@ -2,16 +2,25 @@ import { FC, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { App, Button, Col, Descriptions, InputNumber, Row, Space } from "antd";
+import {
+  App,
+  Button,
+  Col,
+  Descriptions,
+  InputNumber,
+  Row,
+  Space,
+  Typography,
+} from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { EditOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import dayjs from "dayjs";
 import { Request } from "@lepton-dashboard/routers/deployments/components/request";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
-import { DeploymentStatus } from "@lepton-dashboard/components/refactor/deployment-status";
+import { DeploymentStatus } from "../../../../components/deployment-status";
+import { DateParser } from "@lepton-dashboard/components/date-parser";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -67,30 +76,34 @@ export const Detail: FC = () => {
             )
           }
         >
-          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+          <Descriptions bordered size="small" column={{ xs: 1, sm: 1, md: 2 }}>
             <Descriptions.Item label="Name">
               {deployment.name}
             </Descriptions.Item>
             <Descriptions.Item label="ID">{deployment.id}</Descriptions.Item>
-            <Descriptions.Item label="Create Time">
-              {dayjs(deployment.created_at).format("lll")}
+            <Descriptions.Item label="Created At">
+              <DateParser date={deployment.created_at} detail />
             </Descriptions.Item>
             <Descriptions.Item label="Status">
               <DeploymentStatus status={deployment.status.state} />
             </Descriptions.Item>
-            <Descriptions.Item label="Internal Endpoint">
-              {deployment.status.endpoint.internal_endpoint || "-"}
+            <Descriptions.Item label="CPU">
+              {deployment.resource_requirement.cpu}
             </Descriptions.Item>
             <Descriptions.Item label="External Endpoint">
-              {deployment.status.endpoint.external_endpoint || "-"}
+              <Typography.Text copyable>
+                {deployment.status.endpoint.external_endpoint || "-"}
+              </Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="Memory">
               {deployment.resource_requirement.memory} MB
             </Descriptions.Item>
-            <Descriptions.Item label="CPU">
-              {deployment.resource_requirement.cpu}
+            <Descriptions.Item label="Internal Endpoint">
+              <Typography.Text copyable>
+                {deployment.status.endpoint.internal_endpoint || "-"}
+              </Typography.Text>
             </Descriptions.Item>
-            <Descriptions.Item label="Accelerator Type">
+            <Descriptions.Item label="Accelerator">
               {deployment.resource_requirement.accelerator_type || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Accelerator Number">

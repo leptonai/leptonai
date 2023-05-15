@@ -5,7 +5,7 @@ import { theme, ThemeConfig } from "antd";
 @Injectable()
 export class ThemeService {
   readonly shareToken: ThemeConfig["token"] = {
-    borderRadius: 2,
+    borderRadius: 4,
     controlOutlineWidth: 0,
   };
 
@@ -14,6 +14,9 @@ export class ThemeService {
       token: {
         ...this.shareToken,
         colorPrimary: "#000",
+        colorLink: "#000",
+        colorLinkHover: "#555",
+        colorLinkActive: "#333",
         controlItemBgActive: "#e6f4ff",
         boxShadowTertiary:
           "0 1px 2px 0 rgba(0, 0, 0, 0.03),0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)",

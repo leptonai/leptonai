@@ -8,7 +8,7 @@ import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/b
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
-import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
+import { PhotonItem } from "../../../../components/photon-item";
 
 export const Detail: FC = () => {
   const { id } = useParams();

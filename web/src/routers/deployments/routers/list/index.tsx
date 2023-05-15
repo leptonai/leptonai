@@ -14,9 +14,10 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useNavigate, useParams } from "react-router-dom";
-import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 import dayjs from "dayjs";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { Card } from "@lepton-dashboard/components/card";
+import { DeploymentItem } from "../../../../components/deployment-item";
 
 export const List: FC = () => {
   const { name } = useParams();
@@ -129,13 +130,16 @@ export const List: FC = () => {
           style={{
             border: `1px solid ${theme.colorBorder}`,
             boxShadow: theme.boxShadowTertiary,
+            borderRadius: `${theme.borderRadius}px`,
             background: theme.colorBgContainer,
           }}
           itemLayout="horizontal"
           dataSource={filteredDeployments}
           renderItem={(deployment) => (
             <AntdList.Item style={{ padding: 0, display: "block" }}>
-              <DeploymentCard deployment={deployment} borderless />
+              <Card borderless>
+                <DeploymentItem deployment={deployment} />
+              </Card>
             </AntdList.Item>
           )}
         />

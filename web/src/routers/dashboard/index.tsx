@@ -7,12 +7,12 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { TitleService } from "@lepton-dashboard/services/title.service.ts";
 import { Card } from "@lepton-dashboard/components/card";
-import { DeploymentCard } from "@lepton-dashboard/components/deployment-card";
 import dayjs from "dayjs";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { DeploymentIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
-import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
+import { PhotonItem } from "../../components/photon-item";
+import { DeploymentItem } from "../../components/deployment-item";
 
 const Container = styled.div`
   flex: 1 1 auto;
@@ -54,7 +54,11 @@ export const Dashboard: FC = () => {
         type: "Deployment",
         name: d.name,
         operation: "created",
-        children: <DeploymentCard shadowless deployment={d} />,
+        children: (
+          <Card>
+            <DeploymentItem deployment={d} />
+          </Card>
+        ),
         date: d.created_at,
         id: `photon-${d.id}`,
       };

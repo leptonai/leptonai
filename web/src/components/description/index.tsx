@@ -12,14 +12,22 @@ const ItemContainer = styled.div`
 
 const IconContainer = styled.div`
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 const ColonContainer = styled.div`
   flex: 0 0 auto;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 const TermContainer = styled.div`
   white-space: nowrap;
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 const DescriptionContainer = styled.div`
   overflow: hidden;
@@ -39,7 +47,9 @@ export const Item: FC<
     <ItemContainer className={className}>
       {icon && <IconContainer>{icon}</IconContainer>}
       {term && <TermContainer>{term}</TermContainer>}
-      {term && description && <ColonContainer>:</ColonContainer>}
+      {term !== undefined && description != undefined && (
+        <ColonContainer>:</ColonContainer>
+      )}
       {description && (
         <DescriptionContainer>{description}</DescriptionContainer>
       )}

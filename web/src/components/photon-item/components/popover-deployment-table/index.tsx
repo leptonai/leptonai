@@ -2,13 +2,13 @@ import { FC } from "react";
 import { Popover, Table, Tag } from "antd";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
-import { DateParser } from "../date-parser";
-import { DeploymentStatus } from "@lepton-dashboard/components/refactor/deployment-status";
+import { DeploymentStatus } from "@lepton-dashboard/components/deployment-status";
 import { useNavigate } from "react-router-dom";
 import { css as classNameCss } from "@emotion/css";
 import { Link } from "@lepton-dashboard/components/link";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
-import { Description } from "@lepton-dashboard/components/refactor/description";
+import { Description } from "@lepton-dashboard/components/description";
+import { DateParser } from "@lepton-dashboard/components/date-parser";
 
 export const PopoverDeploymentTable: FC<{
   photon: Photon;
@@ -33,6 +33,7 @@ export const PopoverDeploymentTable: FC<{
               <Table
                 rowClassName={classNameCss`cursor: pointer;`}
                 size="small"
+                showHeader={false}
                 pagination={false}
                 bordered
                 rowKey="id"
@@ -56,7 +57,7 @@ export const PopoverDeploymentTable: FC<{
                   {
                     title: "Created",
                     dataIndex: "created_at",
-                    render: (data) => <DateParser date={data} />,
+                    render: (data) => <DateParser detail date={data} />,
                   },
                 ]}
                 dataSource={deployments}

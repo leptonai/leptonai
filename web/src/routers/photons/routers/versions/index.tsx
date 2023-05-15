@@ -11,7 +11,7 @@ import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
-import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
+import { PhotonItem } from "../../../../components/photon-item";
 import { PhotonVersion } from "@lepton-dashboard/interfaces/photon.ts";
 
 export const Versions: FC = () => {
@@ -26,7 +26,7 @@ export const Versions: FC = () => {
   }, [photons]);
   const theme = useAntdTheme();
   return (
-    <Row gutter={[0, 16]}>
+    <Row gutter={[0, 24]}>
       <Col span={24}>
         <BreadcrumbHeader
           items={[
