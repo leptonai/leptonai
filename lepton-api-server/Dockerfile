@@ -5,17 +5,17 @@ FROM golang:1.19 as builder
 COPY . /go/src/github.com/leptonai/lepton/
 
 # Set the Current Working Directory inside the container
-WORKDIR /go/src/github.com/leptonai/lepton/server/
+WORKDIR /go/src/github.com/leptonai/lepton/lepton-api-server/
 
 # Build the Go app
 RUN GOARCH=amd64 GOOS=linux go build -a -ldflags \
-    '-extldflags "-static"' -o lepton-server .
+    '-extldflags "-static"' -o lepton-api-server .
 
 ######## Start a new stage from scratch #######
 FROM alpine:latest
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /go/src/github.com/leptonai/lepton/server/lepton-server /app/
+COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-api-server/lepton-api-server /app/
 WORKDIR /app
 EXPOSE 20863
-CMD ["/app/lepton-server"]
+CMD ["/app/lepton-api-server"]

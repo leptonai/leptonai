@@ -2,9 +2,9 @@ replicaCount: 1
 namespace: default
 
 image:
-  repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-server
+  repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-api-server
   tag: "latest"
-  command: "/app/lepton-server"
+  command: "/app/lepton-api-server"
   args: "[\"--namespace\", \"default\"]"
   pullPolicy: Always
 
