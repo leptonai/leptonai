@@ -1,1 +1,1 @@
-from . import photon
+from . import photon  # noqa: F401

@@ -11,7 +11,6 @@ import sys
 import unittest
 import zipfile
 
-from loguru import logger
 import numpy as np
 import requests
 import torch

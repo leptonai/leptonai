@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import functools
 import cloudpickle
 from io import BytesIO
@@ -7,7 +7,7 @@ import inspect
 import os
 from typing import Callable, Any, List, Optional
 
-from fastapi import FastAPI, Request, APIRouter, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic

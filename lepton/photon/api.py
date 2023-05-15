@@ -1,8 +1,6 @@
-import json
 import os
 import requests
 from typing import Any
-import zipfile
 from .base import schema_registry, type_registry, Photon, add_photon
 from . import runner  # noqa: F401
 from . import hf  # noqa: F401
@@ -28,9 +26,9 @@ def create(name: str, model: Any) -> Photon:
         if creator is not None:
             return creator(name, model)
 
-    for type_ in type_registry.get_all():
-        if isinstance(model, type_):
-            creator = type_registry.get(type_)
+    for type_checker in type_registry.get_all():
+        if type_checker(model):
+            creator = type_registry.get(type_checker)
             return creator(name, model)
 
     raise ValueError(f"Failed to create photon: name={name}, model={model}")

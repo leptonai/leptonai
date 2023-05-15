@@ -1,6 +1,5 @@
 import os
 import tempfile
-import requests
 import unittest
 
 from click.testing import CliRunner

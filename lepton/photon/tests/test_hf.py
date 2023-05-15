@@ -9,7 +9,6 @@ import json
 import unittest
 import zipfile
 
-import lepton
 from lepton.photon import create
 from utils import random_name
 

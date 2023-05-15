@@ -1,11 +1,8 @@
-from abc import abstractmethod
 from typing import List, Union, Optional
 
 from backports.cached_property import cached_property
-import numpy as np
 from huggingface_hub import model_info
 from loguru import logger
-import transformers
 
 from fastapi.responses import StreamingResponse
 
@@ -52,7 +49,16 @@ SUPPORTED_TASKS = [
 ]
 
 schemas = ["hf", "huggingface"]
-transformers_types = (transformers.PreTrainedModel, transformers.Pipeline)
+
+
+def _get_transformers_base_types():
+    import transformers
+
+    return (transformers.PreTrainedModel, transformers.Pipeline)
+
+
+def is_transformers_model(model):
+    return isinstance(model, _get_transformers_base_types())
 
 
 class HuggingfacePhoton(RunnerPhoton):
@@ -153,7 +159,9 @@ class HuggingfacePhoton(RunnerPhoton):
 
     @classmethod
     def create_from_model_obj(cls, name, model):
-        if not isinstance(model, transformers_types):
+        import transformers
+
+        if not is_transformers_model(model):
             raise ValueError(f"Unsupported model type: {type(model)}")
 
         try:
@@ -187,7 +195,7 @@ class HuggingfacePhoton(RunnerPhoton):
 
 
 schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
-type_registry.register(transformers_types, HuggingfacePhoton.create_from_model_obj)
+type_registry.register(is_transformers_model, HuggingfacePhoton.create_from_model_obj)
 
 
 class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
