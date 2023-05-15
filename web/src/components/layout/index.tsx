@@ -3,7 +3,6 @@ import { Outlet } from "react-router-dom";
 import styled from "@emotion/styled";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
-import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { Nav } from "@lepton-dashboard/components/layout/components/nav";
 import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Loading } from "@lepton-dashboard/components/loading";
@@ -39,7 +38,6 @@ export const Layout: FC = () => {
       `}
     >
       <FullHeight>
-        <Header />
         <Nav />
         <Main
           css={css`

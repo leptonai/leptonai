@@ -35,7 +35,24 @@ export class ThemeService {
     dark: {
       token: {
         ...this.shareToken,
+        colorPrimary: "#eee",
+        colorLink: "#eee",
+        colorLinkHover: "#555",
+        colorLinkActive: "#333",
         controlItemBgActive: "#e6f4ff",
+      },
+      components: {
+        Button: {
+          colorPrimary: "#222",
+          colorPrimaryHover: "#444",
+        },
+        Badge: {
+          colorPrimary: "#2F80ED",
+        },
+        Notification: {
+          width: 500,
+          fontSize: 12,
+        },
       },
       algorithm: theme.darkAlgorithm,
     },

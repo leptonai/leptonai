@@ -8,6 +8,7 @@ import {
   Col,
   Descriptions,
   InputNumber,
+  Popover,
   Row,
   Space,
   Typography,
@@ -21,6 +22,9 @@ import { Request } from "@lepton-dashboard/routers/deployments/components/reques
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentStatus } from "../../../../components/deployment-status";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
+import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { mergeMap, of } from "rxjs";
+import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -36,6 +40,18 @@ export const Detail: FC = () => {
       next: (value) =>
         setMinReplicas(value?.resource_requirement?.min_replicas ?? null),
     }
+  );
+  const photonService = useInject(PhotonService);
+  const photon = useStateFromObservable(
+    () =>
+      deploymentService
+        .id(id!)
+        .pipe(
+          mergeMap((deployment) =>
+            deployment ? photonService.id(deployment.photon_id) : of(undefined)
+          )
+        ),
+    undefined
   );
 
   return deployment ? (
@@ -81,27 +97,43 @@ export const Detail: FC = () => {
               {deployment.name}
             </Descriptions.Item>
             <Descriptions.Item label="ID">{deployment.id}</Descriptions.Item>
-            <Descriptions.Item label="Created At">
-              <DateParser date={deployment.created_at} detail />
-            </Descriptions.Item>
             <Descriptions.Item label="Status">
               <DeploymentStatus status={deployment.status.state} />
             </Descriptions.Item>
-            <Descriptions.Item label="CPU">
-              {deployment.resource_requirement.cpu}
+            <Descriptions.Item label="Photon">
+              {photon?.name ? (
+                <Popover
+                  placement="bottomLeft"
+                  content={<PhotonItem photon={photon} />}
+                >
+                  <span>
+                    <Link to={`/photons/versions/${photon?.name}`}>
+                      {photon?.name}
+                    </Link>
+                  </span>
+                </Popover>
+              ) : (
+                "-"
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="Created At">
+              <DateParser date={deployment.created_at} detail />
             </Descriptions.Item>
             <Descriptions.Item label="External Endpoint">
               <Typography.Text copyable>
                 {deployment.status.endpoint.external_endpoint || "-"}
               </Typography.Text>
             </Descriptions.Item>
-            <Descriptions.Item label="Memory">
-              {deployment.resource_requirement.memory} MB
+            <Descriptions.Item label="CPU">
+              {deployment.resource_requirement.cpu}
             </Descriptions.Item>
             <Descriptions.Item label="Internal Endpoint">
               <Typography.Text copyable>
                 {deployment.status.endpoint.internal_endpoint || "-"}
               </Typography.Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Memory">
+              {deployment.resource_requirement.memory} MB
             </Descriptions.Item>
             <Descriptions.Item label="Accelerator">
               {deployment.resource_requirement.accelerator_type || "-"}
@@ -109,6 +141,7 @@ export const Detail: FC = () => {
             <Descriptions.Item label="Accelerator Number">
               {deployment.resource_requirement.accelerator_num || "-"}
             </Descriptions.Item>
+
             <Descriptions.Item label="Min Replicas">
               {editMode ? (
                 <InputNumber

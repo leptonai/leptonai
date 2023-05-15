@@ -29,6 +29,7 @@ const Container = styled.div`
 const StyledBadge = styled(Badge)`
   margin-left: 12px;
   top: -1px;
+  min-width: 30px;
 `;
 
 const PhotonLabel: FC = () => {
@@ -45,6 +46,7 @@ const PhotonLabel: FC = () => {
       <PhotonIcon />
       Photons
       <StyledBadge
+        showZero
         size="small"
         color={notify ? theme.colorLink : theme.colorTextTertiary}
         count={photons.length}
@@ -70,6 +72,7 @@ const DeploymentLabel: FC = () => {
       <DeploymentIcon />
       Deployments
       <StyledBadge
+        showZero
         size="small"
         color={notify ? theme.colorLink : theme.colorTextTertiary}
         count={deployments.length}

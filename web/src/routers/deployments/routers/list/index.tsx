@@ -92,7 +92,7 @@ export const List: FC = () => {
           style={{ width: "100%" }}
           mode="multiple"
           value={status}
-          placeholder="Deployment status"
+          placeholder="Deployment Status"
           onChange={(v) => setStatus(v)}
           maxTagCount={1}
           options={[
