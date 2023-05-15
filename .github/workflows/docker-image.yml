@@ -18,5 +18,7 @@ jobs:
       run: docker build . --file lepton-api-server/Dockerfile --tag lepton-api-server:$(git rev-parse --short HEAD)
     - name: Build photon Docker image
       run: |
-        docker build . --file lepton/photon/dockerfiles/python-runner.Dockerfile --tag lepton:photon-py-runner-$(git rev-parse --short HEAD)
-        docker build . --file lepton/photon/dockerfiles/hf-runner.Dockerfile --tag lepton:photon-hf-runner-$(git rev-parse --short HEAD)
+        if [[ ${{github.ref}} == 'refs/heads/main' ]]; then
+          docker build . --file lepton/photon/dockerfiles/python-runner.Dockerfile --tag lepton:photon-py-runner-$(git rev-parse --short HEAD)
+          docker build . --file lepton/photon/dockerfiles/hf-runner.Dockerfile --tag lepton:photon-hf-runner-$(git rev-parse --short HEAD)
+        fi
