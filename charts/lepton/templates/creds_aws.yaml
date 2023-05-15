@@ -1,0 +1,15 @@
+{{ if eq .Values.env.provider "aws" }}
+{{ if .Values.awsCreds.install }}
+apiVersion: v1
+data:
+  credentials: {{ .Values.awsCreds.creds }}
+kind: Secret
+metadata:
+  name: {{ .Values.awsCreds.secretName }}
+  annotations:
+    {{ if .Values.awsCreds.keep }}
+    "helm.sh/resource-policy": keep
+    {{ end }}
+type: Opaque
+{{ end }}
+{{ end }}

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+spec:
+  replicas: {{ .Values.apiServer.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+    spec:
+      serviceAccountName: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+      containers:
+        - name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+          image: {{ .Values.apiServer.image.repository }}:{{ .Values.apiServer.image.tag }}
+          imagePullPolicy: {{ .Values.apiServer.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.apiServer.service.resources.requests.memory }}
+              cpu: {{ .Values.apiServer.service.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.apiServer.service.resources.limits.memory }}
+              cpu: {{ .Values.apiServer.service.resources.limits.cpu }}
+          command: [{{ .Values.apiServer.image.command | quote }}]
+          args: {{ toJson .Values.apiServer.image.args }}
+          ports:
+            - containerPort: {{ .Values.apiServer.service.port }}
+          volumeMounts:
+            - name: aws-creds
+              mountPath: "/root/.aws"
+              readOnly: true
+      volumes:
+        - name: aws-creds
+          secret:
+            secretName: {{ .Values.awsCreds.secretName }}

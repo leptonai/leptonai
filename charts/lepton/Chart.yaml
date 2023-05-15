@@ -1,6 +1,6 @@
 apiVersion: v2
-name: lepton-api-server-chart
-description: Lepton API Server Helm Chart
+name: lepton-chart
+description: Lepton Helm Chart
 type: application
 version: 0.1.0
 appVersion: "1.0.0"

@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: {{ .Values.apiServer.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}-service
+                port:
+                  number: {{ .Values.apiServer.service.port }}
+{{ if .Values.web.enabled }}
+          - path: {{ .Values.web.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.web.name }}{{ .Values.nameSuffix }}-service
+                port:
+                  number: {{ .Values.web.service.port }}
+{{ end }}

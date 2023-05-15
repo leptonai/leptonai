@@ -1,0 +1,56 @@
+nameSuffix: ""
+
+apiServer:
+  name: lepton-api-server
+  replicaCount: 1
+  path: /api/
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-api-server
+    tag: "latest"
+    command: "/app/lepton-api-server"
+    args:
+      - "--namespace"
+      - "default"
+    pullPolicy: Always
+  service:
+    port: 20863
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "1024Mi"
+        cpu: "1"
+
+web:
+  enabled: true
+  name: lepton-web
+  replicaCount: 1
+  path: /
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-web
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 80
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "1024Mi"
+        cpu: "1"
+
+crd:
+  install: true
+  keep: true
+
+awsCreds:
+  install: true
+  keep: true
+  secretName: aws-creds
+  creds: "PLEASE-ENTER-VIA-THE-COMMAND-LINE-ARGS"
+
+env:
+  provider: aws
+  name: dev

@@ -62,20 +62,24 @@ func main() {
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 
-	router.GET("/version", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"version": "0.0.1"})
+	api := router.Group("/api")
+	api.GET("/healthz", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})
-	router.GET("/photons", photonListHandler)
-	router.POST("/photons", photonPostHandler)
-	router.GET("/photons/:uuid", photonGetHandler)
-	router.GET("/photons/:uuid/content", photonDownloadHandler)
-	router.DELETE("/photons/:uuid", photonDeleteHandler)
 
-	router.GET("/deployments", deploymentListHandler)
-	router.POST("/deployments", deploymentPostHandler)
-	router.GET("/deployments/:uuid", deploymentGetHandler)
-	router.PATCH("/deployments/:uuid", deploymentPatchHandler)
-	router.DELETE("/deployments/:uuid", deploymentDeleteHandler)
+	v1 := api.Group("/v1")
+
+	v1.GET("/photons", photonListHandler)
+	v1.POST("/photons", photonPostHandler)
+	v1.GET("/photons/:uuid", photonGetHandler)
+	v1.GET("/photons/:uuid/content", photonDownloadHandler)
+	v1.DELETE("/photons/:uuid", photonDeleteHandler)
+
+	v1.GET("/deployments", deploymentListHandler)
+	v1.POST("/deployments", deploymentPostHandler)
+	v1.GET("/deployments/:uuid", deploymentGetHandler)
+	v1.PATCH("/deployments/:uuid", deploymentPatchHandler)
+	v1.DELETE("/deployments/:uuid", deploymentDeleteHandler)
 
 	router.Run(":20863")
 }

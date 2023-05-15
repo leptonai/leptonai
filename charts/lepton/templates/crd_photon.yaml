@@ -1,0 +1,56 @@
+{{ if .Values.crd.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: photons.lepton.ai
+  annotations:
+    {{ if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{ end }}
+spec:
+  group: lepton.ai
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec: 
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                model:
+                  type: string
+                requirement_dependency:
+                  type: array
+                  items:
+                    type: string
+                image:
+                  type: string
+                entrypoint:
+                  type: string
+                exposed_ports:
+                  type: array
+                  items:
+                    type: integer
+                container_args:
+                  type: array
+                  items:
+                    type: string
+                created_at:
+                  type: integer
+                openapi_schema:
+                  type: string
+  scope: Namespaced
+  names:
+    plural: photons
+    singular: photon
+    kind: Photon
+    shortNames:
+      - ph
+{{ end }}

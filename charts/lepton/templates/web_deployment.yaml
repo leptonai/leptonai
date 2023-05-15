@@ -1,0 +1,32 @@
+{{ if .Values.web.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+    spec:
+      containers:
+        - name: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+          image: {{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}
+          imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.web.service.resources.requests.memory }}
+              cpu: {{ .Values.web.service.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.web.service.resources.limits.memory }}
+              cpu: {{ .Values.web.service.resources.limits.cpu }}
+          ports:
+            - containerPort: {{ .Values.web.service.port }}
+{{ end }}
