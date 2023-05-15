@@ -3,8 +3,6 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import typescript from "@rollup/plugin-typescript";
 import injectionTransformer from "./libs/transformer";
-import { execSync } from "child_process";
-const commitHash = execSync("git rev-parse --short HEAD").toString();
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -13,7 +11,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      __COMMIT_HASH__: JSON.stringify(commitHash),
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
       __PROXY_URL__: JSON.stringify(__PROXY_URL__),
       __CLUSTER_URL__: JSON.stringify(__CLUSTER_URL__),

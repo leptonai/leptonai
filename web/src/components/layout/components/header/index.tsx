@@ -76,7 +76,7 @@ export const Header: FC = () => {
             type="text"
             icon={<UserOutlined />}
             target="_blank"
-            href={`https://github.com/leptonai/lepton/commit/${__COMMIT_HASH__}`}
+            href="https://github.com/leptonai/lepton"
           />
         </Space>
       </MenuContainer>
