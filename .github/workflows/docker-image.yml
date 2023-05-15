@@ -14,5 +14,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Build the Docker image
+    - name: Build server Docker image
       run: docker build . --file server/Dockerfile --tag lepton-server:$(date +%s)
+    - name: Build photon Docker image
+      run: |
+        docker build . --file lepton/photon/dockerfiles/python-runner.Dockerfile --tag lepton:photon-py-runner-$(git rev-parse --short HEAD)
+        docker build . --file lepton/photon/dockerfiles/hf-runner.Dockerfile --tag lepton:photon-hf-runner-$(git rev-parse --short HEAD)
