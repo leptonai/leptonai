@@ -102,6 +102,10 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
+  getPhotonDownloadUrl(id: string): string {
+    return id;
+  }
+
   listDeployments(): Observable<Deployment[]> {
     return of(mockedDeployments);
   }

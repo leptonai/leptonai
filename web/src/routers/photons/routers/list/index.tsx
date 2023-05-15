@@ -11,15 +11,19 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/photons/components/upload";
 import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
+import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
 
 export const List: FC = () => {
   const photonService = useInject(PhotonService);
+  const storageService = useInject(StorageService);
   const photonGroups = useStateFromObservable(
     () => photonService.listGroups(),
     []
   );
   const [search, setSearch] = useState<string>("");
-  const [view, setView] = useState("card");
+  const [view, setView] = useState(
+    storageService.get("PHOTON_LAYOUT") || "card"
+  );
   const filteredPhotonGroups = useMemo(() => {
     return photonGroups.filter((e) => JSON.stringify(e).indexOf(search) !== -1);
   }, [photonGroups, search]);
@@ -37,7 +41,11 @@ export const List: FC = () => {
                 <Segmented
                   size="small"
                   value={view}
-                  onChange={(v) => setView(v as string)}
+                  onChange={(v) => {
+                    const layout = v as string;
+                    storageService.set("PHOTON_LAYOUT", layout);
+                    setView(layout);
+                  }}
                   options={[
                     {
                       value: "card",
@@ -64,7 +72,7 @@ export const List: FC = () => {
             {filteredPhotonGroups.map((group) => (
               <Col sm={24} md={view === "card" ? 12 : 24} key={`${group.name}`}>
                 <Card>
-                  <PhotonItem photon={group} />
+                  <PhotonItem photon={group} versions={group.versions} />
                 </Card>
               </Col>
             ))}

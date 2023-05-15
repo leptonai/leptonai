@@ -22,11 +22,11 @@ import { KeyValue } from "@lepton-dashboard/components/key-value";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { PhotonCard } from "@lepton-dashboard/components/photon-card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 import { DeploymentIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentStatus } from "@lepton-dashboard/components/refactor/deployment-status";
+import { PhotonItem } from "@lepton-dashboard/components/refactor/photon-item";
 
 export const DeploymentCard: FC<{
   deployment: Deployment;
@@ -135,19 +135,7 @@ export const DeploymentCard: FC<{
             {!photonPage && (
               <KeyValue
                 value={
-                  <Popover
-                    content={
-                      <PhotonCard
-                        detail
-                        id={false}
-                        action={false}
-                        photon={photon}
-                        borderless
-                        paddingless
-                        shadowless
-                      />
-                    }
-                  >
+                  <Popover content={<PhotonItem showDetail photon={photon} />}>
                     <span>
                       <Link
                         icon={<PhotonIcon />}

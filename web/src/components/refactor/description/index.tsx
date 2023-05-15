@@ -13,6 +13,10 @@ const ItemContainer = styled.div`
 const IconContainer = styled.div`
   flex: 0 0 auto;
 `;
+const ColonContainer = styled.div`
+  flex: 0 0 auto;
+  text-align: center;
+`;
 const TermContainer = styled.div`
   white-space: nowrap;
   flex: 0 0 auto;
@@ -35,6 +39,7 @@ export const Item: FC<
     <ItemContainer className={className}>
       {icon && <IconContainer>{icon}</IconContainer>}
       {term && <TermContainer>{term}</TermContainer>}
+      {term && description && <ColonContainer>:</ColonContainer>}
       {description && (
         <DescriptionContainer>{description}</DescriptionContainer>
       )}

@@ -1,15 +1,18 @@
 import { FC, PropsWithChildren, ReactNode } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
 
 export const Card: FC<
-  PropsWithChildren<{
-    title?: ReactNode;
-    extra?: ReactNode;
-    borderless?: boolean;
-    shadowless?: boolean;
-    paddingless?: boolean;
-  }>
+  PropsWithChildren<
+    {
+      title?: ReactNode;
+      extra?: ReactNode;
+      borderless?: boolean;
+      shadowless?: boolean;
+      paddingless?: boolean;
+    } & EmotionProps
+  >
 > = ({
   children,
   title,
@@ -17,6 +20,7 @@ export const Card: FC<
   borderless = false,
   shadowless = false,
   paddingless = false,
+  className,
 }) => {
   const theme = useAntdTheme();
   return (
@@ -53,6 +57,7 @@ export const Card: FC<
         </div>
       )}
       <div
+        className={className}
         css={css`
           padding: ${paddingless ? 0 : "16px"};
         `}

@@ -42,7 +42,7 @@ export const Dashboard: FC = () => {
         operation: g.versions.length > 1 ? "updated" : "created",
         children: (
           <Card shadowless>
-            <PhotonItem photon={g} />
+            <PhotonItem photon={g} versions={g.versions} />
           </Card>
         ),
         date: g.created_at,

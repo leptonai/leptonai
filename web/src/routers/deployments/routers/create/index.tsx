@@ -1,7 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import {
   App,
-  Breadcrumb,
   Button,
   Cascader,
   Col,
@@ -99,25 +98,23 @@ export const Create: FC = () => {
   return (
     <Row gutter={[0, 24]}>
       <Col span={24}>
-        <BreadcrumbHeader>
-          <Breadcrumb
-            items={[
-              {
-                title: (
-                  <>
-                    <DeploymentIcon />
-                    <Link to="../../deployments">
-                      <span>Deployments</span>
-                    </Link>
-                  </>
-                ),
-              },
-              {
-                title: "Create Deployment",
-              },
-            ]}
-          />
-        </BreadcrumbHeader>
+        <BreadcrumbHeader
+          items={[
+            {
+              title: (
+                <>
+                  <DeploymentIcon />
+                  <Link to="../../deployments">
+                    <span>Deployments</span>
+                  </Link>
+                </>
+              ),
+            },
+            {
+              title: "Create Deployment",
+            },
+          ]}
+        />
       </Col>
       <Col span={24}>
         <Card title="Create Deployment">

@@ -8,6 +8,7 @@ export abstract class ApiService {
   abstract listPhotons(): Observable<Photon[]>;
   abstract deletePhoton(id: string): Observable<void>;
   abstract createPhoton(body: FormData): Observable<void>;
+  abstract getPhotonDownloadUrl(id: string): string;
 
   abstract listDeployments(): Observable<Deployment[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;

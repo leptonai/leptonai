@@ -48,6 +48,10 @@ export class PhotonService {
     return this.list().pipe(map((list) => list.find((item) => item.id === id)));
   }
 
+  getDownloadUrlById(id: string) {
+    return this.apiService.getPhotonDownloadUrl(id);
+  }
+
   delete(id: string): Observable<void> {
     return this.apiService.deletePhoton(id);
   }

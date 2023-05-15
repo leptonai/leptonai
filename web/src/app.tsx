@@ -20,6 +20,7 @@ import { css } from "@emotion/react";
 import { ApiServerService } from "@lepton-dashboard/services/api.server.service.ts";
 import { lazy } from "react";
 import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
+import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
 const Dashboard = lazy(() =>
   import("@lepton-dashboard/routers/dashboard").then((e) => ({
     default: e.Dashboard,
@@ -86,6 +87,7 @@ function App() {
         RefreshService,
         HttpClientService,
         NotificationService,
+        StorageService,
         { provide: ApiService, useClass: ApiServerService },
       ]}
     >

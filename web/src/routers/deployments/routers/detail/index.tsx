@@ -2,25 +2,13 @@ import { FC, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import {
-  App,
-  Breadcrumb,
-  Button,
-  Col,
-  Descriptions,
-  InputNumber,
-  Row,
-  Space,
-} from "antd";
+import { App, Button, Col, Descriptions, InputNumber, Row, Space } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { EditOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import dayjs from "dayjs";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { PhotonCard } from "@lepton-dashboard/components/photon-card";
-import { mergeMap } from "rxjs";
 import { Request } from "@lepton-dashboard/routers/deployments/components/request";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentStatus } from "@lepton-dashboard/components/refactor/deployment-status";
@@ -40,37 +28,27 @@ export const Detail: FC = () => {
         setMinReplicas(value?.resource_requirement?.min_replicas ?? null),
     }
   );
-  const photonService = useInject(PhotonService);
-  const photon = useStateFromObservable(
-    () =>
-      deploymentService
-        .id(id!)
-        .pipe(mergeMap((d) => photonService.id(d!.photon_id))),
-    undefined
-  );
 
   return deployment ? (
     <Row gutter={[0, 24]}>
       <Col span={24}>
-        <BreadcrumbHeader>
-          <Breadcrumb
-            items={[
-              {
-                title: (
-                  <>
-                    <DeploymentIcon />
-                    <Link to="../../deployments">
-                      <span>Deployments</span>
-                    </Link>
-                  </>
-                ),
-              },
-              {
-                title: deployment.name,
-              },
-            ]}
-          />
-        </BreadcrumbHeader>
+        <BreadcrumbHeader
+          items={[
+            {
+              title: (
+                <>
+                  <DeploymentIcon />
+                  <Link to="../../deployments">
+                    <span>Deployments</span>
+                  </Link>
+                </>
+              ),
+            },
+            {
+              title: deployment.name,
+            },
+          ]}
+        />
       </Col>
 
       <Col span={24}>
@@ -166,17 +144,6 @@ export const Detail: FC = () => {
       </Col>
       <Col span={24}>
         <Request url={deployment.status.endpoint.external_endpoint} />
-      </Col>
-      <Col span={24}>
-        <Card title="Photon Detail">
-          <PhotonCard
-            inPhoton={true}
-            borderless
-            shadowless
-            paddingless
-            photon={photon}
-          />
-        </Card>
       </Col>
     </Row>
   ) : null;

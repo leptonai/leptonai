@@ -22,6 +22,10 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.post(`${this.host}/photons`, body);
   }
 
+  getPhotonDownloadUrl(id: string): string {
+    return `${this.host}/photons/${id}?content=true`;
+  }
+
   listDeployments(): Observable<Deployment[]> {
     return this.httpClientService.get(`${this.host}/deployments`);
   }
