@@ -166,7 +166,7 @@ dist-ssr
 
 
 ############ gitignore for golang ############
-server/server
+lepton-api-server/lepton-api-server
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
