@@ -1,5 +1,6 @@
 import atexit
 from contextlib import closing
+import functools
 import os
 import random
 import socket
@@ -11,7 +12,7 @@ import time
 def find_free_port():
     # ref: https://stackoverflow.com/a/45690594
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.bind(('', 0))
+        s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
@@ -63,3 +64,18 @@ def photon_run_server(name=None, path=None, model=None, port=None):
             f"Photon server failed to start:\nstdout:\n{stdout}\nstderr:\n{stderr}"
         )
     return proc, port
+
+
+def sub_test(params_list):
+    """poor man's parameterized test"""
+
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapped(self):
+            for params in params_list:
+                with self.subTest(params=params):
+                    f(self, *params)
+
+        return wrapped
+
+    return decorator

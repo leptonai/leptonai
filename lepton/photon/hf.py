@@ -287,3 +287,39 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
             return res[0]["summary_text"]
         else:
             return [r["summary_text"] for r in res]
+
+
+class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
+    hf_task: str = "sentence-similarity"
+
+    @handler()
+    def embed(
+        self,
+        inputs: Union[str, List[str]],
+        **kwargs,
+    ) -> Union[List[float], List[List[float]]]:
+        res = self.run(
+            inputs,
+            **kwargs,
+        )
+        if isinstance(res, list):
+            return [r.tolist() for r in res]
+        else:
+            return res.tolist()
+
+    @handler("run")
+    def run_handler(
+        self,
+        source_sentence: str,
+        sentences: Union[str, List[str]],
+        **kwargs,
+    ) -> Union[float, List[float]]:
+        from sentence_transformers import util
+
+        sentences_embs = self.run(sentences, **kwargs)
+        source_sentence_emb = self.run(source_sentence, **kwargs)
+        res = util.cos_sim(source_sentence_emb, sentences_embs)
+
+        if res.dim() != 2 or res.size(0) != 1:
+            logger.error(f"Unexpected result shape: {res.shape}")
+        return res[0].tolist()

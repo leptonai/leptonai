@@ -1,4 +1,3 @@
-
 from loguru import logger
 
 from lepton.registry import Registry
@@ -78,3 +77,18 @@ for task in ["text-generation", "automatic-speech-recognition", "summarization"]
         task,
         create_transformers_pipeline,
     )
+
+
+def create_sentence_transformers_pipeline(task, model, revision):
+    from sentence_transformers import SentenceTransformer
+    import torch
+
+    kwargs = {}
+    if torch.cuda.is_available():
+        kwargs["device"] = 0
+
+    st_model = SentenceTransformer(model, **kwargs)
+    return st_model.encode
+
+
+pipeline_registry.register("sentence-similarity", create_sentence_transformers_pipeline)
