@@ -6,6 +6,7 @@ import { css } from "@emotion/react";
 import { Nav } from "@lepton-dashboard/components/layout/components/nav";
 import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Loading } from "@lepton-dashboard/components/loading";
+import { Header } from "@lepton-dashboard/components/layout/components/header";
 
 const Container = styled.div`
   height: 100%;
@@ -38,6 +39,7 @@ export const Layout: FC = () => {
       `}
     >
       <FullHeight>
+        <Header />
         <Nav />
         <Main
           css={css`

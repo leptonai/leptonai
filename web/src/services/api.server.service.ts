@@ -9,7 +9,7 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 export class ApiServerService implements ApiService {
   private proxy = __PROXY_URL__;
   private cluster = __CLUSTER_URL__;
-  private host = `${this.proxy}${this.cluster}`;
+  private host = `${this.proxy}${this.cluster}/api/v1`;
   listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }

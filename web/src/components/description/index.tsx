@@ -33,7 +33,7 @@ const DescriptionContainer = styled.div`
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
 `;
 
 export const Item: FC<
@@ -66,7 +66,7 @@ export const Container: FC<PropsWithChildren<EmotionProps>> = ({
       css={css`
         width: 100%;
         .ant-space-item {
-          flex: 0 1 auto;
+          flex: 0 0 auto;
           overflow: hidden;
         }
         .ant-space-item-split {

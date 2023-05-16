@@ -37,7 +37,7 @@ export class NotificationService {
       .pipe(
         take(1),
         tap(([latest]) => {
-          this.storageService.set("DEPLOYMENT_TIME", `${latest.created_at}`);
+          this.storageService.set("DEPLOYMENT_TIME", `${latest?.created_at}`);
         })
       )
       .subscribe();
@@ -49,7 +49,7 @@ export class NotificationService {
       .pipe(
         take(1),
         tap(([latest]) => {
-          this.storageService.set("PHOTON_TIME", `${latest.created_at}`);
+          this.storageService.set("PHOTON_TIME", `${latest?.created_at}`);
         })
       )
       .subscribe();

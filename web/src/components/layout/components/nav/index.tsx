@@ -41,7 +41,7 @@ const ThemeContainer = styled.div`
 const StyledBadge = styled(Badge)`
   margin-left: 12px;
   top: -1px;
-  min-width: 30px;
+  min-width: 20px;
 `;
 
 const PhotonLabel: FC = () => {
@@ -148,7 +148,7 @@ export const Nav: FC = () => {
             <ThemeContainer>
               <Switch
                 css={css`
-                  background: ${theme.colorPrimary} !important;
+                  background: ${theme.colorTextTertiary} !important;
                   .ant-switch-inner-checked,
                   .ant-switch-inner-unchecked {
                     color: ${theme.colorBgContainer} !important;

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Popover, Table, Tag } from "antd";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
@@ -9,19 +9,30 @@ import { Link } from "@lepton-dashboard/components/link";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Description } from "@lepton-dashboard/components/description";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
+import { css } from "@emotion/react";
 
 export const PopoverDeploymentTable: FC<{
   photon: Photon;
   deployments: Deployment[];
 }> = ({ photon, deployments }) => {
   const navigate = useNavigate();
+  const color = useMemo(() => {
+    const running = deployments.some((d) => d.status.state === "Running");
+    const hasDeployments = deployments.length > 0;
+    if (running) {
+      return "success";
+    } else if (hasDeployments) {
+      return "processing";
+    } else {
+      return "default";
+    }
+  }, [deployments]);
   return (
     <Tag
-      color={
-        deployments.some((d) => d.status.state === "Running")
-          ? "success"
-          : "default"
-      }
+      color={color}
+      css={css`
+        margin-right: 0;
+      `}
     >
       <Description.Item
         icon={<DeploymentIcon />}

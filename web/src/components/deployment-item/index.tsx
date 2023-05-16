@@ -53,7 +53,13 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   return (
     <Row gutter={[16, 16]}>
       <Col span={24}>
-        <Row>
+        <Row
+          gutter={16}
+          css={css`
+            height: 28px;
+            overflow: hidden;
+          `}
+        >
           <Col flex="1 1 auto">
             <Link
               css={css`
