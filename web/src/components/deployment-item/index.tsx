@@ -51,7 +51,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   );
   const navigate = useNavigate();
   return (
-    <Row gutter={[16, 16]}>
+    <Row gutter={[16, 8]}>
       <Col span={24}>
         <Row
           gutter={16}
@@ -133,7 +133,6 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               <Col span={24}>
                 <Description.Item
                   icon={<PhotonIcon />}
-                  term="Photon"
                   description={
                     photon?.name ? (
                       <Popover
@@ -213,20 +212,17 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Description.Container>
                   <Description.Item
                     icon={<CarbonIcon icon={<MessageQueue />} />}
-                    term="MEM"
                     description={`${deployment.resource_requirement.memory} MB`}
                   />
                   <Description.Item
                     icon={<CarbonIcon icon={<Chip />} />}
-                    term="CPU"
-                    description={deployment.resource_requirement.cpu}
+                    description={`${deployment.resource_requirement.cpu} CORE`}
                   />
                 </Description.Container>
               </Col>
               <Col span={24}>
                 <Description.Item
                   icon={<CarbonIcon icon={<FlowModeler />} />}
-                  term="Accelerator"
                   description={
                     deployment.resource_requirement.accelerator_type ? (
                       <>

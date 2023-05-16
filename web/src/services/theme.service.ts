@@ -40,11 +40,11 @@ export class ThemeService {
         ...this.shareToken,
         colorPrimary: "#fff",
         colorBgLayout: "#010409",
+        colorBgElevated: "#21262d",
         colorBgContainer: "#0d1117",
         colorLink: "#eee",
         colorLinkHover: "#555",
         colorLinkActive: "#333",
-        controlItemBgActive: "#e6f4ff",
       },
       components: {
         Button: {

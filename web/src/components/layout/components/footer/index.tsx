@@ -2,13 +2,16 @@ import { FC } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Button } from "antd";
-import { LeptonFillIcon } from "@lepton-dashboard/components/icons";
+import { Button, Switch } from "antd";
+import { CarbonIcon, LeptonFillIcon } from "@lepton-dashboard/components/icons";
 import {
   GithubOutlined,
   ReadOutlined,
   TwitterOutlined,
 } from "@ant-design/icons";
+import { AsleepFilled, LightFilled } from "@carbon/icons-react";
+import { useInject } from "@lepton-libs/di";
+import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
 const Container = styled.div`
   height: 60px;
   overflow: hidden;
@@ -38,8 +41,17 @@ const MenuContainer = styled.div`
   align-items: center;
   justify-content: end;
 `;
+const ThemeContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-left: 24px;
+  justify-content: center;
+`;
+
 export const Footer: FC = () => {
   const theme = useAntdTheme();
+  const themeService = useInject(ThemeService);
+
   return (
     <Container
       css={css`
@@ -77,6 +89,22 @@ export const Footer: FC = () => {
         >
           Twitter
         </Button>
+        <ThemeContainer>
+          <Switch
+            size="small"
+            css={css`
+              background: ${theme.colorTextTertiary} !important;
+              .ant-switch-inner-checked,
+              .ant-switch-inner-unchecked {
+                color: ${theme.colorBgContainer} !important;
+              }
+            `}
+            checked={themeService.getValidTheme() === "dark"}
+            onChange={() => themeService.toggleTheme()}
+            unCheckedChildren={<CarbonIcon icon={<LightFilled />} />}
+            checkedChildren={<CarbonIcon icon={<AsleepFilled />} />}
+          />
+        </ThemeContainer>
       </MenuContainer>
     </Container>
   );

@@ -145,6 +145,7 @@ export const Detail: FC = () => {
             <Descriptions.Item label="Min Replicas">
               {editMode ? (
                 <InputNumber
+                  autoFocus
                   value={minReplicas}
                   min={0}
                   onChange={(e) => setMinReplicas(e)}

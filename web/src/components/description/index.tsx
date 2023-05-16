@@ -3,6 +3,7 @@ import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { Divider, Space } from "antd";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 
 const ItemContainer = styled.div`
   display: flex;
@@ -43,9 +44,18 @@ export const Item: FC<
     description?: ReactNode;
   } & EmotionProps
 > = ({ icon, term, description, className }) => {
+  const theme = useAntdTheme();
   return (
     <ItemContainer className={className}>
-      {icon && <IconContainer>{icon}</IconContainer>}
+      {icon && (
+        <IconContainer
+          css={css`
+            color: ${theme.colorTextSecondary};
+          `}
+        >
+          {icon}
+        </IconContainer>
+      )}
       {term && <TermContainer>{term}</TermContainer>}
       {term !== undefined && description != undefined && (
         <ColonContainer>:</ColonContainer>
