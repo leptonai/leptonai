@@ -7,10 +7,6 @@ apiServer:
   image:
     repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-api-server
     tag: "latest"
-    command: "/app/lepton-api-server"
-    args:
-      - "--namespace"
-      - "default"
     pullPolicy: Always
   service:
     port: 20863
@@ -21,6 +17,8 @@ apiServer:
       limits:
         memory: "1024Mi"
         cpu: "1"
+  serviceAccountRoleArn: ""
+  bucketName: "leptonai"
 
 web:
   enabled: true
@@ -44,12 +42,6 @@ web:
 crd:
   install: true
   keep: true
-
-awsCreds:
-  install: true
-  keep: true
-  secretName: aws-creds
-  creds: "PLEASE-ENTER-VIA-THE-COMMAND-LINE-ARGS"
 
 env:
   provider: aws

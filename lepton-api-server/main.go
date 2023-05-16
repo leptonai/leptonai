@@ -13,11 +13,12 @@ import (
 
 var photonBucket *blob.Bucket
 var (
-	bucketTypeFlag   *string
-	bucketNameFlag   *string
-	bucketRegionFlag *string
-	photonPrefixFlag *string
-	namespaceFlag    *string
+	bucketTypeFlag         *string
+	bucketNameFlag         *string
+	bucketRegionFlag       *string
+	photonPrefixFlag       *string
+	namespaceFlag          *string
+	serviceAccountNameFlag *string
 )
 
 func main() {
@@ -26,6 +27,7 @@ func main() {
 	bucketRegionFlag = flag.String("bucket-region", "us-east-1", "object store region")
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
+	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
 	flag.Parse()
 
 	// Create and verify the bucket.

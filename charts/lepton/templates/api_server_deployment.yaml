@@ -27,15 +27,13 @@ spec:
             limits:
               memory: {{ .Values.apiServer.service.resources.limits.memory }}
               cpu: {{ .Values.apiServer.service.resources.limits.cpu }}
-          command: [{{ .Values.apiServer.image.command | quote }}]
-          args: {{ toJson .Values.apiServer.image.args }}
+          command: [ "/app/{{ .Values.apiServer.name }}" ]
+          args:
+            - "--namespace"
+            - {{ .Release.Namespace | quote }}
+            - "--service-account-name"
+            - "{{ .Values.apiServer.name }}{{ .Values.nameSuffix }}"
+            - "--bucket-name"
+            - "{{ .Values.apiServer.bucketName }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
-          volumeMounts:
-            - name: aws-creds
-              mountPath: "/root/.aws"
-              readOnly: true
-      volumes:
-        - name: aws-creds
-          secret:
-            secretName: {{ .Values.awsCreds.secretName }}

@@ -3,3 +3,9 @@ kind: ServiceAccount
 metadata:
   name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
   namespace: {{ .Release.Namespace }}
+  annotations:
+  {{ if eq .Values.env.provider "aws" }}
+  {{ if .Values.apiServer.serviceAccountRoleArn }}
+      eks.amazonaws.com/role-arn: {{ .Values.apiServer.serviceAccountRoleArn }}
+  {{ end }}
+  {{ end }}
