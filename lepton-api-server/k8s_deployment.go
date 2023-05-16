@@ -43,7 +43,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	// Define the shared volume
 	photonVolumeName := "photon"
 	photonVolumeMountPath := "/photon"
-	awsCredVolumeName := "aws-credentials"
+	awsCredVolumeName := "aws-creds"
 	awsCredVolumeMountPath := "/root/.aws"
 	sharedVolume := corev1.Volume{
 		Name: photonVolumeName,
@@ -55,7 +55,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		Name: awsCredVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: "aws-credentials",
+				SecretName: "aws-creds",
 			},
 		},
 	}
