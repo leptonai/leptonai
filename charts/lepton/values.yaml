@@ -39,6 +39,9 @@ web:
         memory: "1024Mi"
         cpu: "1"
 
+ingress:
+  enabled: true
+
 crd:
   install: true
   keep: true
