@@ -225,8 +225,27 @@ class RunnerPhoton(Photon):
             instrumentator.expose(app, endpoint="/metrics")
 
     def _register_routes(self, app):
+        try:
+            import gradio as gr
+        except ImportError:
+            has_gradio = False
+        else:
+            has_gradio = True
+
         api_router = APIRouter()
-        for path, (func, response_class) in self.routes.items():
+        for path, (func, response_class, mount) in self.routes.items():
+            if mount:
+                if not has_gradio:
+                    logger.warning(f'Gradio is not installed. Skip mounting "{path}"')
+                    continue
+
+                gr_blocks = func.__get__(self, self.__class__)()
+                if not isinstance(gr_blocks, gr.Blocks):
+                    raise RuntimeError(
+                        f"Currently `mount` only supports Gradio Blocks. Got {type(gr_blocks)}"
+                    )
+                app = gr.mount_gradio_app(app, gr_blocks, f"/{path}")
+                continue
 
             def create_typed_handler(func, response_class):
                 method = func.__get__(self, self.__class__)
@@ -263,7 +282,7 @@ class RunnerPhoton(Photon):
         app.include_router(api_router)
 
     @staticmethod
-    def handler(path=None, response_class=None):
+    def handler(path=None, response_class=None, mount=False):
         def decorator(func):
             path_ = path or func.__name__
             routes = get_routes(func)
@@ -275,7 +294,7 @@ class RunnerPhoton(Photon):
                 self.call_init()
                 return func(self, *args, **kwargs)
 
-            routes[path_] = (func, response_class)
+            routes[path_] = (func, response_class, mount)
             return wrapped_func
 
         return decorator

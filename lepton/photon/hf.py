@@ -288,6 +288,28 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
         else:
             return [r["summary_text"] for r in res]
 
+    def summarize(self, text: str) -> str:
+        return self.run_handler(text)
+
+    @handler(mount=True)
+    def ui(self):
+        import gradio as gr
+
+        blocks = gr.Blocks()
+        with blocks:
+            gr.Markdown(
+                """
+            # Summarize
+            Start typing below to see the output.
+            """
+            )
+            input_box = gr.Textbox(placeholder="text to summarize")
+            output_box = gr.Textbox()
+            btn = gr.Button("Summarize")
+            btn.click(fn=self.summarize, inputs=input_box, outputs=output_box)
+
+        return blocks
+
 
 class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
     hf_task: str = "sentence-similarity"
