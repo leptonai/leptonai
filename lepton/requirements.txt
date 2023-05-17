@@ -6,6 +6,7 @@ prometheus-fastapi-instrumentator
 python-multipart
 python-dotenv
 rich
+typing-extensions
 uvicorn
 loguru
 requests

@@ -24,12 +24,18 @@ from utils import random_name, photon_run_server
 
 
 class CustomRunner(Runner):
+    input_example = {"x": 2.0}
+
     def init(self):
         self.nn = torch.nn.Linear(1, 1)
 
-    @Runner.handler("some_path")
+    @Runner.handler("some_path", example=input_example)
     def run(self, x: float) -> float:
         return self.nn(torch.tensor(x).reshape(1, 1)).item()
+
+    @Runner.handler("some_path_2")
+    def run2(self, x: float) -> float:
+        return x * 2
 
 
 class CustomRunnerWithCustomDeps(Runner):
@@ -175,9 +181,25 @@ class Counter(Runner):
         self.assertEqual(metadata["model"], "CustomRunner")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
+
+        # check for openapi schema
         self.assertTrue("openapi_schema" in metadata)
         self.assertTrue("/some_path" in metadata["openapi_schema"]["paths"])
-        self.assertGreater(len(metadata.get("requirement_dependency")), 0)
+        # check for annotated example
+        self.assertEqual(
+            metadata["openapi_schema"]["paths"]["/some_path"]["post"]["requestBody"][
+                "content"
+            ]["application/json"]["example"],
+            CustomRunner.input_example,
+        )
+        # handler without specifying example should not have 'example' in metadata
+        with self.assertRaises(KeyError) as raises:
+            metadata["openapi_schema"]["paths"]["/some_path_2"]["post"]["requestBody"][
+                "content"
+            ]["application/json"]["example"]
+        self.assertEqual(raises.exception.args[0], "example")
+
+        self.assertGreater(len(metadata["requirement_dependency"]), 0)
 
     def test_custom_requirement_dependency(self):
         name = random_name()

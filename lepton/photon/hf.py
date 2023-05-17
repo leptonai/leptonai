@@ -201,7 +201,16 @@ type_registry.register(is_transformers_model, HuggingfacePhoton.create_from_mode
 class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
     hf_task: str = "text-generation"
 
-    @handler("run")
+    @handler(
+        "run",
+        example={
+            "inputs": "I enjoy walking with my cute dog",
+            "max_length": 50,
+            "do_sample": True,
+            "top_k": 50,
+            "top_p": 0.95,
+        },
+    )
     def run_handler(
         self,
         inputs: Union[str, List[str]],
@@ -240,7 +249,12 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
 class HuggingfaceASRPhoton(HuggingfacePhoton):
     hf_task: str = "automatic-speech-recognition"
 
-    @handler("run")
+    @handler(
+        "run",
+        example={
+            "inputs": "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+        },
+    )
     def run_handler(self, inputs: str) -> str:
         res = self.run(inputs)
         return res["text"]
@@ -249,7 +263,14 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
 class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
     hf_task: str = "text-to-image"
 
-    @handler("run", response_class=StreamingResponse)
+    @handler(
+        "run",
+        response_class=StreamingResponse,
+        example={
+            "prompt": "a photograph of an astronaut riding a horse",
+            "num_inference_steps": 25,
+        },
+    )
     def run_handler(
         self,
         prompt: str,
@@ -271,7 +292,12 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
 class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
     hf_task: str = "summarization"
 
-    @handler("run")
+    @handler(
+        "run",
+        example={
+            "inputs": """The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct."""
+        },
+    )
     def run_handler(
         self,
         inputs: Union[str, List[str]],
@@ -314,7 +340,7 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
 class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
     hf_task: str = "sentence-similarity"
 
-    @handler()
+    @handler(example={"inputs": "The cat sat on the mat"})
     def embed(
         self,
         inputs: Union[str, List[str]],
@@ -329,7 +355,17 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
         else:
             return res.tolist()
 
-    @handler("run")
+    @handler(
+        "run",
+        example={
+            "source_sentence": "That is a happy person",
+            "sentences": [
+                "That is a happy dog",
+                "That is a very happy person",
+                "Today is a sunny day",
+            ],
+        },
+    )
     def run_handler(
         self,
         source_sentence: str,

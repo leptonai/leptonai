@@ -36,4 +36,4 @@ jobs:
         pip install -e .
         pip install -r lepton/examples/requirements.txt
         pip install pytest pytest-cov
-        pytest --cov=lepton
+        pytest -v --cov=lepton

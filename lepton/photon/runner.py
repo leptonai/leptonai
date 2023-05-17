@@ -6,8 +6,9 @@ import importlib
 import inspect
 import os
 from typing import Callable, Any, List, Optional
+from typing_extensions import Annotated
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Body
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
@@ -233,8 +234,8 @@ class RunnerPhoton(Photon):
             has_gradio = True
 
         api_router = APIRouter()
-        for path, (func, response_class, mount) in self.routes.items():
-            if mount:
+        for path, (func, kwargs) in self.routes.items():
+            if kwargs.get("mount"):
                 if not has_gradio:
                     logger.warning(f'Gradio is not installed. Skip mounting "{path}"')
                     continue
@@ -247,9 +248,17 @@ class RunnerPhoton(Photon):
                 app = gr.mount_gradio_app(app, gr_blocks, f"/{path}")
                 continue
 
-            def create_typed_handler(func, response_class):
+            def create_typed_handler(func, kwargs):
                 method = func.__get__(self, self.__class__)
                 request_type, reponse_type = create_model_for_func(method)
+                if "example" in kwargs:
+                    request_type = Annotated[
+                        request_type, Body(example=kwargs["example"])
+                    ]
+                if "examples" in kwargs:
+                    request_type = Annotated[
+                        request_type, Body(examples=kwargs["examples"])
+                    ]
                 vd = pydantic.decorator.ValidatedFunction(method, None)
 
                 async def typed_handler(request: request_type):
@@ -268,21 +277,21 @@ class RunnerPhoton(Photon):
                             res = JSONResponse(res)
                         return res
 
-                if response_class is None:
-                    kwargs = {"response_model": reponse_type}
+                if "response_class" in kwargs:
+                    typed_handler_kwargs = {"response_class": kwargs["response_class"]}
                 else:
-                    kwargs = {"response_class": response_class}
+                    typed_handler_kwargs = {"response_model": reponse_type}
 
-                return typed_handler, kwargs
+                return typed_handler, typed_handler_kwargs
 
-            typed_handler, kwargs = create_typed_handler(func, response_class)
+            typed_handler, typed_handler_kwargs = create_typed_handler(func, kwargs)
             api_router.add_api_route(
-                f"/{path}", typed_handler, methods=["POST"], **kwargs
+                f"/{path}", typed_handler, methods=["POST"], **typed_handler_kwargs
             )
         app.include_router(api_router)
 
     @staticmethod
-    def handler(path=None, response_class=None, mount=False):
+    def handler(path=None, **kwargs):
         def decorator(func):
             path_ = path or func.__name__
             routes = get_routes(func)
@@ -294,7 +303,7 @@ class RunnerPhoton(Photon):
                 self.call_init()
                 return func(self, *args, **kwargs)
 
-            routes[path_] = (func, response_class, mount)
+            routes[path_] = (func, kwargs)
             return wrapped_func
 
         return decorator
