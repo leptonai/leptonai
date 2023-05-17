@@ -16,6 +16,7 @@ import requests
 import torch
 
 import lepton
+from lepton import Client
 from lepton.photon import RunnerPhoton as Runner
 
 
@@ -86,6 +87,34 @@ class TestRunner(unittest.TestCase):
         )
         proc.kill()
         self.assertEqual(res.status_code, 200)
+
+    def test_client(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        name = random_name()
+        runner = CustomRunner(name=name)
+        x = 2.0
+        y1 = runner.run(x)
+        path = runner.save()
+
+        proc, port = photon_run_server(path=path)
+        url = f"http://localhost:{port}"
+
+        client = Client(url)
+        y2 = client.some_path(x=x)
+        self.assertEqual(y1, y2)
+        try:
+            client.some_path_does_not_exist(x=x)
+        except AttributeError as e:
+            pass
+        else:
+            self.fail("AttributeError not raised")
+        proc.kill()
 
     def test_runner_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
