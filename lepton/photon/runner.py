@@ -177,8 +177,8 @@ class RunnerPhoton(Photon):
         return res
 
     @property
-    def extra_files(self):
-        res = super().extra_files
+    def _extra_files(self):
+        res = super()._extra_files
         res.update(
             {
                 self.obj_pkl_filename: cloudpickle.dumps(self),
@@ -189,7 +189,8 @@ class RunnerPhoton(Photon):
     @classmethod
     def load(cls, photon_file, metadata):
         obj_pkl_filename = metadata["py_obj"]["obj_pkl_file"]
-        py_obj = cloudpickle.loads(photon_file.open(obj_pkl_filename).read())
+        with photon_file.open(obj_pkl_filename) as obj_pkl_file:
+            py_obj = cloudpickle.loads(obj_pkl_file.read())
         return py_obj
 
     def init(self):

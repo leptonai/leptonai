@@ -128,8 +128,8 @@ class HuggingfacePhoton(RunnerPhoton):
         return res
 
     @property
-    def extra_files(self):
-        res = super().extra_files
+    def _extra_files(self):
+        res = super()._extra_files
         res.pop(self.obj_pkl_filename)
         return res
 

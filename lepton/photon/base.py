@@ -13,6 +13,7 @@ type_str_registry = Registry()
 
 class Photon:
     photon_type = "base"
+    extra_files = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -42,13 +43,26 @@ class Photon:
                     f"Can not find a valid path for creating photon {self.name}"
                 )
         with zipfile.ZipFile(path, "w") as f:
+            metadata = self.metadata
+            metadata["extra_files"] = list(self._extra_files.keys())
             f.writestr(
                 "metadata.json",
-                json.dumps(self.metadata),
+                json.dumps(metadata),
             )
-            for name, content in self.extra_files.items():
-                file_path = os.path.join(name)
-                f.writestr(file_path, content)
+            for name, path_or_content in self._extra_files.items():
+                if isinstance(path_or_content, bytes):
+                    f.writestr(name, path_or_content)
+                    continue
+                elif isinstance(path_or_content, str):
+                    if os.path.exists(path_or_content):
+                        with open(path_or_content, "rb") as extra_file:
+                            f.writestr(name, extra_file.read())
+                    else:
+                        f.writestr(name, path_or_content)
+                else:
+                    raise ValueError(
+                        f"extra_files value should be str or bytes, got {path_or_content}"
+                    )
 
         # use path as local id for now
         add_photon(str(path), self.name, self.model, str(path))
@@ -59,6 +73,12 @@ class Photon:
         with zipfile.ZipFile(path, "r") as photon_file:
             with photon_file.open("metadata.json") as config:
                 metadata = json.load(config)
+            for path in metadata["extra_files"]:
+                dirname = os.path.dirname(path)
+                if dirname:
+                    os.makedirs(dirname, exist_ok=True)
+                with open(path, "wb") as out, photon_file.open(path) as extra_file:
+                    out.write(extra_file.read())
             photon_type = metadata["type"]
             photon = type_str_registry.get(photon_type)(photon_file, metadata)
             return photon
@@ -68,8 +88,13 @@ class Photon:
         return {"name": self.name, "model": self.model, "type": self.photon_type}
 
     @property
-    def extra_files(self):
-        return {}
+    def _extra_files(self):
+        res = {}
+        extra_files = self.extra_files
+        if not isinstance(extra_files, dict):
+            raise ValueError(f"extra_files should be a dict, got {extra_files}")
+        res.update(self.extra_files)
+        return res
 
     def __str__(self):
         return f"Photon(name={self.name}, model={self.model})"

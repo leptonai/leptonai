@@ -18,6 +18,7 @@ import torch
 import lepton
 from lepton import Client
 from lepton.photon import RunnerPhoton as Runner
+from lepton.photon.runner import HTTPException
 
 
 from utils import random_name, photon_run_server
@@ -47,6 +48,34 @@ class CustomRunnerWithCustomDeps(Runner):
     @Runner.handler("some_path")
     def run(self, x: float) -> float:
         return self.nn(torch.tensor(x).reshape(1, 1)).item()
+
+
+test_txt = tempfile.NamedTemporaryFile(suffix=".txt")
+with open(test_txt.name, "w") as f:
+    for i in range(10):
+        f.write(f"line {i}\n")
+    f.flush()
+
+
+class CustomRunnerWithCustomExtraFiles(Runner):
+    extra_files = {
+        "test.txt": test_txt.name,
+        "a/b/c/test.txt": test_txt.name,
+    }
+
+    def init(self):
+        with open("test.txt") as f:
+            self.lines = f.readlines()
+        with open("a/b/c/test.txt") as f:
+            self.lines.extend(f.readlines())
+
+    @Runner.handler("line")
+    def run(self, n: int) -> str:
+        if n >= len(self.lines):
+            raise HTTPException(
+                status_code=400, detail=f"n={n} exceeds total #lines ({self.lines})"
+            )
+        return self.lines[n]
 
 
 class TestRunner(unittest.TestCase):
@@ -324,6 +353,27 @@ class Counter(Runner):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json(), count - 1)
 
+        proc.kill()
+
+    def test_extra_files(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        name = random_name()
+        runner = CustomRunnerWithCustomExtraFiles(name=name)
+        path = runner.save()
+
+        proc, port = photon_run_server(path=path)
+        res = requests.post(
+            f"http://127.0.0.1:{port}/line",
+            json={"n": 1},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), "line 1\n")
         proc.kill()
 
 
