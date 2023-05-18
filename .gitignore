@@ -114,6 +114,12 @@ venv.bak/
 *.sqlite
 *.hnsw
 
+# python pickle
+*.pkl
+
+# lepton test data files
+test.txt
+
 # Spyder project settings
 .spyderproject
 .spyproject
