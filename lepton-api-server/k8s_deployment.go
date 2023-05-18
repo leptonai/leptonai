@@ -15,6 +15,11 @@ var (
 	deploymentNamespace = "default"
 )
 
+const (
+	nvidiaGPUResourceName    = "nvidia.com/gpu"
+	nvidiaGPUProductLabelKey = "nvidia.com/gpu.product"
+)
+
 func patchDeployment(ld *LeptonDeployment) error {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
@@ -73,23 +78,29 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	// TODO: we may want to change memory to BinarySI
 	memory := resource.NewScaledQuantity(ld.ResourceRequirement.Memory, 6)
 	// Define the main container
+	resources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *cpu,
+			corev1.ResourceMemory: *memory,
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    *cpu,
+			corev1.ResourceMemory: *memory,
+		},
+	}
+	nodeSelector := map[string]string{}
+	if ld.ResourceRequirement.AcceleratorType != "" && ld.ResourceRequirement.AcceleratorNum > 0 {
+		// if gpu is enabled, set gpu resource limit and node selector
+		resources.Limits[nvidiaGPUResourceName] = *resource.NewQuantity(int64(ld.ResourceRequirement.AcceleratorNum), resource.DecimalSI)
+		nodeSelector[nvidiaGPUProductLabelKey] = ld.ResourceRequirement.AcceleratorType
+	}
 	container := corev1.Container{
 		Name:            "main-container",
 		Image:           ph.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"lepton", "photon", "run"},
 		Args:            []string{"-f", dest},
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    *cpu,
-				corev1.ResourceMemory: *memory,
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    *cpu,
-				corev1.ResourceMemory: *memory,
-				// TODO add GPU
-			},
-		},
+		Resources:       resources,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "http",
@@ -116,6 +127,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 			Containers:         []corev1.Container{container},
 			Volumes:            []corev1.Volume{sharedVolume},
 			ServiceAccountName: *serviceAccountNameFlag,
+			NodeSelector:       nodeSelector,
 		},
 	}
 
