@@ -4,7 +4,7 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { Col, Row } from "antd";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
+import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";

@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => {
             return path.replace(__PROXY_URL__, "").replace(__CLUSTER_URL__, "");
           },
         },
+        "/run": {
+          target: `http://k8s-default-bartlarg-acb7ab62e5-634720595.us-east-1.elb.amazonaws.com`,
+          changeOrigin: true,
+        },
       },
     },
     plugins: [

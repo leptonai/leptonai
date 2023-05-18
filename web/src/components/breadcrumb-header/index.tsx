@@ -8,7 +8,7 @@ export const BreadcrumbHeader: FC<NewBreadcrumbProps> = ({ items }) => {
   return (
     <Card
       css={css`
-        padding: 8px 16px;
+        padding: 6px 16px;
       `}
     >
       <Breadcrumb items={items} />

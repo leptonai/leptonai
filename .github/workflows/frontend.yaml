@@ -17,7 +17,7 @@ jobs:
           node-version: '18.x'
       - name: Install npm dependencies
         working-directory: web
-        run: npm ci
+        run: npm ci --force
       - name: Run build task
         working-directory: web
         run: npm run build --if-present

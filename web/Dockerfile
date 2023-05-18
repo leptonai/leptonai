@@ -8,7 +8,7 @@ COPY . /node/src/github.com/leptonai/lepton/web
 WORKDIR /node/src/github.com/leptonai/lepton/web
 
 # Build the Web app
-RUN npm ci && npm run build
+RUN npm ci --force && npm run build
 
 ######## Start a new stage from scratch #######
 FROM nginx:latest

@@ -5,7 +5,7 @@ import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { Col, Row, Timeline, Typography } from "antd";
 import { Link } from "@lepton-dashboard/components/link";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
+import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";

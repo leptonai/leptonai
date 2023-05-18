@@ -127,7 +127,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
         </Row>
       </Col>
       <Col span={24}>
-        <Row>
+        <Row gutter={[0, 4]}>
           <Col flex="0 0 400px">
             <Row gutter={[0, 4]}>
               <Col span={24}>

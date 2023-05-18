@@ -11,20 +11,23 @@ import {
   Popover,
   Row,
   Space,
+  Tabs,
   Typography,
 } from "antd";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
+import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { EditOutlined } from "@ant-design/icons";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { Request } from "@lepton-dashboard/routers/deployments/components/request";
-import { DeploymentIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentStatus } from "../../../../components/deployment-status";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { mergeMap, of } from "rxjs";
 import { PhotonItem } from "@lepton-dashboard/components/photon-item";
+import { Requests } from "../../components/requests";
+import { css } from "@emotion/react";
+import { BlockStorageAlt, Book, ChartCombo, Play } from "@carbon/icons-react";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -78,7 +81,8 @@ export const Detail: FC = () => {
 
       <Col span={24}>
         <Card
-          title="Deployment Detail"
+          title="Deployment"
+          titleIcon={<DeploymentIcon />}
           extra={
             !editMode && (
               <Button
@@ -190,7 +194,67 @@ export const Detail: FC = () => {
         </Card>
       </Col>
       <Col span={24}>
-        <Request url={deployment.status.endpoint.external_endpoint} />
+        <Card
+          paddingless
+          css={css`
+            .ant-tabs-nav {
+              margin-bottom: 0;
+            }
+            .ant-tabs-nav-wrap {
+              margin: 0 16px;
+            }
+          `}
+        >
+          <Tabs
+            tabBarGutter={32}
+            items={[
+              {
+                key: "demo",
+                label: (
+                  <>
+                    <CarbonIcon icon={<Play />} />
+                    Demo
+                  </>
+                ),
+                children: (
+                  <Card shadowless borderless>
+                    <Requests deployment={deployment} />
+                  </Card>
+                ),
+              },
+              {
+                key: "api",
+                label: (
+                  <>
+                    <CarbonIcon icon={<Book />} />
+                    API
+                  </>
+                ),
+                children: <Card shadowless borderless />,
+              },
+              {
+                key: "metrics",
+                label: (
+                  <>
+                    <CarbonIcon icon={<ChartCombo />} />
+                    Metrics
+                  </>
+                ),
+                children: <Card shadowless borderless />,
+              },
+              {
+                key: "instances",
+                label: (
+                  <>
+                    <CarbonIcon icon={<BlockStorageAlt />} />
+                    Instances
+                  </>
+                ),
+                children: <Card shadowless borderless />,
+              },
+            ]}
+          />
+        </Card>
       </Col>
     </Row>
   ) : null;

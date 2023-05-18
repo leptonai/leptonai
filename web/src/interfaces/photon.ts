@@ -1,3 +1,5 @@
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
+
 export interface Photon {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ export interface Photon {
   requirement_dependency?: string[];
   container_args?: string[];
   entrypoint?: string;
+  openapi_schema?: SafeAny;
 }
 
 export interface PhotonVersion {

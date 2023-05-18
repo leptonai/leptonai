@@ -50,7 +50,8 @@ export class ApiServerService implements ApiService {
   }
 
   requestDeployment(url: string, value: string): Observable<unknown> {
-    return this.httpClientService.post(`${this.proxy}${url}/run`, value, {
+    console.log("TODO: replace", url);
+    return this.httpClientService.post(`/run`, value, {
       headers: {
         "Content-Type": "application/json",
       },

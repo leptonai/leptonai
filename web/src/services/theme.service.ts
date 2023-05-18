@@ -17,6 +17,7 @@ export class ThemeService {
         colorPrimary: "#1F2328",
         colorLink: "#1F2328",
         colorBgLayout: "#f6f8fa",
+        colorFillAlter: "#f6f8fa",
         colorBorder: "#d0d7de",
         colorLinkHover: "#555",
         colorLinkActive: "#333",

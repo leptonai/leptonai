@@ -7,6 +7,7 @@ export const Card: FC<
   PropsWithChildren<
     {
       title?: ReactNode;
+      titleIcon?: ReactNode;
       extra?: ReactNode;
       borderless?: boolean;
       shadowless?: boolean;
@@ -16,6 +17,7 @@ export const Card: FC<
 > = ({
   children,
   title,
+  titleIcon,
   extra,
   borderless = false,
   shadowless = false,
@@ -47,12 +49,27 @@ export const Card: FC<
             border-bottom: 1px solid ${theme.colorBorder};
             background-color: ${theme.colorBgContainer};
             color: ${theme.colorTextHeading};
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 500;
             padding: 0 16px;
           `}
         >
-          <div>{title}</div>
+          <div
+            css={css`
+              display: flex;
+            `}
+          >
+            {titleIcon && (
+              <div
+                css={css`
+                  margin-right: 12px;
+                `}
+              >
+                {titleIcon}
+              </div>
+            )}
+            {title}
+          </div>
           <div>{extra}</div>
         </div>
       )}

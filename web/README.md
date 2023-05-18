@@ -21,8 +21,8 @@ npm install
 Add `.env.development.local` file
 
 ```
-PROXY_URL = https://rewrites-five.vercel.app/httpproxy/
-CLUSTER_URL = k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com
+PROXY_URL = ${proxy_url} # only useful for vercel
+CLUSTER_URL = ${k8s_cluster_url} # without http
 ```
 
 In the project directory, you can run:

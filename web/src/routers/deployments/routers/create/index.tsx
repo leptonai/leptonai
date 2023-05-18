@@ -12,7 +12,7 @@ import {
 } from "antd";
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
-import { BreadcrumbHeader } from "@lepton-dashboard/routers/photons/components/breadcrumb-header";
+import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
