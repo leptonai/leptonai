@@ -18,6 +18,10 @@ export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
   );
   const [result, setResult] = useState<SafeAny>("output should appear here");
   const schema = photon?.openapi_schema?.components?.schemas?.Run_handlerInput;
+  const exampleData =
+    photon?.openapi_schema?.paths?.["/run"]?.post?.requestBody?.content?.[
+      "application/json"
+    ]?.example;
   const displayResult = useMemo(() => {
     if (typeof result === "string") {
       return result;
@@ -30,7 +34,11 @@ export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
   return schema ? (
     <Row gutter={[32, 16]}>
       <Col flex="1 0 400px">
-        <SchemaForm resultChange={setResult} schema={schema} />
+        <SchemaForm
+          initData={exampleData}
+          resultChange={setResult}
+          schema={schema}
+        />
       </Col>
       <Col flex="1 1 400px">
         <div

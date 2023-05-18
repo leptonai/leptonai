@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
           },
         },
         "/run": {
-          target: `http://k8s-default-bartlarg-acb7ab62e5-634720595.us-east-1.elb.amazonaws.com`,
+          target: `http://k8s-default-gpt2ingr-194cbacd01-1823409343.us-east-1.elb.amazonaws.com`,
           changeOrigin: true,
         },
       },

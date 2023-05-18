@@ -28,6 +28,7 @@ import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 import { Requests } from "../../components/requests";
 import { css } from "@emotion/react";
 import { BlockStorageAlt, Book, ChartCombo, Play } from "@carbon/icons-react";
+import { Apis } from "@lepton-dashboard/routers/deployments/components/apis";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -230,7 +231,11 @@ export const Detail: FC = () => {
                     API
                   </>
                 ),
-                children: <Card shadowless borderless />,
+                children: (
+                  <Card shadowless borderless>
+                    <Apis deployment={deployment} />
+                  </Card>
+                ),
               },
               {
                 key: "metrics",
