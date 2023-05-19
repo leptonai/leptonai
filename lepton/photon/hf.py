@@ -246,6 +246,55 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
             return [r["generated_text"] for r in res]
 
 
+class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
+    # essentially Text-generation task, but uses Encoder-Decoder architecture
+    hf_task: str = "text2text-generation"
+
+    @handler(
+        "run",
+        example={
+            "inputs": "I enjoy walking with my cute dog",
+            "max_length": 50,
+            "do_sample": True,
+            "top_k": 50,
+            "top_p": 0.95,
+        },
+    )
+    def run_handler(
+        self,
+        inputs: Union[str, List[str]],
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+        max_time: Optional[float] = None,
+        return_full_text: bool = True,
+        num_return_sequences: int = 1,
+        do_sample: bool = True,
+        **kwargs,
+    ) -> Union[str, List[str]]:
+        res = self.run(
+            inputs,
+            top_k=top_k,
+            top_p=top_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            max_new_tokens=max_new_tokens,
+            max_time=max_time,
+            return_full_text=return_full_text,
+            num_return_sequences=num_return_sequences,
+            do_sample=do_sample,
+            **kwargs,
+        )
+        if isinstance(res, dict):
+            return res["generated_text"]
+        elif len(res) == 1:
+            return res[0]["generated_text"]
+        else:
+            return [r["generated_text"] for r in res]
+
+
 class HuggingfaceASRPhoton(HuggingfacePhoton):
     hf_task: str = "automatic-speech-recognition"
 

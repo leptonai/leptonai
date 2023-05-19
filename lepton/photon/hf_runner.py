@@ -72,7 +72,12 @@ def create_transformers_pipeline(task, model, revision):
     return pipeline
 
 
-for task in ["text-generation", "automatic-speech-recognition", "summarization"]:
+for task in [
+    "text-generation",
+    "text2text-generation",
+    "automatic-speech-recognition",
+    "summarization",
+]:
     pipeline_registry.register(
         task,
         create_transformers_pipeline,

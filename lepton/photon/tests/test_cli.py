@@ -27,6 +27,7 @@ whisper_model = "hf:openai/whisper-tiny.en"
 wav2vec2_model = "hf:jonatasgrosman/wav2vec2-large-xlsr-53-english"
 wikihow_t5_model = "hf:facebook/bart-large-cnn"
 sentence_similarity_model = "hf:sentence-transformers/all-mpnet-base-v2"
+flan_t5_model = "hf:google/flan-t5-small"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -105,6 +106,7 @@ class TestPhotonCli(unittest.TestCase):
         assert result.exit_code == 0
         assert "abcdef" not in result.output.lower()
 
+    @unittest.skipIf(os.environ.get("GITHUB_ACTIONS"), "Skip on Github CI, too slow")
     @sub_test(
         [
             (diffusers_model,),
@@ -114,6 +116,7 @@ class TestPhotonCli(unittest.TestCase):
             # (whisper_model,),
             (wikihow_t5_model,),
             (sentence_similarity_model,),
+            (flan_t5_model,),
         ]
     )
     def test_photon_run(self, model):
