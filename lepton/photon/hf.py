@@ -1,3 +1,4 @@
+import os
 from typing import List, Union, Optional
 
 from backports.cached_property import cached_property
@@ -245,6 +246,44 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
         else:
             return [r["generated_text"] for r in res]
 
+    def answer(self, question, history):
+        history.append({"role": "user", "content": question})
+
+        # TODO: should limit the number of history messages to include into the
+        # prompt so that it doesn't exceed the max context length of the model
+        history_prompt = os.linesep.join(
+            [f"{h['role']}: {h['content']}" for h in history]
+        )
+        prompt = f"""\
+The following is a friendly conversation between a user and an assistant. The assistant is talkative and provides lots of specific details from its context. If the assistant does not know the answer to a question, it truthfully says it does not know.
+Current conversation:
+{history_prompt}
+
+assistant:
+"""
+        response = self.run(prompt, return_full_text=False)[0]["generated_text"]
+        history.append({"role": "assistant", "content": response})
+        messages = [
+            (history[i]["content"], history[i + 1]["content"])
+            for i in range(0, len(history) - 1, 2)
+        ]
+        return messages, history
+
+    @handler(mount=True)
+    def ui(self):
+        import gradio as gr
+
+        blocks = gr.Blocks()
+        with blocks:
+            chatbot = gr.Chatbot(label=f"Chatbot ({self.hf_model})")
+            state = gr.State([])
+            with gr.Row():
+                txt = gr.Textbox(
+                    show_label=False, placeholder="Enter text and press enter"
+                ).style(container=False)
+            txt.submit(self.answer, [txt, state], [chatbot, state])
+        return blocks
+
 
 class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
     # essentially Text-generation task, but uses Encoder-Decoder architecture
@@ -269,7 +308,6 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
         repetition_penalty: Optional[float] = None,
         max_new_tokens: Optional[int] = None,
         max_time: Optional[float] = None,
-        return_full_text: bool = True,
         num_return_sequences: int = 1,
         do_sample: bool = True,
         **kwargs,
@@ -282,7 +320,6 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
             repetition_penalty=repetition_penalty,
             max_new_tokens=max_new_tokens,
             max_time=max_time,
-            return_full_text=return_full_text,
             num_return_sequences=num_return_sequences,
             do_sample=do_sample,
             **kwargs,
@@ -293,6 +330,44 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
             return res[0]["generated_text"]
         else:
             return [r["generated_text"] for r in res]
+
+    def answer(self, question, history):
+        history.append({"role": "user", "content": question})
+
+        # TODO: should limit the number of history messages to include into the
+        # prompt so that it doesn't exceed the max context length of the model
+        history_prompt = os.linesep.join(
+            [f"{h['role']}: {h['content']}" for h in history]
+        )
+        prompt = f"""\
+The following is a friendly conversation between a user and an assistant. The assistant is talkative and provides lots of specific details from its context. If the assistant does not know the answer to a question, it truthfully says it does not know.
+Current conversation:
+{history_prompt}
+
+assistant:
+"""
+        response = self.run(prompt)[0]["generated_text"]
+        history.append({"role": "assistant", "content": response})
+        messages = [
+            (history[i]["content"], history[i + 1]["content"])
+            for i in range(0, len(history) - 1, 2)
+        ]
+        return messages, history
+
+    @handler(mount=True)
+    def ui(self):
+        import gradio as gr
+
+        blocks = gr.Blocks()
+        with blocks:
+            chatbot = gr.Chatbot(label=f"Chatbot ({self.hf_model})")
+            state = gr.State([])
+            with gr.Row():
+                txt = gr.Textbox(
+                    show_label=False, placeholder="Enter text and press enter"
+                ).style(container=False)
+            txt.submit(self.answer, [txt, state], [chatbot, state])
+        return blocks
 
 
 class HuggingfaceASRPhoton(HuggingfacePhoton):
