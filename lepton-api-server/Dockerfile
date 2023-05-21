@@ -8,7 +8,7 @@ COPY . /go/src/github.com/leptonai/lepton/
 WORKDIR /go/src/github.com/leptonai/lepton/lepton-api-server/
 
 # Build the Go app
-RUN GOARCH=amd64 GOOS=linux go build -a -ldflags \
+RUN CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
     '-extldflags "-static"' -o lepton-api-server .
 
 ######## Start a new stage from scratch #######
