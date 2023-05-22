@@ -1,0 +1,81 @@
+name: CI - e2e tests
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build Lepton API server Docker image
+      env:
+        ECR_REPOSITORY: lepton-api-server
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker build . --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Build Lepton web Docker image
+      env:
+        ECR_REPOSITORY: lepton-web
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker build web --file web/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Switch to the proper k8s context
+      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV_CI }} --region ${{ vars.AWS_REGION }}
+    - name: Setup helm
+      uses: azure/setup-helm@v3
+      with:
+         version: 'v3.11.3'
+      id: install
+    - name: Helm install lepton
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run:
+        helm install lepton charts/lepton --namespace ci-$IMAGE_TAG --create-namespace --set crd.install=false --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} --set apiServer.serviceAccountRoleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/s3-role-${{ vars.K8S_DEV_CI }} --set apiServer.image.tag=$IMAGE_TAG --set web.image.tag=$IMAGE_TAG
+    - name: Install Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.26.4'
+    - name: Run tests
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-api-server
+        kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-web
+        pip install -e .
+        e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG
+    - name: Helm uninstall lepton
+      if: always()
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: helm uninstall lepton --namespace ci-$IMAGE_TAG
+    - name: Delete the k8s namespace
+      if: always()
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: kubectl delete namespace ci-$IMAGE_TAG

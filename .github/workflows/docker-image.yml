@@ -14,8 +14,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Build Lepton API server Docker image
-      run: docker build . --file lepton-api-server/Dockerfile --tag lepton-api-server:$(git rev-parse --short HEAD)
     - name: Build photon Docker image
       run: |
         if [[ ${{github.ref}} == 'refs/heads/main' ]]; then
