@@ -17,6 +17,8 @@ spec:
     listKind: LeptonDeploymentList
     plural: leptondeployments
     singular: leptondeployment
+    shortNames:
+      - ld
   scope: Namespaced
   versions:
   - name: v1alpha1
