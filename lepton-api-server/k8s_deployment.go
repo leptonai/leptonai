@@ -98,8 +98,8 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		Name:            "main-container",
 		Image:           ph.Image,
 		ImagePullPolicy: corev1.PullAlways,
-		Command:         []string{"lepton", "photon", "run"},
-		Args:            []string{"-f", dest},
+		Command:         []string{"sh"},
+		Args:            []string{"-c", "lepton photon run -f " + dest},
 		Resources:       resources,
 		Ports: []corev1.ContainerPort{
 			{
