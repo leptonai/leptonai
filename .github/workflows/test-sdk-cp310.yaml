@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
+    paths:
+      - .github/**
+      - lepton/**
     branches: [ "main" ]
 
 permissions:

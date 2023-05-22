@@ -7,6 +7,12 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
+    paths:
+      - .github/**
+      - lepton-api-server/**
+      - lepton-deployment-operator/**
+      - go.mod
+      - go.sum
     branches: [ "main" ]
 
 jobs:
