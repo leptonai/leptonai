@@ -10,7 +10,9 @@ import (
 
 var serviceNamespace = "default"
 
-func sergiceName(ld *LeptonDeployment) string {
+const servicePort = 8080
+
+func serviceName(ld *LeptonDeployment) string {
 	return ld.Name + "-service"
 }
 
@@ -19,7 +21,7 @@ func createService(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference) e
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            sergiceName(ld),
+			Name:            serviceName(ld),
 			OwnerReferences: []metav1.OwnerReference{or},
 		},
 		Spec: corev1.ServiceSpec{
@@ -28,7 +30,7 @@ func createService(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference) e
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Port:     8080,
+					Port:     servicePort,
 					Protocol: corev1.ProtocolTCP,
 				},
 			},

@@ -157,6 +157,10 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 
 	fmt.Printf("Created deployment %q.\n", createdDeployment.GetObjectMeta().GetName())
 
+	if err := updateIngress(listAllLeptonDeployments()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -172,14 +176,14 @@ const (
 	DeploymentStateUnknown  DeploymentState = "Unknown"
 )
 
-func deploymentState(names ...string) []DeploymentState {
+func deploymentState(lds ...*LeptonDeployment) []DeploymentState {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
-	states := make([]DeploymentState, 0, len(names))
-	for _, name := range names {
+	states := make([]DeploymentState, 0, len(lds))
+	for _, ld := range lds {
 		// Get the deployment
-		deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+		deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
 		if err != nil {
 			states = append(states, DeploymentStateUnknown)
 			continue

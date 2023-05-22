@@ -51,27 +51,33 @@ func initDeployments() {
 		panic(err)
 	}
 	deploymentMapRWLock.Lock()
-	defer deploymentMapRWLock.Unlock()
 	for _, m := range metadataList {
 		deploymentById[m.ID] = m
 		deploymentByName[m.Name] = m
+	}
+	deploymentMapRWLock.Unlock()
+
+	if err := updateIngress(listAllLeptonDeployments()); err != nil {
+		panic(err)
 	}
 
 	go periodCheckDeploymentState()
 }
 
+func listAllLeptonDeployments() []*LeptonDeployment {
+	deploymentMapRWLock.RLock()
+	defer deploymentMapRWLock.RUnlock()
+	lds := make([]*LeptonDeployment, 0, len(deploymentByName))
+	for _, ld := range deploymentByName {
+		lds = append(lds, ld)
+	}
+	return lds
+}
+
 func periodCheckDeploymentState() {
 	for {
-		names := make([]string, 0, len(deploymentByName))
-		lds := make([]*LeptonDeployment, 0, len(deploymentByName))
-		deploymentMapRWLock.RLock()
-		for name, deployment := range deploymentByName {
-			names = append(names, name)
-			lds = append(lds, deployment)
-		}
-		deploymentMapRWLock.RUnlock()
-
-		states := deploymentState(names...)
+		lds := listAllLeptonDeployments()
+		states := deploymentState(lds...)
 
 		for i, ld := range lds {
 			if ld.Status.Endpoint.ExternalEndpoint == "" {
