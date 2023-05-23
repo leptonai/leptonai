@@ -44,6 +44,11 @@ func deploymentPostHandler(c *gin.Context) {
 
 	ownerref := getOwnerRefFromUnstructured(ldcr)
 
+	deploymentMapRWLock.Lock()
+	deploymentById[uuid] = &ld
+	deploymentByName[ld.Name] = &ld
+	deploymentMapRWLock.Unlock()
+
 	err = createDeployment(&ld, photon, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
@@ -67,13 +72,6 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to update the external endpoint to deployment crd: " + err.Error()})
 		return
 	}
-
-	// todo: reconcile on the ingress state and update the public endpoint status of the lepton deployment
-
-	deploymentMapRWLock.Lock()
-	deploymentById[uuid] = &ld
-	deploymentByName[ld.Name] = &ld
-	deploymentMapRWLock.Unlock()
 
 	c.JSON(http.StatusOK, ld)
 }
