@@ -18,6 +18,8 @@ var (
 const (
 	nvidiaGPUResourceName    = "nvidia.com/gpu"
 	nvidiaGPUProductLabelKey = "nvidia.com/gpu.product"
+
+	mainContainerName = "main-container"
 )
 
 func patchDeployment(ld *LeptonDeployment) error {
@@ -95,7 +97,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		nodeSelector[nvidiaGPUProductLabelKey] = ld.ResourceRequirement.AcceleratorType
 	}
 	container := corev1.Container{
-		Name:            "main-container",
+		Name:            mainContainerName,
 		Image:           ph.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"sh"},

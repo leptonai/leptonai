@@ -7,10 +7,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func mustInitK8sClientSet() *kubernetes.Clientset {
+func mustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
 	// Load Kubernetes configuration from default location or specified kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	if err != nil {
@@ -23,7 +24,12 @@ func mustInitK8sClientSet() *kubernetes.Clientset {
 		panic(err)
 	}
 
-	return clientset
+	return clientset, config
+}
+
+func mustInitK8sClientSet() *kubernetes.Clientset {
+	c, _ := mustInitK8sClientSetWithConfig()
+	return c
 }
 
 func mustInitK8sDynamicClient() *dynamic.DynamicClient {

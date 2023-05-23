@@ -83,6 +83,10 @@ func main() {
 	v1.PATCH("/deployments/:uuid", deploymentPatchHandler)
 	v1.DELETE("/deployments/:uuid", deploymentDeleteHandler)
 
+	v1.GET("/deployments/:uuid/instances", instanceListHandler)
+	v1.GET("/deployments/:uuid/instances/:id/shell", instanceShellHandler)
+	v1.GET("/deployments/:uuid/instances/:id/log", instanceLogHandler)
+
 	router.Run(":20863")
 }
 

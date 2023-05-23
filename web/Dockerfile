@@ -11,7 +11,7 @@ WORKDIR /node/src/github.com/leptonai/lepton/web
 RUN npm ci --force && npm run build
 
 ######## Start a new stage from scratch #######
-FROM nginx:latest
+FROM amd64/nginx:latest
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/dist /usr/share/nginx/html/

@@ -4,8 +4,8 @@ metadata:
   name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}-role
   namespace: {{ .Release.Namespace }}
 rules:
-- apiGroups: ["extensions", "apps"]
-  resources: ["deployments"]
+- apiGroups: ["", "extensions", "apps"]
+  resources: ["deployments", "pods", "pods/log", "pods/exec"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["", "networking.k8s.io"]
   resources: ["services", "ingresses"]
