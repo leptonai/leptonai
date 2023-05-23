@@ -121,7 +121,8 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"photon": joinNameByDash(ph.Name, ph.ID),
+				"photon":     joinNameByDash(ph.Name, ph.ID),
+				"deployment": joinNameByDash(ld.Name, ld.ID),
 			},
 		},
 		Spec: corev1.PodSpec{
