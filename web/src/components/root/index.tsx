@@ -10,6 +10,7 @@ import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-o
 import { App } from "antd";
 import axios from "axios";
 import { Loading } from "@lepton-dashboard/components/loading";
+import { useMonaco } from "@monaco-editor/react";
 
 const Container = styled.div`
   height: 100%;
@@ -17,6 +18,20 @@ const Container = styled.div`
 export const Root: FC<PropsWithChildren> = ({ children }) => {
   const theme = useAntdTheme();
   const { notification } = App.useApp();
+  const monaco = useMonaco();
+
+  useEffect(() => {
+    if (monaco) {
+      monaco.editor.defineTheme("lepton", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [],
+        colors: {
+          "editor.background": "#1e1f29",
+        },
+      });
+    }
+  }, [monaco]);
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       function (response) {

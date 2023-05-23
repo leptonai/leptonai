@@ -17,6 +17,7 @@
     "@emotion/css": "^11.11.0",
     "@emotion/react": "^11.10.8",
     "@emotion/styled": "^11.10.8",
+    "@monaco-editor/react": "^4.5.1",
     "@rjsf/antd": "^5.7.2",
     "@rjsf/core": "^5.7.2",
     "@rjsf/utils": "^5.7.2",
@@ -29,7 +30,10 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.11.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "xterm": "^5.1.0",
+    "xterm-addon-attach": "^0.8.0",
+    "xterm-addon-fit": "^0.7.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.6.1",
@@ -38,6 +42,7 @@
     "@types/carbon__icons-react": "^11.16.0",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
+    "@types/xterm": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
     "@typescript-eslint/parser": "^5.57.1",
     "@vitejs/plugin-react": "^4.0.0",

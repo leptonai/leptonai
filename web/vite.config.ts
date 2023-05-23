@@ -6,7 +6,7 @@ import injectionTransformer from "./libs/transformer";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const __PROXY_URL__ = process.env.PROXY_URL || env.PROXY_URL || "";
+  const __PROXY_URL__ = process.env.__PROXY_URL__ || env.PROXY_URL || "";
   const __CLUSTER_URL__ = process.env.__CLUSTER_URL__ || env.CLUSTER_URL || "";
 
   return {
@@ -26,9 +26,9 @@ export default defineConfig(({ mode }) => {
             return path.replace(__PROXY_URL__, "").replace(__CLUSTER_URL__, "");
           },
         },
-        "/run": {
-          target: `http://k8s-default-gpt2ingr-194cbacd01-1823409343.us-east-1.elb.amazonaws.com`,
-          changeOrigin: true,
+        "^/api/v1/.*/shell$": {
+          target: `ws://${__CLUSTER_URL__}`,
+          ws: true,
         },
       },
     },

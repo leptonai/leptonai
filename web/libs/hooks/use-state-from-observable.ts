@@ -1,9 +1,6 @@
 import { Observable, PartialObserver } from "rxjs";
-import {
-  useObservableEagerState,
-  useObservableState,
-  useSubscription,
-} from "observable-hooks";
+import { useObservableEagerState, useSubscription } from "observable-hooks";
+import { useState } from "react";
 import { useOnce } from "@lepton-libs/hooks/use-once.ts";
 
 export const useStateFromObservable = <T>(
@@ -11,15 +8,19 @@ export const useStateFromObservable = <T>(
   initialState: T,
   observer?: PartialObserver<T>
 ): T => {
-  const input$ = useOnce(() => factory());
-  useSubscription(input$, observer);
-  return useObservableState(input$, initialState);
+  const observable$ = useOnce(() => factory());
+  const [state, setState] = useState<T>(initialState);
+  useSubscription(observable$, {
+    next: (v) => {
+      setState(v);
+      observer && observer.next && observer.next(v);
+    },
+    complete: () => observer && observer.complete && observer.complete(),
+    error: (v) => observer && observer.error && observer.error(v),
+  });
+  return state;
 };
 
-export const useStateFromBehaviorSubject = <T>(
-  input$: Observable<T>,
-  observer?: PartialObserver<T>
-): T => {
-  useSubscription(input$, observer);
+export const useStateFromBehaviorSubject = <T>(input$: Observable<T>): T => {
   return useObservableEagerState(input$);
 };

@@ -15,3 +15,7 @@ export interface Deployment {
     accelerator_num?: number;
   };
 }
+
+export interface Instance {
+  id: string;
+}

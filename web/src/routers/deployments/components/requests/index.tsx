@@ -35,6 +35,7 @@ export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
     <Row gutter={[32, 16]}>
       <Col flex="1 0 400px">
         <SchemaForm
+          deployment={deployment}
           initData={exampleData}
           resultChange={setResult}
           schema={schema}

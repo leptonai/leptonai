@@ -27,8 +27,9 @@ import { mergeMap, of } from "rxjs";
 import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 import { Requests } from "../../components/requests";
 import { css } from "@emotion/react";
-import { BlockStorageAlt, Book, ChartCombo, Play } from "@carbon/icons-react";
+import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
 import { Apis } from "@lepton-dashboard/routers/deployments/components/apis";
+import { Instances } from "@lepton-dashboard/routers/deployments/components/instances";
 
 export const Detail: FC = () => {
   const { id, mode } = useParams();
@@ -238,16 +239,6 @@ export const Detail: FC = () => {
                 ),
               },
               {
-                key: "metrics",
-                label: (
-                  <>
-                    <CarbonIcon icon={<ChartCombo />} />
-                    Metrics
-                  </>
-                ),
-                children: <Card shadowless borderless />,
-              },
-              {
                 key: "instances",
                 label: (
                   <>
@@ -255,7 +246,11 @@ export const Detail: FC = () => {
                     Instances
                   </>
                 ),
-                children: <Card shadowless borderless />,
+                children: (
+                  <Card shadowless borderless>
+                    <Instances deployment={deployment} />
+                  </Card>
+                ),
               },
             ]}
           />

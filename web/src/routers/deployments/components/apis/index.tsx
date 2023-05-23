@@ -19,10 +19,11 @@ export const Apis: FC<{ deployment: Deployment }> = ({ deployment }) => {
     photon?.openapi_schema?.paths?.["/run"]?.post?.requestBody?.content?.[
       "application/json"
     ]?.example;
-  const exampleString = example ? "" : JSON.stringify(example);
+  const exampleString = example ? JSON.stringify(example) : "";
   const queryText = `curl -s -X POST \\
   -d '${exampleString}' \\
   -H 'Content-Type: application/json' \\
+  -H 'LeptonDeployment: ${deployment.name}' \\
   "${url}/run"`;
   return (
     <div
@@ -38,6 +39,8 @@ export const Apis: FC<{ deployment: Deployment }> = ({ deployment }) => {
       <Typography.Paragraph copyable={{ text: queryText }}>
         <pre
           css={css`
+            margin: 0 !important;
+            font-family: ${theme.fontFamily} !important;
             background: ${theme.colorBgLayout} !important;
             padding: 16px !important;
             color: ${theme.colorTextSecondary} !important;

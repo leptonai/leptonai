@@ -9,6 +9,7 @@ import { Button, Checkbox, Col, Row } from "antd";
 import { Form } from "@rjsf/antd";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
   const optionalSchema: JSONSchema7 = {
     properties: {},
@@ -70,10 +71,11 @@ const convertToSchemaFormData = (data: SafeAny) => {
 
 export const SchemaForm = memo<{
   initData: SafeAny;
+  deployment: Deployment;
   schema: JSONSchema7;
   resultChange: (value: string) => void;
 }>(
-  ({ initData, schema, resultChange }) => {
+  ({ initData, schema, deployment, resultChange }) => {
     const theme = useAntdTheme();
     const convertedSchema = convertToOptionalSchema(schema);
     const convertedInitData = convertToOptionalSchemaData(schema, initData);
@@ -84,7 +86,7 @@ export const SchemaForm = memo<{
       ).length > 0;
     const request = (value: string) => {
       setLoading(true);
-      deploymentService.request("url", value).subscribe({
+      deploymentService.request(deployment.name, value).subscribe({
         next: (data) => {
           resultChange(data as string);
           setLoading(false);

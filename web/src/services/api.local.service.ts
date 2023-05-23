@@ -1,7 +1,10 @@
 import { Injectable } from "injection-js";
 import { EMPTY, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import {
+  Deployment,
+  Instance,
+} from "@lepton-dashboard/interfaces/deployment.ts";
 import { ApiService } from "@lepton-dashboard/services/api.service.ts";
 const mockedPhotons = [
   {
@@ -120,6 +123,11 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
+  listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
+    console.log(deploymentId);
+    return of([]);
+  }
+
   updateDeployment(id: string, miniReplicas: number): Observable<void> {
     console.log(id, miniReplicas);
     return EMPTY;
@@ -128,5 +136,21 @@ export class ApiLocalService implements ApiService {
   requestDeployment(url: string, value: string): Observable<void> {
     console.log(url, value);
     return EMPTY;
+  }
+
+  getDeploymentInstanceLogs(
+    deploymentId: string,
+    instanceId: string
+  ): Observable<string> {
+    console.log(deploymentId, instanceId);
+    return of("");
+  }
+
+  getDeploymentInstanceSocketUrl(
+    deploymentId: string,
+    instanceId: string
+  ): string {
+    console.log(deploymentId, instanceId);
+    return "";
   }
 }
