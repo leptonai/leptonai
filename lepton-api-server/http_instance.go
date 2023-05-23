@@ -97,10 +97,15 @@ func instanceLogHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	clientset := mustInitK8sClientSet()
+
+	tenMinutesInSeconds := int64(10 * 60)
+	tenMBInBytes := int64(10 * 1024 * 1024)
 	// TODO: support other log options
 	logOptions := &corev1.PodLogOptions{
-		Container: mainContainerName,
-		Follow:    true,
+		Container:    mainContainerName,
+		Follow:       true,
+		SinceSeconds: &tenMinutesInSeconds,
+		LimitBytes:   &tenMBInBytes,
 	}
 	req := clientset.CoreV1().Pods(deploymentNamespace).GetLogs(id, logOptions)
 	podLogs, err := req.Stream(context.Background())
