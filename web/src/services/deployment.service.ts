@@ -50,8 +50,8 @@ export class DeploymentService {
     return this.apiService.updateDeployment(id, miniReplicas);
   }
 
-  request(name: string, value: string): Observable<unknown> {
-    return this.apiService.requestDeployment(name, value);
+  request(name: string, value: string, path: string): Observable<unknown> {
+    return this.apiService.requestDeployment(name, value, path);
   }
   constructor(private apiService: ApiService) {}
 }

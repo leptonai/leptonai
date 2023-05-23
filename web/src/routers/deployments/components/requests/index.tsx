@@ -8,6 +8,7 @@ import { SchemaForm } from "@lepton-dashboard/routers/deployments/components/sch
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
+import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service.ts";
 
 export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -16,12 +17,11 @@ export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
     () => photonService.id(deployment.photon_id),
     undefined
   );
+  const jsonSchemaService = useInject(JsonSchemaService);
   const [result, setResult] = useState<SafeAny>("output should appear here");
-  const schema = photon?.openapi_schema?.components?.schemas?.Run_handlerInput;
-  const exampleData =
-    photon?.openapi_schema?.paths?.["/run"]?.post?.requestBody?.content?.[
-      "application/json"
-    ]?.example;
+  const { inputSchema, path, inputExample } = jsonSchemaService.parse(
+    photon?.openapi_schema
+  );
   const displayResult = useMemo(() => {
     if (typeof result === "string") {
       return result;
@@ -31,14 +31,15 @@ export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
       return "outputs format not supported";
     }
   }, [result]);
-  return schema ? (
+  return inputSchema && path ? (
     <Row gutter={[32, 16]}>
       <Col flex="1 0 400px">
         <SchemaForm
+          path={path}
           deployment={deployment}
-          initData={exampleData}
+          initData={inputExample}
           resultChange={setResult}
-          schema={schema}
+          schema={inputSchema}
         />
       </Col>
       <Col flex="1 1 400px">

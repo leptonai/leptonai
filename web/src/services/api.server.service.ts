@@ -53,9 +53,13 @@ export class ApiServerService implements ApiService {
     });
   }
 
-  requestDeployment(name: string, value: string): Observable<unknown> {
+  requestDeployment(
+    name: string,
+    value: string,
+    path: string
+  ): Observable<unknown> {
     return this.httpClientService.post(
-      `${this.proxy}${this.cluster}/run`,
+      `${this.proxy}${this.cluster}${path}`,
       value,
       {
         headers: {

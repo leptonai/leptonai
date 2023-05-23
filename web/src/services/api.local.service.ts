@@ -133,8 +133,12 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  requestDeployment(url: string, value: string): Observable<void> {
-    console.log(url, value);
+  requestDeployment(
+    url: string,
+    value: string,
+    path: string
+  ): Observable<void> {
+    console.log(url, value, path);
     return EMPTY;
   }
 

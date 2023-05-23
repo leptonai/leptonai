@@ -71,11 +71,12 @@ const convertToSchemaFormData = (data: SafeAny) => {
 
 export const SchemaForm = memo<{
   initData: SafeAny;
+  path: string;
   deployment: Deployment;
   schema: JSONSchema7;
   resultChange: (value: string) => void;
 }>(
-  ({ initData, schema, deployment, resultChange }) => {
+  ({ initData, schema, deployment, resultChange, path }) => {
     const theme = useAntdTheme();
     const convertedSchema = convertToOptionalSchema(schema);
     const convertedInitData = convertToOptionalSchemaData(schema, initData);
@@ -86,7 +87,7 @@ export const SchemaForm = memo<{
       ).length > 0;
     const request = (value: string) => {
       setLoading(true);
-      deploymentService.request(deployment.name, value).subscribe({
+      deploymentService.request(deployment.name, value, path).subscribe({
         next: (data) => {
           resultChange(data as string);
           setLoading(false);

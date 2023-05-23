@@ -6,6 +6,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Typography } from "antd";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service.ts";
 
 export const Apis: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -15,15 +16,16 @@ export const Apis: FC<{ deployment: Deployment }> = ({ deployment }) => {
     () => photonService.id(deployment.photon_id),
     undefined
   );
-  const example =
-    photon?.openapi_schema?.paths?.["/run"]?.post?.requestBody?.content?.[
-      "application/json"
-    ]?.example;
-  const exampleString = example ? JSON.stringify(example) : "";
+  const jsonSchemaService = useInject(JsonSchemaService);
+  const { inputExample, path } = jsonSchemaService.parse(
+    photon?.openapi_schema
+  );
+  const exampleString = inputExample ? JSON.stringify(inputExample) : "";
   const queryText = `curl -s -X POST \\
   -d '${exampleString}' \\
+  -H 'deployment: ${deployment.name}' \\
   -H 'Content-Type: application/json' \\
-  "${url}/run"`;
+  "${url}${path}"`;
   return (
     <div
       css={css`
