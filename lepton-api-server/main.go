@@ -62,12 +62,11 @@ func main() {
 	fmt.Println("Starting the Lepton Server on :20863...")
 
 	router := gin.Default()
-	router.Use(CORSMiddleware())
-
-	api := router.Group("/api")
-	api.GET("/healthz", func(ctx *gin.Context) {
+	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})
+
+	api := router.Group("/api")
 
 	v1 := api.Group("/v1")
 
