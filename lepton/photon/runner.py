@@ -1,9 +1,11 @@
 from abc import abstractmethod
+import copy
 import functools
 import cloudpickle
 from io import BytesIO
 import importlib
 import inspect
+import logging
 import os
 from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
@@ -213,10 +215,28 @@ class RunnerPhoton(Photon):
         self._collect_metrics(app)
         return app
 
+    @staticmethod
+    def _uvicorn_log_config():
+        # Filter out /healthz
+        class HealthzFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                return record.getMessage().find("/healthz ") == -1
+
+        logging.getLogger("uvicorn.access").addFilter(HealthzFilter())
+
+        # prepend timestamp to log
+        log_config = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
+        for formatter, config in log_config["formatters"].items():
+            config["fmt"] = "%(asctime)s - " + config["fmt"]
+        return log_config
+
     def launch(self, host="0.0.0.0", port=8080, log_level="info"):
         self.call_init()
         app = self._create_app()
-        return uvicorn.run(app, host=host, port=port, log_level=log_level)
+        log_config = self._uvicorn_log_config()
+        return uvicorn.run(
+            app, host=host, port=port, log_level=log_level, log_config=log_config
+        )
 
     @staticmethod
     def _collect_metrics(app):
