@@ -35,7 +35,7 @@ jobs:
     - name: deploy Lepton API server
       uses: kodermax/kubectl-aws-eks@master
       env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_CICD }}
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
@@ -44,7 +44,7 @@ jobs:
     - name: verify Lepton API server deployment
       uses: kodermax/kubectl-aws-eks@master
       env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_CICD }}
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         ECR_REPOSITORY: lepton-api-server
       with:
         args: rollout status deployment/$ECR_REPOSITORY
@@ -60,7 +60,7 @@ jobs:
     - name: deploy Lepton web
       uses: kodermax/kubectl-aws-eks@master
       env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_CICD }}
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
@@ -69,7 +69,7 @@ jobs:
     - name: verify Lepton web deployment
       uses: kodermax/kubectl-aws-eks@master
       env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_CICD }}
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         ECR_REPOSITORY: lepton-web
       with:
         args: rollout status deployment/$ECR_REPOSITORY
