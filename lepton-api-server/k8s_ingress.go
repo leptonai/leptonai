@@ -30,11 +30,12 @@ func updateIngress(lds []*LeptonDeployment) error {
 		// Find the ingress that matches the deployment
 		// TODO: fix the hard coding of ingress name
 		if ingress.Name == "lepton-ingress" || ingress.Name == "lepton-tf-ingress" {
+			ingress.Annotations = newBaseIngressAnnotation()
 			originPaths := ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths
 			// Additional 2 ingress rulePaths for the lepton api and web
 			rulePaths := make([]networkingv1.HTTPIngressPath, 0, len(lds)+2)
 			for _, ld := range lds {
-				key, value := newAnnotationKeyValueForHeaderBasedRerouting(ld)
+				key, value := newAnnotationKeyValueForHeaderBasedRouting(ld)
 				ingress.Annotations[key] = value
 				rulePaths = append(rulePaths, newHTTPIngressPath(serviceName(ld), servicePort, "/", networkingv1.PathTypePrefix))
 			}
@@ -59,12 +60,9 @@ func createIngress(ld *LeptonDeployment, or metav1.OwnerReference) error {
 	// Define Ingress object
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ingressName(ld),
-			Namespace: ingressNamespace,
-			Annotations: map[string]string{
-				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
-				"alb.ingress.kubernetes.io/target-type": "ip",
-			},
+			Name:            ingressName(ld),
+			Namespace:       ingressNamespace,
+			Annotations:     newBaseIngressAnnotation(),
 			OwnerReferences: []metav1.OwnerReference{or},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -136,8 +134,16 @@ func newHTTPIngressPath(serviceName string, servicePort int32, path string, path
 	}
 }
 
-func newAnnotationKeyValueForHeaderBasedRerouting(ld *LeptonDeployment) (key string, value string) {
+func newAnnotationKeyValueForHeaderBasedRouting(ld *LeptonDeployment) (key string, value string) {
 	key = "alb.ingress.kubernetes.io/conditions." + serviceName(ld)
 	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRerouting, ld.Name)
 	return
+}
+
+func newBaseIngressAnnotation() map[string]string {
+	return map[string]string{
+		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
+		"alb.ingress.kubernetes.io/target-type":      "ip",
+		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+	}
 }
