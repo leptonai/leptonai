@@ -10,12 +10,30 @@ fi
 
 PHOTON_NAME=gpt2
 
-REMOTE=$(kubectl -n "$NAMESPACE" get ingress | grep lepton-ingress | head -n1 | awk '{print $4}')
+REMOTE=
+# try getting the remote address for 1 minute
+for i in $(seq 1 60); do
+    REMOTE=$(kubectl -n "$NAMESPACE" get ingress lepton-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+    if [ -n "$REMOTE" ]; then
+        break
+    fi
+    sleep 1
+done
 if [ -z "$REMOTE" ]; then
     exit 1
 fi
 
-until host "$REMOTE" > /dev/null ;do sleep 1; done
+# try getting the IP of the remote address for 10 minutes
+for i in $(seq 1 600); do
+    if host "$REMOTE" > /dev/null; then
+        break
+    fi
+    sleep 1
+done
+if ! host "$REMOTE" > /dev/null; then
+    exit 1
+fi
+
 REMOTE=http://$REMOTE/api/v1
 
 lepton photon create -n $PHOTON_NAME -m hf:gpt2
