@@ -30,7 +30,6 @@ func updateIngress(lds []*LeptonDeployment) error {
 		// Find the ingress that matches the deployment
 		// TODO: fix the hard coding of ingress name
 		if ingress.Name == "lepton-ingress" || ingress.Name == "lepton-tf-ingress" {
-			ingress.Annotations = newBaseIngressAnnotation()
 			originPaths := ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths
 			// Additional 2 ingress rulePaths for the lepton api and web
 			rulePaths := make([]networkingv1.HTTPIngressPath, 0, len(lds)+2)
