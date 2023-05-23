@@ -145,7 +145,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 			Replicas: int32Ptr(int32(ld.ResourceRequirement.MinReplicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"photon": joinNameByDash(ph.Name, ph.ID),
+					"deployment": joinNameByDash(ld.Name, ld.ID),
 				},
 			},
 			Template: template,
