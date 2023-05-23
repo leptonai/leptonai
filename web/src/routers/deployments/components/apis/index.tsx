@@ -23,7 +23,6 @@ export const Apis: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const queryText = `curl -s -X POST \\
   -d '${exampleString}' \\
   -H 'Content-Type: application/json' \\
-  -H 'LeptonDeployment: ${deployment.name}' \\
   "${url}/run"`;
   return (
     <div

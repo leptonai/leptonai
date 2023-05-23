@@ -1,5 +1,5 @@
 import { Injectable } from "injection-js";
-import { interval, Observable, startWith, Subject, takeUntil } from "rxjs";
+import { filter, interval, Observable, startWith } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import {
   Deployment,
@@ -59,7 +59,7 @@ export class ApiServerService implements ApiService {
       value,
       {
         headers: {
-          LeptonDeployment: name,
+          deployment: name,
           "Content-Type": "application/json",
         },
       }
@@ -77,7 +77,7 @@ export class ApiServerService implements ApiService {
     instanceId: string
   ): Observable<string> {
     return new Observable((subscriber) => {
-      const continuePolling$ = new Subject<void>();
+      let continuePolling = true;
       let reader: ReadableStreamDefaultReader<string>;
       let record = "";
       const interval$ = interval(50);
@@ -98,14 +98,17 @@ export class ApiServerService implements ApiService {
               }
             });
           interval$
-            .pipe(takeUntil(continuePolling$), startWith(true))
+            .pipe(
+              startWith(true),
+              filter(() => continuePolling)
+            )
             .subscribe(() => {
               void callReader();
             });
         }
       });
       return function unsubscribe() {
-        continuePolling$.next();
+        continuePolling = false;
         if (reader) {
           void reader.cancel();
         }

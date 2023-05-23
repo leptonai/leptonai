@@ -29,14 +29,7 @@ const LogDetail: FC<{
       () => deploymentService.getInstanceLog(deploymentId, instanceId),
       "",
       {
-        next: () => {
-          setLoading(false);
-          const editor = editorRef.current;
-          if (editor && !isFocusRef.current) {
-            const lineCount = editor.getModel()!.getLineCount();
-            editor.revealLine(lineCount, 0);
-          }
-        },
+        next: () => setLoading(false),
         error: () => setLoading(false),
       }
     );
@@ -60,10 +53,21 @@ const LogDetail: FC<{
           editorRef.current = editor;
           editor.onDidFocusEditorText(() => (isFocusRef.current = true));
         }}
+        onChange={() => {
+          const editor = editorRef.current;
+          if (editor && !isFocusRef.current) {
+            const lineCount = editor.getModel()!.getLineCount();
+            editor.revealLine(lineCount, 1);
+          }
+        }}
         theme="lepton"
         loading={<Spin />}
         options={{
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          overviewRulerBorder: false,
           readOnly: true,
+          wordWrap: "on",
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
         }}
