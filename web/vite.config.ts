@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import typescript from "@rollup/plugin-typescript";
+import checker from "vite-plugin-checker";
 import injectionTransformer from "./libs/transformer";
 
 export default defineConfig(({ mode }) => {
@@ -49,6 +50,9 @@ export default defineConfig(({ mode }) => {
         babel: {
           plugins: ["@emotion/babel-plugin"],
         },
+      }),
+      checker({
+        typescript: true,
       }),
     ],
   };
