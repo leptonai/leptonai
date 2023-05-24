@@ -19,6 +19,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   Api_1,
   Chip,
+  CopyFile,
   FlowModeler,
   MessageQueue,
   Replicate,
@@ -155,34 +156,47 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Description.Container>
                   <Popover
                     placement="bottomLeft"
-                    content={
-                      <Typography.Text copyable>
-                        {deployment.status.endpoint.external_endpoint}
-                      </Typography.Text>
-                    }
+                    content={deployment.status.endpoint.external_endpoint}
                   >
                     <span>
                       <Hoverable>
                         <Description.Item
                           icon={<CarbonIcon icon={<Api_1 />} />}
-                          description="External Endpoint"
+                          description={
+                            <Typography.Text
+                              copyable={{
+                                text: deployment.status.endpoint
+                                  .external_endpoint,
+                                tooltips: false,
+                                icon: <CarbonIcon icon={<CopyFile />} />,
+                              }}
+                            >
+                              External Endpoint
+                            </Typography.Text>
+                          }
                         />
                       </Hoverable>
                     </span>
                   </Popover>
                   <Popover
                     placement="bottomLeft"
-                    content={
-                      <Typography.Text copyable>
-                        {deployment.status.endpoint.internal_endpoint}
-                      </Typography.Text>
-                    }
+                    content={deployment.status.endpoint.internal_endpoint}
                   >
                     <span>
                       <Hoverable>
                         <Description.Item
-                          icon={<CarbonIcon icon={<Api_1 />} />}
-                          description="Internal Endpoint"
+                          description={
+                            <Typography.Text
+                              copyable={{
+                                text: deployment.status.endpoint
+                                  .internal_endpoint,
+                                tooltips: false,
+                                icon: <CarbonIcon icon={<CopyFile />} />,
+                              }}
+                            >
+                              Internal Endpoint
+                            </Typography.Text>
+                          }
                         />
                       </Hoverable>
                     </span>

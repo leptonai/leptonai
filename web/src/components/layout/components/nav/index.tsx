@@ -1,9 +1,8 @@
-import { Badge, Tabs, TabsProps } from "antd";
+import { Badge, TabsProps } from "antd";
 import styled from "@emotion/styled";
-import { FC, useMemo } from "react";
+import { FC } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
@@ -15,6 +14,7 @@ import {
 } from "@lepton-dashboard/components/icons";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { Workspace } from "@carbon/icons-react";
+import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 
 const Container = styled.div`
   position: sticky;
@@ -107,24 +107,13 @@ const menuItems: TabsProps["items"] = [
 export const Nav: FC = () => {
   const theme = useAntdTheme();
   const notificationService = useInject(NotificationService);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const selectedKey = useMemo(() => {
-    return menuItems.find((item) =>
-      location.pathname.startsWith(`${item?.key}`)
-    )?.key;
-  }, [location.pathname]);
-  const navigateTo = useMemo(
-    () => (key: string) => {
-      if (key === "/deployments") {
-        notificationService.updateDeploymentNotify();
-      } else if (key === "/photons") {
-        notificationService.updatePhotonNotify();
-      }
-      navigate(key);
-    },
-    [navigate, notificationService]
-  );
+  const keyActive = (key: string) => {
+    if (key === "/deployments") {
+      notificationService.updateDeploymentNotify();
+    } else if (key === "/photons") {
+      notificationService.updatePhotonNotify();
+    }
+  };
   return (
     <Container
       css={css`
@@ -133,14 +122,7 @@ export const Nav: FC = () => {
         box-shadow: ${theme.boxShadowTertiary};
       `}
     >
-      <Tabs
-        moreIcon={null}
-        tabBarGutter={32}
-        tabBarStyle={{ marginBottom: 0 }}
-        activeKey={selectedKey}
-        items={menuItems}
-        onTabClick={(key) => navigateTo(key)}
-      />
+      <TabsNav menuItems={menuItems} keyActive={keyActive} />
     </Container>
   );
 };

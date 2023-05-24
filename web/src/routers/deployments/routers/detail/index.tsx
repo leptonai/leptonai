@@ -1,19 +1,18 @@
 import { FC } from "react";
-import { useParams } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useParams,
+  useResolvedPath,
+} from "react-router-dom";
+import { Container } from "@lepton-dashboard/routers/deployments/routers/detail/components/container";
+import { Demo } from "@lepton-dashboard/routers/deployments/routers/detail/routers/demo";
 import { useInject } from "@lepton-libs/di";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Col, Row, Tabs } from "antd";
-import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
-import { Link } from "@lepton-dashboard/components/link";
-import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
-import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
-import { Requests } from "../../components/requests";
-import { css } from "@emotion/react";
-import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
-import { Apis } from "@lepton-dashboard/routers/deployments/components/apis";
-import { Instances } from "@lepton-dashboard/routers/deployments/components/instances";
-import { DeploymentItem } from "@lepton-dashboard/components/deployment-item";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { Api } from "@lepton-dashboard/routers/deployments/routers/detail/routers/api";
+import { Instances } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -22,94 +21,20 @@ export const Detail: FC = () => {
     () => deploymentService.id(id!),
     undefined
   );
-
+  const { pathname } = useResolvedPath("");
   return deployment ? (
-    <Row gutter={[0, 24]}>
-      <Col span={24}>
-        <BreadcrumbHeader
-          items={[
-            {
-              title: (
-                <>
-                  <DeploymentIcon />
-                  <Link to="../../deployments">
-                    <span>Deployments</span>
-                  </Link>
-                </>
-              ),
-            },
-            {
-              title: deployment.name,
-            },
-          ]}
+    <Routes>
+      <Route element={<Container deployment={deployment} />}>
+        <Route path="demo" element={<Demo />} />
+        <Route path="api" element={<Api />} />
+        <Route path="instances" element={<Instances />} />
+        <Route
+          path="*"
+          element={<Navigate to={`${pathname}/demo`} replace />}
         />
-      </Col>
-      <Col span={24}>
-        <Card>
-          <DeploymentItem deployment={deployment} />
-        </Card>
-      </Col>
-      <Col span={24}>
-        <Card
-          paddingless
-          css={css`
-            .ant-tabs-nav {
-              margin-bottom: 0;
-            }
-            .ant-tabs-nav-wrap {
-              margin: 0 16px;
-            }
-          `}
-        >
-          <Tabs
-            tabBarGutter={32}
-            items={[
-              {
-                key: "demo",
-                label: (
-                  <>
-                    <CarbonIcon icon={<Play />} />
-                    Demo
-                  </>
-                ),
-                children: (
-                  <Card shadowless borderless>
-                    <Requests deployment={deployment} />
-                  </Card>
-                ),
-              },
-              {
-                key: "api",
-                label: (
-                  <>
-                    <CarbonIcon icon={<Book />} />
-                    API
-                  </>
-                ),
-                children: (
-                  <Card shadowless borderless>
-                    <Apis deployment={deployment} />
-                  </Card>
-                ),
-              },
-              {
-                key: "instances",
-                label: (
-                  <>
-                    <CarbonIcon icon={<BlockStorageAlt />} />
-                    Instances
-                  </>
-                ),
-                children: (
-                  <Card shadowless borderless>
-                    <Instances deployment={deployment} />
-                  </Card>
-                ),
-              },
-            ]}
-          />
-        </Card>
-      </Col>
-    </Row>
-  ) : null;
+      </Route>
+    </Routes>
+  ) : (
+    <></>
+  );
 };

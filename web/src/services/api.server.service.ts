@@ -115,7 +115,7 @@ export class ApiServerService implements ApiService {
     instanceId: string
   ): string {
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const host = window.location.host;
+    const host = __CLUSTER_URL__ || window.location.host;
     return `${wsProtocol}://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
   }
 
