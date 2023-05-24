@@ -6,12 +6,12 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/photons/components/upload";
 import { PhotonItem } from "../../../../components/photon-item";
-import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
+import { StorageService } from "@lepton-dashboard/services/storage.service";
 
 export const List: FC = () => {
   const photonService = useInject(PhotonService);

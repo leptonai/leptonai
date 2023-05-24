@@ -1,7 +1,7 @@
 import { Injectable } from "injection-js";
 import { BehaviorSubject, map, Observable, tap } from "rxjs";
-import { Photon, PhotonGroup } from "@lepton-dashboard/interfaces/photon.ts";
-import { ApiService } from "@lepton-dashboard/services/api.service.ts";
+import { Photon, PhotonGroup } from "@lepton-dashboard/interfaces/photon";
+import { ApiService } from "@lepton-dashboard/services/api.service";
 
 @Injectable()
 export class PhotonService {

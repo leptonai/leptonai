@@ -1,6 +1,6 @@
 import { FC, PropsWithChildren, useContext } from "react";
 import { Injector, Provider, ReflectiveInjector } from "injection-js";
-import { useOnce } from "@lepton-libs/hooks/use-once.ts";
+import { useOnce } from "@lepton-libs/hooks/use-once";
 import { InjectorContext } from "./context";
 
 export const DIContainer: FC<

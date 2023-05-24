@@ -1,10 +1,10 @@
 import { FC } from "react";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
 import { useNavigate } from "react-router-dom";
 import { App, Button, Divider, Popconfirm, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Download } from "@carbon/icons-react";
 import { DeleteOutlined } from "@ant-design/icons";

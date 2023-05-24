@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Col } from "antd";
 import { css } from "@emotion/react";

@@ -1,7 +1,7 @@
 import { Observable, PartialObserver } from "rxjs";
 import { useObservableEagerState, useSubscription } from "observable-hooks";
 import { useState } from "react";
-import { useOnce } from "@lepton-libs/hooks/use-once.ts";
+import { useOnce } from "@lepton-libs/hooks/use-once";
 
 export const useStateFromObservable = <T>(
   factory: () => Observable<T>,

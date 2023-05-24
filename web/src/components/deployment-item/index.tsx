@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
   App,
   Button,
@@ -28,10 +28,10 @@ import { CloseOutlined, DeleteOutlined } from "@ant-design/icons";
 import { DeploymentStatus } from "@lepton-dashboard/components/deployment-status";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
 import { useInject } from "@lepton-libs/di";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import { EditDeployment } from "@lepton-dashboard/components/deployment-item/components/edit-deployment";

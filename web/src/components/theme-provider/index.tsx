@@ -1,8 +1,8 @@
 import { FC, PropsWithChildren } from "react";
 import { ConfigProvider } from "antd";
 import { useInject } from "@lepton-libs/di";
-import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
-import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { ThemeService } from "@lepton-dashboard/services/theme.service";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { ThemeConfig } from "antd/es/config-provider/context";
 
 export const ThemeProvider: FC<

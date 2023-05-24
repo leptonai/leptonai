@@ -11,7 +11,7 @@ import {
 } from "@ant-design/icons";
 import { AsleepFilled, LightFilled } from "@carbon/icons-react";
 import { useInject } from "@lepton-libs/di";
-import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
+import { ThemeService } from "@lepton-dashboard/services/theme.service";
 const Container = styled.div`
   height: 60px;
   overflow: hidden;

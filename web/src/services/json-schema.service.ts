@@ -1,5 +1,5 @@
 import { Injectable } from "injection-js";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { JSONSchema7 } from "json-schema";
 
 @Injectable()

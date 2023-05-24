@@ -13,15 +13,15 @@ import { DeploymentStatus } from "@lepton-dashboard/components/deployment-status
 import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 import { Link } from "@lepton-dashboard/components/link";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { mergeMap, of } from "rxjs";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Edit as EditIcon } from "@carbon/icons-react";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 export const EditDeployment: FC<{ deployment: Deployment }> = ({
   deployment,
 }) => {

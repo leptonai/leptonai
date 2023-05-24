@@ -2,7 +2,7 @@ import { FC, PropsWithChildren, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { Divider, Space } from "antd";
-import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 
 const ItemContainer = styled.div`

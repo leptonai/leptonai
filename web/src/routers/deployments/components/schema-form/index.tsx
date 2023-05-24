@@ -1,15 +1,15 @@
 import { memo, useState } from "react";
 import { JSONSchema7 } from "json-schema";
 import { useInject } from "@lepton-libs/di";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { css } from "@emotion/react";
 import { css as classNameCss } from "@emotion/css";
 import validator from "@rjsf/validator-ajv8";
 import { Button, Checkbox, Col, Row } from "antd";
 import { Form } from "@rjsf/antd";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
   const optionalSchema: JSONSchema7 = {
     properties: {},

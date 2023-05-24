@@ -1,12 +1,12 @@
 import { FC } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Col, Row, Tabs } from "antd";
 import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Requests } from "../../components/requests";
 import { css } from "@emotion/react";

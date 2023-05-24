@@ -1,14 +1,14 @@
 import { FC, useState } from "react";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { debounceTime, startWith, switchMap, tap } from "rxjs";
 import { Divider, Space, Table } from "antd";
 import { css } from "@emotion/react";
 import { LogsViewer } from "@lepton-dashboard/routers/deployments/components/instances/components/logs-viewer";
 import { Terminal } from "@lepton-dashboard/routers/deployments/components/instances/components/terminal";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 
 export const Instances: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const deploymentService = useInject(DeploymentService);

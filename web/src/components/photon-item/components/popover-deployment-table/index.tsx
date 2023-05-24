@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { Popover, Table, Tag } from "antd";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
 import { DeploymentStatus } from "@lepton-dashboard/components/deployment-status";
 import { useNavigate } from "react-router-dom";
 import { css as classNameCss } from "@emotion/css";

@@ -1,9 +1,9 @@
 import { Injectable } from "injection-js";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { map, mergeMap, take, tap } from "rxjs";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
-import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
+import { StorageService } from "@lepton-dashboard/services/storage.service";
 
 @Injectable()
 export class NotificationService {

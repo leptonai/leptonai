@@ -1,11 +1,8 @@
 import { Injectable } from "injection-js";
 import { EMPTY, Observable, of } from "rxjs";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
-import {
-  Deployment,
-  Instance,
-} from "@lepton-dashboard/interfaces/deployment.ts";
-import { ApiService } from "@lepton-dashboard/services/api.service.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
+import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import { ApiService } from "@lepton-dashboard/services/api.service";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",

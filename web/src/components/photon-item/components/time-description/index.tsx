@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Description } from "@lepton-dashboard/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Time } from "@carbon/icons-react";

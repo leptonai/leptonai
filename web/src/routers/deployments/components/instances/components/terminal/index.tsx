@@ -2,10 +2,7 @@ import { FC, useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Terminal as CarbonTerminal } from "@carbon/icons-react";
-import {
-  Deployment,
-  Instance,
-} from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FitAddon } from "xterm-addon-fit";
@@ -14,7 +11,7 @@ import { css } from "@emotion/react";
 import { Terminal as Xterm } from "xterm";
 import "xterm/css/xterm.css";
 import { useInject } from "@lepton-libs/di";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 
 const TerminalDetail: FC<{
   deploymentId: string;

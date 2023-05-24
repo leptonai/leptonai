@@ -6,22 +6,22 @@ import {
 } from "react-router-dom";
 import { Layout } from "@lepton-dashboard/components/layout";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
-import { ThemeService } from "@lepton-dashboard/services/theme.service.ts";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { TitleService } from "@lepton-dashboard/services/title.service.ts";
-import { ApiService } from "@lepton-dashboard/services/api.service.ts";
-import { InitializerService } from "@lepton-dashboard/services/initializer.service.ts";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { ThemeService } from "@lepton-dashboard/services/theme.service";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { TitleService } from "@lepton-dashboard/services/title.service";
+import { ApiService } from "@lepton-dashboard/services/api.service";
+import { InitializerService } from "@lepton-dashboard/services/initializer.service";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { Root } from "@lepton-dashboard/components/root";
-import { HttpClientService } from "@lepton-dashboard/services/http-client.service.ts";
+import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
 import { App as AntdApp } from "antd";
 import { css } from "@emotion/react";
-import { ApiServerService } from "@lepton-dashboard/services/api.server.service.ts";
+import { ApiServerService } from "@lepton-dashboard/services/api.server.service";
 import { lazy } from "react";
-import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
-import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
-import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service.ts";
+import { NotificationService } from "@lepton-dashboard/services/notification.service";
+import { StorageService } from "@lepton-dashboard/services/storage.service";
+import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
 const Dashboard = lazy(() =>
   import("@lepton-dashboard/routers/dashboard").then((e) => ({
     default: e.Dashboard,

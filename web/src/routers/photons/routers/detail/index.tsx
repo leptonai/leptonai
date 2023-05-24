@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Col, Row } from "antd";
 import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";

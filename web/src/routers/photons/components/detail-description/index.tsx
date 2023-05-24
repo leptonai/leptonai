@@ -1,6 +1,6 @@
 import { FC, PropsWithChildren } from "react";
 import { Descriptions } from "antd";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
 
 export const DetailDescription: FC<PropsWithChildren<{ photon: Photon }>> = ({
   photon,

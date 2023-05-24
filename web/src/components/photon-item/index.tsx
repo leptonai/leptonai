@@ -1,13 +1,13 @@
 import { FC } from "react";
-import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon.ts";
+import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Col, Empty, Row } from "antd";
 import { Link } from "@lepton-dashboard/components/link";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { PopoverDeploymentTable } from "@lepton-dashboard/components/photon-item/components/popover-deployment-table";
 import { ExtraInfo } from "@lepton-dashboard/components/photon-item/components/extra-info";
 import { VersionDescription } from "@lepton-dashboard/components/photon-item/components/version-description";

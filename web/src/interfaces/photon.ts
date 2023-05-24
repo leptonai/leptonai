@@ -1,4 +1,4 @@
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 
 export interface Photon {
   id: string;

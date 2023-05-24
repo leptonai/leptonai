@@ -2,13 +2,10 @@ import { FC, memo, useRef, useState } from "react";
 import { Button, Spin } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { DataViewAlt } from "@carbon/icons-react";
-import {
-  Deployment,
-  Instance,
-} from "@lepton-dashboard/interfaces/deployment.ts";
+import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import Editor from "@monaco-editor/react";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { css } from "@emotion/react";

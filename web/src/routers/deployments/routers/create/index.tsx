@@ -15,11 +15,11 @@ import { css } from "@emotion/react";
 import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/components/link";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 
 interface RawForm {

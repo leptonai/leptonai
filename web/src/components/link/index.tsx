@@ -2,7 +2,7 @@ import { Link as RouterLink, RelativeRoutingType, To } from "react-router-dom";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { forwardRef, PropsWithChildren, ReactNode } from "react";
 import { css } from "@emotion/react";
-import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 
 export const Link = forwardRef<
   HTMLAnchorElement,

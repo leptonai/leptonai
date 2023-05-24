@@ -10,12 +10,12 @@ import {
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "../../../../components/deployment-item";
 

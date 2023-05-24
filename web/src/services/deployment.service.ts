@@ -1,10 +1,7 @@
 import { Injectable } from "injection-js";
 import { BehaviorSubject, map, Observable, tap } from "rxjs";
-import {
-  Deployment,
-  Instance,
-} from "@lepton-dashboard/interfaces/deployment.ts";
-import { ApiService } from "@lepton-dashboard/services/api.service.ts";
+import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import { ApiService } from "@lepton-dashboard/services/api.service";
 
 @Injectable()
 export class DeploymentService {

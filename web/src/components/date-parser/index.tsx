@@ -1,6 +1,6 @@
 import { FC } from "react";
 import dayjs, { ConfigType } from "dayjs";
-import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 
 export const DateParser: FC<
   {

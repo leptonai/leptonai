@@ -1,14 +1,14 @@
 import { FC, useMemo, useState } from "react";
-import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { Alert, Col, Row } from "antd";
 import { SchemaForm } from "@lepton-dashboard/routers/deployments/components/schema-form";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any.ts";
-import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service.ts";
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
+import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
 
 export const Requests: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();

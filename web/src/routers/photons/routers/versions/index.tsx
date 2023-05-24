@@ -1,8 +1,8 @@
 import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Col, Row, Timeline, Typography } from "antd";
 import { Link } from "@lepton-dashboard/components/link";
 import { BreadcrumbHeader } from "../../../../components/breadcrumb-header";
@@ -12,7 +12,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../components/photon-item";
-import { PhotonVersion } from "@lepton-dashboard/interfaces/photon.ts";
+import { PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 
 export const Versions: FC = () => {
   const { name } = useParams();

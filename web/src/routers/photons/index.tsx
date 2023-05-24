@@ -5,7 +5,7 @@ import styled from "@emotion/styled";
 import { Detail } from "@lepton-dashboard/routers/photons/routers/detail";
 import { Versions } from "@lepton-dashboard/routers/photons/routers/versions";
 import { useInject } from "@lepton-libs/di";
-import { TitleService } from "@lepton-dashboard/services/title.service.ts";
+import { TitleService } from "@lepton-dashboard/services/title.service";
 const Container = styled.div`
   flex: 1 1 auto;
 `;

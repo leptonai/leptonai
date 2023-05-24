@@ -1,7 +1,7 @@
 import { Injectable } from "injection-js";
 import { ReplaySubject } from "rxjs";
 import { theme, ThemeConfig } from "antd";
-import { StorageService } from "@lepton-dashboard/services/storage.service.ts";
+import { StorageService } from "@lepton-dashboard/services/storage.service";
 
 @Injectable()
 export class ThemeService {

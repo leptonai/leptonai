@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom/client";
-import App from "@lepton-dashboard/app.tsx";
+import App from "@lepton-dashboard/app";
 import "./index.css";
 import "xterm/css/xterm.css";
 import dayjs from "dayjs";

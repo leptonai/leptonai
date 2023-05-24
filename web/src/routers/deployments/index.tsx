@@ -5,7 +5,7 @@ import styled from "@emotion/styled";
 import { Detail } from "@lepton-dashboard/routers/deployments/routers/detail";
 import { useInject } from "@lepton-libs/di";
 import { Create } from "@lepton-dashboard/routers/deployments/routers/create";
-import { TitleService } from "@lepton-dashboard/services/title.service.ts";
+import { TitleService } from "@lepton-dashboard/services/title.service";
 
 const Container = styled.div`
   flex: 1 1 auto;

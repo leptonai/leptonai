@@ -1,7 +1,7 @@
 import { FC, PropsWithChildren, ReactNode } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
-import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 
 export const Card: FC<
   PropsWithChildren<

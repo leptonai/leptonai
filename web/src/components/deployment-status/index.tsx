@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { Tag } from "antd";
-import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props.ts";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { css } from "@emotion/react";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 

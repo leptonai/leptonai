@@ -3,8 +3,8 @@ import { App, Button, Upload as AntdUpload, UploadFile } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import { RcFile } from "antd/es/upload";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 
 export const Upload: FC = () => {
   const photonService = useInject(PhotonService);

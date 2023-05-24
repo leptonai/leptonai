@@ -5,15 +5,15 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
-import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
+import { PhotonService } from "@lepton-dashboard/services/photon.service";
+import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import {
   CarbonIcon,
   DeploymentIcon,
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
-import { NotificationService } from "@lepton-dashboard/services/notification.service.ts";
+import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { Workspace } from "@carbon/icons-react";
 
 const Container = styled.div`

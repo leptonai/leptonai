@@ -1,10 +1,7 @@
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
-import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
-import {
-  Deployment,
-  Instance,
-} from "@lepton-dashboard/interfaces/deployment.ts";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
+import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
 
 @Injectable()
 export abstract class ApiService {
