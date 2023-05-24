@@ -63,7 +63,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 
 	// Define the init container
 	initContainer := corev1.Container{
-		Name:  "evn-preparation",
+		Name:  "env-preparation",
 		Image: awscliImageURL,
 		// TODO support other clouds
 		// aws s3 cp s3://my-bucket/example.txt ./example.txt
