@@ -19,6 +19,7 @@ var (
 	photonPrefixFlag       *string
 	namespaceFlag          *string
 	serviceAccountNameFlag *string
+	prometheusURLFlag      *string
 )
 
 func main() {
@@ -28,6 +29,7 @@ func main() {
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
+	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
 	flag.Parse()
 
 	// Create and verify the bucket.
@@ -55,6 +57,7 @@ func main() {
 	deploymentNamespace = *namespaceFlag
 	serviceNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
+	prometheusURL = *prometheusURLFlag
 
 	initPhotons()
 	initDeployments()
@@ -85,6 +88,11 @@ func main() {
 	v1.GET("/deployments/:uuid/instances", instanceListHandler)
 	v1.GET("/deployments/:uuid/instances/:id/shell", instanceShellHandler)
 	v1.GET("/deployments/:uuid/instances/:id/log", instanceLogHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryUsage", instanceMemoryUsageHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryTotal", instanceMemoryTotalHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/CPUUtil", instanceCPUUtilHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", instanceQPSHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", instanceLatencyHandler)
 
 	router.Run(":20863")
 }
