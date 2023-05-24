@@ -96,12 +96,15 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 		resources.Limits[nvidiaGPUResourceName] = *resource.NewQuantity(int64(ld.ResourceRequirement.AcceleratorNum), resource.DecimalSI)
 		nodeSelector[nvidiaGPUProductLabelKey] = ld.ResourceRequirement.AcceleratorType
 	}
+
+	// explicitly ignore the exit code of lepton prepare for compatibility
+	leptonCmd := fmt.Sprintf("lepton photon prepare -f %s; lepton photon run -f %[1]s", dest)
 	container := corev1.Container{
 		Name:            mainContainerName,
 		Image:           ph.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"sh"},
-		Args:            []string{"-c", "lepton photon run -f " + dest},
+		Args:            []string{"-c", leptonCmd},
 		Resources:       resources,
 		Ports: []corev1.ContainerPort{
 			{
