@@ -1,5 +1,7 @@
 import os
+import subprocess
 import sys
+import tempfile
 
 from rich.console import Console
 from rich.table import Table
@@ -157,6 +159,31 @@ def run(ctx, name, model, path, port, remote_url, id):
             sys.exit(1)
     photon = api.load(path)
     photon.launch(port=port)
+
+
+# Only used by platform to prepare the environment inside the container and not
+# meant to be used by users
+@photon.command(hidden=True)
+@click.option("--file", "-f", "path", help="Path to .photon file")
+@click.pass_context
+def prepare(ctx, path):
+    metadata = api.load_metadata(path)
+
+    # pip install
+    requirement_dependency = metadata.get("requirement_dependency", [])
+    if requirement_dependency:
+        with tempfile.NamedTemporaryFile("w") as f:
+            content = "\n".join(requirement_dependency)
+            f.write(content)
+            f.flush()
+            try:
+                console.print(f"Installing requirement_dependency:\n{content}")
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "-r", f.name]
+                )
+            except subprocess.CalledProcessError as e:
+                console.print(f"Failed to install {e}")
+                sys.exit(1)
 
 
 @photon.command()

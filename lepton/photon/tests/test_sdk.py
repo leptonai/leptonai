@@ -77,6 +77,13 @@ class TestPhotonSdk(unittest.TestCase):
         self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
+    def test_load_metadata(self):
+        name = random_name()
+        ph = photon.create(name=name, model=self.test_hf_model_id)
+        path = photon.save(ph)
+        metadata = photon.load_metadata(path)
+        self.assertEqual(metadata["name"], name)
+
 
 if __name__ == "__main__":
     unittest.main()

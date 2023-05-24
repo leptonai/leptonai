@@ -83,6 +83,13 @@ class Photon:
             photon = type_str_registry.get(photon_type)(photon_file, metadata)
             return photon
 
+    @staticmethod
+    def load_metadata(path: str):
+        with zipfile.ZipFile(path, "r") as photon_file:
+            with photon_file.open("metadata.json") as config:
+                metadata = json.load(config)
+        return metadata
+
     @property
     def metadata(self):
         return {"name": self.name, "model": self.model, "type": self.photon_type}

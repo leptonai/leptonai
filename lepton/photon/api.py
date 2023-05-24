@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import Any
+from typing import Any, Dict
 from .base import schema_registry, type_registry, Photon, add_photon
 from . import runner  # noqa: F401
 from . import hf  # noqa: F401
@@ -59,6 +59,17 @@ def load(path: str) -> Photon:
     :rtype: Photon
     """
     return Photon.load(path)
+
+
+def load_metadata(path: str) -> Dict[Any, Any]:
+    """
+    Load the metadata of a photon from a file.
+    :param str path: path to the photon file
+
+    :return: the metadata of the photon
+    :rtype: dict
+    """
+    return Photon.load_metadata(path)
 
 
 def push(path, url: str):
