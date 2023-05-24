@@ -333,6 +333,20 @@ class Counter(Runner):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json(), count)
 
+        # get
+        res = requests.post(
+            f"http://127.0.0.1:{port}/get",
+            json={"name": name, "doc_ids": ["doc_id_0", "doc_id_2"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()), 2)
+        self.assertTrue(
+            np.allclose(
+                [r["vector"] for r in res.json()],
+                [embeddings[0]["vector"], embeddings[2]["vector"]],
+            )
+        )
+
         # search
         k = 3
         res = requests.post(

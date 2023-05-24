@@ -64,7 +64,14 @@ class VecDB(Runner):
         collection.add_embeddings(embeddings)
 
     @handler()
-    def search(self, name: str, vector: List[float], k: int = 12) -> List[Dict[str, Any]]:
+    def get(self, name: str, doc_ids: List[str]) -> List[Dict[str, Any]]:
+        collection = self._get_collection(name)
+        return [r.dict() for r in collection.get_embeddings_doc_ids(doc_ids)]
+
+    @handler()
+    def search(
+        self, name: str, vector: List[float], k: int = 12
+    ) -> List[Dict[str, Any]]:
         collection = self._get_collection(name)
         return [r.dict() for r in collection.search(vector, k)]
 
