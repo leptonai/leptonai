@@ -127,6 +127,7 @@ export const List: FC = () => {
       </Col>
       <Col span={24}>
         <AntdList
+          rowKey="id"
           style={{
             border: `1px solid ${theme.colorBorder}`,
             boxShadow: theme.boxShadowTertiary,

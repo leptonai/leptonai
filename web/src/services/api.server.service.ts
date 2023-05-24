@@ -1,5 +1,5 @@
 import { Injectable } from "injection-js";
-import { filter, interval, Observable, startWith } from "rxjs";
+import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon.ts";
 import {
   Deployment,
@@ -48,7 +48,7 @@ export class ApiServerService implements ApiService {
   updateDeployment(id: string, miniReplicas: number): Observable<void> {
     return this.httpClientService.patch(`${this.host}/deployments/${id}`, {
       resource_requirement: {
-        min_replica: miniReplicas,
+        min_replicas: miniReplicas,
       },
     });
   }
@@ -81,41 +81,34 @@ export class ApiServerService implements ApiService {
     instanceId: string
   ): Observable<string> {
     return new Observable((subscriber) => {
-      let continuePolling = true;
+      const abortController = new AbortController();
       let reader: ReadableStreamDefaultReader<string>;
       let record = "";
-      const interval$ = interval(50);
+      const readInfinity = (response: Response) => {
+        reader = response
+          .body!.pipeThrough(new TextDecoderStream())
+          .getReader();
+        const pushToReader: (
+          value: ReadableStreamReadResult<string>
+        ) => string | PromiseLike<string> = ({ value, done }) => {
+          if (done) {
+            subscriber.complete();
+            return record;
+          }
+          record += value;
+          subscriber.next(record);
+          return reader.read().then(pushToReader);
+        };
+        return reader.read().then(pushToReader);
+      };
       fetch(
-        `${this.host}/deployments/${deploymentId}/instances/${instanceId}/log`
-      ).then((response) => {
-        if (response.body) {
-          reader = response.body
-            .pipeThrough(new TextDecoderStream())
-            .getReader();
-          const callReader = () =>
-            reader.read().then(({ done, value }) => {
-              if (done) {
-                subscriber.complete();
-              } else {
-                record = record + value;
-                subscriber.next(record);
-              }
-            });
-          interval$
-            .pipe(
-              startWith(true),
-              filter(() => continuePolling)
-            )
-            .subscribe(() => {
-              void callReader();
-            });
+        `${this.host}/deployments/${deploymentId}/instances/${instanceId}/log`,
+        {
+          signal: abortController.signal,
         }
-      });
+      ).then(readInfinity);
       return function unsubscribe() {
-        continuePolling = false;
-        if (reader) {
-          void reader.cancel();
-        }
+        abortController.abort();
       };
     });
   }

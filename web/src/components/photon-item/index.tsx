@@ -42,81 +42,75 @@ export const PhotonItem: FC<{
     }
   });
   return photon ? (
-    <Row wrap={false}>
-      <Col flex="1 1 auto">
-        <Row gutter={[0, 12]}>
-          {!versionView && (
-            <Col span={24}>
-              <Row>
-                <Col flex="1 1 auto">
-                  <Link
-                    css={css`
-                      color: ${theme.colorTextHeading};
-                    `}
-                    to={`/photons/versions/${photon.name}`}
-                    relative="route"
-                  >
-                    <Description.Item
-                      css={css`
-                        font-weight: 600;
-                        font-size: 16px;
-                      `}
-                      icon={<PhotonIcon />}
-                      term={photon.name}
-                    />
-                  </Link>
-                </Col>
-                <Col flex="0 0 auto">
-                  <Actions photon={photon} extraActions={extraActions} />
-                </Col>
-              </Row>
-            </Col>
-          )}
-          {!versionView && (
-            <Col span={24}>
-              <Description.Container>
-                <Description.Item description={photon.model} />
-              </Description.Container>
-            </Col>
-          )}
-          <Col span={24}>
-            <Row>
-              <Col flex="1 1 auto">
-                <Description.Container
+    <Row gutter={[0, 12]}>
+      {!versionView && (
+        <Col span={24}>
+          <Row>
+            <Col flex="1 1 auto">
+              <Link
+                css={css`
+                  color: ${theme.colorTextHeading};
+                `}
+                to={`/photons/versions/${photon.name}`}
+                relative="route"
+              >
+                <Description.Item
                   css={css`
-                    font-size: 12px;
+                    font-weight: 600;
+                    font-size: 16px;
                   `}
-                >
-                  <PopoverDeploymentTable
-                    photon={photon}
-                    deployments={relatedDeployments}
-                  />
-                  {!versionView && (
-                    <TimeDescription
-                      detail={showDetail}
-                      photon={photon}
-                      versions={versions}
-                    />
-                  )}
-                  {versions && !showDetail && (
-                    <VersionDescription photon={photon} versions={versions} />
-                  )}
-                </Description.Container>
-              </Col>
-
-              {versionView && (
-                <Col flex="0 0 auto">
-                  <Actions photon={photon} extraActions={extraActions} />
-                </Col>
+                  icon={<PhotonIcon />}
+                  term={photon.name}
+                />
+              </Link>
+            </Col>
+            <Col flex="0 0 auto">
+              <Actions photon={photon} extraActions={extraActions} />
+            </Col>
+          </Row>
+        </Col>
+      )}
+      {!versionView && (
+        <Col span={24}>
+          <Description.Container>
+            <Description.Item description={photon.model} />
+          </Description.Container>
+        </Col>
+      )}
+      <Col span={24}>
+        <Row>
+          <Col flex="1 1 auto">
+            <Description.Container
+              css={css`
+                font-size: 12px;
+              `}
+            >
+              <PopoverDeploymentTable
+                photon={photon}
+                deployments={relatedDeployments}
+              />
+              {!versionView && (
+                <TimeDescription
+                  detail={showDetail}
+                  photon={photon}
+                  versions={versions}
+                />
               )}
-            </Row>
+              {versions && !showDetail && (
+                <VersionDescription photon={photon} versions={versions} />
+              )}
+            </Description.Container>
           </Col>
 
-          {showDetail && (
-            <ExtraInfo versionView={versionView} photon={photon} />
+          {versionView && (
+            <Col flex="0 0 auto">
+              <Actions photon={photon} extraActions={extraActions} />
+            </Col>
           )}
         </Row>
       </Col>
+
+      {showDetail && <ExtraInfo versionView={versionView} photon={photon} />}
     </Row>
   ) : (
     <Empty />

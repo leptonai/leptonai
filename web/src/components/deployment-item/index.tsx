@@ -19,7 +19,6 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   Api_1,
   Chip,
-  Edit,
   FlowModeler,
   MessageQueue,
   Replicate,
@@ -34,14 +33,16 @@ import { DeploymentService } from "@lepton-dashboard/services/deployment.service
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
 import { PhotonService } from "@lepton-dashboard/services/photon.service.ts";
 import { PhotonItem } from "@lepton-dashboard/components/photon-item";
-import { useNavigate } from "react-router-dom";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
+import { EditDeployment } from "@lepton-dashboard/components/deployment-item/components/edit-deployment";
+import { useNavigate } from "react-router-dom";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
 }) => {
   const theme = useAntdTheme();
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
   const photonService = useInject(PhotonService);
@@ -49,7 +50,6 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
     () => photonService.id(deployment.photon_id),
     undefined
   );
-  const navigate = useNavigate();
   return (
     <Row gutter={[16, 8]}>
       <Col span={24}>
@@ -66,7 +66,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 color: ${theme.colorTextHeading};
               `}
               icon={<DeploymentStatus status={deployment.status.state} />}
-              to={`/deployments/detail/${deployment.id}/mode/view`}
+              to={`/deployments/detail/${deployment.id}`}
               relative="route"
             >
               <Description.Item
@@ -80,16 +80,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
           </Col>
           <Col flex="0 0 auto">
             <Space size={0} split={<Divider type="vertical" />}>
-              <Button
-                type="text"
-                size="small"
-                icon={<CarbonIcon icon={<Edit />} />}
-                onClick={() =>
-                  navigate(`/deployments/detail/${deployment.id}/mode/edit`)
-                }
-              >
-                Edit
-              </Button>
+              <EditDeployment deployment={deployment} />
               <Popconfirm
                 title="Delete the deployment"
                 description="Are you sure to delete?"
@@ -106,6 +97,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                         `Successfully deleted deployment ${deployment.name}`
                       );
                       refreshService.refresh();
+                      navigate(`/deployments/list`, { relative: "route" });
                     },
                     error: () => {
                       message.destroy("delete-deployment");
@@ -140,7 +132,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                         content={<PhotonItem photon={photon} />}
                       >
                         <span>
-                          <Link to={`/photons/versions/${photon?.name}`}>
+                          <Link to={`/photons/detail/${photon?.id}`}>
                             {photon?.name}
                           </Link>
                         </span>

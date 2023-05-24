@@ -3,20 +3,28 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment.ts";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service.ts";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable.ts";
-import { tap } from "rxjs";
+import { debounceTime, startWith, switchMap, tap } from "rxjs";
 import { Divider, Space, Table } from "antd";
 import { css } from "@emotion/react";
 import { LogsViewer } from "@lepton-dashboard/routers/deployments/components/instances/components/logs-viewer";
 import { Terminal } from "@lepton-dashboard/routers/deployments/components/instances/components/terminal";
+import { RefreshService } from "@lepton-dashboard/services/refresh.service.ts";
 
 export const Instances: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const deploymentService = useInject(DeploymentService);
+  const refreshService = useInject(RefreshService);
   const [loading, setLoading] = useState(true);
   const instances = useStateFromObservable(
     () =>
-      deploymentService
-        .listInstances(deployment.id)
-        .pipe(tap(() => setLoading(false))),
+      refreshService.refresh$.pipe(
+        startWith(true),
+        debounceTime(300),
+        switchMap(() =>
+          deploymentService
+            .listInstances(deployment.id)
+            .pipe(tap(() => setLoading(false)))
+        )
+      ),
     []
   );
   return (
