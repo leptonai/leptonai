@@ -21,6 +21,10 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
+	if ld.ResourceRequirement.MinReplicas <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "min_replicas must be greater than 0."})
+		return
+	}
 
 	photonMapRWLock.RLock()
 	photon := photonById[ld.PhotonID]
@@ -107,6 +111,10 @@ func deploymentPatchHandler(c *gin.Context) {
 	var ld LeptonDeployment
 	if err := json.Unmarshal(body, &ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
+		return
+	}
+	if ld.ResourceRequirement.MinReplicas <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "min_replicas must be greater than 0."})
 		return
 	}
 
