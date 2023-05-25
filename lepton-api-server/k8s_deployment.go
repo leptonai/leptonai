@@ -124,8 +124,9 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"photon":     joinNameByDash(ph.Name, ph.ID),
-				"deployment": joinNameByDash(ld.Name, ld.ID),
+				"photon":          joinNameByDash(ph.Name, ph.ID),
+				"deployment_name": ld.Name,
+				"deployment_id":   ld.ID,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -148,7 +149,7 @@ func createDeployment(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference
 			Replicas: int32Ptr(int32(ld.ResourceRequirement.MinReplicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"deployment": joinNameByDash(ld.Name, ld.ID),
+					"deployment_id": ld.ID,
 				},
 			},
 			Template: template,

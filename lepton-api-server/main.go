@@ -88,11 +88,15 @@ func main() {
 	v1.GET("/deployments/:uuid/instances", instanceListHandler)
 	v1.GET("/deployments/:uuid/instances/:id/shell", instanceShellHandler)
 	v1.GET("/deployments/:uuid/instances/:id/log", instanceLogHandler)
+
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryUsage", instanceMemoryUsageHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryTotal", instanceMemoryTotalHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/CPUUtil", instanceCPUUtilHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", instanceQPSHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", instanceLatencyHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", instanceFastAPIQPSHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", instanceFastAPILatencyHandler)
+
+	v1.GET("/deployments/:uuid/monitoring/FastAPIQPS", deploymentFastAPIQPSHandler)
+	v1.GET("/deployments/:uuid/monitoring/FastAPILatency", deploymentFastAPILatencyHandler)
 
 	router.Run(":20863")
 }
