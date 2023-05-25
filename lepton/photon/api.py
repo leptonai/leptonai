@@ -1,10 +1,12 @@
 import os
 import requests
+import sys
 from typing import Any, Dict
 from .base import schema_registry, type_registry, Photon, add_photon
 from . import runner  # noqa: F401
 from . import hf  # noqa: F401
 from lepton.config import CACHE_DIR
+from lepton.util import check_and_print_http_error
 
 
 def create(name: str, model: Any) -> Photon:
@@ -76,33 +78,39 @@ def push(path, url: str):
     """
     Push a photon to a remote server.
     :param str path: path to the photon file
-    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str url: url of the remote server including the schema
+    (e.g. http://localhost:8000)
     """
     with open(path, "rb") as file:
         response = requests.post(url + "/photons", files={"file": file})
-        response.raise_for_status()
+        if check_and_print_http_error(response):
+            sys.exit(1)
 
 
 def list_remote(url: str):
     """
     List the photons on a remote server.
-    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str url: url of the remote server including the schema
+    (e.g. http://localhost:8000)
     """
     response = requests.get(url + "/photons")
-    response.raise_for_status()
+    if check_and_print_http_error(response):
+        sys.exit(1)
     return response.json()
 
 
 def remove_remote(url: str, id: str):
     """
     Remove a photon from a remote server.
-    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str url: url of the remote server including the schema
+    (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """
     response = requests.delete(url + "/photons/" + id)
     if response.status_code == 404:
         return False
-    response.raise_for_status()
+    if check_and_print_http_error(response):
+        sys.exit(1)
     return True
 
 
@@ -110,15 +118,19 @@ def fetch(id: str, url: str, path: str):
     """
     Fetch a photon from a remote server.
     :param str id: id of the photon to fetch
-    :param str url: url of the remote server including the schema (e.g. http://localhost:8000)
+    :param str url: url of the remote server including the schema
+    (e.g. http://localhost:8000)
     :param str path: path to save the photon to
     """
     if path is None:
         path = CACHE_DIR / f"tmp.{id}.photon"
         need_rename = True
 
-    response = requests.get(url + "/photons/" + id + "?content=true", stream=True)
-    response.raise_for_status()
+    response = requests.get(url + "/photons/" + id + "?content=true",
+                            stream=True)
+    if check_and_print_http_error(response):
+        sys.exit(1)
+
     with open(path, "wb") as f:
         f.write(response.content)
 
@@ -136,7 +148,8 @@ def fetch(id: str, url: str, path: str):
 
 def remote_launch(id: str, url: str):
     # TODO: check if the given id is a valid photon id
-    # TODO: get the photon name from the remote and use it as the deployment name
+    # TODO: get the photon name from the remote and use it as the deployment
+    # name
     deployment = {
         "name": "deployment-" + id,
         "photon_id": id,
@@ -148,4 +161,5 @@ def remote_launch(id: str, url: str):
     }
 
     response = requests.post(url + "/deployments", json=deployment)
-    response.raise_for_status()
+    if check_and_print_http_error(response):
+        sys.exit(1)

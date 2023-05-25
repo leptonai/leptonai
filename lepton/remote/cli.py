@@ -30,11 +30,11 @@ def login(remote_name, remote_url):
         if remote_cluster is None:
             console.print(f'Cluster "{remote_name}" [red]does not exist[/]')
             console.print(
-                f'Please use "lepton remote login -r <URL>" to add the remote cluster first'
+                'Please use "lepton remote login -r <URL>" to add the remote cluster first'
             )
             sys.exit(1)
 
-        console.print(f"TODO: authenticate")
+        console.print("TODO: authenticate")
         set_current_cluster(remote_name)
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
@@ -44,10 +44,10 @@ def login(remote_name, remote_url):
             f'Please enter the remote cluster name of "{remote_url}":'
         )
         if len(remote_name) == 0:  # TODO: ask the user to re-enter the name
-            console.print(f"Remote cluster name cannot be empty")
+            console.print("Remote cluster name cannot be empty")
             sys.exit(1)
 
-        console.print(f"TODO: authenticate")
+        console.print("TODO: authenticate")
         save_cluster(remote_name, remote_url)
         set_current_cluster(remote_name)
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
@@ -60,7 +60,7 @@ def login(remote_name, remote_url):
 @remote.command()
 def logout():
     set_current_cluster(None)
-    console.print(f"[green]Logged out[/]")
+    console.print("[green]Logged out[/]")
 
 
 @remote.command()
@@ -76,7 +76,7 @@ def remove(remote_name):
         if not run_terraform_destroy(dir, remote_name):
             console.print(f"Failed to destroy cluster {remote_name} with terraform")
             sys.exit(1)
-        
+
     remove_cluster(remote_name)
     console.print(f'Cluster "{remote_name}" [green]removed[/]')
 
@@ -110,7 +110,7 @@ def create(remote_name, sandbox, provider):
     if remote_name is None:
         remote_name = "lepton-cluster-" + generate_random_string(5)
         # TODO: check if the name already exists
-    if sandbox == False:
+    if sandbox is False:
         console.print("TODO: support a non-sandbox cluster")
         sys.exit(1)
     if provider != "aws":
@@ -118,22 +118,22 @@ def create(remote_name, sandbox, provider):
         sys.exit(1)
 
     if not meet_create_precondition():
-        console.print(f"Installation precondition not met. Please check the error message above.")
+        console.print("Installation precondition not met. Please check the error message above.")
         sys.exit(1)
-    
+
     console.print(f"Creating cluster {remote_name} on AWS")
-    
-    # TODO: pass in cluster name 
-    dir = CACHE_DIR / "cluster_states" /remote_name
+
+    # TODO: pass in cluster name
+    dir = CACHE_DIR / "cluster_states" / remote_name
     success, ingress_hostname = run_terraform_apply(dir, remote_name)
     if not success:
         console.print(f"Failed to create cluster {remote_name} with terraform")
         sys.exit(1)
-        
+
     save_cluster(remote_name, f"http://{ingress_hostname}", str(dir))
     console.print(f"Cluster {remote_name} created successfully")
     console.print(f"The ingress URL is http://{ingress_hostname}")
-    
+
     console.print(f"Run `lepton remote login -n {remote_name}` to login to the created cluster")
 
 
@@ -149,7 +149,7 @@ def load_cluster_info():
     return cluster_info
 
 
-def save_cluster(name, url, terraform_dir = None):
+def save_cluster(name, url, terraform_dir=None):
     cluster_info = load_cluster_info()
     cluster_info["clusters"][name] = {}
     cluster_info["clusters"][name]["url"] = url

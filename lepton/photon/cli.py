@@ -18,7 +18,7 @@ def get_remote_url(ctx, param, value):
     if value is not None:
         console.print(f"Using remote cluster: [green]{value}[/green]")
     else:
-        console.print(f"Using [green]local server[/green]")
+        console.print("Using [green]local server[/green]")
     return value
 
 
