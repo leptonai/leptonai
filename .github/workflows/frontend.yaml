@@ -2,12 +2,12 @@ name: frontend-build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
     paths:
       - .github/**
       - web/**
-    branches: [ main ]
+    branches: [ "**" ]
 
 jobs:
   build:

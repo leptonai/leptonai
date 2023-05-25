@@ -7,7 +7,7 @@ on:
     paths:
       - .github/**
       - lepton/**
-    branches: [ "main" ]
+    branches: [ "**" ]
 
 permissions:
   contents: read
