@@ -107,14 +107,14 @@ func instanceLogHandler(c *gin.Context) {
 
 	clientset := mustInitK8sClientSet()
 
-	tenMinutesInSeconds := int64(10 * 60)
+	tailLines := int64(10000)
 	tenMBInBytes := int64(10 * 1024 * 1024)
 	// TODO: support other log options
 	logOptions := &corev1.PodLogOptions{
-		Container:    mainContainerName,
-		Follow:       true,
-		SinceSeconds: &tenMinutesInSeconds,
-		LimitBytes:   &tenMBInBytes,
+		Container:  mainContainerName,
+		Follow:     true,
+		TailLines:  &tailLines,
+		LimitBytes: &tenMBInBytes,
 	}
 	req := clientset.CoreV1().Pods(deploymentNamespace).GetLogs(id, logOptions)
 	podLogs, err := req.Stream(context.Background())
@@ -125,8 +125,21 @@ func instanceLogHandler(c *gin.Context) {
 	}
 	defer podLogs.Close()
 
-	_, err = io.Copy(c.Writer, podLogs)
-	if err != nil {
+	buffer := make([]byte, 4096)
+	for {
+		n := 0
+		n, err = podLogs.Read(buffer)
+		if err != nil {
+			break
+		}
+		_, err = c.Writer.Write(buffer[:n])
+		if err != nil {
+			break
+		}
+		c.Writer.Flush()
+	}
+
+	if err != nil && err != io.EOF {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + id + ": " + err.Error()})
 		return
 	}
