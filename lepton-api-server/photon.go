@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 )
@@ -115,12 +116,15 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 	}
 
 	// Unmarshal the JSON into a Metadata struct
-	var photon Photon
 	var metadata PhotonMetadata
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		return nil, err
 	}
+	if !validateName(metadata.Name) {
+		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, nameValidationMessage)
+	}
 
+	var photon Photon
 	photon.Name = metadata.Name
 	photon.Model = metadata.Model
 	photon.Image = metadata.Image

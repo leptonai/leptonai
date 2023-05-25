@@ -21,8 +21,8 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if ld.validateDeployment() != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + ld.validateDeployment().Error()})
+	if ld.validateDeploymentMetadata() != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + ld.validateDeploymentMetadata().Error()})
 		return
 	}
 
@@ -117,8 +117,8 @@ func deploymentPatchHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if metadata.validatePatch() != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + metadata.validateDeployment().Error()})
+	if metadata.validatePatchMetadata() != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + metadata.validateDeploymentMetadata().Error()})
 		return
 	}
 

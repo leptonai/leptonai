@@ -128,3 +128,45 @@ func createCustomResourceObject() schema.GroupVersionResource {
 	}
 	return crdResource
 }
+
+func (ld *LeptonDeployment) validateDeploymentMetadata() error {
+	if !validateName(ld.Name) {
+		return fmt.Errorf("invalid name %s: %s", ld.Name, nameValidationMessage)
+	}
+	if ld.ResourceRequirement.CPU <= 0 {
+		return fmt.Errorf("cpu must be positive")
+	}
+	if ld.ResourceRequirement.Memory <= 0 {
+		return fmt.Errorf("memory must be positive")
+	}
+	if ld.ResourceRequirement.MinReplicas <= 0 {
+		return fmt.Errorf("min replicas must be positive")
+	}
+	photonMapRWLock.RLock()
+	ph := photonById[ld.PhotonID]
+	photonMapRWLock.RUnlock()
+	if ph == nil {
+		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
+	}
+	return nil
+}
+
+func (ld *LeptonDeployment) validatePatchMetadata() error {
+	valid := false
+	if ld.ResourceRequirement.MinReplicas > 0 {
+		valid = true
+	}
+	if ld.PhotonID != "" {
+		photonMapRWLock.RLock()
+		ph := photonById[ld.PhotonID]
+		photonMapRWLock.RUnlock()
+		if ph == nil {
+			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
+		}
+		valid = true
+	}
+	if !valid {
+		return fmt.Errorf("no valid field to patch")
+	}
+	return nil
+}
