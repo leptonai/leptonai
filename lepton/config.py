@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import sys
 
 from dotenv import load_dotenv
 
@@ -11,4 +12,6 @@ if not CACHE_DIR.exists():
 
 DB_PATH = CACHE_DIR / "lepton.db"
 
-IMAGE_REPO = "605454121064.dkr.ecr.us-east-1.amazonaws.com"
+BASE_IMAGE_VERSION = "0.1.0"
+BASE_IMAGE = f"605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
+BASE_IMAGE_ARGS = ["--shm-size=1g"]

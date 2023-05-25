@@ -8,7 +8,6 @@ from loguru import logger
 from fastapi.responses import StreamingResponse
 
 from lepton.registry import Registry
-from lepton.config import IMAGE_REPO
 from .base import schema_registry, type_registry
 from .runner import RunnerPhoton, handler, send_pil_img
 from .hf_runner import pipeline_registry
@@ -64,9 +63,6 @@ def is_transformers_model(model):
 
 class HuggingfacePhoton(RunnerPhoton):
     photon_type: str = "hf"
-
-    image: str = f"{IMAGE_REPO}/lepton:photon-hf-runner"
-    args: list = ["--shm-size=1g"]
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

@@ -17,7 +17,7 @@ import pydantic
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
 
-from lepton.config import IMAGE_REPO
+from lepton.config import BASE_IMAGE, BASE_IMAGE_ARGS
 from .base import Photon, schema_registry
 
 schemas = ["py"]
@@ -107,8 +107,8 @@ class RunnerPhoton(Photon):
     photon_type: str = "runner"
     obj_pkl_filename: str = "obj.pkl"
 
-    image: str = f"{IMAGE_REPO}/lepton:photon-py-runner"
-    args: list = ["--shm-size=1g"]
+    image: str = BASE_IMAGE
+    args: list = BASE_IMAGE_ARGS
     requirement_dependency: Optional[List[str]] = None
 
     def __init__(self, name=None, model=None):
