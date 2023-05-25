@@ -57,7 +57,7 @@ func initDeployments() {
 	}
 	deploymentMapRWLock.Unlock()
 
-	if err := updateIngress(listAllLeptonDeployments()); err != nil {
+	if err := updateLeptonIngress(listAllLeptonDeployments()); err != nil {
 		panic(err)
 	}
 
@@ -81,7 +81,7 @@ func periodCheckDeploymentState() {
 
 		for i, ld := range lds {
 			if ld.Status.Endpoint.ExternalEndpoint == "" {
-				externalEndpoint, err := watchForIngressEndpoint(ingressName(ld))
+				externalEndpoint, err := watchForDeploymentIngressEndpoint(ingressName(ld))
 				if err != nil {
 					continue
 				}

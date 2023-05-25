@@ -16,7 +16,7 @@ func ingressName(ld *LeptonDeployment) string {
 	return ld.Name + "-ingress"
 }
 
-func updateIngress(lds []*LeptonDeployment) error {
+func updateLeptonIngress(lds []*LeptonDeployment) error {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
@@ -51,7 +51,7 @@ func updateIngress(lds []*LeptonDeployment) error {
 	return nil
 }
 
-func createIngress(ld *LeptonDeployment, or metav1.OwnerReference) error {
+func createDeploymentIngress(ld *LeptonDeployment, or metav1.OwnerReference) error {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
@@ -90,7 +90,7 @@ func createIngress(ld *LeptonDeployment, or metav1.OwnerReference) error {
 	return nil
 }
 
-func watchForIngressEndpoint(name string) (string, error) {
+func watchForDeploymentIngressEndpoint(name string) (string, error) {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 

@@ -21,8 +21,8 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if ld.ResourceRequirement.MinReplicas <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "min_replicas must be greater than 0."})
+	if ld.validateDeployment() != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + ld.validateDeployment().Error()})
 		return
 	}
 
@@ -48,12 +48,7 @@ func deploymentPostHandler(c *gin.Context) {
 
 	ownerref := getOwnerRefFromUnstructured(ldcr)
 
-	deploymentMapRWLock.Lock()
-	deploymentById[uuid] = &ld
-	deploymentByName[ld.Name] = &ld
-	deploymentMapRWLock.Unlock()
-
-	err = createDeployment(&ld, photon, ownerref)
+	err = createDeployment(&ld, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
@@ -65,13 +60,22 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	err = createIngress(&ld, ownerref)
+	deploymentMapRWLock.Lock()
+	deploymentById[uuid] = &ld
+	deploymentByName[ld.Name] = &ld
+	deploymentMapRWLock.Unlock()
+
+	if err := updateLeptonIngress(listAllLeptonDeployments()); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to update ingress: " + err.Error()})
+	}
+
+	err = createDeploymentIngress(&ld, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create ingress: " + err.Error()})
 		return
 	}
 
-	err = PatchLeptonDeploymentCR(&ld)
+	_, err = PatchLeptonDeploymentCR(&ld)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to update the external endpoint to deployment crd: " + err.Error()})
 		return
@@ -95,9 +99,9 @@ func deploymentListHandler(c *gin.Context) {
 func deploymentPatchHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
 	deploymentMapRWLock.RLock()
-	metadata := deploymentById[uuid]
+	ld := deploymentById[uuid]
 	deploymentMapRWLock.RUnlock()
-	if metadata == nil {
+	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
 		return
 	}
@@ -108,32 +112,32 @@ func deploymentPatchHandler(c *gin.Context) {
 		return
 	}
 
-	var ld LeptonDeployment
-	if err := json.Unmarshal(body, &ld); err != nil {
+	var metadata LeptonDeployment
+	if err := json.Unmarshal(body, &metadata); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if ld.ResourceRequirement.MinReplicas <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "min_replicas must be greater than 0."})
+	if metadata.validatePatch() != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + metadata.validateDeployment().Error()})
 		return
 	}
 
-	metadata.ResourceRequirement.MinReplicas = ld.ResourceRequirement.MinReplicas
-	metadata.Status.State = DeploymentStateUpdating
+	ld.merge(&metadata)
+	ld.Status.State = DeploymentStateUpdating
 
-	err = PatchLeptonDeploymentCR(metadata)
+	_, err = PatchLeptonDeploymentCR(ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + metadata.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.Name + ": " + err.Error()})
 		return
 	}
 
-	err = patchDeployment(metadata)
+	err = patchDeployment(ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment " + metadata.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to patch deployment " + ld.Name + ": " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, metadata)
+	c.JSON(http.StatusOK, ld)
 }
 
 func deploymentGetHandler(c *gin.Context) {

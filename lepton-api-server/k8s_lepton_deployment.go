@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -19,26 +18,19 @@ var (
 	leptonDeploymentNamespace  = "default"
 )
 
-func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstructured, error) {
+func CreateLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
-	// Define the custom resource object to create
+	crdResource := createCustomResourceObject()
 	crd := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": leptonAPIGroup + "/" + leptonDeploymentAPIVersion,
 			"kind":       leptonDeploymentKind,
 			"metadata": map[string]interface{}{
-				"name": joinNameByDash(metadata.Name, metadata.ID),
+				"name": joinNameByDash(ld.Name, ld.ID),
 			},
-			"spec": convertDeploymentToCr(metadata),
+			"spec": convertDeploymentToCr(ld),
 		},
-	}
-
-	// Create the custom resource object in Kubernetes
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  leptonDeploymentAPIVersion,
-		Resource: leptonDeploymentResource,
 	}
 	result, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Create(
 		context.TODO(),
@@ -58,12 +50,7 @@ func CreateLeptonDeploymentCR(metadata *LeptonDeployment) (*unstructured.Unstruc
 func DeleteLeptonDeploymentCR(metadata *LeptonDeployment) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
-	// Delete the custom resource object in Kubernetes
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  leptonDeploymentAPIVersion,
-		Resource: leptonDeploymentResource,
-	}
+	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
 		joinNameByDash(metadata.Name, metadata.ID),
@@ -79,12 +66,7 @@ func DeleteLeptonDeploymentCR(metadata *LeptonDeployment) error {
 func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
-	// List the custom resource object in Kubernetes
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  leptonDeploymentAPIVersion,
-		Resource: leptonDeploymentResource,
-	}
+	crdResource := createCustomResourceObject()
 	crd, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).List(
 		context.TODO(),
 		metav1.ListOptions{},
@@ -110,31 +92,39 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 	return metadataList, nil
 }
 
-func PatchLeptonDeploymentCR(ld *LeptonDeployment) error {
+func PatchLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
-	// Patch the custom resource object in Kubernetes
+	crdResource := createCustomResourceObject()
+
+	cr, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Get(
+		context.TODO(),
+		joinNameByDash(ld.Name, ld.ID),
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	cr.Object["spec"] = convertDeploymentToCr(ld)
+
+	result, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Update(
+		context.TODO(),
+		cr,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func createCustomResourceObject() schema.GroupVersionResource {
 	crdResource := schema.GroupVersionResource{
 		Group:    leptonAPIGroup,
 		Version:  leptonDeploymentAPIVersion,
 		Resource: leptonDeploymentResource,
 	}
-
-	ldString, err := json.Marshal(convertDeploymentToCr(ld))
-	if err != nil {
-		return err
-	}
-
-	_, err = dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Patch(
-		context.TODO(),
-		joinNameByDash(ld.Name, ld.ID),
-		types.MergePatchType,
-		[]byte(fmt.Sprintf(`{"spec": %s}`, ldString)),
-		metav1.PatchOptions{},
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return crdResource
 }
