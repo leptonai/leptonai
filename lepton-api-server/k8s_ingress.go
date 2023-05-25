@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,12 @@ func updateLeptonIngress(lds []*LeptonDeployment) error {
 			originPaths := ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths
 			// Additional 2 ingress rulePaths for the lepton api and web
 			rulePaths := make([]networkingv1.HTTPIngressPath, 0, len(lds)+2)
+			// clean up the ingress annotations
+			for key := range ingress.Annotations {
+				if strings.HasPrefix(key, "alb.ingress.kubernetes.io/conditions.") {
+					delete(ingress.Annotations, key)
+				}
+			}
 			for _, ld := range lds {
 				key, value := newAnnotationKeyValueForHeaderBasedRouting(ld)
 				ingress.Annotations[key] = value
