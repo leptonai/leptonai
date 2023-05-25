@@ -1,0 +1,39 @@
+name: Build and Deploy Photon Runner Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Photon Runner Version'
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build and Deploy
+      env:
+        ECR_REPOSITORY: lepton
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
+      run: |
+        echo "HEAD SHA=$(git rev-parse --short HEAD)"
+        echo "VERSION_TAG=${VERSION_TAG}"
+        for python_version in "3.7" "3.8" "3.9" "3.10" "3.11"; do
+          echo "Building for python_version=${python_version}"
+          tag="${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${python_version}-runner-${VERSION_TAG}"
+          docker build . --build-arg PYTHON_VERSION=${python_version} --file lepton/photon/dockerfiles/python-runner.Dockerfile --tag ${tag}
+          docker push ${tag}
+          docker rmi ${tag}
+        done
