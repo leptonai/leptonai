@@ -2,12 +2,14 @@ import { FC, PropsWithChildren, ReactNode } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
+import { Skeleton } from "antd";
 
 export const Card: FC<
   PropsWithChildren<
     {
       title?: ReactNode;
       titleIcon?: ReactNode;
+      loading?: boolean;
       extra?: ReactNode;
       borderless?: boolean;
       shadowless?: boolean;
@@ -19,6 +21,7 @@ export const Card: FC<
   title,
   titleIcon,
   extra,
+  loading = false,
   borderless = false,
   shadowless = false,
   paddingless = false,
@@ -79,7 +82,7 @@ export const Card: FC<
           padding: ${paddingless ? 0 : "16px"};
         `}
       >
-        {children}
+        {loading ? <Skeleton /> : children}
       </div>
     </div>
   );

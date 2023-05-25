@@ -7,21 +7,21 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
-import { Typography } from "antd";
+import { Divider, Typography } from "antd";
 import { css } from "@emotion/react";
+import { Photon } from "@lepton-dashboard/interfaces/photon";
 
-export const Api: FC = () => {
+const ApiItem: FC<{
+  path: string;
+  photon?: Photon;
+  deployment: Deployment;
+}> = ({ path, photon, deployment }) => {
   const theme = useAntdTheme();
-  const deployment = useOutletContext<Deployment>();
   const url = deployment.status.endpoint.external_endpoint;
-  const photonService = useInject(PhotonService);
-  const photon = useStateFromObservable(
-    () => photonService.id(deployment.photon_id),
-    undefined
-  );
   const jsonSchemaService = useInject(JsonSchemaService);
-  const { inputExample, path } = jsonSchemaService.parse(
-    photon?.openapi_schema
+  const { inputExample } = jsonSchemaService.parse(
+    photon?.openapi_schema,
+    path
   );
   const exampleString = inputExample ? JSON.stringify(inputExample) : "";
   const queryText = `curl -s -X POST \\
@@ -29,9 +29,15 @@ export const Api: FC = () => {
   -H 'deployment: ${deployment.name}' \\
   -H 'Content-Type: application/json' \\
   "${url}${path}"`;
-
   return (
-    <Card shadowless borderless>
+    <Card paddingless shadowless borderless>
+      <Divider
+        style={{ marginTop: 0 }}
+        orientation="left"
+        orientationMargin={0}
+      >
+        {path}
+      </Divider>
       <div
         css={css`
           position: relative;
@@ -56,6 +62,25 @@ export const Api: FC = () => {
           </pre>
         </Typography.Paragraph>
       </div>
+    </Card>
+  );
+};
+
+export const Api: FC = () => {
+  const deployment = useOutletContext<Deployment>();
+  const photonService = useInject(PhotonService);
+  const photon = useStateFromObservable(
+    () => photonService.id(deployment.photon_id),
+    undefined
+  );
+  const jsonSchemaService = useInject(JsonSchemaService);
+  const paths = jsonSchemaService.getPaths(photon?.openapi_schema);
+
+  return (
+    <Card shadowless borderless>
+      {paths.map((p) => (
+        <ApiItem path={p} key={p} deployment={deployment} photon={photon} />
+      ))}
     </Card>
   );
 };

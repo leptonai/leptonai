@@ -27,13 +27,14 @@ const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
     });
   }
   return {
+    components: (schema as SafeAny).components,
     properties: {
       ...requiredProperties,
       optional: optionalSchema,
     },
     type: schema.type,
     required: schema.required,
-  };
+  } as JSONSchema7;
 };
 
 const convertToOptionalSchemaData = (
@@ -174,5 +175,5 @@ export const SchemaForm = memo<{
       </Form>
     );
   },
-  () => true
+  (prevProps, nextProps) => prevProps.path === nextProps.path
 );
