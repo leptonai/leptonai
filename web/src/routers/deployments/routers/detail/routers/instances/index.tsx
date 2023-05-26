@@ -11,6 +11,7 @@ import { Divider, Space, Table } from "antd";
 import { Terminal } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/terminal";
 import { LogsViewer } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/logs-viewer";
 import { css } from "@emotion/react";
+import { Metrics } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/metrics";
 
 export const Instances: FC = () => {
   const deployment = useOutletContext<Deployment>();
@@ -54,6 +55,7 @@ export const Instances: FC = () => {
               <Space split={<Divider type="vertical" />}>
                 <Terminal instance={instance} deployment={deployment} />
                 <LogsViewer instance={instance} deployment={deployment} />
+                <Metrics instance={instance} deployment={deployment} />
               </Space>
             ),
           },

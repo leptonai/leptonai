@@ -1,7 +1,11 @@
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import {
+  Deployment,
+  Instance,
+  Metric,
+} from "@lepton-dashboard/interfaces/deployment";
 
 @Injectable()
 export abstract class ApiService {
@@ -23,6 +27,11 @@ export abstract class ApiService {
     deploymentId: string,
     instanceId: string
   ): string;
+  abstract getDeploymentInstanceMetrics(
+    deploymentId: string,
+    instanceId: string,
+    metricName: string
+  ): Observable<Metric[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;
   abstract deleteDeployment(id: string): Observable<void>;
   abstract updateDeployment(id: string, miniReplicas: number): Observable<void>;

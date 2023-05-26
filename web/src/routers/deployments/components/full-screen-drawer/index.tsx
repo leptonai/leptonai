@@ -5,13 +5,16 @@ import { CloseOutlined } from "@ant-design/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 
 export const FullScreenDrawer: FC<
-  PropsWithChildren<{ open: boolean; onClose: () => void }>
-> = ({ children, open, onClose }) => {
+  PropsWithChildren<{
+    borderless?: boolean;
+    open: boolean;
+    onClose: () => void;
+  }>
+> = ({ children, open, onClose, borderless = false }) => {
   const theme = useAntdTheme();
   return (
     <Drawer
       css={css`
-        opacity: 0.95;
         .ant-drawer-header {
           display: none;
         }
@@ -47,7 +50,7 @@ export const FullScreenDrawer: FC<
         <div
           css={css`
             height: 100%;
-            border: 1px solid ${theme.colorBorder};
+            border: 1px solid ${borderless ? "transparent" : theme.colorBorder};
             border-radius: ${theme.borderRadius}px;
             overflow: hidden;
           `}

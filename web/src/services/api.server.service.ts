@@ -1,7 +1,11 @@
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import {
+  Deployment,
+  Instance,
+  Metric,
+} from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
 
@@ -117,6 +121,16 @@ export class ApiServerService implements ApiService {
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
     const host = __CLUSTER_URL__ || window.location.host;
     return `${wsProtocol}://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
+  }
+
+  getDeploymentInstanceMetrics(
+    deploymentId: string,
+    instanceId: string,
+    metricName: string
+  ): Observable<Metric[]> {
+    return this.httpClientService.get(
+      `${this.host}/deployments/${deploymentId}/instances/${instanceId}/monitoring/${metricName}`
+    );
   }
 
   constructor(private httpClientService: HttpClientService) {}

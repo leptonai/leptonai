@@ -1,7 +1,11 @@
 import { Injectable } from "injection-js";
 import { EMPTY, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import {
+  Deployment,
+  Instance,
+  Metric,
+} from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 const mockedPhotons = [
   {
@@ -153,5 +157,19 @@ export class ApiLocalService implements ApiService {
   ): string {
     console.log(deploymentId, instanceId);
     return "";
+  }
+
+  getDeploymentInstanceMetrics(
+    deploymentId: string,
+    instanceId: string,
+    metricName: string
+  ): Observable<Metric[]> {
+    console.log(deploymentId, instanceId, metricName);
+    return of([
+      {
+        metric: { name: "demo" },
+        values: [],
+      },
+    ]);
   }
 }

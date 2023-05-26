@@ -19,3 +19,8 @@ export interface Deployment {
 export interface Instance {
   id: string;
 }
+
+export interface Metric {
+  metric: { name: string; handler?: string };
+  values: Array<[number, string]>;
+}

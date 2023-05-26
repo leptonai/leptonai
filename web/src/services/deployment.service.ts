@@ -1,6 +1,10 @@
 import { Injectable } from "injection-js";
-import { BehaviorSubject, map, Observable, tap } from "rxjs";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import { BehaviorSubject, forkJoin, map, Observable, tap } from "rxjs";
+import {
+  Deployment,
+  Instance,
+  Metric,
+} from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 
 @Injectable()
@@ -22,6 +26,30 @@ export class DeploymentService {
     return this.apiService.getDeploymentInstanceSocketUrl(
       deploymentId,
       instanceId
+    );
+  }
+  getInstanceMetrics(
+    deploymentId: string,
+    instanceId: string,
+    metricName: string[]
+  ): Observable<Metric[]> {
+    return forkJoin(
+      metricName.map((m) =>
+        this.apiService.getDeploymentInstanceMetrics(
+          deploymentId,
+          instanceId,
+          m
+        )
+      )
+    ).pipe(
+      map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),
+      map((list) =>
+        list.sort((a, b) => {
+          return (a.metric.handler || a.metric.name).localeCompare(
+            b.metric.handler || b.metric.name
+          );
+        })
+      )
     );
   }
 

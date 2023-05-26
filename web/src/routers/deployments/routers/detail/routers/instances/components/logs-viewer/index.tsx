@@ -7,10 +7,10 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import Editor from "@monaco-editor/react";
-import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { css } from "@emotion/react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 
 const LogDetail: FC<{
   deploymentId: string;
