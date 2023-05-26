@@ -143,6 +143,19 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
+  getDeploymentMetrics(
+    deploymentId: string,
+    metricName: string
+  ): Observable<Metric[]> {
+    console.log(deploymentId, metricName);
+    return of([
+      {
+        metric: { name: "demo" },
+        values: [],
+      },
+    ]);
+  }
+
   getDeploymentInstanceLogs(
     deploymentId: string,
     instanceId: string

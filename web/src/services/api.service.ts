@@ -19,6 +19,10 @@ export abstract class ApiService {
     deploymentId: string
   ): Observable<Instance[]>;
 
+  abstract getDeploymentMetrics(
+    deploymentId: string,
+    metricName: string
+  ): Observable<Metric[]>;
   abstract getDeploymentInstanceLogs(
     deploymentId: string,
     instanceId: string

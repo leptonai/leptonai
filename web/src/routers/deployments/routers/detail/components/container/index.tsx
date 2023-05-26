@@ -8,7 +8,7 @@ import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "@lepton-dashboard/components/deployment-item";
 import { css } from "@emotion/react";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
-import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
+import { BlockStorageAlt, Book, ChartLine, Play } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 
 export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
@@ -32,6 +32,15 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
         <>
           <CarbonIcon icon={<Book />} />
           API
+        </>
+      ),
+    },
+    {
+      key: `${pathname}/metrics`,
+      label: (
+        <>
+          <CarbonIcon icon={<ChartLine />} />
+          Metrics
         </>
       ),
     },

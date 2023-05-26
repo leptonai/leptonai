@@ -14,6 +14,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Api } from "@lepton-dashboard/routers/deployments/routers/detail/routers/api";
 import { List as InstanceList } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/routers/list";
 import { Detail as InstanceDetail } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/routers/detail";
+import { Metrics } from "@lepton-dashboard/routers/deployments/routers/detail/routers/metrics";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -28,6 +29,7 @@ export const Detail: FC = () => {
       <Route element={<Container deployment={deployment} />}>
         <Route path="demo" element={<Demo deployment={deployment} />} />
         <Route path="api" element={<Api deployment={deployment} />} />
+        <Route path="metrics" element={<Metrics deployment={deployment} />} />
         <Route
           path="instances/list"
           element={<InstanceList deployment={deployment} />}

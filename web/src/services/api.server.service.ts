@@ -71,6 +71,15 @@ export class ApiServerService implements ApiService {
     );
   }
 
+  getDeploymentMetrics(
+    deploymentId: string,
+    metricName: string
+  ): Observable<Metric[]> {
+    return this.httpClientService.get(
+      `${this.host}/deployments/${deploymentId}/monitoring/${metricName}`
+    );
+  }
+
   listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
     return this.httpClientService.get(
       `${this.host}/deployments/${deploymentId}/instances`

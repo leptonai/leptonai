@@ -70,7 +70,12 @@ export const List: FC = () => {
         {filteredPhotonGroups.length > 0 ? (
           <Row gutter={[16, 16]} wrap>
             {filteredPhotonGroups.map((group) => (
-              <Col sm={24} md={view === "card" ? 12 : 24} key={`${group.name}`}>
+              <Col
+                xs={24}
+                sm={24}
+                md={view === "card" ? 12 : 24}
+                key={`${group.name}`}
+              >
                 <Card>
                   <PhotonItem photon={group} versions={group.versions} />
                 </Card>

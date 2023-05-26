@@ -1,0 +1,128 @@
+import { FC, useEffect, useMemo, useRef } from "react";
+import { EChartsType, init } from "echarts";
+import { css } from "@emotion/react";
+import { useInject } from "@lepton-libs/di";
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { ThemeService } from "@lepton-dashboard/services/theme.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { debounceTime, fromEvent } from "rxjs";
+
+export const Metric: FC<{
+  loading: boolean;
+  title: string;
+  data: { name: string; data: [number, number][] }[];
+  format: (value: number) => string;
+}> = ({ title, loading, format, data }) => {
+  const divRef = useRef<HTMLDivElement | null>(null);
+  const echartRef = useRef<EChartsType | null>(null);
+  const themeService = useInject(ThemeService);
+  const theme = useAntdTheme();
+  const options = useMemo(
+    () => ({
+      title: {
+        show: data.length === 0,
+        textStyle: {
+          fontSize: 16,
+        },
+        text: "No data",
+        left: "center",
+        top: "center",
+      },
+      xAxis: {
+        type: "time",
+        show: data.length !== 0,
+        axisLabel: { hideOverlap: true },
+      },
+      yAxis: {
+        type: "value",
+        show: data.length !== 0,
+        axisLabel: {
+          formatter: (v: number) => format(v),
+        },
+      },
+      legend: {
+        show: data.length > 1,
+        data: data.map((d) => d.name),
+        type: "scroll",
+        orient: "horizontal",
+        bottom: 0,
+      },
+      series: data.map((d) => ({ ...d, type: "line", showSymbol: false })),
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        valueFormatter: (v: number) => format(v),
+      },
+      grid: {
+        right: 30,
+        top: 30,
+      },
+    }),
+    [format, data]
+  );
+
+  useStateFromObservable(
+    () => fromEvent(window, "resize").pipe(debounceTime(300)),
+    undefined,
+    {
+      next: () => {
+        if (echartRef.current) {
+          echartRef.current?.resize();
+        }
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (divRef.current && !echartRef.current) {
+      echartRef.current = init(
+        divRef.current,
+        themeService.getValidTheme() === "default"
+          ? "lepton-light"
+          : "lepton-dark"
+      );
+    }
+    if (echartRef.current) {
+      if (loading) {
+        echartRef.current.showLoading("default", {
+          maskColor: theme.colorBgContainer,
+          textColor: theme.colorText,
+          text: "Loading ...",
+        });
+      } else {
+        echartRef.current.setOption(options);
+        echartRef.current?.hideLoading();
+      }
+    }
+
+    return () => {
+      if (echartRef.current) {
+        echartRef.current.dispose();
+        echartRef.current = null;
+      }
+    };
+  }, [loading, options, theme.colorBgContainer, theme.colorText, themeService]);
+
+  return (
+    <div>
+      <div
+        css={css`
+          color: ${theme.colorTextHeading};
+          text-align: center;
+          padding-bottom: 12px;
+          font-size: 16px;
+          font-weight: 500;
+        `}
+      >
+        {title}
+      </div>
+      <div
+        css={css`
+          height: 220px;
+          width: 100%;
+        `}
+        ref={divRef}
+      />
+    </div>
+  );
+};

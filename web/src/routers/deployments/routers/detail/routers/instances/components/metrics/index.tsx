@@ -4,10 +4,8 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ChartLine } from "@carbon/icons-react";
 import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
 import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/metrics/components/metric-item";
-import { css } from "@emotion/react";
 import prettyBytes from "pretty-bytes";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Card } from "@lepton-dashboard/components/card";
 
 const metrics = [
@@ -37,19 +35,11 @@ export const MetricsDetail: FC<{
   deploymentId: string;
   instanceId: string;
 }> = ({ deploymentId, instanceId }) => {
-  const theme = useAntdTheme();
   return (
-    <div
-      css={css`
-        height: 100%;
-        padding: 16px;
-        overflow: auto;
-        background: ${theme.colorBgContainer};
-      `}
-    >
+    <Card borderless shadowless>
       <Row gutter={[16, 16]}>
         {metrics.map((m) => (
-          <Col key={m.title} sm={24} md={12}>
+          <Col key={m.title} sm={24} xs={24} md={12}>
             <Card overflowShow borderless shadowless>
               <MetricItem
                 deploymentId={deploymentId}
@@ -62,7 +52,7 @@ export const MetricsDetail: FC<{
           </Col>
         ))}
       </Row>
-    </div>
+    </Card>
   );
 };
 

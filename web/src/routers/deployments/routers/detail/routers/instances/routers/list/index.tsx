@@ -38,10 +38,12 @@ export const List: FC<{ deployment: Deployment }> = ({ deployment }) => {
         size="small"
         dataSource={instances}
         bordered
+        tableLayout="fixed"
         columns={[
           {
             dataIndex: "id",
             title: "ID",
+            ellipsis: true,
             render: (id) => (
               <Link to={`../detail/${id}`} relative="path">
                 {id}
@@ -49,6 +51,7 @@ export const List: FC<{ deployment: Deployment }> = ({ deployment }) => {
             ),
           },
           {
+            ellipsis: true,
             title: (
               <div
                 css={css`

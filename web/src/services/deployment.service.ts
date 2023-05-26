@@ -78,5 +78,22 @@ export class DeploymentService {
   request(name: string, value: string, path: string): Observable<unknown> {
     return this.apiService.requestDeployment(name, value, path);
   }
+
+  getMetrics(deploymentId: string, metricName: string[]): Observable<Metric[]> {
+    return forkJoin(
+      metricName.map((m) =>
+        this.apiService.getDeploymentMetrics(deploymentId, m)
+      )
+    ).pipe(
+      map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),
+      map((list) =>
+        list.sort((a, b) => {
+          return (a.metric.handler || a.metric.name).localeCompare(
+            b.metric.handler || b.metric.name
+          );
+        })
+      )
+    );
+  }
   constructor(private apiService: ApiService) {}
 }

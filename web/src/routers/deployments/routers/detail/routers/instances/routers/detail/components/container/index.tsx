@@ -74,6 +74,16 @@ export const Container: FC<
               ),
             },
             {
+              title: (
+                <Link
+                  to={`/deployments/detail/${deployment.id}/instances/list`}
+                  relative="route"
+                >
+                  Instances
+                </Link>
+              ),
+            },
+            {
               title: instanceId,
             },
           ]}

@@ -6,11 +6,10 @@ import { Metric } from "@lepton-dashboard/routers/deployments/routers/detail/com
 
 export const MetricItem: FC<{
   deploymentId: string;
-  instanceId: string;
   metricName: string[];
   title: string;
   format: (value: number) => string;
-}> = ({ title, deploymentId, instanceId, metricName, format }) => {
+}> = ({ title, deploymentId, metricName, format }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<
     {
@@ -21,12 +20,7 @@ export const MetricItem: FC<{
   const deploymentService = useInject(DeploymentService);
 
   useStateFromObservable(
-    () =>
-      deploymentService.getInstanceMetrics(
-        deploymentId,
-        instanceId,
-        metricName
-      ),
+    () => deploymentService.getMetrics(deploymentId, metricName),
     [],
     {
       next: (data) => {
