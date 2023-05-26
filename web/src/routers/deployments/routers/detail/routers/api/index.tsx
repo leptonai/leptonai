@@ -1,13 +1,12 @@
 import { FC } from "react";
 import { Card } from "@lepton-dashboard/components/card";
-import { useOutletContext } from "react-router-dom";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
-import { Divider, Typography } from "antd";
+import { Alert, Divider, Typography } from "antd";
 import { css } from "@emotion/react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 
@@ -66,8 +65,7 @@ const ApiItem: FC<{
   );
 };
 
-export const Api: FC = () => {
-  const deployment = useOutletContext<Deployment>();
+export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const photon = useStateFromObservable(
     () => photonService.id(deployment.photon_id),
@@ -76,11 +74,13 @@ export const Api: FC = () => {
   const jsonSchemaService = useInject(JsonSchemaService);
   const paths = jsonSchemaService.getPaths(photon?.openapi_schema);
 
-  return (
+  return photon?.openapi_schema ? (
     <Card shadowless borderless>
       {paths.map((p) => (
         <ApiItem path={p} key={p} deployment={deployment} photon={photon} />
       ))}
     </Card>
+  ) : (
+    <Alert showIcon type="warning" message="No openapi schema found" />
   );
 };

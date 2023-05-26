@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { EChartsType, init } from "echarts";
 import { css } from "@emotion/react";
 import { useInject } from "@lepton-libs/di";
@@ -15,10 +15,61 @@ export const MetricItem: FC<{
   format: (value: number) => string;
 }> = ({ title, deploymentId, instanceId, metricName, format }) => {
   const divRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef(true);
+  const [data, setData] = useState<
+    {
+      name: string;
+      data: [number, number][];
+      type: string;
+      showSymbol: boolean;
+    }[]
+  >([]);
   const echartRef = useRef<EChartsType | null>(null);
   const deploymentService = useInject(DeploymentService);
   const themeService = useInject(ThemeService);
   const theme = useAntdTheme();
+  const options = useMemo(
+    () => ({
+      title: {
+        show: data.length === 0,
+        textStyle: {
+          fontSize: 16,
+        },
+        text: "No data",
+        left: "center",
+        top: "center",
+      },
+      xAxis: {
+        type: "time",
+        show: data.length !== 0,
+      },
+      yAxis: {
+        type: "value",
+        show: data.length !== 0,
+        axisLabel: {
+          formatter: (v: number) => format(v),
+        },
+      },
+      legend: {
+        show: data.length > 1,
+        data: data.map((d) => d.name),
+        type: "scroll",
+        orient: "horizontal",
+        bottom: 0,
+      },
+      series: data,
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        valueFormatter: (v: number) => format(v),
+      },
+      grid: {
+        right: 30,
+        top: 30,
+      },
+    }),
+    [format, data]
+  );
   useStateFromObservable(
     () =>
       deploymentService.getInstanceMetrics(
@@ -30,39 +81,23 @@ export const MetricItem: FC<{
     {
       next: (data) => {
         if (echartRef.current) {
+          loadingRef.current = false;
           echartRef.current.hideLoading();
-          echartRef.current.setOption({
-            title: {
-              show: data.length === 0,
-              textStyle: {
-                fontSize: 24,
-              },
-              text: "No data",
-              left: "center",
-              top: "center",
-            },
-            xAxis: {
-              show: data.length !== 0,
-            },
-            yAxis: {
-              show: data.length !== 0,
-            },
-            legend: {
-              show: data.length > 1,
-              data: data.map((d) => d.metric.handler || d.metric.name),
-            },
-            series: data.map((d) => {
+          setData(
+            data.map((d) => {
               return {
                 name: d.metric.handler || d.metric.name,
                 data: d.values.map(([t, v]) => [t * 1000, +v]),
                 type: "line",
                 showSymbol: false,
               };
-            }),
-          });
+            })
+          );
+          echartRef.current.setOption(options);
         }
       },
       error: () => {
+        loadingRef.current = false;
         if (echartRef.current) {
           echartRef.current.hideLoading();
         }
@@ -78,37 +113,14 @@ export const MetricItem: FC<{
           ? "lepton-light"
           : "lepton-dark"
       );
-      echartRef.current.showLoading("default", {
-        maskColor: theme.colorBgContainer,
-        textColor: theme.colorText,
-        text: "Loading ...",
-      });
-      echartRef.current.setOption({
-        legend: {
-          type: "scroll",
-          orient: "horizontal", // 图例的布局朝向
-          bottom: 0, // 图例组件离容器底部的距离
-        },
-        tooltip: {
-          trigger: "axis",
-          confine: true,
-          valueFormatter: (v: number) => format(v),
-        },
-        grid: {
-          right: 30,
-          top: 30,
-        },
-        xAxis: {
-          type: "time",
-        },
-        yAxis: {
-          type: "value",
-          axisLabel: {
-            formatter: (v: number) => format(v),
-          },
-        },
-        series: [],
-      });
+      if (loadingRef.current) {
+        echartRef.current.showLoading("default", {
+          maskColor: theme.colorBgContainer,
+          textColor: theme.colorText,
+          text: "Loading ...",
+        });
+      }
+      echartRef.current.setOption(options);
     }
 
     return () => {
@@ -116,7 +128,7 @@ export const MetricItem: FC<{
         echartRef.current.dispose();
       }
     };
-  }, [format, theme.colorBgContainer, theme.colorText, themeService, title]);
+  }, [format, themeService, theme, title, options]);
   return (
     <div>
       <div

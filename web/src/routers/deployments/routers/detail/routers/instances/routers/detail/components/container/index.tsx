@@ -5,42 +5,45 @@ import { BreadcrumbHeader } from "@lepton-dashboard/components/breadcrumb-header
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
-import { DeploymentItem } from "@lepton-dashboard/components/deployment-item";
 import { css } from "@emotion/react";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
-import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
+import {
+  ChartLine,
+  DataViewAlt,
+  Terminal as CarbonTerminal,
+} from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 
-export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
-  deployment,
-}) => {
+export const Container: FC<
+  PropsWithChildren<{ deployment: Deployment; instanceId: string }>
+> = ({ deployment, instanceId }) => {
   const { pathname } = useResolvedPath("");
 
   const items = [
     {
-      key: `${pathname}/demo`,
+      key: `${pathname}/terminal`,
       label: (
         <>
-          <CarbonIcon icon={<Play />} />
-          Demo
+          <CarbonIcon icon={<CarbonTerminal />} />
+          Terminal
         </>
       ),
     },
     {
-      key: `${pathname}/api`,
+      key: `${pathname}/logs`,
       label: (
         <>
-          <CarbonIcon icon={<Book />} />
-          API
+          <CarbonIcon icon={<DataViewAlt />} />
+          Logs
         </>
       ),
     },
     {
-      key: `${pathname}/instances/list`,
+      key: `${pathname}/metrics`,
       label: (
         <>
-          <CarbonIcon icon={<BlockStorageAlt />} />
-          Instances
+          <CarbonIcon icon={<ChartLine />} />
+          Metrics
         </>
       ),
     },
@@ -61,13 +64,20 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
               ),
             },
             {
-              title: deployment?.name,
+              title: (
+                <Link
+                  to={`/deployments/detail/${deployment.id}`}
+                  relative="route"
+                >
+                  <span>{deployment.name}</span>
+                </Link>
+              ),
+            },
+            {
+              title: instanceId,
             },
           ]}
         />
-      </Col>
-      <Col span={24}>
-        <Card>{deployment && <DeploymentItem deployment={deployment} />}</Card>
       </Col>
       <Col span={24}>
         <Card
@@ -82,7 +92,9 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
           `}
         >
           <TabsNav menuItems={items} />
-          <Outlet />
+          <Card borderless shadowless>
+            <Outlet />
+          </Card>
         </Card>
       </Col>
     </Row>

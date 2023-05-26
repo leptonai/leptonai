@@ -12,6 +12,7 @@ export const Card: FC<
       loading?: boolean;
       extra?: ReactNode;
       borderless?: boolean;
+      overflowShow?: boolean;
       shadowless?: boolean;
       paddingless?: boolean;
     } & EmotionProps
@@ -23,6 +24,7 @@ export const Card: FC<
   extra,
   loading = false,
   borderless = false,
+  overflowShow = false,
   shadowless = false,
   paddingless = false,
   className,
@@ -33,7 +35,7 @@ export const Card: FC<
       css={css`
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: ${overflowShow ? "visible" : "hidden"};
         background-color: ${theme.colorBgContainer};
         border-color: ${theme.colorBorder};
         border-radius: ${theme.borderRadius}px;

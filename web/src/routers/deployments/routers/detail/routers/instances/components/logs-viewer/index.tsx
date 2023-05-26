@@ -12,7 +12,7 @@ import type { editor as MonacoEditor } from "monaco-editor";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 
-const LogDetail: FC<{
+export const LogDetail: FC<{
   deploymentId: string;
   instanceId: string;
 }> = memo(

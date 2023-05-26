@@ -13,13 +13,13 @@ import "xterm/css/xterm.css";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 
-const TerminalDetail: FC<{
+export const TerminalDetail: FC<{
   deploymentId: string;
   instanceId: string;
 }> = ({ deploymentId, instanceId }) => {
   const theme = useAntdTheme();
   const terminalDOMRef = useRef<HTMLDivElement>(null);
-  const deploymentSerivce = useInject(DeploymentService);
+  const deploymentService = useInject(DeploymentService);
   useEffect(() => {
     const term = new Xterm({
       fontFamily: theme.fontFamilyCode,
@@ -54,7 +54,7 @@ const TerminalDetail: FC<{
       },
     });
     const socket = new WebSocket(
-      deploymentSerivce.getInstanceSocketUrl(deploymentId, instanceId),
+      deploymentService.getInstanceSocketUrl(deploymentId, instanceId),
       "v4.channel.k8s.io"
     );
     const fitAddon = new FitAddon();
@@ -104,7 +104,7 @@ const TerminalDetail: FC<{
       term.dispose();
       socket.close();
     };
-  }, [deploymentId, deploymentSerivce, instanceId, theme.fontFamilyCode]);
+  }, [deploymentId, deploymentService, instanceId, theme.fontFamilyCode]);
   return (
     <div
       css={css`

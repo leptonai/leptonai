@@ -1,20 +1,19 @@
 import { FC, useState } from "react";
-import { useOutletContext } from "react-router-dom";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { Card } from "@lepton-dashboard/components/card";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { debounceTime, startWith, switchMap, tap } from "rxjs";
+import { Card } from "@lepton-dashboard/components/card";
 import { Divider, Space, Table } from "antd";
+import { css } from "@emotion/react";
 import { Terminal } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/terminal";
 import { LogsViewer } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/logs-viewer";
-import { css } from "@emotion/react";
 import { Metrics } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/metrics";
+import { Link } from "@lepton-dashboard/components/link";
 
-export const Instances: FC = () => {
-  const deployment = useOutletContext<Deployment>();
+export const List: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const deploymentService = useInject(DeploymentService);
   const refreshService = useInject(RefreshService);
   const [loading, setLoading] = useState(true);
@@ -40,7 +39,15 @@ export const Instances: FC = () => {
         dataSource={instances}
         bordered
         columns={[
-          { dataIndex: "id", title: "ID" },
+          {
+            dataIndex: "id",
+            title: "ID",
+            render: (id) => (
+              <Link to={`../detail/${id}`} relative="path">
+                {id}
+              </Link>
+            ),
+          },
           {
             title: (
               <div
@@ -52,7 +59,7 @@ export const Instances: FC = () => {
               </div>
             ),
             render: (_, instance) => (
-              <Space split={<Divider type="vertical" />}>
+              <Space size={0} split={<Divider type="vertical" />}>
                 <Terminal instance={instance} deployment={deployment} />
                 <LogsViewer instance={instance} deployment={deployment} />
                 <Metrics instance={instance} deployment={deployment} />

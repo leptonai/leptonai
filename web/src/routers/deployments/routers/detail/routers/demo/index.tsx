@@ -1,6 +1,5 @@
 import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/components/card";
-import { useOutletContext } from "react-router-dom";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
@@ -13,10 +12,9 @@ import { css } from "@emotion/react";
 import { SchemaForm } from "@lepton-dashboard/routers/deployments/routers/detail/routers/demo/components/schema-form";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 
-export const Demo: FC = () => {
+export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
   const [loading, setLoading] = useState(true);
-  const deployment = useOutletContext<Deployment>();
   const photonService = useInject(PhotonService);
   const [path, setPath] = useState<string | undefined>(undefined);
   const photon = useStateFromObservable(

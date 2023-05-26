@@ -12,7 +12,8 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Api } from "@lepton-dashboard/routers/deployments/routers/detail/routers/api";
-import { Instances } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances";
+import { List as InstanceList } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/routers/list";
+import { Detail as InstanceDetail } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/routers/detail";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -25,14 +26,18 @@ export const Detail: FC = () => {
   return deployment ? (
     <Routes>
       <Route element={<Container deployment={deployment} />}>
-        <Route path="demo" element={<Demo />} />
-        <Route path="api" element={<Api />} />
-        <Route path="instances" element={<Instances />} />
+        <Route path="demo" element={<Demo deployment={deployment} />} />
+        <Route path="api" element={<Api deployment={deployment} />} />
         <Route
-          path="*"
-          element={<Navigate to={`${pathname}/demo`} replace />}
+          path="instances/list"
+          element={<InstanceList deployment={deployment} />}
         />
       </Route>
+      <Route
+        path="instances/detail/:id/*"
+        element={<InstanceDetail deployment={deployment} />}
+      />
+      <Route path="*" element={<Navigate to={`${pathname}/demo`} replace />} />
     </Routes>
   ) : (
     <></>
