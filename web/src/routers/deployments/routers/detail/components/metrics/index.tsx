@@ -4,7 +4,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { Col, Row } from "antd";
 import { Card } from "@lepton-dashboard/components/card";
-import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail/routers/metrics/components/metric-item";
+import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail/components/metrics/components/metric-item";
 
 const metrics = [
   {
