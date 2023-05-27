@@ -20,6 +20,8 @@ var (
 	namespaceFlag          *string
 	serviceAccountNameFlag *string
 	prometheusURLFlag      *string
+	certificateARNFlag     *string
+	rootDomainFlag         *string
 )
 
 func main() {
@@ -30,6 +32,8 @@ func main() {
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
+	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
+	rootDomainFlag = flag.String("root-domain", "", "root domain")
 	flag.Parse()
 
 	// Create and verify the bucket.
@@ -58,6 +62,8 @@ func main() {
 	serviceNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
 	prometheusURL = *prometheusURLFlag
+	certificateARN = *certificateARNFlag
+	rootDomain = *rootDomainFlag
 
 	initPhotons()
 	initDeployments()

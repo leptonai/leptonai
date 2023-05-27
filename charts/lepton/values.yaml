@@ -19,6 +19,8 @@ apiServer:
         cpu: "1"
   serviceAccountRoleArn: ""
   bucketName: "leptonai"
+  rootDomain: ""
+  certificateArn: ""
 
 web:
   enabled: true

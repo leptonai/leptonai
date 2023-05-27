@@ -9,7 +9,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var ingressNamespace = "default"
+var (
+	ingressNamespace = "default"
+	certificateARN   = ""
+	rootDomain       = ""
+)
 
 const headerKeyForLeptonDeploymentRerouting = "deployment"
 
@@ -68,7 +72,7 @@ func createDeploymentIngress(ld *LeptonDeployment, or metav1.OwnerReference) err
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            ingressName(ld),
 			Namespace:       ingressNamespace,
-			Annotations:     newBaseIngressAnnotation(),
+			Annotations:     newDeploymentIngressAnnotation(ld),
 			OwnerReferences: []metav1.OwnerReference{or},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -146,10 +150,19 @@ func newAnnotationKeyValueForHeaderBasedRouting(ld *LeptonDeployment) (key strin
 	return
 }
 
-func newBaseIngressAnnotation() map[string]string {
-	return map[string]string{
+func newDeploymentIngressAnnotation(ld *LeptonDeployment) map[string]string {
+	annotation := map[string]string{
 		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
 		"alb.ingress.kubernetes.io/target-type":      "ip",
 		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
 	}
+	if rootDomain != "" {
+		annotation["external-dns.alpha.kubernetes.io/hostname"] = fmt.Sprintf("%s.%s", ld.Name, rootDomain)
+		if certificateARN != "" {
+			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}, {"HTTP":80}]`
+			annotation["alb.ingress.kubernetes.io/actions.ssl-redirect"] = `{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}`
+			annotation["alb.ingress.kubernetes.io/certificate-arn"] = certificateARN
+		}
+	}
+	return annotation
 }

@@ -35,5 +35,9 @@ spec:
             - "{{ .Values.apiServer.name }}{{ .Values.nameSuffix }}"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
+            - "--certificate-arn"
+            - "{{ .Values.apiServer.certificateArn }}"
+            - "--root-domain"
+            - "{{ .Values.apiServer.rootDomain }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
