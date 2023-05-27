@@ -57,6 +57,16 @@ func deploymentFastAPILatencyHandler(c *gin.Context) {
 	queryMetricsHandler(c, query, "latency_p90", "handler")
 }
 
+func instanceGPUMemoryUtilHandler(c *gin.Context) {
+	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
+	queryMetricsHandler(c, query, "gpu_memory_util", "gpu")
+}
+
+func instanceGPUUtilHandler(c *gin.Context) {
+	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
+	queryMetricsHandler(c, query, "gpu_util", "gpu")
+}
+
 func cleanPrometheusQueryResult(result model.Value, name, keep string) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(result)
 	if err != nil {

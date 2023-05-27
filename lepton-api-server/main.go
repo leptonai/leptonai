@@ -101,6 +101,9 @@ func main() {
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", instanceFastAPIQPSHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", instanceFastAPILatencyHandler)
 
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUtil", instanceGPUMemoryUtilHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUUtil", instanceGPUUtilHandler)
+
 	v1.GET("/deployments/:uuid/monitoring/FastAPIQPS", deploymentFastAPIQPSHandler)
 	v1.GET("/deployments/:uuid/monitoring/FastAPILatency", deploymentFastAPILatencyHandler)
 
