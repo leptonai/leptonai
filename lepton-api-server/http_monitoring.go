@@ -67,6 +67,16 @@ func instanceGPUUtilHandler(c *gin.Context) {
 	queryMetricsHandler(c, query, "gpu_util", "gpu")
 }
 
+func instanceGPUMemoryUsageHandler(c *gin.Context) {
+	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"}[1h]"
+	queryMetricsHandler(c, query, "gpu_memory_usage_in_MB", "gpu")
+}
+
+func instanceGPUMemoryTotalHandler(c *gin.Context) {
+	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("id") + "\"})[1h:1m]"
+	queryMetricsHandler(c, query, "gpu_memory_total_in_MB", "gpu")
+}
+
 func cleanPrometheusQueryResult(result model.Value, name, keep string) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(result)
 	if err != nil {
