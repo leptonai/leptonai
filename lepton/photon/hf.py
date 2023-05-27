@@ -63,6 +63,7 @@ def is_transformers_model(model):
 
 class HuggingfacePhoton(RunnerPhoton):
     photon_type: str = "hf"
+    requirement_dependency: Optional[List[str]] = []
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -116,7 +117,6 @@ class HuggingfacePhoton(RunnerPhoton):
     def metadata(self):
         res = super().metadata
         res.pop("py_obj")
-        res["requirement_dependency"].clear()
         res.update(
             {
                 "task": self.hf_task,
@@ -284,6 +284,7 @@ assistant:
 class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
     # essentially Text-generation task, but uses Encoder-Decoder architecture
     hf_task: str = "text2text-generation"
+    requirement_dependency: Optional[List[str]] = ["protobuf==3.20.*"]
 
     @handler(
         "run",
