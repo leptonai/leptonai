@@ -12,8 +12,10 @@ export const Metric: FC<{
   title: string;
   data: { name: string; data: [number, number][] }[];
   format: (value: number) => string;
-}> = ({ title, loading, format, data }) => {
+  onInit?: (chart: EChartsType) => void;
+}> = ({ title, loading, format, data, onInit }) => {
   const divRef = useRef<HTMLDivElement | null>(null);
+  const onInitRef = useRef(onInit);
   const echartRef = useRef<EChartsType | null>(null);
   const themeService = useInject(ThemeService);
   const theme = useAntdTheme();
@@ -47,7 +49,12 @@ export const Metric: FC<{
         orient: "horizontal",
         bottom: 0,
       },
-      series: data.map((d) => ({ ...d, type: "line", showSymbol: false })),
+      series: data.map((d) => ({
+        ...d,
+        type: "line",
+        showSymbol: false,
+        connectNulls: true,
+      })),
       tooltip: {
         trigger: "axis",
         confine: true,
@@ -55,7 +62,8 @@ export const Metric: FC<{
       },
       grid: {
         right: 30,
-        top: 30,
+        top: 10,
+        bottom: data.length > 1 ? 50 : 20,
       },
     }),
     [format, data]
@@ -81,6 +89,9 @@ export const Metric: FC<{
           ? "lepton-light"
           : "lepton-dark"
       );
+      if (onInitRef.current) {
+        onInitRef.current(echartRef.current);
+      }
     }
     if (echartRef.current) {
       if (loading) {
@@ -109,7 +120,7 @@ export const Metric: FC<{
         css={css`
           color: ${theme.colorTextHeading};
           text-align: center;
-          padding-bottom: 12px;
+          padding-bottom: 6px;
           font-size: 16px;
           font-weight: 500;
         `}
@@ -118,7 +129,7 @@ export const Metric: FC<{
       </div>
       <div
         css={css`
-          height: 220px;
+          height: 160px;
           width: 100%;
         `}
         ref={divRef}

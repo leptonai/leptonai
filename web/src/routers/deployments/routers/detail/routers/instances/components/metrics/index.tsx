@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useCallback, useRef, useState } from "react";
 import { Button, Col, Row } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ChartLine } from "@carbon/icons-react";
@@ -7,6 +7,7 @@ import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail
 import prettyBytes from "pretty-bytes";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { Card } from "@lepton-dashboard/components/card";
+import { connect, EChartsType } from "echarts";
 
 const metrics = [
   {
@@ -35,13 +36,21 @@ export const MetricsDetail: FC<{
   deploymentId: string;
   instanceId: string;
 }> = ({ deploymentId, instanceId }) => {
+  const metricsInstanceRef = useRef(new Map<string, EChartsType>());
+  const onInit = useCallback((chart: EChartsType, title: string) => {
+    metricsInstanceRef.current.set(title, chart);
+    if (metricsInstanceRef.current.size === metrics.length) {
+      connect(Array.from(metricsInstanceRef.current.values()));
+    }
+  }, []);
   return (
     <Card borderless shadowless>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 32]}>
         {metrics.map((m) => (
           <Col key={m.title} sm={24} xs={24} md={12}>
-            <Card overflowShow borderless shadowless>
+            <Card paddingless overflowShow borderless shadowless>
               <MetricItem
+                onInit={(chart) => onInit(chart, m.title)}
                 deploymentId={deploymentId}
                 instanceId={instanceId}
                 metricName={m.name}

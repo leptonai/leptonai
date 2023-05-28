@@ -3,13 +3,15 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Metric } from "@lepton-dashboard/routers/deployments/routers/detail/components/metric";
+import { EChartsType } from "echarts";
 
 export const MetricItem: FC<{
   deploymentId: string;
   metricName: string[];
   title: string;
   format: (value: number) => string;
-}> = ({ title, deploymentId, metricName, format }) => {
+  onInit?: (chart: EChartsType) => void;
+}> = ({ title, deploymentId, metricName, format, onInit }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<
     {
@@ -40,5 +42,13 @@ export const MetricItem: FC<{
     }
   );
 
-  return <Metric loading={loading} title={title} data={data} format={format} />;
+  return (
+    <Metric
+      onInit={onInit}
+      loading={loading}
+      title={title}
+      data={data}
+      format={format}
+    />
+  );
 };
