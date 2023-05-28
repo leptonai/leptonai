@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
+
+	"github.com/leptonai/lepton/go-pkg/namedb"
 )
 
 type PhotonMetadata struct {
@@ -40,11 +41,19 @@ type PhotonCr struct {
 	OpenApiSchema string `json:"openapi_schema"`
 }
 
-var (
-	photonById      = make(map[string]*Photon)
-	photonByName    = make(map[string]map[string]*Photon)
-	photonMapRWLock = sync.RWMutex{}
-)
+func (p Photon) GetName() string {
+	return p.Name
+}
+
+func (p Photon) GetID() string {
+	return p.ID
+}
+
+func (p Photon) GetVersion() int64 {
+	return p.CreatedAt
+}
+
+var photonDB = namedb.NewNameDB[Photon]()
 
 func initPhotons() {
 	// Initialize the photon database
@@ -53,15 +62,8 @@ func initPhotons() {
 		// TODO: better error handling
 		panic(err)
 	}
-	photonMapRWLock.Lock()
-	defer photonMapRWLock.Unlock()
-	for _, m := range metadataList {
-		photonById[m.ID] = m
-		if photonByName[m.Name] == nil {
-			photonByName[m.Name] = make(map[string]*Photon)
-		}
-		photonByName[m.Name][m.ID] = m
-	}
+
+	photonDB.Add(metadataList...)
 }
 
 func convertPhotonToCr(photon *Photon) *PhotonCr {
@@ -124,12 +126,12 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, nameValidationMessage)
 	}
 
-	var photon Photon
-	photon.Name = metadata.Name
-	photon.Model = metadata.Model
-	photon.Image = metadata.Image
-	photon.ContainerArgs = metadata.Args
-	photon.OpenApiSchema = metadata.OpenApiSchema
+	var ph Photon
+	ph.Name = metadata.Name
+	ph.Model = metadata.Model
+	ph.Image = metadata.Image
+	ph.ContainerArgs = metadata.Args
+	ph.OpenApiSchema = metadata.OpenApiSchema
 
-	return &photon, nil
+	return &ph, nil
 }

@@ -23,17 +23,15 @@ func instanceListHandler(c *gin.Context) {
 	duuid := c.Param("uuid")
 	clientset := mustInitK8sClientSet()
 
-	deploymentMapRWLock.RLock()
-	metadata := deploymentById[duuid]
-	deploymentMapRWLock.RUnlock()
-	if metadata == nil {
+	ld := deploymentDB.GetByID(duuid)
+	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + duuid + " does not exist."})
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), metadata.Name, metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get deployment " + metadata.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.Name + ": " + err.Error()})
 		return
 	}
 
@@ -48,7 +46,7 @@ func instanceListHandler(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(deploymentNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + metadata.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.Name + ": " + err.Error()})
 		return
 	}
 

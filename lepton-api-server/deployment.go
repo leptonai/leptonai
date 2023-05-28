@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/namedb"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -37,46 +37,39 @@ type LeptonDeploymentResourceRequirement struct {
 	MinReplicas     int64   `json:"min_replicas"`
 }
 
-var (
-	deploymentById      = make(map[string]*LeptonDeployment)
-	deploymentByName    = make(map[string]*LeptonDeployment)
-	deploymentMapRWLock = sync.RWMutex{}
-)
+func (ld LeptonDeployment) GetName() string {
+	return ld.Name
+}
+
+func (ld LeptonDeployment) GetID() string {
+	return ld.ID
+}
+
+func (ld LeptonDeployment) GetVersion() int64 {
+	return 0
+}
+
+var deploymentDB = namedb.NewNameDB[LeptonDeployment]()
 
 func initDeployments() {
 	// Initialize the photon database
-	metadataList, err := ReadAllLeptonDeploymentCR()
+	lds, err := ReadAllLeptonDeploymentCR()
 	if err != nil {
 		// TODO: better error handling
 		panic(err)
 	}
-	deploymentMapRWLock.Lock()
-	for _, m := range metadataList {
-		deploymentById[m.ID] = m
-		deploymentByName[m.Name] = m
-	}
-	deploymentMapRWLock.Unlock()
 
-	if err := updateLeptonIngress(listAllLeptonDeployments()); err != nil {
+	deploymentDB.Add(lds...)
+	if err := updateLeptonIngress(deploymentDB.GetAll()); err != nil {
 		panic(err)
 	}
 
 	go periodCheckDeploymentState()
 }
 
-func listAllLeptonDeployments() []*LeptonDeployment {
-	deploymentMapRWLock.RLock()
-	defer deploymentMapRWLock.RUnlock()
-	lds := make([]*LeptonDeployment, 0, len(deploymentByName))
-	for _, ld := range deploymentByName {
-		lds = append(lds, ld)
-	}
-	return lds
-}
-
 func periodCheckDeploymentState() {
 	for {
-		lds := listAllLeptonDeployments()
+		lds := deploymentDB.GetAll()
 		states := deploymentState(lds...)
 
 		for i, ld := range lds {

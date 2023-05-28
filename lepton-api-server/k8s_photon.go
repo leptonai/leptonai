@@ -39,7 +39,7 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 	}
 
 	// Iterate over the custom resources
-	var metadataList []*Photon
+	var phs []*Photon
 	for _, cr := range crd.Items {
 		spec := cr.Object["spec"].(map[string]interface{})
 		specStr, err := json.Marshal(spec)
@@ -49,13 +49,13 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 		metadata := &PhotonCr{}
 		json.Unmarshal(specStr, &metadata)
 
-		metadataList = append(metadataList, convertCrToPhoton(metadata))
+		phs = append(phs, convertCrToPhoton(metadata))
 	}
 
-	return metadataList, nil
+	return phs, nil
 }
 
-func DeletePhotonCR(metadata *Photon) error {
+func DeletePhotonCR(ph *Photon) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	// Delete the custom resource object in Kubernetes
@@ -66,7 +66,7 @@ func DeletePhotonCR(metadata *Photon) error {
 	}
 	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
-		joinNameByDash(metadata.Name, metadata.ID),
+		joinNameByDash(ph.Name, ph.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -76,7 +76,7 @@ func DeletePhotonCR(metadata *Photon) error {
 	return nil
 }
 
-func CreatePhotonCR(metadata *Photon) error {
+func CreatePhotonCR(ph *Photon) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	// Define the custom resource object to create
@@ -85,9 +85,9 @@ func CreatePhotonCR(metadata *Photon) error {
 			"apiVersion": leptonAPIGroup + "/" + photonAPIVersion,
 			"kind":       photonKind,
 			"metadata": map[string]interface{}{
-				"name": joinNameByDash(metadata.Name, metadata.ID),
+				"name": joinNameByDash(ph.Name, ph.ID),
 			},
-			"spec": convertPhotonToCr(metadata),
+			"spec": convertPhotonToCr(ph),
 		},
 	}
 

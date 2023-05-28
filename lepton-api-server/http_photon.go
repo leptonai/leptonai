@@ -11,9 +11,7 @@ import (
 
 func photonDownloadHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
-	photonMapRWLock.RLock()
-	metadata := photonById[uuid]
-	photonMapRWLock.RUnlock()
+	metadata := photonDB.GetByID(uuid)
 	if metadata == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
@@ -32,9 +30,7 @@ func photonGetHandler(c *gin.Context) {
 		photonDownloadHandler(c)
 	} else {
 		uuid := c.Param("uuid")
-		photonMapRWLock.RLock()
-		metadata := photonById[uuid]
-		photonMapRWLock.RUnlock()
+		metadata := photonDB.GetByID(uuid)
 		if metadata == nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 			return
@@ -45,9 +41,7 @@ func photonGetHandler(c *gin.Context) {
 
 func photonDeleteHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
-	photonMapRWLock.RLock()
-	metadata := photonById[uuid]
-	photonMapRWLock.RUnlock()
+	metadata := photonDB.GetByID(uuid)
 	if metadata == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
@@ -64,30 +58,17 @@ func photonDeleteHandler(c *gin.Context) {
 		return
 	}
 
-	photonMapRWLock.Lock()
-	delete(photonById, uuid)
-	delete(photonByName[metadata.Name], uuid)
-	photonMapRWLock.Unlock()
-
+	photonDB.Delete(metadata)
 	c.Status(http.StatusOK)
 }
 
 func photonListHandler(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
-	// TODO: have a well organized json return value
-	ret := make([]*Photon, 0)
-
-	photonMapRWLock.RLock()
-	retList := photonById
-	if name != "" {
-		retList = photonByName[name]
+	if name == "" {
+		c.JSON(http.StatusOK, photonDB.GetAll())
+	} else {
+		c.JSON(http.StatusOK, photonDB.GetByName(name))
 	}
-	for _, metadata := range retList {
-		ret = append(ret, metadata)
-	}
-	photonMapRWLock.RUnlock()
-
-	c.JSON(http.StatusOK, ret)
 }
 
 func photonPostHandler(c *gin.Context) {
@@ -101,17 +82,17 @@ func photonPostHandler(c *gin.Context) {
 
 	uuid := hash(body)
 
-	metadata, err := getPhotonFromMetadata(body)
+	ph, err := getPhotonFromMetadata(body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "failed to get photon metadata: " + err.Error()})
 		return
 	}
 
-	metadata.ID = uuid
+	ph.ID = uuid
 	now := time.Now()
-	metadata.CreatedAt = now.UnixMilli()
+	ph.CreatedAt = now.UnixMilli()
 
-	err = CreatePhotonCR(metadata)
+	err = CreatePhotonCR(ph)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to create photon CR: " + err.Error()})
 		return
@@ -121,19 +102,12 @@ func photonPostHandler(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	err = photonBucket.WriteAll(context.TODO(), joinNameByDash(metadata.Name, uuid), body, nil)
+	err = photonBucket.WriteAll(context.TODO(), joinNameByDash(ph.Name, uuid), body, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
 		return
 	}
 
-	photonMapRWLock.Lock()
-	photonById[uuid] = metadata
-	if photonByName[metadata.Name] == nil {
-		photonByName[metadata.Name] = make(map[string]*Photon)
-	}
-	photonByName[metadata.Name][uuid] = metadata
-	photonMapRWLock.Unlock()
-
-	c.JSON(http.StatusOK, metadata)
+	photonDB.Add(ph)
+	c.JSON(http.StatusOK, ph)
 }

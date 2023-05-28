@@ -26,9 +26,7 @@ const (
 )
 
 func patchDeployment(ld *LeptonDeployment) error {
-	photonMapRWLock.RLock()
-	ph := photonById[ld.PhotonID]
-	photonMapRWLock.RUnlock()
+	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
@@ -61,9 +59,7 @@ func patchDeployment(ld *LeptonDeployment) error {
 }
 
 func createDeployment(ld *LeptonDeployment, or metav1.OwnerReference) error {
-	photonMapRWLock.RLock()
-	ph := photonById[ld.PhotonID]
-	photonMapRWLock.RUnlock()
+	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
@@ -203,9 +199,7 @@ func (ld *LeptonDeployment) merge(p *LeptonDeployment) {
 }
 
 func createDeploymentPodSpec(ld *LeptonDeployment) (*corev1.PodSpec, error) {
-	photonMapRWLock.RLock()
-	ph := photonById[ld.PhotonID]
-	photonMapRWLock.RUnlock()
+	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return nil, fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}

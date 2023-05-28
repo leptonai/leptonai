@@ -26,9 +26,7 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	photonMapRWLock.RLock()
-	photon := photonById[ld.PhotonID]
-	photonMapRWLock.RUnlock()
+	photon := photonDB.GetByID(ld.PhotonID)
 	if photon == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "photon " + ld.PhotonID + " does not exist."})
 		return
@@ -60,12 +58,9 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	deploymentMapRWLock.Lock()
-	deploymentById[uuid] = &ld
-	deploymentByName[ld.Name] = &ld
-	deploymentMapRWLock.Unlock()
+	deploymentDB.Add(&ld)
 
-	if err := updateLeptonIngress(listAllLeptonDeployments()); err != nil {
+	if err := updateLeptonIngress(deploymentDB.GetAll()); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to update ingress: " + err.Error()})
 	}
 
@@ -85,22 +80,12 @@ func deploymentPostHandler(c *gin.Context) {
 }
 
 func deploymentListHandler(c *gin.Context) {
-	// TODO: have a well organized json return value
-	ret := make([]*LeptonDeployment, 0)
-	deploymentMapRWLock.RLock()
-	for _, metadata := range deploymentById {
-		ret = append(ret, metadata)
-	}
-	deploymentMapRWLock.RUnlock()
-
-	c.JSON(http.StatusOK, ret)
+	c.JSON(http.StatusOK, deploymentDB.GetAll())
 }
 
 func deploymentPatchHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
-	deploymentMapRWLock.RLock()
-	ld := deploymentById[uuid]
-	deploymentMapRWLock.RUnlock()
+	ld := deploymentDB.GetByID(uuid)
 	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
 		return
@@ -142,37 +127,29 @@ func deploymentPatchHandler(c *gin.Context) {
 
 func deploymentGetHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
-	deploymentMapRWLock.RLock()
-	metadata := deploymentById[uuid]
-	deploymentMapRWLock.RUnlock()
-	if metadata == nil {
+	ld := deploymentDB.GetByID(uuid)
+	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
 		return
 	}
 
-	c.JSON(http.StatusOK, metadata)
+	c.JSON(http.StatusOK, ld)
 }
 
 func deploymentDeleteHandler(c *gin.Context) {
 	uuid := c.Param("uuid")
-	deploymentMapRWLock.RLock()
-	metadata := deploymentById[uuid]
-	deploymentMapRWLock.RUnlock()
-	if metadata == nil {
+	ld := deploymentDB.GetByID(uuid)
+	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
 		return
 	}
 
-	err := DeleteLeptonDeploymentCR(metadata)
+	err := DeleteLeptonDeploymentCR(ld)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to delete deployment " + uuid + " crd: " + err.Error()})
 		return
 	}
 
-	deploymentMapRWLock.Lock()
-	delete(deploymentById, uuid)
-	delete(deploymentByName, metadata.Name)
-	deploymentMapRWLock.Unlock()
-
+	deploymentDB.Delete(ld)
 	c.Status(http.StatusOK)
 }

@@ -47,13 +47,13 @@ func CreateLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured,
 	return result, nil
 }
 
-func DeleteLeptonDeploymentCR(metadata *LeptonDeployment) error {
+func DeleteLeptonDeploymentCR(ld *LeptonDeployment) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
-		joinNameByDash(metadata.Name, metadata.ID),
+		joinNameByDash(ld.Name, ld.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -76,7 +76,7 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 	}
 
 	// Convert the typed LeptonDeployment object into a LeptonDeployment object
-	metadataList := []*LeptonDeployment{}
+	lds := []*LeptonDeployment{}
 	for _, cr := range crd.Items {
 		spec := cr.Object["spec"].(map[string]interface{})
 		specStr, err := json.Marshal(spec)
@@ -86,10 +86,10 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 		metadata := &leptonv1alpha1.LeptonDeploymentSpec{}
 		json.Unmarshal(specStr, &metadata)
 
-		metadataList = append(metadataList, convertCrToDeployment(metadata))
+		lds = append(lds, convertCrToDeployment(metadata))
 	}
 
-	return metadataList, nil
+	return lds, nil
 }
 
 func PatchLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured, error) {
@@ -142,9 +142,7 @@ func (ld *LeptonDeployment) validateDeploymentMetadata() error {
 	if ld.ResourceRequirement.MinReplicas <= 0 {
 		return fmt.Errorf("min replicas must be positive")
 	}
-	photonMapRWLock.RLock()
-	ph := photonById[ld.PhotonID]
-	photonMapRWLock.RUnlock()
+	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
@@ -157,9 +155,7 @@ func (ld *LeptonDeployment) validatePatchMetadata() error {
 		valid = true
 	}
 	if ld.PhotonID != "" {
-		photonMapRWLock.RLock()
-		ph := photonById[ld.PhotonID]
-		photonMapRWLock.RUnlock()
+		ph := photonDB.GetByID(ld.PhotonID)
 		if ph == nil {
 			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 		}
