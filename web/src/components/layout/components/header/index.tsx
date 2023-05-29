@@ -77,6 +77,7 @@ export const Header: FC = () => {
             placeholder="Type / to search"
           />
           <Button
+            rel="noreferrer"
             href="https://www.lepton.ai"
             target="_blank"
             type="text"
@@ -84,6 +85,7 @@ export const Header: FC = () => {
           />
           <Button
             type="text"
+            rel="noreferrer"
             href="https://github.com/leptonai/lepton"
             target="_blank"
             icon={<GithubOutlined />}

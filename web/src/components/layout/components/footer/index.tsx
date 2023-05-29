@@ -66,6 +66,7 @@ export const Footer: FC = () => {
       </Logo>
       <MenuContainer>
         <Button
+          rel="noreferrer"
           href="https://www.lepton.ai"
           target="_blank"
           type="text"
@@ -75,6 +76,7 @@ export const Footer: FC = () => {
         </Button>
         <Button
           type="text"
+          rel="noreferrer"
           href="https://github.com/leptonai/lepton"
           target="_blank"
           icon={<GithubOutlined />}
@@ -83,6 +85,7 @@ export const Footer: FC = () => {
         </Button>
         <Button
           type="text"
+          rel="noreferrer"
           href="https://twitter.com/leptonai"
           target="_blank"
           icon={<TwitterOutlined />}
