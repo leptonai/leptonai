@@ -15,9 +15,9 @@ import (
 )
 
 func InstanceMemoryUsageHandler(c *gin.Context) {
-	// get the memory usage for the past 1 hour
+	// get the memory usage bytes for the past 1 hour
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
-	result, err := queryMetrics(query, "memory_usage", "")
+	result, err := queryMetrics(query, "memory_usage_in_bytes", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -26,9 +26,9 @@ func InstanceMemoryUsageHandler(c *gin.Context) {
 }
 
 func InstanceMemoryTotalHandler(c *gin.Context) {
-	// get the memory limit for the past 1 hour
+	// get the memory limit bytes for the past 1 hour
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
-	result, err := queryMetrics(query, "memory_total", "")
+	result, err := queryMetrics(query, "memory_total_in_bytes", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -37,7 +37,7 @@ func InstanceMemoryTotalHandler(c *gin.Context) {
 }
 
 func InstanceCPUUtilHandler(c *gin.Context) {
-	// get the CPU Util over 2 min windows for the past 1 hour
+	// get the average CPU Util over 2 min windows for the past 1 hour
 	query := fmt.Sprintf(
 		"(sum(rate(container_cpu_usage_seconds_total{pod=\"%s\", container=\"main-container\"}[2m])) / "+
 			"sum(container_spec_cpu_quota{pod=\"%[1]s\", container=\"main-container\"}/container_spec_cpu_period{pod=\"%[1]s\", container=\"main-container\"}))[1h:1m]",
@@ -57,7 +57,7 @@ func InstanceFastAPIQPSHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// get the QPS over 2 min windows for the past 1 hour
+	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
@@ -73,6 +73,7 @@ func InstanceFastAPILatencyHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
@@ -88,7 +89,7 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// get the QPS over 2 min windows for the past 1 hour
+	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
@@ -104,6 +105,7 @@ func DeploymentFastAPILatencyHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
@@ -114,6 +116,7 @@ func DeploymentFastAPILatencyHandler(c *gin.Context) {
 }
 
 func InstanceGPUMemoryUtilHandler(c *gin.Context) {
+	// get the GPU memory util for the past 1 hour
 	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
@@ -124,6 +127,7 @@ func InstanceGPUMemoryUtilHandler(c *gin.Context) {
 }
 
 func InstanceGPUUtilHandler(c *gin.Context) {
+	// get the GPU util for the past 1 hour
 	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
@@ -134,6 +138,7 @@ func InstanceGPUUtilHandler(c *gin.Context) {
 }
 
 func InstanceGPUMemoryUsageHandler(c *gin.Context) {
+	// get the GPU memory usage in MB for the past 1 hour
 	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_usage_in_MB", "gpu")
 	if err != nil {
@@ -144,6 +149,7 @@ func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 }
 
 func InstanceGPUMemoryTotalHandler(c *gin.Context) {
+	// get the GPU total memory in MB for the past 1 hour
 	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("id") + "\"})[1h:1m]"
 	result, err := queryMetrics(query, "gpu_memory_total_in_MB", "gpu")
 	if err != nil {
