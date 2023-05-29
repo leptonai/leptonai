@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,7 +27,7 @@ const (
 	photonVolumeMountPath = "/photon"
 )
 
-func patchDeployment(ld *LeptonDeployment) error {
+func patchDeployment(ld *httpapi.LeptonDeployment) error {
 	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
@@ -58,7 +60,7 @@ func patchDeployment(ld *LeptonDeployment) error {
 	return nil
 }
 
-func createDeployment(ld *LeptonDeployment, or metav1.OwnerReference) error {
+func createDeployment(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
 	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
@@ -113,46 +115,36 @@ func createDeployment(ld *LeptonDeployment, or metav1.OwnerReference) error {
 
 func int32Ptr(i int32) *int32 { return &i }
 
-type DeploymentState string
-
-const (
-	DeploymentStateRunning  DeploymentState = "Running"
-	DeploymentStateNotReady DeploymentState = "Not Ready"
-	DeploymentStateStarting DeploymentState = "Starting"
-	DeploymentStateUpdating DeploymentState = "Updating"
-	DeploymentStateUnknown  DeploymentState = "Unknown"
-)
-
-func deploymentState(lds ...*LeptonDeployment) []DeploymentState {
+func deploymentState(lds ...*httpapi.LeptonDeployment) []httpapi.DeploymentState {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
-	states := make([]DeploymentState, 0, len(lds))
+	states := make([]httpapi.DeploymentState, 0, len(lds))
 	for _, ld := range lds {
 		// Get the deployment
 		deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
 		if err != nil {
-			states = append(states, DeploymentStateUnknown)
+			states = append(states, httpapi.DeploymentStateUnknown)
 			continue
 		}
 
 		// Get the deployment status
 		status := deployment.Status
 		if status.Replicas == status.ReadyReplicas {
-			states = append(states, DeploymentStateRunning)
+			states = append(states, httpapi.DeploymentStateRunning)
 		} else {
-			states = append(states, DeploymentStateNotReady)
+			states = append(states, httpapi.DeploymentStateNotReady)
 		}
 	}
 
 	return states
 }
 
-func photonDestPath(ph *Photon) string {
+func photonDestPath(ph *httpapi.Photon) string {
 	return photonVolumeMountPath + "/" + joinNameByDash(ph.Name, ph.ID)
 }
 
-func newInitContainerCommand(ph *Photon) []string {
+func newInitContainerCommand(ph *httpapi.Photon) []string {
 	// use path.join?
 	s3URL := fmt.Sprintf("s3://%s/%s/%s", *bucketNameFlag, *photonPrefixFlag, joinNameByDash(ph.Name, ph.ID))
 	// TODO support other clouds
@@ -160,11 +152,11 @@ func newInitContainerCommand(ph *Photon) []string {
 	return []string{"aws", "s3", "cp", s3URL, photonDestPath(ph)}
 }
 
-func newInitContainerArgs(ph *Photon) []string {
+func newInitContainerArgs(ph *httpapi.Photon) []string {
 	return []string{}
 }
 
-func newInitContainer(ph *Photon) corev1.Container {
+func newInitContainer(ph *httpapi.Photon) corev1.Container {
 	// Define the init container
 	return corev1.Container{
 		Name:    "env-preparation",
@@ -180,25 +172,16 @@ func newInitContainer(ph *Photon) corev1.Container {
 	}
 }
 
-func newMainContainerCommand(ph *Photon) []string {
+func newMainContainerCommand(ph *httpapi.Photon) []string {
 	return []string{"sh"}
 }
 
-func newMainContainerArgs(ph *Photon) []string {
+func newMainContainerArgs(ph *httpapi.Photon) []string {
 	leptonCmd := fmt.Sprintf("lepton photon prepare -f %s; lepton photon run -f %[1]s", photonDestPath(ph))
 	return []string{"-c", leptonCmd}
 }
 
-func (ld *LeptonDeployment) merge(p *LeptonDeployment) {
-	if p.PhotonID != "" {
-		ld.PhotonID = p.PhotonID
-	}
-	if p.ResourceRequirement.MinReplicas > 0 {
-		ld.ResourceRequirement.MinReplicas = p.ResourceRequirement.MinReplicas
-	}
-}
-
-func createDeploymentPodSpec(ld *LeptonDeployment) (*corev1.PodSpec, error) {
+func createDeploymentPodSpec(ld *httpapi.LeptonDeployment) (*corev1.PodSpec, error) {
 	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {
 		return nil, fmt.Errorf("photon %s does not exist", ld.PhotonID)

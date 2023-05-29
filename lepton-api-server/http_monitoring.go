@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/api"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -19,7 +21,7 @@ func instanceMemoryUsageHandler(c *gin.Context) {
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
 	result, err := queryMetrics(query, "memory_usage", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -30,7 +32,7 @@ func instanceMemoryTotalHandler(c *gin.Context) {
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
 	result, err := queryMetrics(query, "memory_total", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -45,7 +47,7 @@ func instanceCPUUtilHandler(c *gin.Context) {
 	)
 	result, err := queryMetrics(query, "cpu_util", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -61,7 +63,7 @@ func instanceFastAPIQPSHandler(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -76,7 +78,7 @@ func instanceFastAPILatencyHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -92,7 +94,7 @@ func deploymentFastAPIQPSHandler(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -107,7 +109,7 @@ func deploymentFastAPILatencyHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -117,7 +119,7 @@ func instanceGPUMemoryUtilHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -127,7 +129,7 @@ func instanceGPUUtilHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -137,7 +139,7 @@ func instanceGPUMemoryUsageHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_usage_in_MB", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -147,7 +149,7 @@ func instanceGPUMemoryTotalHandler(c *gin.Context) {
 	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("id") + "\"})[1h:1m]"
 	result, err := queryMetrics(query, "gpu_memory_total_in_MB", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -220,7 +222,7 @@ func queryMetrics(query, name, keep string) ([]map[string]interface{}, error) {
 	return data, nil
 }
 
-func getPhotonHTTPPaths(ph *Photon) []string {
+func getPhotonHTTPPaths(ph *httpapi.Photon) []string {
 	pathMap := ph.OpenApiSchema["paths"].(map[string]interface{})
 	pathArray := make([]string, 0, len(pathMap))
 	for p := range pathMap {

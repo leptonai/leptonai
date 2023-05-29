@@ -8,8 +8,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/gin-gonic/gin"
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 
+	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
@@ -25,13 +26,13 @@ func instanceListHandler(c *gin.Context) {
 
 	ld := deploymentDB.GetByID(duuid)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": ErrorCodeInvalidParameterValue, "message": "deployment " + duuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + duuid + " does not exist."})
 		return
 	}
 
 	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.Name + ": " + err.Error()})
 		return
 	}
 
@@ -46,13 +47,13 @@ func instanceListHandler(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(deploymentNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.Name + ": " + err.Error()})
 		return
 	}
 
-	is := make([]Instance, 0, len(podList.Items))
+	is := make([]httpapi.Instance, 0, len(podList.Items))
 	for _, pod := range podList.Items {
-		is = append(is, Instance{ID: pod.Name})
+		is = append(is, httpapi.Instance{ID: pod.Name})
 	}
 
 	c.JSON(http.StatusOK, is)
@@ -63,13 +64,13 @@ func instanceShellHandler(c *gin.Context) {
 	_, config := mustInitK8sClientSetWithConfig()
 	httpClient, err := restclient.HTTPClientFor(config)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
 		return
 	}
 
 	targetURL, err := url.Parse(config.Host)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "Bad logging URL"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "Bad logging URL"})
 		return
 	}
 
@@ -113,7 +114,7 @@ func instanceLogHandler(c *gin.Context) {
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "cannot get pod logs for " + id + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot get pod logs for " + id + ": " + err.Error()})
 		return
 	}
 	defer podLogs.Close()
@@ -133,7 +134,7 @@ func instanceLogHandler(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + id + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + id + ": " + err.Error()})
 		return
 	}
 }

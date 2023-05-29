@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	leptonv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,7 +20,7 @@ var (
 	leptonDeploymentNamespace  = "default"
 )
 
-func CreateLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured, error) {
+func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -47,7 +49,7 @@ func CreateLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured,
 	return result, nil
 }
 
-func DeleteLeptonDeploymentCR(ld *LeptonDeployment) error {
+func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -63,7 +65,7 @@ func DeleteLeptonDeploymentCR(ld *LeptonDeployment) error {
 	return nil
 }
 
-func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
+func ReadAllLeptonDeploymentCR() ([]*httpapi.LeptonDeployment, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -76,7 +78,7 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 	}
 
 	// Convert the typed LeptonDeployment object into a LeptonDeployment object
-	lds := []*LeptonDeployment{}
+	lds := []*httpapi.LeptonDeployment{}
 	for _, cr := range crd.Items {
 		spec := cr.Object["spec"].(map[string]interface{})
 		specStr, err := json.Marshal(spec)
@@ -92,7 +94,7 @@ func ReadAllLeptonDeploymentCR() ([]*LeptonDeployment, error) {
 	return lds, nil
 }
 
-func PatchLeptonDeploymentCR(ld *LeptonDeployment) (*unstructured.Unstructured, error) {
+func PatchLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -127,42 +129,4 @@ func createCustomResourceObject() schema.GroupVersionResource {
 		Resource: leptonDeploymentResource,
 	}
 	return crdResource
-}
-
-func (ld *LeptonDeployment) validateDeploymentMetadata() error {
-	if !validateName(ld.Name) {
-		return fmt.Errorf("invalid name %s: %s", ld.Name, nameValidationMessage)
-	}
-	if ld.ResourceRequirement.CPU <= 0 {
-		return fmt.Errorf("cpu must be positive")
-	}
-	if ld.ResourceRequirement.Memory <= 0 {
-		return fmt.Errorf("memory must be positive")
-	}
-	if ld.ResourceRequirement.MinReplicas <= 0 {
-		return fmt.Errorf("min replicas must be positive")
-	}
-	ph := photonDB.GetByID(ld.PhotonID)
-	if ph == nil {
-		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
-	}
-	return nil
-}
-
-func (ld *LeptonDeployment) validatePatchMetadata() error {
-	valid := false
-	if ld.ResourceRequirement.MinReplicas > 0 {
-		valid = true
-	}
-	if ld.PhotonID != "" {
-		ph := photonDB.GetByID(ld.PhotonID)
-		if ph == nil {
-			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
-		}
-		valid = true
-	}
-	if !valid {
-		return fmt.Errorf("no valid field to patch")
-	}
-	return nil
 }

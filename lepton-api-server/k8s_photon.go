@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,7 +22,7 @@ var (
 	photonNamespace  = "default"
 )
 
-func ReadAllPhotonCR() ([]*Photon, error) {
+func ReadAllPhotonCR() ([]*httpapi.Photon, error) {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	// Get the custom resource definition
@@ -39,7 +40,7 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 	}
 
 	// Iterate over the custom resources
-	var phs []*Photon
+	var phs []*httpapi.Photon
 	for _, cr := range crd.Items {
 		spec := cr.Object["spec"].(map[string]interface{})
 		specStr, err := json.Marshal(spec)
@@ -55,7 +56,7 @@ func ReadAllPhotonCR() ([]*Photon, error) {
 	return phs, nil
 }
 
-func DeletePhotonCR(ph *Photon) error {
+func DeletePhotonCR(ph *httpapi.Photon) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	// Delete the custom resource object in Kubernetes
@@ -76,7 +77,7 @@ func DeletePhotonCR(ph *Photon) error {
 	return nil
 }
 
-func CreatePhotonCR(ph *Photon) error {
+func CreatePhotonCR(ph *httpapi.Photon) error {
 	dynamicClient := mustInitK8sDynamicClient()
 
 	// Define the custom resource object to create

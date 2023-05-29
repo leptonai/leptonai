@@ -4,52 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-type LeptonDeployment struct {
-	ID                  string                              `json:"id"`
-	CreatedAt           int64                               `json:"created_at"`
-	Name                string                              `json:"name"`
-	PhotonID            string                              `json:"photon_id"`
-	ModelID             string                              `json:"model_id"`
-	Status              LeptonDeploymentStatus              `json:"status"`
-	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
-}
-
-type LeptonDeploymentStatus struct {
-	State    DeploymentState          `json:"state"`
-	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
-}
-
-type LeptonDeploymentEndpoint struct {
-	InternalEndpoint string `json:"internal_endpoint"`
-	ExternalEndpoint string `json:"external_endpoint"`
-}
-
-type LeptonDeploymentResourceRequirement struct {
-	CPU             float64 `json:"cpu"`
-	Memory          int64   `json:"memory"`
-	AcceleratorType string  `json:"accelerator_type"`
-	AcceleratorNum  float64 `json:"accelerator_num"`
-	MinReplicas     int64   `json:"min_replicas"`
-}
-
-func (ld LeptonDeployment) GetName() string {
-	return ld.Name
-}
-
-func (ld LeptonDeployment) GetID() string {
-	return ld.ID
-}
-
-func (ld LeptonDeployment) GetVersion() int64 {
-	return 0
-}
-
-var deploymentDB = namedb.NewNameDB[LeptonDeployment]()
+var deploymentDB = namedb.NewNameDB[httpapi.LeptonDeployment]()
 
 func initDeployments() {
 	// Initialize the photon database
@@ -83,7 +45,7 @@ func periodCheckDeploymentState() {
 			if ld.Status.Endpoint.InternalEndpoint == "" {
 				ld.Status.Endpoint.InternalEndpoint = fmt.Sprintf("%s.%s.svc.cluster.local:8080", ld.Name, deploymentNamespace)
 			}
-			if states[i] != DeploymentStateUnknown && states[i] != ld.Status.State {
+			if states[i] != httpapi.DeploymentStateUnknown && states[i] != ld.Status.State {
 				ld.Status.State = states[i]
 			}
 		}
@@ -92,7 +54,7 @@ func periodCheckDeploymentState() {
 	}
 }
 
-func convertDeploymentToCr(d *LeptonDeployment) *leptonaiv1alpha1.LeptonDeploymentSpec {
+func convertDeploymentToCr(d *httpapi.LeptonDeployment) *leptonaiv1alpha1.LeptonDeploymentSpec {
 	return &leptonaiv1alpha1.LeptonDeploymentSpec{
 		ID:        d.ID,
 		CreatedAt: d.CreatedAt,
@@ -109,7 +71,7 @@ func convertDeploymentToCr(d *LeptonDeployment) *leptonaiv1alpha1.LeptonDeployme
 	}
 }
 
-func convertCrToDeployment(cr *leptonaiv1alpha1.LeptonDeploymentSpec) *LeptonDeployment {
+func convertCrToDeployment(cr *leptonaiv1alpha1.LeptonDeploymentSpec) *httpapi.LeptonDeployment {
 	cpu, err := resource.ParseQuantity(cr.ResourceRequirement.CPU)
 	if err != nil {
 		cpu = resource.MustParse("1")
@@ -123,20 +85,20 @@ func convertCrToDeployment(cr *leptonaiv1alpha1.LeptonDeploymentSpec) *LeptonDep
 	if err != nil {
 		acceleratorNum = resource.MustParse("0")
 	}
-	return &LeptonDeployment{
+	return &httpapi.LeptonDeployment{
 		ID:        cr.ID,
 		CreatedAt: cr.CreatedAt,
 		Name:      cr.Name,
 		PhotonID:  cr.PhotonID,
 		ModelID:   cr.ModelID,
-		Status: LeptonDeploymentStatus{
-			State: DeploymentStateUnknown,
-			Endpoint: LeptonDeploymentEndpoint{
+		Status: httpapi.LeptonDeploymentStatus{
+			State: httpapi.DeploymentStateUnknown,
+			Endpoint: httpapi.LeptonDeploymentEndpoint{
 				InternalEndpoint: "",
 				ExternalEndpoint: "",
 			},
 		},
-		ResourceRequirement: LeptonDeploymentResourceRequirement{
+		ResourceRequirement: httpapi.LeptonDeploymentResourceRequirement{
 			CPU:             cpu.AsApproximateFloat64(),
 			Memory:          memory.Value() / 1024 / 1024,
 			AcceleratorType: cr.ResourceRequirement.AcceleratorType,

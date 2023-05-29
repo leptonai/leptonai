@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -17,11 +19,11 @@ var (
 
 const headerKeyForLeptonDeploymentRerouting = "deployment"
 
-func ingressName(ld *LeptonDeployment) string {
+func ingressName(ld *httpapi.LeptonDeployment) string {
 	return ld.Name + "-ingress"
 }
 
-func updateLeptonIngress(lds []*LeptonDeployment) error {
+func updateLeptonIngress(lds []*httpapi.LeptonDeployment) error {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
@@ -62,7 +64,7 @@ func updateLeptonIngress(lds []*LeptonDeployment) error {
 	return nil
 }
 
-func createDeploymentIngress(ld *LeptonDeployment, or metav1.OwnerReference) error {
+func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
 	// Create a Kubernetes client
 	clientset := mustInitK8sClientSet()
 
@@ -144,13 +146,13 @@ func newHTTPIngressPath(serviceName string, servicePort int32, path string, path
 	}
 }
 
-func newAnnotationKeyValueForHeaderBasedRouting(ld *LeptonDeployment) (key string, value string) {
+func newAnnotationKeyValueForHeaderBasedRouting(ld *httpapi.LeptonDeployment) (key string, value string) {
 	key = "alb.ingress.kubernetes.io/conditions." + serviceName(ld)
 	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRerouting, ld.Name)
 	return
 }
 
-func newDeploymentIngressAnnotation(ld *LeptonDeployment) map[string]string {
+func newDeploymentIngressAnnotation(ld *httpapi.LeptonDeployment) map[string]string {
 	annotation := map[string]string{
 		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
 		"alb.ingress.kubernetes.io/target-type":      "ip",

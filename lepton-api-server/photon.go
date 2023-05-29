@@ -8,52 +8,15 @@ import (
 	"io"
 
 	"github.com/leptonai/lepton/go-pkg/namedb"
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 )
 
-type PhotonMetadata struct {
-	Name          string                 `json:"name"`
-	Model         string                 `json:"model"`
-	Task          string                 `json:"task"`
-	Image         string                 `json:"image"`
-	Args          []string               `json:"args"`
-	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
-}
-
-type PhotonCommon struct {
-	ID                    string   `json:"id"`
-	Name                  string   `json:"name"`
-	Model                 string   `json:"model"`
-	RequirementDependency []string `json:"requirement_dependency"`
-	Image                 string   `json:"image"`
-	Entrypoint            string   `json:"entrypoint"`
-	ExposedPorts          []int32  `json:"exposed_ports"`
-	ContainerArgs         []string `json:"container_args"`
-	CreatedAt             int64    `json:"created_at"`
-}
-
-type Photon struct {
-	PhotonCommon
-	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
-}
-
 type PhotonCr struct {
-	PhotonCommon
+	httpapi.PhotonCommon
 	OpenApiSchema string `json:"openapi_schema"`
 }
 
-func (p Photon) GetName() string {
-	return p.Name
-}
-
-func (p Photon) GetID() string {
-	return p.ID
-}
-
-func (p Photon) GetVersion() int64 {
-	return p.CreatedAt
-}
-
-var photonDB = namedb.NewNameDB[Photon]()
+var photonDB = namedb.NewNameDB[httpapi.Photon]()
 
 func initPhotons() {
 	// Initialize the photon database
@@ -66,7 +29,7 @@ func initPhotons() {
 	photonDB.Add(metadataList...)
 }
 
-func convertPhotonToCr(photon *Photon) *PhotonCr {
+func convertPhotonToCr(photon *httpapi.Photon) *PhotonCr {
 	openApiSchemaBytes, err := json.Marshal(photon.OpenApiSchema)
 	if err != nil {
 		openApiSchemaBytes = nil
@@ -77,18 +40,18 @@ func convertPhotonToCr(photon *Photon) *PhotonCr {
 	}
 }
 
-func convertCrToPhoton(cr *PhotonCr) *Photon {
+func convertCrToPhoton(cr *PhotonCr) *httpapi.Photon {
 	var openApiSchema map[string]interface{}
 	if err := json.Unmarshal([]byte(cr.OpenApiSchema), &openApiSchema); err != nil {
 		openApiSchema = nil
 	}
-	return &Photon{
+	return &httpapi.Photon{
 		PhotonCommon:  cr.PhotonCommon,
 		OpenApiSchema: openApiSchema,
 	}
 }
 
-func getPhotonFromMetadata(body []byte) (*Photon, error) {
+func getPhotonFromMetadata(body []byte) (*httpapi.Photon, error) {
 	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return nil, err
@@ -118,7 +81,7 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 	}
 
 	// Unmarshal the JSON into a Metadata struct
-	var metadata PhotonMetadata
+	var metadata httpapi.PhotonMetadata
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		return nil, err
 	}
@@ -126,7 +89,7 @@ func getPhotonFromMetadata(body []byte) (*Photon, error) {
 		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, nameValidationMessage)
 	}
 
-	var ph Photon
+	var ph httpapi.Photon
 	ph.Name = metadata.Name
 	ph.Model = metadata.Model
 	ph.Image = metadata.Image

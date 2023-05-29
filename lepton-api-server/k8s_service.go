@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -12,11 +14,11 @@ var serviceNamespace = "default"
 
 const servicePort = 8080
 
-func serviceName(ld *LeptonDeployment) string {
+func serviceName(ld *httpapi.LeptonDeployment) string {
 	return ld.Name + "-service"
 }
 
-func createService(ld *LeptonDeployment, ph *Photon, or metav1.OwnerReference) error {
+func createService(ld *httpapi.LeptonDeployment, ph *httpapi.Photon, or metav1.OwnerReference) error {
 	clientset := mustInitK8sClientSet()
 
 	service := &corev1.Service{

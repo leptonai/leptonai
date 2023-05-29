@@ -1,4 +1,4 @@
-package main
+package httpapi
 
 // https://docs.aws.amazon.com/step-functions/latest/apireference/CommonErrors.html
 const (
