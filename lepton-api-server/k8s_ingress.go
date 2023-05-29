@@ -46,6 +46,7 @@ func updateLeptonIngress(lds []*httpapi.LeptonDeployment) error {
 					delete(ingress.Annotations, key)
 				}
 			}
+			rulePaths = append(rulePaths, newHTTPRedirectSSLIngressPath())
 			for _, ld := range lds {
 				key, value := newAnnotationKeyValueForHeaderBasedRouting(ld)
 				ingress.Annotations[key] = value
@@ -129,6 +130,22 @@ func watchForDeploymentIngressEndpoint(name string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func newHTTPRedirectSSLIngressPath() networkingv1.HTTPIngressPath {
+	pathType := networkingv1.PathTypePrefix
+	return networkingv1.HTTPIngressPath{
+		Path:     "/",
+		PathType: &pathType,
+		Backend: networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
+				Name: "ssl-redirect",
+				Port: networkingv1.ServiceBackendPort{
+					Name: "use-annotation",
+				},
+			},
+		},
+	}
 }
 
 func newHTTPIngressPath(serviceName string, servicePort int32, path string, pathType networkingv1.PathType) networkingv1.HTTPIngressPath {
