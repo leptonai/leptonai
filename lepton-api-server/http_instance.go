@@ -16,10 +16,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
-var (
-	prometheusURL = ""
-)
-
 func instanceListHandler(c *gin.Context) {
 	duuid := c.Param("uuid")
 	clientset := mustInitK8sClientSet()

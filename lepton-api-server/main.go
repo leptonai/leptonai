@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/s3blob"
 )
@@ -61,12 +62,13 @@ func main() {
 	deploymentNamespace = *namespaceFlag
 	serviceNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
-	prometheusURL = *prometheusURLFlag
 	certificateARN = *certificateARNFlag
 	rootDomain = *rootDomainFlag
 
 	initPhotons()
 	initDeployments()
+
+	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)
 
 	fmt.Println("Starting the Lepton Server on :20863...")
 
@@ -95,19 +97,19 @@ func main() {
 	v1.GET("/deployments/:uuid/instances/:id/shell", instanceShellHandler)
 	v1.GET("/deployments/:uuid/instances/:id/log", instanceLogHandler)
 
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryUsage", instanceMemoryUsageHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryTotal", instanceMemoryTotalHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/CPUUtil", instanceCPUUtilHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", instanceFastAPIQPSHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", instanceFastAPILatencyHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryUsage", httpapi.InstanceMemoryUsageHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryTotal", httpapi.InstanceMemoryTotalHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/CPUUtil", httpapi.InstanceCPUUtilHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", httpapi.InstanceFastAPIQPSHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", httpapi.InstanceFastAPILatencyHandler)
 
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUtil", instanceGPUMemoryUtilHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUUtil", instanceGPUUtilHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUsage", instanceGPUMemoryUsageHandler)
-	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryTotal", instanceGPUMemoryTotalHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUtil", httpapi.InstanceGPUMemoryUtilHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUUtil", httpapi.InstanceGPUUtilHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUsage", httpapi.InstanceGPUMemoryUsageHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryTotal", httpapi.InstanceGPUMemoryTotalHandler)
 
-	v1.GET("/deployments/:uuid/monitoring/FastAPIQPS", deploymentFastAPIQPSHandler)
-	v1.GET("/deployments/:uuid/monitoring/FastAPILatency", deploymentFastAPILatencyHandler)
+	v1.GET("/deployments/:uuid/monitoring/FastAPIQPS", httpapi.DeploymentFastAPIQPSHandler)
+	v1.GET("/deployments/:uuid/monitoring/FastAPILatency", httpapi.DeploymentFastAPILatencyHandler)
 
 	router.Run(":20863")
 }
