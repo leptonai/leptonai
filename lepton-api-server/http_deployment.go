@@ -48,7 +48,7 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	ownerref := getOwnerRefFromUnstructured(ldcr)
+	ownerref := util.GetOwnerRefFromUnstructured(ldcr)
 
 	err = createDeployment(&ld, ownerref)
 	if err != nil {

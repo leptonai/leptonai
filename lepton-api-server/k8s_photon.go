@@ -25,7 +25,7 @@ var (
 )
 
 func ReadAllPhotonCR() ([]*httpapi.Photon, error) {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Get the custom resource definition
 	crdResource := schema.GroupVersionResource{
@@ -59,7 +59,7 @@ func ReadAllPhotonCR() ([]*httpapi.Photon, error) {
 }
 
 func DeletePhotonCR(ph *httpapi.Photon) error {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Delete the custom resource object in Kubernetes
 	crdResource := schema.GroupVersionResource{
@@ -80,7 +80,7 @@ func DeletePhotonCR(ph *httpapi.Photon) error {
 }
 
 func CreatePhotonCR(ph *httpapi.Photon) error {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Define the custom resource object to create
 	crd := &unstructured.Unstructured{

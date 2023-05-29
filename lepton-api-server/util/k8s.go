@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func mustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
+func MustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
 	// Load Kubernetes configuration from default location or specified kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	if err != nil {
@@ -27,12 +27,12 @@ func mustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
 	return clientset, config
 }
 
-func mustInitK8sClientSet() *kubernetes.Clientset {
-	c, _ := mustInitK8sClientSetWithConfig()
+func MustInitK8sClientSet() *kubernetes.Clientset {
+	c, _ := MustInitK8sClientSetWithConfig()
 	return c
 }
 
-func mustInitK8sDynamicClient() *dynamic.DynamicClient {
+func MustInitK8sDynamicClient() *dynamic.DynamicClient {
 	// Load Kubernetes configuration from default location or specified kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	if err != nil {
@@ -48,7 +48,7 @@ func mustInitK8sDynamicClient() *dynamic.DynamicClient {
 	return dynamicClient
 }
 
-func getOwnerRefFromUnstructured(u *unstructured.Unstructured) metav1.OwnerReference {
+func GetOwnerRefFromUnstructured(u *unstructured.Unstructured) metav1.OwnerReference {
 	apiVersion := u.GetAPIVersion()
 	kind := u.GetKind()
 	name := u.GetName()

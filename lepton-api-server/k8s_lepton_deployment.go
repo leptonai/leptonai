@@ -22,7 +22,7 @@ var (
 )
 
 func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 	crd := &unstructured.Unstructured{
@@ -51,7 +51,7 @@ func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstr
 }
 
 func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
@@ -67,7 +67,7 @@ func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
 }
 
 func ReadAllLeptonDeploymentCR() ([]*httpapi.LeptonDeployment, error) {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 	crd, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).List(
@@ -96,7 +96,7 @@ func ReadAllLeptonDeploymentCR() ([]*httpapi.LeptonDeployment, error) {
 }
 
 func PatchLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
-	dynamicClient := mustInitK8sDynamicClient()
+	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 

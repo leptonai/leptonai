@@ -20,7 +20,7 @@ func serviceName(ld *httpapi.LeptonDeployment) string {
 }
 
 func createService(ld *httpapi.LeptonDeployment, ph *httpapi.Photon, or metav1.OwnerReference) error {
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

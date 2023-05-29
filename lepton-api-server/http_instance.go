@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,7 @@ import (
 
 func instanceListHandler(c *gin.Context) {
 	duuid := c.Param("uuid")
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	ld := deploymentDB.GetByID(duuid)
 	if ld == nil {
@@ -57,7 +58,7 @@ func instanceListHandler(c *gin.Context) {
 
 func instanceShellHandler(c *gin.Context) {
 	id := c.Param("id")
-	_, config := mustInitK8sClientSetWithConfig()
+	_, config := util.MustInitK8sClientSetWithConfig()
 	httpClient, err := restclient.HTTPClientFor(config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
@@ -95,7 +96,7 @@ func instanceShellHandler(c *gin.Context) {
 func instanceLogHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	tailLines := int64(10000)
 	tenMBInBytes := int64(10 * 1024 * 1024)

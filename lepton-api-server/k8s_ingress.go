@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,10 +25,8 @@ func ingressName(ld *httpapi.LeptonDeployment) string {
 }
 
 func updateLeptonIngress(lds []*httpapi.LeptonDeployment) error {
-	// Create a Kubernetes client
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
-	// List all current ingresses
 	ingresses, err := clientset.NetworkingV1().Ingresses(ingressNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -66,8 +65,7 @@ func updateLeptonIngress(lds []*httpapi.LeptonDeployment) error {
 }
 
 func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
-	// Create a Kubernetes client
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	albstr := "alb"
 	// Define Ingress object
@@ -105,8 +103,7 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 }
 
 func watchForDeploymentIngressEndpoint(name string) (string, error) {
-	// Create a Kubernetes client
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	// Watch for Ingress IP
 	watcher, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Watch(context.Background(), metav1.ListOptions{})

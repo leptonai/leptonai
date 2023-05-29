@@ -34,8 +34,7 @@ func patchDeployment(ld *httpapi.LeptonDeployment) error {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
 
-	// Create a Kubernetes client
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
 	if err != nil {
@@ -102,8 +101,7 @@ func createDeployment(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) er
 		},
 	}
 
-	// Create the deployment
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 	createdDeployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -117,8 +115,7 @@ func createDeployment(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) er
 func int32Ptr(i int32) *int32 { return &i }
 
 func deploymentState(lds ...*httpapi.LeptonDeployment) []httpapi.DeploymentState {
-	// Create a Kubernetes client
-	clientset := mustInitK8sClientSet()
+	clientset := util.MustInitK8sClientSet()
 
 	states := make([]httpapi.DeploymentState, 0, len(lds))
 	for _, ld := range lds {
