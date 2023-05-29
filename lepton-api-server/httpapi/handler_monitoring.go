@@ -89,6 +89,38 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// get the inference QPS over 2 min windows for the past 1 hour
+	query := "sum(rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	result, err := queryMetrics(query, "qps", "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func DeploymentFastAPILatencyHandler(c *gin.Context) {
+	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	result, err := queryMetrics(query, "latency_p90", "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
+	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
@@ -99,7 +131,7 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-func DeploymentFastAPILatencyHandler(c *gin.Context) {
+func DeploymentFastAPILatencyByPathHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

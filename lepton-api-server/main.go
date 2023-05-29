@@ -110,6 +110,8 @@ func main() {
 
 	v1.GET("/deployments/:uuid/monitoring/FastAPIQPS", httpapi.DeploymentFastAPIQPSHandler)
 	v1.GET("/deployments/:uuid/monitoring/FastAPILatency", httpapi.DeploymentFastAPILatencyHandler)
+	v1.GET("/deployments/:uuid/monitoring/FastAPIQPSByPath", httpapi.DeploymentFastAPIQPSByPathHandler)
+	v1.GET("/deployments/:uuid/monitoring/FastAPILatencyByPath", httpapi.DeploymentFastAPILatencyByPathHandler)
 
 	router.Run(":20863")
 }
