@@ -1,4 +1,4 @@
-name: CD - Deploy master branch to EKS dev-cicd cluster default namespace
+name: CD - Deploy main branch to EKS dev-staging cluster default namespace
 
 on:
   push:
