@@ -9,6 +9,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 )
 
 type PhotonCr struct {
@@ -85,8 +86,8 @@ func getPhotonFromMetadata(body []byte) (*httpapi.Photon, error) {
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		return nil, err
 	}
-	if !validateName(metadata.Name) {
-		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, nameValidationMessage)
+	if !util.ValidateName(metadata.Name) {
+		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, util.NameInvalidMessage)
 	}
 
 	var ph httpapi.Photon

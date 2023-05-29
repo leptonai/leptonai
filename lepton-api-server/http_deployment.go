@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +36,7 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	uuid := hash(body)
+	uuid := util.HexHash(body)
 	ld.ID = uuid
 	now := time.Now()
 	ld.CreatedAt = now.UnixMilli()
@@ -158,8 +159,8 @@ func deploymentDeleteHandler(c *gin.Context) {
 }
 
 func validateDeploymentMetadata(ld httpapi.LeptonDeployment) error {
-	if !validateName(ld.Name) {
-		return fmt.Errorf("invalid name %s: %s", ld.Name, nameValidationMessage)
+	if !util.ValidateName(ld.Name) {
+		return fmt.Errorf("invalid name %s: %s", ld.Name, util.NameInvalidMessage)
 	}
 	if ld.ResourceRequirement.CPU <= 0 {
 		return fmt.Errorf("cpu must be positive")

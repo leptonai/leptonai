@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +76,7 @@ func createDeployment(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) er
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"photon":          joinNameByDash(ph.Name, ph.ID),
+				"photon":          util.JoinByDash(ph.Name, ph.ID),
 				"deployment_name": ld.Name,
 				"deployment_id":   ld.ID,
 			},
@@ -141,12 +142,12 @@ func deploymentState(lds ...*httpapi.LeptonDeployment) []httpapi.DeploymentState
 }
 
 func photonDestPath(ph *httpapi.Photon) string {
-	return photonVolumeMountPath + "/" + joinNameByDash(ph.Name, ph.ID)
+	return photonVolumeMountPath + "/" + util.JoinByDash(ph.Name, ph.ID)
 }
 
 func newInitContainerCommand(ph *httpapi.Photon) []string {
 	// use path.join?
-	s3URL := fmt.Sprintf("s3://%s/%s/%s", *bucketNameFlag, *photonPrefixFlag, joinNameByDash(ph.Name, ph.ID))
+	s3URL := fmt.Sprintf("s3://%s/%s/%s", *bucketNameFlag, *photonPrefixFlag, util.JoinByDash(ph.Name, ph.ID))
 	// TODO support other clouds
 	// aws s3 cp s3://my-bucket/example.txt ./example.txt
 	return []string{"aws", "s3", "cp", s3URL, photonDestPath(ph)}

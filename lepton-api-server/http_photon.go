@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +19,7 @@ func photonDownloadHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
 	}
-	body, err := photonBucket.ReadAll(context.Background(), joinNameByDash(metadata.Name, uuid))
+	body, err := photonBucket.ReadAll(context.Background(), util.JoinByDash(metadata.Name, uuid))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
 		return
@@ -48,7 +49,7 @@ func photonDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
 		return
 	}
-	err := photonBucket.Delete(context.Background(), joinNameByDash(metadata.Name, uuid))
+	err := photonBucket.Delete(context.Background(), util.JoinByDash(metadata.Name, uuid))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " from S3: " + err.Error()})
 		return
@@ -82,7 +83,7 @@ func photonPostHandler(c *gin.Context) {
 		return
 	}
 
-	uuid := hash(body)
+	uuid := util.HexHash(body)
 
 	ph, err := getPhotonFromMetadata(body)
 	if err != nil {
@@ -104,7 +105,7 @@ func photonPostHandler(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	err = photonBucket.WriteAll(context.TODO(), joinNameByDash(ph.Name, uuid), body, nil)
+	err = photonBucket.WriteAll(context.TODO(), util.JoinByDash(ph.Name, uuid), body, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
 		return

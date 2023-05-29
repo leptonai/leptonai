@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -67,7 +69,7 @@ func DeletePhotonCR(ph *httpapi.Photon) error {
 	}
 	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
-		joinNameByDash(ph.Name, ph.ID),
+		util.JoinByDash(ph.Name, ph.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -86,7 +88,7 @@ func CreatePhotonCR(ph *httpapi.Photon) error {
 			"apiVersion": leptonAPIGroup + "/" + photonAPIVersion,
 			"kind":       photonKind,
 			"metadata": map[string]interface{}{
-				"name": joinNameByDash(ph.Name, ph.ID),
+				"name": util.JoinByDash(ph.Name, ph.ID),
 			},
 			"spec": convertPhotonToCr(ph),
 		},

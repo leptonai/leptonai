@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +29,7 @@ func createService(ld *httpapi.LeptonDeployment, ph *httpapi.Photon, or metav1.O
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"photon": joinNameByDash(ph.Name, ph.ID),
+				"photon": util.JoinByDash(ph.Name, ph.ID),
 			},
 			Ports: []corev1.ServicePort{
 				{

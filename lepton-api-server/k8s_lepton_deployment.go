@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,7 @@ func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstr
 			"apiVersion": leptonAPIGroup + "/" + leptonDeploymentAPIVersion,
 			"kind":       leptonDeploymentKind,
 			"metadata": map[string]interface{}{
-				"name": joinNameByDash(ld.Name, ld.ID),
+				"name": util.JoinByDash(ld.Name, ld.ID),
 			},
 			"spec": convertDeploymentToCr(ld),
 		},
@@ -55,7 +56,7 @@ func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
 	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
-		joinNameByDash(ld.Name, ld.ID),
+		util.JoinByDash(ld.Name, ld.ID),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -101,7 +102,7 @@ func PatchLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstru
 
 	cr, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Get(
 		context.TODO(),
-		joinNameByDash(ld.Name, ld.ID),
+		util.JoinByDash(ld.Name, ld.ID),
 		metav1.GetOptions{},
 	)
 	if err != nil {
