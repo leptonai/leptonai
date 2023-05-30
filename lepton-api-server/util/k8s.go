@@ -3,6 +3,9 @@ package util
 import (
 	"os"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -60,4 +63,16 @@ func GetOwnerRefFromUnstructured(u *unstructured.Unstructured) metav1.OwnerRefer
 		Name:       name,
 		UID:        uid,
 	}
+}
+
+func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
+	cenvs := make([]corev1.EnvVar, 0, len(envs))
+	for _, env := range envs {
+		cenvs = append(cenvs, corev1.EnvVar{
+			Name:  env.Name,
+			Value: env.Value,
+		})
+	}
+
+	return cenvs
 }

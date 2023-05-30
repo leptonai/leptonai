@@ -68,6 +68,7 @@ func convertDeploymentToCr(d *httpapi.LeptonDeployment) *leptonaiv1alpha1.Lepton
 			AcceleratorNum:  resource.NewQuantity(int64(d.ResourceRequirement.AcceleratorNum), resource.DecimalSI).String(),
 			MinReplicas:     d.ResourceRequirement.MinReplicas,
 		},
+		Envs: d.Envs,
 	}
 }
 
@@ -105,5 +106,6 @@ func convertCrToDeployment(cr *leptonaiv1alpha1.LeptonDeploymentSpec) *httpapi.L
 			AcceleratorNum:  acceleratorNum.AsApproximateFloat64(),
 			MinReplicas:     cr.ResourceRequirement.MinReplicas,
 		},
+		Envs: cr.Envs,
 	}
 }

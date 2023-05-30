@@ -1,13 +1,17 @@
 package httpapi
 
+import leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+
 type LeptonDeployment struct {
 	ID                  string                              `json:"id"`
 	CreatedAt           int64                               `json:"created_at"`
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
 	ModelID             string                              `json:"model_id"`
-	Status              LeptonDeploymentStatus              `json:"status"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
+	Envs                []leptonaiv1alpha1.EnvVar           `json:"envs"`
+
+	Status LeptonDeploymentStatus `json:"status"`
 }
 
 func (ld *LeptonDeployment) Merge(p *LeptonDeployment) {

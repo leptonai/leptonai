@@ -154,13 +154,14 @@ func newInitContainerArgs(ph *httpapi.Photon) []string {
 	return []string{}
 }
 
-func newInitContainer(ph *httpapi.Photon) corev1.Container {
+func newInitContainer(ph *httpapi.Photon, env []corev1.EnvVar) corev1.Container {
 	// Define the init container
 	return corev1.Container{
 		Name:    "env-preparation",
 		Image:   awscliImageURL,
 		Command: newInitContainerCommand(ph),
 		Args:    newInitContainerArgs(ph),
+		Env:     env,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      photonVolumeName,
@@ -184,6 +185,7 @@ func createDeploymentPodSpec(ld *httpapi.LeptonDeployment) (*corev1.PodSpec, err
 	if ph == nil {
 		return nil, fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
+	env := util.ToContainerEnv(ld.Envs)
 
 	// Define the shared volume
 	sharedVolume := corev1.Volume{
@@ -221,6 +223,8 @@ func createDeploymentPodSpec(ld *httpapi.LeptonDeployment) (*corev1.PodSpec, err
 		Command:         newMainContainerCommand(ph),
 		Args:            newMainContainerArgs(ph),
 		Resources:       resources,
+		Env:             env,
+
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "http",
@@ -236,7 +240,7 @@ func createDeploymentPodSpec(ld *httpapi.LeptonDeployment) (*corev1.PodSpec, err
 	}
 
 	spec := &corev1.PodSpec{
-		InitContainers:     []corev1.Container{newInitContainer(ph)},
+		InitContainers:     []corev1.Container{newInitContainer(ph, env)},
 		Containers:         []corev1.Container{container},
 		Volumes:            []corev1.Volume{sharedVolume},
 		ServiceAccountName: *serviceAccountNameFlag,

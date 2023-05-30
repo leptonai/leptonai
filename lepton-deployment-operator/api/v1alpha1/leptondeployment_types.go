@@ -34,6 +34,7 @@ type LeptonDeploymentSpec struct {
 	PhotonID            string                              `json:"photon_id"`
 	ModelID             string                              `json:"model_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
+	Envs                []EnvVar                            `json:"envs,omitempty"`
 }
 
 type LeptonDeploymentResourceRequirement struct {
@@ -42,6 +43,11 @@ type LeptonDeploymentResourceRequirement struct {
 	AcceleratorType string `json:"accelerator_type,omitempty"`
 	AcceleratorNum  string `json:"accelerator_num,omitempty"`
 	MinReplicas     int64  `json:"min_replicas"`
+}
+
+type EnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment

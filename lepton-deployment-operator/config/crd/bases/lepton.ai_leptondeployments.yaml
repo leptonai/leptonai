@@ -38,6 +38,18 @@ spec:
               created_at:
                 format: int64
                 type: integer
+              envs:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
               id:
                 type: string
               model_id:
