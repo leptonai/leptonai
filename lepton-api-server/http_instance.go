@@ -18,12 +18,12 @@ import (
 )
 
 func instanceListHandler(c *gin.Context) {
-	duuid := c.Param("uuid")
+	did := c.Param("did")
 	clientset := util.MustInitK8sClientSet()
 
-	ld := deploymentDB.GetByID(duuid)
+	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + duuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
@@ -57,7 +57,7 @@ func instanceListHandler(c *gin.Context) {
 }
 
 func instanceShellHandler(c *gin.Context) {
-	id := c.Param("id")
+	iid := c.Param("iid")
 	_, config := util.MustInitK8sClientSetWithConfig()
 	httpClient, err := restclient.HTTPClientFor(config)
 	if err != nil {
@@ -80,7 +80,7 @@ func instanceShellHandler(c *gin.Context) {
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme
-	r.URL.Path = "/api/v1/namespaces/default/pods/" + id + "/exec"
+	r.URL.Path = "/api/v1/namespaces/default/pods/" + iid + "/exec"
 	q := r.URL.Query()
 	q.Set("container", mainContainerName)
 	q.Set("command", "/bin/bash")
@@ -94,7 +94,7 @@ func instanceShellHandler(c *gin.Context) {
 }
 
 func instanceLogHandler(c *gin.Context) {
-	id := c.Param("id")
+	iid := c.Param("iid")
 
 	clientset := util.MustInitK8sClientSet()
 
@@ -107,11 +107,11 @@ func instanceLogHandler(c *gin.Context) {
 		TailLines:  &tailLines,
 		LimitBytes: &tenMBInBytes,
 	}
-	req := clientset.CoreV1().Pods(deploymentNamespace).GetLogs(id, logOptions)
+	req := clientset.CoreV1().Pods(deploymentNamespace).GetLogs(iid, logOptions)
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot get pod logs for " + id + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot get pod logs for " + iid + ": " + err.Error()})
 		return
 	}
 	defer podLogs.Close()
@@ -131,7 +131,7 @@ func instanceLogHandler(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + id + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + iid + ": " + err.Error()})
 		return
 	}
 }

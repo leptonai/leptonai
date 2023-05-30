@@ -36,8 +36,8 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	uuid := util.HexHash(body)
-	ld.ID = uuid
+	did := util.HexHash(body)
+	ld.ID = did
 	now := time.Now()
 	ld.CreatedAt = now.UnixMilli()
 	ld.Status.State = httpapi.DeploymentStateStarting
@@ -88,10 +88,10 @@ func deploymentListHandler(c *gin.Context) {
 }
 
 func deploymentPatchHandler(c *gin.Context) {
-	uuid := c.Param("uuid")
-	ld := deploymentDB.GetByID(uuid)
+	did := c.Param("did")
+	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
@@ -130,10 +130,10 @@ func deploymentPatchHandler(c *gin.Context) {
 }
 
 func deploymentGetHandler(c *gin.Context) {
-	uuid := c.Param("uuid")
-	ld := deploymentDB.GetByID(uuid)
+	did := c.Param("did")
+	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
@@ -141,16 +141,16 @@ func deploymentGetHandler(c *gin.Context) {
 }
 
 func deploymentDeleteHandler(c *gin.Context) {
-	uuid := c.Param("uuid")
-	ld := deploymentDB.GetByID(uuid)
+	did := c.Param("did")
+	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + uuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
 	err := DeleteLeptonDeploymentCR(ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete deployment " + uuid + " crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}
 

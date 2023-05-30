@@ -16,7 +16,7 @@ import (
 
 func InstanceMemoryUsageHandler(c *gin.Context) {
 	// get the memory usage bytes for the past 1 hour
-	query := "container_memory_usage_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
+	query := "container_memory_usage_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
 	result, err := queryMetrics(query, "memory_usage_in_bytes", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -27,7 +27,7 @@ func InstanceMemoryUsageHandler(c *gin.Context) {
 
 func InstanceMemoryTotalHandler(c *gin.Context) {
 	// get the memory limit bytes for the past 1 hour
-	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("id") + "\", container=\"main-container\"}[1h]"
+	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
 	result, err := queryMetrics(query, "memory_total_in_bytes", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -41,7 +41,7 @@ func InstanceCPUUtilHandler(c *gin.Context) {
 	query := fmt.Sprintf(
 		"(sum(rate(container_cpu_usage_seconds_total{pod=\"%s\", container=\"main-container\"}[2m])) / "+
 			"sum(container_spec_cpu_quota{pod=\"%[1]s\", container=\"main-container\"}/container_spec_cpu_period{pod=\"%[1]s\", container=\"main-container\"}))[1h:1m]",
-		c.Param("id"),
+		c.Param("iid"),
 	)
 	result, err := queryMetrics(query, "cpu_util", "")
 	if err != nil {
@@ -52,13 +52,13 @@ func InstanceCPUUtilHandler(c *gin.Context) {
 }
 
 func InstanceFastAPIQPSHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum(rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum(rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -68,13 +68,13 @@ func InstanceFastAPIQPSHandler(c *gin.Context) {
 }
 
 func InstanceFastAPILatencyHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -84,13 +84,13 @@ func InstanceFastAPILatencyHandler(c *gin.Context) {
 }
 
 func InstanceFastAPIQPSByPathHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -100,13 +100,13 @@ func InstanceFastAPIQPSByPathHandler(c *gin.Context) {
 }
 
 func InstanceFastAPILatencyByPathHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("id") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -116,13 +116,13 @@ func InstanceFastAPILatencyByPathHandler(c *gin.Context) {
 }
 
 func DeploymentFastAPIQPSHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the inference QPS over 2 min windows for the past 1 hour
-	query := "sum(rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum(rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -132,13 +132,13 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 }
 
 func DeploymentFastAPILatencyHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -148,13 +148,13 @@ func DeploymentFastAPILatencyHandler(c *gin.Context) {
 }
 
 func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -164,13 +164,13 @@ func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
 }
 
 func DeploymentFastAPILatencyByPathHandler(c *gin.Context) {
-	handlers, err := listHandlersForPrometheusQuery(c.Param("uuid"))
+	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("uuid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -181,7 +181,7 @@ func DeploymentFastAPILatencyByPathHandler(c *gin.Context) {
 
 func InstanceGPUMemoryUtilHandler(c *gin.Context) {
 	// get the GPU memory util for the past 1 hour
-	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
+	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -192,7 +192,7 @@ func InstanceGPUMemoryUtilHandler(c *gin.Context) {
 
 func InstanceGPUUtilHandler(c *gin.Context) {
 	// get the GPU util for the past 1 hour
-	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("id") + "\"}[1h]"
+	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -203,7 +203,7 @@ func InstanceGPUUtilHandler(c *gin.Context) {
 
 func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 	// get the GPU memory usage in MB for the past 1 hour
-	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"}[1h]"
+	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_usage_in_MB", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -214,7 +214,7 @@ func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 
 func InstanceGPUMemoryTotalHandler(c *gin.Context) {
 	// get the GPU total memory in MB for the past 1 hour
-	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("id") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("id") + "\"})[1h:1m]"
+	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("iid") + "\"})[1h:1m]"
 	result, err := queryMetrics(query, "gpu_memory_total_in_MB", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
@@ -308,10 +308,10 @@ func getPhotonHTTPPaths(ph *Photon) []string {
 	return pathArray
 }
 
-func listHandlersForPrometheusQuery(uuid string) (string, error) {
-	ld := deploymentDB.GetByID(uuid)
+func listHandlersForPrometheusQuery(did string) (string, error) {
+	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		return "", fmt.Errorf("deployment " + uuid + " does not exist.")
+		return "", fmt.Errorf("deployment " + did + " does not exist.")
 	}
 	ph := photonDB.GetByID(ld.PhotonID)
 	if ph == nil {

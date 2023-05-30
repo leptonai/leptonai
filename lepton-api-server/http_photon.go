@@ -13,15 +13,15 @@ import (
 )
 
 func photonDownloadHandler(c *gin.Context) {
-	uuid := c.Param("uuid")
-	metadata := photonDB.GetByID(uuid)
+	pid := c.Param("pid")
+	metadata := photonDB.GetByID(pid)
 	if metadata == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 		return
 	}
-	body, err := photonBucket.ReadAll(context.Background(), util.JoinByDash(metadata.Name, uuid))
+	body, err := photonBucket.ReadAll(context.Background(), util.JoinByDash(metadata.Name, pid))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get photon " + uuid + " from S3: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get photon " + pid + " from S3: " + err.Error()})
 		return
 	}
 	c.Data(http.StatusOK, "application/zip", body)
@@ -32,10 +32,10 @@ func photonGetHandler(c *gin.Context) {
 	if content == "true" { // download the file from S3 and return
 		photonDownloadHandler(c)
 	} else {
-		uuid := c.Param("uuid")
-		metadata := photonDB.GetByID(uuid)
+		pid := c.Param("pid")
+		metadata := photonDB.GetByID(pid)
 		if metadata == nil {
-			c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
+			c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 			return
 		}
 		c.JSON(http.StatusOK, metadata)
@@ -43,21 +43,21 @@ func photonGetHandler(c *gin.Context) {
 }
 
 func photonDeleteHandler(c *gin.Context) {
-	uuid := c.Param("uuid")
-	metadata := photonDB.GetByID(uuid)
+	pid := c.Param("pid")
+	metadata := photonDB.GetByID(pid)
 	if metadata == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + uuid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 		return
 	}
-	err := photonBucket.Delete(context.Background(), util.JoinByDash(metadata.Name, uuid))
+	err := photonBucket.Delete(context.Background(), util.JoinByDash(metadata.Name, pid))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " from S3: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from S3: " + err.Error()})
 		return
 	}
 
 	err = DeletePhotonCR(metadata)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + uuid + " crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " crd: " + err.Error()})
 		return
 	}
 
@@ -83,7 +83,7 @@ func photonPostHandler(c *gin.Context) {
 		return
 	}
 
-	uuid := util.HexHash(body)
+	pid := util.HexHash(body)
 
 	ph, err := getPhotonFromMetadata(body)
 	if err != nil {
@@ -91,7 +91,7 @@ func photonPostHandler(c *gin.Context) {
 		return
 	}
 
-	ph.ID = uuid
+	ph.ID = pid
 	now := time.Now()
 	ph.CreatedAt = now.UnixMilli()
 
@@ -105,7 +105,7 @@ func photonPostHandler(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	err = photonBucket.WriteAll(context.TODO(), util.JoinByDash(ph.Name, uuid), body, nil)
+	err = photonBucket.WriteAll(context.TODO(), util.JoinByDash(ph.Name, pid), body, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
 		return
