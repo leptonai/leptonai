@@ -92,6 +92,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gin-contrib/requestid v0.0.6
 	github.com/gin-gonic/gin v1.9.0
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"gocloud.dev/blob"
@@ -73,6 +74,7 @@ func main() {
 	fmt.Println("Starting the Lepton Server on :20863...")
 
 	router := gin.Default()
+	router.Use(requestid.New())
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})
