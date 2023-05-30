@@ -102,8 +102,11 @@ func main() {
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryUsage", httpapi.InstanceMemoryUsageHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/memoryTotal", httpapi.InstanceMemoryTotalHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/CPUUtil", httpapi.InstanceCPUUtilHandler)
+
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIQPS", httpapi.InstanceFastAPIQPSHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPILatency", httpapi.InstanceFastAPILatencyHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIByPathQPS", httpapi.InstanceFastAPIQPSByPathHandler)
+	v1.GET("/deployments/:uuid/instances/:id/monitoring/FastAPIByPathLatency", httpapi.InstanceFastAPILatencyByPathHandler)
 
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUMemoryUtil", httpapi.InstanceGPUMemoryUtilHandler)
 	v1.GET("/deployments/:uuid/instances/:id/monitoring/GPUUtil", httpapi.InstanceGPUUtilHandler)
