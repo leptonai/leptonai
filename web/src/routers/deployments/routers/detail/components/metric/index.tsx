@@ -10,7 +10,7 @@ import { debounceTime, fromEvent } from "rxjs";
 export const Metric: FC<{
   loading: boolean;
   title: string;
-  data: { name: string; data: [number, number][] }[];
+  data: { name: string; data: [number, number | null][] }[];
   format: (value: number) => string;
   onInit?: (chart: EChartsType) => void;
 }> = ({ title, loading, format, data, onInit }) => {
@@ -26,7 +26,7 @@ export const Metric: FC<{
         textStyle: {
           fontSize: 16,
         },
-        text: "No data",
+        text: `No data for ${title}`,
         left: "center",
         top: "center",
       },
@@ -66,7 +66,7 @@ export const Metric: FC<{
         bottom: data.length > 1 ? 50 : 20,
       },
     }),
-    [format, data]
+    [format, data, title]
   );
 
   useStateFromObservable(
@@ -116,17 +116,19 @@ export const Metric: FC<{
 
   return (
     <div>
-      <div
-        css={css`
-          color: ${theme.colorTextHeading};
-          text-align: center;
-          padding-bottom: 6px;
-          font-size: 16px;
-          font-weight: 500;
-        `}
-      >
-        {title}
-      </div>
+      {data.length !== 0 && (
+        <div
+          css={css`
+            color: ${theme.colorTextHeading};
+            text-align: center;
+            padding-bottom: 6px;
+            font-size: 16px;
+            font-weight: 500;
+          `}
+        >
+          {title}
+        </div>
+      )}
       <div
         css={css`
           height: 160px;

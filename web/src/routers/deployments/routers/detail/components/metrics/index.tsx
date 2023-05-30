@@ -9,14 +9,14 @@ import { connect, EChartsType } from "echarts";
 
 const metrics = [
   {
-    name: ["FastAPIQPS"],
+    name: ["FastAPIQPS", "FastAPIQPSByPath"],
     title: "QPS",
-    format: (v: number) => `${v !== undefined ? v.toFixed(4) : "-"}`,
+    format: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
   },
   {
-    name: ["FastAPILatency"],
+    name: ["FastAPILatency", "FastAPILatencyByPath"],
     title: "Latency",
-    format: (v: number) => `${v !== undefined ? v.toFixed(4) : "-"}`,
+    format: (v: number) => `${v !== null ? `${v.toFixed(4)} s` : "-"}`,
   },
 ];
 

@@ -1,4 +1,4 @@
-import { FC, useCallback, useRef, useState } from "react";
+import { FC, useCallback, useMemo, useRef, useState } from "react";
 import { Button, Col, Row } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ChartLine } from "@carbon/icons-react";
@@ -8,41 +8,67 @@ import prettyBytes from "pretty-bytes";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { Card } from "@lepton-dashboard/components/card";
 import { connect, EChartsType } from "echarts";
-
-const metrics = [
-  {
-    name: ["FastAPIQPS"],
-    title: "QPS",
-    format: (v: number) => `${v !== undefined ? v.toFixed(4) : "-"}`,
-  },
-  {
-    name: ["FastAPILatency"],
-    title: "Latency",
-    format: (v: number) => `${v !== undefined ? v.toFixed(4) : "-"}`,
-  },
-  {
-    name: ["memoryUsage", "memoryTotal"],
-    title: "Memory Usage",
-    format: (v: number) => prettyBytes(v),
-  },
-  {
-    name: ["CPUUtil"],
-    title: "CPU Util",
-    format: (v: number) => `${(v * 100).toFixed(2)} %`,
-  },
-];
+import { css } from "@emotion/react";
 
 export const MetricsDetail: FC<{
   deploymentId: string;
   instanceId: string;
-}> = ({ deploymentId, instanceId }) => {
-  const metricsInstanceRef = useRef(new Map<string, EChartsType>());
-  const onInit = useCallback((chart: EChartsType, title: string) => {
-    metricsInstanceRef.current.set(title, chart);
-    if (metricsInstanceRef.current.size === metrics.length) {
-      connect(Array.from(metricsInstanceRef.current.values()));
+  gpu: boolean;
+}> = ({ deploymentId, instanceId, gpu }) => {
+  const metrics = useMemo(() => {
+    const data = [
+      {
+        name: ["FastAPIQPS", "FastAPIByPathQPS"],
+        title: "QPS",
+        format: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
+      },
+      {
+        name: ["FastAPILatency", "FastAPIByPathLatency"],
+        title: "Latency",
+        format: (v: number) => `${v !== null ? `${v.toFixed(4)} s` : "-"}`,
+      },
+      {
+        name: ["memoryUsage", "memoryTotal"],
+        title: "Memory",
+        format: (v: number) => prettyBytes(v),
+      },
+      {
+        name: ["CPUUtil"],
+        title: "CPU Util",
+        format: (v: number) => `${(v * 100).toFixed(2)} %`,
+      },
+    ];
+    if (gpu) {
+      data.push(
+        {
+          name: ["GPUMemoryUtil"],
+          title: "GPU Memory Util",
+          format: (v: number) => `${(v * 100).toFixed(2)} %`,
+        },
+        {
+          name: ["GPUUtil"],
+          title: "GPU Util",
+          format: (v: number) => `${(v * 100).toFixed(2)} %`,
+        },
+        {
+          name: ["GPUMemoryUsage", "GPUMemoryTotal"],
+          title: "GPU Memory",
+          format: (v: number) => prettyBytes(v),
+        }
+      );
     }
-  }, []);
+    return data;
+  }, [gpu]);
+  const metricsInstanceRef = useRef(new Map<string, EChartsType>());
+  const onInit = useCallback(
+    (chart: EChartsType, title: string) => {
+      metricsInstanceRef.current.set(title, chart);
+      if (metricsInstanceRef.current.size === metrics.length) {
+        connect(Array.from(metricsInstanceRef.current.values()));
+      }
+    },
+    [metrics.length]
+  );
   return (
     <Card borderless shadowless>
       <Row gutter={[16, 32]}>
@@ -82,7 +108,18 @@ export const Metrics: FC<{
         Metrics
       </Button>
       <FullScreenDrawer borderless open={open} onClose={() => setOpen(false)}>
-        <MetricsDetail deploymentId={deployment.id} instanceId={instance.id} />
+        <div
+          css={css`
+            height: 100%;
+            overflow: auto;
+          `}
+        >
+          <MetricsDetail
+            gpu={!!deployment.resource_requirement.accelerator_num}
+            deploymentId={deployment.id}
+            instanceId={instance.id}
+          />
+        </div>
       </FullScreenDrawer>
     </>
   );

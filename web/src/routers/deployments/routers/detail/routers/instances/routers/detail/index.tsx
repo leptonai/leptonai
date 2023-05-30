@@ -41,7 +41,11 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
         <Route
           path="metrics"
           element={
-            <MetricsDetail deploymentId={deployment.id} instanceId={id!} />
+            <MetricsDetail
+              gpu={!!deployment.resource_requirement.accelerator_num}
+              deploymentId={deployment.id}
+              instanceId={id!}
+            />
           }
         />
         <Route

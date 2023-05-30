@@ -16,7 +16,7 @@ export const MetricItem: FC<{
   const [data, setData] = useState<
     {
       name: string;
-      data: [number, number][];
+      data: [number, number | null][];
     }[]
   >([]);
   const deploymentService = useInject(DeploymentService);
@@ -30,7 +30,10 @@ export const MetricItem: FC<{
           data.map((d) => {
             return {
               name: d.metric.handler || d.metric.name,
-              data: d.values.map(([t, v]) => [t * 1000, +v]),
+              data: d.values.map(([t, v]) => [
+                t * 1000,
+                v === null ? null : +v,
+              ]),
             };
           })
         );
