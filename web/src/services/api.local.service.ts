@@ -7,6 +7,7 @@ import {
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
+import { Subset } from "@lepton-dashboard/interfaces/subset";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -129,8 +130,11 @@ export class ApiLocalService implements ApiService {
     return of([]);
   }
 
-  updateDeployment(id: string, miniReplicas: number): Observable<void> {
-    console.log(id, miniReplicas);
+  updateDeployment(
+    id: string,
+    deployment: Subset<Deployment>
+  ): Observable<void> {
+    console.log(id, deployment);
     return EMPTY;
   }
 

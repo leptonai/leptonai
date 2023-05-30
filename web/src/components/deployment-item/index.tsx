@@ -130,7 +130,15 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     photon?.name ? (
                       <Popover
                         placement="bottomLeft"
-                        content={<PhotonItem photon={photon} />}
+                        content={
+                          <div
+                            css={css`
+                              width: min-content;
+                            `}
+                          >
+                            <PhotonItem photon={photon} />
+                          </div>
+                        }
                       >
                         <span>
                           <Link to={`/photons/detail/${photon?.id}`}>

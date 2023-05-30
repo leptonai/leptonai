@@ -8,6 +8,7 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
+import { Subset } from "@lepton-dashboard/interfaces/subset";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -46,12 +47,14 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.delete(`${this.host}/deployments/${id}`);
   }
 
-  updateDeployment(id: string, miniReplicas: number): Observable<void> {
-    return this.httpClientService.patch(`${this.host}/deployments/${id}`, {
-      resource_requirement: {
-        min_replicas: miniReplicas,
-      },
-    });
+  updateDeployment(
+    id: string,
+    deployment: Subset<Deployment>
+  ): Observable<void> {
+    return this.httpClientService.patch(
+      `${this.host}/deployments/${id}`,
+      deployment
+    );
   }
 
   requestDeployment(

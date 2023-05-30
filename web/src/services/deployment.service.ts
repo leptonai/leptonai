@@ -6,6 +6,7 @@ import {
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
+import { Subset } from "@lepton-dashboard/interfaces/subset";
 
 @Injectable()
 export class DeploymentService {
@@ -71,8 +72,8 @@ export class DeploymentService {
   delete(id: string): Observable<void> {
     return this.apiService.deleteDeployment(id);
   }
-  update(id: string, miniReplicas: number): Observable<void> {
-    return this.apiService.updateDeployment(id, miniReplicas);
+  update(id: string, deployment: Subset<Deployment>): Observable<void> {
+    return this.apiService.updateDeployment(id, deployment);
   }
 
   request(name: string, value: string, path: string): Observable<unknown> {

@@ -6,6 +6,7 @@ import {
   Instance,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
+import { Subset } from "@lepton-dashboard/interfaces/subset";
 
 @Injectable()
 export abstract class ApiService {
@@ -38,7 +39,10 @@ export abstract class ApiService {
   ): Observable<Metric[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;
   abstract deleteDeployment(id: string): Observable<void>;
-  abstract updateDeployment(id: string, miniReplicas: number): Observable<void>;
+  abstract updateDeployment(
+    id: string,
+    deployment: Subset<Deployment>
+  ): Observable<void>;
   abstract requestDeployment(
     url: string,
     value: string,
