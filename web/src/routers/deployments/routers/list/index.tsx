@@ -1,28 +1,20 @@
 import { FC, useMemo, useState } from "react";
-import {
-  Col,
-  Input,
-  Row,
-  Select,
-  List as AntdList,
-  Button,
-  Cascader,
-} from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { Col, Input, Row, Select, List as AntdList, Cascader } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "../../../../components/deployment-item";
+import { CreateDeployment } from "@lepton-dashboard/components/create-deployment";
 
 export const List: FC = () => {
   const { name } = useParams();
   const deploymentService = useInject(DeploymentService);
-  const navigate = useNavigate();
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
     []
@@ -116,14 +108,7 @@ export const List: FC = () => {
         />
       </Col>
       <Col flex="180px">
-        <Button
-          type="primary"
-          block
-          icon={<PlusOutlined />}
-          onClick={() => navigate("../create", { relative: "path" })}
-        >
-          Create Deployment
-        </Button>
+        <CreateDeployment />
       </Col>
       <Col span={24}>
         <AntdList

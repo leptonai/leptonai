@@ -1,36 +1,24 @@
 import { FC } from "react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { useNavigate } from "react-router-dom";
 import { App, Button, Divider, Popconfirm, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
-import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Download } from "@carbon/icons-react";
 import { DeleteOutlined } from "@ant-design/icons";
+import { CreateDeployment } from "@lepton-dashboard/components/create-deployment";
 
 export const Actions: FC<{ photon: Photon; extraActions: boolean }> = ({
   photon,
   extraActions = false,
 }) => {
-  const navigate = useNavigate();
   const { message } = App.useApp();
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
   return (
     <Space size={0} split={<Divider type="vertical" />}>
-      <Button
-        size="small"
-        type="text"
-        icon={<DeploymentIcon />}
-        onClick={() =>
-          navigate(`/deployments/create/${photon.id}`, {
-            relative: "route",
-          })
-        }
-      >
-        Deploy
-      </Button>
+      <CreateDeployment photonId={photon.id} min />
       {extraActions && (
         <>
           <Button
