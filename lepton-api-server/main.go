@@ -14,28 +14,33 @@ import (
 )
 
 var photonBucket *blob.Bucket
+
 var (
-	bucketTypeFlag         *string
-	bucketNameFlag         *string
-	bucketRegionFlag       *string
-	photonPrefixFlag       *string
-	namespaceFlag          *string
-	serviceAccountNameFlag *string
-	prometheusURLFlag      *string
-	certificateARNFlag     *string
-	rootDomainFlag         *string
+	clusterNameFlag    *string
+	certificateARNFlag *string
+	rootDomainFlag     *string
+
+	bucketTypeFlag, bucketNameFlag, bucketRegionFlag *string
+	photonPrefixFlag                                 *string
+	namespaceFlag                                    *string
+	serviceAccountNameFlag                           *string
+	prometheusURLFlag                                *string
 )
 
 func main() {
+	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
+	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
+	rootDomainFlag = flag.String("root-domain", "", "root domain")
+
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
 	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
 	bucketRegionFlag = flag.String("bucket-region", "us-east-1", "object store region")
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
+
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
+
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
-	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
-	rootDomainFlag = flag.String("root-domain", "", "root domain")
 	flag.Parse()
 
 	// Create and verify the bucket.
@@ -70,6 +75,7 @@ func main() {
 	initDeployments()
 
 	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)
+	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
 
 	fmt.Println("Starting the Lepton Server on :20863...")
 
@@ -82,6 +88,8 @@ func main() {
 	api := router.Group("/api")
 
 	v1 := api.Group("/v1")
+
+	v1.GET("/cluster", cih.Handle)
 
 	v1.GET("/photons", photonListHandler)
 	v1.POST("/photons", photonPostHandler)
