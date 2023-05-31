@@ -41,5 +41,7 @@ spec:
             - "{{ .Values.apiServer.certificateArn }}"
             - "--root-domain"
             - "{{ .Values.apiServer.rootDomain }}"
+            - "--api-token"
+            - "{{ .Values.apiServer.apiToken }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}

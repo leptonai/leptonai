@@ -21,6 +21,7 @@ apiServer:
   bucketName: "leptonai"
   rootDomain: ""
   certificateArn: ""
+  apiToken: ""
 
 web:
   enabled: true

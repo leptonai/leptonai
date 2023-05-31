@@ -19,6 +19,7 @@ var (
 	clusterNameFlag    *string
 	certificateARNFlag *string
 	rootDomainFlag     *string
+	apiTokenFlag       *string
 
 	bucketTypeFlag, bucketNameFlag, bucketRegionFlag *string
 	photonPrefixFlag                                 *string
@@ -35,6 +36,7 @@ func main() {
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
+	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
 
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
 	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
@@ -74,10 +76,12 @@ func main() {
 	ingressNamespace = *namespaceFlag
 	certificateARN = *certificateARNFlag
 	rootDomain = *rootDomainFlag
+	apiToken = *apiTokenFlag
 
 	initPhotons()
 	initDeployments()
 	mustUpdateAPIServerIngress()
+	mustInitUnauthorizedErrorIngress()
 
 	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)
 	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
