@@ -22,6 +22,9 @@ import { lazy } from "react";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
 import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
+import { Login } from "@lepton-dashboard/routers/login";
+import { AuthService } from "@lepton-dashboard/services/auth.service";
+import { ClusterService } from "@lepton-dashboard/services/cluster.service";
 const Dashboard = lazy(() =>
   import("@lepton-dashboard/routers/dashboard").then((e) => ({
     default: e.Dashboard,
@@ -41,6 +44,10 @@ const Deployments = lazy(() =>
 );
 
 const router = createBrowserRouter([
+  {
+    path: "login",
+    element: <Login />,
+  },
   {
     path: "*",
     element: (
@@ -82,6 +89,8 @@ function App() {
       providers={[
         ThemeService,
         TitleService,
+        AuthService,
+        ClusterService,
         PhotonService,
         DeploymentService,
         InitializerService,
