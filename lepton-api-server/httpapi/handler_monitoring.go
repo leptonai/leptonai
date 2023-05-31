@@ -14,6 +14,18 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+func InstanceMemoryUtilHandler(c *gin.Context) {
+	// get the memory util for the past 1 hour
+	query := fmt.Sprintf("(container_memory_usage_bytes{pod=\"%s\", container=\"main-container\"} / "+
+		"container_spec_memory_limit_bytes{pod=\"%[1]s\", container=\"main-container\"})[1h:1m]", c.Param("iid"))
+	result, err := queryMetrics(query, "memory_util", "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func InstanceMemoryUsageHandler(c *gin.Context) {
 	// get the memory usage bytes for the past 1 hour
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"

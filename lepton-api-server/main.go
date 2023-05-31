@@ -112,6 +112,7 @@ func main() {
 	v1.GET("/deployments/:did/instances/:iid/shell", instanceShellHandler)
 	v1.GET("/deployments/:did/instances/:iid/log", instanceLogHandler)
 
+	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUtil", httpapi.InstanceMemoryUtilHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUsage", httpapi.InstanceMemoryUsageHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryTotal", httpapi.InstanceMemoryTotalHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/CPUUtil", httpapi.InstanceCPUUtilHandler)
@@ -122,9 +123,9 @@ func main() {
 	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIByPathLatency", httpapi.InstanceFastAPILatencyByPathHandler)
 
 	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUtil", httpapi.InstanceGPUMemoryUtilHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUUtil", httpapi.InstanceGPUUtilHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUsage", httpapi.InstanceGPUMemoryUsageHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryTotal", httpapi.InstanceGPUMemoryTotalHandler)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUUtil", httpapi.InstanceGPUUtilHandler)
 
 	v1.GET("/deployments/:did/monitoring/FastAPIQPS", httpapi.DeploymentFastAPIQPSHandler)
 	v1.GET("/deployments/:did/monitoring/FastAPILatency", httpapi.DeploymentFastAPILatencyHandler)
