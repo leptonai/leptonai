@@ -9,6 +9,8 @@ import click
 from .base import find_all_photons, find_photon, remove_photon
 from . import api
 import lepton.remote as remote
+from lepton.photon.constants import METADATA_VCS_URL_KEY
+from lepton.photon.download import fetch_code_from_vcs
 
 console = Console(highlight=False)
 
@@ -157,6 +159,12 @@ def run(ctx, name, model, path, port, remote_url, id):
             path = find_photon(name)
         else:
             sys.exit(1)
+
+    metadata = api.load_metadata(path)
+
+    if metadata.get(METADATA_VCS_URL_KEY, None):
+        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+        os.chdir(workpath)
     photon = api.load(path)
     photon.launch(port=port)
 
@@ -169,8 +177,17 @@ def run(ctx, name, model, path, port, remote_url, id):
 def prepare(ctx, path):
     metadata = api.load_metadata(path)
 
+    default_requirement_dependency = []
+    if metadata.get(METADATA_VCS_URL_KEY, None):
+        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+        if os.path.exists(os.path.join(workpath, "requirements.txt")):
+            with open(os.path.join(workpath, "requirements.txt")) as f:
+                default_requirement_dependency = f.read().splitlines()
+
     # pip install
-    requirement_dependency = metadata.get("requirement_dependency", [])
+    requirement_dependency = metadata.get(
+        "requirement_dependency", default_requirement_dependency
+    )
     if requirement_dependency:
         with tempfile.NamedTemporaryFile("w") as f:
             content = "\n".join(requirement_dependency)

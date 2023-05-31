@@ -18,6 +18,9 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
 
 from lepton.config import BASE_IMAGE, BASE_IMAGE_ARGS
+from lepton.photon.constants import METADATA_VCS_URL_KEY
+from lepton.photon.download import fetch_code_from_vcs
+from lepton.util import switch_cwd
 from .base import Photon, schema_registry
 
 schemas = ["py"]
@@ -110,6 +113,7 @@ class RunnerPhoton(Photon):
     image: str = BASE_IMAGE
     args: list = BASE_IMAGE_ARGS
     requirement_dependency: Optional[List[str]] = None
+    vcs_url: Optional[str] = None
 
     def __init__(self, name=None, model=None):
         if name is None:
@@ -168,6 +172,7 @@ class RunnerPhoton(Photon):
         }
 
         res.update({"requirement_dependency": self._requirement_dependency})
+        res.update({METADATA_VCS_URL_KEY: self.vcs_url})
 
         res.update(
             {
@@ -331,26 +336,40 @@ class RunnerPhoton(Photon):
 
     @classmethod
     def create_from_model_str(cls, name, model_str):
-        model_parts = model_str.split(":")
-        if len(model_parts) != 3 or model_parts[0] not in schemas:
-            raise ValueError(f"Unsupported Python model string: {model_str}")
-        path, cls_name = model_parts[1:]
-        path_parts = os.path.splitext(os.path.basename(path))
-        if len(path_parts) != 2 or path_parts[1] != ".py":
-            raise ValueError(f"File path should be a Python file (.py): {path}")
-        module_name = path_parts[0]
-        spec = importlib.util.spec_from_file_location(module_name, path)
-        if spec is None:
-            raise ValueError(f"Could not import Python module from path: {path}")
-        module = importlib.util.module_from_spec(spec)
-        if spec.loader is None:
-            raise ValueError(f"Could not import Python module from path: {path}")
-        spec.loader.exec_module(module)
-        runner_cls = getattr(module, cls_name)
-        if not inspect.isclass(runner_cls) or not issubclass(runner_cls, cls):
-            raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
-        runner = runner_cls(name=name, model=model_str)
-        return runner
+        schema, s = model_str.split(":", maxsplit=1)
+        if schema not in schemas:
+            raise ValueError(f"Schema should be one of ({schemas}): but got {schema}")
+        url_and_path, cls_name = s.rsplit(":", maxsplit=1)
+
+        url_and_path_parts = url_and_path.rsplit(":", maxsplit=1)
+        if len(url_and_path_parts) > 1:
+            if len(url_and_path_parts) != 2:
+                raise ValueError(f"Doesn't meet 'url:path' format: {url_and_path}")
+            vcs_url, path = url_and_path_parts
+            cwd = fetch_code_from_vcs(vcs_url)
+        else:
+            vcs_url = None
+            path = url_and_path
+            cwd = os.getcwd()
+
+        with switch_cwd(cwd):
+            path_parts = os.path.splitext(os.path.basename(path))
+            if len(path_parts) != 2 or path_parts[1] != ".py":
+                raise ValueError(f"File path should be a Python file (.py): {path}")
+            module_name = path_parts[0]
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            if spec is None:
+                raise ValueError(f"Could not import Python module from path: {path}")
+            module = importlib.util.module_from_spec(spec)
+            if spec.loader is None:
+                raise ValueError(f"Could not import Python module from path: {path}")
+            spec.loader.exec_module(module)
+            runner_cls = getattr(module, cls_name)
+            if not inspect.isclass(runner_cls) or not issubclass(runner_cls, cls):
+                raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
+            runner = runner_cls(name=name, model=model_str)
+            runner.vcs_url = vcs_url
+            return runner
 
 
 handler = RunnerPhoton.handler

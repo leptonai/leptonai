@@ -1,4 +1,6 @@
+from contextlib import contextmanager
 import json
+import os
 
 from rich.console import Console
 
@@ -19,3 +21,13 @@ def check_and_print_http_error(response):
         console.print(f"Error: {response.text}")
 
     return True
+
+
+@contextmanager
+def switch_cwd(path):
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(old_cwd)

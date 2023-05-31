@@ -5,7 +5,6 @@ import tempfile
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
-import atexit
 import unittest
 
 from loguru import logger
@@ -34,9 +33,7 @@ class TestDocker(unittest.TestCase):
     def test_common_image(self):
         client.containers.run(BASE_IMAGE, "lepton photon -h")
 
-    def test_run_hf_photon(self):
-        ph = photon.create(random_name(), "hf:gpt2")
-        path = photon.save(ph)
+    def _run_photon(self, path):
         container_path = f"/tmp/{os.path.basename(path)}"
         image = photon.load_metadata(path)["image"]
         container = client.containers.run(
@@ -47,7 +44,6 @@ class TestDocker(unittest.TestCase):
             auto_remove=True,
             remove=True,
         )
-        atexit.register(container.stop)
         for log in container.logs(stream=True):
             line = log.decode("utf-8").strip()
             logger.info(line)
@@ -56,6 +52,19 @@ class TestDocker(unittest.TestCase):
                 break
         else:
             self.fail("Failed to start photon")
+
+    def test_run_hf_photon(self):
+        ph = photon.create(random_name(), "hf:gpt2")
+        path = photon.save(ph)
+        self._run_photon(path)
+
+    def test_run_remote_git_photon(self):
+        ph = photon.create(
+            random_name(),
+            "py:git+https://github.com/leptonai/examples.git@032a23c#subdirectory=Counter:counter.py:Counter",
+        )
+        path = photon.save(ph)
+        self._run_photon(path)
 
 
 if __name__ == "__main__":

@@ -5,20 +5,26 @@ import tempfile
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
+import inspect
 import json
 from textwrap import dedent
+import subprocess
 import sys
 import unittest
 import zipfile
 
+from click.testing import CliRunner
+from loguru import logger
 import numpy as np
 import requests
 import torch
 
 import lepton
 from lepton import Client
+from lepton.photon.cli import photon as cli
 from lepton.photon import RunnerPhoton as Runner
 from lepton.photon.runner import HTTPException
+from lepton.util import switch_cwd
 
 
 from utils import random_name, photon_run_server
@@ -389,6 +395,40 @@ class Counter(Runner):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json(), "line 1\n")
         proc.kill()
+
+    def test_git_remote(self):
+        # setup a git repo with custom.py
+        git_proj = tempfile.mkdtemp(dir=tmpdir)
+        with switch_cwd(git_proj):
+            subprocess.check_call(["git", "init", "-b", "main"])
+            subprocess.check_call(["git", "config", "--local", "user.email", "a@b.c"])
+            subprocess.check_call(["git", "config", "--local", "user.name", "abc"])
+            custom_py = os.path.join("d1", "d2", "custom.py")
+            os.makedirs(os.path.dirname(custom_py))
+            with open(custom_py, "w") as f:
+                f.write(
+                    dedent(
+                        f"""
+import torch
+from lepton.photon.runner import RunnerPhoton as Runner, handler
+
+{inspect.getsource(CustomRunner)}
+"""
+                    )
+                )
+            subprocess.check_call(["git", "add", custom_py])
+            subprocess.check_call(["git", "commit", "-m", "add custom runner"])
+
+        name = random_name()
+        proc, port = photon_run_server(
+            name=name, model=f"py:file://{git_proj}:{custom_py}:CustomRunner"
+        )
+        res = requests.post(
+            f"http://127.0.0.1:{port}/some_path",
+            json={"x": 1.0},
+        )
+        proc.kill()
+        self.assertEqual(res.status_code, 200)
 
 
 if __name__ == "__main__":
