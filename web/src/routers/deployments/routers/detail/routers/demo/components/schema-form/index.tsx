@@ -113,6 +113,9 @@ export const SchemaForm = memo<{
               : classNameCss`display:none;`,
           },
         }}
+        onChange={({ formData }) => {
+          setData(formData);
+        }}
         onSubmit={({ formData }) => {
           setData(formData);
           const schemaFormData = convertToSchemaFormData(formData);
