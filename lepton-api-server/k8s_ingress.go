@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -24,17 +23,14 @@ const (
 	apiServerIngressName = "lepton-api-server-ingress"
 	apiServerServiceName = "lepton-api-server-service"
 
-	headerKeyForLeptonDeploymentRouting = "deployment"
-
-	serviceNameForUnauthorizedDeploymentAccess = "response-401-deployment"
-	serviceNameForUnauthorizedAPIServerAccess  = "response-401-apiserver"
-	ingressNameForUnauthorizedAccess           = "response-401-ingress"
+	serviceNameForUnauthorizedDeployment = "response-401-deployment"
+	serviceNameForUnauthorizedAPIServer  = "response-401-apiserver"
+	ingressNameForUnauthorizedAccess     = "response-401-ingress"
 
 	unauthorizedAction = `{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"401","messageBody":"Not Authorized"}}`
 )
 
 const (
-	// GroupOrderDeployment is set via omitting the group.order annotation
 	GroupOrderDeployment   = 0
 	GroupOrderAPIServer    = 900
 	GroupOrderUnauthorized = 950
@@ -61,11 +57,16 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 	clientset := util.MustInitK8sClientSet()
 
 	albstr := "alb"
+	annotation := NewAnnotation()
+	annotation.SetGroup(deploymentIngressGroupName(ld), GroupOrderDeployment)
+	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.Name, apiToken)
+	annotation.SetDomainNameAndSSLCert(fmt.Sprintf("%s.%s", ld.Name, rootDomain), certificateARN)
+
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            deploymentIngressName(ld),
 			Namespace:       ingressNamespace,
-			Annotations:     newDeploymentIngressAnnotation(ld),
+			Annotations:     annotation.Get(),
 			OwnerReferences: []metav1.OwnerReference{or},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -126,81 +127,21 @@ func newActionIngressPathPrefix(serviceName, path string) networkingv1.HTTPIngre
 	}
 }
 
-func newDeploymentIngressAnnotation(ld *httpapi.LeptonDeployment) map[string]string {
-	annotation := map[string]string{
-		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
-		"alb.ingress.kubernetes.io/target-type":      "ip",
-		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
-		"alb.ingress.kubernetes.io/group.name":       deploymentIngressGroupName(ld),
-	}
-	// Set required annotation for header based routing.
-	key, value := newAnnotationKeyValueForHeaderBasedRouting(ld)
-	if apiToken != "" {
-		key, value = newAnnotationKeyValueForHeaderBasedRoutingWithAPIToken(ld)
-	}
-	annotation[key] = value
-	// Set optional annotation for custom domain and SSL certificate.
-	if rootDomain != "" {
-		annotation["external-dns.alpha.kubernetes.io/hostname"] = ld.DomainName(rootDomain)
-		if certificateARN != "" {
-			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
-			annotation["alb.ingress.kubernetes.io/certificate-arn"] = certificateARN
-		}
-	}
-	return annotation
-}
-
-func newUnauthorizedIngressAnnotation() map[string]string {
-	annotation := map[string]string{
-		"alb.ingress.kubernetes.io/scheme":      "internet-facing",
-		"alb.ingress.kubernetes.io/target-type": "ip",
-		// TODO: when we have ingress sharding, we must pass in one of the lds in that group.
-		"alb.ingress.kubernetes.io/group.name":  deploymentIngressGroupName(nil),
-		"alb.ingress.kubernetes.io/group.order": strconv.Itoa(GroupOrderUnauthorized),
-	}
-	annotation["alb.ingress.kubernetes.io/actions."+serviceNameForUnauthorizedDeploymentAccess] = unauthorizedAction
-	annotation["alb.ingress.kubernetes.io/actions."+serviceNameForUnauthorizedAPIServerAccess] = unauthorizedAction
-	annotation["alb.ingress.kubernetes.io/conditions."+serviceNameForUnauthorizedDeploymentAccess] = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRouting, "*")
-
-	if rootDomain != "" && certificateARN != "" {
-		annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
-	}
-	return annotation
-}
-
-func newAPIServerIngressAnnotation() map[string]string {
-	annotation := map[string]string{
-		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
-		"alb.ingress.kubernetes.io/target-type":      "ip",
-		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
-		"alb.ingress.kubernetes.io/group.name":       controlPlaneIngressGroupName(),
-		"alb.ingress.kubernetes.io/group.order":      strconv.Itoa(GroupOrderAPIServer),
-	}
-	if rootDomain != "" {
-		if certificateARN != "" {
-			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
-			annotation["alb.ingress.kubernetes.io/certificate-arn"] = certificateARN
-		}
-		annotation["external-dns.alpha.kubernetes.io/hostname"] = rootDomain
-	}
-	return annotation
-}
-
 func mustUpdateAPIServerIngress() {
 	clientset := util.MustInitK8sClientSet()
 
 	albstr := "alb"
-	annotations := newAPIServerIngressAnnotation()
-	if apiToken != "" {
-		key, value := newAnnotationKeyValueForAPIKey(apiServerServiceName)
-		annotations[key] = value
-	}
+
+	annotation := NewAnnotation()
+	annotation.SetGroup(controlPlaneIngressGroupName(), GroupOrderAPIServer)
+	annotation.SetAPITokenConditions(apiServerServiceName, apiToken)
+	annotation.SetDomainNameAndSSLCert(rootDomain, certificateARN)
 
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        apiServerIngressName,
 			Namespace:   ingressNamespace,
-			Annotations: annotations,
+			Annotations: annotation.Get(),
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &albstr,
@@ -238,13 +179,19 @@ func mustInitUnauthorizedErrorIngress() {
 	}
 
 	albstr := "alb"
-	annotations := newUnauthorizedIngressAnnotation()
+
+	annotation := NewAnnotation()
+	// TODO: when we have ingress sharding, we must pass in one of the lds in that group.
+	annotation.SetGroup(deploymentIngressGroupName(nil), GroupOrderUnauthorized)
+	annotation.SetDeploymentConditions(serviceNameForUnauthorizedDeployment, "*")
+	annotation.SetActions(serviceNameForUnauthorizedAPIServer, unauthorizedAction)
+	annotation.SetActions(serviceNameForUnauthorizedDeployment, unauthorizedAction)
 
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        ingressNameForUnauthorizedAccess,
 			Namespace:   ingressNamespace,
-			Annotations: annotations,
+			Annotations: annotation.Get(),
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &albstr,
@@ -253,8 +200,8 @@ func mustInitUnauthorizedErrorIngress() {
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
-								newActionIngressPathPrefix(serviceNameForUnauthorizedDeploymentAccess, "/"),
-								newActionIngressPathPrefix(serviceNameForUnauthorizedAPIServerAccess, "/api/"),
+								newActionIngressPathPrefix(serviceNameForUnauthorizedDeployment, "/"),
+								newActionIngressPathPrefix(serviceNameForUnauthorizedAPIServer, "/api/"),
 							},
 						},
 					},
@@ -270,22 +217,4 @@ func mustInitUnauthorizedErrorIngress() {
 	}
 
 	fmt.Printf("Created Ingress %q.\n", result.GetObjectMeta().GetName())
-}
-
-func newAnnotationKeyValueForHeaderBasedRouting(ld *httpapi.LeptonDeployment) (key, value string) {
-	key = "alb.ingress.kubernetes.io/conditions." + serviceName(ld)
-	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRouting, ld.Name)
-	return
-}
-
-func newAnnotationKeyValueForAPIKey(serviceName string) (key, value string) {
-	key = "alb.ingress.kubernetes.io/conditions." + serviceName
-	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Authorization","values":["Bearer %s"]}}]`, apiToken)
-	return
-}
-
-func newAnnotationKeyValueForHeaderBasedRoutingWithAPIToken(ld *httpapi.LeptonDeployment) (key, value string) {
-	key = "alb.ingress.kubernetes.io/conditions." + serviceName(ld)
-	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}, {"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Authorization","values":["Bearer %s"]}}]`, headerKeyForLeptonDeploymentRouting, ld.Name, apiToken)
-	return
 }
