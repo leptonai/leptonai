@@ -7,8 +7,8 @@ import { BehaviorSubject } from "rxjs";
  * Must be instantiated outside AuthService
  */
 const client = createClient<Database>(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_KEY
+  import.meta.env.VITE_SUPABASE_URL || "http://localhost:54321",
+  import.meta.env.VITE_SUPABASE_KEY || "invalid"
 );
 
 @Injectable()
