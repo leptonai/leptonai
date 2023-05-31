@@ -29,6 +29,8 @@ spec:
               cpu: {{ .Values.apiServer.service.resources.limits.cpu }}
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
+            - "--cluster-name"
+            - "{{ .Values.clusterName }}"
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--service-account-name"

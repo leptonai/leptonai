@@ -1,3 +1,5 @@
+clusterName: "testing"
+
 apiServer:
   name: lepton-api-server
   replicaCount: 1
