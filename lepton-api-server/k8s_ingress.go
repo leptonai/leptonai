@@ -120,7 +120,9 @@ func newAPIServerIngressAnnotation() map[string]string {
 	if rootDomain != "" {
 		if certificateARN != "" {
 			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
+			annotation["alb.ingress.kubernetes.io/certificate-arn"] = certificateARN
 		}
+		annotation["external-dns.alpha.kubernetes.io/hostname"] = rootDomain
 	}
 	return annotation
 }
