@@ -266,7 +266,7 @@ func cleanPrometheusQueryResult(result model.Value, name, keep string) ([]map[st
 			for _, value := range values {
 				if v, ok := value.([]interface{}); ok {
 					if len(v) == 2 && v[1] == "NaN" {
-						v[1] = nil
+						v[1] = 0
 					}
 				}
 			}
