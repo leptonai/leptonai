@@ -4,11 +4,11 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ChartLine } from "@carbon/icons-react";
 import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
 import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail/routers/instances/components/metrics/components/metric-item";
-import prettyBytes from "pretty-bytes";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/deployments/components/full-screen-drawer";
 import { Card } from "@lepton-dashboard/components/card";
 import { connect, EChartsType } from "echarts";
 import { css } from "@emotion/react";
+import { MetricUtilService } from "@lepton-dashboard/services/metric-util.service";
 
 export const MetricsDetail: FC<{
   deploymentId: string;
@@ -20,40 +20,48 @@ export const MetricsDetail: FC<{
       {
         name: ["FastAPIQPS", "FastAPIByPathQPS"],
         title: "QPS",
-        format: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
+        description: [MetricUtilService.getMetricTips("qps")],
+        format: MetricUtilService.getMetricFormat("qps"),
       },
       {
         name: ["FastAPILatency", "FastAPIByPathLatency"],
         title: "Latency",
-        format: (v: number) => `${v !== null ? `${v.toFixed(4)} s` : "-"}`,
+        description: [MetricUtilService.getMetricTips("latency")],
+        format: MetricUtilService.getMetricFormat("latency"),
+      },
+      {
+        name: ["memoryUtil", "CPUUtil"],
+        title: "CPU & Memory Util",
+        description: [
+          MetricUtilService.getMetricTips("memory"),
+          MetricUtilService.getMetricTips("cpu"),
+        ],
+        format: MetricUtilService.getMetricFormat("util"),
       },
       {
         name: ["memoryUsage", "memoryTotal"],
         title: "Memory",
-        format: (v: number) => prettyBytes(v),
-      },
-      {
-        name: ["CPUUtil"],
-        title: "CPU Util",
-        format: (v: number) => `${(v * 100).toFixed(2)} %`,
+        description: [MetricUtilService.getMetricTips("memory")],
+        format: MetricUtilService.getMetricFormat("memory"),
       },
     ];
     if (gpu) {
       data.push(
         {
-          name: ["GPUMemoryUtil"],
-          title: "GPU Memory Util",
-          format: (v: number) => `${(v * 100).toFixed(2)} %`,
-        },
-        {
-          name: ["GPUUtil"],
-          title: "GPU Util",
-          format: (v: number) => `${(v * 100).toFixed(2)} %`,
+          name: ["GPUMemoryUtil", "GPUUtil"],
+          title: "GPU & GPU Memory Util",
+          description: [
+            MetricUtilService.getMetricTips("gpu"),
+            MetricUtilService.getMetricTips("gpu_memory"),
+          ],
+
+          format: MetricUtilService.getMetricFormat("util"),
         },
         {
           name: ["GPUMemoryUsage", "GPUMemoryTotal"],
           title: "GPU Memory",
-          format: (v: number) => prettyBytes(v),
+          description: [MetricUtilService.getMetricTips("gpu_memory")],
+          format: MetricUtilService.getMetricFormat("memory"),
         }
       );
     }
@@ -82,6 +90,7 @@ export const MetricsDetail: FC<{
                 metricName={m.name}
                 format={m.format}
                 title={m.title}
+                description={m.description}
               />
             </Card>
           </Col>

@@ -8,10 +8,11 @@ import { EChartsType } from "echarts";
 export const MetricItem: FC<{
   deploymentId: string;
   metricName: string[];
+  description: string[];
   title: string;
   format: (value: number) => string;
   onInit?: (chart: EChartsType) => void;
-}> = ({ title, deploymentId, metricName, format, onInit }) => {
+}> = ({ title, deploymentId, metricName, format, onInit, description }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<
     {
@@ -50,6 +51,7 @@ export const MetricItem: FC<{
       onInit={onInit}
       loading={loading}
       title={title}
+      description={description}
       data={data}
       format={format}
     />

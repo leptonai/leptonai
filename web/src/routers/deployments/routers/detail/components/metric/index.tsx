@@ -6,14 +6,16 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { debounceTime, fromEvent } from "rxjs";
+import { Popover } from "antd";
 
 export const Metric: FC<{
   loading: boolean;
   title: string;
+  description: string[];
   data: { name: string; data: [number, number | null][] }[];
   format: (value: number) => string;
   onInit?: (chart: EChartsType) => void;
-}> = ({ title, loading, format, data, onInit }) => {
+}> = ({ title, loading, format, data, onInit, description }) => {
   const divRef = useRef<HTMLDivElement | null>(null);
   const onInitRef = useRef(onInit);
   const echartRef = useRef<EChartsType | null>(null);
@@ -124,9 +126,27 @@ export const Metric: FC<{
             padding-bottom: 6px;
             font-size: 16px;
             font-weight: 500;
+            cursor: default;
           `}
         >
-          {title}
+          <Popover
+            content={
+              <div
+                css={css`
+                  width: 300px;
+                  font-size: 12px;
+                  display: grid;
+                  gap: 1em;
+                `}
+              >
+                {description.map((d) => (
+                  <div key={d}>{d}</div>
+                ))}
+              </div>
+            }
+          >
+            <span>{title}</span>
+          </Popover>
         </div>
       )}
       <div

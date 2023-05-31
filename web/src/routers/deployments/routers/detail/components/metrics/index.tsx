@@ -6,17 +6,20 @@ import { Col, Row } from "antd";
 import { Card } from "@lepton-dashboard/components/card";
 import { MetricItem } from "@lepton-dashboard/routers/deployments/routers/detail/components/metrics/components/metric-item";
 import { connect, EChartsType } from "echarts";
+import { MetricUtilService } from "@lepton-dashboard/services/metric-util.service";
 
 const metrics = [
   {
     name: ["FastAPIQPS", "FastAPIQPSByPath"],
     title: "QPS",
-    format: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
+    description: [MetricUtilService.getMetricTips("qps")],
+    format: MetricUtilService.getMetricFormat("qps"),
   },
   {
     name: ["FastAPILatency", "FastAPILatencyByPath"],
     title: "Latency",
-    format: (v: number) => `${v !== null ? `${v.toFixed(4)} s` : "-"}`,
+    description: [MetricUtilService.getMetricTips("latency")],
+    format: MetricUtilService.getMetricFormat("latency"),
   },
 ];
 
@@ -48,6 +51,7 @@ export const Metrics: FC<{ deployment: Deployment }> = ({ deployment }) => {
                 metricName={m.name}
                 format={m.format}
                 title={m.title}
+                description={m.description}
               />
             </Card>
           </Col>

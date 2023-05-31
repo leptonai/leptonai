@@ -5,7 +5,6 @@ import { BreadcrumbHeader } from "@lepton-dashboard/components/breadcrumb-header
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
-import { css } from "@emotion/react";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
   ChartLine,
@@ -13,6 +12,7 @@ import {
   Terminal as CarbonTerminal,
 } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import { css } from "@emotion/react";
 
 export const Container: FC<
   PropsWithChildren<{ deployment: Deployment; instanceId: string }>
@@ -91,20 +91,17 @@ export const Container: FC<
       </Col>
       <Col span={24}>
         <Card
-          paddingless
-          css={css`
-            .ant-tabs-nav {
-              margin-bottom: 0;
-            }
-            .ant-tabs-nav-wrap {
-              margin: 0 16px;
-            }
-          `}
+          title={
+            <TabsNav
+              css={css`
+                position: relative;
+                bottom: -1px;
+              `}
+              menuItems={items}
+            />
+          }
         >
-          <TabsNav menuItems={items} />
-          <Card borderless shadowless>
-            <Outlet />
-          </Card>
+          <Outlet />
         </Card>
       </Col>
     </Row>

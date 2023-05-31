@@ -6,11 +6,11 @@ import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/components/link";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "@lepton-dashboard/components/deployment-item";
-import { css } from "@emotion/react";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Metrics } from "@lepton-dashboard/routers/deployments/routers/detail/components/metrics";
+import { css } from "@emotion/react";
 
 export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
   deployment,
@@ -76,16 +76,16 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
       <Col span={24}>
         <Card
           paddingless
-          css={css`
-            .ant-tabs-nav {
-              margin-bottom: 0;
-            }
-            .ant-tabs-nav-wrap {
-              margin: 0 16px;
-            }
-          `}
+          title={
+            <TabsNav
+              css={css`
+                position: relative;
+                bottom: -1px;
+              `}
+              menuItems={items}
+            />
+          }
         >
-          <TabsNav menuItems={items} />
           <Outlet />
         </Card>
       </Col>

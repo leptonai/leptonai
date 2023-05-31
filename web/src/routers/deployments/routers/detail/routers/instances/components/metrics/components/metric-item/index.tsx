@@ -10,9 +10,18 @@ export const MetricItem: FC<{
   instanceId: string;
   metricName: string[];
   title: string;
+  description: string[];
   onInit?: (chart: EChartsType) => void;
   format: (value: number) => string;
-}> = ({ title, deploymentId, instanceId, metricName, onInit, format }) => {
+}> = ({
+  title,
+  deploymentId,
+  instanceId,
+  metricName,
+  onInit,
+  format,
+  description,
+}) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<
     {
@@ -55,6 +64,7 @@ export const MetricItem: FC<{
       onInit={onInit}
       loading={loading}
       title={title}
+      description={description}
       data={data}
       format={format}
     />

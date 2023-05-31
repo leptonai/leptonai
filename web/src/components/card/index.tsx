@@ -8,9 +8,7 @@ export const Card: FC<
   PropsWithChildren<
     {
       title?: ReactNode;
-      titleIcon?: ReactNode;
       loading?: boolean;
-      extra?: ReactNode;
       borderless?: boolean;
       overflowShow?: boolean;
       shadowless?: boolean;
@@ -20,8 +18,6 @@ export const Card: FC<
 > = ({
   children,
   title,
-  titleIcon,
-  extra,
   loading = false,
   borderless = false,
   overflowShow = false,
@@ -44,7 +40,7 @@ export const Card: FC<
         box-shadow: ${shadowless ? "none" : theme.boxShadowTertiary};
       `}
     >
-      {(title || extra) && (
+      {title && (
         <div
           css={css`
             flex: 0 0 48px;
@@ -61,21 +57,11 @@ export const Card: FC<
         >
           <div
             css={css`
-              display: flex;
+              width: 100%;
             `}
           >
-            {titleIcon && (
-              <div
-                css={css`
-                  margin-right: 12px;
-                `}
-              >
-                {titleIcon}
-              </div>
-            )}
             {title}
           </div>
-          <div>{extra}</div>
         </div>
       )}
       <div

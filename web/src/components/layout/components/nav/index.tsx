@@ -22,12 +22,6 @@ const Container = styled.div`
   z-index: 2;
   flex: 0 0 46px;
   top: 0;
-  .ant-tabs-nav::before {
-    display: none;
-  }
-  .ant-tabs-nav-operations {
-    display: none !important;
-  }
 `;
 
 const StyledBadge = styled(Badge)`

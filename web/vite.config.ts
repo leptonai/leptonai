@@ -21,14 +21,14 @@ export default defineConfig(({ mode }) => {
       hmr: false,
       proxy: {
         [__PROXY_URL__]: {
-          target: `http://${__CLUSTER_URL__}`,
+          target: `https://${__CLUSTER_URL__}`,
           changeOrigin: true,
           rewrite: (path) => {
             return path.replace(__PROXY_URL__, "").replace(__CLUSTER_URL__, "");
           },
         },
         "^/api/v1/.*/shell$": {
-          target: `ws://${__CLUSTER_URL__}`,
+          target: `wss://${__CLUSTER_URL__}`,
           ws: true,
         },
       },
