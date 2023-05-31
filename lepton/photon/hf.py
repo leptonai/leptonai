@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 from typing import List, Union, Optional
 
@@ -5,11 +6,9 @@ from backports.cached_property import cached_property
 from huggingface_hub import model_info
 from loguru import logger
 
-from fastapi.responses import StreamingResponse
-
 from lepton.registry import Registry
 from .base import schema_registry, type_registry
-from .runner import RunnerPhoton, handler, send_pil_img
+from .runner import RunnerPhoton, handler, PNGResponse
 from .hf_runner import pipeline_registry
 
 task_cls_registry = Registry()
@@ -386,7 +385,6 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
 
     @handler(
         "run",
-        response_class=StreamingResponse,
         example={
             "prompt": "a photograph of an astronaut riding a horse",
             "num_inference_steps": 25,
@@ -399,7 +397,7 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
         width: Optional[int] = None,
         num_inference_steps: int = 50,
         **kwargs,
-    ):
+    ) -> PNGResponse:
         res = self.run(
             prompt,
             height=height,
@@ -407,7 +405,10 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
             num_inference_steps=num_inference_steps,
             **kwargs,
         )
-        return send_pil_img(res.images[0])
+        img_io = BytesIO()
+        res.images[0].save(img_io, format="PNG", quality="keep")
+        img_io.seek(0)
+        return PNGResponse(img_io)
 
 
 class HuggingfaceSummarizationPhoton(HuggingfacePhoton):

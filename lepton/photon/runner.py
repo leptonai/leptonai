@@ -2,7 +2,6 @@ from abc import abstractmethod
 import copy
 import functools
 import cloudpickle
-from io import BytesIO
 import importlib
 import inspect
 import logging
@@ -14,7 +13,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Body
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import Response, JSONResponse, StreamingResponse
 import uvicorn
 
 from lepton.config import BASE_IMAGE, BASE_IMAGE_ARGS
@@ -26,18 +25,15 @@ from .base import Photon, schema_registry
 schemas = ["py"]
 
 
-def send_file(content, media_type):
-    return StreamingResponse(content=content, media_type=media_type)
+class PNGResponse(StreamingResponse):
+    media_type = "image/png"
 
 
-def send_pil_img(pil_img):
-    img_io = BytesIO()
-    pil_img.save(img_io, "PNG", quality="keep")
-    img_io.seek(0)
-    return send_file(img_io, media_type="image/png")
+class WAVResponse(StreamingResponse):
+    media_type = "audio/wav"
 
 
-def create_model_for_func(func: Callable):
+def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     (
         args,
         _,
@@ -70,27 +66,34 @@ def create_model_for_func(func: Callable):
     else:
         config = None
 
-    InputModel = pydantic.create_model(
-        f"{func.__name__.capitalize()}Input",
+    func_name = func_name or func.__name__
+    request_model = pydantic.create_model(
+        f"{func_name.capitalize()}Input",
         **params,
         **keyword_only_params,
         __config__=config,
     )
 
     return_type = inspect.signature(func).return_annotation
-    if return_type is inspect.Signature.empty:
-        return_type = Any
 
-    class Config:
-        arbitrary_types_allowed = True
+    if inspect.isclass(return_type) and issubclass(return_type, Response):
+        response_model = None
+        response_class = return_type
+    else:
+        if return_type is inspect.Signature.empty:
+            return_type = Any
 
-    OutputModel = pydantic.create_model(
-        f"{func.__name__.capitalize()}Output",
-        input=InputModel,
-        output=(return_type, None),
-        __config__=Config,
-    )
-    return InputModel, OutputModel
+        class Config:
+            arbitrary_types_allowed = True
+
+        response_model = pydantic.create_model(
+            f"{func_name.capitalize()}Output",
+            input=request_model,
+            output=(return_type, None),
+            __config__=Config,
+        )
+        response_class = JSONResponse
+    return request_model, response_model, response_class
 
 
 _routes = {}
@@ -205,8 +208,8 @@ class RunnerPhoton(Photon):
 
     def call_init(self):
         if not self._init_called:
-            self._init_res = self.init()
             self._init_called = True
+            self._init_res = self.init()
         return self._init_res
 
     @abstractmethod
@@ -276,18 +279,20 @@ class RunnerPhoton(Photon):
 
             def create_typed_handler(func, kwargs):
                 method = func.__get__(self, self.__class__)
-                request_type, reponse_type = create_model_for_func(method)
+                request_model, response_model, response_class = create_model_for_func(
+                    method, func_name=path
+                )
                 if "example" in kwargs:
-                    request_type = Annotated[
-                        request_type, Body(example=kwargs["example"])
+                    request_model = Annotated[
+                        request_model, Body(example=kwargs["example"])
                     ]
                 if "examples" in kwargs:
-                    request_type = Annotated[
-                        request_type, Body(examples=kwargs["examples"])
+                    request_model = Annotated[
+                        request_model, Body(examples=kwargs["examples"])
                     ]
                 vd = pydantic.decorator.ValidatedFunction(method, None)
 
-                async def typed_handler(request: request_type):
+                async def typed_handler(request: request_model):
                     logger.info(request)
                     try:
                         res = vd.execute(request)
@@ -299,15 +304,14 @@ class RunnerPhoton(Photon):
                             )
                         return JSONResponse({"error": str(e)}, status_code=500)
                     else:
-                        if not isinstance(res, Response):
-                            res = JSONResponse(res)
+                        if not isinstance(res, response_class):
+                            res = response_class(res)
                         return res
 
-                if "response_class" in kwargs:
-                    typed_handler_kwargs = {"response_class": kwargs["response_class"]}
-                else:
-                    typed_handler_kwargs = {"response_model": reponse_type}
-
+                typed_handler_kwargs = {
+                    "response_model": response_model,
+                    "response_class": response_class,
+                }
                 return typed_handler, typed_handler_kwargs
 
             typed_handler, typed_handler_kwargs = create_typed_handler(func, kwargs)

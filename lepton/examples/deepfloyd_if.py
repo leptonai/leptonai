@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 
 from diffusers import DiffusionPipeline
@@ -5,7 +6,7 @@ from diffusers.utils import pt_to_pil
 import gradio as gr
 import torch
 
-from lepton.photon.runner import RunnerPhoton as Runner, handler, send_pil_img
+from lepton.photon.runner import RunnerPhoton as Runner, handler, PNGResponse
 from fastapi.responses import StreamingResponse
 
 
@@ -78,7 +79,11 @@ class If(Runner):
     )
     def run(self, prompt: str):
         images = self._run(prompt=prompt)
-        return send_pil_img(images[-1])
+
+        img_io = BytesIO()
+        images[-1].save(img_io, format="PNG", quality="keep")
+        img_io.seek(0)
+        return PNGResponse(img_io)
 
     @handler(mount=True)
     def ui(self):

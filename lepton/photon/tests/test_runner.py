@@ -5,6 +5,7 @@ import tempfile
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
+from io import BytesIO
 import inspect
 import json
 from textwrap import dedent
@@ -23,7 +24,7 @@ import lepton
 from lepton import Client
 from lepton.photon.cli import photon as cli
 from lepton.photon import RunnerPhoton as Runner
-from lepton.photon.runner import HTTPException
+from lepton.photon.runner import HTTPException, PNGResponse
 from lepton.util import switch_cwd
 
 
@@ -82,6 +83,15 @@ class CustomRunnerWithCustomExtraFiles(Runner):
                 status_code=400, detail=f"n={n} exceeds total #lines ({self.lines})"
             )
         return self.lines[n]
+
+
+class CustomRunnerWithPNGResponse(Runner):
+    @Runner.handler()
+    def img(self, content: str) -> PNGResponse:
+        img_io = BytesIO()
+        img_io.write(content.encode("utf-8"))
+        img_io.seek(0)
+        return PNGResponse(img_io)
 
 
 class TestRunner(unittest.TestCase):
@@ -429,6 +439,25 @@ from lepton.photon.runner import RunnerPhoton as Runner, handler
         )
         proc.kill()
         self.assertEqual(res.status_code, 200)
+
+    def test_media_response(self):
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        name = random_name()
+        runner = CustomRunnerWithPNGResponse(name=name)
+        path = runner.save()
+
+        proc, port = photon_run_server(path=path)
+        res = requests.post(
+            f"http://127.0.0.1:{port}/img",
+            json={"content": "invalid image"},
+        )
+        proc.kill()
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers["Content-Type"], "image/png")
 
 
 if __name__ == "__main__":
