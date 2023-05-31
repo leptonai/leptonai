@@ -30,6 +30,8 @@ var (
 
 const (
 	apiServerPort = 20863
+	apiServerPath = "/api/"
+	rootPath      = "/"
 )
 
 func main() {

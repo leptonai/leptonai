@@ -56,37 +56,13 @@ func controlPlaneIngressGroupName() string {
 func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
 	clientset := util.MustInitK8sClientSet()
 
-	albstr := "alb"
 	annotation := NewAnnotation()
 	annotation.SetGroup(deploymentIngressGroupName(ld), GroupOrderDeployment)
 	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.Name, apiToken)
 	annotation.SetDomainNameAndSSLCert(fmt.Sprintf("%s.%s", ld.Name, rootDomain), certificateARN)
+	paths := NewPrefixPaths().AddServicePath(serviceName(ld), servicePort, rootPath)
+	ingress := newIngress(deploymentIngressName(ld), ingressNamespace, annotation.Get(), paths.Get(), &or)
 
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            deploymentIngressName(ld),
-			Namespace:       ingressNamespace,
-			Annotations:     annotation.Get(),
-			OwnerReferences: []metav1.OwnerReference{or},
-		},
-		Spec: networkingv1.IngressSpec{
-			IngressClassName: &albstr,
-			Rules: []networkingv1.IngressRule{
-				// TODO: add host based routing for custom domains.
-				{
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								newHTTPIngressPath(serviceName(ld), servicePort, "/", networkingv1.PathTypePrefix),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Create Ingress
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -96,71 +72,18 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 	return nil
 }
 
-func newHTTPIngressPath(serviceName string, servicePort int32, path string, pathType networkingv1.PathType) networkingv1.HTTPIngressPath {
-	return networkingv1.HTTPIngressPath{
-		Path:     path,
-		PathType: &pathType,
-		Backend: networkingv1.IngressBackend{
-			Service: &networkingv1.IngressServiceBackend{
-				Name: serviceName,
-				Port: networkingv1.ServiceBackendPort{
-					Number: servicePort,
-				},
-			},
-		},
-	}
-}
-
-func newActionIngressPathPrefix(serviceName, path string) networkingv1.HTTPIngressPath {
-	pathType := networkingv1.PathTypePrefix
-	return networkingv1.HTTPIngressPath{
-		Path:     path,
-		PathType: &pathType,
-		Backend: networkingv1.IngressBackend{
-			Service: &networkingv1.IngressServiceBackend{
-				Name: serviceName,
-				Port: networkingv1.ServiceBackendPort{
-					Name: "use-annotation",
-				},
-			},
-		},
-	}
-}
-
 func mustUpdateAPIServerIngress() {
 	clientset := util.MustInitK8sClientSet()
-
-	albstr := "alb"
 
 	annotation := NewAnnotation()
 	annotation.SetGroup(controlPlaneIngressGroupName(), GroupOrderAPIServer)
 	annotation.SetAPITokenConditions(apiServerServiceName, apiToken)
 	annotation.SetDomainNameAndSSLCert(rootDomain, certificateARN)
+	paths := NewPrefixPaths().AddServicePath(apiServerServiceName, apiServerPort, apiServerPath)
+	ingress := newIngress(apiServerIngressName, ingressNamespace, annotation.Get(), paths.Get(), nil)
 
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        apiServerIngressName,
-			Namespace:   ingressNamespace,
-			Annotations: annotation.Get(),
-		},
-		Spec: networkingv1.IngressSpec{
-			IngressClassName: &albstr,
-			Rules: []networkingv1.IngressRule{
-				{
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								newHTTPIngressPath(apiServerServiceName, apiServerPort, "/api/", networkingv1.PathTypePrefix),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Update api-server Ingress
-	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Update(context.Background(), ingress, metav1.UpdateOptions{})
+	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
+		Update(context.Background(), ingress, metav1.UpdateOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -172,13 +95,12 @@ func mustInitUnauthorizedErrorIngress() {
 	clientset := util.MustInitK8sClientSet()
 
 	// Try to delete the ingress if it already exists. Returning error is okay given it may not exist.
-	clientset.NetworkingV1().Ingresses(ingressNamespace).Delete(context.Background(), ingressNameForUnauthorizedAccess, metav1.DeleteOptions{})
+	clientset.NetworkingV1().Ingresses(ingressNamespace).
+		Delete(context.Background(), ingressNameForUnauthorizedAccess, metav1.DeleteOptions{})
 
 	if apiToken == "" {
 		return
 	}
-
-	albstr := "alb"
 
 	annotation := NewAnnotation()
 	// TODO: when we have ingress sharding, we must pass in one of the lds in that group.
@@ -186,12 +108,27 @@ func mustInitUnauthorizedErrorIngress() {
 	annotation.SetDeploymentConditions(serviceNameForUnauthorizedDeployment, "*")
 	annotation.SetActions(serviceNameForUnauthorizedAPIServer, unauthorizedAction)
 	annotation.SetActions(serviceNameForUnauthorizedDeployment, unauthorizedAction)
+	paths := NewPrefixPaths()
+	paths.AddAnnotationPath(serviceNameForUnauthorizedDeployment, rootPath)
+	paths.AddAnnotationPath(serviceNameForUnauthorizedAPIServer, apiServerPath)
+	ingress := newIngress(ingressNameForUnauthorizedAccess, ingressNamespace, annotation.Get(), paths.Get(), nil)
 
+	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
+		Create(context.Background(), ingress, metav1.CreateOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Created Ingress %q.\n", result.GetObjectMeta().GetName())
+}
+
+func newIngress(name, namespace string, annotation map[string]string, paths []networkingv1.HTTPIngressPath, or *metav1.OwnerReference) *networkingv1.Ingress {
+	albstr := "alb"
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ingressNameForUnauthorizedAccess,
-			Namespace:   ingressNamespace,
-			Annotations: annotation.Get(),
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotation,
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &albstr,
@@ -199,22 +136,15 @@ func mustInitUnauthorizedErrorIngress() {
 				{
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								newActionIngressPathPrefix(serviceNameForUnauthorizedDeployment, "/"),
-								newActionIngressPathPrefix(serviceNameForUnauthorizedAPIServer, "/api/"),
-							},
+							Paths: paths,
 						},
 					},
 				},
 			},
 		},
 	}
-
-	// Update api-server Ingress
-	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
-	if err != nil {
-		panic(err)
+	if or != nil {
+		ingress.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
 	}
-
-	fmt.Printf("Created Ingress %q.\n", result.GetObjectMeta().GetName())
+	return ingress
 }
