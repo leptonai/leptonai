@@ -14,6 +14,12 @@ jobs:
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
         echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+      
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -69,6 +75,8 @@ jobs:
         kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-web
         pip install -e .
         e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG
+        export KUBECONFIG=$HOME/.kube/config
+        go test -v ./e2e-tests/...
     - name: Helm uninstall lepton
       if: always()
       env:
