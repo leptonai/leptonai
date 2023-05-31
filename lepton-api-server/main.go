@@ -27,6 +27,10 @@ var (
 	prometheusURLFlag                                *string
 )
 
+const (
+	apiServerPort = 20863
+)
+
 func main() {
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
@@ -73,11 +77,12 @@ func main() {
 
 	initPhotons()
 	initDeployments()
+	mustUpdateAPIServerIngress()
 
 	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)
 	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
 
-	fmt.Println("Starting the Lepton Server on :20863...")
+	fmt.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
 
 	router := gin.Default()
 	router.Use(requestid.New())
@@ -126,7 +131,7 @@ func main() {
 	v1.GET("/deployments/:did/monitoring/FastAPIQPSByPath", httpapi.DeploymentFastAPIQPSByPathHandler)
 	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", httpapi.DeploymentFastAPILatencyByPathHandler)
 
-	router.Run(":20863")
+	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
 func CORSMiddleware() gin.HandlerFunc {

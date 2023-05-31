@@ -1,6 +1,10 @@
 package httpapi
 
-import leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+import (
+	"fmt"
+
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+)
 
 type LeptonDeployment struct {
 	ID                  string                              `json:"id"`
@@ -21,6 +25,10 @@ func (ld *LeptonDeployment) Merge(p *LeptonDeployment) {
 	if p.ResourceRequirement.MinReplicas > 0 {
 		ld.ResourceRequirement.MinReplicas = p.ResourceRequirement.MinReplicas
 	}
+}
+
+func (ld *LeptonDeployment) DomainName(rootDomain string) string {
+	return fmt.Sprintf("%s.%s", ld.Name, rootDomain)
 }
 
 type LeptonDeploymentStatus struct {

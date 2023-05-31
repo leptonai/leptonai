@@ -62,12 +62,6 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	deploymentDB.Add(&ld)
-
-	if err := updateLeptonIngress(deploymentDB.GetAll()); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to update ingress: " + err.Error()})
-	}
-
 	err = createDeploymentIngress(&ld, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create ingress: " + err.Error()})
@@ -79,6 +73,8 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to update the external endpoint to deployment crd: " + err.Error()})
 		return
 	}
+
+	deploymentDB.Add(&ld)
 
 	c.JSON(http.StatusOK, ld)
 }

@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+  name: {{ .Values.apiServer.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+    app: {{ .Values.apiServer.name }}
 spec:
   replicas: {{ .Values.apiServer.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+      app: {{ .Values.apiServer.name }}
   template:
     metadata:
       labels:
-        app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+        app: {{ .Values.apiServer.name }}
     spec:
-      serviceAccountName: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+      serviceAccountName: {{ .Values.apiServer.name }}
       containers:
-        - name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+        - name: {{ .Values.apiServer.name }}
           image: {{ .Values.apiServer.image.repository }}:{{ .Values.apiServer.image.tag }}
           imagePullPolicy: {{ .Values.apiServer.image.pullPolicy }}
           resources:
@@ -32,7 +32,7 @@ spec:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--service-account-name"
-            - "{{ .Values.apiServer.name }}{{ .Values.nameSuffix }}"
+            - "{{ .Values.apiServer.name }}"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
             - "--certificate-arn"

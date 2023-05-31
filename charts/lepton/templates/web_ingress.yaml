@@ -1,0 +1,31 @@
+{{ if .Values.web.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.web.name }}-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: lepton-{{ .Release.Namespace }}-control-plane
+    # Setting the group.order to the lowest priority (1000) to make non-API server, non-deployment traffic to go web
+    alb.ingress.kubernetes.io/group.order: "1000"
+{{ if ne .Values.apiServer.rootDomain "" }}
+{{ if ne .Values.apiServer.certificateArn "" }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+{{ end }}
+{{ end }}
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: {{ .Values.web.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.web.name }}-service
+                port:
+                  number: {{ .Values.web.service.port }}
+{{ end }}

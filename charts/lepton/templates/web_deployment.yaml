@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+  name: {{ .Values.web.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+    app: {{ .Values.web.name }}
 spec:
   replicas: {{ .Values.web.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+      app: {{ .Values.web.name }}
   template:
     metadata:
       labels:
-        app: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+        app: {{ .Values.web.name }}
     spec:
       containers:
-        - name: {{ .Values.web.name }}{{ .Values.nameSuffix }}
+        - name: {{ .Values.web.name }}
           image: {{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}
           imagePullPolicy: {{ .Values.web.image.pullPolicy }}
           resources:

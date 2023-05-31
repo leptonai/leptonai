@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -18,50 +17,23 @@ var (
 	rootDomain       = ""
 )
 
+const apiServerIngressName = "lepton-api-server-ingress"
+
 const headerKeyForLeptonDeploymentRerouting = "deployment"
 
-func ingressName(ld *httpapi.LeptonDeployment) string {
-	return ld.Name + "-ingress"
+func deploymentIngressName(ld *httpapi.LeptonDeployment) string {
+	return "ld-" + ld.Name + "-ingress"
 }
 
-func updateLeptonIngress(lds []*httpapi.LeptonDeployment) error {
-	clientset := util.MustInitK8sClientSet()
+func deploymentIngressGroupName(ld *httpapi.LeptonDeployment) string {
+	// TODO: separate control plane and deployment ingress groups.
+	// TOOD: shard deployments into multiple ingress groups because each
+	// ALB can only support 100 rules thus 100 deployments per ingress.
+	return controlPlaneIngressGroupName()
+}
 
-	ingresses, err := clientset.NetworkingV1().Ingresses(ingressNamespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, ingress := range ingresses.Items {
-		// Find the ingress that matches the deployment
-		// TODO: fix the hard coding of ingress name
-		if ingress.Name == "lepton-ingress" || ingress.Name == "lepton-tf-ingress" {
-			originPaths := ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths
-			// Additional 2 ingress rulePaths for the lepton api and web
-			rulePaths := make([]networkingv1.HTTPIngressPath, 0, len(lds)+2)
-			// clean up the ingress annotations
-			for key := range ingress.Annotations {
-				if strings.HasPrefix(key, "alb.ingress.kubernetes.io/conditions.") {
-					delete(ingress.Annotations, key)
-				}
-			}
-			rulePaths = append(rulePaths, newHTTPRedirectSSLIngressPath())
-			for _, ld := range lds {
-				key, value := newAnnotationKeyValueForHeaderBasedRouting(ld)
-				ingress.Annotations[key] = value
-				rulePaths = append(rulePaths, newHTTPIngressPath(serviceName(ld), servicePort, "/", networkingv1.PathTypePrefix))
-			}
-			rulePaths = append(rulePaths, originPaths[len(originPaths)-2:]...)
-			ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths = rulePaths
-
-			// Update the ingress
-			_, err = clientset.NetworkingV1().Ingresses(ingressNamespace).Update(context.Background(), &ingress, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+func controlPlaneIngressGroupName() string {
+	return "lepton-" + ingressNamespace + "-control-plane"
 }
 
 func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
@@ -71,7 +43,7 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 	// Define Ingress object
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ingressName(ld),
+			Name:            deploymentIngressName(ld),
 			Namespace:       ingressNamespace,
 			Annotations:     newDeploymentIngressAnnotation(ld),
 			OwnerReferences: []metav1.OwnerReference{or},
@@ -79,6 +51,7 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &albstr,
 			Rules: []networkingv1.IngressRule{
+				// TODO: add host based routing for custom domains.
 				{
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
@@ -102,49 +75,6 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 	return nil
 }
 
-func watchForDeploymentIngressEndpoint(name string) (string, error) {
-	clientset := util.MustInitK8sClientSet()
-
-	// Watch for Ingress IP
-	watcher, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Watch(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	// Wait for Ingress IP
-	for event := range watcher.ResultChan() {
-		ingress, ok := event.Object.(*networkingv1.Ingress)
-		if !ok {
-			err = fmt.Errorf("unexpected type %T", event.Object)
-			return "", err
-		}
-
-		if ingress.Name == name {
-			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
-				return ingress.Status.LoadBalancer.Ingress[0].Hostname, nil
-			}
-		}
-	}
-
-	return "", nil
-}
-
-func newHTTPRedirectSSLIngressPath() networkingv1.HTTPIngressPath {
-	pathType := networkingv1.PathTypePrefix
-	return networkingv1.HTTPIngressPath{
-		Path:     "/",
-		PathType: &pathType,
-		Backend: networkingv1.IngressBackend{
-			Service: &networkingv1.IngressServiceBackend{
-				Name: "ssl-redirect",
-				Port: networkingv1.ServiceBackendPort{
-					Name: "use-annotation",
-				},
-			},
-		},
-	}
-}
-
 func newHTTPIngressPath(serviceName string, servicePort int32, path string, pathType networkingv1.PathType) networkingv1.HTTPIngressPath {
 	return networkingv1.HTTPIngressPath{
 		Path:     path,
@@ -160,25 +90,73 @@ func newHTTPIngressPath(serviceName string, servicePort int32, path string, path
 	}
 }
 
-func newAnnotationKeyValueForHeaderBasedRouting(ld *httpapi.LeptonDeployment) (key string, value string) {
-	key = "alb.ingress.kubernetes.io/conditions." + serviceName(ld)
-	value = fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRerouting, ld.Name)
-	return
-}
-
 func newDeploymentIngressAnnotation(ld *httpapi.LeptonDeployment) map[string]string {
 	annotation := map[string]string{
-		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
-		"alb.ingress.kubernetes.io/target-type":      "ip",
-		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+		"alb.ingress.kubernetes.io/scheme":                        "internet-facing",
+		"alb.ingress.kubernetes.io/target-type":                   "ip",
+		"alb.ingress.kubernetes.io/healthcheck-path":              "/healthz",
+		"alb.ingress.kubernetes.io/group.name":                    deploymentIngressGroupName(ld),
+		"alb.ingress.kubernetes.io/conditions." + serviceName(ld): fmt.Sprintf(`[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"%s","values":["%s"]}}]`, headerKeyForLeptonDeploymentRerouting, ld.Name),
 	}
 	if rootDomain != "" {
-		annotation["external-dns.alpha.kubernetes.io/hostname"] = fmt.Sprintf("%s.%s", ld.Name, rootDomain)
+		annotation["external-dns.alpha.kubernetes.io/hostname"] = ld.DomainName(rootDomain)
 		if certificateARN != "" {
-			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}, {"HTTP":80}]`
-			annotation["alb.ingress.kubernetes.io/actions.ssl-redirect"] = `{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}`
+			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
 			annotation["alb.ingress.kubernetes.io/certificate-arn"] = certificateARN
 		}
 	}
 	return annotation
+}
+
+func newAPIServerIngressAnnotation() map[string]string {
+	annotation := map[string]string{
+		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
+		"alb.ingress.kubernetes.io/target-type":      "ip",
+		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+		"alb.ingress.kubernetes.io/group.name":       controlPlaneIngressGroupName(),
+		// Setting the group.order to be higher priority than web (1000), and lower than lepton deployment (0)
+		"alb.ingress.kubernetes.io/group.order": "900",
+	}
+	if rootDomain != "" {
+		if certificateARN != "" {
+			annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`
+		}
+	}
+	return annotation
+}
+
+func mustUpdateAPIServerIngress() {
+	clientset := util.MustInitK8sClientSet()
+
+	albstr := "alb"
+	// Define Ingress object
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        apiServerIngressName,
+			Namespace:   ingressNamespace,
+			Annotations: newAPIServerIngressAnnotation(),
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &albstr,
+			Rules: []networkingv1.IngressRule{
+				{
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								newHTTPIngressPath("lepton-api-server-service", apiServerPort, "/api/", networkingv1.PathTypePrefix),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Update api-server Ingress
+	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Update(context.Background(), ingress, metav1.UpdateOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Updated Ingress %q.\n", result.GetObjectMeta().GetName())
 }

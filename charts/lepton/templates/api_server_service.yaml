@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}-service
+  name: {{ .Values.apiServer.name }}-service
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    app: {{ .Values.apiServer.name }}{{ .Values.nameSuffix }}
+    app: {{ .Values.apiServer.name }}
   ports:
     - name: http
       port: {{ .Values.apiServer.service.port }}

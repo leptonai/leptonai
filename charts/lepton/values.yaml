@@ -1,5 +1,3 @@
-nameSuffix: ""
-
 apiServer:
   name: lepton-api-server
   replicaCount: 1
@@ -40,9 +38,6 @@ web:
       limits:
         memory: "1024Mi"
         cpu: "1"
-
-ingress:
-  enabled: true
 
 crd:
   install: true

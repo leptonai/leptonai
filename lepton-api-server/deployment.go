@@ -20,11 +20,7 @@ func initDeployments() {
 		// TODO: better error handling
 		panic(err)
 	}
-
 	deploymentDB.Add(lds...)
-	if err := updateLeptonIngress(deploymentDB.GetAll()); err != nil {
-		panic(err)
-	}
 
 	go periodCheckDeploymentState()
 }
@@ -36,11 +32,7 @@ func periodCheckDeploymentState() {
 
 		for i, ld := range lds {
 			if ld.Status.Endpoint.ExternalEndpoint == "" {
-				externalEndpoint, err := watchForDeploymentIngressEndpoint(ingressName(ld))
-				if err != nil {
-					continue
-				}
-				ld.Status.Endpoint.ExternalEndpoint = externalEndpoint
+				ld.Status.Endpoint.ExternalEndpoint = ld.DomainName(rootDomain)
 			}
 			if ld.Status.Endpoint.InternalEndpoint == "" {
 				ld.Status.Endpoint.InternalEndpoint = fmt.Sprintf("%s.%s.svc.cluster.local:8080", ld.Name, deploymentNamespace)
