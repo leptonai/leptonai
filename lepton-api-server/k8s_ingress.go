@@ -28,6 +28,8 @@ const (
 	ingressNameForUnauthorizedAccess     = "response-401-ingress"
 
 	unauthorizedAction = `{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"401","messageBody":"Not Authorized"}}`
+
+	emptyHostName = ""
 )
 
 const (
@@ -38,8 +40,12 @@ const (
 	GroupOrderWeb = 1000
 )
 
-func deploymentIngressName(ld *httpapi.LeptonDeployment) string {
-	return "ld-" + ld.Name + "-ingress"
+func deploymentHeaderBasedIngressName(ld *httpapi.LeptonDeployment) string {
+	return "ld-" + ld.Name + "-header-ingress"
+}
+
+func deploymentHostBasedIngressName(ld *httpapi.LeptonDeployment) string {
+	return "ld-" + ld.Name + "-host-ingress"
 }
 
 func deploymentIngressGroupName(ld *httpapi.LeptonDeployment) string {
@@ -54,14 +60,42 @@ func controlPlaneIngressGroupName() string {
 }
 
 func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
+	if err := createHeaderBasedDeploymentIngress(ld, or); err != nil {
+		return err
+	}
+	if err := createHostBasedDeploymentIngress(ld, or); err != nil {
+		return err
+	}
+	return nil
+}
+
+func createHostBasedDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
 	clientset := util.MustInitK8sClientSet()
 
 	annotation := NewAnnotation()
 	annotation.SetGroup(deploymentIngressGroupName(ld), GroupOrderDeployment)
-	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.Name, apiToken)
+	annotation.SetAPITokenConditions(serviceName(ld), apiToken)
 	annotation.SetDomainNameAndSSLCert(fmt.Sprintf("%s.%s", ld.Name, rootDomain), certificateARN)
 	paths := NewPrefixPaths().AddServicePath(serviceName(ld), servicePort, rootPath)
-	ingress := newIngress(deploymentIngressName(ld), ingressNamespace, annotation.Get(), paths.Get(), &or)
+	ingress := newIngress(deploymentHostBasedIngressName(ld), ingressNamespace, ld.DomainName(rootDomain), annotation.Get(), paths.Get(), &or)
+
+	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Created Ingress %q.\n", result.GetObjectMeta().GetName())
+
+	return nil
+}
+
+func createHeaderBasedDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
+	clientset := util.MustInitK8sClientSet()
+
+	annotation := NewAnnotation()
+	annotation.SetGroup(controlPlaneIngressGroupName(), GroupOrderDeployment)
+	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.Name, apiToken)
+	paths := NewPrefixPaths().AddServicePath(serviceName(ld), servicePort, rootPath)
+	ingress := newIngress(deploymentHeaderBasedIngressName(ld), ingressNamespace, emptyHostName, annotation.Get(), paths.Get(), &or)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 	if err != nil {
@@ -80,7 +114,7 @@ func mustUpdateAPIServerIngress() {
 	annotation.SetAPITokenConditions(apiServerServiceName, apiToken)
 	annotation.SetDomainNameAndSSLCert(rootDomain, certificateARN)
 	paths := NewPrefixPaths().AddServicePath(apiServerServiceName, apiServerPort, apiServerPath)
-	ingress := newIngress(apiServerIngressName, ingressNamespace, annotation.Get(), paths.Get(), nil)
+	ingress := newIngress(apiServerIngressName, ingressNamespace, emptyHostName, annotation.Get(), paths.Get(), nil)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
 		Update(context.Background(), ingress, metav1.UpdateOptions{})
@@ -104,14 +138,14 @@ func mustInitUnauthorizedErrorIngress() {
 
 	annotation := NewAnnotation()
 	// TODO: when we have ingress sharding, we must pass in one of the lds in that group.
-	annotation.SetGroup(deploymentIngressGroupName(nil), GroupOrderUnauthorized)
+	annotation.SetGroup(controlPlaneIngressGroupName(), GroupOrderUnauthorized)
 	annotation.SetDeploymentConditions(serviceNameForUnauthorizedDeployment, "*")
 	annotation.SetActions(serviceNameForUnauthorizedAPIServer, unauthorizedAction)
 	annotation.SetActions(serviceNameForUnauthorizedDeployment, unauthorizedAction)
 	paths := NewPrefixPaths()
 	paths.AddAnnotationPath(serviceNameForUnauthorizedDeployment, rootPath)
 	paths.AddAnnotationPath(serviceNameForUnauthorizedAPIServer, apiServerPath)
-	ingress := newIngress(ingressNameForUnauthorizedAccess, ingressNamespace, annotation.Get(), paths.Get(), nil)
+	ingress := newIngress(ingressNameForUnauthorizedAccess, ingressNamespace, emptyHostName, annotation.Get(), paths.Get(), nil)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
 		Create(context.Background(), ingress, metav1.CreateOptions{})
@@ -122,7 +156,7 @@ func mustInitUnauthorizedErrorIngress() {
 	fmt.Printf("Created Ingress %q.\n", result.GetObjectMeta().GetName())
 }
 
-func newIngress(name, namespace string, annotation map[string]string, paths []networkingv1.HTTPIngressPath, or *metav1.OwnerReference) *networkingv1.Ingress {
+func newIngress(name, namespace, hostName string, annotation map[string]string, paths []networkingv1.HTTPIngressPath, or *metav1.OwnerReference) *networkingv1.Ingress {
 	albstr := "alb"
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -142,6 +176,9 @@ func newIngress(name, namespace string, annotation map[string]string, paths []ne
 				},
 			},
 		},
+	}
+	if hostName != "" {
+		ingress.Spec.Rules[0].Host = hostName
 	}
 	if or != nil {
 		ingress.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
