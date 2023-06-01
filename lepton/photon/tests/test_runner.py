@@ -45,6 +45,11 @@ class CustomRunner(Runner):
     def run2(self, x: float) -> float:
         return x * 2
 
+    @Runner.handler("")
+    def run3(self, x: float) -> float:
+        return x * 3
+
+
 
 class CustomRunnerWithCustomDeps(Runner):
     requirement_dependency = ["torch"]
@@ -136,8 +141,14 @@ class TestRunner(unittest.TestCase):
             f"http://localhost:{port}/some_path",
             json={"x": x},
         )
-        proc.kill()
         self.assertEqual(res.status_code, 200)
+        res = requests.post(
+            f"http://localhost:{port}",
+            json={"x": x},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), 6.0)
+        proc.kill()
 
     def test_client(self):
         # pytest imports test files as top-level module which becomes

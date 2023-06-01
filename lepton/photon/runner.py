@@ -323,7 +323,7 @@ class RunnerPhoton(Photon):
     @staticmethod
     def handler(path=None, **kwargs):
         def decorator(func):
-            path_ = path or func.__name__
+            path_ = path if path is not None else func.__name__
             routes = get_routes(func)
             if path_ in routes:
                 raise ValueError(f"Path {path_} already exists: {routes[path_]}")
