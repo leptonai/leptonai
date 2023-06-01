@@ -27,7 +27,7 @@ const Logo = styled.h2`
   justify-content: center;
 `;
 
-const Text = styled.text`
+const Text = styled.span`
   margin-left: 8px;
 `;
 
