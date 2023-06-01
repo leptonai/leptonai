@@ -72,8 +72,9 @@ func (a *Annotation) SetConditions(serviceName string, headerNames []string, hea
 	}
 	value, err := json.Marshal(headerConditions)
 	if err != nil {
-		a.annotation["alb.ingress.kubernetes.io/conditions."+serviceName] = string(value)
+		return
 	}
+	a.annotation["alb.ingress.kubernetes.io/conditions."+serviceName] = string(value)
 }
 
 func (a *Annotation) SetDeploymentConditions(serviceName, deploymentName string) {
