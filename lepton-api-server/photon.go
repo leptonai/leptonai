@@ -8,16 +8,11 @@ import (
 	"io"
 
 	"github.com/leptonai/lepton/go-pkg/namedb"
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
-type PhotonCr struct {
-	httpapi.PhotonCommon
-	OpenApiSchema string `json:"openapi_schema"`
-}
-
-var photonDB = namedb.NewNameDB[httpapi.Photon]()
+var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
 	// Initialize the photon database
@@ -30,29 +25,7 @@ func initPhotons() {
 	photonDB.Add(metadataList...)
 }
 
-func convertPhotonToCr(photon *httpapi.Photon) *PhotonCr {
-	openApiSchemaBytes, err := json.Marshal(photon.OpenApiSchema)
-	if err != nil {
-		openApiSchemaBytes = nil
-	}
-	return &PhotonCr{
-		PhotonCommon:  photon.PhotonCommon,
-		OpenApiSchema: string(openApiSchemaBytes),
-	}
-}
-
-func convertCrToPhoton(cr *PhotonCr) *httpapi.Photon {
-	var openApiSchema map[string]interface{}
-	if err := json.Unmarshal([]byte(cr.OpenApiSchema), &openApiSchema); err != nil {
-		openApiSchema = nil
-	}
-	return &httpapi.Photon{
-		PhotonCommon:  cr.PhotonCommon,
-		OpenApiSchema: openApiSchema,
-	}
-}
-
-func getPhotonFromMetadata(body []byte) (*httpapi.Photon, error) {
+func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return nil, err
@@ -82,20 +55,13 @@ func getPhotonFromMetadata(body []byte) (*httpapi.Photon, error) {
 	}
 
 	// Unmarshal the JSON into a Metadata struct
-	var metadata httpapi.PhotonMetadata
-	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+	var ph leptonaiv1alpha1.Photon
+	if err := json.Unmarshal(metadataBytes, &ph.Spec.PhotonUserSpec); err != nil {
 		return nil, err
 	}
-	if !util.ValidateName(metadata.Name) {
-		return nil, fmt.Errorf("invalid name %s: %s", metadata.Name, util.NameInvalidMessage)
+	if !util.ValidateName(ph.Spec.Name) {
+		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
-
-	var ph httpapi.Photon
-	ph.Name = metadata.Name
-	ph.Model = metadata.Model
-	ph.Image = metadata.Image
-	ph.ContainerArgs = metadata.Args
-	ph.OpenApiSchema = metadata.OpenApiSchema
 
 	return &ph, nil
 }

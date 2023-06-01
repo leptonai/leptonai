@@ -16,4 +16,11 @@ resources:
   kind: LeptonDeployment
   path: github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: lepton.ai
+  kind: Photon
+  path: github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

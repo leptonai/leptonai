@@ -4,14 +4,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -24,7 +24,7 @@ var (
 	photonNamespace  = "default"
 )
 
-func ReadAllPhotonCR() ([]*httpapi.Photon, error) {
+func ReadAllPhotonCR() ([]*leptonaiv1alpha1.Photon, error) {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Get the custom resource definition
@@ -41,24 +41,45 @@ func ReadAllPhotonCR() ([]*httpapi.Photon, error) {
 		return nil, err
 	}
 
-	// Iterate over the custom resources
-	var phs []*httpapi.Photon
+	var phs []*leptonaiv1alpha1.Photon
 	for _, cr := range crd.Items {
-		spec := cr.Object["spec"].(map[string]interface{})
-		specStr, err := json.Marshal(spec)
-		if err != nil {
+		ph := &leptonaiv1alpha1.Photon{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(cr.Object, ph); err != nil {
 			return nil, err
 		}
-		metadata := &PhotonCr{}
-		json.Unmarshal(specStr, &metadata)
-
-		phs = append(phs, convertCrToPhoton(metadata))
+		phs = append(phs, ph)
 	}
 
 	return phs, nil
 }
 
-func DeletePhotonCR(ph *httpapi.Photon) error {
+func ReadPhotonCR(name string) (*leptonaiv1alpha1.Photon, error) {
+	dynamicClient := util.MustInitK8sDynamicClient()
+
+	// Get the custom resource definition
+	crdResource := schema.GroupVersionResource{
+		Group:    leptonAPIGroup,
+		Version:  photonAPIVersion,
+		Resource: photonResource,
+	}
+	cr, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Get(
+		context.TODO(),
+		name,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ph := &leptonaiv1alpha1.Photon{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(cr.Object, ph); err != nil {
+		return nil, err
+	}
+
+	return ph, nil
+}
+
+func DeletePhotonCR(ph *leptonaiv1alpha1.Photon) error {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Delete the custom resource object in Kubernetes
@@ -69,7 +90,7 @@ func DeletePhotonCR(ph *httpapi.Photon) error {
 	}
 	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
-		util.JoinByDash(ph.Name, ph.ID),
+		ph.GetUniqName(),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -79,7 +100,7 @@ func DeletePhotonCR(ph *httpapi.Photon) error {
 	return nil
 }
 
-func CreatePhotonCR(ph *httpapi.Photon) error {
+func CreatePhotonCR(ph *leptonaiv1alpha1.Photon) error {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Define the custom resource object to create
@@ -88,9 +109,10 @@ func CreatePhotonCR(ph *httpapi.Photon) error {
 			"apiVersion": leptonAPIGroup + "/" + photonAPIVersion,
 			"kind":       photonKind,
 			"metadata": map[string]interface{}{
-				"name": util.JoinByDash(ph.Name, ph.ID),
+				"name":        ph.GetUniqName(),
+				"annotations": ph.Annotations,
 			},
-			"spec": convertPhotonToCr(ph),
+			"spec": ph.Spec,
 		},
 	}
 

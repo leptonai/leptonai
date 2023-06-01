@@ -27,9 +27,9 @@ func instanceListHandler(c *gin.Context) {
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.Name, metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.GetName(), metav1.GetOptions{})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetName() + ": " + err.Error()})
 		return
 	}
 
@@ -44,7 +44,7 @@ func instanceListHandler(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(deploymentNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetName() + ": " + err.Error()})
 		return
 	}
 

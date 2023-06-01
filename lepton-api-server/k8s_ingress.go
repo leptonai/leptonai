@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,15 +40,15 @@ const (
 	GroupOrderWeb = 1000
 )
 
-func deploymentHeaderBasedIngressName(ld *httpapi.LeptonDeployment) string {
-	return "ld-" + ld.Name + "-header-ingress"
+func deploymentHeaderBasedIngressName(ld *leptonaiv1alpha1.LeptonDeployment) string {
+	return "ld-" + ld.GetName() + "-header-ingress"
 }
 
-func deploymentHostBasedIngressName(ld *httpapi.LeptonDeployment) string {
-	return "ld-" + ld.Name + "-host-ingress"
+func deploymentHostBasedIngressName(ld *leptonaiv1alpha1.LeptonDeployment) string {
+	return "ld-" + ld.GetName() + "-host-ingress"
 }
 
-func deploymentIngressGroupName(ld *httpapi.LeptonDeployment) string {
+func deploymentIngressGroupName(ld *leptonaiv1alpha1.LeptonDeployment) string {
 	// TODO: separate control plane and deployment ingress groups.
 	// TOOD: shard deployments into multiple ingress groups because each
 	// ALB can only support 100 rules thus 100 deployments per ingress.
@@ -59,7 +59,7 @@ func controlPlaneIngressGroupName() string {
 	return "lepton-" + ingressNamespace + "-control-plane"
 }
 
-func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
+func createDeploymentIngress(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerReference) error {
 	if err := createHeaderBasedDeploymentIngress(ld, or); err != nil {
 		return err
 	}
@@ -69,15 +69,15 @@ func createDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerRefere
 	return nil
 }
 
-func createHostBasedDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
+func createHostBasedDeploymentIngress(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerReference) error {
 	clientset := util.MustInitK8sClientSet()
 
 	annotation := NewAnnotation()
 	annotation.SetGroup(deploymentIngressGroupName(ld), GroupOrderDeployment)
 	annotation.SetAPITokenConditions(serviceName(ld), apiToken)
-	annotation.SetDomainNameAndSSLCert(fmt.Sprintf("%s.%s", ld.Name, rootDomain), certificateARN)
+	annotation.SetDomainNameAndSSLCert(fmt.Sprintf("%s.%s", ld.GetName(), rootDomain), certificateARN)
 	paths := NewPrefixPaths().AddServicePath(serviceName(ld), servicePort, rootPath)
-	ingress := newIngress(deploymentHostBasedIngressName(ld), ingressNamespace, ld.DomainName(rootDomain), annotation.Get(), paths.Get(), &or)
+	ingress := newIngress(deploymentHostBasedIngressName(ld), ingressNamespace, util.DomainName(ld, rootDomain), annotation.Get(), paths.Get(), &or)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 	if err != nil {
@@ -88,12 +88,12 @@ func createHostBasedDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.Ow
 	return nil
 }
 
-func createHeaderBasedDeploymentIngress(ld *httpapi.LeptonDeployment, or metav1.OwnerReference) error {
+func createHeaderBasedDeploymentIngress(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerReference) error {
 	clientset := util.MustInitK8sClientSet()
 
 	annotation := NewAnnotation()
 	annotation.SetGroup(controlPlaneIngressGroupName(), GroupOrderDeployment)
-	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.Name, apiToken)
+	annotation.SetDeploymentAndAPITokenConditions(serviceName(ld), ld.GetName(), apiToken)
 	paths := NewPrefixPaths().AddServicePath(serviceName(ld), servicePort, rootPath)
 	ingress := newIngress(deploymentHeaderBasedIngressName(ld), ingressNamespace, emptyHostName, annotation.Get(), paths.Get(), &or)
 

@@ -1,39 +1,38 @@
 package httpapi
 
-type PhotonMetadata struct {
-	Name          string                 `json:"name"`
-	Model         string                 `json:"model"`
-	Task          string                 `json:"task"`
-	Image         string                 `json:"image"`
-	Args          []string               `json:"args"`
-	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
-}
-
-type PhotonCommon struct {
-	ID                    string   `json:"id"`
-	Name                  string   `json:"name"`
-	Model                 string   `json:"model"`
-	RequirementDependency []string `json:"requirement_dependency"`
-	Image                 string   `json:"image"`
-	Entrypoint            string   `json:"entrypoint"`
-	ExposedPorts          []int32  `json:"exposed_ports"`
-	ContainerArgs         []string `json:"container_args"`
-	CreatedAt             int64    `json:"created_at"`
-}
+import (
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+)
 
 type Photon struct {
-	PhotonCommon
-	OpenApiSchema map[string]interface{} `json:"openapi_schema"`
+	PhotonMetadata                  `json:",inline"`
+	leptonaiv1alpha1.PhotonUserSpec `json:",inline"`
+	Status                          leptonaiv1alpha1.PhotonStatus `json:"status,omitempty"`
 }
 
-func (p Photon) GetName() string {
-	return p.Name
+type PhotonMetadata struct {
+	ID        string `json:"id"`
+	CreatedAt int64  `json:"created_at"`
 }
 
-func (p Photon) GetID() string {
-	return p.ID
+func NewPhotonMetadata(p *leptonaiv1alpha1.Photon) *PhotonMetadata {
+	return &PhotonMetadata{
+		ID:        p.GetID(),
+		CreatedAt: p.CreationTimestamp.UnixMilli(),
+	}
 }
 
-func (p Photon) GetVersion() int64 {
-	return p.CreatedAt
+func NewPhoton(p *leptonaiv1alpha1.Photon) *Photon {
+	return &Photon{
+		PhotonUserSpec: p.Spec.PhotonUserSpec,
+		PhotonMetadata: *NewPhotonMetadata(p),
+		Status:         p.Status,
+	}
+}
+
+func (p *Photon) Output() *Photon {
+	return &Photon{
+		PhotonUserSpec: p.PhotonUserSpec,
+		PhotonMetadata: p.PhotonMetadata,
+	}
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +15,11 @@ var serviceNamespace = "default"
 
 const servicePort = 8080
 
-func serviceName(ld *httpapi.LeptonDeployment) string {
-	return ld.Name + "-service"
+func serviceName(ld *leptonaiv1alpha1.LeptonDeployment) string {
+	return ld.GetName() + "-service"
 }
 
-func createService(ld *httpapi.LeptonDeployment, ph *httpapi.Photon, or metav1.OwnerReference) error {
+func createService(ld *leptonaiv1alpha1.LeptonDeployment, ph *leptonaiv1alpha1.Photon, or metav1.OwnerReference) error {
 	clientset := util.MustInitK8sClientSet()
 
 	service := &corev1.Service{
@@ -29,7 +29,7 @@ func createService(ld *httpapi.LeptonDeployment, ph *httpapi.Photon, or metav1.O
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"photon": util.JoinByDash(ph.Name, ph.ID),
+				"photon": ph.GetUniqName(),
 			},
 			Ports: []corev1.ServicePort{
 				{

@@ -1,0 +1,12 @@
+apiVersion: lepton.ai/v1alpha1
+kind: Photon
+metadata:
+  labels:
+    app.kubernetes.io/name: photon
+    app.kubernetes.io/instance: photon-sample
+    app.kubernetes.io/part-of: lepton-deployment-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: lepton-deployment-operator
+  name: photon-sample
+spec:
+  # TODO(user): Add fields here

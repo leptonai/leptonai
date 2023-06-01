@@ -1,72 +1,39 @@
 package httpapi
 
 import (
-	"fmt"
-
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
 type LeptonDeployment struct {
-	ID                  string                              `json:"id"`
-	CreatedAt           int64                               `json:"created_at"`
-	Name                string                              `json:"name"`
-	PhotonID            string                              `json:"photon_id"`
-	ModelID             string                              `json:"model_id"`
-	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
-	Envs                []leptonaiv1alpha1.EnvVar           `json:"envs"`
-
-	Status LeptonDeploymentStatus `json:"status"`
+	LeptonDeploymentMetadata                  `json:",inline"`
+	leptonaiv1alpha1.LeptonDeploymentUserSpec `json:",inline"`
+	Status                                    leptonaiv1alpha1.LeptonDeploymentStatus `json:"status,omitempty"`
 }
 
-func (ld *LeptonDeployment) Merge(p *LeptonDeployment) {
-	if p.PhotonID != "" {
-		ld.PhotonID = p.PhotonID
-	}
-	if p.ResourceRequirement.MinReplicas > 0 {
-		ld.ResourceRequirement.MinReplicas = p.ResourceRequirement.MinReplicas
+type LeptonDeploymentMetadata struct {
+	ID        string `json:"id"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+func NewLeptonDeploymentMetadata(ld *leptonaiv1alpha1.LeptonDeployment) *LeptonDeploymentMetadata {
+	return &LeptonDeploymentMetadata{
+		ID:        ld.GetID(),
+		CreatedAt: ld.CreationTimestamp.UnixMilli(),
 	}
 }
 
-func (ld *LeptonDeployment) DomainName(rootDomain string) string {
-	return fmt.Sprintf("%s.%s", ld.Name, rootDomain)
+func NewLeptonDeployment(ld *leptonaiv1alpha1.LeptonDeployment) *LeptonDeployment {
+	return &LeptonDeployment{
+		LeptonDeploymentUserSpec: ld.Spec.LeptonDeploymentUserSpec,
+		LeptonDeploymentMetadata: *NewLeptonDeploymentMetadata(ld),
+		Status:                   ld.Status,
+	}
 }
 
-type LeptonDeploymentStatus struct {
-	State    DeploymentState          `json:"state"`
-	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
+func (ld *LeptonDeployment) Output() *LeptonDeployment {
+	return &LeptonDeployment{
+		LeptonDeploymentUserSpec: ld.LeptonDeploymentUserSpec,
+		LeptonDeploymentMetadata: ld.LeptonDeploymentMetadata,
+		Status:                   ld.Status,
+	}
 }
-
-type LeptonDeploymentEndpoint struct {
-	InternalEndpoint string `json:"internal_endpoint"`
-	ExternalEndpoint string `json:"external_endpoint"`
-}
-
-type LeptonDeploymentResourceRequirement struct {
-	CPU             float64 `json:"cpu"`
-	Memory          int64   `json:"memory"`
-	AcceleratorType string  `json:"accelerator_type"`
-	AcceleratorNum  float64 `json:"accelerator_num"`
-	MinReplicas     int64   `json:"min_replicas"`
-}
-
-func (ld LeptonDeployment) GetName() string {
-	return ld.Name
-}
-
-func (ld LeptonDeployment) GetID() string {
-	return ld.ID
-}
-
-func (ld LeptonDeployment) GetVersion() int64 {
-	return 0
-}
-
-type DeploymentState string
-
-const (
-	DeploymentStateRunning  DeploymentState = "Running"
-	DeploymentStateNotReady DeploymentState = "Not Ready"
-	DeploymentStateStarting DeploymentState = "Starting"
-	DeploymentStateUpdating DeploymentState = "Updating"
-	DeploymentStateUnknown  DeploymentState = "Unknown"
-)

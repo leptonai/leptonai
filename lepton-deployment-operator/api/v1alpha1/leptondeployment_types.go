@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,21 +30,59 @@ type LeptonDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ID                  string                              `json:"id"`
-	CreatedAt           int64                               `json:"created_at"`
+	LeptonDeploymentUserSpec `json:",inline"`
+	Photon                   *PhotonSpec `json:"photon"`
+}
+
+type LeptonDeploymentUserSpec struct {
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
-	ModelID             string                              `json:"model_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
 	Envs                []EnvVar                            `json:"envs,omitempty"`
 }
 
+func (ld LeptonDeployment) GetName() string {
+	return ld.Spec.Name
+}
+
+func (ld LeptonDeployment) GetUniqName() string {
+	return fmt.Sprintf("%s-%s", ld.GetName(), ld.GetID())
+}
+
+func (ld LeptonDeployment) GetID() string {
+	if ld.Annotations == nil {
+		return ""
+	}
+	return ld.Annotations["lepton.ai/id"]
+}
+
+func (ld *LeptonDeployment) SetID(id string) {
+	if ld.Annotations == nil {
+		ld.Annotations = make(map[string]string)
+	}
+	ld.Annotations["lepton.ai/id"] = id
+}
+
+func (ld LeptonDeployment) GetVersion() int64 {
+	return 0
+}
+
+// Patch only supports PhotonID and MinReplicas for now
+func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
+	if p.PhotonID != "" {
+		ld.Spec.PhotonID = p.PhotonID
+	}
+	if p.ResourceRequirement.MinReplicas > 0 {
+		ld.Spec.ResourceRequirement.MinReplicas = p.ResourceRequirement.MinReplicas
+	}
+}
+
 type LeptonDeploymentResourceRequirement struct {
-	CPU             string `json:"cpu"`
-	Memory          string `json:"memory"`
-	AcceleratorType string `json:"accelerator_type,omitempty"`
-	AcceleratorNum  string `json:"accelerator_num,omitempty"`
-	MinReplicas     int64  `json:"min_replicas"`
+	CPU             float64 `json:"cpu"`
+	Memory          int64   `json:"memory"`
+	AcceleratorType string  `json:"accelerator_type,omitempty"`
+	AcceleratorNum  float64 `json:"accelerator_num,omitempty"`
+	MinReplicas     int64   `json:"min_replicas"`
 }
 
 type EnvVar struct {

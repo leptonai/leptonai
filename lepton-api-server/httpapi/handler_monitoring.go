@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/api"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -311,8 +313,14 @@ func queryMetrics(query, name, keep string) ([]map[string]interface{}, error) {
 	return data, nil
 }
 
-func getPhotonHTTPPaths(ph *Photon) []string {
-	pathMap := ph.OpenApiSchema["paths"].(map[string]interface{})
+func getPhotonHTTPPaths(ph *leptonaiv1alpha1.Photon) []string {
+	b, err := ph.Spec.OpenAPISchema.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	var schema map[string]interface{}
+	json.Unmarshal(b, &schema)
+	pathMap := schema["paths"].(map[string]interface{})
 	pathArray := make([]string, 0, len(pathMap))
 	for p := range pathMap {
 		pathArray = append(pathArray, p)
@@ -325,13 +333,13 @@ func listHandlersForPrometheusQuery(did string) (string, error) {
 	if ld == nil {
 		return "", fmt.Errorf("deployment " + did + " does not exist.")
 	}
-	ph := photonDB.GetByID(ld.PhotonID)
+	ph := photonDB.GetByID(ld.Spec.PhotonID)
 	if ph == nil {
-		return "", fmt.Errorf("photon " + ld.PhotonID + " does not exist.")
+		return "", fmt.Errorf("photon " + ld.Spec.PhotonID + " does not exist.")
 	}
 	paths := getPhotonHTTPPaths(ph)
 	if len(paths) == 0 {
-		return "", fmt.Errorf("photon " + ld.PhotonID + " does not have any handlers.")
+		return "", fmt.Errorf("photon " + ld.Spec.PhotonID + " does not have any handlers.")
 	}
 	return strings.Join(paths, "|"), nil
 }

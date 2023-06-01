@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,29 +20,28 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	var ld httpapi.LeptonDeployment
-	if err := json.Unmarshal(body, &ld); err != nil {
+	ld := &leptonaiv1alpha1.LeptonDeployment{}
+
+	if err := json.Unmarshal(body, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if validateDeploymentMetadata(ld) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + validateDeploymentMetadata(ld).Error()})
+	if err := validateDeploymentInput(&ld.Spec.LeptonDeploymentUserSpec); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
 		return
 	}
 
-	photon := photonDB.GetByID(ld.PhotonID)
-	if photon == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + ld.PhotonID + " does not exist."})
+	ph := photonDB.GetByID(ld.Spec.PhotonID)
+	if ph == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + ld.Spec.PhotonID + " does not exist."})
 		return
 	}
 
 	did := util.HexHash(body)
-	ld.ID = did
-	now := time.Now()
-	ld.CreatedAt = now.UnixMilli()
-	ld.Status.State = httpapi.DeploymentStateStarting
+	ld.SetID(did)
+	ld.Spec.Photon = &ph.Spec
 
-	ldcr, err := CreateLeptonDeploymentCR(&ld)
+	ldcr, err := CreateLeptonDeploymentCR(ld)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
@@ -50,37 +49,43 @@ func deploymentPostHandler(c *gin.Context) {
 
 	ownerref := util.GetOwnerRefFromUnstructured(ldcr)
 
-	err = createDeployment(&ld, ownerref)
+	err = createDeployment(ld, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
 	}
 
-	err = createService(&ld, photon, ownerref)
+	err = createService(ld, ph, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create service: " + err.Error()})
 		return
 	}
 
-	err = createDeploymentIngress(&ld, ownerref)
+	err = createDeploymentIngress(ld, ownerref)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create ingress: " + err.Error()})
 		return
 	}
 
-	_, err = PatchLeptonDeploymentCR(&ld)
+	cr, err := ReadLeptonDeploymentCR(ld.GetUniqName())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to update the external endpoint to deployment crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
+	cr.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
 
-	deploymentDB.Add(&ld)
+	deploymentDB.Add(cr)
 
-	c.JSON(http.StatusOK, ld)
+	c.JSON(http.StatusOK, httpapi.NewLeptonDeployment(ld).Output())
 }
 
 func deploymentListHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, deploymentDB.GetAll())
+	lds := deploymentDB.GetAll()
+	ldos := make([]*httpapi.LeptonDeployment, 0, len(lds))
+	for _, ld := range lds {
+		ldos = append(ldos, httpapi.NewLeptonDeployment(ld).Output())
+	}
+	c.JSON(http.StatusOK, ldos)
 }
 
 func deploymentPatchHandler(c *gin.Context) {
@@ -97,32 +102,32 @@ func deploymentPatchHandler(c *gin.Context) {
 		return
 	}
 
-	var metadata httpapi.LeptonDeployment
-	if err := json.Unmarshal(body, &metadata); err != nil {
+	ldi := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
+	if err := json.Unmarshal(body, &ldi); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
-	if validatePatchMetadata(metadata) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + validateDeploymentMetadata(metadata).Error()})
+	if err := validatePatchInput(ldi); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + err.Error()})
 		return
 	}
 
-	ld.Merge(&metadata)
-	ld.Status.State = httpapi.DeploymentStateUpdating
+	ld.Patch(ldi)
+	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	_, err = PatchLeptonDeploymentCR(ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetName() + ": " + err.Error()})
 		return
 	}
 
 	err = patchDeployment(ld)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment " + ld.Name + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment " + ld.GetName() + ": " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, ld)
+	c.JSON(http.StatusOK, httpapi.NewLeptonDeployment(ld).Output())
 }
 
 func deploymentGetHandler(c *gin.Context) {
@@ -133,7 +138,7 @@ func deploymentGetHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ld)
+	c.JSON(http.StatusOK, httpapi.NewLeptonDeployment(ld).Output())
 }
 
 func deploymentDeleteHandler(c *gin.Context) {
@@ -154,7 +159,7 @@ func deploymentDeleteHandler(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func validateDeploymentMetadata(ld httpapi.LeptonDeployment) error {
+func validateDeploymentInput(ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	if !util.ValidateName(ld.Name) {
 		return fmt.Errorf("invalid name %s: %s", ld.Name, util.NameInvalidMessage)
 	}
@@ -174,7 +179,7 @@ func validateDeploymentMetadata(ld httpapi.LeptonDeployment) error {
 	return nil
 }
 
-func validatePatchMetadata(ld httpapi.LeptonDeployment) error {
+func validatePatchInput(ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	valid := false
 	if ld.ResourceRequirement.MinReplicas > 0 {
 		valid = true

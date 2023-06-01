@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
-	leptonv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -21,7 +20,7 @@ var (
 	leptonDeploymentNamespace  = "default"
 )
 
-func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
+func CreateLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) (*unstructured.Unstructured, error) {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -30,9 +29,10 @@ func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstr
 			"apiVersion": leptonAPIGroup + "/" + leptonDeploymentAPIVersion,
 			"kind":       leptonDeploymentKind,
 			"metadata": map[string]interface{}{
-				"name": util.JoinByDash(ld.Name, ld.ID),
+				"name":        ld.GetUniqName(),
+				"annotations": ld.Annotations,
 			},
-			"spec": convertDeploymentToCr(ld),
+			"spec": ld.Spec,
 		},
 	}
 	result, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Create(
@@ -50,13 +50,13 @@ func CreateLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstr
 	return result, nil
 }
 
-func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
+func DeleteLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) error {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
-		util.JoinByDash(ld.Name, ld.ID),
+		ld.GetUniqName(),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -66,7 +66,7 @@ func DeleteLeptonDeploymentCR(ld *httpapi.LeptonDeployment) error {
 	return nil
 }
 
-func ReadAllLeptonDeploymentCR() ([]*httpapi.LeptonDeployment, error) {
+func ReadAllLeptonDeploymentCR() ([]*leptonaiv1alpha1.LeptonDeployment, error) {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
@@ -78,38 +78,55 @@ func ReadAllLeptonDeploymentCR() ([]*httpapi.LeptonDeployment, error) {
 		return nil, err
 	}
 
-	// Convert the typed LeptonDeployment object into a LeptonDeployment object
-	lds := []*httpapi.LeptonDeployment{}
+	lds := []*leptonaiv1alpha1.LeptonDeployment{}
 	for _, cr := range crd.Items {
-		spec := cr.Object["spec"].(map[string]interface{})
-		specStr, err := json.Marshal(spec)
-		if err != nil {
+		ld := &leptonaiv1alpha1.LeptonDeployment{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(cr.Object, ld); err != nil {
 			return nil, err
 		}
-		metadata := &leptonv1alpha1.LeptonDeploymentSpec{}
-		json.Unmarshal(specStr, &metadata)
-
-		lds = append(lds, convertCrToDeployment(metadata))
+		lds = append(lds, ld)
 	}
 
 	return lds, nil
 }
 
-func PatchLeptonDeploymentCR(ld *httpapi.LeptonDeployment) (*unstructured.Unstructured, error) {
+func ReadLeptonDeploymentCR(name string) (*leptonaiv1alpha1.LeptonDeployment, error) {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	crdResource := createCustomResourceObject()
-
 	cr, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Get(
 		context.TODO(),
-		util.JoinByDash(ld.Name, ld.ID),
+		name,
 		metav1.GetOptions{},
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	cr.Object["spec"] = convertDeploymentToCr(ld)
+	ld := &leptonaiv1alpha1.LeptonDeployment{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(cr.Object, ld); err != nil {
+		return nil, err
+	}
+
+	return ld, nil
+
+}
+
+func PatchLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) (*unstructured.Unstructured, error) {
+	dynamicClient := util.MustInitK8sDynamicClient()
+
+	crdResource := createCustomResourceObject()
+
+	cr, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Get(
+		context.TODO(),
+		ld.GetUniqName(),
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	cr.Object["spec"] = ld.Spec
 
 	result, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Update(
 		context.TODO(),
