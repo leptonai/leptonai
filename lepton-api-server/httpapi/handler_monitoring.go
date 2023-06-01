@@ -68,8 +68,7 @@ func InstanceCPUUtilHandler(c *gin.Context) {
 func InstanceFastAPIQPSHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum(rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
@@ -84,8 +83,7 @@ func InstanceFastAPIQPSHandler(c *gin.Context) {
 func InstanceFastAPILatencyHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
@@ -100,8 +98,7 @@ func InstanceFastAPILatencyHandler(c *gin.Context) {
 func InstanceFastAPIQPSByPathHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
@@ -116,8 +113,7 @@ func InstanceFastAPIQPSByPathHandler(c *gin.Context) {
 func InstanceFastAPILatencyByPathHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
@@ -132,8 +128,7 @@ func InstanceFastAPILatencyByPathHandler(c *gin.Context) {
 func DeploymentFastAPIQPSHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the inference QPS over 2 min windows for the past 1 hour
 	query := "sum(rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
@@ -148,8 +143,7 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 func DeploymentFastAPILatencyHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
@@ -164,8 +158,7 @@ func DeploymentFastAPILatencyHandler(c *gin.Context) {
 func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
@@ -180,8 +173,7 @@ func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
 func DeploymentFastAPILatencyByPathHandler(c *gin.Context) {
 	handlers, err := listHandlersForPrometheusQuery(c.Param("did"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		handlers = "/.*"
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
