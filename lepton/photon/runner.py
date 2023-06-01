@@ -372,7 +372,8 @@ class RunnerPhoton(Photon):
             if not inspect.isclass(runner_cls) or not issubclass(runner_cls, cls):
                 raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
             runner = runner_cls(name=name, model=model_str)
-            runner.vcs_url = vcs_url
+            if vcs_url is not None:
+                runner.vcs_url = vcs_url
             return runner
 
 
