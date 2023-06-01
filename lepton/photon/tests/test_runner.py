@@ -50,9 +50,9 @@ class CustomRunner(Runner):
         return x * 3
 
 
-
 class CustomRunnerWithCustomDeps(Runner):
     requirement_dependency = ["torch"]
+    system_dependency = ["ffmpeg"]
 
     def init(self):
         self.nn = torch.nn.Linear(1, 1)
@@ -257,7 +257,7 @@ class Counter(Runner):
 
         self.assertGreater(len(metadata["requirement_dependency"]), 0)
 
-    def test_custom_requirement_dependency(self):
+    def test_custom_dependency(self):
         name = random_name()
         runner = CustomRunnerWithCustomDeps(name=name)
         path = runner.save()
@@ -267,6 +267,10 @@ class Counter(Runner):
         self.assertEqual(
             metadata["requirement_dependency"],
             CustomRunnerWithCustomDeps.requirement_dependency,
+        )
+        self.assertEqual(
+            metadata["system_dependency"],
+            CustomRunnerWithCustomDeps.system_dependency,
         )
 
     def test_metrics(self):

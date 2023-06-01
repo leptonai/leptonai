@@ -1,9 +1,11 @@
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 
 from rich.console import Console
+from rich.prompt import Confirm
 from rich.table import Table
 import click
 from .base import find_all_photons, find_photon, remove_photon
@@ -193,13 +195,42 @@ def prepare(ctx, path):
             content = "\n".join(requirement_dependency)
             f.write(content)
             f.flush()
+            console.print(f"Installing requirement_dependency:\n{content}")
             try:
-                console.print(f"Installing requirement_dependency:\n{content}")
                 subprocess.check_call(
                     [sys.executable, "-m", "pip", "install", "-r", f.name]
                 )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to install {e}")
+                sys.exit(1)
+
+    # TODO: Support yum install
+    # apt/apt-get install
+    system_dependency = metadata.get("system_dependency", [])
+    if system_dependency:
+        apt = shutil.which("apt") or shutil.which("apt-get")
+        if not apt:
+            console.print(
+                "Cannot install system dependency because apt/apt-get is not available"
+            )
+            sys.exit(1)
+        sudo = shutil.which("sudo")
+        if not sudo:
+            console.print(
+                "Cannot install system dependency because sudo is not available"
+            )
+            sys.exit(1)
+
+        if Confirm.ask(
+            f"Installing system dependency will run with sudo ({sudo}), continue?",
+            default=True,
+        ):
+            console.print(f"Installing system_dependency:\n{system_dependency}")
+            try:
+                subprocess.check_call([sudo, apt, "update"])
+                subprocess.check_call([sudo, apt, "install", "-y"] + system_dependency)
+            except subprocess.CalledProcessError as e:
+                console.print(f"Failed to {apt} install: {e}")
                 sys.exit(1)
 
 

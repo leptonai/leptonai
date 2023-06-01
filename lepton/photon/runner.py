@@ -116,6 +116,7 @@ class RunnerPhoton(Photon):
     image: str = BASE_IMAGE
     args: list = BASE_IMAGE_ARGS
     requirement_dependency: Optional[List[str]] = None
+    system_dependency: Optional[List[str]] = None
     vcs_url: Optional[str] = None
 
     def __init__(self, name=None, model=None):
@@ -175,6 +176,7 @@ class RunnerPhoton(Photon):
         }
 
         res.update({"requirement_dependency": self._requirement_dependency})
+        res.update({"system_dependency": self.system_dependency})
         res.update({METADATA_VCS_URL_KEY: self.vcs_url})
 
         res.update(
