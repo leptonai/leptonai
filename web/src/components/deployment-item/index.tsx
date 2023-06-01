@@ -37,6 +37,7 @@ import { PhotonItem } from "@lepton-dashboard/components/photon-item";
 import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import { EditDeployment } from "@lepton-dashboard/components/deployment-item/components/edit-deployment";
 import { useNavigate } from "react-router-dom";
+import { Envs } from "@lepton-dashboard/components/deployment-item/components/envs";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
@@ -217,25 +218,6 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
             <Row gutter={[0, 4]}>
               <Col span={24}>
                 <Description.Item
-                  icon={<CarbonIcon icon={<Replicate />} />}
-                  term="Min Replicas"
-                  description={deployment.resource_requirement.min_replicas}
-                />
-              </Col>
-              <Col span={24}>
-                <Description.Container>
-                  <Description.Item
-                    icon={<CarbonIcon icon={<MessageQueue />} />}
-                    description={`${deployment.resource_requirement.memory} MB`}
-                  />
-                  <Description.Item
-                    icon={<CarbonIcon icon={<Chip />} />}
-                    description={`${deployment.resource_requirement.cpu} CORE`}
-                  />
-                </Description.Container>
-              </Col>
-              <Col span={24}>
-                <Description.Item
                   icon={<CarbonIcon icon={<FlowModeler />} />}
                   description={
                     deployment.resource_requirement.accelerator_type ? (
@@ -253,6 +235,30 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     )
                   }
                 />
+              </Col>
+              <Col span={24}>
+                <Description.Container>
+                  <Description.Item
+                    icon={<CarbonIcon icon={<MessageQueue />} />}
+                    description={`${deployment.resource_requirement.memory} MB`}
+                  />
+                  <Description.Item
+                    icon={<CarbonIcon icon={<Chip />} />}
+                    description={`${deployment.resource_requirement.cpu} CORE`}
+                  />
+                </Description.Container>
+              </Col>
+              <Col span={24}>
+                <Description.Container>
+                  <Description.Item
+                    icon={<CarbonIcon icon={<Replicate />} />}
+                    term="Min Replicas"
+                    description={deployment.resource_requirement.min_replicas}
+                  />
+                  {deployment.envs && deployment.envs.length > 0 ? (
+                    <Envs envs={deployment.envs} />
+                  ) : null}
+                </Description.Container>
               </Col>
             </Row>
           </Col>

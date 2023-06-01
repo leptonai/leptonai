@@ -40,6 +40,7 @@ export class ApiServerService implements ApiService {
       name: deployment.name,
       photon_id: deployment.photon_id,
       resource_requirement: deployment.resource_requirement,
+      envs: deployment.envs || [],
     });
   }
 

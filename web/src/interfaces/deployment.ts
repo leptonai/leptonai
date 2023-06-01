@@ -14,6 +14,7 @@ export interface Deployment {
     accelerator_type?: string;
     accelerator_num?: number;
   };
+  envs?: { name: string; value: string }[];
 }
 
 export interface Instance {

@@ -3,11 +3,14 @@ import {
   App,
   Button,
   Cascader,
+  Col,
   Drawer,
   Empty,
   Form,
   Input,
   InputNumber,
+  Row,
+  Space,
 } from "antd";
 import { css } from "@emotion/react";
 import { useInject } from "@lepton-libs/di";
@@ -16,7 +19,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import dayjs from "dayjs";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
-import { PlusOutlined } from "@ant-design/icons";
+import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 
 interface RawForm {
@@ -27,6 +30,7 @@ interface RawForm {
   cpu: number;
   memory: number;
   photon: string[];
+  envs: { name: string; value: string }[];
 }
 
 const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
@@ -76,6 +80,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
         accelerator_type: d.accelerator_type,
         accelerator_num: d.accelerator_num,
       },
+      envs: d.envs,
     };
     void message.loading({
       content: "Creating deployment, please wait ...",
@@ -110,6 +115,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
         cpu: 1,
         memory: 8192,
         photon: initPhoton,
+        envs: [],
       }}
       onFinish={(e) => createDeployment(e)}
       autoComplete="off"
@@ -191,6 +197,55 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
           placeholder="Accelerator Number"
         />
       </Form.Item>
+      <Form.List name="envs">
+        {(fields, { add, remove }) => (
+          <>
+            <Row gutter={0}>
+              {fields.map(({ key, name, ...restField }) => (
+                <Col key={key} span={16} offset={8}>
+                  <Space
+                    css={css`
+                      display: flex;
+                    `}
+                    align="baseline"
+                  >
+                    <Form.Item
+                      wrapperCol={{ span: 24 }}
+                      {...restField}
+                      name={[name, "name"]}
+                      rules={[{ required: true, message: "Please input name" }]}
+                    >
+                      <Input placeholder="Env name" />
+                    </Form.Item>
+                    <Form.Item
+                      wrapperCol={{ span: 24 }}
+                      {...restField}
+                      name={[name, "value"]}
+                      rules={[
+                        { required: true, message: "Please input value" },
+                      ]}
+                    >
+                      <Input placeholder="Env value" />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} />
+                  </Space>
+                </Col>
+              ))}
+            </Row>
+
+            <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
+              <Button
+                type="dashed"
+                onClick={() => add()}
+                block
+                icon={<PlusOutlined />}
+              >
+                Add environment variable
+              </Button>
+            </Form.Item>
+          </>
+        )}
+      </Form.List>
       <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
         <Button loading={loading} type="primary" htmlType="submit">
           Create

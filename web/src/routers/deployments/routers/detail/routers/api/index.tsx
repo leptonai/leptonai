@@ -74,13 +74,17 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const jsonSchemaService = useInject(JsonSchemaService);
   const paths = jsonSchemaService.getPaths(photon?.openapi_schema);
 
-  return photon?.openapi_schema ? (
+  return (
     <Card shadowless borderless>
-      {paths.map((p) => (
-        <ApiItem path={p} key={p} deployment={deployment} photon={photon} />
-      ))}
+      {paths.length > 0 ? (
+        <>
+          {paths.map((p) => (
+            <ApiItem path={p} key={p} deployment={deployment} photon={photon} />
+          ))}
+        </>
+      ) : (
+        <Alert showIcon type="warning" message="No openapi schema found" />
+      )}
     </Card>
-  ) : (
-    <Alert showIcon type="warning" message="No openapi schema found" />
   );
 };
