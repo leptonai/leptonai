@@ -29,7 +29,7 @@ func createService(ld *leptonaiv1alpha1.LeptonDeployment, ph *leptonaiv1alpha1.P
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"photon": ph.GetUniqName(),
+				"lepton_deployment_id": ld.GetID(),
 			},
 			Ports: []corev1.ServicePort{
 				{
