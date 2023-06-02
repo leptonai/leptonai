@@ -15,7 +15,8 @@ const charset = "abcdefghijklmnopqrstuvwxyz"
 
 var (
 	seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	remoteULR  = flag.String("remote-url", "", "Remote URL for the Lepton API server")
+	remoteURL  = flag.String("remote-url", "", "Remote URL for the Lepton API server")
+	namespace  = flag.String("namespace", "default", "Kubernetes Namespace for the Lepton API server")
 )
 
 func TestMain(m *testing.M) {
@@ -49,7 +50,7 @@ func TestPhotonRemove(t *testing.T) {
 }
 
 func mustListPhoton(t *testing.T) string {
-	cmd := exec.Command("lepton", "photon", "list", "-r", *remoteULR)
+	cmd := exec.Command("lepton", "photon", "list", "-r", *remoteURL)
 	out, err := cmd.Output()
 	if err != nil {
 		fmt.Println(string(out))
@@ -83,7 +84,7 @@ func mustCreatePhoton(t *testing.T, name string) {
 }
 
 func mustPushPhoton(t *testing.T, name string) {
-	cmd := exec.Command("lepton", "photon", "push", "-n", name, "-r", *remoteULR)
+	cmd := exec.Command("lepton", "photon", "push", "-n", name, "-r", *remoteURL)
 	output, err := cmd.Output()
 	if err != nil {
 		fmt.Println(string(output))
@@ -92,7 +93,7 @@ func mustPushPhoton(t *testing.T, name string) {
 }
 
 func mustRemovePhoton(t *testing.T, name, id string) {
-	cmd := exec.Command("lepton", "photon", "remove", "-i", id, "-r", *remoteULR)
+	cmd := exec.Command("lepton", "photon", "remove", "-i", id, "-r", *remoteURL)
 	output, err := cmd.Output()
 	if err != nil {
 		fmt.Println(string(output))

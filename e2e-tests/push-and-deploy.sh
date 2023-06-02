@@ -37,7 +37,7 @@ fi
 REMOTE=http://$REMOTE/api/v1
 
 
-COLUMNS=2000 go test -v ./e2e-tests/... --remote-url "$REMOTE"
+COLUMNS=2000 go test -v ./e2e-tests/... --remote-url "$REMOTE" --namespace "$NAMESPACE"
 if [ $? -ne 0 ]; then
     eixt 1
 fi
