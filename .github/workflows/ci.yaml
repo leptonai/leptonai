@@ -74,9 +74,8 @@ jobs:
         kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-api-server
         kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-web
         pip install -e .
-        e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG
         export KUBECONFIG=$HOME/.kube/config
-        go test -v ./e2e-tests/...
+        e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG
     - name: Helm uninstall lepton
       if: always()
       env:

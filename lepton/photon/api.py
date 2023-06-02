@@ -151,12 +151,13 @@ def remote_launch(id: str, url: str):
     # TODO: get the photon name from the remote and use it as the deployment
     # name
     deployment = {
-        "name": "deployment-" + id,
+        "name": "deploy-" + id[:6],
         "photon_id": id,
         # TODO: support custom resource requirements
-        "resource_requirements": {
+        "resource_requirement": {
             "cpu": 1,
             "memory": 1024,
+            "min_replicas": 1,
         },
     }
 
