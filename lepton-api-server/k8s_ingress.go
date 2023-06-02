@@ -137,7 +137,7 @@ func mustInitUnauthorizedErrorIngress() {
 	clientset.NetworkingV1().Ingresses(ingressNamespace).
 		Delete(context.Background(), ingressNameForUnauthorizedAccess, metav1.DeleteOptions{})
 
-	if apiToken == "" {
+	if len(apiToken) == 0 {
 		return
 	}
 
@@ -182,7 +182,7 @@ func newIngress(name, namespace, hostName string, annotation map[string]string, 
 			},
 		},
 	}
-	if len(hostName) == 0 {
+	if len(hostName) > 0 {
 		ingress.Spec.Rules[0].Host = hostName
 	}
 	if or != nil {
