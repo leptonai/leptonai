@@ -271,7 +271,13 @@ class RunnerPhoton(Photon):
                     logger.warning(f'Gradio is not installed. Skip mounting "{path}"')
                     continue
 
-                gr_blocks = func.__get__(self, self.__class__)()
+                num_params = len(inspect.signature(func).parameters)
+                if num_params > 2:
+                    raise ValueError(f"Gradio mount function should only have zero or one (app) argument")
+                if num_params == 2:
+                    gr_blocks = func.__get__(self, self.__class__)(app)
+                else:
+                    gr_blocks = func.__get__(self, self.__class__)()
                 if not isinstance(gr_blocks, gr.Blocks):
                     raise RuntimeError(
                         f"Currently `mount` only supports Gradio Blocks. Got {type(gr_blocks)}"
