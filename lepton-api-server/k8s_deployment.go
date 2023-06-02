@@ -76,9 +76,8 @@ func createDeployment(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerRefe
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"photon":          ph.GetUniqName(),
-				"deployment_name": ld.GetName(),
-				"deployment_id":   ld.GetID(),
+				"photon_id":            ph.GetID(),
+				"lepton_deployment_id": ld.GetID(),
 			},
 		},
 		Spec: *podSpec,
@@ -90,12 +89,18 @@ func createDeployment(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerRefe
 			Name:            ld.GetName(),
 			Namespace:       deploymentNamespace,
 			OwnerReferences: []metav1.OwnerReference{or},
+			Labels: map[string]string{
+				"photon_name":            ph.GetName(),
+				"photon_id":              ph.GetID(),
+				"lepton_deployment_name": ld.GetName(),
+				"lepton_deployment_id":   ld.GetID(),
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(int32(ld.Spec.ResourceRequirement.MinReplicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"deployment_id": ld.GetID(),
+					"lepton_deployment_id": ld.GetID(),
 				},
 			},
 			Template: template,
