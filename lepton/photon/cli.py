@@ -221,10 +221,11 @@ def prepare(ctx, path):
             )
             sys.exit(1)
 
-        if Confirm.ask(
+        confirmed = (not sys.stdin.isatty()) or Confirm.ask(
             f"Installing system dependency will run with sudo ({sudo}), continue?",
             default=True,
-        ):
+        )
+        if confirmed:
             console.print(f"Installing system_dependency:\n{system_dependency}")
             try:
                 subprocess.check_call([sudo, apt, "update"])
