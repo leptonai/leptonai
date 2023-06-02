@@ -70,6 +70,11 @@ func createDeploymentIngress(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.Ow
 }
 
 func createHostBasedDeploymentIngress(ld *leptonaiv1alpha1.LeptonDeployment, or metav1.OwnerReference) error {
+	// Do not create host based ingress if rootDomain is not set.
+	if len(rootDomain) == 0 {
+		return nil
+	}
+
 	clientset := util.MustInitK8sClientSet()
 
 	annotation := NewAnnotation()
@@ -177,7 +182,7 @@ func newIngress(name, namespace, hostName string, annotation map[string]string, 
 			},
 		},
 	}
-	if hostName != "" {
+	if len(hostName) == 0 {
 		ingress.Spec.Rules[0].Host = hostName
 	}
 	if or != nil {
