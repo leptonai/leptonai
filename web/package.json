@@ -8,6 +8,7 @@
     "husky": "cd ../ && husky install ./web/.husky",
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest run",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "database:types": "npx supabase gen types typescript --local > src/interfaces/database.ts"
@@ -67,10 +68,17 @@
     "typescript": "^5.0.2",
     "vite": "^4.3.2",
     "vite-plugin-checker": "^0.6.0",
-    "vite-tsconfig-paths": "^4.2.0"
+    "vite-tsconfig-paths": "^4.2.0",
+    "vitest": "^0.31.4"
   },
   "resolutions": {
     "@ant-design/icons": "^5.0.1",
     "antd": "^5.4.6"
+  },
+  "overrides": {
+    "@rjsf/antd": {
+      "antd": "^5.0.0",
+      "@ant-design/icons": "^5.0.0"
+    }
   }
 }

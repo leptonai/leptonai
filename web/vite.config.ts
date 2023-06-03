@@ -33,6 +33,9 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    test: {
+      include: ["**/*.spec.{js,ts,jsx,tsx}"],
+    },
     plugins: [
       typescript({
         transformers: {
