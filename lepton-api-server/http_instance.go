@@ -80,7 +80,7 @@ func instanceShellHandler(c *gin.Context) {
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme
-	r.URL.Path = "/api/v1/namespaces/default/pods/" + iid + "/exec"
+	r.URL.Path = "/api/v1/namespaces/" + deploymentNamespace + "/pods/" + iid + "/exec"
 	q := r.URL.Query()
 	q.Set("container", mainContainerName)
 	q.Set("command", "/bin/bash")
