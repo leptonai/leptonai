@@ -168,7 +168,7 @@ class RunnerPhoton(Photon):
     def metadata(self):
         res = super().metadata
 
-        res["openapi_schema"] = self._create_app().openapi()
+        res["openapi_schema"] = self._create_app(load_mount=False).openapi()
 
         res["py_obj"] = {
             "name": self.__class__.__qualname__,
@@ -218,10 +218,10 @@ class RunnerPhoton(Photon):
     def run(self, *args, **kwargs):
         raise NotImplementedError
 
-    def _create_app(self):
+    def _create_app(self, load_mount):
         title = self.name.replace(".", "_")
         app = FastAPI(title=title)
-        self._register_routes(app)
+        self._register_routes(app, load_mount)
         self._collect_metrics(app)
         return app
 
@@ -242,7 +242,7 @@ class RunnerPhoton(Photon):
 
     def launch(self, host="0.0.0.0", port=8080, log_level="info"):
         self.call_init()
-        app = self._create_app()
+        app = self._create_app(load_mount=True)
         log_config = self._uvicorn_log_config()
         return uvicorn.run(
             app, host=host, port=port, log_level=log_level, log_config=log_config
@@ -256,7 +256,7 @@ class RunnerPhoton(Photon):
         async def _startup():
             instrumentator.expose(app, endpoint="/metrics")
 
-    def _register_routes(self, app):
+    def _register_routes(self, app, load_mount):
         try:
             import gradio as gr
         except ImportError:
@@ -267,6 +267,8 @@ class RunnerPhoton(Photon):
         api_router = APIRouter()
         for path, (func, kwargs) in self.routes.items():
             if kwargs.get("mount"):
+                if not load_mount:
+                    continue
                 if not has_gradio:
                     logger.warning(f'Gradio is not installed. Skip mounting "{path}"')
                     continue
