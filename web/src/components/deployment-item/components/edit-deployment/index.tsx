@@ -23,8 +23,9 @@ const EditDeploymentDetail: FC<{
     () =>
       photonService.listGroups().pipe(
         map((v) => {
-          const name = v.find((g) => g.id === deployment.photon_id)?.name;
-          return v.filter((g) => g.name === name);
+          return v.filter((g) =>
+            g.versions.some((v) => v.id === deployment.photon_id)
+          );
         })
       ),
     []

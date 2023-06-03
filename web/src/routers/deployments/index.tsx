@@ -4,7 +4,6 @@ import { List } from "@lepton-dashboard/routers/deployments/routers/list";
 import styled from "@emotion/styled";
 import { Detail } from "@lepton-dashboard/routers/deployments/routers/detail";
 import { useInject } from "@lepton-libs/di";
-import { CreateDeployment } from "../../components/create-deployment";
 import { TitleService } from "@lepton-dashboard/services/title.service";
 
 const Container = styled.div`
@@ -18,7 +17,6 @@ export const Deployments: FC = () => {
   return (
     <Container>
       <Routes>
-        <Route path="create/:id?" element={<CreateDeployment />} />
         <Route path="list/:name?" element={<List />} />
         <Route path="detail/:id/*" element={<Detail />} />
         <Route path="*" element={<Navigate to="list" replace />} />

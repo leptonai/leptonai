@@ -38,6 +38,7 @@ import { Hoverable } from "@lepton-dashboard/components/hoverable";
 import { EditDeployment } from "@lepton-dashboard/components/deployment-item/components/edit-deployment";
 import { useNavigate } from "react-router-dom";
 import { Envs } from "@lepton-dashboard/components/deployment-item/components/envs";
+import { VersionIndicator } from "@lepton-dashboard/components/deployment-item/components/version-indicator";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
@@ -129,24 +130,29 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   icon={<PhotonIcon />}
                   description={
                     photon?.name ? (
-                      <Popover
-                        placement="bottomLeft"
-                        content={
-                          <div
-                            css={css`
-                              width: min-content;
-                            `}
-                          >
-                            <PhotonItem photon={photon} />
-                          </div>
-                        }
-                      >
-                        <span>
-                          <Link to={`/photons/detail/${photon?.id}`}>
-                            {photon?.name}
-                          </Link>
-                        </span>
-                      </Popover>
+                      <Space>
+                        <Popover
+                          placement="bottomLeft"
+                          content={
+                            <div
+                              css={css`
+                                width: min-content;
+                              `}
+                            >
+                              <PhotonItem photon={photon} />
+                            </div>
+                          }
+                        >
+                          <span>
+                            <Link to={`/photons/detail/${photon?.id}`}>
+                              {photon?.name}
+                              <VersionIndicator
+                                photonId={deployment.photon_id}
+                              />
+                            </Link>
+                          </span>
+                        </Popover>
+                      </Space>
                     ) : (
                       "-"
                     )

@@ -42,10 +42,12 @@ export const DeploymentForm: FC<{
   edit = false,
 }) => {
   const photon = useMemo(() => {
-    const targetMode =
-      photonGroups.find((g) => g.id === initialDeploymentValue.photon_id) ||
-      photonGroups[0];
-    return [targetMode?.id, initialDeploymentValue.photon_id || targetMode?.id];
+    const latest =
+      photonGroups.find((g) =>
+        g.versions.some((v) => v.id === initialDeploymentValue.photon_id)
+      ) || photonGroups[0];
+
+    return [latest?.id, initialDeploymentValue.photon_id || latest?.id];
   }, [initialDeploymentValue.photon_id, photonGroups]);
 
   const initialValues: Partial<RawForm> = useMemo(() => {
