@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: ["", "extensions", "apps"]
-  resources: ["deployments", "pods", "pods/log", "pods/exec"]
+  resources: ["deployments", "pods", "pods/log", "pods/exec", "nodes"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["", "networking.k8s.io"]
   resources: ["services", "ingresses"]
