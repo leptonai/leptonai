@@ -25,6 +25,7 @@ import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.servic
 import { Login } from "@lepton-dashboard/routers/login";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { ClusterService } from "@lepton-dashboard/services/cluster.service";
+import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 const Dashboard = lazy(() =>
   import("@lepton-dashboard/routers/dashboard").then((e) => ({
     default: e.Dashboard,
@@ -99,6 +100,7 @@ function App() {
         NotificationService,
         StorageService,
         JsonSchemaService,
+        OpenApiService,
         { provide: ApiService, useClass: ApiServerService },
       ]}
     >

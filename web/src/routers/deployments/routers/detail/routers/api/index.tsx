@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -18,10 +18,9 @@ const ApiItem: FC<{
   const theme = useAntdTheme();
   const url = deployment.status.endpoint.external_endpoint;
   const jsonSchemaService = useInject(JsonSchemaService);
-  const { inputExample } = jsonSchemaService.parse(
-    photon?.openapi_schema,
-    path
-  );
+  const { inputExample } = useMemo(() => {
+    return jsonSchemaService.parse(photon?.openapi_schema, path);
+  }, [jsonSchemaService, path, photon?.openapi_schema]);
   const exampleString = inputExample ? JSON.stringify(inputExample) : "";
   const queryText = `curl -s -X POST \\
   -d '${exampleString}' \\

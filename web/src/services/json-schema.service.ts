@@ -1,9 +1,12 @@
 import { Injectable } from "injection-js";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { JSONSchema7 } from "json-schema";
+import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 
 @Injectable()
 export class JsonSchemaService {
+  constructor(private openApiService: OpenApiService) {}
+
   getPaths(schema: SafeAny): string[] {
     const paths = Object.entries(schema?.paths || {}) as [string, SafeAny];
     return paths.map(([v]) => v);
@@ -27,9 +30,13 @@ export class JsonSchemaService {
             components: schema.components,
           }
         : {};
-      const inputExample =
+      const example =
         schema?.paths?.[path]?.post?.requestBody?.content?.["application/json"]
           ?.example;
+      const inputExample = this.openApiService.sampleFromSchema(
+        inputSchema,
+        example
+      );
       return { inputExample, inputSchema };
     } else {
       return { inputExample: {}, inputSchema: {} };
