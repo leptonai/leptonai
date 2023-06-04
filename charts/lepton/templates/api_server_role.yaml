@@ -4,11 +4,14 @@ metadata:
   name: {{ .Values.apiServer.name }}-role
   namespace: {{ .Release.Namespace }}
 rules:
-- apiGroups: ["", "extensions", "apps"]
-  resources: ["deployments", "pods", "pods/log", "pods/exec", "nodes"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "pods/exec", "nodes", "services"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["", "networking.k8s.io"]
-  resources: ["services", "ingresses"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["lepton.ai"]
   resources: ["leptondeployments", "photons"]
