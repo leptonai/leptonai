@@ -23,6 +23,22 @@ apiServer:
   certificateArn: ""
   apiToken: ""
 
+deploymentOperator:
+  name: lepton-deployment-operator
+  replicaCount: 1
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-deployment-operator
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "1024Mi"
+        cpu: "1"
+
 web:
   enabled: true
   name: lepton-web

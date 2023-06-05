@@ -29,7 +29,7 @@ func CreateLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) (*unstructu
 			"apiVersion": leptonAPIGroup + "/" + leptonDeploymentAPIVersion,
 			"kind":       leptonDeploymentKind,
 			"metadata": map[string]interface{}{
-				"name":        ld.GetUniqName(),
+				"name":        ld.GetName(),
 				"annotations": ld.Annotations,
 			},
 			"spec": ld.Spec,
@@ -56,7 +56,7 @@ func DeleteLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) error {
 	crdResource := createCustomResourceObject()
 	err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Delete(
 		context.TODO(),
-		ld.GetUniqName(),
+		ld.GetName(),
 		metav1.DeleteOptions{},
 	)
 	if err != nil {
@@ -119,7 +119,7 @@ func PatchLeptonDeploymentCR(ld *leptonaiv1alpha1.LeptonDeployment) (*unstructur
 
 	cr, err := dynamicClient.Resource(crdResource).Namespace(leptonDeploymentNamespace).Get(
 		context.TODO(),
-		ld.GetUniqName(),
+		ld.GetName(),
 		metav1.GetOptions{},
 	)
 	if err != nil {

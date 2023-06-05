@@ -40,6 +40,14 @@ spec:
           spec:
             description: LeptonDeploymentSpec defines the desired state of LeptonDeployment
             properties:
+              api_tokens:
+                items:
+                  type: string
+                type: array
+              bucket_name:
+                type: string
+              certificate_arn:
+                type: string
               envs:
                 items:
                   properties:
@@ -54,39 +62,13 @@ spec:
                 type: array
               name:
                 type: string
-              photon:
-                description: PhotonSpec defines the desired state of Photon
-                properties:
-                  container_args:
-                    items:
-                      type: string
-                    type: array
-                  entrypoint:
-                    type: string
-                  exposed_ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  image:
-                    type: string
-                  model:
-                    type: string
-                  name:
-                    type: string
-                  openapi_schema:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  requirement_dependency:
-                    items:
-                      type: string
-                    type: array
-                required:
-                - image
-                - model
-                - name
-                type: object
               photon_id:
+                type: string
+              photon_image:
+                type: string
+              photon_name:
+                type: string
+              photon_prefix:
                 type: string
               resource_requirement:
                 properties:
@@ -100,18 +82,26 @@ spec:
                     format: int64
                     type: integer
                   min_replicas:
-                    format: int64
+                    format: int32
                     type: integer
                 required:
                 - cpu
                 - memory
                 - min_replicas
                 type: object
+              root_domain:
+                type: string
+              service_account_name:
+                type: string
             required:
+            - bucket_name
             - name
-            - photon
             - photon_id
+            - photon_image
+            - photon_name
+            - photon_prefix
             - resource_requirement
+            - service_account_name
             type: object
           status:
             description: LeptonDeploymentStatus defines the observed state of LeptonDeployment

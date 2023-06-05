@@ -23,17 +23,12 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // PhotonSpec defines the desired state of Photon
 type PhotonSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	PhotonUserSpec `json:",inline"`
 }
 
+// PhotonUserSpec defines the user-controlled spec.
 type PhotonUserSpec struct {
 	Name                  string               `json:"name"`
 	Model                 string               `json:"model"`
@@ -45,14 +40,17 @@ type PhotonUserSpec struct {
 	OpenAPISchema         runtime.RawExtension `json:"openapi_schema,omitempty"`
 }
 
+// GetName returns the name of the photon.
 func (p Photon) GetName() string {
 	return p.Spec.Name
 }
 
+// GetUniqName returns the unique name of the photon.
 func (p Photon) GetUniqName() string {
 	return fmt.Sprintf("%s-%s", p.GetName(), p.GetID())
 }
 
+// GetID returns the id of the photon.
 func (p Photon) GetID() string {
 	if p.Annotations == nil {
 		return ""
@@ -60,6 +58,7 @@ func (p Photon) GetID() string {
 	return p.Annotations["lepton.ai/id"]
 }
 
+// SetID sets the id of the photon.
 func (p *Photon) SetID(id string) {
 	if p.Annotations == nil {
 		p.Annotations = make(map[string]string)
@@ -67,14 +66,13 @@ func (p *Photon) SetID(id string) {
 	p.Annotations["lepton.ai/id"] = id
 }
 
+// GetVersion returns the version of the photon.
 func (p Photon) GetVersion() int64 {
 	return p.CreationTimestamp.UnixMilli()
 }
 
-// PhotonStatus defines the observed state of Photon
+// PhotonStatus defines the observed state of Photon. It is empty because we only use Photon as a database.
 type PhotonStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

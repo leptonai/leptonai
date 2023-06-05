@@ -15,12 +15,12 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Values.apiServer.name }}-clusterrolebinding
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrolebinding
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.apiServer.name }}
   namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: {{ .Values.apiServer.name }}-clusterrole
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrole
   apiGroup: rbac.authorization.k8s.io

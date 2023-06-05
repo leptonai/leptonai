@@ -17,6 +17,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
+const mainContainerName = "main-container"
+
 func instanceListHandler(c *gin.Context) {
 	did := c.Param("did")
 	clientset := util.MustInitK8sClientSet()
@@ -27,7 +29,7 @@ func instanceListHandler(c *gin.Context) {
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(deploymentNamespace).Get(context.TODO(), ld.GetName(), metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(*namespaceFlag).Get(context.TODO(), ld.GetName(), metav1.GetOptions{})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetName() + ": " + err.Error()})
 		return
@@ -42,7 +44,7 @@ func instanceListHandler(c *gin.Context) {
 		labelSelector += fmt.Sprintf("%s=%s", key, value)
 	}
 
-	podList, err := clientset.CoreV1().Pods(deploymentNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+	podList, err := clientset.CoreV1().Pods(*namespaceFlag).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetName() + ": " + err.Error()})
 		return
@@ -80,7 +82,7 @@ func instanceShellHandler(c *gin.Context) {
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme
-	r.URL.Path = "/api/v1/namespaces/" + deploymentNamespace + "/pods/" + iid + "/exec"
+	r.URL.Path = "/api/v1/namespaces/" + *namespaceFlag + "/pods/" + iid + "/exec"
 	q := r.URL.Query()
 	q.Set("container", mainContainerName)
 	q.Set("command", "/bin/bash")
@@ -107,7 +109,7 @@ func instanceLogHandler(c *gin.Context) {
 		TailLines:  &tailLines,
 		LimitBytes: &tenMBInBytes,
 	}
-	req := clientset.CoreV1().Pods(deploymentNamespace).GetLogs(iid, logOptions)
+	req := clientset.CoreV1().Pods(*namespaceFlag).GetLogs(iid, logOptions)
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {

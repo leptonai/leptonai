@@ -6,14 +6,14 @@ metadata:
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "pods/exec", "services"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  resources: ["pods", "pods/log", "pods/exec"]
+  verbs: ["get", "list", "watch", "create"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
 - apiGroups: ["lepton.ai"]
   resources: ["leptondeployments", "photons"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -21,7 +21,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Values.apiServer.name }}-clusterrole
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrole
 rules:
 - apiGroups: [""]
   resources: ["nodes"]

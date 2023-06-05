@@ -73,8 +73,6 @@ func main() {
 	// Set the namespace for various resources.
 	photonNamespace = *namespaceFlag
 	leptonDeploymentNamespace = *namespaceFlag
-	deploymentNamespace = *namespaceFlag
-	serviceNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
 	certificateARN = *certificateARNFlag
 	rootDomain = *rootDomainFlag
@@ -82,7 +80,7 @@ func main() {
 
 	initPhotons()
 	initDeployments()
-	mustUpdateAPIServerIngress()
+	mustInitAPIServerIngress()
 	mustInitUnauthorizedErrorIngress()
 
 	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)

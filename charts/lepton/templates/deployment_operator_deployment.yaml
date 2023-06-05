@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.deploymentOperator.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.deploymentOperator.name }}
+spec:
+  replicas: {{ .Values.deploymentOperator.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.deploymentOperator.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.deploymentOperator.name }}
+    spec:
+      serviceAccountName: {{ .Values.deploymentOperator.name }}
+      containers:
+        - name: {{ .Values.deploymentOperator.name }}
+          image: {{ .Values.deploymentOperator.image.repository }}:{{ .Values.deploymentOperator.image.tag }}
+          imagePullPolicy: {{ .Values.deploymentOperator.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.deploymentOperator.service.resources.requests.memory }}
+              cpu: {{ .Values.deploymentOperator.service.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.deploymentOperator.service.resources.limits.memory }}
+              cpu: {{ .Values.deploymentOperator.service.resources.limits.cpu }}
+          command: [ "/manager" ]
+          args:
+            - "--namespace"
+            - {{ .Release.Namespace | quote }}

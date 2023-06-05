@@ -37,37 +37,26 @@ func deploymentPostHandler(c *gin.Context) {
 		return
 	}
 
-	did := util.HexHash(body)
-	ld.SetID(did)
-	ld.Spec.Photon = &ph.Spec
+	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
+		PhotonName:         ph.GetName(),
+		PhotonImage:        ph.Spec.Image,
+		BucketName:         *bucketNameFlag,
+		PhotonPrefix:       *photonPrefixFlag,
+		ServiceAccountName: *serviceAccountNameFlag,
+		RootDomain:         *rootDomainFlag,
+		CertificateARN:     *certificateARNFlag,
+	}
+	if len(*apiTokenFlag) > 0 {
+		ld.Spec.APITokens = []string{*apiTokenFlag}
+	}
 
-	ldcr, err := CreateLeptonDeploymentCR(ld)
-	if err != nil {
+	if _, err := CreateLeptonDeploymentCR(ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
 
-	ownerref := util.GetOwnerRefFromUnstructured(ldcr)
-
-	err = createDeployment(ld, ownerref)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
-		return
-	}
-
-	err = createService(ld, ph, ownerref)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create service: " + err.Error()})
-		return
-	}
-
-	err = createDeploymentIngress(ld, ownerref)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create ingress: " + err.Error()})
-		return
-	}
-
-	cr, err := ReadLeptonDeploymentCR(ld.GetUniqName())
+	// Have to re-read it to get the creation timestamp
+	cr, err := ReadLeptonDeploymentCR(ld.GetName())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
@@ -118,12 +107,6 @@ func deploymentPatchHandler(c *gin.Context) {
 	_, err = PatchLeptonDeploymentCR(ld)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetName() + ": " + err.Error()})
-		return
-	}
-
-	err = patchDeployment(ld)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment " + ld.GetName() + ": " + err.Error()})
 		return
 	}
 
