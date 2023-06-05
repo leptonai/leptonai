@@ -9,6 +9,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentForm } from "@lepton-dashboard/components/deployment-form";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import { ClusterService } from "@lepton-dashboard/services/cluster.service";
 
 const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
   finish,
@@ -16,6 +17,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
 }) => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
+  const clusterService = useInject(ClusterService);
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
@@ -34,6 +36,13 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
       min_replicas: 1,
       cpu: 1,
       memory: 8192,
+      accelerator_type:
+        Object.keys(clusterService.currentCluster!.supported_accelerators)[0] ||
+        undefined,
+      accelerator_num:
+        Object.values(
+          clusterService.currentCluster!.supported_accelerators
+        )[0] || undefined,
     },
     envs: [],
   };

@@ -1,6 +1,8 @@
 import { Injectable } from "injection-js";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
-import { from, Observable } from "rxjs";
+import { from, Observable, tap } from "rxjs";
+import { Cluster } from "@lepton-dashboard/interfaces/cluster";
+import { ApiService } from "@lepton-dashboard/services/api.service";
 
 export interface AuthenticatedCluster {
   id: string;
@@ -10,7 +12,11 @@ export interface AuthenticatedCluster {
 
 @Injectable()
 export class ClusterService {
-  constructor(private authService: AuthService) {}
+  currentCluster: Cluster | null = null;
+  constructor(
+    private authService: AuthService,
+    private apiService: ApiService
+  ) {}
 
   enabled(): Observable<boolean> {
     return from(this.queryEnabled());
@@ -18,6 +24,12 @@ export class ClusterService {
 
   listClusters(): Observable<AuthenticatedCluster[]> {
     return from(this.queryClusters());
+  }
+
+  getCurrentClusterInfo(): Observable<Cluster> {
+    return this.apiService
+      .getClusterInfo()
+      .pipe(tap((d) => (this.currentCluster = d)));
   }
 
   private async queryEnabled(): Promise<boolean> {

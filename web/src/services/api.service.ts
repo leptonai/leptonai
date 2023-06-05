@@ -7,6 +7,7 @@ import {
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
+import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 
 @Injectable()
 export abstract class ApiService {
@@ -48,4 +49,6 @@ export abstract class ApiService {
     value: string,
     path: string
   ): Observable<unknown>;
+
+  abstract getClusterInfo(): Observable<Cluster>;
 }

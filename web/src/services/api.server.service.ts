@@ -9,6 +9,7 @@ import {
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
+import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -144,6 +145,10 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.get(
       `${this.host}/deployments/${deploymentId}/instances/${instanceId}/monitoring/${metricName}`
     );
+  }
+
+  getClusterInfo(): Observable<Cluster> {
+    return this.httpClientService.get(`${this.host}/cluster`);
   }
 
   constructor(private httpClientService: HttpClientService) {}

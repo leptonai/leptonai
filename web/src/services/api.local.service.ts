@@ -8,6 +8,7 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
+import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -91,6 +92,17 @@ const mockedDeployments = [
     },
   },
 ];
+
+const mockCluster = {
+  cluster_name: "dev-staging",
+  supported_accelerators: {
+    "Tesla-T4": 1,
+  },
+  max_generic_compute_size: {
+    Core: 3.92,
+    Memory: 15027,
+  },
+};
 @Injectable()
 export class ApiLocalService implements ApiService {
   listPhotons(): Observable<Photon[]> {
@@ -188,5 +200,9 @@ export class ApiLocalService implements ApiService {
         values: [],
       },
     ]);
+  }
+
+  getClusterInfo(): Observable<Cluster> {
+    return of(mockCluster);
   }
 }
