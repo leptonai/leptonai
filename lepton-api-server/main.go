@@ -91,6 +91,7 @@ func main() {
 	fmt.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
 
 	router := gin.Default()
+	router.Use(CORSMiddleware())
 	router.Use(requestid.New())
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
@@ -143,9 +144,10 @@ func main() {
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, PATCH")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
