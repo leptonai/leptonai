@@ -20,11 +20,6 @@ npm install
 
 Add `.env.development.local` file
 
-```
-PROXY_URL = ${proxy_url} # only useful for vercel
-CLUSTER_URL = ${k8s_cluster_url} # without http
-```
-
 In the project directory, you can run:
 
 ```shell

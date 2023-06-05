@@ -13,9 +13,9 @@ import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 
 @Injectable()
 export class ApiServerService implements ApiService {
-  private proxy = __PROXY_URL__;
-  private cluster = __CLUSTER_URL__;
-  private host = `${this.proxy}${this.cluster}/api/v1`;
+  private host = import.meta.env.PROD
+    ? `${import.meta.env.VITE_CLUSTER_URL}/api/v1`
+    : "/api/v1";
   listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }
@@ -65,7 +65,7 @@ export class ApiServerService implements ApiService {
     path: string
   ): Observable<unknown> {
     return this.httpClientService.post(
-      `${this.proxy}${this.cluster}${path}`,
+      `${import.meta.env.VITE_CLUSTER_URL}${path}`,
       value,
       {
         headers: {
@@ -132,9 +132,9 @@ export class ApiServerService implements ApiService {
     deploymentId: string,
     instanceId: string
   ): string {
-    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const host = __CLUSTER_URL__ || window.location.host;
-    return `${wsProtocol}://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
+    const host =
+      new URL(import.meta.env.VITE_CLUSTER_URL).host || window.location.host;
+    return `wss://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
   }
 
   getDeploymentInstanceMetrics(
