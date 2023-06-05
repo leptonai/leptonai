@@ -38,21 +38,18 @@ export interface Database {
         Row: {
           created_at: string | null;
           id: string;
-          name: string;
           token: string;
           url: string;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
-          name: string;
           token: string;
           url: string;
         };
         Update: {
           created_at?: string | null;
           id?: string;
-          name?: string;
           token?: string;
           url?: string;
         };

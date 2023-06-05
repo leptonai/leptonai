@@ -7,12 +7,11 @@
   "scripts": {
     "husky": "cd ../ && husky install ./web/.husky",
     "dev": "vite",
-    "test": "vitest run",
     "build": "tsc && vite build",
     "test": "vitest run",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "database:types": "npx supabase gen types typescript --local > src/interfaces/database.ts"
+    "database:types": "npx supabase gen types typescript --local > src/interfaces/database.ts && eslint src/interfaces/database.ts --fix"
   },
   "dependencies": {
     "@ant-design/icons": "^5.0.1",

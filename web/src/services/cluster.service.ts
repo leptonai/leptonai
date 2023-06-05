@@ -4,7 +4,6 @@ import { from, Observable } from "rxjs";
 
 export interface AuthenticatedCluster {
   id: string;
-  name: string;
   url: string;
   token: string;
 }
@@ -46,7 +45,7 @@ export class ClusterService {
   private async queryClusters(): Promise<AuthenticatedCluster[]> {
     const { data: clusters, error } = await this.authService.client
       .from("clusters")
-      .select(`id, token, name, url`);
+      .select(`id, token, url`);
 
     if (error) {
       throw error;
@@ -54,7 +53,6 @@ export class ClusterService {
 
     return (clusters || []).map((cluster) => ({
       id: cluster.id,
-      name: cluster.name,
       url: cluster.url,
       token: cluster.token,
     }));

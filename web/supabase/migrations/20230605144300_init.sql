@@ -5,7 +5,6 @@ create table public.clusters
     "id"            uuid   not null primary key default gen_random_uuid(),
     "created_at"    timestamp with time zone default now(),
     "token" text   not null unique,
-    "name"  text   not null,
     "url"   text   not null
 );
 
