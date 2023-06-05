@@ -60,7 +60,7 @@ export const Login = () => {
         </Logo>
         <Auth
           onlyThirdPartyProviders
-          providers={["google"]}
+          providers={["google", "github"]}
           redirectTo={window.location.origin}
           supabaseClient={authService.client}
           appearance={{
