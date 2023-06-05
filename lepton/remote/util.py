@@ -30,7 +30,7 @@ def is_command_installed(command: str):
 def run_terraform_apply(dir: str, name: str):
     os.makedirs(dir)
 
-    # TODO: slient the output
+    # TODO: silent the output
     git_clone = subprocess.Popen(['git', 'clone', 'git@github.com:leptonai/lepton.git'], cwd=dir, stdin=sys.stdin, text=True, stdout=sys.stdout, stderr=sys.stderr)
     git_clone.communicate()
     git_clone = subprocess.Popen(['git', 'clone', 'git@github.com:leptonai/infra-ops.git'], cwd=dir, stdin=sys.stdin, text=True, stdout=sys.stdout, stderr=sys.stderr)
@@ -52,7 +52,7 @@ def run_terraform_apply(dir: str, name: str):
     console.print('Initialized the installer (Terraform)')
 
     terraform_apply = subprocess.Popen(['terraform', 'apply', '-auto-approve', f'-var=cluster_name={name}'], cwd=t_dir, stdin=sys.stdin, text=True, stdout=sys.stdout, stderr=sys.stderr)
-    # TODO: slient the output
+    # TODO: silent the output
     terraform_apply.communicate()
     if terraform_apply.returncode != 0:
         console.print(f'Failed to create cluster {name} with terraform')
@@ -73,7 +73,7 @@ def run_terraform_destroy(dir: str, name: str):
 
     console.print(f'Removing the cluster in {dir}... Taking a few minutes...')
     terraform_destroy = subprocess.Popen(['terraform', 'destroy', '-auto-approve', f'-var=cluster_name={name}'], cwd=t_dir, stdin=sys.stdin, text=True, stdout=sys.stdout, stderr=sys.stderr)
-    # TODO: slient the output
+    # TODO: silent the output
     terraform_destroy.communicate()
     if terraform_destroy.returncode != 0:
         console.print(f'Failed to remove cluster {name} with terraform')

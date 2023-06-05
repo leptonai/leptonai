@@ -53,7 +53,7 @@ def create(name, model):
 @click.option(
     "--name",
     "-n",
-    help="Name of the Photon (The lastest version of the Photon will be used)",
+    help="Name of the Photon (The latest version of the Photon will be used)",
 )
 @click.option("--id", "-i", "id_", help="ID of the Photon")
 @click.option(

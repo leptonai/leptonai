@@ -57,7 +57,7 @@ class TestPhotonSdk(unittest.TestCase):
         self.assertEqual(ph.hf_revision, revision)
         ph.run(prompt="a cat", num_inference_steps=2)
 
-    def test_create_from_transfomers_model(self):
+    def test_create_from_transformers_model(self):
         model_id = "gpt2"
         model = AutoModel.from_pretrained(model_id)
 
@@ -67,7 +67,7 @@ class TestPhotonSdk(unittest.TestCase):
         self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
-    def test_create_from_transfomers_pipeline(self):
+    def test_create_from_transformers_pipeline(self):
         model_id = "gpt2"
         pipe = pipeline(model=model_id)
 

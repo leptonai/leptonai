@@ -50,7 +50,7 @@ func deploymentHostBasedIngressName(ld *leptonaiv1alpha1.LeptonDeployment) strin
 
 func deploymentIngressGroupName(ld *leptonaiv1alpha1.LeptonDeployment) string {
 	// TODO: separate control plane and deployment ingress groups.
-	// TOOD: shard deployments into multiple ingress groups because each
+	// TODO: shard deployments into multiple ingress groups because each
 	// ALB can only support 100 rules thus 100 deployments per ingress.
 	return controlPlaneIngressGroupName()
 }

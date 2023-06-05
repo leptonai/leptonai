@@ -171,7 +171,7 @@ class HuggingfacePhoton(RunnerPhoton):
 
         try:
             # NOTE: This is a highly private API in transformers.
-            # We can not gurantee always possible to extract the
+            # We can not guarantee always possible to extract the
             # revision for sdk usage
             revision = model.config._get_config_dict(model.name_or_path)[0][
                 "_commit_hash"
