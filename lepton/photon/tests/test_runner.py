@@ -23,7 +23,7 @@ import torch
 import lepton
 from lepton import Client
 from lepton.photon.api import create as create_photon, load_metadata
-from lepton.photon.constants import METADATA_VCS_URL_KEY
+from lepton.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from lepton.photon.cli import photon as cli
 from lepton.photon import RunnerPhoton as Runner
 from lepton.photon.runner import HTTPException, PNGResponse
@@ -522,6 +522,36 @@ from lepton.photon.runner import RunnerPhoton as Runner, handler
         proc.kill()
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.headers["Content-Type"], "image/png")
+
+    def test_allow_dashboard_cors(self):
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        name = random_name()
+        runner = CustomRunner(name=name)
+        path = runner.save()
+
+        proc, port = photon_run_server(path=path)
+        res = requests.post(
+            f"http://127.0.0.1:{port}",
+            json={"x": 1.0},
+            headers={"Origin": LEPTON_DASHBOARD_URL},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.headers["Access-Control-Allow-Origin"], LEPTON_DASHBOARD_URL
+        )
+
+        res = requests.post(
+            f"http://127.0.0.1:{port}",
+            json={"x": 1.0},
+            headers={"Origin": "https://some_other_url.com"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse("Access-Control-Allow-Origin" in res.headers)
+        proc.kill()
 
 
 if __name__ == "__main__":

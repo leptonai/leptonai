@@ -10,6 +10,7 @@ from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
 
 from fastapi import APIRouter, FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
@@ -17,7 +18,7 @@ from fastapi.responses import Response, JSONResponse, StreamingResponse
 import uvicorn
 
 from lepton.config import BASE_IMAGE, BASE_IMAGE_ARGS
-from lepton.photon.constants import METADATA_VCS_URL_KEY
+from lepton.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from lepton.photon.download import fetch_code_from_vcs
 from lepton.util import switch_cwd
 from .base import Photon, schema_registry
@@ -218,9 +219,38 @@ class RunnerPhoton(Photon):
     def run(self, *args, **kwargs):
         raise NotImplementedError
 
+    @staticmethod
+    def _add_cors_middlewares(app):
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                LEPTON_DASHBOARD_URL,
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=[
+                "Accept",
+                "Accept-Version",
+                "Content-Length",
+                "Content-MD5",
+                "Content-Type",
+                "Date",
+                "X-Api-Version",
+                "X-CSRF-Token",
+                "X-Requested-With",
+            ],
+        )
+
     def _create_app(self, load_mount):
         title = self.name.replace(".", "_")
         app = FastAPI(title=title)
+
+        # web hosted cdn and inference api have different domains:
+        # https://github.com/leptonai/lepton/issues/358
+        # TODO: remove this once our Ingress is capable of handling all these
+        # and make all communication internal from the deployment point of view
+        self._add_cors_middlewares(app)
+
         self._register_routes(app, load_mount)
         self._collect_metrics(app)
         return app
@@ -275,7 +305,9 @@ class RunnerPhoton(Photon):
 
                 num_params = len(inspect.signature(func).parameters)
                 if num_params > 2:
-                    raise ValueError(f"Gradio mount function should only have zero or one (app) argument")
+                    raise ValueError(
+                        f"Gradio mount function should only have zero or one (app) argument"
+                    )
                 if num_params == 2:
                     gr_blocks = func.__get__(self, self.__class__)(app)
                 else:
