@@ -9,12 +9,12 @@ from io import BytesIO
 import inspect
 import json
 from textwrap import dedent
+import shutil
 import subprocess
 import sys
 import unittest
 import zipfile
 
-from click.testing import CliRunner
 from loguru import logger
 import numpy as np
 import requests
@@ -22,6 +22,8 @@ import torch
 
 import lepton
 from lepton import Client
+from lepton.photon.api import create as create_photon, load_metadata
+from lepton.photon.constants import METADATA_VCS_URL_KEY
 from lepton.photon.cli import photon as cli
 from lepton.photon import RunnerPhoton as Runner
 from lepton.photon.runner import HTTPException, PNGResponse
@@ -448,6 +450,32 @@ from lepton.photon.runner import RunnerPhoton as Runner, handler
         proc, port = photon_run_server(
             name=name, model=f"py:file://{git_proj}:{custom_py}:CustomRunner"
         )
+        res = requests.post(
+            f"http://127.0.0.1:{port}/some_path",
+            json={"x": 1.0},
+        )
+        proc.kill()
+        self.assertEqual(res.status_code, 200)
+
+        # test environment variable substitution in vcs url
+        with switch_cwd(git_proj):
+            custom_py = os.path.join("d1", "d2", "custom.py")
+            custom_2_py = os.path.join("d1", "d2", "custom2.py")
+            shutil.copyfile(custom_py, custom_2_py)
+            subprocess.check_call(["git", "add", custom_2_py])
+            subprocess.check_call(["git", "commit", "-m", "add custom runner 2"])
+
+        name = random_name()
+        os.environ["GIT_PROJ_URL"] = git_proj
+        model = "py:file://${GIT_PROJ_URL}:" + custom_2_py + ":CustomRunner"
+        photon = create_photon(name=name, model=model)
+        path = photon.save()
+        metadata = load_metadata(path)
+        saved_url = metadata[METADATA_VCS_URL_KEY]
+        self.assertTrue("${GIT_PROJ_URL}" in saved_url)
+        self.assertFalse(git_proj in saved_url)
+
+        proc, port = photon_run_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/some_path",
             json={"x": 1.0},

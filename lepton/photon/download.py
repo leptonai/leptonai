@@ -21,6 +21,7 @@ def fetch_code_from_vcs(url, target_dir=None):
             f"VCS functionality is not available in this version ({pip.__version__}) of pip, try upgrading pip via `pip install --upgrade pip`"
         )
 
+    url = os.path.expandvars(url)
     link = Link(url)
     hidden_url = hide_url(url)
 
