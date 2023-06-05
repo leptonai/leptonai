@@ -14,7 +14,11 @@ def fetch_code_from_vcs(url, target_dir=None):
 
     try:
         from pip._internal.models.link import Link
-        from pip._internal.utils.misc import hide_url
+        from pip._internal.utils.misc import (
+            hide_url,
+            split_auth_netloc_from_url,
+            parse_netloc,
+        )
         from pip._internal.vcs import vcs
     except ImportError:
         raise RuntimeError(
@@ -42,12 +46,34 @@ def fetch_code_from_vcs(url, target_dir=None):
     if not vcs_backend:
         raise ValueError(f"Unrecognized VCS backend for {hidden_url}")
 
+    _, netloc, (auth_user, auth_passwd) = split_auth_netloc_from_url(url)
+    # TODO: check if git@github.com format url works with user:token
+    if link.scheme in ("git+http", "git+https") and netloc.startswith("github.com"):
+        autofilled_user = False
+        if auth_user is None and os.environ.get("GITHUB_USER"):
+            auth_user = os.environ.get("GITHUB_USER")
+            autofilled_user = True
+        autofilled_passwd = False
+        if auth_passwd is None and os.environ.get("GITHUB_TOKEN"):
+            auth_passwd = os.environ.get("GITHUB_TOKEN")
+            autofilled_passwd = True
+        # TODO: handle the case that only one of user and passwd is resolved
+        if (autofilled_user or autofilled_passwd) and (auth_user and auth_passwd):
+            url = url.replace(netloc, f"{auth_user}:{auth_passwd}@{netloc}")
+            link = Link(url)
+            hidden_url = hide_url(url)
+            logger.info(
+                f"Using environment variables GITHUB_USER and GITHUB_TOKEN to auth with github.com: {hidden_url}"
+            )
+            _, netloc, (_, _) = split_auth_netloc_from_url(url)
+
     if target_dir is None:
-        target_dir = os.path.join(
-            str(CACHE_DIR),
-            link.netloc.lstrip("/"),
-            link.path.lstrip("/").split("@")[0],
-        )
+        path_parts = [str(CACHE_DIR)]
+        if netloc:
+            hostname, _ = parse_netloc(netloc)
+            path_parts.append(hostname.lstrip("/"))
+        path_parts.append(link.path.lstrip("/").split("@")[0])
+        target_dir = os.path.join(*path_parts)
 
     vcs_backend.obtain(url=hidden_url, dest=target_dir, verbosity=-1)
 

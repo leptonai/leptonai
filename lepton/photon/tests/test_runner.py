@@ -465,23 +465,44 @@ from lepton.photon.runner import RunnerPhoton as Runner, handler
             subprocess.check_call(["git", "add", custom_2_py])
             subprocess.check_call(["git", "commit", "-m", "add custom runner 2"])
 
+        try:
+            name = random_name()
+            os.environ["GIT_PROJ_URL"] = git_proj
+            model = "py:file://${GIT_PROJ_URL}:" + custom_2_py + ":CustomRunner"
+            photon = create_photon(name=name, model=model)
+            path = photon.save()
+            metadata = load_metadata(path)
+            saved_url = metadata[METADATA_VCS_URL_KEY]
+            self.assertTrue("${GIT_PROJ_URL}" in saved_url)
+            self.assertFalse(git_proj in saved_url)
+            proc, port = photon_run_server(path=path)
+            res = requests.post(
+                f"http://127.0.0.1:{port}/some_path",
+                json={"x": 1.0},
+            )
+            proc.kill()
+            self.assertEqual(res.status_code, 200)
+        finally:
+            os.environ.pop("GIT_PROJ_URL")
+
+        # test github user & token autofill from environment variables
+        if not os.environ.get("GITHUB_USER") or not os.environ.get("GITHUB_TOKEN"):
+            logger.debug(
+                "Skip github user & token autofill test because env vars GITHUB_USER and GITHUB_TOKEN not set"
+            )
+            return
         name = random_name()
-        os.environ["GIT_PROJ_URL"] = git_proj
-        model = "py:file://${GIT_PROJ_URL}:" + custom_2_py + ":CustomRunner"
+        model = f"py:github.com/leptonai/examples:Counter/counter.py:Counter"
         photon = create_photon(name=name, model=model)
         path = photon.save()
-        metadata = load_metadata(path)
-        saved_url = metadata[METADATA_VCS_URL_KEY]
-        self.assertTrue("${GIT_PROJ_URL}" in saved_url)
-        self.assertFalse(git_proj in saved_url)
-
         proc, port = photon_run_server(path=path)
         res = requests.post(
-            f"http://127.0.0.1:{port}/some_path",
+            f"http://127.0.0.1:{port}/add",
             json={"x": 1.0},
         )
         proc.kill()
         self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), 1.0)
 
     def test_media_response(self):
         if "PYTEST_CURRENT_TEST" in os.environ:
