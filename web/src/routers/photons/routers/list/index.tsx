@@ -12,6 +12,7 @@ import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/photons/components/upload";
 import { PhotonItem } from "../../../../components/photon-item";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
+import { css } from "@emotion/react";
 
 export const List: FC = () => {
   const photonService = useInject(PhotonService);
@@ -40,6 +41,9 @@ export const List: FC = () => {
               suffix={
                 <Segmented
                   size="small"
+                  css={css`
+                    padding: 1px 2px;
+                  `}
                   value={view}
                   onChange={(v) => {
                     const layout = v as string;

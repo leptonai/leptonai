@@ -13,9 +13,10 @@ import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 
 @Injectable()
 export class ApiServerService implements ApiService {
-  private host = import.meta.env.PROD
-    ? `${import.meta.env.VITE_CLUSTER_URL}/api/v1`
-    : "/api/v1";
+  private host =
+    import.meta.env.PROD && import.meta.env.VITE_CLUSTER_URL
+      ? `${import.meta.env.VITE_CLUSTER_URL}/api/v1`
+      : "/api/v1";
   listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }
