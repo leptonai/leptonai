@@ -26,8 +26,8 @@ jobs:
       with:
         go-version: 1.19.x
 
-    - name: Build
-      run: cd lepton-api-server && go build -v ./...
-
     - name: Test
-      run: cd lepton-api-server && go test -v ./...
+      run: |
+        (cd lepton-api-server && go test -v ./...)
+        (cd lepton-deployment-operator && go test -v ./...)
+        (cd go-pkg && go test -v ./...)
