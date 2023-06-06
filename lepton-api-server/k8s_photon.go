@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 )
 
 var leptonAPIGroup = "lepton.ai"
@@ -24,15 +25,18 @@ var (
 	photonNamespace  = "default"
 )
 
-func ReadAllPhotonCR() ([]*leptonaiv1alpha1.Photon, error) {
-	dynamicClient := util.MustInitK8sDynamicClient()
-
-	// Get the custom resource definition
-	crdResource := schema.GroupVersionResource{
+// Returns a default photon "schema.GroupVersionResource"
+func createPhotonGVR() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
 		Group:    leptonAPIGroup,
 		Version:  photonAPIVersion,
 		Resource: photonResource,
 	}
+}
+
+func ReadAllPhotonCR(dynamicClient dynamic.Interface) ([]*leptonaiv1alpha1.Photon, error) {
+	// Get the custom resource definition
+	crdResource := createPhotonGVR()
 	crd, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).List(
 		context.TODO(),
 		metav1.ListOptions{},
@@ -57,11 +61,7 @@ func ReadPhotonCR(name string) (*leptonaiv1alpha1.Photon, error) {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Get the custom resource definition
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  photonAPIVersion,
-		Resource: photonResource,
-	}
+	crdResource := createPhotonGVR()
 	cr, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Get(
 		context.TODO(),
 		name,
@@ -83,11 +83,7 @@ func DeletePhotonCR(ph *leptonaiv1alpha1.Photon) error {
 	dynamicClient := util.MustInitK8sDynamicClient()
 
 	// Delete the custom resource object in Kubernetes
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  photonAPIVersion,
-		Resource: photonResource,
-	}
+	crdResource := createPhotonGVR()
 	err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Delete(
 		context.TODO(),
 		ph.GetUniqName(),
@@ -117,11 +113,7 @@ func CreatePhotonCR(ph *leptonaiv1alpha1.Photon) error {
 	}
 
 	// Create the custom resource object in Kubernetes
-	crdResource := schema.GroupVersionResource{
-		Group:    leptonAPIGroup,
-		Version:  photonAPIVersion,
-		Resource: photonResource,
-	}
+	crdResource := createPhotonGVR()
 	result, err := dynamicClient.Resource(crdResource).Namespace(photonNamespace).Create(
 		context.TODO(),
 		crd,

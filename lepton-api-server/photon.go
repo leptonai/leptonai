@@ -16,13 +16,14 @@ var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
 	// Initialize the photon database
-	metadataList, err := ReadAllPhotonCR()
+	dynamicClient := util.MustInitK8sDynamicClient()
+	phs, err := ReadAllPhotonCR(dynamicClient)
 	if err != nil {
 		// TODO: better error handling
 		panic(err)
 	}
 
-	photonDB.Add(metadataList...)
+	photonDB.Add(phs...)
 }
 
 func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
