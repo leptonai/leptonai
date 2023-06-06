@@ -8,41 +8,25 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Alert, Divider, Typography } from "antd";
 import { css } from "@emotion/react";
 import {
+  LeptonAPIItem,
   OpenApiService,
-  OperationWithPath,
 } from "@lepton-dashboard/services/open-api.service";
-import { from, map, switchMap } from "rxjs";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
+import { from, of, switchMap } from "rxjs";
 
 const ApiItem: FC<{
-  path: string;
-  operation: OperationWithPath;
-  deployment: Deployment;
-}> = ({ path, operation, deployment }) => {
+  api: LeptonAPIItem;
+}> = ({ api }) => {
   const theme = useAntdTheme();
   const openApiService = useInject(OpenApiService);
-  const url = deployment.status.endpoint.external_endpoint;
 
-  const request = useMemo(() => {
-    const contents = openApiService.listMediaTypeObjects(operation);
-    let requestBody: SafeAny = null;
-    if (contents["application/json"]) {
-      requestBody = openApiService.sampleFromSchema(
-        contents["application/json"].schema,
-        contents["application/json"].example
-      );
+  const curl = useMemo(() => {
+    if (api.request) {
+      return openApiService.curlify(api.request);
+    } else {
+      return "";
     }
-    return {
-      body: requestBody,
-    };
-  }, [openApiService, operation]);
+  }, [api.request, openApiService]);
 
-  const dataString = request?.body ? JSON.stringify(request.body) : "";
-  const queryText = `curl -s -X POST \\
-  -d '${dataString}' \\
-  -H 'deployment: ${deployment.name}' \\
-  -H 'Content-Type: application/json' \\
-  "${url}${path}"`;
   return (
     <Card paddingless shadowless borderless>
       <Divider
@@ -50,7 +34,7 @@ const ApiItem: FC<{
         orientation="left"
         orientationMargin={0}
       >
-        {path}
+        {api.operation.path}
       </Divider>
       <div
         css={css`
@@ -62,7 +46,7 @@ const ApiItem: FC<{
           }
         `}
       >
-        <Typography.Paragraph copyable={{ text: queryText }}>
+        <Typography.Paragraph copyable={{ text: curl }}>
           <pre
             css={css`
               margin: 0 !important;
@@ -72,7 +56,7 @@ const ApiItem: FC<{
               color: ${theme.colorTextSecondary} !important;
             `}
           >
-            {queryText}
+            {curl}
           </pre>
         </Typography.Paragraph>
       </div>
@@ -83,21 +67,23 @@ const ApiItem: FC<{
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
-  const operations = useStateFromObservable(
+  const apis = useStateFromObservable(
     () =>
       photonService.id(deployment.photon_id).pipe(
         switchMap((p) => {
           if (p?.openapi_schema) {
-            return from(openApiService.parse(p.openapi_schema));
+            const url = deployment.status.endpoint.external_endpoint;
+            return from(
+              openApiService.convertToLeptonAPIItems({
+                ...p.openapi_schema,
+                servers:
+                  p.openapi_schema?.servers?.length > 0
+                    ? p.openapi_schema.servers
+                    : [{ url }],
+              })
+            );
           }
-          return from(Promise.resolve(null));
-        }),
-        map((schema) => {
-          if (schema) {
-            return openApiService.listOperations(schema);
-          } else {
-            return [];
-          }
+          return of([]);
         })
       ),
     []
@@ -105,15 +91,10 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   return (
     <Card shadowless borderless>
-      {operations.length > 0 ? (
+      {apis.length > 0 ? (
         <>
-          {operations.map((operation) => (
-            <ApiItem
-              path={operation.path}
-              key={operation.operationId}
-              deployment={deployment}
-              operation={operation}
-            />
+          {apis.map((api) => (
+            <ApiItem api={api} key={api.operationId} />
           ))}
         </>
       ) : (

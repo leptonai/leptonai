@@ -21,7 +21,6 @@ import { ApiServerService } from "@lepton-dashboard/services/api.server.service"
 import { lazy } from "react";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
-import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
 import { Login } from "@lepton-dashboard/routers/login";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { ClusterService } from "@lepton-dashboard/services/cluster.service";
@@ -99,7 +98,6 @@ function App() {
         HttpClientService,
         NotificationService,
         StorageService,
-        JsonSchemaService,
         OpenApiService,
         { provide: ApiService, useClass: ApiServerService },
       ]}

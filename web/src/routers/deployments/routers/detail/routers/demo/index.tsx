@@ -11,11 +11,10 @@ import { css } from "@emotion/react";
 import { SchemaForm } from "@lepton-dashboard/routers/deployments/routers/detail/routers/demo/components/schema-form";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
+  LeptonAPIItem,
   OpenApiService,
-  OperationWithPath,
-  SchemaObject,
 } from "@lepton-dashboard/services/open-api.service";
-import { from, switchMap } from "rxjs";
+import { from, of, switchMap } from "rxjs";
 
 export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -24,29 +23,34 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const openApiService = useInject(OpenApiService);
 
   const [loading, setLoading] = useState(true);
-  const [operations, setOperations] = useState<OperationWithPath[]>([]);
+  const [apis, setApis] = useState<LeptonAPIItem[]>([]);
   const [operationId, setOperationId] = useState<string | undefined>(undefined);
   useStateFromObservable(
     () =>
       photonService.id(deployment.photon_id).pipe(
         switchMap((p) => {
           if (p?.openapi_schema) {
-            return from(openApiService.parse(p.openapi_schema));
+            const url = deployment.status.endpoint.external_endpoint;
+            return from(
+              openApiService.convertToLeptonAPIItems({
+                ...p.openapi_schema,
+                servers:
+                  p.openapi_schema?.servers?.length > 0
+                    ? p.openapi_schema.servers
+                    : [{ url }],
+              })
+            );
           }
-          return from(Promise.resolve(null));
+          return of([]);
         })
       ),
-    undefined,
+    [],
     {
-      next: (schema) => {
-        if (schema) {
-          const operations = openApiService.listOperations(schema);
-          setOperations(operations);
-
+      next: (items) => {
+        setApis(items);
+        if (items.length) {
           if (!operationId) {
-            if (operations.length > 0) {
-              setOperationId(operations[0].operationId);
-            }
+            setOperationId(items[0].operationId);
           }
         } else {
           setOperationId(undefined);
@@ -54,35 +58,30 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
         setLoading(false);
       },
-      error: () => setLoading(false),
+      error: (err) => {
+        console.error(err);
+        setLoading(false);
+      },
     }
   );
 
   const [result, setResult] = useState<SafeAny>("output should appear here");
   const { inputSchema, requestBody } = useMemo(() => {
-    const operation = operations.find((i) => i.operationId === operationId);
-    if (operation) {
-      const contents = openApiService.listMediaTypeObjects(operation);
-      let requestBody: SafeAny = null;
-      if (contents["application/json"]) {
-        requestBody = openApiService.sampleFromSchema(
-          contents["application/json"].schema,
-          contents["application/json"].example
-        );
-      }
+    const api = apis.find((i) => i.operationId === operationId);
+    if (api) {
       return {
-        inputSchema: contents["application/json"]?.schema as SchemaObject,
-        requestBody,
+        inputSchema: api.schema,
+        requestBody: api.request ? api.request.body : {},
       };
     } else {
       return { inputSchema: {}, requestBody: {} };
     }
-  }, [operations, operationId, openApiService]);
+  }, [apis, operationId]);
 
-  const path = useMemo(() => {
-    const operation = operations.find((i) => i.operationId === operationId);
-    return operation?.path ?? "";
-  }, [operations, operationId]);
+  const currentPath = useMemo(() => {
+    const api = apis.find((i) => i.operationId === operationId);
+    return api?.operation?.path ?? "";
+  }, [apis, operationId]);
 
   return (
     <Card
@@ -99,9 +98,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
         message={null}
         description="Parsing schema failed, please try call API manually."
       >
-        {operationId}
-        {operations.length}
-        {inputSchema && operationId && operations.length > 0 ? (
+        {inputSchema && operationId && apis.length > 0 ? (
           <Row gutter={[32, 16]}>
             <Col flex="1 0 400px">
               <Row
@@ -123,16 +120,16 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                     css={css`
                       width: 100%;
                     `}
-                    value={path}
+                    value={currentPath}
                     onChange={(v) => setOperationId(v)}
-                    options={operations.map((i) => {
-                      return { label: i.path, value: i.operationId };
+                    options={apis.map((i) => {
+                      return { label: i.operation.path, value: i.operationId };
                     })}
                   />
                 </Col>
               </Row>
               <SchemaForm
-                path={path}
+                path={currentPath}
                 deployment={deployment}
                 initData={requestBody}
                 resultChange={setResult}

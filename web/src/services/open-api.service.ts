@@ -1,7 +1,12 @@
 import { Injectable } from "injection-js";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
-import { sampleFromSchema } from "@lepton-libs/open-api-tool/samples";
+import { buildRequest } from "swagger-client/es/execute";
 import type { OpenAPI, OpenAPIV3_1, OpenAPIV3 } from "openapi-types";
+import {
+  sampleFromSchema,
+  curlBash,
+  OpenAPIRequest,
+} from "@lepton-libs/open-api-tool";
 
 enum HttpMethods {
   GET = "get",
@@ -23,9 +28,19 @@ export type OperationWithPath = OpenAPI.Operation<{ path: string }>;
 
 type MediaTypeObject = OpenAPIV3_1.MediaTypeObject | OpenAPIV3.MediaTypeObject;
 
-// TODO(hsuanxyz): support be support form-data and binary data(in formData too)
-type ALLOWED_MEDIA_TYPES = "application/json";
-const ALLOWED_MEDIA_TYPES: ALLOWED_MEDIA_TYPES[] = ["application/json"];
+type ALLOWED_MEDIA_TYPES = "application/json" | "multipart/form-data";
+// TODO(hsuanxyz): support be support binary data
+const ALLOWED_MEDIA_TYPES = [
+  "application/json",
+  "multipart/form-data",
+] as const;
+
+export interface LeptonAPIItem {
+  operationId: string;
+  operation: OperationWithPath;
+  request: OpenAPIRequest | null;
+  schema: SchemaObject | null;
+}
 
 @Injectable()
 export class OpenApiService {
@@ -42,6 +57,52 @@ export class OpenApiService {
     } else {
       return resolved.spec as OpenAPI.Document;
     }
+  }
+
+  async convertToLeptonAPIItems(
+    unparsedSchema: OpenAPI.Document
+  ): Promise<LeptonAPIItem[]> {
+    const parsedSchema = await this.parse(unparsedSchema);
+    if (!parsedSchema) {
+      return [];
+    }
+    const operations = this.listOperations(parsedSchema);
+    const apiItems = operations
+      .filter((operation) => operation.operationId)
+      .map(async (operation) => {
+        const contents = this.listMediaTypeObjects(operation);
+        let requestBody: OpenAPIRequest["body"] = null;
+        let schema: SchemaObject | null = null;
+        let request: OpenAPIRequest | null = null;
+        if (contents["application/json"]) {
+          requestBody = this.sampleFromSchema(
+            contents["application/json"].schema,
+            contents["application/json"].example
+          );
+          schema =
+            (contents["application/json"].schema as SchemaObject) || null;
+        } else if (contents["multipart/form-data"]) {
+          requestBody = this.sampleFromSchema(
+            contents["multipart/form-data"].schema,
+            contents["multipart/form-data"].example
+          );
+          schema =
+            (contents["multipart/form-data"].schema as SchemaObject) || null;
+        }
+        request = await this.buildRequest(
+          parsedSchema,
+          operation.operationId!,
+          requestBody
+        );
+        return {
+          operationId: operation.operationId!,
+          operation,
+          request,
+          schema,
+        };
+      });
+
+    return Promise.all(apiItems);
   }
 
   listOperations(schema: OpenAPI.Document): OperationWithPath[] {
@@ -105,9 +166,6 @@ export class OpenApiService {
     operationId: string,
     requestBody?: SafeAny
   ) {
-    const buildRequest = await import("swagger-client/es/execute").then(
-      (m) => m.buildRequest
-    );
     return buildRequest({
       spec,
       operationId,
@@ -123,11 +181,12 @@ export class OpenApiService {
     // TODO
   }
 
-  /**
-   * From https://github.com/swagger-api/swagger-ui/blob/021a1d495c84ee79c4792a92c93d73aee9c4a9c2/src/core/plugins/request-snippets/fn.js#L153
-   * Input request object, output curl string.
-   */
-  curlify(_request: SafeAny) {
-    // TODO
+  curlify(request: OpenAPIRequest) {
+    try {
+      return curlBash(request);
+    } catch (e) {
+      console.error(e);
+      return "";
+    }
   }
 }
