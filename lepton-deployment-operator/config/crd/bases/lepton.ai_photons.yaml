@@ -46,6 +46,8 @@ spec:
                   format: int32
                   type: integer
                 type: array
+              id:
+                type: string
               image:
                 type: string
               model:
@@ -63,6 +65,7 @@ spec:
             - container_args
             - entrypoint
             - exposed_ports
+            - id
             - image
             - model
             - name

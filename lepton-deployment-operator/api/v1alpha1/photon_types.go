@@ -25,7 +25,8 @@ import (
 
 // PhotonSpec defines the desired state of Photon
 type PhotonSpec struct {
-	PhotonUserSpec `json:",inline"`
+	PhotonUserSpec   `json:",inline"`
+	PhotonSystemSpec `json:",inline"`
 }
 
 // PhotonUserSpec defines the user-controlled spec.
@@ -40,6 +41,11 @@ type PhotonUserSpec struct {
 	OpenAPISchema         runtime.RawExtension `json:"openapi_schema"`
 }
 
+// PhotonSystemSpec defines the system-controlled spec.
+type PhotonSystemSpec struct {
+	ID string `json:"id"`
+}
+
 // GetName returns the name of the photon.
 func (p Photon) GetName() string {
 	return p.Spec.Name
@@ -52,18 +58,12 @@ func (p Photon) GetUniqName() string {
 
 // GetID returns the id of the photon.
 func (p Photon) GetID() string {
-	if p.Annotations == nil {
-		return ""
-	}
-	return p.Annotations["lepton.ai/id"]
+	return p.Spec.ID
 }
 
 // SetID sets the id of the photon.
 func (p *Photon) SetID(id string) {
-	if p.Annotations == nil {
-		p.Annotations = make(map[string]string)
-	}
-	p.Annotations["lepton.ai/id"] = id
+	p.Spec.ID = id
 }
 
 // GetVersion returns the version of the photon.
