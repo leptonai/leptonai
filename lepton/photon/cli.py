@@ -57,7 +57,7 @@ def create(name, model):
 )
 @click.option("--id", "-i", "id_", help="ID of the Photon")
 @click.option(
-    "--remote_url",
+    "--remote-url",
     "-r",
     help="Remote URL of the Lepton Server",
 )
@@ -88,7 +88,7 @@ def remove(name, id_, remote_url):
 
 @photon.command()
 @click.option(
-    "--remote_url",
+    "--remote-url",
     "-r",
     help="Remote URL of the Lepton Server",
     callback=get_remote_url,
@@ -130,11 +130,11 @@ def list(remote_url):
 @click.option("--file", "-f", "path", help="Path to .photon file")
 @click.option("--port", "-p", help="Port to run on", default=8080)
 @click.option(
-    "--remote_url",
+    "--remote-url",
     "-r",
     help="Remote URL of the Lepton Server",
 )
-@click.option("--id", "-i", help="ID of the Photon")
+@click.option("--id", "-i", help="ID of the Photon (only required for remote)")
 @click.pass_context
 def run(ctx, name, model, path, port, remote_url, id):
     remote_url = remote.get_remote_url(remote_url)
@@ -238,7 +238,7 @@ def prepare(ctx, path):
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon", required=True)
 @click.option(
-    "--remote_url",
+    "--remote-url",
     "-r",
     help="Remote URL of the Lepton Server",
     callback=get_remote_url,
@@ -260,7 +260,7 @@ def push(name, remote_url):
 @photon.command()
 @click.option("--id", "-i", help="ID of the Photon", required=True)
 @click.option(
-    "--remote_url",
+    "--remote-url",
     "-r",
     help="Remote URL of the Lepton Server",
     callback=get_remote_url,

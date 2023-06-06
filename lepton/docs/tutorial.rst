@@ -3,7 +3,7 @@ Tutorial
 
 After installation, ``pip`` adds a new command ``lepton`` to your environment. You can use this ``lepton`` command line tool to create, run and manage AI model and application services both locally and on Lepton Inference Platform.
 
-You can serve an existing model from Hugging Face with just one simple command:
+You can serve an existing model from Hugging Face with a single ``lepton photon run`` command:
 
 
 ::
@@ -23,6 +23,8 @@ You can serve an existing model from Hugging Face with just one simple command:
 
 Under the hood lepton creates a photon (because it does not exist before) on the fly and launch an http server to run the corresponding lepton. Once the photon service is up, you can send requests to the ``/run`` rest url with web requests tool, e.g.
 
+Note that ``lepton photon run``` supports remote deployment that instantiates the model on remote environments.
+
 ::
 
    # Use `curl` in a separate terminal tab
@@ -31,7 +33,7 @@ Under the hood lepton creates a photon (because it does not exist before) on the
    [{"generated_text":"a cat, but she likes to sleep under the covers.\n\n\"She's a nice girl, but she's not very good at sleeping,\" she said.\n\nThe girl was found wrapped in a blanket, wrapped in a blanket with tiny"}]
 
 
-You can also use ``lepton photon create`` to create the photon in a finer control, e.g.:
+You can also use ``lepton photon create`` to create the photon locally for a finer control, e.g.:
 
 
 ``$ lepton photon create -n gpt2 -m hf:gpt2``
