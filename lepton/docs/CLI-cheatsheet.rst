@@ -60,20 +60,16 @@ Write docs
 
 Then go visit localhost: http://127.0.0.1:8080/html/
 
-
 Remote mode usage
 
 .. code:: shell
+
    # List remotes
    lepton remote list
-   
    # Switch to remote cluster via url
    lepton remote login -r https://dev-staging.cloud.lepton.ai/api/v1
-
    # Switch to remote cluster via name
    lepton remote login -n staging
-
    # Push photon to remote from local
    lepton photon push -n {PHOTON_NAME}
-
-   
+  
