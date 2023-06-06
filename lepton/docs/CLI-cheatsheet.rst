@@ -1,4 +1,4 @@
-Cheatsheet
+CLI Cheatsheet
 =============
 
 Create Photon
@@ -7,6 +7,7 @@ Create Photon
 
    lepton photon create -n gpt2 -m hf:gpt2 
    lepton photon create -n some-python -m py:./some-counter.py:Counter
+
 
 
 Run Photon
@@ -73,3 +74,46 @@ Remote mode usage
    # Push photon to remote from local
    lepton photon push -n {PHOTON_NAME}
   
+
+Setup for creating photon from Github
+=====================================
+
+Step 1: Generate a token
+------------------------
+Go to `Github Personal Access Tokens Page <https://github.com/settings/tokens?type=beta>`_, click **Generate new token**. Make the following changes based on your requirements:
+
+- Resource Owner: Change it to the owner of the repo from which you will be creating the photon.
+- Repository access: For security purposes, only select the repo you'd like to be used.
+- Permissions:
+    - Contents: Give read-only permission.
+
+Then click **Generate token**.
+
+Step 2: Set up the environment variable for CLI to pull the repo
+----------------------------------------------------------------
+In the terminal, type in the following commands:
+
+.. code-block:: bash
+
+   export GITHUB_USER={YOUR_GITHUB_USERNAME}
+   export GITHUB_TOKEN={THE_TOKEN_GENERATED_FROM_STEP_1}
+
+Step 3: Create photon via lepton cli
+------------------------------------
+
+.. code-block:: bash
+
+   lepton photon create -n {PHOTON_NAME} -m py:{GIT_REPO_URL}:{PATH_TO_SCRIPT}:{CLASS_NAME}
+
+
++----------------+------------------------------------------------------+---------------------------------------------+
+| Key            | Description                                          | Example                                     |
++================+======================================================+=============================================+
+| PHOTON_NAME    | The name of the photon                               | my-fs-counter                               |
++----------------+------------------------------------------------------+---------------------------------------------+
+| GIT_REPO_URL   | The url for the repo                                 | github.com/leptonai/examples.git            |
++----------------+------------------------------------------------------+---------------------------------------------+
+| PATH_TO_SCRIPT | The file extends the runner class                    | Counter_with_file_and_dependency/counter.py |
++----------------+------------------------------------------------------+---------------------------------------------+
+| CLASS_NAME     | The class extends the runner class inside the script | Counter                                     |
++----------------+------------------------------------------------------+---------------------------------------------+
