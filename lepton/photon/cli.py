@@ -244,6 +244,11 @@ def prepare(ctx, path):
     callback=get_remote_url,
 )
 def push(name, remote_url):
+    if remote_url is None:
+        console.print("You are not logged in.")
+        console.print("You must log in ($lepton remote login) or specify \
+--remote_url.")
+        sys.exit(1)
     path = find_photon(name)
     if path is None or not os.path.exists(path):
         console.print(f'Photon "{name}" [red]does not exist[/]')
