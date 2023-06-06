@@ -253,7 +253,7 @@ export const DeploymentForm: FC<{
         label="Accelerator Number"
         name="accelerator_num"
       >
-        <InputNumber disabled={edit} style={{ width: "100%" }} />
+        <InputNumber min={0} disabled={edit} style={{ width: "100%" }} />
       </Form.Item>
       <Form.Item label="Environment Variables">
         <Form.List name="envs">

@@ -226,7 +226,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Description.Item
                   icon={<CarbonIcon icon={<FlowModeler />} />}
                   description={
-                    deployment.resource_requirement.accelerator_type ? (
+                    deployment.resource_requirement.accelerator_num ? (
                       <>
                         {deployment.resource_requirement.accelerator_type}
                         <CloseOutlined
