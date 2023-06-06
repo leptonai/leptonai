@@ -257,12 +257,15 @@ class RunnerPhoton(Photon):
 
     @staticmethod
     def _uvicorn_log_config():
-        # Filter out /healthz
-        class HealthzFilter(logging.Filter):
+        # Filter out /healthz and /metrics from uvicorn access log
+        class LogFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
-                return record.getMessage().find("/healthz ") == -1
+                return (
+                    record.getMessage().find("/healthz ") == -1
+                    and record.getMessage().find("/metrics ") == -1
+                )
 
-        logging.getLogger("uvicorn.access").addFilter(HealthzFilter())
+        logging.getLogger("uvicorn.access").addFilter(LogFilter())
 
         # prepend timestamp to log
         log_config = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
