@@ -38,19 +38,16 @@ export interface Database {
         Row: {
           created_at: string | null;
           id: string;
-          token: string;
           url: string;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
-          token: string;
           url: string;
         };
         Update: {
           created_at?: string | null;
           id?: string;
-          token?: string;
           url?: string;
         };
         Relationships: [];
@@ -59,16 +56,19 @@ export interface Database {
         Row: {
           cluster_id: string;
           id: number;
+          token: string;
           user_id: string;
         };
         Insert: {
           cluster_id: string;
           id?: number;
+          token: string;
           user_id: string;
         };
         Update: {
           cluster_id?: string;
           id?: number;
+          token?: string;
           user_id?: string;
         };
         Relationships: [
