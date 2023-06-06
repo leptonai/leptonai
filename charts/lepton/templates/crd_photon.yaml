@@ -67,15 +67,9 @@ spec:
                   type: string
                 type: array
             required:
-            - container_args
-            - entrypoint
-            - exposed_ports
             - id
             - image
-            - model
             - name
-            - openapi_schema
-            - requirement_dependency
             type: object
           status:
             description: PhotonStatus defines the observed state of Photon. It is

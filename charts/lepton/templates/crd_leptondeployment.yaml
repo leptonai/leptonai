@@ -88,8 +88,6 @@ spec:
                     format: int32
                     type: integer
                 required:
-                - accelerator_num
-                - accelerator_type
                 - cpu
                 - memory
                 - min_replicas
@@ -99,17 +97,13 @@ spec:
               service_account_name:
                 type: string
             required:
-            - api_tokens
             - bucket_name
-            - certificate_arn
-            - envs
             - name
             - photon_id
             - photon_image
             - photon_name
             - photon_prefix
             - resource_requirement
-            - root_domain
             - service_account_name
             type: object
           status:

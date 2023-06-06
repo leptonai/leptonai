@@ -31,14 +31,20 @@ type PhotonSpec struct {
 
 // PhotonUserSpec defines the user-controlled spec.
 type PhotonUserSpec struct {
-	Name                  string               `json:"name"`
-	Model                 string               `json:"model"`
-	RequirementDependency []string             `json:"requirement_dependency"`
-	Image                 string               `json:"image"`
-	Entrypoint            string               `json:"entrypoint"`
-	ExposedPorts          []int32              `json:"exposed_ports"`
-	ContainerArgs         []string             `json:"container_args"`
-	OpenAPISchema         runtime.RawExtension `json:"openapi_schema"`
+	Name string `json:"name"`
+	// +optional
+	Model string `json:"model"`
+	// +optional
+	RequirementDependency []string `json:"requirement_dependency"`
+	Image                 string   `json:"image"`
+	// +optional
+	Entrypoint string `json:"entrypoint"`
+	// +optional
+	ExposedPorts []int32 `json:"exposed_ports"`
+	// +optional
+	ContainerArgs []string `json:"container_args"`
+	// +optional
+	OpenAPISchema runtime.RawExtension `json:"openapi_schema"`
 }
 
 // PhotonSystemSpec defines the system-controlled spec.

@@ -30,14 +30,17 @@ type LeptonDeploymentSpec struct {
 
 // LeptonDeploymentStatus defines the system-controlled spec.
 type LeptonDeploymentSystemSpec struct {
-	PhotonName         string   `json:"photon_name"`
-	PhotonImage        string   `json:"photon_image"`
-	BucketName         string   `json:"bucket_name"`
-	PhotonPrefix       string   `json:"photon_prefix"`
-	ServiceAccountName string   `json:"service_account_name"`
-	RootDomain         string   `json:"root_domain"`
-	APITokens          []string `json:"api_tokens"`
-	CertificateARN     string   `json:"certificate_arn"`
+	PhotonName         string `json:"photon_name"`
+	PhotonImage        string `json:"photon_image"`
+	BucketName         string `json:"bucket_name"`
+	PhotonPrefix       string `json:"photon_prefix"`
+	ServiceAccountName string `json:"service_account_name"`
+	// +optional
+	RootDomain string `json:"root_domain"`
+	// +optional
+	APITokens []string `json:"api_tokens"`
+	// +optional
+	CertificateARN string `json:"certificate_arn"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.
@@ -45,7 +48,8 @@ type LeptonDeploymentUserSpec struct {
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
-	Envs                []EnvVar                            `json:"envs"`
+	// +optional
+	Envs []EnvVar `json:"envs"`
 }
 
 // GetName returns the name of the deployment.
@@ -80,11 +84,13 @@ func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
 
 // LeptonDeploymentResourceRequirement defines the resource requirement of the deployment.
 type LeptonDeploymentResourceRequirement struct {
-	CPU             float64 `json:"cpu"`
-	Memory          int64   `json:"memory"`
-	AcceleratorType string  `json:"accelerator_type"`
-	AcceleratorNum  float64 `json:"accelerator_num"`
-	MinReplicas     int32   `json:"min_replicas"`
+	CPU    float64 `json:"cpu"`
+	Memory int64   `json:"memory"`
+	// +optional
+	AcceleratorType string `json:"accelerator_type"`
+	// +optional
+	AcceleratorNum float64 `json:"accelerator_num"`
+	MinReplicas    int32   `json:"min_replicas"`
 }
 
 // EnvVar defines the environment variable of the deployment.
