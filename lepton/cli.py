@@ -1,5 +1,5 @@
 import click
-from .photon import cli as photo_cli
+from .photon import cli as photon_cli
 from .remote import cli as remote_cli
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -10,7 +10,7 @@ def lepton():
     pass
 
 
-photo_cli.add_command(lepton)
+photon_cli.add_command(lepton)
 remote_cli.add_command(lepton)
 
 

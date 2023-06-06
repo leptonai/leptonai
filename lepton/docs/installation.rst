@@ -16,3 +16,5 @@ Currently we have not released the package to PyPI yet, so you would need to ins
 ``pip install ./lepton``
 
 to do a local install.
+
+On successful installation, you can run the following ``lepton photon --help``.
