@@ -39,6 +39,15 @@ jobs:
         docker build . --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Build LeptonDeployment operator Docker image
+      env:
+        ECR_REPOSITORY: lepton-deployment-operator
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker build . --file lepton-deployment-operator/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Build Lepton web Docker image
       env:
         ECR_REPOSITORY: lepton-web
@@ -60,9 +69,11 @@ jobs:
       env:
         KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         API_SERVER_ECR_REPOSITORY: lepton-api-server
+        LD_OPERATOR_ECR_REPOSITORY: lepton-deployment-operator
         WEB_ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
       run: |
         kubectl set image deployment/$API_SERVER_ECR_REPOSITORY $API_SERVER_ECR_REPOSITORY=$ECR_REGISTRY/$API_SERVER_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl set image deployment/$LD_OPERATOR_ECR_REPOSITORY $LD_OPERATOR_ECR_REPOSITORY=$ECR_REGISTRY/$LD_OPERATOR_ECR_REPOSITORY:$IMAGE_TAG
         kubectl set image deployment/$WEB_ECR_REPOSITORY $WEB_ECR_REPOSITORY=$ECR_REGISTRY/$WEB_ECR_REPOSITORY:$IMAGE_TAG
