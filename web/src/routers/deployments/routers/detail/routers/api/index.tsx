@@ -5,25 +5,41 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { JsonSchemaService } from "@lepton-dashboard/services/json-schema.service";
 import { Alert, Divider, Typography } from "antd";
 import { css } from "@emotion/react";
-import { Photon } from "@lepton-dashboard/interfaces/photon";
+import {
+  OpenApiService,
+  OperationWithPath,
+} from "@lepton-dashboard/services/open-api.service";
+import { from, map, switchMap } from "rxjs";
+import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 
 const ApiItem: FC<{
   path: string;
-  photon?: Photon;
+  operation: OperationWithPath;
   deployment: Deployment;
-}> = ({ path, photon, deployment }) => {
+}> = ({ path, operation, deployment }) => {
   const theme = useAntdTheme();
+  const openApiService = useInject(OpenApiService);
   const url = deployment.status.endpoint.external_endpoint;
-  const jsonSchemaService = useInject(JsonSchemaService);
-  const { inputExample } = useMemo(() => {
-    return jsonSchemaService.parse(photon?.openapi_schema, path);
-  }, [jsonSchemaService, path, photon?.openapi_schema]);
-  const exampleString = inputExample ? JSON.stringify(inputExample) : "";
+
+  const request = useMemo(() => {
+    const contents = openApiService.listMediaTypeObjects(operation);
+    let requestBody: SafeAny = null;
+    if (contents["application/json"]) {
+      requestBody = openApiService.sampleFromSchema(
+        contents["application/json"].schema,
+        contents["application/json"].example
+      );
+    }
+    return {
+      body: requestBody,
+    };
+  }, [openApiService, operation]);
+
+  const dataString = request?.body ? JSON.stringify(request.body) : "";
   const queryText = `curl -s -X POST \\
-  -d '${exampleString}' \\
+  -d '${dataString}' \\
   -H 'deployment: ${deployment.name}' \\
   -H 'Content-Type: application/json' \\
   "${url}${path}"`;
@@ -66,19 +82,38 @@ const ApiItem: FC<{
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
-  const photon = useStateFromObservable(
-    () => photonService.id(deployment.photon_id),
-    undefined
+  const openApiService = useInject(OpenApiService);
+  const operations = useStateFromObservable(
+    () =>
+      photonService.id(deployment.photon_id).pipe(
+        switchMap((p) => {
+          if (p?.openapi_schema) {
+            return from(openApiService.parse(p.openapi_schema));
+          }
+          return from(Promise.resolve(null));
+        }),
+        map((schema) => {
+          if (schema) {
+            return openApiService.listOperations(schema);
+          } else {
+            return [];
+          }
+        })
+      ),
+    []
   );
-  const jsonSchemaService = useInject(JsonSchemaService);
-  const paths = jsonSchemaService.getPaths(photon?.openapi_schema);
 
   return (
     <Card shadowless borderless>
-      {paths.length > 0 ? (
+      {operations.length > 0 ? (
         <>
-          {paths.map((p) => (
-            <ApiItem path={p} key={p} deployment={deployment} photon={photon} />
+          {operations.map((operation) => (
+            <ApiItem
+              path={operation.path}
+              key={operation.operationId}
+              deployment={deployment}
+              operation={operation}
+            />
           ))}
         </>
       ) : (

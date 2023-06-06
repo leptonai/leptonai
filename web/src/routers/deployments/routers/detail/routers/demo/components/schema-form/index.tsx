@@ -10,12 +10,14 @@ import { Form } from "@rjsf/antd";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
-  const optionalSchema: JSONSchema7 = {
+import { SchemaObject } from "@lepton-dashboard/services/open-api.service";
+const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
+  const optionalSchema: SchemaObject = {
     properties: {},
+    type: "object",
   };
   const { properties, required } = schema;
-  const requiredProperties: JSONSchema7["properties"] = {};
+  const requiredProperties: SchemaObject["properties"] = {};
   if (properties && required) {
     Object.keys(properties).forEach((key) => {
       const propertyValue = properties![key];
@@ -27,7 +29,6 @@ const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
     });
   }
   return {
-    components: (schema as SafeAny).components,
     properties: {
       ...requiredProperties,
       optional: optionalSchema,
@@ -38,7 +39,7 @@ const convertToOptionalSchema = (schema: JSONSchema7): JSONSchema7 => {
 };
 
 const convertToOptionalSchemaData = (
-  schema: JSONSchema7,
+  schema: SchemaObject,
   initData: SafeAny
 ): SafeAny => {
   const { required } = schema;
@@ -74,7 +75,7 @@ export const SchemaForm = memo<{
   initData: SafeAny;
   path: string;
   deployment: Deployment;
-  schema: JSONSchema7;
+  schema: SchemaObject;
   resultChange: (value: string) => void;
 }>(
   ({ initData, schema, deployment, resultChange, path }) => {
