@@ -22,7 +22,8 @@ Push Photon
 .. code:: shell
    
    lepton photon push -n some-foo-bar -r http://k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com
-   lepton photon push -n bar-py -r http://k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com
+   lepton photon push -n Earning_Call_with_image -r http://k8s-default-leptontf-2dfefce868-1895553700.us-east-1.elb.amazonaws.com
+
 
 Fetch Photon
 
@@ -58,3 +59,21 @@ Write docs
    http-server
 
 Then go visit localhost: http://127.0.0.1:8080/html/
+
+
+Remote mode usage
+
+.. code:: shell
+   # List remotes
+   lepton remote list
+   
+   # Switch to remote cluster via url
+   lepton remote login -r https://dev-staging.cloud.lepton.ai/api/v1
+
+   # Switch to remote cluster via name
+   lepton remote login -n staging
+
+   # Push photon to remote from local
+   lepton photon push -n {PHOTON_NAME}
+
+   
