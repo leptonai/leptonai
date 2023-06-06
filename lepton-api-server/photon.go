@@ -40,7 +40,7 @@ func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 		}
 	}
 	if metadataFile == nil {
-		return nil, err
+		return nil, fmt.Errorf("metadata.json not found in photon")
 	}
 
 	// Read the contents of the metadata.json file
@@ -55,13 +55,14 @@ func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 	}
 
 	// Unmarshal the JSON into a Metadata struct
-	var ph leptonaiv1alpha1.Photon
+	ph := &leptonaiv1alpha1.Photon{}
 	if err := json.Unmarshal(metadataBytes, &ph.Spec.PhotonUserSpec); err != nil {
 		return nil, err
 	}
 	if !util.ValidateName(ph.Spec.Name) {
 		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
+	ph.SetID(util.HexHash(body))
 
-	return &ph, nil
+	return ph, nil
 }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -89,15 +88,11 @@ func photonPostHandler(c *gin.Context) {
 		return
 	}
 
-	pid := util.HexHash(body)
-
 	ph, err := getPhotonFromMetadata(body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "failed to get photon metadata: " + err.Error()})
 		return
 	}
-
-	ph.SetID(pid)
 
 	err = CreatePhotonCR(ph)
 	if err != nil {

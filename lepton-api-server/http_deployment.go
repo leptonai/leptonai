@@ -30,6 +30,10 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
 		return
 	}
+	if len(deploymentDB.GetByName(ld.GetName())) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetName() + " already exists."})
+		return
+	}
 
 	ph := photonDB.GetByID(ld.Spec.PhotonID)
 	if ph == nil {

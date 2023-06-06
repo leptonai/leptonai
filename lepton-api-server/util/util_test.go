@@ -1,6 +1,8 @@
 package util
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestValidateName(t *testing.T) {
 	if !ValidateName("test") {
@@ -30,10 +32,18 @@ func TestValidateName(t *testing.T) {
 	if ValidateName("test-123-abc-xyz-") {
 		t.Error("validateName failed")
 	}
-	if !ValidateName("abcdef0123456789") {
+	if !ValidateName("abcdefghijklmnopqrstuv0123456789") {
 		t.Error("validateName failed")
 	}
-	if ValidateName("abcdef01234567899") {
+	if ValidateName("abcdefghijklmnopqrstuv01234567899") {
 		t.Error("validateName failed")
+	}
+}
+
+func TestHexHash(t *testing.T) {
+	text := []byte("test")
+	hash := HexHash(text)
+	if hash != "167mnja6" {
+		t.Error("HexHash failed")
 	}
 }

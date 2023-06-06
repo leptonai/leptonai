@@ -54,6 +54,7 @@ func (db *NameDB[T]) GetByID(id string) *T {
 func (db *NameDB[T]) GetByName(name string) []*T {
 	db.lock.RLock()
 	if db.dataByName[name] == nil {
+		db.lock.RUnlock()
 		return nil
 	}
 	ts := make([]*T, 0, len(db.dataByName[name]))
