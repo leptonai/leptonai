@@ -8,7 +8,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 
-	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -40,18 +39,17 @@ func mustInitAPIServerIngress() {
 	}
 	annotation.SetDomainNameAndSSLCert()
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(deploymentNameAPIServer), apiServerPort, apiServerPath)
-	ingress := newIngress(ingress.IngressName(deploymentNameAPIServer), ingressNamespace, "", annotation.Get(), paths.Get(), nil)
+	ingress := ingress.NewIngress(ingress.IngressName(deploymentNameAPIServer), ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
 		Update(context.Background(), ingress, metav1.UpdateOptions{})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
-				Create(context.Background(), ingress, metav1.CreateOptions{})
-			if err != nil {
-				panic(err)
-			}
-		} else {
+		if !apierrors.IsNotFound(err) {
+			panic(err)
+		}
+		result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
+			Create(context.Background(), ingress, metav1.CreateOptions{})
+		if err != nil {
 			panic(err)
 		}
 	}
@@ -79,51 +77,20 @@ func mustInitUnauthorizedErrorIngress() {
 	paths := ingress.NewPrefixPaths()
 	paths.AddAnnotationPath(serviceNameForUnauthorizedDeployment, rootPath)
 	paths.AddAnnotationPath(serviceNameForUnauthorizedAPIServer, apiServerPath)
-	ingress := newIngress(ingressNameForUnauthorizedAccess, ingressNamespace, "", annotation.Get(), paths.Get(), nil)
+	ingress := ingress.NewIngress(ingressNameForUnauthorizedAccess, ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
 	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
 		Update(context.Background(), ingress, metav1.UpdateOptions{})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
-				Create(context.Background(), ingress, metav1.CreateOptions{})
-			if err != nil {
-				panic(err)
-			}
-		} else {
+		if !apierrors.IsNotFound(err) {
+			panic(err)
+		}
+		result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
+			Create(context.Background(), ingress, metav1.CreateOptions{})
+		if err != nil {
 			panic(err)
 		}
 	}
 
 	fmt.Printf("Created/updated Ingress %q.\n", result.GetObjectMeta().GetName())
-}
-
-func newIngress(name, namespace, hostName string, annotation map[string]string, paths []networkingv1.HTTPIngressPath, or *metav1.OwnerReference) *networkingv1.Ingress {
-	albstr := "alb"
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotation,
-		},
-		Spec: networkingv1.IngressSpec{
-			IngressClassName: &albstr,
-			Rules: []networkingv1.IngressRule{
-				{
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: paths,
-						},
-					},
-				},
-			},
-		},
-	}
-	if len(hostName) > 0 {
-		ingress.Spec.Rules[0].Host = hostName
-	}
-	if or != nil {
-		ingress.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
-	}
-	return ingress
 }
