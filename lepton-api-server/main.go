@@ -83,7 +83,7 @@ func main() {
 	mustInitAPIServerIngress()
 	mustInitUnauthorizedErrorIngress()
 
-	httpapi.Init(*prometheusURLFlag, deploymentDB, photonDB)
+	httpapi.Init(*prometheusURLFlag, *namespaceFlag, deploymentDB, photonDB)
 	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
 
 	fmt.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
@@ -113,9 +113,9 @@ func main() {
 	v1.PATCH("/deployments/:did", deploymentPatchHandler)
 	v1.DELETE("/deployments/:did", deploymentDeleteHandler)
 
-	v1.GET("/deployments/:did/instances", instanceListHandler)
-	v1.GET("/deployments/:did/instances/:iid/shell", instanceShellHandler)
-	v1.GET("/deployments/:did/instances/:iid/log", instanceLogHandler)
+	v1.GET("/deployments/:did/instances", httpapi.InstanceListHandler)
+	v1.GET("/deployments/:did/instances/:iid/shell", httpapi.InstanceShellHandler)
+	v1.GET("/deployments/:did/instances/:iid/log", httpapi.InstanceLogHandler)
 
 	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUtil", httpapi.InstanceMemoryUtilHandler)
 	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUsage", httpapi.InstanceMemoryUsageHandler)

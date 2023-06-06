@@ -9,11 +9,13 @@ var (
 	prometheusURL = ""
 	deploymentDB  *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment]
 	photonDB      *namedb.NameDB[leptonaiv1alpha1.Photon]
+	namespace     = "default"
 )
 
 // TODO: create a struct to hold all the handlers and common data
-func Init(pURL string, dDB *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment], pDB *namedb.NameDB[leptonaiv1alpha1.Photon]) {
+func Init(pURL string, ns string, dDB *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment], pDB *namedb.NameDB[leptonaiv1alpha1.Photon]) {
 	prometheusURL = pURL
 	deploymentDB = dDB
 	photonDB = pDB
+	namespace = ns
 }
