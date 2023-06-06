@@ -45,6 +45,7 @@ spec:
                 type: string
               envs:
                 items:
+                  description: EnvVar defines the environment variable of the deployment.
                   properties:
                     name:
                       type: string
@@ -66,6 +67,8 @@ spec:
               photon_prefix:
                 type: string
               resource_requirement:
+                description: LeptonDeploymentResourceRequirement defines the resource
+                  requirement of the deployment.
                 properties:
                   accelerator_num:
                     type: number
@@ -80,6 +83,8 @@ spec:
                     format: int32
                     type: integer
                 required:
+                - accelerator_num
+                - accelerator_type
                 - cpu
                 - memory
                 - min_replicas
@@ -89,19 +94,25 @@ spec:
               service_account_name:
                 type: string
             required:
+            - api_tokens
             - bucket_name
+            - certificate_arn
+            - envs
             - name
             - photon_id
             - photon_image
             - photon_name
             - photon_prefix
             - resource_requirement
+            - root_domain
             - service_account_name
             type: object
           status:
             description: LeptonDeploymentStatus defines the observed state of LeptonDeployment
             properties:
               endpoint:
+                description: LeptonDeploymentEndpoint defines the endpoint of the
+                  deployment.
                 properties:
                   external_endpoint:
                     type: string
@@ -112,6 +123,7 @@ spec:
                 - internal_endpoint
                 type: object
               state:
+                description: LeptonDeploymentState defines the state of the deployment.
                 type: string
             required:
             - endpoint

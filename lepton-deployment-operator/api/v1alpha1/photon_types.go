@@ -32,12 +32,12 @@ type PhotonSpec struct {
 type PhotonUserSpec struct {
 	Name                  string               `json:"name"`
 	Model                 string               `json:"model"`
-	RequirementDependency []string             `json:"requirement_dependency,omitempty"`
+	RequirementDependency []string             `json:"requirement_dependency"`
 	Image                 string               `json:"image"`
-	Entrypoint            string               `json:"entrypoint,omitempty"`
-	ExposedPorts          []int32              `json:"exposed_ports,omitempty"`
-	ContainerArgs         []string             `json:"container_args,omitempty"`
-	OpenAPISchema         runtime.RawExtension `json:"openapi_schema,omitempty"`
+	Entrypoint            string               `json:"entrypoint"`
+	ExposedPorts          []int32              `json:"exposed_ports"`
+	ContainerArgs         []string             `json:"container_args"`
+	OpenAPISchema         runtime.RawExtension `json:"openapi_schema"`
 }
 
 // GetName returns the name of the photon.

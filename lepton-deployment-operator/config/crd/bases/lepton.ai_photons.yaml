@@ -60,12 +60,18 @@ spec:
                   type: string
                 type: array
             required:
+            - container_args
+            - entrypoint
+            - exposed_ports
             - image
             - model
             - name
+            - openapi_schema
+            - requirement_dependency
             type: object
           status:
-            description: PhotonStatus defines the observed state of Photon
+            description: PhotonStatus defines the observed state of Photon. It is
+              empty because we only use Photon as a database.
             type: object
         type: object
     served: true

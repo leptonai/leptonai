@@ -35,9 +35,9 @@ type LeptonDeploymentSystemSpec struct {
 	BucketName         string   `json:"bucket_name"`
 	PhotonPrefix       string   `json:"photon_prefix"`
 	ServiceAccountName string   `json:"service_account_name"`
-	RootDomain         string   `json:"root_domain,omitempty"`
-	APITokens          []string `json:"api_tokens,omitempty"`
-	CertificateARN     string   `json:"certificate_arn,omitempty"`
+	RootDomain         string   `json:"root_domain"`
+	APITokens          []string `json:"api_tokens"`
+	CertificateARN     string   `json:"certificate_arn"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.
@@ -45,7 +45,7 @@ type LeptonDeploymentUserSpec struct {
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
-	Envs                []EnvVar                            `json:"envs,omitempty"`
+	Envs                []EnvVar                            `json:"envs"`
 }
 
 // GetName returns the name of the deployment.
@@ -82,8 +82,8 @@ func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
 type LeptonDeploymentResourceRequirement struct {
 	CPU             float64 `json:"cpu"`
 	Memory          int64   `json:"memory"`
-	AcceleratorType string  `json:"accelerator_type,omitempty"`
-	AcceleratorNum  float64 `json:"accelerator_num,omitempty"`
+	AcceleratorType string  `json:"accelerator_type"`
+	AcceleratorNum  float64 `json:"accelerator_num"`
 	MinReplicas     int32   `json:"min_replicas"`
 }
 
