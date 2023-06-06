@@ -11,12 +11,13 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { Cluster } from "@lepton-dashboard/interfaces/cluster";
 
+const PREFIX =
+  import.meta.env.PROD && import.meta.env.VITE_CLUSTER_URL
+    ? import.meta.env.VITE_CLUSTER_URL
+    : "";
 @Injectable()
 export class ApiServerService implements ApiService {
-  private host =
-    import.meta.env.PROD && import.meta.env.VITE_CLUSTER_URL
-      ? `${import.meta.env.VITE_CLUSTER_URL}/api/v1`
-      : "/api/v1";
+  private host = `${PREFIX}/api/v1`;
   listPhotons(): Observable<Photon[]> {
     return this.httpClientService.get(`${this.host}/photons`);
   }
@@ -65,16 +66,12 @@ export class ApiServerService implements ApiService {
     value: string,
     path: string
   ): Observable<unknown> {
-    return this.httpClientService.post(
-      `${import.meta.env.VITE_CLUSTER_URL}${path}`,
-      value,
-      {
-        headers: {
-          deployment: name,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return this.httpClientService.post(`${PREFIX}${path}`, value, {
+      headers: {
+        deployment: name,
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   getDeploymentMetrics(
@@ -133,8 +130,9 @@ export class ApiServerService implements ApiService {
     deploymentId: string,
     instanceId: string
   ): string {
-    const host =
-      new URL(import.meta.env.VITE_CLUSTER_URL).host || window.location.host;
+    const host = import.meta.env.VITE_CLUSTER_URL
+      ? new URL(import.meta.env.VITE_CLUSTER_URL).host
+      : window.location.host;
     return `wss://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
   }
 

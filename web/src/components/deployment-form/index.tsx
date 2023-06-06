@@ -123,8 +123,8 @@ export const DeploymentForm: FC<{
         memory: value.memory,
         cpu: value.cpu,
         min_replicas: value.min_replicas,
-        accelerator_type: value.accelerator_type,
-        accelerator_num: value.accelerator_num,
+        accelerator_type: value.accelerator_type || "",
+        accelerator_num: value.accelerator_num || 0,
       },
       envs: value.envs,
     };
@@ -243,6 +243,7 @@ export const DeploymentForm: FC<{
         <Select
           disabled={edit}
           allowClear
+          onClear={() => form.setFieldValue(["accelerator_num"], null)}
           options={supportedAccelerators}
           showSearch
         />
