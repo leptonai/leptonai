@@ -53,7 +53,9 @@ func testInstanceLog(t *testing.T, deploymentID string) func(t *testing.T) {
 			t.Fatalf("Request failed with status code: %d", resp.StatusCode)
 		}
 
-		b, err := readAll(resp.Body)
+		b := make([]byte, 4096)
+		n, err := io.Reader(resp.Body).Read(b)
+		b = b[:n]
 		if err != nil {
 			// expected since it's a long running process
 			// e.g., "... (Press CTRL+C to quit)"

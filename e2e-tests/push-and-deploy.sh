@@ -8,12 +8,10 @@ if [ -z "$NAMESPACE" ]; then
     exit 1
 fi
 
-PHOTON_NAME=gpt2
-
 REMOTE=
 # try getting the remote address for 1 minute
 for i in $(seq 1 60); do
-    REMOTE=$(kubectl -n "$NAMESPACE" get ingress lepton-api-server-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+    REMOTE=$(kubectl -n "$NAMESPACE" get ingress lepton-api-server-ingress -o jsonpath='{.metadata.annotations.external-dns\.alpha\.kubernetes\.io/hostname}')
     if [ -n "$REMOTE" ]; then
         break
     fi
@@ -34,7 +32,7 @@ if ! host "$REMOTE" > /dev/null; then
     exit 1
 fi
 
-REMOTE=http://$REMOTE/api/v1
+REMOTE=https://$REMOTE/api/v1
 
 
 COLUMNS=2000 go test -v ./e2e-tests/... --remote-url "$REMOTE" --namespace "$NAMESPACE"
