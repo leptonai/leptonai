@@ -44,7 +44,7 @@ type ClusterInfoHandler struct {
 func NewClusterInfoHandler(clusterName string) *ClusterInfoHandler {
 	cih := &ClusterInfoHandler{
 		ClusterInfo: &ClusterInfo{
-			Info: version.VersionInfo,
+			Info:        version.VersionInfo,
 			ClusterName: clusterName,
 		},
 	}
