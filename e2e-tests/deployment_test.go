@@ -12,9 +12,11 @@ import (
 
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 )
 
 const mainContainerName = "main-container"
@@ -127,18 +129,13 @@ func mustRemoveDeploymentByID(t *testing.T, id string) {
 }
 
 func mustVerifyDeployment(t *testing.T, pfx string, phName string) {
-	clientset := util.MustInitK8sClientSet()
-
-	labelSelector := "photon_name=" + phName
-	deploymentsListOpts := metav1.ListOptions{
-		LabelSelector: labelSelector,
-	}
-	deployments, err := clientset.AppsV1().Deployments(*namespace).List(context.TODO(), deploymentsListOpts)
+	deployments := &appsv1.DeploymentList{}
+	err := util.K8sClient.List(context.Background(), deployments, client.InNamespace(*namespace), client.MatchingLabels{"photon_name": phName})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(deployments.Items) != 1 {
-		t.Fatalf("expected only 1 deployment with label selector %q, got %d", labelSelector, len(deployments.Items))
+		t.Fatalf("expected only 1 deployment with label photon_name=%q, got %d", phName, len(deployments.Items))
 	}
 
 	d := &deployments.Items[0]
@@ -151,7 +148,7 @@ ready:
 	for {
 		select {
 		case <-time.After(5 * time.Second):
-			deployments, err = clientset.AppsV1().Deployments(*namespace).List(context.TODO(), deploymentsListOpts)
+			err := util.K8sClient.List(context.Background(), deployments, client.InNamespace(*namespace), client.MatchingLabels{"photon_name": phName})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,7 +188,8 @@ done:
 		select {
 		case <-time.After(5 * time.Second):
 			t.Logf("listing pods for the test namespace %q", *namespace)
-			pods, err := clientset.CoreV1().Pods(*namespace).List(context.TODO(), metav1.ListOptions{})
+			pods := &corev1.PodList{}
+			err := util.K8sClient.List(context.Background(), pods, client.InNamespace(*namespace))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -206,7 +204,7 @@ done:
 				if !strings.HasPrefix(p.Name, pfx) {
 					continue
 				}
-				if p.Status.Phase != v1.PodRunning {
+				if p.Status.Phase != corev1.PodRunning {
 					continue
 				}
 
@@ -243,15 +241,14 @@ const phRunStr = "lepton photon run"
 
 // ensure ingress is set up correctly
 func mustVerifyIngress(t *testing.T, pfx string) {
-	clientset := util.MustInitK8sClientSet()
-
 	timeoutc := time.After(10 * time.Minute)
 ready:
 	for {
 		select {
 		case <-time.After(5 * time.Second):
 			// ensure ingress is set up correctly
-			ings, err := clientset.NetworkingV1().Ingresses(*namespace).List(context.TODO(), metav1.ListOptions{})
+			ings := &networkingv1.IngressList{}
+			err := util.K8sClient.List(context.Background(), ings, client.InNamespace(*namespace))
 			if err != nil {
 				t.Fatal(err)
 			}
