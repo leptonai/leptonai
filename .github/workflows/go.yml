@@ -20,12 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version: 1.19.x
-
+    - name: Format
+      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
     - name: Test
       run: |
         (cd lepton-api-server && go test -v ./...)
