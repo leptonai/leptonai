@@ -17,7 +17,7 @@ type PhotonMetadata struct {
 
 func NewPhotonMetadata(p *leptonaiv1alpha1.Photon) *PhotonMetadata {
 	return &PhotonMetadata{
-		ID:        p.GetID(),
+		ID:        p.GetSpecID(),
 		CreatedAt: p.CreationTimestamp.UnixMilli(),
 	}
 }

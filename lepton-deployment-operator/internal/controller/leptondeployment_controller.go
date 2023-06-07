@@ -208,7 +208,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
-		Name:      service.ServiceName(ld.GetName()),
+		Name:      service.ServiceName(ld.GetSpecName()),
 	}
 	service := &corev1.Service{}
 	err := r.Client.Get(ctx, namespacedName, service)
@@ -244,7 +244,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, 
 func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
-		Name:      ingress.IngressNameForHeaderBased(ld.GetName()),
+		Name:      ingress.IngressNameForHeaderBased(ld.GetSpecName()),
 	}
 	ingress := &networkingv1.Ingress{}
 	err := r.Client.Get(ctx, namespacedName, ingress)
@@ -274,7 +274,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
-		Name:      ingress.IngressNameForHostBased(ld.GetName()),
+		Name:      ingress.IngressNameForHostBased(ld.GetSpecName()),
 	}
 	ingress := &networkingv1.Ingress{}
 	err := r.Client.Get(ctx, namespacedName, ingress)

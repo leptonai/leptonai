@@ -17,7 +17,7 @@ type LeptonDeploymentMetadata struct {
 
 func NewLeptonDeploymentMetadata(ld *leptonaiv1alpha1.LeptonDeployment) *LeptonDeploymentMetadata {
 	return &LeptonDeploymentMetadata{
-		ID:        ld.GetID(),
+		ID:        ld.GetSpecID(),
 		CreatedAt: ld.CreationTimestamp.UnixMilli(),
 	}
 }

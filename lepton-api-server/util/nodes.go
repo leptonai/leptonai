@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -14,14 +14,12 @@ const (
 )
 
 func GetAccelerators() (map[string]int, error) {
-	clientset := MustInitK8sClientSet()
-
-	accelerators := make(map[string]int)
-
-	nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
+	nodes := &corev1.NodeList{}
+	if err := K8sClient.List(context.Background(), nodes); err != nil {
 		return nil, fmt.Errorf("error retrieving node list: %v", err)
 	}
+
+	accelerators := make(map[string]int)
 
 	for _, node := range nodes.Items {
 		atype := node.Labels[NvidiaGPUTypeLabel]
@@ -47,10 +45,8 @@ type MaxAllocatableSize struct {
 }
 
 func GetMaxAllocatableSize() (*MaxAllocatableSize, error) {
-	clientset := MustInitK8sClientSet()
-
-	nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
+	nodes := &corev1.NodeList{}
+	if err := K8sClient.List(context.Background(), nodes); err != nil {
 		return nil, fmt.Errorf("error retrieving node list: %v", err)
 	}
 

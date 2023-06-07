@@ -28,9 +28,9 @@ func InstanceListHandler(c *gin.Context) {
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), ld.GetName(), metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetName() + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -45,7 +45,7 @@ func InstanceListHandler(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetName() + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -59,14 +59,13 @@ func InstanceListHandler(c *gin.Context) {
 
 func InstanceShellHandler(c *gin.Context) {
 	iid := c.Param("iid")
-	_, config := util.MustInitK8sClientSetWithConfig()
-	httpClient, err := restclient.HTTPClientFor(config)
+	httpClient, err := restclient.HTTPClientFor(util.K8sConfig)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
 		return
 	}
 
-	targetURL, err := url.Parse(config.Host)
+	targetURL, err := url.Parse(util.K8sConfig.Host)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": "Bad logging URL"})
 		return

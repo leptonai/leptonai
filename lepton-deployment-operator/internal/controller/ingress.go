@@ -30,12 +30,12 @@ func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *n
 		return nil
 	}
 
-	annotation := ingress.NewAnnotation(fmt.Sprintf("%s.%s", ld.GetName(), k.leptonDeployment.Spec.RootDomain), k.leptonDeployment.Spec.CertificateARN)
+	annotation := ingress.NewAnnotation(fmt.Sprintf("%s.%s", ld.GetSpecName(), k.leptonDeployment.Spec.RootDomain), k.leptonDeployment.Spec.CertificateARN)
 	annotation.SetGroup(ingress.IngressGroupNameDeployment(ld.Namespace), ingress.IngressGroupOrderDeployment)
-	annotation.SetAPITokenConditions(service.ServiceName(ld.GetName()), k.leptonDeployment.Spec.APITokens)
+	annotation.SetAPITokenConditions(service.ServiceName(ld.GetSpecName()), k.leptonDeployment.Spec.APITokens)
 	annotation.SetDomainNameAndSSLCert()
-	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetName()), service.Port, service.RootPath)
-	return ingress.NewIngress(ingress.IngressNameForHostBased(ld.GetName()), k.leptonDeployment.Namespace, util.DomainName(k.leptonDeployment, k.leptonDeployment.Spec.RootDomain), annotation.Get(), paths.Get(), or)
+	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetSpecName()), service.Port, service.RootPath)
+	return ingress.NewIngress(ingress.IngressNameForHostBased(ld.GetSpecName()), k.leptonDeployment.Namespace, util.DomainName(k.leptonDeployment, k.leptonDeployment.Spec.RootDomain), annotation.Get(), paths.Get(), or)
 }
 
 func (k *Ingress) createHeaderBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {
@@ -43,7 +43,7 @@ func (k *Ingress) createHeaderBasedDeploymentIngress(or *metav1.OwnerReference) 
 
 	annotation := ingress.NewAnnotation(ld.Spec.RootDomain, k.leptonDeployment.Spec.CertificateARN)
 	annotation.SetGroup(ingress.IngressGroupNameControlPlane(ld.Namespace), ingress.IngressGroupOrderDeployment)
-	annotation.SetDeploymentAndAPITokenConditions(service.ServiceName(ld.GetName()), ld.GetName(), k.leptonDeployment.Spec.APITokens)
-	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetName()), service.Port, service.RootPath)
-	return ingress.NewIngress(ingress.IngressNameForHeaderBased(ld.GetName()), ld.Namespace, "", annotation.Get(), paths.Get(), or)
+	annotation.SetDeploymentAndAPITokenConditions(service.ServiceName(ld.GetSpecName()), ld.GetSpecName(), k.leptonDeployment.Spec.APITokens)
+	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetSpecName()), service.Port, service.RootPath)
+	return ingress.NewIngress(ingress.IngressNameForHeaderBased(ld.GetSpecName()), ld.Namespace, "", annotation.Get(), paths.Get(), or)
 }

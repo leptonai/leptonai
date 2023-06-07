@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -30,5 +32,17 @@ func ValidateName(name string) bool {
 }
 
 func DomainName(ld *leptonaiv1alpha1.LeptonDeployment, rootDomain string) string {
-	return fmt.Sprintf("%s.%s", ld.GetName(), rootDomain)
+	return fmt.Sprintf("%s.%s", ld.GetSpecName(), rootDomain)
+}
+
+func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
+	cenvs := make([]corev1.EnvVar, 0, len(envs))
+	for _, env := range envs {
+		cenvs = append(cenvs, corev1.EnvVar{
+			Name:  env.Name,
+			Value: env.Value,
+		})
+	}
+
+	return cenvs
 }

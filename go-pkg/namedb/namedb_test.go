@@ -11,11 +11,11 @@ type TestStruct struct {
 	Version int64
 }
 
-func (t TestStruct) GetName() string {
+func (t TestStruct) GetSpecName() string {
 	return t.Name
 }
 
-func (t TestStruct) GetID() string {
+func (t TestStruct) GetSpecID() string {
 	return t.ID
 }
 

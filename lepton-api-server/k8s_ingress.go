@@ -8,6 +8,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,8 +31,6 @@ const (
 )
 
 func mustInitAPIServerIngress() {
-	clientset := util.MustInitK8sClientSet()
-
 	annotation := ingress.NewAnnotation(rootDomain, certificateARN)
 	annotation.SetGroup(ingress.IngressGroupNameControlPlane(ingressNamespace), ingress.IngressGroupOrderAPIServer)
 	if len(apiToken) > 0 {
@@ -41,28 +40,26 @@ func mustInitAPIServerIngress() {
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(deploymentNameAPIServer), apiServerPort, apiServerPath)
 	ingress := ingress.NewIngress(ingress.IngressName(deploymentNameAPIServer), ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
-	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
-		Update(context.Background(), ingress, metav1.UpdateOptions{})
-	if err != nil {
+	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
 			panic(err)
 		}
-		result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
-			Create(context.Background(), ingress, metav1.CreateOptions{})
-		if err != nil {
+		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
 			panic(err)
 		}
 	}
 
-	fmt.Printf("Created/updated Ingress %q.\n", result.GetObjectMeta().GetName())
+	fmt.Printf("Created/updated Ingress %q.\n", ingress.Name)
 }
 
 func mustInitUnauthorizedErrorIngress() {
-	clientset := util.MustInitK8sClientSet()
-
 	// Try to delete the ingress if it already exists. Returning error is okay given it may not exist.
-	clientset.NetworkingV1().Ingresses(ingressNamespace).
-		Delete(context.Background(), ingressNameForUnauthorizedAccess, metav1.DeleteOptions{})
+	util.K8sClient.Delete(context.Background(), &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ingressNameForUnauthorizedAccess,
+			Namespace: ingressNamespace,
+		},
+	})
 
 	if len(apiToken) == 0 {
 		return
@@ -79,18 +76,14 @@ func mustInitUnauthorizedErrorIngress() {
 	paths.AddAnnotationPath(serviceNameForUnauthorizedAPIServer, apiServerPath)
 	ingress := ingress.NewIngress(ingressNameForUnauthorizedAccess, ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
-	result, err := clientset.NetworkingV1().Ingresses(ingressNamespace).
-		Update(context.Background(), ingress, metav1.UpdateOptions{})
-	if err != nil {
+	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
 			panic(err)
 		}
-		result, err = clientset.NetworkingV1().Ingresses(ingressNamespace).
-			Create(context.Background(), ingress, metav1.CreateOptions{})
-		if err != nil {
+		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
 			panic(err)
 		}
 	}
 
-	fmt.Printf("Created/updated Ingress %q.\n", result.GetObjectMeta().GetName())
+	fmt.Printf("Created/updated Ingress %q.\n", ingress.Name)
 }

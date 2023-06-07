@@ -7,8 +7,8 @@ import (
 )
 
 type Data interface {
-	GetName() string
-	GetID() string
+	GetSpecName() string
+	GetSpecID() string
 	GetVersion() int64
 }
 
@@ -34,14 +34,14 @@ func (db *NameDB[T]) Add(ts ...*T) {
 			continue
 		}
 		// if there is already an object of the same version in the db, delete it
-		if old, ok := db.dataByName[(*t).GetName()][(*t).GetVersion()]; ok {
-			delete(db.dataByID, (*old).GetID())
+		if old, ok := db.dataByName[(*t).GetSpecName()][(*t).GetVersion()]; ok {
+			delete(db.dataByID, (*old).GetSpecID())
 		}
-		if db.dataByName[(*t).GetName()] == nil {
-			db.dataByName[(*t).GetName()] = make(map[int64]*T)
+		if db.dataByName[(*t).GetSpecName()] == nil {
+			db.dataByName[(*t).GetSpecName()] = make(map[int64]*T)
 		}
-		db.dataByName[(*t).GetName()][(*t).GetVersion()] = t
-		db.dataByID[(*t).GetID()] = t
+		db.dataByName[(*t).GetSpecName()][(*t).GetVersion()] = t
+		db.dataByID[(*t).GetSpecID()] = t
 	}
 }
 
@@ -93,8 +93,8 @@ func (db *NameDB[T]) Delete(ts ...*T) {
 		if t == nil {
 			continue
 		}
-		delete(db.dataByName[(*t).GetName()], (*t).GetVersion())
-		delete(db.dataByID, (*t).GetID())
+		delete(db.dataByName[(*t).GetSpecName()], (*t).GetVersion())
+		delete(db.dataByID, (*t).GetSpecID())
 	}
 }
 
@@ -103,7 +103,7 @@ func (db *NameDB[T]) DeleteByID(ids ...string) {
 	defer db.lock.Unlock()
 	for _, id := range ids {
 		if t, ok := db.dataByID[id]; ok {
-			delete(db.dataByName[(*t).GetName()], (*t).GetVersion())
+			delete(db.dataByName[(*t).GetSpecName()], (*t).GetVersion())
 			delete(db.dataByID, id)
 		}
 	}
@@ -114,7 +114,7 @@ func (db *NameDB[T]) DeleteByName(names ...string) {
 	defer db.lock.Unlock()
 	for _, name := range names {
 		for _, t := range db.dataByName[name] {
-			delete(db.dataByID, (*t).GetID())
+			delete(db.dataByID, (*t).GetSpecID())
 		}
 		delete(db.dataByName, name)
 	}

@@ -71,8 +71,6 @@ func main() {
 	}
 
 	// Set the namespace for various resources.
-	photonNamespace = *namespaceFlag
-	leptonDeploymentNamespace = *namespaceFlag
 	ingressNamespace = *namespaceFlag
 	certificateARN = *certificateARNFlag
 	rootDomain = *rootDomainFlag

@@ -52,8 +52,8 @@ type LeptonDeploymentUserSpec struct {
 	Envs []EnvVar `json:"envs"`
 }
 
-// GetName returns the name of the deployment.
-func (ld LeptonDeployment) GetName() string {
+// GetSpecName returns the name of the deployment.
+func (ld LeptonDeployment) GetSpecName() string {
 	return ld.Spec.Name
 }
 
@@ -62,9 +62,9 @@ func (ld LeptonDeployment) GetUniqPhotonName() string {
 	return fmt.Sprintf("%s-%s", ld.Spec.PhotonName, ld.Spec.PhotonID)
 }
 
-// GetID returns the ID of the deployment. It equals to the Name.
-func (ld LeptonDeployment) GetID() string {
-	return ld.GetName()
+// GetSpecID returns the ID of the deployment. It equals to the Name.
+func (ld LeptonDeployment) GetSpecID() string {
+	return ld.GetSpecName()
 }
 
 // GetVersion returns the version of the deployment, which is always 0 because we don't support versioning.

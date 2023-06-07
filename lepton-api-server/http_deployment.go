@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,8 +31,8 @@ func deploymentPostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
 		return
 	}
-	if len(deploymentDB.GetByName(ld.GetName())) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetName() + " already exists."})
+	if len(deploymentDB.GetByName(ld.GetSpecName())) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetSpecName() + " already exists."})
 		return
 	}
 
@@ -42,7 +43,7 @@ func deploymentPostHandler(c *gin.Context) {
 	}
 
 	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
-		PhotonName:         ph.GetName(),
+		PhotonName:         ph.GetSpecName(),
 		PhotonImage:        ph.Spec.Image,
 		BucketName:         *bucketNameFlag,
 		PhotonPrefix:       *photonPrefixFlag,
@@ -53,32 +54,27 @@ func deploymentPostHandler(c *gin.Context) {
 	if len(*apiTokenFlag) > 0 {
 		ld.Spec.APITokens = []string{*apiTokenFlag}
 	}
+	ld.Namespace = *namespaceFlag
+	ld.Name = ld.GetSpecName()
 
-	if _, err := CreateLeptonDeploymentCR(ld); err != nil {
+	if err := util.K8sClient.Create(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
 
-	// Have to re-read it to get the creation timestamp
-	cr, err := ReadLeptonDeploymentCR(ld.GetName())
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
-		return
-	}
-	cr.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
-
-	deploymentDB.Add(cr)
+	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
+	deploymentDB.Add(ld)
 
 	c.JSON(http.StatusOK, httpapi.NewLeptonDeployment(ld).Output())
 }
 
 func deploymentListHandler(c *gin.Context) {
 	lds := deploymentDB.GetAll()
-	ldos := make([]*httpapi.LeptonDeployment, 0, len(lds))
+	ret := make([]*httpapi.LeptonDeployment, 0, len(lds))
 	for _, ld := range lds {
-		ldos = append(ldos, httpapi.NewLeptonDeployment(ld).Output())
+		ret = append(ret, httpapi.NewLeptonDeployment(ld).Output())
 	}
-	c.JSON(http.StatusOK, ldos)
+	c.JSON(http.StatusOK, ret)
 }
 
 func deploymentPatchHandler(c *gin.Context) {
@@ -108,9 +104,8 @@ func deploymentPatchHandler(c *gin.Context) {
 	ld.Patch(ldi)
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
-	_, err = PatchLeptonDeploymentCR(ld)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetName() + ": " + err.Error()})
+	if err := util.K8sClient.Update(context.Background(), ld); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -136,8 +131,7 @@ func deploymentDeleteHandler(c *gin.Context) {
 		return
 	}
 
-	err := DeleteLeptonDeploymentCR(ld)
-	if err != nil {
+	if err := util.K8sClient.Delete(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}

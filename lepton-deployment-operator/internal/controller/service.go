@@ -22,12 +22,12 @@ func (k *Service) createService(or *metav1.OwnerReference) *corev1.Service {
 	ld := k.leptonDeployment
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.ServiceName(ld.GetName()),
+			Name:      service.ServiceName(ld.GetSpecName()),
 			Namespace: ld.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				labelKeyLeptonDeploymentID: ld.GetID(),
+				labelKeyLeptonDeploymentID: ld.GetSpecID(),
 			},
 			Ports: []corev1.ServicePort{
 				{

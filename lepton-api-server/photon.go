@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,20 +11,34 @@ import (
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
 	// Initialize the photon database
-	dynamicClient := util.MustInitK8sDynamicClient()
-	phs, err := ReadAllPhotonCR(dynamicClient)
+	phs, err := readAllPhotonCR()
 	if err != nil {
 		// TODO: better error handling
 		panic(err)
 	}
 
 	photonDB.Add(phs...)
+}
+
+func readAllPhotonCR() ([]*leptonaiv1alpha1.Photon, error) {
+	phs := &leptonaiv1alpha1.PhotonList{}
+	if err := util.K8sClient.List(context.Background(), phs, client.InNamespace(*namespaceFlag)); err != nil {
+		return nil, err
+	}
+
+	ret := make([]*leptonaiv1alpha1.Photon, 0, len(phs.Items))
+	for i := range phs.Items {
+		ret = append(ret, &phs.Items[i])
+	}
+
+	return ret, nil
 }
 
 func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
@@ -64,6 +79,8 @@ func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
 	ph.SetID(util.HexHash(body))
+	ph.Name = ph.GetSpecUniqName()
+	ph.Namespace = *namespaceFlag
 
 	return ph, nil
 }

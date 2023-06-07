@@ -52,18 +52,18 @@ type PhotonSystemSpec struct {
 	ID string `json:"id"`
 }
 
-// GetName returns the name of the photon.
-func (p Photon) GetName() string {
+// GetSpecName returns the name of the photon.
+func (p Photon) GetSpecName() string {
 	return p.Spec.Name
 }
 
-// GetUniqName returns the unique name of the photon.
-func (p Photon) GetUniqName() string {
-	return fmt.Sprintf("%s-%s", p.GetName(), p.GetID())
+// GetSpecUniqName returns the unique name of the photon.
+func (p Photon) GetSpecUniqName() string {
+	return fmt.Sprintf("%s-%s", p.GetSpecName(), p.GetSpecID())
 }
 
-// GetID returns the id of the photon.
-func (p Photon) GetID() string {
+// GetSpecID returns the id of the photon.
+func (p Photon) GetSpecID() string {
 	return p.Spec.ID
 }
 
