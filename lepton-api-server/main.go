@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/version"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/s3blob"
 )
@@ -50,6 +52,11 @@ func main() {
 
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
 	flag.Parse()
+
+	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
+		fmt.Printf("%+v\n", version.VersionInfo)
+		os.Exit(0)
+	}
 
 	// Create and verify the bucket.
 	var err error

@@ -8,10 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/lepton-api-server/util"
+	"github.com/leptonai/lepton/lepton-api-server/version"
 )
 
 type ClusterInfo struct {
 	sync.Mutex
+
+	version.Info `json:",inline"`
 
 	ClusterName string `json:"cluster_name"`
 	// SupportedAccelerators is a map from accelerator type to max number of accelerators a node can have.
@@ -41,6 +44,7 @@ type ClusterInfoHandler struct {
 func NewClusterInfoHandler(clusterName string) *ClusterInfoHandler {
 	cih := &ClusterInfoHandler{
 		ClusterInfo: &ClusterInfo{
+			Info: version.VersionInfo,
 			ClusterName: clusterName,
 		},
 	}
