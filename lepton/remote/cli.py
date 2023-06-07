@@ -34,22 +34,26 @@ def login(remote_name, remote_url):
             )
             sys.exit(1)
 
-        console.print("TODO: authenticate")
         set_current_cluster(remote_name)
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
 
     if remote_url is not None:
-        remote_name = console.input(
-            f'Please enter the remote cluster name of "{remote_url}":'
-        )
-        if len(remote_name) == 0:  # TODO: ask the user to re-enter the name
-            console.print("Remote cluster name cannot be empty")
-            sys.exit(1)
-
-        console.print("TODO: authenticate")
-        save_cluster(remote_name, remote_url)
+        remote_name = None
+        while not remote_name:
+            remote_name = console.input(
+                f'Please enter the remote cluster name for "{remote_url}": '
+            )
+            if not remote_name:
+                console.print("Remote cluster name cannot be empty")
+        
+        auth_token = console.input(
+            f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
+        ) or None
+        
+        save_cluster(remote_name, remote_url, auth_token = auth_token)
         set_current_cluster(remote_name)
+        
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
 
@@ -90,6 +94,7 @@ def list():
     table.add_column("Name")
     table.add_column("URL")
     table.add_column("Role")
+    table.add_column("Auth Token")
     for name, info in clusters.items():
         url = info["url"]
         if name == current_cluster:
@@ -98,7 +103,10 @@ def list():
         role = "user"
         if info["terraform_dir"] is not None:
             role = "creator"
-        table.add_row(name, url, role)
+        token = info.get("auth_token", "")
+        if token:
+            token = f"{token[:2]}***{token[-2:]}" if len(token) > 4 else "*****"
+        table.add_row(name, url, role, token)
     console.print(table)
 
 
@@ -124,13 +132,14 @@ def create(remote_name, sandbox, provider):
     console.print(f"Creating cluster {remote_name} on AWS")
 
     # TODO: pass in cluster name
+    # TODO: pass in auth token
     dir = CACHE_DIR / "cluster_states" / remote_name
     success, ingress_hostname = run_terraform_apply(dir, remote_name)
     if not success:
         console.print(f"Failed to create cluster {remote_name} with terraform")
         sys.exit(1)
 
-    save_cluster(remote_name, f"http://{ingress_hostname}", str(dir))
+    save_cluster(remote_name, f"http://{ingress_hostname}", terraform_dir = str(dir))
     console.print(f"Cluster {remote_name} created successfully")
     console.print(f"The ingress URL is http://{ingress_hostname}")
 
@@ -149,11 +158,13 @@ def load_cluster_info():
     return cluster_info
 
 
-def save_cluster(name, url, terraform_dir=None):
+def save_cluster(name, url, terraform_dir=None, auth_token=None):
     cluster_info = load_cluster_info()
     cluster_info["clusters"][name] = {}
     cluster_info["clusters"][name]["url"] = url
     cluster_info["clusters"][name]["terraform_dir"] = terraform_dir
+    cluster_info["clusters"][name]["auth_token"] = auth_token
+
     with open(CLUSTER_FILE, "w") as f:
         yaml.safe_dump(cluster_info, f)
 
