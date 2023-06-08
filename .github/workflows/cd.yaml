@@ -1,4 +1,9 @@
-name: CD - Deploy main branch to EKS dev-staging cluster default namespace
+name: CD - deploy to dev-staging
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
 
 on:
   push:
@@ -6,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     - name: Set short git commit SHA
@@ -14,6 +19,14 @@ jobs:
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
         echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.26.4'
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -67,7 +80,6 @@ jobs:
         helm upgrade lepton charts/lepton
     - name: Deploy Lepton API server and web
       env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DEV_STAGING }}
         API_SERVER_ECR_REPOSITORY: lepton-api-server
         LD_OPERATOR_ECR_REPOSITORY: lepton-deployment-operator
         WEB_ECR_REPOSITORY: lepton-web

@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.19 as builder
+FROM public.ecr.aws/docker/library/golang:1.19 as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . /go/src/github.com/leptonai/lepton/

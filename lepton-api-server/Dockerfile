@@ -1,5 +1,5 @@
 # Start from golang v1.20 base image
-FROM golang:1.19 as builder
+FROM public.ecr.aws/docker/library/golang:1.19 as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . /go/src/github.com/leptonai/lepton/
@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
     -o lepton-api-server .
 
 ######## Start a new stage from scratch #######
-FROM alpine:latest
+FROM public.ecr.aws/docker/library/alpine:latest
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-api-server/lepton-api-server /app/
