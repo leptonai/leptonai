@@ -11,6 +11,7 @@ on:
       - .github/**
       - lepton-api-server/**
       - lepton-deployment-operator/**
+      - lepton-mothership/**
       - go.mod
       - go.sum
     branches: [ "**" ]

@@ -2,12 +2,15 @@ package main
 
 import (
 	"github.com/leptonai/lepton/lepton-mothership/httpapi"
+	"github.com/leptonai/lepton/lepton-mothership/terraform"
 
 	"github.com/gin-gonic/gin"
 	_ "gocloud.dev/blob/s3blob"
 )
 
 func main() {
+	terraform.MustInit()
+
 	router := gin.Default()
 	api := router.Group("/api")
 	v1 := api.Group("/v1")
