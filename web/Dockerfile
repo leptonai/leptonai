@@ -1,5 +1,5 @@
 # Start from golang v1.20 base image
-FROM public.ecr.aws/docker/library/node:18.16.0-alpine as builder
+FROM public.ecr.aws/docker/library/node:18.16 as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . /node/src/github.com/leptonai/lepton/web
