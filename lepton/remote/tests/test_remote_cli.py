@@ -21,7 +21,7 @@ class TestRemoteCli(unittest.TestCase):
         result = runner.invoke(
             cli,
             ["remote", "login", "-r", "http://example-0.lepton.ai"],
-            input="test-remote-0",
+            input="test-remote-0\n\n",
         )
         assert "logged in" in result.output.lower()
         assert result.exit_code == 0
@@ -50,7 +50,7 @@ class TestRemoteCli(unittest.TestCase):
         result = runner.invoke(
             cli,
             ["remote", "login", "-r", "http://example-1.lepton.ai"],
-            input="test-remote-1",
+            input="test-remote-1\n\n",
         )
         self.assertIn("test-remote-1", result.output.lower())
 
