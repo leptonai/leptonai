@@ -7,6 +7,7 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
+import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 
 @Injectable()
 export class DeploymentService {
@@ -76,8 +77,8 @@ export class DeploymentService {
     return this.apiService.updateDeployment(id, deployment);
   }
 
-  request(name: string, value: string, path: string): Observable<unknown> {
-    return this.apiService.requestDeployment(name, value, path);
+  request(name: string, request: OpenAPIRequest): Observable<unknown> {
+    return this.apiService.requestDeployment(name, request);
   }
 
   getMetrics(deploymentId: string, metricName: string[]): Observable<Metric[]> {

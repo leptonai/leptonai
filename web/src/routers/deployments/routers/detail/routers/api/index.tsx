@@ -74,13 +74,17 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
           if (p?.openapi_schema) {
             const url = deployment.status.endpoint.external_endpoint;
             return from(
-              openApiService.convertToLeptonAPIItems({
-                ...p.openapi_schema,
-                servers:
-                  p.openapi_schema?.servers?.length > 0
-                    ? p.openapi_schema.servers
-                    : [{ url }],
-              })
+              openApiService
+                .parse({
+                  ...p.openapi_schema,
+                  servers:
+                    p.openapi_schema?.servers?.length > 0
+                      ? p.openapi_schema.servers
+                      : [{ url }],
+                })
+                .then((res) =>
+                  res ? openApiService.convertToLeptonAPIItems(res) : []
+                )
             );
           }
           return of([]);

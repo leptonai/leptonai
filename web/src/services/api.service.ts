@@ -8,6 +8,7 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { Cluster } from "@lepton-dashboard/interfaces/cluster";
+import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 
 @Injectable()
 export abstract class ApiService {
@@ -45,9 +46,8 @@ export abstract class ApiService {
     deployment: Subset<Deployment>
   ): Observable<void>;
   abstract requestDeployment(
-    url: string,
-    value: string,
-    path: string
+    name: string,
+    request: OpenAPIRequest
   ): Observable<unknown>;
 
   abstract getClusterInfo(): Observable<Cluster>;

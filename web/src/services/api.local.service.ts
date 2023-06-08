@@ -9,6 +9,7 @@ import {
 import { ApiService } from "@lepton-dashboard/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { Cluster } from "@lepton-dashboard/interfaces/cluster";
+import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -150,12 +151,8 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  requestDeployment(
-    url: string,
-    value: string,
-    path: string
-  ): Observable<void> {
-    console.log(url, value, path);
+  requestDeployment(url: string, request: OpenAPIRequest): Observable<void> {
+    console.log(url, request);
     return EMPTY;
   }
 

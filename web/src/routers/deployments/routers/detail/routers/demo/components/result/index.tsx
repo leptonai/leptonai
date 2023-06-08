@@ -1,9 +1,8 @@
 import { FC, useMemo } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 
-export const Result: FC<{ result: SafeAny }> = ({ result }) => {
+export const Result: FC<{ result: unknown }> = ({ result }) => {
   const displayResult = useMemo(() => {
     if (typeof result === "string" || typeof result === "number") {
       return result;

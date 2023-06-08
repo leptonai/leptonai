@@ -6,17 +6,8 @@ import {
   sampleFromSchema,
   curlBash,
   OpenAPIRequest,
+  HttpMethods,
 } from "@lepton-libs/open-api-tool";
-
-enum HttpMethods {
-  GET = "get",
-  PUT = "put",
-  POST = "post",
-  DELETE = "delete",
-  OPTIONS = "options",
-  HEAD = "head",
-  PATCH = "patch",
-}
 
 export type SchemaObject = OpenAPIV3_1.SchemaObject | OpenAPIV3.SchemaObject;
 
@@ -60,13 +51,9 @@ export class OpenApiService {
   }
 
   async convertToLeptonAPIItems(
-    unparsedSchema: OpenAPI.Document
+    resolvedSchema: OpenAPI.Document
   ): Promise<LeptonAPIItem[]> {
-    const parsedSchema = await this.parse(unparsedSchema);
-    if (!parsedSchema) {
-      return [];
-    }
-    const operations = this.listOperations(parsedSchema);
+    const operations = this.listOperations(resolvedSchema);
     const apiItems = operations
       .filter((operation) => operation.operationId)
       .map(async (operation) => {
@@ -90,7 +77,7 @@ export class OpenApiService {
             (contents["multipart/form-data"].schema as SchemaObject) || null;
         }
         request = await this.buildRequest(
-          parsedSchema,
+          resolvedSchema,
           operation.operationId!,
           requestBody
         );
@@ -164,21 +151,15 @@ export class OpenApiService {
   async buildRequest(
     spec: OpenAPI.Document,
     operationId: string,
-    requestBody?: SafeAny
+    requestBody?: SafeAny,
+    parameters?: SafeAny
   ) {
     return buildRequest({
       spec,
       operationId,
       requestBody,
+      parameters,
     });
-  }
-
-  /**
-   * From https://github.com/swagger-api/swagger-js/blob/master/src/execute/index.js#LL53C17-L53C24
-   * Input request object, output response object.
-   */
-  executeRequest(_request: SafeAny) {
-    // TODO
   }
 
   curlify(request: OpenAPIRequest) {

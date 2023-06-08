@@ -10,6 +10,7 @@ import { ApiService } from "@lepton-dashboard/services/api.service";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { Cluster } from "@lepton-dashboard/interfaces/cluster";
+import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 
 const PREFIX =
   import.meta.env.PROD && import.meta.env.VITE_CLUSTER_URL
@@ -61,16 +62,23 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  requestDeployment(
+  requestDeployment<T = unknown>(
     name: string,
-    value: string,
-    path: string
-  ): Observable<unknown> {
-    return this.httpClientService.post(`${PREFIX}${path}`, value, {
-      headers: {
-        deployment: name,
-        "Content-Type": "application/json",
-      },
+    request: OpenAPIRequest
+  ): Observable<T> {
+    const url = new URL(request.url);
+    // remove the host from the url
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    const headers = {
+      ...request.headers,
+      deployment: name,
+    };
+    const data = request.body;
+    return this.httpClientService.request({
+      url: `${PREFIX}${path}`,
+      method: request.method,
+      headers,
+      data,
     });
   }
 

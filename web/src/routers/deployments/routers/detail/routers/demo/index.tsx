@@ -4,7 +4,6 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { Alert, Col, Row, Select, Typography } from "antd";
 import { Result } from "@lepton-dashboard/routers/deployments/routers/detail/routers/demo/components/result";
 import { css } from "@emotion/react";
@@ -15,6 +14,7 @@ import {
   OpenApiService,
 } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
+import { OpenAPI } from "openapi-types";
 
 export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -24,6 +24,9 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   const [loading, setLoading] = useState(true);
   const [apis, setApis] = useState<LeptonAPIItem[]>([]);
+  const [resolvedSchema, setResolvedSchema] = useState<OpenAPI.Document | null>(
+    null
+  );
   const [operationId, setOperationId] = useState<string | undefined>(undefined);
   useStateFromObservable(
     () =>
@@ -32,13 +35,18 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
           if (p?.openapi_schema) {
             const url = deployment.status.endpoint.external_endpoint;
             return from(
-              openApiService.convertToLeptonAPIItems({
-                ...p.openapi_schema,
-                servers:
-                  p.openapi_schema?.servers?.length > 0
-                    ? p.openapi_schema.servers
-                    : [{ url }],
-              })
+              openApiService
+                .parse({
+                  ...p.openapi_schema,
+                  servers:
+                    p.openapi_schema?.servers?.length > 0
+                      ? p.openapi_schema.servers
+                      : [{ url }],
+                })
+                .then((res) => {
+                  setResolvedSchema(res);
+                  return res ? openApiService.convertToLeptonAPIItems(res) : [];
+                })
             );
           }
           return of([]);
@@ -65,22 +73,10 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
     }
   );
 
-  const [result, setResult] = useState<SafeAny>("output should appear here");
-  const { inputSchema, requestBody } = useMemo(() => {
-    const api = apis.find((i) => i.operationId === operationId);
-    if (api) {
-      return {
-        inputSchema: api.schema,
-        requestBody: api.request ? api.request.body : {},
-      };
-    } else {
-      return { inputSchema: {}, requestBody: {} };
-    }
-  }, [apis, operationId]);
+  const [result, setResult] = useState<unknown>("output should appear here");
 
-  const currentPath = useMemo(() => {
-    const api = apis.find((i) => i.operationId === operationId);
-    return api?.operation?.path ?? "";
+  const currentAPI = useMemo(() => {
+    return apis.find((i) => i.operationId === operationId);
   }, [apis, operationId]);
 
   return (
@@ -98,7 +94,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
         message={null}
         description="Parsing schema failed, please try call API manually."
       >
-        {inputSchema && operationId && apis.length > 0 ? (
+        {operationId && apis.length > 0 ? (
           <Row gutter={[32, 16]}>
             <Col flex="1 0 400px">
               <Row
@@ -120,7 +116,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                     css={css`
                       width: 100%;
                     `}
-                    value={currentPath}
+                    value={currentAPI?.operationId}
                     onChange={(v) => setOperationId(v)}
                     options={apis.map((i) => {
                       return { label: i.operation.path, value: i.operationId };
@@ -128,13 +124,13 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                   />
                 </Col>
               </Row>
-              <SchemaForm
-                path={currentPath}
-                deployment={deployment}
-                initData={requestBody}
-                resultChange={setResult}
-                schema={inputSchema}
-              />
+              {resolvedSchema && currentAPI ? (
+                <SchemaForm
+                  deployment={deployment}
+                  resultChange={setResult}
+                  api={currentAPI}
+                />
+              ) : null}
             </Col>
             <Col flex="1 1 400px">
               <Result result={result} />

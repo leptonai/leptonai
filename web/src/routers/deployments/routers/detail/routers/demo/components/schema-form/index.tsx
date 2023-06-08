@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { JSONSchema7 } from "json-schema";
+import { JSONSchema7, JSONSchema7Definition } from "json-schema";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/services/deployment.service";
 import { css } from "@emotion/react";
@@ -7,20 +7,22 @@ import { css as classNameCss } from "@emotion/css";
 import validator from "@rjsf/validator-ajv8";
 import { Button, Checkbox, Col, Row } from "antd";
 import { Form } from "@rjsf/antd";
-import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { SchemaObject } from "@lepton-dashboard/services/open-api.service";
+import {
+  LeptonAPIItem,
+  SchemaObject,
+} from "@lepton-dashboard/services/open-api.service";
 const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
-  const optionalSchema: SchemaObject = {
+  const optionalSchema: JSONSchema7 = {
     properties: {},
     type: "object",
   };
   const { properties, required } = schema;
-  const requiredProperties: SchemaObject["properties"] = {};
+  const requiredProperties: JSONSchema7["properties"] = {};
   if (properties && required) {
     Object.keys(properties).forEach((key) => {
-      const propertyValue = properties![key];
+      const propertyValue = properties[key] as JSONSchema7Definition;
       if (required.indexOf(key) === -1) {
         optionalSchema.properties![key] = propertyValue;
       } else {
@@ -35,18 +37,22 @@ const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
     },
     type: schema.type,
     required: schema.required,
-  } as JSONSchema7;
+  };
 };
 
+interface SchemaDataWithOptional {
+  [k: string]: unknown;
+  optional?: Record<string, unknown>;
+}
 const convertToOptionalSchemaData = (
   schema: SchemaObject,
-  initData: SafeAny
-): SafeAny => {
+  initData: Record<string, unknown>
+): SchemaDataWithOptional => {
   const { required } = schema;
-  const data: SafeAny = {};
+  const data: SchemaDataWithOptional = {};
   if (initData && required) {
     Object.keys(initData).forEach((key) => {
-      const dataValue = initData![key];
+      const dataValue = initData[key];
       if (required.indexOf(key) !== -1) {
         data[key] = dataValue;
       } else {
@@ -61,8 +67,16 @@ const convertToOptionalSchemaData = (
   return data;
 };
 
-const convertToSchemaFormData = (data: SafeAny) => {
-  if (data.optional) {
+const isSchemaDataWithOptional = (
+  data: unknown
+): data is SchemaDataWithOptional => {
+  return typeof data === "object" && data !== null && "optional" in data;
+};
+
+const convertToSchemaFormData = (
+  data: Record<string, unknown> | SchemaDataWithOptional
+): Record<string, unknown> => {
+  if (isSchemaDataWithOptional(data)) {
     const convertedData = { ...data, ...data.optional };
     delete convertedData.optional;
     return convertedData;
@@ -72,26 +86,31 @@ const convertToSchemaFormData = (data: SafeAny) => {
 };
 
 export const SchemaForm = memo<{
-  initData: SafeAny;
-  path: string;
+  api: LeptonAPIItem;
   deployment: Deployment;
-  schema: SchemaObject;
-  resultChange: (value: string) => void;
+  resultChange: (value: unknown) => void;
 }>(
-  ({ initData, schema, deployment, resultChange, path }) => {
+  ({ deployment, resultChange, api }) => {
     const theme = useAntdTheme();
-    const convertedSchema = convertToOptionalSchema(schema);
-    const convertedInitData = convertToOptionalSchemaData(schema, initData);
+    const convertedSchema = convertToOptionalSchema(api.schema!);
+    const convertedInitData = convertToOptionalSchemaData(
+      api.schema!,
+      (api.request ? api.request.body : {}) as Record<string, unknown>
+    );
     const deploymentService = useInject(DeploymentService);
     const hasAdvanced =
       Object.keys(
         (convertedSchema.properties!.optional as JSONSchema7)!.properties!
       ).length > 0;
-    const request = (value: string) => {
+    const request = (value: unknown) => {
       setLoading(true);
-      deploymentService.request(deployment.name, value, path).subscribe({
+      const request = {
+        ...api.request!,
+        body: value,
+      } as LeptonAPIItem["request"];
+      deploymentService.request(deployment.name, request!).subscribe({
         next: (data) => {
-          resultChange(data as string);
+          resultChange(data);
           setLoading(false);
         },
         error: () => setLoading(false),
@@ -179,5 +198,6 @@ export const SchemaForm = memo<{
       </Form>
     );
   },
-  (prevProps, nextProps) => prevProps.path === nextProps.path
+  (prevProps, nextProps) =>
+    prevProps.api.operationId === nextProps.api.operationId
 );
