@@ -9,6 +9,9 @@ on:
 jobs:
   dashboard:
     runs-on: ubuntu-latest
+    environment:
+      name: Production - Dashboard
+      url: ${{ secrets.PROD_DEPLOY_URL_DASHBOARD }}
     steps:
       - uses: actions/checkout@v3
       - name: Install Vercel CLI

@@ -9,6 +9,9 @@ on:
 jobs:
   api-docs:
     runs-on: ubuntu-latest
+    environment:
+      name: Production - API Docs
+      url: ${{ secrets.PROD_DEPLOY_URL_API_DOCS }}
     steps:
       - uses: actions/checkout@v3
       - name: Install Vercel CLI
