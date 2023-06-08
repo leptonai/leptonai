@@ -106,7 +106,7 @@ func (a *Annotation) SetAPITokenConditions(serviceName string, apiTokens []strin
 	}
 	a.SetConditions(serviceName,
 		[]string{HTTPHeaderNameForAuthorization},
-		[][]string{apiTokens})
+		[][]string{addBearerToTokens(apiTokens)})
 	return a
 }
 
@@ -118,7 +118,7 @@ func (a *Annotation) SetDeploymentAndAPITokenConditions(serviceName, deploymentN
 	}
 	a.SetConditions(serviceName,
 		[]string{HTTPHeaderNameForDeployment, HTTPHeaderNameForAuthorization},
-		[][]string{{deploymentName}, apiTokens})
+		[][]string{{deploymentName}, addBearerToTokens(apiTokens)})
 	return a
 }
 
@@ -126,4 +126,11 @@ func (a *Annotation) SetDeploymentAndAPITokenConditions(serviceName, deploymentN
 func (a *Annotation) SetActions(serviceName string, actions string) *Annotation {
 	a.annotations["alb.ingress.kubernetes.io/actions."+serviceName] = actions
 	return a
+}
+
+func addBearerToTokens(tokens []string) []string {
+	for i := range tokens {
+		tokens[i] = "Bearer " + tokens[i]
+	}
+	return tokens
 }
