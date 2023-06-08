@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Description } from "@lepton-dashboard/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
@@ -8,7 +8,14 @@ import { Popover, Table } from "antd";
 import { css } from "@emotion/react";
 
 export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
-  if (envs && envs.length > 0) {
+  const maskedEnvs = useMemo(() => {
+    return (envs || []).map((i) => ({
+      ...i,
+      value: /token/gi.test(i.name) ? "••••••••••••••••" : i.value,
+    }));
+  }, [envs]);
+
+  if (maskedEnvs && maskedEnvs.length > 0) {
     return (
       <Popover
         placement="bottomLeft"
@@ -35,7 +42,7 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
                 dataIndex: "value",
               },
             ]}
-            dataSource={envs}
+            dataSource={maskedEnvs}
           />
         }
       >
