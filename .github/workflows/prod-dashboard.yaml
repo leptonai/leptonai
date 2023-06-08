@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Production - Dashboard
-      url: ${{ secrets.PROD_DEPLOY_URL_DASHBOARD }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v3
       - name: Install Vercel CLI
@@ -22,3 +22,6 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Set Production Deployment URL
+        id: deploy
+        run: echo "url=${{ vars.PROD_DEPLOY_URL_DASHBOARD }}" >> $GITHUB_OUTPUT
