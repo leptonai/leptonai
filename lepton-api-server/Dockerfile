@@ -8,12 +8,10 @@ COPY . /go/src/github.com/leptonai/lepton/
 WORKDIR /go/src/github.com/leptonai/lepton/lepton-api-server/
 
 # Build the Go app
-RUN BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S")
-RUN GIT_COMMIT=$(git rev-parse --short HEAD)
-RUN CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
-    '-X github.com/leptonai/lepton/lepton-api-server/version.GitCommit=${GIT_COMMIT} \
+RUN GIT_COMMIT=$(git rev-parse --short HEAD) && BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
+    "-X github.com/leptonai/lepton/lepton-api-server/version.GitCommit=${GIT_COMMIT} \
     -X github.com/leptonai/lepton/lepton-api-server/version.BuildTime=${BUILD_TIME} \
-    -extldflags "-static"' \
+    -extldflags \"-static\"" \
     -o lepton-api-server .
 
 ######## Start a new stage from scratch #######

@@ -40,8 +40,8 @@ func GetAccelerators() (map[string]int, error) {
 }
 
 type MaxAllocatableSize struct {
-	Core   float64
-	Memory int64
+	Core   float64 `json:"core"`
+	Memory int64   `json:"memory"`
 }
 
 func GetMaxAllocatableSize() (*MaxAllocatableSize, error) {
