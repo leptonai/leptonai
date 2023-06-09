@@ -43,8 +43,16 @@ export const Header: FC = () => {
         background: ${theme.colorBgContainer};
       `}
     >
-      <Logo />
-      <WorkspaceSwitch />
+      <div
+        css={css`
+          height: 100%;
+          display: flex;
+        `}
+      >
+        <Logo />
+        <WorkspaceSwitch />
+      </div>
+
       <MenuContainer>
         <Space>
           <Button
