@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { StrictMode } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 dayjs.extend(LocalizedFormat);
 dayjs.extend(relativeTime);
@@ -13,5 +14,6 @@ dayjs.extend(relativeTime);
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>
     <App />
+    <Analytics />
   </StrictMode>
 );
