@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -269,6 +270,11 @@ func cleanAndScalePrometheusQueryResult(result model.Value, name, keep string, s
 							v[1] = int(float64(v[1].(int)) * scale)
 						case float64:
 							v[1] = v[1].(float64) * scale
+						case string:
+							vv, err := strconv.ParseFloat(v[1].(string), 64)
+							if err == nil {
+								v[1] = vv * scale
+							}
 						}
 					}
 				}
