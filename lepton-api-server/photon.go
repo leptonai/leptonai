@@ -30,7 +30,7 @@ func initPhotons() {
 	go func() {
 		for event := range ch.ResultChan() {
 			ph := event.Object.(*leptonaiv1alpha1.Photon)
-			fmt.Println("LeptonDeployment CR event:", event.Type, ph.Name)
+			log.Println("Photon CR event:", event.Type, ph.Name)
 			switch event.Type {
 			case watch.Added:
 				photonDB.Add(ph)
