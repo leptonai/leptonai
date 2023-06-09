@@ -45,6 +45,7 @@
     "react/react-in-jsx-scope": "off",
     "react/display-name": "off",
     "react/prop-types": "off",
+    "react/no-unescaped-entities": "off",
     "react/no-unknown-property": "off",
     "react-hooks/exhaustive-deps": "error"
   }

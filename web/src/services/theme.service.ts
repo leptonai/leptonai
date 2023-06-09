@@ -67,7 +67,9 @@ export class ThemeService {
   public theme$ = new ReplaySubject<ThemeConfig>(1);
 
   getValidTheme(): string {
-    const themeIndex = this.storageService.get("THEME") || "default";
+    const themeIndex =
+      this.storageService.get(StorageService.GLOBAL_SCOPE, "THEME") ||
+      "default";
     const isValid = !!this.presetThemes[themeIndex];
     return isValid ? themeIndex : "default";
   }
@@ -75,7 +77,7 @@ export class ThemeService {
   toggleTheme() {
     const reverseTheme =
       this.getValidTheme() === "default" ? "dark" : "default";
-    this.storageService.set("THEME", reverseTheme);
+    this.storageService.set(StorageService.GLOBAL_SCOPE, "THEME", reverseTheme);
     this.theme$.next(this.presetThemes[reverseTheme]);
   }
 

@@ -1,4 +1,4 @@
-import { FC, PropsWithChildren } from "react";
+import { FC, Suspense } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import styled from "@emotion/styled";
@@ -7,11 +7,12 @@ import { useSetupMonaco } from "@lepton-dashboard/hooks/use-setup-monaco";
 import { useSetupInterceptor } from "@lepton-dashboard/hooks/use-setup-interceptor";
 import { useInitialize } from "@lepton-dashboard/hooks/use-initialize";
 import { useSetupEcharts } from "@lepton-dashboard/hooks/use-setup-echarts";
+import { Outlet } from "react-router-dom";
 
 const Container = styled.div`
   height: 100%;
 `;
-export const Root: FC<PropsWithChildren> = ({ children }) => {
+export const Root: FC = () => {
   const theme = useAntdTheme();
   useSetupMonaco();
   useSetupInterceptor();
@@ -26,7 +27,9 @@ export const Root: FC<PropsWithChildren> = ({ children }) => {
         font-size: ${theme.fontSize}px;
       `}
     >
-      {children}
+      <Suspense fallback={<Loading />}>
+        <Outlet />
+      </Suspense>
     </Container>
   ) : (
     <Loading />
