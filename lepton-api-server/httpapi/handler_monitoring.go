@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func InstanceMemoryUtilHandler(c *gin.Context) {
 		"container_spec_memory_limit_bytes{pod=\"%[1]s\", container=\"main-container\"})[1h:1m]", c.Param("iid"))
 	result, err := queryMetrics(query, "memory_util", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -35,7 +36,7 @@ func InstanceMemoryUsageHandler(c *gin.Context) {
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
 	result, err := queryAndScaleMetrics(query, "memory_usage_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -46,7 +47,7 @@ func InstanceMemoryTotalHandler(c *gin.Context) {
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
 	result, err := queryAndScaleMetrics(query, "memory_total_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -61,7 +62,7 @@ func InstanceCPUUtilHandler(c *gin.Context) {
 	)
 	result, err := queryMetrics(query, "cpu_util", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -76,7 +77,7 @@ func InstanceFastAPIQPSHandler(c *gin.Context) {
 	query := "sum(rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -91,7 +92,7 @@ func InstanceFastAPILatencyHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -106,7 +107,7 @@ func InstanceFastAPIQPSByPathHandler(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -121,7 +122,7 @@ func InstanceFastAPILatencyByPathHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("iid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -136,7 +137,7 @@ func DeploymentFastAPIQPSHandler(c *gin.Context) {
 	query := "sum(rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -151,7 +152,7 @@ func DeploymentFastAPILatencyHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := queryMetrics(query, "all", "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -166,7 +167,7 @@ func DeploymentFastAPIQPSByPathHandler(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := queryMetrics(query, "qps", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -181,7 +182,7 @@ func DeploymentFastAPILatencyByPathHandler(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -192,7 +193,7 @@ func InstanceGPUMemoryUtilHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -203,7 +204,7 @@ func InstanceGPUUtilHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -214,7 +215,7 @@ func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"}[1h]"
 	result, err := queryMetrics(query, "gpu_memory_usage_in_MiB", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -225,7 +226,7 @@ func InstanceGPUMemoryTotalHandler(c *gin.Context) {
 	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("iid") + "\"})[1h:1m]"
 	result, err := queryMetrics(query, "gpu_memory_total_in_MiB", "gpu")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)

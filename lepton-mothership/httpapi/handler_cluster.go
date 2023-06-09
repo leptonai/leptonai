@@ -2,12 +2,13 @@ package httpapi
 
 import (
 	"log"
-	"os"
-	"path/filepath"
+	"net/http"
+
+	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/lepton-mothership/cluster"
+	"github.com/leptonai/lepton/lepton-mothership/terraform"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leptonai/lepton/lepton-mothership/git"
-	"github.com/leptonai/lepton/lepton-mothership/terraform"
 )
 
 func HandleClusterGet(c *gin.Context) {
@@ -17,34 +18,22 @@ func HandleClusterList(c *gin.Context) {
 }
 
 func HandleClusterCreate(c *gin.Context) {
-	leptonRepoURL := "https://github.com/leptonai/lepton.git"
-	clusterName := "fix-me"
-	err := terraform.CreateWorkspace(clusterName)
+	var cl cluster.Cluster
+	err := c.BindJSON(&cl)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Println("failed to get working directory:", err)
-		return
-	}
-	gitDir := filepath.Join(wd, clusterName, "git")
-	err = os.MkdirAll(gitDir, 0750)
-	if err != nil {
-		log.Println("failed to create working directory:", err)
+		log.Println("failed to bind json:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get cluster: " + err.Error()})
 		return
 	}
 
-	// Optimize me: only does one clone for all clusters
-	// TODO: switch to desired version of terraform code from the git repo
-	err = git.Clone(gitDir, leptonRepoURL)
+	ncl, err := cluster.Create(cl)
 	if err != nil {
-		log.Println("failed to clone the git repo:", err)
+		log.Println("failed to create cluster:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create cluster: " + err.Error()})
 		return
 	}
 
-	// TODO: run install.sh
+	c.JSON(201, ncl)
 }
 
 func HandleClusterDelete(c *gin.Context) {

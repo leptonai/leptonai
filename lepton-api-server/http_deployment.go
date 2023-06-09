@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -17,28 +18,28 @@ import (
 func deploymentPostHandler(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ld := &leptonaiv1alpha1.LeptonDeployment{}
 
 	if err := json.Unmarshal(body, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
 	if err := validateDeploymentInput(&ld.Spec.LeptonDeploymentUserSpec); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
 		return
 	}
 	if len(deploymentDB.GetByName(ld.GetSpecName())) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetSpecName() + " already exists."})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetSpecName() + " already exists."})
 		return
 	}
 
 	ph := photonDB.GetByID(ld.Spec.PhotonID)
 	if ph == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + ld.Spec.PhotonID + " does not exist."})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + ld.Spec.PhotonID + " does not exist."})
 		return
 	}
 
@@ -58,7 +59,7 @@ func deploymentPostHandler(c *gin.Context) {
 	ld.Name = ld.GetSpecName()
 
 	if err := util.K8sClient.Create(context.Background(), ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
 
@@ -80,23 +81,23 @@ func deploymentPatchHandler(c *gin.Context) {
 	did := c.Param("did")
 	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ldi := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
 	if err := json.Unmarshal(body, &ldi); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
 		return
 	}
 	if err := validatePatchInput(ldi); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + err.Error()})
 		return
 	}
 
@@ -104,7 +105,7 @@ func deploymentPatchHandler(c *gin.Context) {
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	if err := util.K8sClient.Update(context.Background(), ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetSpecName() + ": " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -115,7 +116,7 @@ func deploymentGetHandler(c *gin.Context) {
 	did := c.Param("did")
 	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
@@ -126,11 +127,11 @@ func deploymentDeleteHandler(c *gin.Context) {
 	did := c.Param("did")
 	ld := deploymentDB.GetByID(did)
 	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 	if err := util.K8sClient.Delete(context.Background(), ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

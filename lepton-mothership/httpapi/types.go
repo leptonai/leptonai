@@ -1,13 +1,6 @@
 package httpapi
 
 const (
-	ClusterStateCreating = "creating"
-	ClusterStateReady    = "ready"
-	clusterStateFailed   = "failed"
-	ClusterStateDeleting = "deleting"
-
-	ClusterProviderEKS = "aws-eks"
-
 	CellStateCreating = "creating"
 	CellStateReady    = "ready"
 	CellStateFailed   = "failed"
@@ -15,33 +8,8 @@ const (
 )
 
 type (
-	ClusterState string
-	CellState    string
+	CellState string
 )
-
-type Cluster struct {
-	Spec   ClusterSpec   `json:"spec"`
-	Status ClusterStatus `json:"status"`
-}
-
-type ClusterSpec struct {
-	// Name is a globally unique name of a cluster within mothership.
-	Name     string `json:"name"`
-	Provider string `json:"provider"`
-	Region   string `json:"region"`
-	// Terraform module version
-	Version string `json:"version"`
-
-	Description string `json:"description"`
-}
-
-type ClusterStatus struct {
-	State ClusterState `json:"state"`
-	// unix timestamp
-	UpdatedAt uint64 `json:"updatedAt"`
-
-	Cells []string `json:"cells"`
-}
 
 type Cell struct {
 	Spec   CellSpec   `json:"spec"`

@@ -29,6 +29,8 @@ func main() {
 
 	v1.GET("/users", httpapi.HandleUserList)
 	v1.POST("/users", httpapi.HandleUserCreate)
-	v1.DELETE("/users/:uname", httpapi.HandleUserGet)
+	v1.GET("/users/:uname", httpapi.HandleUserGet)
 	v1.DELETE("/users/:uname", httpapi.HandleUserDelete)
+
+	router.Run(":15213")
 }
