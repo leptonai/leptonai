@@ -101,18 +101,18 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 				go sleepAndPoke(ch)
 				break
 			}
-		} else { // Check the deployment status if no version bump.
-			deployment, err := r.getOrCreateDeployment(ctx, req, ld, ownerref)
-			if err != nil {
-				log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
-				go sleepAndPoke(ch)
-				break
-			}
-			if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
-				log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
-				go sleepAndPoke(ch)
-				break
-			}
+		}
+		// Check the deployment status
+		deployment, err := r.getOrCreateDeployment(ctx, req, ld, ownerref)
+		if err != nil {
+			log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
+			go sleepAndPoke(ch)
+			break
+		}
+		if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
+			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
+			go sleepAndPoke(ch)
+			break
 		}
 		prevLeptonDeploymentResourceVersion = ld.ResourceVersion
 	}
