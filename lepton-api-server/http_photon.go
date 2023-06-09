@@ -49,18 +49,10 @@ func photonDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 		return
 	}
-	err := photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from S3: " + err.Error()})
-		return
-	}
-
 	if err := util.K8sClient.Delete(context.Background(), ph); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " crd: " + err.Error()})
 		return
 	}
-
-	photonDB.Delete(ph)
 	c.Status(http.StatusOK)
 }
 
@@ -103,14 +95,11 @@ func photonPostHandler(c *gin.Context) {
 	}
 
 	// TODO: failure recovery: if the server crashes here, we should be able to delete the object uploaded to S3
-
 	err = util.K8sClient.Create(context.Background(), ph)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to create photon CR: " + err.Error()})
 		return
 	}
-
-	photonDB.Add(ph)
 
 	c.JSON(http.StatusOK, httpapi.NewPhoton(ph).Output())
 }

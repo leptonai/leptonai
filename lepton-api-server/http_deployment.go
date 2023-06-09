@@ -63,7 +63,6 @@ func deploymentPostHandler(c *gin.Context) {
 	}
 
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
-	deploymentDB.Add(ld)
 
 	c.JSON(http.StatusOK, httpapi.NewLeptonDeployment(ld).Output())
 }
@@ -130,13 +129,10 @@ func deploymentDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httpapi.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
-
 	if err := util.K8sClient.Delete(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httpapi.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}
-
-	deploymentDB.Delete(ld)
 	c.Status(http.StatusOK)
 }
 

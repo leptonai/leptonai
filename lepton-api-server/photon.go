@@ -12,34 +12,40 @@ import (
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
-	// Initialize the photon database
-	phs, err := readAllPhotonCR()
+	// Watch for changes in the LeptonDeployment CR
+	ch, err := util.K8sClient.Watch(context.Background(),
+		&leptonaiv1alpha1.PhotonList{},
+		client.InNamespace(*namespaceFlag))
 	if err != nil {
 		// TODO: better error handling
 		log.Fatalln(err)
 	}
-
-	photonDB.Add(phs...)
-}
-
-func readAllPhotonCR() ([]*leptonaiv1alpha1.Photon, error) {
-	phs := &leptonaiv1alpha1.PhotonList{}
-	if err := util.K8sClient.List(context.Background(), phs, client.InNamespace(*namespaceFlag)); err != nil {
-		return nil, err
-	}
-
-	ret := make([]*leptonaiv1alpha1.Photon, 0, len(phs.Items))
-	for i := range phs.Items {
-		ret = append(ret, &phs.Items[i])
-	}
-
-	return ret, nil
+	go func() {
+		for event := range ch.ResultChan() {
+			ph := event.Object.(*leptonaiv1alpha1.Photon)
+			fmt.Println("LeptonDeployment CR event:", event.Type, ph.Name)
+			switch event.Type {
+			case watch.Added:
+				photonDB.Add(ph)
+			case watch.Modified:
+				photonDB.Add(ph)
+			case watch.Deleted:
+				err := photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
+				if err != nil {
+					// TODO: we should handle the error to avoid resource leak
+					log.Printf("failed to delete photon " + ph.GetSpecUniqName() + " from S3: " + err.Error())
+				}
+				photonDB.Delete(ph)
+			}
+		}
+	}()
 }
 
 func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {

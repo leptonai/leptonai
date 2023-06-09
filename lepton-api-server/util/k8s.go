@@ -18,7 +18,7 @@ import (
 
 var (
 	K8sConfig *rest.Config
-	K8sClient client.Client
+	K8sClient client.WithWatch
 )
 
 func init() {
@@ -27,7 +27,7 @@ func init() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(leptonaiv1alpha1.AddToScheme(scheme))
-	K8sClient, _ = client.New(K8sConfig, client.Options{Scheme: scheme})
+	K8sClient, _ = client.NewWithWatch(K8sConfig, client.Options{Scheme: scheme})
 }
 
 func MustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
