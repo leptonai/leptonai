@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "s3-bucket" {
-  bucket = "s3-lepton-${local.cluster_name}"
+  bucket        = "s3-lepton-${local.cluster_name}"
+  force_destroy = true
 
   tags = {
     Name        = "s3-lepton-${local.cluster_name}"
