@@ -129,8 +129,9 @@ func (a *Annotation) SetActions(serviceName string, actions string) *Annotation 
 }
 
 func addBearerToTokens(tokens []string) []string {
+	ret := make([]string, len(tokens))
 	for i := range tokens {
-		tokens[i] = "Bearer " + tokens[i]
+		ret[i] = "Bearer " + tokens[i]
 	}
-	return tokens
+	return ret
 }
