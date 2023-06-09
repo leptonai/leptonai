@@ -32,7 +32,7 @@ func InstanceMemoryUtilHandler(c *gin.Context) {
 func InstanceMemoryUsageHandler(c *gin.Context) {
 	// get the memory usage bytes for the past 1 hour
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
-	result, err := queryMetrics(query, "memory_usage_in_bytes", "")
+	result, err := queryAndScaleMetrics(query, "memory_usage_in_MB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -43,7 +43,7 @@ func InstanceMemoryUsageHandler(c *gin.Context) {
 func InstanceMemoryTotalHandler(c *gin.Context) {
 	// get the memory limit bytes for the past 1 hour
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
-	result, err := queryMetrics(query, "memory_total_in_bytes", "")
+	result, err := queryAndScaleMetrics(query, "memory_total_in_MB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -230,7 +230,7 @@ func InstanceGPUMemoryTotalHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-func cleanPrometheusQueryResult(result model.Value, name, keep string) ([]map[string]interface{}, error) {
+func cleanAndScalePrometheusQueryResult(result model.Value, name, keep string, scale float64) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(result)
 	if err != nil {
 		return nil, err
@@ -260,8 +260,11 @@ func cleanPrometheusQueryResult(result model.Value, name, keep string) ([]map[st
 		if values, ok := item["values"].([]interface{}); ok {
 			for _, value := range values {
 				if v, ok := value.([]interface{}); ok {
-					if len(v) == 2 && v[1] == "NaN" {
-						v[1] = 0
+					if len(v) == 2 {
+						if v[1] == "NaN" {
+							v[1] = 0
+						}
+						v[1] = v[1].(float64) * scale
 					}
 				}
 			}
@@ -293,12 +296,16 @@ func queryPodMetrics(query string) (model.Value, error) {
 }
 
 func queryMetrics(query, name, keep string) ([]map[string]interface{}, error) {
+	return queryAndScaleMetrics(query, name, keep, 1)
+}
+
+func queryAndScaleMetrics(query, name, keep string, scale float64) ([]map[string]interface{}, error) {
 	result, err := queryPodMetrics(query)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %v", err)
 	}
 
-	data, err := cleanPrometheusQueryResult(result, name, keep)
+	data, err := cleanAndScalePrometheusQueryResult(result, name, keep, scale)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing query result: %v", err)
 	}
