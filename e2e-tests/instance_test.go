@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,13 +17,16 @@ import (
 )
 
 func TestInstance(t *testing.T) {
-	name := "instance-" + randString(5)
-	mustCreatePhoton(t, name)
-	mustPushPhoton(t, name)
-	mustDeployPhoton(t, name)
-	mustVerifyDeployment(t, "deploy-", name)
+	phName := "photon-instance-" + randString(5)
+	mustCreatePhoton(t, phName)
+	mustPushPhoton(t, phName)
+	mustDeployPhoton(t, phName)
+	deploymentName := mustVerifyDeployment(t, phName)
+	if !strings.HasPrefix(deploymentName, "deploy-") {
+		t.Fatalf("deployment name %q does not have the expected prefix 'deploy-'", deploymentName)
+	}
 
-	pid := getPhotonID(name, mustListPhoton(t))
+	pid := getPhotonID(phName, mustListPhoton(t))
 	did := mustGetDeploymentIDbyPhotonID(t, pid)
 
 	t.Run("list", testInstanceList(t, did))

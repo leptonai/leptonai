@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,7 +21,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 )
@@ -35,17 +34,23 @@ func TestDeploymentCreateListRemove(t *testing.T) {
 	mustCreatePhoton(t, phName)
 	mustPushPhoton(t, phName)
 	mustDeployPhoton(t, phName)
-	deploymentName := mustVerifyDeployment(t, "deploy-", phName)
+	deploymentName := mustVerifyDeployment(t, phName)
 	t.Logf("found deployment %q in the namespace %q", deploymentName, *namespace)
+	if !strings.HasPrefix(deploymentName, "deploy-") {
+		t.Fatalf("deployment name %q does not have the expected prefix 'deploy-'", deploymentName)
+	}
 
 	// TODO: currently this would not work
 	// because the default "photon run" does not specify
 	// enough resources for GPT2 models to run
-	externalDNS := mustVerifyIngress(t)
-	t.Logf("found external DNS %q in the namespace %q", externalDNS, *namespace)
+	rootDomain := mustVerifyAPIServerIngress(t)
+	t.Logf("found root domain %q in namespace %q", rootDomain, *namespace)
+	if len(rootDomain) == 0 {
+		t.Fatalf("failed to find root domain")
+	}
 
 	for i := 0; i < 5; i++ {
-		err := checkGPT2API(externalDNS, deploymentName)
+		err := checkGPT2API(rootDomain, deploymentName)
 		if err != nil {
 			t.Logf("failed checkGPT2API %v", err)
 			time.Sleep(5 * time.Second)
@@ -123,74 +128,37 @@ func mustRemoveDeploymentByID(t *testing.T, id string) {
 	}
 }
 
-func mustVerifyDeployment(t *testing.T, pfx string, phName string) (deploymentName string) {
-	deploymentList := &appsv1.DeploymentList{}
-	err := util.K8sClient.List(
+func mustVerifyDeployment(t *testing.T, phName string) (deploymentName string) {
+	ch, err := util.K8sClient.Watch(
 		context.Background(),
-		deploymentList,
+		&appsv1.DeploymentList{},
 		client.InNamespace(*namespace),
 		client.MatchingLabels{"photon_name": phName},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(deploymentList.Items) == 1 {
-		d := &deploymentList.Items[0]
 
-		deploymentName = d.Name
-		t.Logf("List found deployment %q with matching label (ready replicas %d)", deploymentName, d.Status.ReadyReplicas)
-
-		if d.Status.ReadyReplicas == d.Status.Replicas {
-			return deploymentName
-		}
-	}
-
-	// couldn't find on the initial list, thus starting watch
-	labelSelector, err := metav1.LabelSelectorAsSelector(
-		&metav1.LabelSelector{
-			MatchLabels: client.MatchingLabels{"photon_name": phName},
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ch, err := util.K8sClient.Watch(
-		context.Background(),
-		deploymentList,
-		client.InNamespace(*namespace),
-		client.MatchingLabelsSelector{Selector: labelSelector},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	done := make(chan struct{})
-	go func() {
-		for event := range ch.ResultChan() {
-			ld := event.Object.(*appsv1.Deployment)
-			t.Logf("Watch deployment event %v for name %q", event.Type, ld.Name)
+	tick := time.Tick(5 * time.Second)
+	for {
+		select {
+		case event := <-ch.ResultChan():
+			deployment := event.Object.(*appsv1.Deployment)
+			t.Logf("Watch deployment event %v for name %q", event.Type, deployment.Name)
 
 			switch event.Type {
 			case watch.Added, watch.Modified:
-				v, ok := ld.Labels["photon_name"]
+				v, ok := deployment.Labels["photon_name"]
 				if ok && v == phName {
-					deploymentName = ld.Name
-					t.Logf("Watch found deployment %q with matching label (ready replicas %d)", deploymentName, ld.Status.ReadyReplicas)
-					done <- struct{}{}
-					return
+					t.Logf("Watch found deployment %q with matching label (ready replicas %d)", deployment.Name, deployment.Status.ReadyReplicas)
+					return deployment.Name
 				}
 			default:
 			}
+		case <-tick:
+			return ""
 		}
-	}()
-	select {
-	case <-time.After(5 * time.Minute):
-		ch.Stop()
-		t.Fatal("fail to watch deployment in time")
-	case <-done:
 	}
-
-	return deploymentName
 }
 
 const (
@@ -202,71 +170,38 @@ const (
 var leptonAPIServerIngressName = ingress.IngressName("lepton-api-server")
 
 // ensure ingress is set up correctly
-func mustVerifyIngress(t *testing.T) (externalDNS string) {
-	ing := &networkingv1.Ingress{}
-	if err := util.K8sClient.Get(
-		context.Background(),
-		types.NamespacedName{
-			Namespace: *namespace,
-			Name:      leptonAPIServerIngressName,
-		},
-		ing); err != nil {
-		t.Fatal(err)
-	}
-	if len(ing.Status.LoadBalancer.Ingress) == 1 {
-		hostName := ing.Status.LoadBalancer.Ingress[0].Hostname
-		externalDNS = ing.Annotations[externalDNSAnnotationKey]
-		t.Logf("Get %q in namespace %q returned hostname %q and external DNS %q", leptonAPIServerIngressName, *namespace, hostName, externalDNS)
-		if externalDNS != "" {
-			return externalDNS
-		}
-		// no need to watch
-	}
-
-	ingressList := &networkingv1.IngressList{}
-	// couldn't find on the initial list, thus starting watch
+func mustVerifyAPIServerIngress(t *testing.T) (externalDNS string) {
 	ch, err := util.K8sClient.Watch(
 		context.Background(),
-		ingressList,
+		&networkingv1.IngressList{},
 		client.InNamespace(*namespace),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	done := make(chan struct{})
-	start := time.Now()
-	go func() {
-		for event := range ch.ResultChan() {
+	tick := time.Tick(5 * time.Second)
+	for {
+		select {
+		case event := <-ch.ResultChan():
 			ing := event.Object.(*networkingv1.Ingress)
 			t.Logf("Watch ingress event %v for name %q", event.Type, ing.Name)
-
+			if ing.Name != leptonAPIServerIngressName {
+				continue
+			}
 			switch event.Type {
 			case watch.Added, watch.Modified:
-				if ing.Name != leptonAPIServerIngressName {
-					continue
-				}
 				hostName := ing.Status.LoadBalancer.Ingress[0].Hostname
 				externalDNS = ing.Annotations[externalDNSAnnotationKey]
 				t.Logf("Watch found ingress %q with matching name (hostname %q and external DNS %q)", leptonAPIServerIngressName, hostName, externalDNS)
-
-				if externalDNS != "" {
-					done <- struct{}{}
-					return
-				}
+				return externalDNS
 			default:
 			}
+		case <-tick:
+			t.Logf("Watch ingress timeout")
+			return ""
 		}
-	}()
-	select {
-	case <-time.After(10 * time.Minute): // DNS can take awhile for propagation
-		ch.Stop()
-		t.Fatal("fail to watch deployment in time")
-	case <-done:
-		t.Logf("took %v to resolve external DNS hostname", time.Since(start))
 	}
-
-	return externalDNS
 }
 
 func checkGPT2API(leptonAPIServerDNS string, deploymentName string) error {
@@ -349,7 +284,7 @@ func checkOKHTTP(c *http.Client, req *http.Request, readFunc func(io.Reader) ([]
 	}
 
 	if readFunc == nil {
-		readFunc = ioutil.ReadAll
+		readFunc = io.ReadAll
 	}
 	body, err := readFunc(resp.Body)
 	if err != nil {

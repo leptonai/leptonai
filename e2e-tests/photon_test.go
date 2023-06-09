@@ -26,28 +26,28 @@ func TestMain(m *testing.M) {
 }
 
 func TestPhotonPushAndList(t *testing.T) {
-	name := "push-" + randString(5)
-	mustCreatePhoton(t, name)
-	mustPushPhoton(t, name)
+	phName := "photon-push-" + randString(5)
+	mustCreatePhoton(t, phName)
+	mustPushPhoton(t, phName)
 
-	id := getPhotonID(name, mustListPhoton(t))
-	if id == "" {
-		t.Fatal("Cannot find the ID of the push Photon:", id)
+	phID := getPhotonID(phName, mustListPhoton(t))
+	if phID == "" {
+		t.Fatal("Cannot find the ID of the push Photon:", phID)
 	}
 }
 
 func TestPhotonRemove(t *testing.T) {
-	name := "remove-" + randString(5)
+	phName := "photon-remove-" + randString(5)
 
-	mustCreatePhoton(t, name)
-	mustPushPhoton(t, name)
+	mustCreatePhoton(t, phName)
+	mustPushPhoton(t, phName)
 
-	id := getPhotonID(name, mustListPhoton(t))
-	if id == "" {
-		t.Fatal("Cannot find the ID of the push Photon:", id)
+	phID := getPhotonID(phName, mustListPhoton(t))
+	if phID == "" {
+		t.Fatal("Cannot find the ID of the push Photon:", phID)
 	}
 
-	mustRemovePhoton(t, name, id)
+	mustRemovePhoton(t, phName, phID)
 }
 
 func mustListPhoton(t *testing.T) string {
