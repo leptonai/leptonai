@@ -167,7 +167,6 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	}
 
 	cpu := resource.NewScaledQuantity(int64(ld.Spec.ResourceRequirement.CPU*1000), -3)
-	// TODO: we may want to change memory to BinarySI
 	memory := resource.NewQuantity(ld.Spec.ResourceRequirement.Memory*1024*1024, resource.BinarySI)
 	// Define the main container
 	resources := corev1.ResourceRequirements{

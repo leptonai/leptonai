@@ -33,7 +33,7 @@ func InstanceMemoryUtilHandler(c *gin.Context) {
 func InstanceMemoryUsageHandler(c *gin.Context) {
 	// get the memory usage bytes for the past 1 hour
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
-	result, err := queryAndScaleMetrics(query, "memory_usage_in_MB", "", 1.0/1024/1024)
+	result, err := queryAndScaleMetrics(query, "memory_usage_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -44,7 +44,7 @@ func InstanceMemoryUsageHandler(c *gin.Context) {
 func InstanceMemoryTotalHandler(c *gin.Context) {
 	// get the memory limit bytes for the past 1 hour
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("iid") + "\", container=\"main-container\"}[1h]"
-	result, err := queryAndScaleMetrics(query, "memory_total_in_MB", "", 1.0/1024/1024)
+	result, err := queryAndScaleMetrics(query, "memory_total_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -212,7 +212,7 @@ func InstanceGPUUtilHandler(c *gin.Context) {
 func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 	// get the GPU memory usage in MB for the past 1 hour
 	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"}[1h]"
-	result, err := queryMetrics(query, "gpu_memory_usage_in_MB", "gpu")
+	result, err := queryMetrics(query, "gpu_memory_usage_in_MiB", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
@@ -223,7 +223,7 @@ func InstanceGPUMemoryUsageHandler(c *gin.Context) {
 func InstanceGPUMemoryTotalHandler(c *gin.Context) {
 	// get the GPU total memory in MB for the past 1 hour
 	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("iid") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("iid") + "\"})[1h:1m]"
-	result, err := queryMetrics(query, "gpu_memory_total_in_MB", "gpu")
+	result, err := queryMetrics(query, "gpu_memory_total_in_MiB", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": ErrorCodeInternalFailure, "message": err.Error()})
 		return
