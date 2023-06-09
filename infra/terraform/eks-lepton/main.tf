@@ -176,7 +176,11 @@ module "eks_blueprints_kubernetes_addons" {
   #---------------------------------------------------------------
   # Prometheus Add-on
   #---------------------------------------------------------------
+  # TODO: this has been removed in https://github.com/aws-ia/terraform-aws-eks-blueprints-addons/blob/main/variables.tf
   enable_prometheus = true
+  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/
+  # https://prometheus.io/docs/prometheus/latest/storage/
+  # https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
   prometheus_helm_config = {
     values = [yamlencode({
       server : {
@@ -184,6 +188,9 @@ module "eks_blueprints_kubernetes_addons" {
           scrape_interval : "5s"
           scrape_timeout : "4s"
         }
+        extraFlags : [
+          "storage.tsdb.wal-compression"
+        ]
       }
       extraScrapeConfigs = <<EOT
 - job_name: lepton-deployment-pods
