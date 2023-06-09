@@ -4,7 +4,7 @@ const formatMap = {
   qps: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
   latency: (v: number) => `${v !== null ? `${(v * 1000).toFixed(0)}ms` : "-"}`,
   util: (v: number) => `${(v * 100).toFixed(1)}%`,
-  memory: (v: number) => prettyBytes(v),
+  memory: (v: number) => prettyBytes(v * 1000 * 1000),
 };
 const tipsMap = {
   qps: `QPS stands for Queries Per Second. It is a metric used to measure the rate at which queries or requests are processed by a system. QPS indicates how many queries a system can handle within a one-second time frame.`,

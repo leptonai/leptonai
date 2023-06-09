@@ -54,7 +54,10 @@ export const PopoverDeploymentTable: FC<{
                 rowKey="id"
                 onRow={(record) => {
                   return {
-                    onClick: () => navigate(`/deployments/detail/${record.id}`),
+                    onClick: () =>
+                      navigate(
+                        `/workspace/${workspaceTrackerService.name}/deployments/detail/${record.id}`
+                      ),
                   };
                 }}
                 columns={[

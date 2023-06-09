@@ -137,7 +137,7 @@ export const Login = () => {
           >
             By continuing, you agree to{" "}
             <Typography.Link target="_blank" href="https://lepton.ai/terms">
-              LeptonAI's Terms of Service
+              Lepton AI's Terms of Service
             </Typography.Link>{" "}
             and{" "}
             <Typography.Link target="_blank" href="https://lepton.ai/privacy">
