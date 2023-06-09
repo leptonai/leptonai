@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -80,7 +80,7 @@ func (ci *ClusterInfoHandler) updateAcceleratorsPeriodically() {
 func (ci *ClusterInfoHandler) updateAccelerators() {
 	acc, err := util.GetAccelerators()
 	if err != nil {
-		fmt.Printf("Error retrieving accelerators: %v", err)
+		log.Printf("Error retrieving accelerators: %v", err)
 	} else {
 		ci.ClusterInfo.UpdateSupportedAccelerators(acc)
 	}
@@ -100,7 +100,7 @@ func (ci *ClusterInfoHandler) updateMaxAllocatableSizePeriodically() {
 func (ci *ClusterInfoHandler) updateMaxAllocatableSize() {
 	m, err := util.GetMaxAllocatableSize()
 	if err != nil {
-		fmt.Printf("Error retrieving max allocatable size: %v", err)
+		log.Printf("Error retrieving max allocatable size: %v", err)
 	} else {
 		ci.ClusterInfo.UpdateMaxAllocatableSize(m)
 	}

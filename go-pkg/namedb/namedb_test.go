@@ -1,7 +1,6 @@
 package namedb
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -151,8 +150,6 @@ func TestDeleteMultiple(t *testing.T) {
 	if len(db.dataByID) != 1 {
 		t.Errorf("db.dataByID has length %d, expected 1", len(db.dataByID))
 	}
-	fmt.Printf("%+v\n", db.dataByID)
-	fmt.Printf("%+v\n", db.dataByName)
 	if len(db.dataByName) != 1 {
 		t.Errorf("db.dataByName has length %d, expected 1", len(db.dataByName))
 	}

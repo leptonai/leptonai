@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
@@ -42,14 +42,14 @@ func mustInitAPIServerIngress() {
 
 	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
-			panic(err)
+			log.Fatalln(err)
 		}
 		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
-			panic(err)
+			log.Fatalln(err)
 		}
 	}
 
-	fmt.Printf("Created/updated Ingress %q.\n", ingress.Name)
+	log.Printf("Created/updated Ingress %q.\n", ingress.Name)
 }
 
 func mustInitUnauthorizedErrorIngress() {
@@ -78,12 +78,12 @@ func mustInitUnauthorizedErrorIngress() {
 
 	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
-			panic(err)
+			log.Fatalln(err)
 		}
 		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
-			panic(err)
+			log.Fatalln(err)
 		}
 	}
 
-	fmt.Printf("Created/updated Ingress %q.\n", ingress.Name)
+	log.Printf("Created/updated Ingress %q.\n", ingress.Name)
 }

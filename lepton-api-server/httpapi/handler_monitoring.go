@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -277,7 +278,7 @@ func queryPodMetrics(query string) (model.Value, error) {
 		Client:  &http.Client{Timeout: 10 * time.Second},
 	})
 	if err != nil {
-		fmt.Println("Error creating client:", err)
+		log.Println("Error creating client:", err)
 		return nil, err
 	}
 
@@ -285,7 +286,7 @@ func queryPodMetrics(query string) (model.Value, error) {
 	promAPI := prometheusv1.NewAPI(client)
 	result, warnings, err := promAPI.Query(context.Background(), query, time.Now())
 	if len(warnings) > 0 {
-		fmt.Println("Warnings received:", warnings)
+		log.Println("Warnings received:", warnings)
 	}
 
 	return result, err

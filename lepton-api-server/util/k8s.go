@@ -1,6 +1,7 @@
 package util
 
 import (
+	"log"
 	"os"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -33,12 +34,12 @@ func MustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {
 	// Load Kubernetes configuration from default location or specified kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	// Create a Kubernetes client
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	return clientset, config
 }

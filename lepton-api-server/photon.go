@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -21,7 +22,7 @@ func initPhotons() {
 	phs, err := readAllPhotonCR()
 	if err != nil {
 		// TODO: better error handling
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	photonDB.Add(phs...)

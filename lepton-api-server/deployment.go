@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -18,7 +18,7 @@ func initDeployments() {
 	// Initialize the photon database
 	lds, err := readAllLeptonDeploymentCR()
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	deploymentDB.Add(lds...)
 
@@ -30,7 +30,7 @@ func periodCheckDeploymentState() {
 	for range tick {
 		lds, err := readAllLeptonDeploymentCR()
 		if err != nil {
-			fmt.Println("Reading all LeptonDeployment CRs failed:", err.Error())
+			log.Println("Reading all LeptonDeployment CRs failed:", err.Error())
 			continue
 		}
 		deploymentDB.Add(lds...)

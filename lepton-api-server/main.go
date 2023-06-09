@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -67,14 +68,14 @@ func main() {
 			*bucketRegionFlag,
 			*photonPrefixFlag))
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	accessible, err := photonBucket.IsAccessible(context.Background())
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	if !accessible {
-		panic("bucket is not accessible")
+		log.Fatalln("bucket is not accessible")
 	}
 
 	// Set the namespace for various resources.
@@ -91,7 +92,7 @@ func main() {
 	httpapi.Init(*prometheusURLFlag, *namespaceFlag, deploymentDB, photonDB)
 	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
 
-	fmt.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
+	log.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
 
 	router := gin.Default()
 	router.Use(CORSMiddleware())
