@@ -264,7 +264,12 @@ func cleanAndScalePrometheusQueryResult(result model.Value, name, keep string, s
 						if v[1] == "NaN" {
 							v[1] = 0
 						}
-						v[1] = v[1].(float64) * scale
+						switch v[1].(type) {
+						case int:
+							v[1] = int(float64(v[1].(int)) * scale)
+						case float64:
+							v[1] = v[1].(float64) * scale
+						}
 					}
 				}
 			}
