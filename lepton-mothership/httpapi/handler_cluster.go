@@ -6,7 +6,6 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
-	"github.com/leptonai/lepton/lepton-mothership/terraform"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,15 +36,13 @@ func HandleClusterCreate(c *gin.Context) {
 }
 
 func HandleClusterDelete(c *gin.Context) {
-	clusterName := "fix-me"
-	// TODO: clone the desired version of terraform code from the git repo
-	// TODO: delete all lepton resources in Kubernetes (the namespaces?)
-	// TODO: run uninstall.sh
-
-	err := terraform.DeleteWorkspace(clusterName)
+	err := cluster.Delete(c.Param("clname"), false)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("failed to delete cluster:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cluster: " + err.Error()})
+		return
 	}
+	c.Status(http.StatusOK)
 }
 
 func HandleClusterUpdate(c *gin.Context) {

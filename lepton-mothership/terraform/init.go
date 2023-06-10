@@ -32,6 +32,10 @@ func ListWorkspaces() (*tfe.WorkspaceList, error) {
 	return client.Workspaces.List(context.TODO(), orgName, &listOpt)
 }
 
+func GetWorkspace(name string) (*tfe.Workspace, error) {
+	return client.Workspaces.Read(context.TODO(), orgName, name)
+}
+
 func CreateWorkspace(name string) error {
 	localExecution := "local"
 	autoApply := true
