@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -50,7 +50,7 @@ func photonDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 		return
 	}
-	if err := util.K8sClient.Delete(context.Background(), ph); err != nil {
+	if err := k8s.Client.Delete(context.Background(), ph); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " crd: " + err.Error()})
 		return
 	}
@@ -96,7 +96,7 @@ func photonPostHandler(c *gin.Context) {
 	}
 
 	// TODO: failure recovery: if the server crashes here, we should be able to delete the object uploaded to S3
-	err = util.K8sClient.Create(context.Background(), ph)
+	err = k8s.Client.Create(context.Background(), ph)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon CR: " + err.Error()})
 		return

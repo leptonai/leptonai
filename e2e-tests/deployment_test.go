@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -145,7 +145,7 @@ func mustRemoveDeploymentByID(t *testing.T, id string) {
 }
 
 func mustVerifyDeployment(t *testing.T, phName string) (deploymentName string) {
-	ch, err := util.K8sClient.Watch(
+	ch, err := k8s.Client.Watch(
 		context.Background(),
 		&appsv1.DeploymentList{},
 		client.InNamespace(*namespace),
@@ -187,7 +187,7 @@ var leptonAPIServerIngressName = ingress.IngressName("lepton-api-server")
 
 // ensure ingress is set up correctly
 func mustVerifyAPIServerIngress(t *testing.T) (externalDNS string) {
-	ch, err := util.K8sClient.Watch(
+	ch, err := k8s.Client.Watch(
 		context.Background(),
 		&networkingv1.IngressList{},
 		client.InNamespace(*namespace),
@@ -225,7 +225,7 @@ func checkGPT2API(leptonAPIServerDNS string, deploymentName string) error {
 	fmt.Printf("checking the ingress %q in the namespace %q\n", ingressNameForDeployment, *namespace)
 
 	ing := &networkingv1.Ingress{}
-	if err := util.K8sClient.Get(
+	if err := k8s.Client.Get(
 		context.Background(),
 		types.NamespacedName{
 			Name:      ingressNameForDeployment,

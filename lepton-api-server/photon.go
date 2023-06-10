@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -20,7 +21,7 @@ var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
 	// Watch for changes in the LeptonDeployment CR
-	ch, err := util.K8sClient.Watch(context.Background(),
+	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.PhotonList{},
 		client.InNamespace(*namespaceFlag))
 	if err != nil {

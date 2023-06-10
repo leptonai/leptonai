@@ -1,4 +1,4 @@
-package util
+package k8s
 
 import (
 	"log"
@@ -17,17 +17,17 @@ import (
 )
 
 var (
-	K8sConfig *rest.Config
-	K8sClient client.WithWatch
+	Config *rest.Config
+	Client client.WithWatch
 )
 
 func init() {
 	// TODO: handle the errors
-	K8sConfig, _ = config.GetConfig()
+	Config, _ = config.GetConfig()
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(leptonaiv1alpha1.AddToScheme(scheme))
-	K8sClient, _ = client.NewWithWatch(K8sConfig, client.Options{Scheme: scheme})
+	Client, _ = client.NewWithWatch(Config, client.Options{Scheme: scheme})
 }
 
 func MustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {

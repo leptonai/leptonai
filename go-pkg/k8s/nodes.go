@@ -1,4 +1,4 @@
-package util
+package k8s
 
 import (
 	"context"
@@ -15,7 +15,7 @@ const (
 
 func GetAccelerators() (map[string]int, error) {
 	nodes := &corev1.NodeList{}
-	if err := K8sClient.List(context.Background(), nodes); err != nil {
+	if err := Client.List(context.Background(), nodes); err != nil {
 		return nil, fmt.Errorf("error retrieving node list: %v", err)
 	}
 
@@ -46,7 +46,7 @@ type MaxAllocatableSize struct {
 
 func GetMaxAllocatableSize() (*MaxAllocatableSize, error) {
 	nodes := &corev1.NodeList{}
-	if err := K8sClient.List(context.Background(), nodes); err != nil {
+	if err := Client.List(context.Background(), nodes); err != nil {
 		return nil, fmt.Errorf("error retrieving node list: %v", err)
 	}
 

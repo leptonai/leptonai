@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leptonai/lepton/lepton-api-server/util"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/lepton-api-server/version"
 )
 
@@ -20,7 +20,7 @@ type ClusterInfo struct {
 	// SupportedAccelerators is a map from accelerator type to max number of accelerators a node can have.
 	SupportedAccelerators map[string]int `json:"supported_accelerators"`
 	// MaxGenericComputeSize is the largest generic compute size in the cluster.
-	MaxGenericComputeSize *util.MaxAllocatableSize `json:"max_generic_compute_size"`
+	MaxGenericComputeSize *k8s.MaxAllocatableSize `json:"max_generic_compute_size"`
 }
 
 func (ci *ClusterInfo) UpdateSupportedAccelerators(a map[string]int) {
@@ -30,7 +30,7 @@ func (ci *ClusterInfo) UpdateSupportedAccelerators(a map[string]int) {
 	ci.SupportedAccelerators = a
 }
 
-func (ci *ClusterInfo) UpdateMaxAllocatableSize(m *util.MaxAllocatableSize) {
+func (ci *ClusterInfo) UpdateMaxAllocatableSize(m *k8s.MaxAllocatableSize) {
 	ci.Lock()
 	defer ci.Unlock()
 
@@ -78,7 +78,7 @@ func (ci *ClusterInfoHandler) updateAcceleratorsPeriodically() {
 }
 
 func (ci *ClusterInfoHandler) updateAccelerators() {
-	acc, err := util.GetAccelerators()
+	acc, err := k8s.GetAccelerators()
 	if err != nil {
 		log.Printf("Error retrieving accelerators: %v", err)
 	} else {
@@ -98,7 +98,7 @@ func (ci *ClusterInfoHandler) updateMaxAllocatableSizePeriodically() {
 }
 
 func (ci *ClusterInfoHandler) updateMaxAllocatableSize() {
-	m, err := util.GetMaxAllocatableSize()
+	m, err := k8s.GetMaxAllocatableSize()
 	if err != nil {
 		log.Printf("Error retrieving max allocatable size: %v", err)
 	} else {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -58,7 +59,7 @@ func deploymentPostHandler(c *gin.Context) {
 	ld.Namespace = *namespaceFlag
 	ld.Name = ld.GetSpecName()
 
-	if err := util.K8sClient.Create(context.Background(), ld); err != nil {
+	if err := k8s.Client.Create(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
 		return
 	}
@@ -104,7 +105,7 @@ func deploymentPatchHandler(c *gin.Context) {
 	ld.Patch(ldi)
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
-	if err := util.K8sClient.Update(context.Background(), ld); err != nil {
+	if err := k8s.Client.Update(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -130,7 +131,7 @@ func deploymentDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
-	if err := util.K8sClient.Delete(context.Background(), ld); err != nil {
+	if err := k8s.Client.Delete(context.Background(), ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,11 +40,11 @@ func mustInitAPIServerIngress() {
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(deploymentNameAPIServer), apiServerPort, apiServerPath)
 	ingress := ingress.NewIngress(ingress.IngressName(deploymentNameAPIServer), ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
-	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
+	if err := k8s.Client.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
 			log.Fatalln(err)
 		}
-		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
+		if err := k8s.Client.Create(context.Background(), ingress); err != nil {
 			log.Fatalln(err)
 		}
 	}
@@ -54,7 +54,7 @@ func mustInitAPIServerIngress() {
 
 func mustInitUnauthorizedErrorIngress() {
 	// Try to delete the ingress if it already exists. Returning error is okay given it may not exist.
-	util.K8sClient.Delete(context.Background(), &networkingv1.Ingress{
+	k8s.Client.Delete(context.Background(), &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ingressNameForUnauthorizedAccess,
 			Namespace: ingressNamespace,
@@ -76,11 +76,11 @@ func mustInitUnauthorizedErrorIngress() {
 	paths.AddAnnotationPath(serviceNameForUnauthorizedAPIServer, apiServerPath)
 	ingress := ingress.NewIngress(ingressNameForUnauthorizedAccess, ingressNamespace, "", annotation.Get(), paths.Get(), nil)
 
-	if err := util.K8sClient.Update(context.Background(), ingress); err != nil {
+	if err := k8s.Client.Update(context.Background(), ingress); err != nil {
 		if !apierrors.IsNotFound(err) {
 			log.Fatalln(err)
 		}
-		if err := util.K8sClient.Create(context.Background(), ingress); err != nil {
+		if err := k8s.Client.Create(context.Background(), ingress); err != nil {
 			log.Fatalln(err)
 		}
 	}

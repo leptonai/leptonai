@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/lepton-api-server/util"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +21,7 @@ const mainContainerName = "main-container"
 
 func InstanceListHandler(c *gin.Context) {
 	did := c.Param("did")
-	clientset := util.MustInitK8sClientSet()
+	clientset := k8s.MustInitK8sClientSet()
 
 	ld := deploymentDB.GetByID(did)
 	if ld == nil {
@@ -60,13 +60,13 @@ func InstanceListHandler(c *gin.Context) {
 
 func InstanceShellHandler(c *gin.Context) {
 	iid := c.Param("iid")
-	httpClient, err := restclient.HTTPClientFor(util.K8sConfig)
+	httpClient, err := restclient.HTTPClientFor(k8s.Config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
 		return
 	}
 
-	targetURL, err := url.Parse(util.K8sConfig.Host)
+	targetURL, err := url.Parse(k8s.Config.Host)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "Bad logging URL"})
 		return
@@ -97,7 +97,7 @@ func InstanceShellHandler(c *gin.Context) {
 func InstanceLogHandler(c *gin.Context) {
 	iid := c.Param("iid")
 
-	clientset := util.MustInitK8sClientSet()
+	clientset := k8s.MustInitK8sClientSet()
 
 	tailLines := int64(10000)
 	tenMBInBytes := int64(10 * 1024 * 1024)
