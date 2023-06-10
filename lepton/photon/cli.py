@@ -135,8 +135,11 @@ def list(remote_url):
     help="Remote URL of the Lepton Server",
 )
 @click.option("--id", "-i", help="ID of the Photon (only required for remote)")
+@click.option("--cpu", help="Number of CPU to require", default=1)
+@click.option("--memory", help="Number of RAM to require in MB", default=1024)
+@click.option("--min-replicas", help="Number of replicas to require", default=1)
 @click.pass_context
-def run(ctx, name, model, path, port, remote_url, id):
+def run(ctx, name, model, path, port, remote_url, id, cpu, memory, min_replicas):
     remote_url = remote.get_remote_url(remote_url)
 
     if remote_url is not None:
@@ -145,7 +148,7 @@ def run(ctx, name, model, path, port, remote_url, id):
             # TODO: Support push and run if the Photon does not exist on remote
             console.print("Must specify --id when running remote photon")
             sys.exit(1)
-        api.remote_launch(id, remote_url)
+        api.remote_launch(id, remote_url, cpu, memory, min_replicas)
         return
 
     if name is None and path is None:

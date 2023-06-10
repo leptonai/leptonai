@@ -146,18 +146,17 @@ def fetch(id: str, url: str, path: str):
     return photon
 
 
-def remote_launch(id: str, url: str):
+def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
     # name
     deployment = {
         "name": "deploy-" + id[:6],
         "photon_id": id,
-        # TODO: support custom resource requirements
         "resource_requirement": {
-            "cpu": 1,
-            "memory": 1024,
-            "min_replicas": 1,
+            "cpu": cpu,
+            "memory": memory,
+            "min_replicas": min_replicas,
         },
     }
 

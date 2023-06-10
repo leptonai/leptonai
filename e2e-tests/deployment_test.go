@@ -49,14 +49,28 @@ func TestDeploymentCreateListRemove(t *testing.T) {
 		t.Fatalf("failed to find root domain")
 	}
 
-	for i := 0; i < 5; i++ {
-		err := checkGPT2API(rootDomain, deploymentName)
-		if err != nil {
-			t.Logf("failed checkGPT2API %v", err)
-			time.Sleep(5 * time.Second)
-			continue
+	start := time.Now()
+	timer := time.NewTimer(2 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+done:
+	for {
+		select {
+		case <-ticker.C:
+			err := checkGPT2API(rootDomain, deploymentName)
+			if err != nil {
+				t.Logf("failed checkGPT2API %v (so far took %v)", err, time.Since(start))
+				continue
+			}
+
+			t.Logf("successfully checked GPT2 (took %v)", time.Since(start))
+			break done
+
+		case <-timer.C:
+			t.Logf("failed to check GPT2 in time")
+			break done
 		}
-		break
 	}
 
 	after := mustListDeployment(t)
@@ -76,7 +90,9 @@ func TestDeploymentCreateListRemove(t *testing.T) {
 func mustDeployPhoton(t *testing.T, name string) {
 	id := getPhotonID(name, mustListPhoton(t))
 
-	cmd := exec.Command("lepton", "photon", "run", "-i", id, "-r", *remoteURL)
+	// currently only tests gpt2 which may require more than 1>CPU
+	// TODO: support other models
+	cmd := exec.Command("lepton", "photon", "run", "-i", id, "-r", *remoteURL, "--cpu", "2", "--memory", "2024", "--min-replicas", "1")
 	out, err := cmd.Output()
 	if err != nil {
 		fmt.Println(string(out))

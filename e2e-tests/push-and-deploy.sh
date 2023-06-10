@@ -35,8 +35,8 @@ fi
 REMOTE=https://$REMOTE/api/v1
 
 
-# run up to 20-minute as we add more e2e tests for example models
-COLUMNS=2000 go test -timeout 1200s -v ./e2e-tests/... --remote-url "$REMOTE" --namespace "$NAMESPACE"
+# run up to 30-minute as we add more e2e tests for example models
+COLUMNS=2000 go test -timeout 1800s -v ./e2e-tests/... --remote-url "$REMOTE" --namespace "$NAMESPACE"
 if [ $? -ne 0 ]; then
     eixt 1
 fi

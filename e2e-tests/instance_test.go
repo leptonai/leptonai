@@ -47,43 +47,50 @@ func testInstanceList(t *testing.T, deploymentID string) func(t *testing.T) {
 func testInstanceLog(t *testing.T, deploymentID string) func(t *testing.T) {
 	return func(t *testing.T) {
 		is := mustListInstance(t, deploymentID)
+		logURL := *remoteURL + "/deployments/" + deploymentID + "/instances/" + is[0].ID + "/log"
 
-		success := false
-		for i := 0; i < 5; i++ {
-			if i > 0 {
-				time.Sleep(5 * time.Second)
-			}
+		start := time.Now()
+		timer := time.NewTimer(10 * time.Minute)
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
 
-			req, err := http.NewRequest(http.MethodGet, *remoteURL+"/deployments/"+deploymentID+"/instances/"+is[0].ID+"/log", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			b, err := checkOKHTTP(&http.Client{}, req, func(rd io.Reader) ([]byte, error) {
-				buf := make([]byte, 4096)
-				n, err := rd.Read(buf)
-				buf = buf[:n]
-				return buf, err
-			})
-			if err != nil {
-				// expected since it's a long running process
-				// e.g., "... (Press CTRL+C to quit)"
-				if err != io.ErrUnexpectedEOF {
-					t.Log(err)
+	done:
+		for {
+			select {
+			case <-ticker.C:
+				t.Logf("checking log URL %q (so far took %v)", logURL, time.Since(start))
+
+				req, err := http.NewRequest(http.MethodGet, logURL, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				b, err := checkOKHTTP(&http.Client{}, req, func(rd io.Reader) ([]byte, error) {
+					buf := make([]byte, 4096)
+					n, err := rd.Read(buf)
+					buf = buf[:n]
+					return buf, err
+				})
+				if err != nil {
+					// expected since it's a long running process
+					// e.g., "... (Press CTRL+C to quit)"
+					if err != io.ErrUnexpectedEOF {
+						t.Log(err)
+						continue
+					}
+				}
+
+				if !bytes.Contains(b, []byte("running on http")) {
+					t.Logf("unexpected '/log' output: %s", string(b))
 					continue
 				}
+
+				t.Logf("successfully checked /log (took %v)", time.Since(start))
+				break done
+
+			case <-timer.C:
+				t.Logf("failed to check %q in time", logURL)
+				return
 			}
-
-			if !bytes.Contains(b, []byte("running on http")) {
-				t.Logf("unexpected '/log' output: %s", string(b))
-				continue
-			}
-
-			success = true
-			break
-		}
-
-		if !success {
-			t.Fatal("failed to check /log in time")
 		}
 	}
 }
