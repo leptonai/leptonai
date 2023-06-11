@@ -25,7 +25,7 @@ if [[ -z $CLUSTER_NAME ]]; then
   exit 1
 fi
 
-export "TF_WORKSPACE"=$CLUSTER_NAME
+export TF_WORKSPACE=$CLUSTER_NAME
 
 echo "Creating cluster $CLUSTER_NAME..."
 must_create_workspace() {

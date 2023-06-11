@@ -37,7 +37,7 @@ if [[ -z $TF_API_TOKEN ]]; then
   exit 1
 fi
 
-export "TF_WORKSPACE"=$CLUSTER_NAME
+export TF_WORKSPACE=$CLUSTER_NAME
 
 if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   echo "ERROR: Cluster name not specified"
