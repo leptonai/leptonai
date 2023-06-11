@@ -1,0 +1,13 @@
+mothership:
+  name: mothership
+  replicaCount: 1
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-mothership
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 15213
+    resources:
+      requests:
+        memory: "2048Mi"
+        cpu: "1"
