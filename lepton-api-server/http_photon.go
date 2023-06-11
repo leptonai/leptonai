@@ -45,6 +45,18 @@ func photonGetHandler(c *gin.Context) {
 
 func photonDeleteHandler(c *gin.Context) {
 	pid := c.Param("pid")
+
+	// check if the photon is used by any deployments
+	// TODO: this has data race: if users create a deployment after this check
+	// but before the actual deletion of the photon from DB, then the deployment
+	// will be created with a photon that is being deleted.
+	for _, ld := range deploymentDB.GetAll() {
+		if ld.Spec.PhotonID == pid {
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " is used by deployment " + ld.Name})
+			return
+		}
+	}
+
 	ph := photonDB.GetByID(pid)
 	if ph == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
