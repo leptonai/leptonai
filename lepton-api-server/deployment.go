@@ -22,18 +22,24 @@ func initDeployments() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	go func() {
-		for event := range ch.ResultChan() {
-			ld := event.Object.(*leptonaiv1alpha1.LeptonDeployment)
-			log.Println("LeptonDeployment CR event:", event.Type, ld.Name)
-			switch event.Type {
-			case watch.Added:
-				deploymentDB.Add(ld)
-			case watch.Modified:
-				deploymentDB.Add(ld)
-			case watch.Deleted:
-				deploymentDB.Delete(ld)
-			}
-		}
-	}()
+	// We have to finish processing all events in the channel before
+	// continuing the startup process
+	log.Println("rebuilding api server state for lepton deployments...")
+	drainAndProcessExistingEvents(ch.ResultChan(), processLeptonDeploymentEvent)
+	log.Println("restored api server state for lepton deployments")
+	// Watch for future changes
+	go processFutureEvents(ch.ResultChan(), processLeptonDeploymentEvent)
+}
+
+func processLeptonDeploymentEvent(event watch.Event) {
+	ld := event.Object.(*leptonaiv1alpha1.LeptonDeployment)
+	log.Println("LeptonDeployment CR event:", event.Type, ld.Name)
+	switch event.Type {
+	case watch.Added:
+		deploymentDB.Add(ld)
+	case watch.Modified:
+		deploymentDB.Add(ld)
+	case watch.Deleted:
+		deploymentDB.Delete(ld)
+	}
 }

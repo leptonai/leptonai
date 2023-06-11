@@ -28,25 +28,32 @@ func initPhotons() {
 		// TODO: better error handling
 		log.Fatalln(err)
 	}
-	go func() {
-		for event := range ch.ResultChan() {
-			ph := event.Object.(*leptonaiv1alpha1.Photon)
-			log.Println("Photon CR event:", event.Type, ph.Name)
-			switch event.Type {
-			case watch.Added:
-				photonDB.Add(ph)
-			case watch.Modified:
-				photonDB.Add(ph)
-			case watch.Deleted:
-				err := photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
-				if err != nil {
-					// TODO: we should handle the error to avoid resource leak
-					log.Printf("failed to delete photon " + ph.GetSpecUniqName() + " from S3: " + err.Error())
-				}
-				photonDB.Delete(ph)
-			}
+	// We have to finish processing all events in the channel before
+	// continuing the startup process
+	log.Println("rebuilding api server state for photons...")
+	drainAndProcessExistingEvents(ch.ResultChan(), processPhotonEvent)
+	log.Println("restored api server state for photons")
+	// Watch for future changes
+	go processFutureEvents(ch.ResultChan(), processPhotonEvent)
+}
+
+func processPhotonEvent(event watch.Event) {
+	ph := event.Object.(*leptonaiv1alpha1.Photon)
+	log.Println("Photon CR event:", event.Type, ph.Name)
+	switch event.Type {
+	case watch.Added:
+		photonDB.Add(ph)
+	case watch.Modified:
+		photonDB.Add(ph)
+	case watch.Deleted:
+		err := photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
+		if err != nil {
+			// TODO: we should handle the error to avoid resource leak
+			log.Println("failed to delete photon " + ph.GetSpecUniqName() + " from S3: " + err.Error())
 		}
-	}()
+		photonDB.Delete(ph)
+	}
+
 }
 
 func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
