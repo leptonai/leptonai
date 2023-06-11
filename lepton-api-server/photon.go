@@ -17,9 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
+var photonDB *namedb.NameDB[leptonaiv1alpha1.Photon]
 
 func initPhotons() {
+	photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 	// Watch for changes in the LeptonDeployment CR
 	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.PhotonList{},
@@ -34,7 +35,18 @@ func initPhotons() {
 	drainAndProcessExistingEvents(ch.ResultChan(), processPhotonEvent)
 	log.Println("restored api server state for photons")
 	// Watch for future changes
-	go processFutureEvents(ch.ResultChan(), processPhotonEvent)
+	go func() {
+		log.Println("Photon watcher started")
+		defer func() {
+			log.Println("Photon watcher exited, restarting...")
+			// TODO when we re-initialize the db, users may temporarily see an
+			// in-complete list (though the time is very short)
+			go initPhotons()
+		}()
+		for event := range ch.ResultChan() {
+			processPhotonEvent(event)
+		}
+	}()
 }
 
 func processPhotonEvent(event watch.Event) {

@@ -17,9 +17,3 @@ func drainAndProcessExistingEvents(ch <-chan watch.Event, process func(event wat
 		}
 	}
 }
-
-func processFutureEvents(ch <-chan watch.Event, process func(event watch.Event)) {
-	for event := range ch {
-		process(event)
-	}
-}

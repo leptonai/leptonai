@@ -12,9 +12,10 @@ import (
 	"github.com/leptonai/lepton/go-pkg/namedb"
 )
 
-var deploymentDB = namedb.NewNameDB[leptonaiv1alpha1.LeptonDeployment]()
+var deploymentDB *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment]
 
 func initDeployments() {
+	deploymentDB = namedb.NewNameDB[leptonaiv1alpha1.LeptonDeployment]()
 	// Watch for changes in the LeptonDeployment CR
 	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.LeptonDeploymentList{},
@@ -28,7 +29,18 @@ func initDeployments() {
 	drainAndProcessExistingEvents(ch.ResultChan(), processLeptonDeploymentEvent)
 	log.Println("restored api server state for lepton deployments")
 	// Watch for future changes
-	go processFutureEvents(ch.ResultChan(), processLeptonDeploymentEvent)
+	go func() {
+		log.Println("LeptonDeployment watcher started")
+		defer func() {
+			log.Println("LeptonDeployment watcher exited, restarting...")
+			// TODO when we re-initialize the db, users may temporarily see an
+			// in-complete list (though the time is very short)
+			go initDeployments()
+		}()
+		for event := range ch.ResultChan() {
+			processLeptonDeploymentEvent(event)
+		}
+	}()
 }
 
 func processLeptonDeploymentEvent(event watch.Event) {
