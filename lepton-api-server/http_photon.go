@@ -86,16 +86,20 @@ func photonListHandler(c *gin.Context) {
 
 func photonPostHandler(c *gin.Context) {
 	// Open the zip archive
-	// TODO: improve the performance by using io.Pipe
-	body, err := io.ReadAll(c.Request.Body)
+	body, err := getContentFromFileOrRawBody(c.Request)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ph, err := getPhotonFromMetadata(body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get photon metadata: " + err.Error()})
+		return
+	}
+
+	if photonDB.GetByID(ph.GetSpecID()) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + ph.GetSpecID() + " already exists."})
 		return
 	}
 
@@ -115,4 +119,19 @@ func photonPostHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, httpapi.NewPhoton(ph).Output())
+}
+
+func getContentFromFileOrRawBody(r *http.Request) ([]byte, error) {
+	// TODO: improve the performance by using io.Pipe
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		return io.ReadAll(r.Body)
+	}
+	defer file.Close()
+
+	body, err := io.ReadAll(file)
+	if err != nil {
+		return io.ReadAll(r.Body)
+	}
+	return body, nil
 }
