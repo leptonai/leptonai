@@ -142,6 +142,57 @@ locals {
   account_id = data.aws_caller_identity.current.account_id
 }
 
+#---------------------------------------------------------------
+# GP3 Storage Class
+#---------------------------------------------------------------
+# This is required since intree CSI driver does not support gp3.
+# Create "gp3" as default first, and later update/replace the existing "gp2".
+# ref. https://github.com/leptonai/lepton/pull/532
+# ref. https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/
+# ref. https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/storage_class_v1
+resource "kubernetes_storage_class_v1" "gp3_sc_default" {
+  metadata {
+    name = "gp3"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+
+  storage_provisioner    = "ebs.csi.aws.com"
+  reclaim_policy         = "Delete"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+
+  parameters = {
+    type      = "gp3"
+    fsType    = "ext4"
+    encrypted = "true"
+  }
+}
+
+# make it non-default
+# NOTE: "gp2" must be deleted first, before updating
+# [parameters: Forbidden: updates to parameters are forbidden., provisioner: Forbidden: updates to provisioner are forbidden.]
+# ref. https://github.com/hashicorp/terraform-provider-kubernetes/issues/723#issuecomment-1141833527
+# ref. https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/storage_class_v1
+#
+# TODO
+# right now we only patch, so the default encryption is "false"
+# use kubernetes job to update other volume parameters
+# ref. https://github.com/hashicorp/terraform-provider-kubernetes/issues/723#issuecomment-1278285213
+resource "kubernetes_annotations" "gp2_sc_non_default" {
+  api_version = "storage.k8s.io/v1"
+  kind        = "StorageClass"
+  force       = "true"
+
+  metadata {
+    name = "gp2"
+  }
+  annotations = {
+    "storageclass.kubernetes.io/is-default-class" = "false"
+  }
+}
+
 module "ebs_csi_driver_irsa" {
   source                = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version               = "~> 5.14"
@@ -191,6 +242,12 @@ module "eks_blueprints_kubernetes_addons" {
         extraFlags : [
           "storage.tsdb.wal-compression"
         ]
+        persistentVolume : {
+          enabled : true
+          mountPath : "/data"
+          size : "8Gi"
+          storageClass : "gp3"
+        }
       }
       extraScrapeConfigs = <<EOT
 - job_name: lepton-deployment-pods

@@ -1,8 +1,11 @@
 resource "helm_release" "lepton" {
-  name       = "lepton"
-  chart      = "lepton"
-  repository = "charts"
-  namespace  = var.lepton_namespace
+  name = "lepton"
+
+  # here, we assume the running script or mothership(controller)
+  # copies the whole directory in the same directory tree
+  chart = "lepton"
+
+  namespace = var.lepton_namespace
 
   set {
     name  = "clusterName"
