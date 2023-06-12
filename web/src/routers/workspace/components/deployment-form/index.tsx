@@ -162,6 +162,11 @@ export const DeploymentForm: FC<{
         name="name"
         rules={[
           {
+            max: 32,
+            type: "string",
+            message: "Exceeded maximum length",
+          },
+          {
             pattern:
               /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z]([-a-z0-9]*[a-z0-9])?)*$/,
             message: "Deployment name invalid",
