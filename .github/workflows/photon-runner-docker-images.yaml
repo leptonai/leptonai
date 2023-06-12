@@ -33,7 +33,7 @@ jobs:
         for python_version in "3.7" "3.8" "3.9" "3.10" "3.11"; do
           echo "Building for python_version=${python_version}"
           tag="${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${python_version}-runner-${VERSION_TAG}"
-          docker build . --build-arg PYTHON_VERSION=${python_version} --file lepton/photon/dockerfiles/python-runner.Dockerfile --tag ${tag}
+          docker build . --build-arg PYTHON_VERSION=${python_version} --file leptonai/photon/dockerfiles/python-runner.Dockerfile --tag ${tag}
           docker push ${tag}
           docker rmi ${tag}
         done

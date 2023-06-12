@@ -34,13 +34,13 @@ jobs:
       - name: Build
         run: |
           pip install -e .
-          cd lepton/docs
+          cd leptonai/docs
           pip install -r requirements.txt
           make html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: 'lepton/docs/_build/html'
+          path: 'leptonai/docs/_build/html'
 
   # Deployment job
   deploy:

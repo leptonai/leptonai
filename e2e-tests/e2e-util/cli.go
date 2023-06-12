@@ -8,7 +8,7 @@ type CliWrapper struct {
 	RemoteURL string
 }
 
-const cmdName = "lepton"
+const cmdName = "lep"
 
 func NewCliWrapper(remoteURL string) *CliWrapper {
 	return &CliWrapper{

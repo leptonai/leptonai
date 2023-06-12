@@ -3,13 +3,13 @@ from setuptools import setup, find_packages
 
 with open(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "lepton", "requirements.txt"
+        os.path.dirname(os.path.realpath(__file__)), "leptonai", "requirements.txt"
     )
 ) as f:
     requirements = f.read().splitlines()
 
 setup(
-    name="lepton",
+    name="leptonai",
     version="0.1",
     description="Lepton package",
     author="Lepton AI Inc.",
@@ -19,7 +19,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "lepton = lepton.cli:lepton",
+            "lep = leptonai.cli:lep",
         ],
     },
 )
