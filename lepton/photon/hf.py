@@ -194,6 +194,20 @@ schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
 type_registry.register(is_transformers_model, HuggingfacePhoton.create_from_model_obj)
 
 
+def _get_generated_text(res):
+    if isinstance(res, str):
+        return res
+    elif isinstance(res, dict):
+        return res["generated_text"]
+    elif isinstance(res, list):
+        if len(res) == 1:
+            return _get_generated_text(res[0])
+        else:
+            return [_get_generated_text(r) for r in res]
+    else:
+        raise ValueError(f"Unsupported result type in _get_generated_text: {type(res)}")
+
+
 class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
     hf_task: str = "text-generation"
 
@@ -234,12 +248,7 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
             do_sample=do_sample,
             **kwargs,
         )
-        if isinstance(res, dict):
-            return res["generated_text"]
-        elif len(res) == 1:
-            return res[0]["generated_text"]
-        else:
-            return [r["generated_text"] for r in res]
+        return _get_generated_text(res)
 
     def answer(self, question, history):
         history.append({"role": "user", "content": question})
@@ -320,12 +329,7 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
             do_sample=do_sample,
             **kwargs,
         )
-        if isinstance(res, dict):
-            return res["generated_text"]
-        elif len(res) == 1:
-            return res[0]["generated_text"]
-        else:
-            return [r["generated_text"] for r in res]
+        return _get_generated_text(res)
 
     def answer(self, question, history):
         history.append({"role": "user", "content": question})
