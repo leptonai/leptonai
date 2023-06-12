@@ -1,3 +1,4 @@
+import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 import { Injectable } from "injection-js";
 import { BehaviorSubject, forkJoin, map, Observable, tap } from "rxjs";
 import {
@@ -46,11 +47,21 @@ export class DeploymentService {
     ).pipe(
       map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),
       map((list) =>
-        list.sort((a, b) => {
-          return (a.metric.handler || a.metric.name).localeCompare(
-            b.metric.handler || b.metric.name
-          );
-        })
+        list
+          .map((i) => {
+            return {
+              ...i,
+              metric: {
+                ...i.metric,
+                name: this.metricServiceUtil.getMetricSeriesName(i.metric.name),
+              },
+            };
+          })
+          .sort((a, b) => {
+            return (a.metric.handler || a.metric.name).localeCompare(
+              b.metric.handler || b.metric.name
+            );
+          })
       )
     );
   }
@@ -97,5 +108,8 @@ export class DeploymentService {
       )
     );
   }
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private metricServiceUtil: MetricUtilService
+  ) {}
 }

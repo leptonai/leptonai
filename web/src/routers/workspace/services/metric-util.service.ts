@@ -4,7 +4,7 @@ const formatMap = {
   qps: (v: number) => `${v !== null ? v.toFixed(4) : "-"}`,
   latency: (v: number) => `${v !== null ? `${(v * 1000).toFixed(0)}ms` : "-"}`,
   util: (v: number) => `${(v * 100).toFixed(1)}%`,
-  memory: (v: number) => prettyBytes(v * 1000 * 1000),
+  memory: (v: number) => prettyBytes(v * 1024 * 1024, { binary: true }),
 };
 const tipsMap = {
   qps: `QPS stands for Queries Per Second. It is a metric used to measure the rate at which queries or requests are processed by a system. QPS indicates how many queries a system can handle within a one-second time frame.`,
@@ -14,14 +14,23 @@ const tipsMap = {
   gpu: `GPU usage refers to the utilization or workload of a graphics processing unit (GPU) in a computer system to perform tasks and execute instructions.`,
   gpu_memory: `GPU memory usage refers to the amount of memory that a graphics processing unit (GPU) is currently utilizing to store data and perform computations.`,
 };
+
+const seriesMap: { [key: string]: string } = {
+  memory_total_in_MiB: "memory_total",
+  memory_usage_in_MiB: "memory_usage",
+  gpu_memory_total_in_MiB: "gpu_memory_total",
+  gpu_memory_usage_in_MiB: "gpu_memory_usage",
+};
+
 @Injectable()
 export class MetricUtilService {
-  static getMetricFormat(
-    metric: keyof typeof formatMap
-  ): (v: number) => string {
+  getMetricFormat(metric: keyof typeof formatMap): (v: number) => string {
     return formatMap[metric];
   }
-  static getMetricTips(metric: keyof typeof tipsMap): string {
+  getMetricTips(metric: keyof typeof tipsMap): string {
     return tipsMap[metric];
+  }
+  getMetricSeriesName(name?: string): string {
+    return (name && seriesMap[name]) || name || "";
   }
 }

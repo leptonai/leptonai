@@ -64,6 +64,7 @@ export const Metric: FC<{
       },
       grid: {
         right: 30,
+        left: 60,
         top: 10,
         bottom: data.length > 1 ? 50 : 20,
       },

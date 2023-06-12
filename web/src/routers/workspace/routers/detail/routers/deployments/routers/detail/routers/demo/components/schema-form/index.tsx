@@ -12,7 +12,7 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
   LeptonAPIItem,
   SchemaObject,
-} from "@lepton-dashboard/routers/workspace/services/open-api.service";
+} from "@lepton-dashboard/services/open-api.service";
 const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
   const optionalSchema: JSONSchema7 = {
     properties: {},

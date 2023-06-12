@@ -1,3 +1,4 @@
+import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 import { FC, Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Loading } from "@lepton-dashboard/components/loading";
@@ -8,7 +9,6 @@ import { PhotonService } from "./services/photon.service";
 import { DeploymentService } from "./services/deployment.service";
 import { ApiService } from "./services/api.service";
 import { ApiServerService } from "./services/api.server.service";
-import { OpenApiService } from "./services/open-api.service";
 import { IndicatorService } from "./services/indicator.service";
 
 const Detail = lazy(() =>
@@ -24,7 +24,7 @@ export const Workspace: FC = () => {
         WorkspaceTrackerService,
         IndicatorService,
         PhotonService,
-        OpenApiService,
+        MetricUtilService,
         DeploymentService,
         { provide: ApiService, useClass: ApiServerService },
       ]}

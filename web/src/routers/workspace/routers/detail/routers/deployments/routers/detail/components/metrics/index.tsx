@@ -1,4 +1,5 @@
-import { FC, useCallback, useRef } from "react";
+import { useInject } from "@lepton-libs/di";
+import { FC, useCallback, useMemo, useRef } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
@@ -8,30 +9,37 @@ import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/r
 import { connect, EChartsType } from "echarts";
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 
-const metrics = [
-  {
-    name: ["FastAPIQPS", "FastAPIQPSByPath"],
-    title: "QPS",
-    description: [MetricUtilService.getMetricTips("qps")],
-    format: MetricUtilService.getMetricFormat("qps"),
-  },
-  {
-    name: ["FastAPILatency", "FastAPILatencyByPath"],
-    title: "Latency",
-    description: [MetricUtilService.getMetricTips("latency")],
-    format: MetricUtilService.getMetricFormat("latency"),
-  },
-];
-
 export const Metrics: FC<{ deployment: Deployment }> = ({ deployment }) => {
+  const metricService = useInject(MetricUtilService);
+  const metrics = useMemo(
+    () => [
+      {
+        name: ["FastAPIQPS", "FastAPIQPSByPath"],
+        title: "QPS",
+        description: [metricService.getMetricTips("qps")],
+        format: metricService.getMetricFormat("qps"),
+      },
+      {
+        name: ["FastAPILatency", "FastAPILatencyByPath"],
+        title: "Latency",
+        description: [metricService.getMetricTips("latency")],
+        format: metricService.getMetricFormat("latency"),
+      },
+    ],
+    [metricService]
+  );
+
   const theme = useAntdTheme();
   const metricsInstanceRef = useRef(new Map<string, EChartsType>());
-  const onInit = useCallback((chart: EChartsType, title: string) => {
-    metricsInstanceRef.current.set(title, chart);
-    if (metricsInstanceRef.current.size === metrics.length) {
-      connect(Array.from(metricsInstanceRef.current.values()));
-    }
-  }, []);
+  const onInit = useCallback(
+    (chart: EChartsType, title: string) => {
+      metricsInstanceRef.current.set(title, chart);
+      if (metricsInstanceRef.current.size === metrics.length) {
+        connect(Array.from(metricsInstanceRef.current.values()));
+      }
+    },
+    [metrics.length]
+  );
   return (
     <div
       css={css`

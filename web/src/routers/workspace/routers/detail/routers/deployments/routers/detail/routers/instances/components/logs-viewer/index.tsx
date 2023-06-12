@@ -31,6 +31,14 @@ export const LogDetail: FC<{
       }
     );
 
+    const scrollToLastLine = () => {
+      const editor = editorRef.current;
+      if (editor && !isFocusRef.current) {
+        const lineCount = editor.getModel()!.getLineCount();
+        editor.revealLine(lineCount, 1);
+      }
+    };
+
     return loading ? (
       <div
         css={css`
@@ -49,14 +57,9 @@ export const LogDetail: FC<{
         onMount={(editor) => {
           editorRef.current = editor;
           editor.onDidFocusEditorText(() => (isFocusRef.current = true));
+          scrollToLastLine();
         }}
-        onChange={() => {
-          const editor = editorRef.current;
-          if (editor && !isFocusRef.current) {
-            const lineCount = editor.getModel()!.getLineCount();
-            editor.revealLine(lineCount, 1);
-          }
-        }}
+        onChange={() => scrollToLastLine()}
         theme="lepton"
         loading={<Spin />}
         options={{

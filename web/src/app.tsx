@@ -1,5 +1,6 @@
 import { AuthNoopService } from "@lepton-dashboard/services/auth.noop.service";
 import { AuthSupabaseService } from "@lepton-dashboard/services/auth.supabase.service";
+import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { DIContainer } from "@lepton-libs/di";
 import {
   createBrowserRouter,
@@ -112,6 +113,7 @@ function App() {
         RefreshService,
         HttpClientService,
         StorageService,
+        OpenApiService,
         ProfileService,
         AuthNoopService,
         AuthSupabaseService,

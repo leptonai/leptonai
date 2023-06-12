@@ -1,3 +1,5 @@
+import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
+import { useInject } from "@lepton-libs/di";
 import { FC, useCallback, useMemo, useRef, useState } from "react";
 import { Button, Col, Row } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
@@ -8,41 +10,41 @@ import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/de
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { connect, EChartsType } from "echarts";
 import { css } from "@emotion/react";
-import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 
 export const MetricsDetail: FC<{
   deploymentId: string;
   instanceId: string;
   gpu: boolean;
 }> = ({ deploymentId, instanceId, gpu }) => {
+  const metricUtilService = useInject(MetricUtilService);
   const metrics = useMemo(() => {
     const data = [
       {
         name: ["FastAPIQPS", "FastAPIByPathQPS"],
         title: "QPS",
-        description: [MetricUtilService.getMetricTips("qps")],
-        format: MetricUtilService.getMetricFormat("qps"),
+        description: [metricUtilService.getMetricTips("qps")],
+        format: metricUtilService.getMetricFormat("qps"),
       },
       {
         name: ["FastAPILatency", "FastAPIByPathLatency"],
         title: "Latency",
-        description: [MetricUtilService.getMetricTips("latency")],
-        format: MetricUtilService.getMetricFormat("latency"),
+        description: [metricUtilService.getMetricTips("latency")],
+        format: metricUtilService.getMetricFormat("latency"),
       },
       {
         name: ["memoryUtil", "CPUUtil"],
         title: "CPU & Memory Util",
         description: [
-          MetricUtilService.getMetricTips("memory"),
-          MetricUtilService.getMetricTips("cpu"),
+          metricUtilService.getMetricTips("memory"),
+          metricUtilService.getMetricTips("cpu"),
         ],
-        format: MetricUtilService.getMetricFormat("util"),
+        format: metricUtilService.getMetricFormat("util"),
       },
       {
         name: ["memoryUsage", "memoryTotal"],
         title: "Memory",
-        description: [MetricUtilService.getMetricTips("memory")],
-        format: MetricUtilService.getMetricFormat("memory"),
+        description: [metricUtilService.getMetricTips("memory")],
+        format: metricUtilService.getMetricFormat("memory"),
       },
     ];
     if (gpu) {
@@ -51,22 +53,22 @@ export const MetricsDetail: FC<{
           name: ["GPUMemoryUtil", "GPUUtil"],
           title: "GPU & GPU Memory Util",
           description: [
-            MetricUtilService.getMetricTips("gpu"),
-            MetricUtilService.getMetricTips("gpu_memory"),
+            metricUtilService.getMetricTips("gpu"),
+            metricUtilService.getMetricTips("gpu_memory"),
           ],
 
-          format: MetricUtilService.getMetricFormat("util"),
+          format: metricUtilService.getMetricFormat("util"),
         },
         {
           name: ["GPUMemoryUsage", "GPUMemoryTotal"],
           title: "GPU Memory",
-          description: [MetricUtilService.getMetricTips("gpu_memory")],
-          format: MetricUtilService.getMetricFormat("memory"),
+          description: [metricUtilService.getMetricTips("gpu_memory")],
+          format: metricUtilService.getMetricFormat("memory"),
         }
       );
     }
     return data;
-  }, [gpu]);
+  }, [gpu, metricUtilService]);
   const metricsInstanceRef = useRef(new Map<string, EChartsType>());
   const onInit = useCallback(
     (chart: EChartsType, title: string) => {

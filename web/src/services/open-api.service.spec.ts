@@ -1,5 +1,5 @@
 import { describe, beforeAll, test, expect } from "vitest";
-import { OpenApiService } from "@lepton-dashboard/routers/workspace/services/open-api.service";
+import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { OpenAPIV3 } from "openapi-types";
 
 const generateSpec = ({

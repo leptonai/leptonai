@@ -12,7 +12,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   LeptonAPIItem,
   OpenApiService,
-} from "@lepton-dashboard/routers/workspace/services/open-api.service";
+} from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
 import { OpenAPI } from "openapi-types";
 
