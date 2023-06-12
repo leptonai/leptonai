@@ -11,9 +11,24 @@ import (
 )
 
 func HandleClusterGet(c *gin.Context) {
+	cl, err := cluster.Get(c.Param("clname"))
+	if err != nil {
+		log.Println("failed to get cluster:", err)
+		// TODO: check if cluster not found and return user error if not found
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get cluster: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cl)
 }
 
 func HandleClusterList(c *gin.Context) {
+	cls, err := cluster.List()
+	if err != nil {
+		log.Println("failed to list clusters:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list clusters: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cls)
 }
 
 func HandleClusterCreate(c *gin.Context) {
@@ -32,7 +47,7 @@ func HandleClusterCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, ncl)
+	c.JSON(http.StatusCreated, ncl)
 }
 
 func HandleClusterDelete(c *gin.Context) {
@@ -46,4 +61,20 @@ func HandleClusterDelete(c *gin.Context) {
 }
 
 func HandleClusterUpdate(c *gin.Context) {
+	var cl cluster.Cluster
+	err := c.BindJSON(&cl)
+	if err != nil {
+		log.Println("failed to bind json:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get cluster: " + err.Error()})
+		return
+	}
+
+	ncl, err := cluster.Update(cl)
+	if err != nil {
+		log.Println("failed to update cluster:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update cluster: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, ncl)
 }
