@@ -82,12 +82,13 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 	prevLeptonDeploymentResourceVersion := ""
 	// Listen to the chan for LeptonDeployment updates
 	for range ch {
+		log.Log.Info("Being poked for LeptonDeployment " + req.NamespacedName.String())
 		drainChan(ch) // Drain chan to avoid unnecessary reconciles
 		ld, err := r.getLeptonDeployment(ctx, req)
 		if err != nil {
 			log.Log.Info("Failed to get LeptonDeployment " + req.NamespacedName.String() + ": " + err.Error())
 			go sleepAndPoke(ch)
-			break
+			continue
 		}
 		if ld == nil { // LeptonDeployment has been deleted
 			log.Log.Info("LeptonDeployment " + req.NamespacedName.String() + " not found, destroying resources")
@@ -99,7 +100,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		if ld.ResourceVersion != prevLeptonDeploymentResourceVersion {
 			if err := r.createOrUpdateResources(ctx, req, ld, ownerref); err != nil {
 				go sleepAndPoke(ch)
-				break
+				continue
 			}
 		}
 		// Check the deployment status
@@ -107,12 +108,12 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		if err != nil {
 			log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
 			go sleepAndPoke(ch)
-			break
+			continue
 		}
 		if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
 			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
 			go sleepAndPoke(ch)
-			break
+			continue
 		}
 		prevLeptonDeploymentResourceVersion = ld.ResourceVersion
 	}
