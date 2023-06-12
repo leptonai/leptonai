@@ -102,7 +102,10 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                         `Successfully deleted deployment ${deployment.name}`
                       );
                       refreshService.refresh();
-                      navigate(`/deployments/list`, { relative: "route" });
+                      navigate(
+                        `/workspace/${workspaceTrackerService.name}/deployments/list`,
+                        { relative: "route" }
+                      );
                     },
                     error: () => {
                       message.destroy("delete-deployment");

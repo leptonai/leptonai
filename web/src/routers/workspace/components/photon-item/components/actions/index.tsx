@@ -1,6 +1,7 @@
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { FC } from "react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { App, Button, Divider, Popconfirm, Space } from "antd";
+import { App, Button, Divider, Popconfirm, Space, Tooltip } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
@@ -9,13 +10,25 @@ import { Download } from "@carbon/icons-react";
 import { DeleteOutlined } from "@ant-design/icons";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 
-export const Actions: FC<{ photon: Photon; extraActions: boolean }> = ({
-  photon,
-  extraActions = false,
-}) => {
+export const Actions: FC<{
+  photon: Photon;
+  extraActions: boolean;
+  relatedDeployments?: Deployment[];
+}> = ({ photon, extraActions = false, relatedDeployments = [] }) => {
   const { message } = App.useApp();
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
+  const deleteButton = (
+    <Button
+      disabled={relatedDeployments.length > 0}
+      danger
+      size="small"
+      type="text"
+      icon={<DeleteOutlined />}
+    >
+      Delete
+    </Button>
+  );
   return (
     <Space size={0} split={<Divider type="vertical" />}>
       <CreateDeployment photonId={photon.id} min />
@@ -31,6 +44,7 @@ export const Actions: FC<{ photon: Photon; extraActions: boolean }> = ({
             Download
           </Button>
           <Popconfirm
+            disabled={relatedDeployments.length > 0}
             title="Delete the photon"
             description="Are you sure to delete?"
             onConfirm={() => {
@@ -53,9 +67,13 @@ export const Actions: FC<{ photon: Photon; extraActions: boolean }> = ({
               });
             }}
           >
-            <Button danger size="small" type="text" icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+            {relatedDeployments.length > 0 ? (
+              <Tooltip title="Cannot delete due to associated deployment">
+                {deleteButton}
+              </Tooltip>
+            ) : (
+              deleteButton
+            )}
           </Popconfirm>
         </>
       )}

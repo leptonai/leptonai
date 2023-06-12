@@ -12,6 +12,5 @@ export const VersionIndicator: FC<{
     []
   );
   const latest = photonGroups.some((g) => g.id === photonId);
-  const id = photonId.slice(0, 4);
-  return <>@{latest ? "latest" : id}</>;
+  return <>@{latest ? "latest" : photonId}</>;
 };

@@ -104,7 +104,11 @@ export const PhotonItem: FC<{
 
           {versionView && (
             <Col flex="0 0 auto">
-              <Actions photon={photon} extraActions={extraActions} />
+              <Actions
+                relatedDeployments={relatedDeployments}
+                photon={photon}
+                extraActions={extraActions}
+              />
             </Col>
           )}
         </Row>
