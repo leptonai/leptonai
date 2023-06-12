@@ -58,13 +58,13 @@ func (h *HTTP) Request(method, path string, headers map[string]string, data []by
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected HTTP status code %v", resp.StatusCode)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected HTTP status code %v with body %s", resp.StatusCode, string(body))
 	}
 	return body, nil
 }

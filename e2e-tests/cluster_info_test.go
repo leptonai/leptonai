@@ -1,33 +1,19 @@
 package e2etests
 
-import (
-	"encoding/json"
-	"net/http"
-	"testing"
-
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-)
+import "testing"
 
 func TestClusterInfo(t *testing.T) {
-	req, err := http.NewRequest(http.MethodGet, *remoteURL+"/cluster", nil)
+	info, err := lepton.Cluster().Info()
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := checkOKHTTP(&http.Client{}, req, nil)
-	if err != nil {
-		t.Fatal(err)
+	if info.BuildTime == "" {
+		t.Fatal("BuildTime is empty")
 	}
-
-	ci := &httpapi.ClusterInfo{}
-	if err := json.Unmarshal(b, ci); err != nil {
-		t.Fatal(err)
+	if info.GitCommit == "" {
+		t.Fatal("GitCommit is empty")
 	}
-	t.Logf("cluster info %+v", ci)
-
-	if ci.BuildTime == "" {
-		t.Fatal("unexpected empty build time")
-	}
-	if ci.GitCommit == "" {
-		t.Fatal("unexpected empty git commit")
+	if info.ClusterName == "" {
+		t.Fatal("ClusterName is empty")
 	}
 }
