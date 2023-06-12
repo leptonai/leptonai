@@ -228,17 +228,7 @@ class RunnerPhoton(Photon):
             ],
             allow_credentials=True,
             allow_methods=["*"],
-            allow_headers=[
-                "Accept",
-                "Accept-Version",
-                "Content-Length",
-                "Content-MD5",
-                "Content-Type",
-                "Date",
-                "X-Api-Version",
-                "X-CSRF-Token",
-                "X-Requested-With",
-            ],
+            allow_headers=["*"],
         )
 
     def _create_app(self, load_mount):
