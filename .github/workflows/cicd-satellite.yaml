@@ -1,0 +1,235 @@
+name: CI/CD - satellite
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    paths-ignore:
+      - "infra/**"
+      - "lepton-mothership/**"
+    branches: [ "**" ]
+
+jobs:
+  build-lepton-api-server:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build Lepton API server Docker image
+      env:
+        ECR_REPOSITORY: lepton-api-server
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
+        docker build . --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  build-lepton-deployment-operator:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build LeptonDeployment operator Docker image
+      env:
+        ECR_REPOSITORY: lepton-deployment-operator
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker build . --file lepton-deployment-operator/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  build-lepton-web:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build Lepton web Docker image
+      env:
+        ECR_REPOSITORY: lepton-web
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker build web --file web/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  e2e-tests:
+    runs-on: self-hosted
+    needs: [build-lepton-api-server, build-lepton-deployment-operator, build-lepton-web]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.26.4'
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Switch to the proper k8s context
+      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV_CI }} --region ${{ vars.AWS_REGION }}
+    - name: Setup helm
+      uses: azure/setup-helm@v3
+      with:
+         version: 'v3.11.3'
+      id: install
+    - name: Helm install lepton
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run:
+        helm install lepton charts/lepton --namespace ci-$IMAGE_TAG --create-namespace --set crd.install=false --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} --set apiServer.serviceAccountRoleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/s3-role-${{ vars.K8S_DEV_CI }} --set apiServer.image.tag=$IMAGE_TAG  --set web.image.tag=$IMAGE_TAG --set deploymentOperator.image.tag=$IMAGE_TAG  --set apiServer.rootDomain=$IMAGE_TAG.${{ vars.K8S_DEV_CI }}.cloud.lepton.ai  --set apiServer.certificateArn=arn:aws:acm:${{ vars.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:certificate/${{ secrets.SSL_CERT_DEV_CI }}
+    - name: Install Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Run tests
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-api-server
+        kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-web
+        pip install -e .
+        export KUBECONFIG=$HOME/.kube/config
+        e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG
+    - name: Helm uninstall lepton
+      if: always()
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: helm uninstall lepton --namespace ci-$IMAGE_TAG
+    - name: Delete the k8s namespace
+      if: always()
+      env:
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: kubectl delete namespace ci-$IMAGE_TAG
+
+  deploy-to-dev-staging:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [e2e-tests]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.26.4'
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Switch to the proper k8s context
+      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV_STAGING }} --region ${{ vars.AWS_REGION }}
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+          version: 'v3.11.3'
+      id: install
+    - name: Helm upgrade charts
+      run: |
+        # Not to setting the image tag here to avoid having to update here when, in the
+        # future, we update flags of the helm charts, because if we set image tag, we
+        # must set all flags. As a result, this commend will shortly set the image tag
+        # to `:latest` and then the image tag will be updated to the correct one in the
+        # following step.
+        helm upgrade lepton charts/lepton
+    - name: Deploy Lepton API server and web
+      env:
+        API_SERVER_ECR_REPOSITORY: lepton-api-server
+        LD_OPERATOR_ECR_REPOSITORY: lepton-deployment-operator
+        WEB_ECR_REPOSITORY: lepton-web
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        kubectl set image deployment/$API_SERVER_ECR_REPOSITORY $API_SERVER_ECR_REPOSITORY=$ECR_REGISTRY/$API_SERVER_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl set image deployment/$LD_OPERATOR_ECR_REPOSITORY $LD_OPERATOR_ECR_REPOSITORY=$ECR_REGISTRY/$LD_OPERATOR_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl set image deployment/$WEB_ECR_REPOSITORY $WEB_ECR_REPOSITORY=$ECR_REGISTRY/$WEB_ECR_REPOSITORY:$IMAGE_TAG

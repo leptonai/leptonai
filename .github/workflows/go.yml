@@ -11,9 +11,9 @@ on:
       - .github/**
       - lepton-api-server/**
       - lepton-deployment-operator/**
+      - lepton-mothership/**
       - go-pkg/**
       - go-client/**
-      - lepton-mothership/**
       - go.mod
       - go.sum
     branches: [ "**" ]
@@ -33,5 +33,6 @@ jobs:
       run: |
         (cd lepton-api-server && go test -v ./...)
         (cd lepton-deployment-operator && go test -v ./...)
+        (cd lepton-mothership && go test -v ./...)
         (cd go-pkg && go test -v ./...)
         (cd go-client && go test -v ./...)

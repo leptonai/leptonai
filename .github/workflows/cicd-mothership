@@ -1,0 +1,52 @@
+name: CI/CD - mothership
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    paths:
+      - ".github/**"
+      - "infra/**"
+      - "lepton-mothership/**"
+      - "go-pkg/**"
+      - "charts/**"
+    branches: [ "**" ]
+
+jobs:
+  build-mothership:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build Lepton mothership Docker image
+      env:
+        ECR_REPOSITORY: lepton-mothership
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
+        docker build . --file lepton-mothership/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
