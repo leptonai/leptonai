@@ -14,7 +14,7 @@ type Instance struct {
 }
 
 func (l *Instance) List(deploymentID string) ([]httpapi.Instance, error) {
-	output, err := l.HTTP.Request(http.MethodGet, deploymentsPath+"/"+deploymentID+instancesPath, nil, nil)
+	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+instancesPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}

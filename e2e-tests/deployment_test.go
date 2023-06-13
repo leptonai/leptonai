@@ -147,15 +147,15 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 	if d.ResourceRequirement.MinReplicas != numReplicas {
 		return fmt.Errorf("Expected deployment to have %d replicas when running, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
-	// Verify there are 2 instances
-	instances, err := lepton.Instance().List(mainTestDeploymentID)
-	if err != nil {
-		return err
-	}
-	// TODO: We should check = rather than < . There is a bug in the instance handler, so we use < to temporarily pass the test.
-	// Ref: https://github.com/leptonai/lepton/issues/555
-	if len(instances) < int(numReplicas) {
-		return fmt.Errorf("Expected deployment to have at least %d instances, got %d", numReplicas, len(instances))
-	}
-	return nil
+	// Verify there are numReplicas instances
+	return retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
+		instances, err := lepton.Instance().List(mainTestDeploymentID)
+		if err != nil {
+			return fmt.Errorf("Failed to list instances: %v", err)
+		}
+		if len(instances) != int(numReplicas) {
+			return fmt.Errorf("Expected deployment to have %d instances, got %d", numReplicas, len(instances))
+		}
+		return nil
+	})
 }

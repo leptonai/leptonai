@@ -165,6 +165,7 @@ jobs:
       run: |
         kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-api-server
         kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-web
+        kubectl -n ci-$IMAGE_TAG rollout status deployment/lepton-deployment-operator
         pip install -e .
         export KUBECONFIG=$HOME/.kube/config
         e2e-tests/push-and-deploy.sh ci-$IMAGE_TAG

@@ -28,14 +28,13 @@ func NewHTTPSkipVerifyTLS(remoteURL string) *HTTP {
 	}
 }
 
-func (h *HTTP) Request(method, path string, headers map[string]string, data []byte) ([]byte, error) {
+func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []byte) ([]byte, error) {
 	var reader *bytes.Reader
 	if data != nil {
 		reader = bytes.NewReader(data)
 	} else {
 		reader = bytes.NewReader([]byte{})
 	}
-	url := h.RemoteURL + path
 	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
 		return nil, err
@@ -67,4 +66,9 @@ func (h *HTTP) Request(method, path string, headers map[string]string, data []by
 		return nil, fmt.Errorf("unexpected HTTP status code %v with body %s", resp.StatusCode, string(body))
 	}
 	return body, nil
+}
+
+func (h *HTTP) RequestPath(method, path string, headers map[string]string, data []byte) ([]byte, error) {
+	url := h.RemoteURL + path
+	return h.RequestURL(method, url, headers, data)
 }

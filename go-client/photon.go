@@ -41,7 +41,7 @@ func (l *Photon) Push(filename, photonName string) (*httpapi.Photon, error) {
 		"Content-Type": writer.FormDataContentType(),
 	}
 
-	output, err := l.HTTP.Request(http.MethodPost, photonsPath, header, body.Bytes())
+	output, err := l.HTTP.RequestPath(http.MethodPost, photonsPath, header, body.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (l *Photon) Push(filename, photonName string) (*httpapi.Photon, error) {
 }
 
 func (l *Photon) List() ([]httpapi.Photon, error) {
-	output, err := l.HTTP.Request(http.MethodGet, photonsPath, nil, nil)
+	output, err := l.HTTP.RequestPath(http.MethodGet, photonsPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (l *Photon) List() ([]httpapi.Photon, error) {
 }
 
 func (l *Photon) GetByName(photonName string) ([]httpapi.Photon, error) {
-	output, err := l.HTTP.Request(http.MethodGet, photonsPath+"?name="+photonName, nil, nil)
+	output, err := l.HTTP.RequestPath(http.MethodGet, photonsPath+"?name="+photonName, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (l *Photon) GetByName(photonName string) ([]httpapi.Photon, error) {
 }
 
 func (l *Photon) GetByID(photonID string) (*httpapi.Photon, error) {
-	output, err := l.HTTP.Request(http.MethodGet, photonsPath+"/"+photonID, nil, nil)
+	output, err := l.HTTP.RequestPath(http.MethodGet, photonsPath+"/"+photonID, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (l *Photon) GetByID(photonID string) (*httpapi.Photon, error) {
 }
 
 func (l *Photon) Delete(photonID string) error {
-	_, err := l.HTTP.Request(http.MethodDelete, photonsPath+"/"+photonID, nil, nil)
+	_, err := l.HTTP.RequestPath(http.MethodDelete, photonsPath+"/"+photonID, nil, nil)
 	if err != nil {
 		return err
 	}

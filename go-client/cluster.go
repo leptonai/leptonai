@@ -14,7 +14,7 @@ type Cluster struct {
 }
 
 func (l *Cluster) Info() (*httpapi.ClusterInfo, error) {
-	output, err := l.HTTP.Request(http.MethodGet, clusterPath, nil, nil)
+	output, err := l.HTTP.RequestPath(http.MethodGet, clusterPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,7 @@ type Lepton struct {
 
 func New(remoteURL string) *Lepton {
 	return &Lepton{
-		HTTP: NewHTTP(remoteURL),
+		HTTP: NewHTTPSkipVerifyTLS(remoteURL),
 	}
 }
 
