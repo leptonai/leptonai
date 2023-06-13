@@ -9,9 +9,8 @@ console = Console(highlight=False)
 
 
 def check_and_print_http_error(response):
-    if response.status_code < 400:
+    if response.status_code // 100 == 2:
         return False
-
     try:
         error_data = response.json()
         error_message = error_data.get("message")
