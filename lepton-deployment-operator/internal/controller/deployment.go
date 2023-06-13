@@ -145,7 +145,7 @@ func (k *deployment) newMainContainerCommand() []string {
 }
 
 func (k *deployment) newMainContainerArgs() []string {
-	leptonCmd := fmt.Sprintf("lepton photon prepare -f %s; lepton photon run -f %[1]s", k.photonDestPath())
+	leptonCmd := fmt.Sprintf("lep photon prepare -f %s; lep photon run -f %[1]s", k.photonDestPath())
 	return []string{"-c", leptonCmd}
 }
 
