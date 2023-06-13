@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xue
+set -xe
 
 # List of Terraform modules/resources to apply in sequence
 # setting up gp3/2 storage class before anything else
