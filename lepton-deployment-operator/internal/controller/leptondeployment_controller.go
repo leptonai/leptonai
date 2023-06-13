@@ -45,8 +45,9 @@ type LeptonDeploymentReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	ChMap     map[types.NamespacedName]chan struct{}
-	ChMapLock sync.Mutex
+	chMap     map[types.NamespacedName]chan struct{}
+	chMapLock sync.Mutex
+	wg        sync.WaitGroup
 }
 
 //+kubebuilder:rbac:groups=lepton.ai,resources=leptondeployments,verbs=get;list;watch;create;update;patch;delete
@@ -65,14 +66,17 @@ type LeptonDeploymentReconciler struct {
 func (r *LeptonDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Log.Info("Reconciling LeptonDeployment:" + req.NamespacedName.String())
 
-	r.ChMapLock.Lock()
-	defer r.ChMapLock.Unlock()
-	if _, ok := r.ChMap[req.NamespacedName]; !ok {
+	r.chMapLock.Lock()
+	defer r.chMapLock.Unlock()
+	if r.chMap == nil {
+		r.chMap = make(map[types.NamespacedName]chan struct{})
+	}
+	if _, ok := r.chMap[req.NamespacedName]; !ok {
 		ch := make(chan struct{}, 100)
 		go r.watch(ctx, req, ch)
-		r.ChMap[req.NamespacedName] = ch
+		r.chMap[req.NamespacedName] = ch
 	}
-	r.ChMap[req.NamespacedName] <- struct{}{}
+	r.chMap[req.NamespacedName] <- struct{}{}
 
 	return ctrl.Result{}, nil
 }
@@ -87,7 +91,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		ld, err := r.getLeptonDeployment(ctx, req)
 		if err != nil {
 			log.Log.Info("Failed to get LeptonDeployment " + req.NamespacedName.String() + ": " + err.Error())
-			go sleepAndPoke(ch)
+			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
 		if ld == nil { // LeptonDeployment has been deleted
@@ -99,7 +103,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		log.Log.Info(fmt.Sprintf("LeptonDeployment %s has resource version %s, previous version %s", req.NamespacedName.String(), ld.ResourceVersion, prevLeptonDeploymentResourceVersion))
 		if ld.ResourceVersion != prevLeptonDeploymentResourceVersion {
 			if err := r.createOrUpdateResources(ctx, req, ld, ownerref); err != nil {
-				go sleepAndPoke(ch)
+				go sleepAndPoke(&r.wg, ch)
 				continue
 			}
 		}
@@ -107,12 +111,12 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		deployment, err := r.getOrCreateDeployment(ctx, req, ld, ownerref)
 		if err != nil {
 			log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
-			go sleepAndPoke(ch)
+			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
 		if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
 			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
-			go sleepAndPoke(ch)
+			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
 		prevLeptonDeploymentResourceVersion = ld.ResourceVersion
@@ -177,10 +181,17 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 
 func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request) {
 	// Remove the chan from the map when the function exits
-	r.ChMapLock.Lock()
-	defer r.ChMapLock.Unlock()
-	close(r.ChMap[req.NamespacedName])
-	delete(r.ChMap, req.NamespacedName)
+	r.chMapLock.Lock()
+	ch := r.chMap[req.NamespacedName]
+	delete(r.chMap, req.NamespacedName)
+	r.chMapLock.Unlock()
+	go func() {
+		r.wg.Wait()
+		close(ch)
+	}()
+	for range ch {
+		// Drain the channel
+	}
 	// TODO: we may have to do additional cleanups here, for example: do we need to clean up the domain names?
 }
 

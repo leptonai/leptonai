@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"sync"
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -26,7 +27,11 @@ func drainChan(ch chan struct{}) {
 	}
 }
 
-func sleepAndPoke(ch chan struct{}) {
+func sleepAndPoke(wg *sync.WaitGroup, ch chan struct{}) {
+	if wg != nil {
+		wg.Add(1)
+		defer wg.Done()
+	}
 	// TODO: avoid hard coding
 	// TODO: use exponential backoff
 	time.Sleep(10 * time.Second)

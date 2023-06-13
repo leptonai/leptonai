@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"sync"
 	"testing"
-	"time"
 )
 
 func TestDrainChan(t *testing.T) {
@@ -21,12 +21,13 @@ func TestDrainChan(t *testing.T) {
 
 func TestSleepAndPoke(t *testing.T) {
 	ch := make(chan struct{}, 1)
-	go sleepAndPoke(ch)
-	time.Sleep(9 * time.Second)
+	wg := &sync.WaitGroup{}
+	go sleepAndPoke(wg, ch)
 	select {
 	case <-ch:
 		t.Error("channel should not be poked yet")
 	default:
 	}
+	wg.Wait()
 	<-ch
 }
