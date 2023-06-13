@@ -10,7 +10,7 @@ import (
 const instancesPath = "/instances"
 
 type Instance struct {
-	HTTP *HTTP
+	Lepton
 }
 
 func (l *Instance) List(deploymentID string) ([]httpapi.Instance, error) {

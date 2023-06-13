@@ -18,6 +18,7 @@ import (
 
 var (
 	remoteURL = flag.String("remote-url", "", "Remote URL for the Lepton API server")
+	authToken = flag.String("auth-token", "", "Auth token for the Lepton API server")
 
 	mainTestPhotonName     string
 	mainTestPhotonID       string
@@ -37,10 +38,11 @@ func TestMain(m *testing.M) {
 
 func prepare() {
 	flag.Parse()
-	lepton = goclient.New(*remoteURL)
-	client = e2eutil.NewCliWrapper(*remoteURL)
+	lepton = goclient.New(*remoteURL, *authToken)
+	client = e2eutil.NewCliWrapper(*remoteURL, *authToken)
 	mainTestPhotonName = newName("main-test-photon")
 	mainTestDeploymentName = newName("main-test-deploy")
+
 	mustPrepareTest()
 }
 
@@ -49,7 +51,7 @@ func teardown() {
 }
 
 func mustPrepareTest() {
-	// Create a photon
+	// create a photon
 	_, err := client.RunLocal("photon", "create", "-n", mainTestPhotonName, "-m", "hf:gpt2")
 	if err != nil {
 		log.Fatal("Failed to create photon ", err)

@@ -9,6 +9,16 @@ from leptonai.config import CACHE_DIR
 from leptonai.util import check_and_print_http_error
 
 
+def create_header(auth_token: str) -> Dict[str, str]:
+    """
+    Generate HTTP header for a request given an auth token.
+    :param str auth_token: auth token to use in the header
+    :return: the generated HTTP header
+    :rtype: dict[str, str]
+    """
+    return {"Authorization": "Bearer " + auth_token} if auth_token else {}
+
+
 def create(name: str, model: Any) -> Photon:
     """
     Create a photon from a model.
@@ -74,7 +84,7 @@ def load_metadata(path: str) -> Dict[Any, Any]:
     return Photon.load_metadata(path)
 
 
-def push(path, url: str):
+def push(path, url: str, auth_token: str):
     """
     Push a photon to a remote server.
     :param str path: path to the photon file
@@ -82,31 +92,36 @@ def push(path, url: str):
     (e.g. http://localhost:8000)
     """
     with open(path, "rb") as file:
-        response = requests.post(url + "/photons", files={"file": file})
+        response = requests.post(url + "/photons", files={"file": file},
+                                headers=create_header(auth_token)
+                                )
         if check_and_print_http_error(response):
             sys.exit(1)
+        return True
 
 
-def list_remote(url: str):
+def list_remote(url: str, auth_token: str):
     """
     List the photons on a remote server.
     :param str url: url of the remote server including the schema
     (e.g. http://localhost:8000)
     """
-    response = requests.get(url + "/photons")
+    response = requests.get(
+        url + "/photons", headers=create_header(auth_token))
     if check_and_print_http_error(response):
         sys.exit(1)
     return response.json()
 
 
-def remove_remote(url: str, id: str):
+def remove_remote(url: str, id: str, auth_token: str):
     """
     Remove a photon from a remote server.
     :param str url: url of the remote server including the schema
     (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """
-    response = requests.delete(url + "/photons/" + id)
+    response = requests.delete(
+        url + "/photons/" + id, headers=create_header(auth_token))
     if response.status_code == 404:
         return False
     if check_and_print_http_error(response):
@@ -114,7 +129,7 @@ def remove_remote(url: str, id: str):
     return True
 
 
-def fetch(id: str, url: str, path: str):
+def fetch(id: str, url: str, path: str, auth_token: str):
     """
     Fetch a photon from a remote server.
     :param str id: id of the photon to fetch
@@ -127,7 +142,7 @@ def fetch(id: str, url: str, path: str):
         need_rename = True
 
     response = requests.get(url + "/photons/" + id + "?content=true",
-                            stream=True)
+                            stream=True, headers=create_header(auth_token))
     if check_and_print_http_error(response):
         sys.exit(1)
 
@@ -146,12 +161,13 @@ def fetch(id: str, url: str, path: str):
     return photon
 
 
-def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int):
+def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
     # name
+    print(f"Launching photon {id}")
     deployment = {
-        "name": "deploy-" + id[:6],
+        "name": f"deploy-{id[:6]}",
         "photon_id": id,
         "resource_requirement": {
             "cpu": cpu,
@@ -159,7 +175,7 @@ def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int)
             "min_replicas": min_replicas,
         },
     }
-
-    response = requests.post(url + "/deployments", json=deployment)
+    response = requests.post(
+        url + "/deployments", json=deployment, headers=create_header(auth_token))
     if check_and_print_http_error(response):
         sys.exit(1)

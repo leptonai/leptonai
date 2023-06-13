@@ -12,18 +12,29 @@ import (
 type HTTP struct {
 	RemoteURL     string
 	SkipVerifyTLS bool
+	Header        http.Header
 }
 
-func NewHTTP(remoteURL string) *HTTP {
+func newHeader(authToken string) http.Header {
+	header := http.Header{}
+	if authToken != "" {
+		header.Set("Authorization", "Bearer "+authToken)
+	}
+	return header
+}
+
+func NewHTTP(remoteURL string, authToken string) *HTTP {
 	return &HTTP{
 		RemoteURL:     remoteURL,
+		Header:        newHeader(authToken),
 		SkipVerifyTLS: false,
 	}
 }
 
-func NewHTTPSkipVerifyTLS(remoteURL string) *HTTP {
+func NewHTTPSkipVerifyTLS(remoteURL string, authToken string) *HTTP {
 	return &HTTP{
 		RemoteURL:     remoteURL,
+		Header:        newHeader(authToken),
 		SkipVerifyTLS: true,
 	}
 }
@@ -39,6 +50,7 @@ func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []
 	if err != nil {
 		return nil, err
 	}
+	req.Header = h.Header
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

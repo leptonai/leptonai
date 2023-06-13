@@ -8,6 +8,11 @@ if [ -z "$NAMESPACE" ]; then
     exit 1
 fi
 
+TOKEN=$2
+if [ -z "$TOKEN" ]; then
+    echo "No token provided: continuing without auth token"
+fi
+
 REMOTE=
 # try getting the remote address for 1 minute
 for _ in $(seq 1 60); do
@@ -33,8 +38,7 @@ if ! host "$REMOTE" > /dev/null; then
 fi
 
 REMOTE=https://$REMOTE/api/v1
-
 # run up to 60-minute as we add more e2e tests for example models
-if ! COLUMNS=2000 go test -timeout 3600s -v ./e2e-tests/... --remote-url "$REMOTE"; then
+if ! COLUMNS=2000 go test -timeout 3600s -v ./e2e-tests/... --remote-url "$REMOTE" --auth-token "$TOKEN"; then
     exit 1
 fi

@@ -4,38 +4,39 @@ type Lepton struct {
 	HTTP *HTTP
 }
 
-func New(remoteURL string) *Lepton {
+func New(remoteURL string, authToken string) *Lepton {
 	return &Lepton{
-		HTTP: NewHTTPSkipVerifyTLS(remoteURL),
+    // TODO switch to NewHTTP()
+		HTTP: NewHTTPSkipVerifyTLS(remoteURL, authToken),
 	}
 }
 
 func (l *Lepton) Cluster() *Cluster {
 	return &Cluster{
-		HTTP: l.HTTP,
+		Lepton: *l,
 	}
 }
 
 func (l *Lepton) Photon() *Photon {
 	return &Photon{
-		HTTP: l.HTTP,
+		Lepton: *l,
 	}
 }
 
 func (l *Lepton) Deployment() *Deployment {
 	return &Deployment{
-		HTTP: l.HTTP,
+		Lepton: *l,
 	}
 }
 
 func (l *Lepton) Instance() *Instance {
 	return &Instance{
-		HTTP: l.HTTP,
+		Lepton: *l,
 	}
 }
 
 func (l *Lepton) Monitoring() *Monitoring {
 	return &Monitoring{
-		HTTP: l.HTTP,
+		Lepton: *l,
 	}
 }

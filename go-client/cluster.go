@@ -10,7 +10,7 @@ import (
 const clusterPath = "/cluster"
 
 type Cluster struct {
-	HTTP *HTTP
+	Lepton
 }
 
 func (l *Cluster) Info() (*httpapi.ClusterInfo, error) {

@@ -13,6 +13,7 @@ func TestPhotonCreateAndRemove(t *testing.T) {
 	for i := 0; i < numTests; i++ {
 		pName := newName(t.Name())
 		pNames = append(pNames, pName)
+
 		_, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
 		if err != nil {
 			log.Fatal(err)

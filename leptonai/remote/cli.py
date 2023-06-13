@@ -22,7 +22,14 @@ def remote():
 @remote.command()
 @click.option("--remote-name", "-n", help="Name of the remote cluster")
 @click.option("--remote-url", "-r", help="URL of the remote cluster")
-def login(remote_name, remote_url):
+@click.option("--auth-token", "-t", help="Authentication token for the remote cluster")
+def login(remote_name, remote_url, auth_token):
+    if remote_name and remote_url and auth_token:
+        save_cluster(remote_name, remote_url, auth_token = auth_token)
+        set_current_cluster(remote_name)
+        console.print(f'Cluster "{remote_name}" [green]logged in[/]')
+        return
+    
     clusters = load_cluster_info()["clusters"]
     if remote_name is not None:
         remote_cluster = clusters.get(remote_name)
@@ -185,6 +192,15 @@ def set_current_cluster(name):
         yaml.safe_dump(cluster_info, f)
 
 
+def get_auth_token(remote_url):
+    #  TODO: Store current auth token in yaml for constant time access
+    cluster_info = load_cluster_info()
+    for _, vals in cluster_info["clusters"].items():
+        if vals["url"] == remote_url:
+            return vals["auth_token"]
+    return None
+
+
 def get_current_cluster_url():
     cluster_info = load_cluster_info()
     current_cluster = cluster_info["current_cluster"]
@@ -194,7 +210,7 @@ def get_current_cluster_url():
     return clusters[current_cluster]["url"]
 
 
-def get_remote_url(remote_url):
+def get_remote_url(remote_url = None):
     if remote_url is not None:
         return remote_url
     return get_current_cluster_url()

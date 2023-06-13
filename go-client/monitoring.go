@@ -1,11 +1,13 @@
 package goclient
 
-import "net/http"
+import (
+	"net/http"
+)
 
 const monitoringPath = "/monitoring"
 
 type Monitoring struct {
-	HTTP *HTTP
+	Lepton
 }
 
 func (l *Monitoring) GetDeploymentRaw(metricName, deploymentID string) (string, error) {

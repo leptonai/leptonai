@@ -11,7 +11,7 @@ import (
 const deploymentsPath = "/deployments"
 
 type Deployment struct {
-	HTTP *HTTP
+	Lepton
 }
 
 func (l *Deployment) Create(d *leptonaiv1alpha1.LeptonDeploymentUserSpec) (*httpapi.LeptonDeployment, error) {

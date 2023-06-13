@@ -14,7 +14,7 @@ import (
 const photonsPath = "/photons"
 
 type Photon struct {
-	HTTP *HTTP
+	Lepton
 }
 
 func (l *Photon) Push(filename, photonName string) (*httpapi.Photon, error) {
