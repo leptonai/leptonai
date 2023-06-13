@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/gin-contrib/requestid"
@@ -35,6 +36,8 @@ const (
 	apiServerPort = 20863
 	apiServerPath = "/api/"
 	rootPath      = "/"
+
+	tunaURL = "https://tuna-tunaml.vercel.app"
 )
 
 func main() {
@@ -142,6 +145,18 @@ func main() {
 	v1.GET("/deployments/:did/monitoring/FastAPILatency", httpapi.DeploymentFastAPILatencyHandler)
 	v1.GET("/deployments/:did/monitoring/FastAPIQPSByPath", httpapi.DeploymentFastAPIQPSByPathHandler)
 	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", httpapi.DeploymentFastAPILatencyByPathHandler)
+
+	u, err := url.Parse(tunaURL)
+	if err != nil {
+		log.Fatalln("Cannot parse tuna service URL:", err)
+	}
+
+	jh := httpapi.NewJobHandler(u)
+	v1.POST("/tuna/job/add", jh.AddJob)
+	v1.GET("/tuna/job/get/:id", jh.GetJobByID)
+	v1.GET("/tuna/job/list", jh.ListJobs)
+	v1.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
+	v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
 
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
