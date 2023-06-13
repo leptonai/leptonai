@@ -27,6 +27,7 @@ export const WorkspaceSwitch: FC = () => {
   };
   return (
     <div
+      className="workspace-switch"
       css={css`
         display: flex;
         align-items: center;

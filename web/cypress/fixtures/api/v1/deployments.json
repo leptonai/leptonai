@@ -1,0 +1,23 @@
+[
+  {
+    "id": "gpt2",
+    "created_at": 1686628028000,
+    "name": "gpt2",
+    "photon_id": "mk9klb9f",
+    "resource_requirement": {
+      "cpu": 1,
+      "memory": 2048,
+      "accelerator_type": "",
+      "accelerator_num": 0,
+      "min_replicas": 1
+    },
+    "envs": [],
+    "status": {
+      "state": "Running",
+      "endpoint": {
+        "internal_endpoint": "http://gpt2.default.svc.cluster.local:8080",
+        "external_endpoint": "https://gpt2.dev-ci.cloud.lepton.ai"
+      }
+    }
+  }
+]
