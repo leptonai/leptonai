@@ -9,7 +9,7 @@ console = Console(highlight=False)
 
 
 def check_and_print_http_error(response):
-    if response.status_code // 100 == 2:
+    if response.status_code >= 200 and response.status_code <= 299:
         return False
     try:
         error_data = response.json()
