@@ -71,8 +71,8 @@ func mustPrepareTest() {
 		Name:     mainTestDeploymentName,
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			CPU:         2,
-			Memory:      2048,
+			CPU:         0.3,
+			Memory:      128,
 			MinReplicas: 1,
 		},
 	}

@@ -19,7 +19,7 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 			Name:     dName,
 			PhotonID: mainTestPhotonID,
 			ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				CPU:         1,
+				CPU:         0.3,
 				Memory:      128,
 				MinReplicas: 1,
 			},
@@ -60,7 +60,7 @@ func TestDeployWithDuplicateName(t *testing.T) {
 		Name:     dName,
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			CPU:         1,
+			CPU:         0.3,
 			Memory:      128,
 			MinReplicas: 1,
 		},
