@@ -129,3 +129,10 @@ func (db *NameDB[T]) GetAll() []*T {
 	}
 	return t
 }
+
+func (db *NameDB[T]) Clear() {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+	db.dataByID = make(map[string]*T)
+	db.dataByName = make(map[string]map[int64]*T)
+}

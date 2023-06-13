@@ -17,10 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var photonDB *namedb.NameDB[leptonaiv1alpha1.Photon]
+var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
 
 func initPhotons() {
-	photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
+	photonDB.Clear()
 	// Watch for changes in the LeptonDeployment CR
 	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.PhotonList{},

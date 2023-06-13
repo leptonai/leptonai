@@ -12,10 +12,10 @@ import (
 	"github.com/leptonai/lepton/go-pkg/namedb"
 )
 
-var deploymentDB *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment]
+var deploymentDB = namedb.NewNameDB[leptonaiv1alpha1.LeptonDeployment]()
 
 func initDeployments() {
-	deploymentDB = namedb.NewNameDB[leptonaiv1alpha1.LeptonDeployment]()
+	deploymentDB.Clear()
 	// Watch for changes in the LeptonDeployment CR
 	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.LeptonDeploymentList{},
