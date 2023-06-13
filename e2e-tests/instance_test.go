@@ -2,7 +2,7 @@ package e2etests
 
 import "testing"
 
-func TestInstance(t *testing.T) {
+func TestListInstance(t *testing.T) {
 	instances, err := lepton.Instance().List(mainTestDeploymentID)
 	if err != nil {
 		t.Fatal(err)
@@ -12,4 +12,12 @@ func TestInstance(t *testing.T) {
 	if len(instances) == 0 {
 		t.Fatal("Expected at least 1 instance, got 0")
 	}
+}
+
+func TestInstanceShell(t *testing.T) {
+	// TODO: implement shell in go-client first
+}
+
+func TestInstanceLog(t *testing.T) {
+	// TODO: implement log in go-client first
 }

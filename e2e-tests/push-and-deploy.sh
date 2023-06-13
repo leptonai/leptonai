@@ -34,8 +34,7 @@ fi
 
 REMOTE=https://$REMOTE/api/v1
 
-
-# run up to 30-minute as we add more e2e tests for example models
-if ! COLUMNS=2000 go test -timeout 1800s -v ./e2e-tests/... --remote-url "$REMOTE"; then
+# run up to 60-minute as we add more e2e tests for example models
+if ! COLUMNS=2000 go test -timeout 3600s -v ./e2e-tests/... --remote-url "$REMOTE"; then
     exit 1
 fi

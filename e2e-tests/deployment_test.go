@@ -86,28 +86,22 @@ func TestDeployWithDuplicateName(t *testing.T) {
 }
 
 func waitForDeploymentToRunningState(id string) error {
-	timeout := time.After(10 * time.Minute)
-	tick := time.Tick(10 * time.Second)
-	for {
-		select {
-		case <-tick:
-			d, err := lepton.Deployment().Get(mainTestDeploymentID)
-			if err != nil {
-				return err
-			}
-			if d.Status.State == "Running" {
-				if d.Status.Endpoint.ExternalEndpoint == "" {
-					return fmt.Errorf("Expected deployment to have an external endpoint, got empty string")
-				}
-				if d.Status.Endpoint.InternalEndpoint == "" {
-					return fmt.Errorf("Expected deployment to have an internal endpoint, got empty string")
-				}
-				return nil
-			}
-		case <-timeout:
-			return fmt.Errorf("Timed out waiting for deployment to be Running")
+	return retryUntilNoErrorOrTimeout(10*time.Minute, func() error {
+		d, err := lepton.Deployment().Get(mainTestDeploymentID)
+		if err != nil {
+			return err
 		}
-	}
+		if d.Status.State != "Running" {
+			return fmt.Errorf("Expected deployment to be in Running state, got %s", d.Status.State)
+		}
+		if d.Status.Endpoint.ExternalEndpoint == "" {
+			return fmt.Errorf("Expected deployment to have an external endpoint, got empty string")
+		}
+		if d.Status.Endpoint.InternalEndpoint == "" {
+			return fmt.Errorf("Expected deployment to have an internal endpoint, got empty string")
+		}
+		return nil
+	})
 }
 
 func TestDeploymentStatus(t *testing.T) {

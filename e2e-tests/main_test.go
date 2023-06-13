@@ -2,8 +2,10 @@ package e2etests
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -118,4 +120,35 @@ func newName(testName string) string {
 		name = name[len(name)-nameLenLimit:]
 	}
 	return name
+}
+
+func waitForDNSPropagation(hostname string) error {
+	return retryUntilNoErrorOrTimeout(10*time.Minute, func() error {
+		ips, err := net.LookupIP(hostname)
+		if err != nil {
+			return fmt.Errorf("failed to lookup IP for %s: %v", hostname, err)
+		}
+		if len(ips) == 0 {
+			return fmt.Errorf("no IP found for %s", hostname)
+		}
+		return nil
+	})
+}
+
+func retryUntilNoErrorOrTimeout(timeout time.Duration, f func() error) error {
+	tick := 10 * time.Second
+	t := time.After(timeout)
+	ticker := time.Tick(tick)
+	var err error
+	for {
+		select {
+		case <-ticker:
+			err = f()
+			if err == nil {
+				return nil
+			}
+		case <-t:
+			return fmt.Errorf("timeout with last error: %v", err)
+		}
+	}
 }
