@@ -6,7 +6,7 @@ import { css } from "@emotion/react";
 import { css as classNameCss } from "@emotion/css";
 import validator from "@rjsf/validator-ajv8";
 import { Button, Checkbox, Col, Row } from "antd";
-import { Form } from "@rjsf/antd";
+import { Form } from "@lepton-libs/rjsf";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
@@ -121,6 +121,7 @@ export const SchemaForm = memo<{
     const [data, setData] = useState(convertedInitData);
     return (
       <Form
+        showErrorList={false}
         focusOnFirstError
         validator={validator}
         schema={convertedSchema}
