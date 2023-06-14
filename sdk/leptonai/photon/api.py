@@ -92,9 +92,9 @@ def push(path, url: str, auth_token: str):
     (e.g. http://localhost:8000)
     """
     with open(path, "rb") as file:
-        response = requests.post(url + "/photons", files={"file": file},
-                                headers=create_header(auth_token)
-                                )
+        response = requests.post(
+            url + "/photons", files={"file": file}, headers=create_header(auth_token)
+        )
         if check_and_print_http_error(response):
             sys.exit(1)
         return True
@@ -106,8 +106,7 @@ def list_remote(url: str, auth_token: str):
     :param str url: url of the remote server including the schema
     (e.g. http://localhost:8000)
     """
-    response = requests.get(
-        url + "/photons", headers=create_header(auth_token))
+    response = requests.get(url + "/photons", headers=create_header(auth_token))
     if check_and_print_http_error(response):
         sys.exit(1)
     return response.json()
@@ -121,7 +120,8 @@ def remove_remote(url: str, id: str, auth_token: str):
     :param str id: id of the photon to remove
     """
     response = requests.delete(
-        url + "/photons/" + id, headers=create_header(auth_token))
+        url + "/photons/" + id, headers=create_header(auth_token)
+    )
     if response.status_code == 404:
         return False
     if check_and_print_http_error(response):
@@ -141,8 +141,11 @@ def fetch(id: str, url: str, path: str, auth_token: str):
         path = CACHE_DIR / f"tmp.{id}.photon"
         need_rename = True
 
-    response = requests.get(url + "/photons/" + id + "?content=true",
-                            stream=True, headers=create_header(auth_token))
+    response = requests.get(
+        url + "/photons/" + id + "?content=true",
+        stream=True,
+        headers=create_header(auth_token),
+    )
     if check_and_print_http_error(response):
         sys.exit(1)
 
@@ -161,7 +164,9 @@ def fetch(id: str, url: str, path: str, auth_token: str):
     return photon
 
 
-def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str):
+def remote_launch(
+    id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str
+):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
     # name
@@ -176,6 +181,7 @@ def remote_launch(id: str, url: str, cpu: float, memory: int, min_replicas: int,
         },
     }
     response = requests.post(
-        url + "/deployments", json=deployment, headers=create_header(auth_token))
+        url + "/deployments", json=deployment, headers=create_header(auth_token)
+    )
     if check_and_print_http_error(response):
         sys.exit(1)

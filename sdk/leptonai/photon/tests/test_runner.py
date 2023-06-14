@@ -24,7 +24,6 @@ import leptonai
 from leptonai import Client
 from leptonai.photon.api import create as create_photon, load_metadata
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
-from leptonai.photon.cli import photon as cli
 from leptonai.photon import RunnerPhoton as Runner
 from leptonai.photon.runner import HTTPException, PNGResponse
 from leptonai.util import switch_cwd
@@ -174,7 +173,7 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(y1, y2)
         try:
             client.some_path_does_not_exist(x=x)
-        except AttributeError as e:
+        except AttributeError:
             pass
         else:
             self.fail("AttributeError not raised")
@@ -182,9 +181,7 @@ class TestRunner(unittest.TestCase):
 
     def test_runner_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
-            f.write(
-                dedent(
-                    """
+            f.write(dedent("""
 from leptonai.photon.runner import RunnerPhoton as Runner, handler
 
 
@@ -201,9 +198,7 @@ class Counter(Runner):
     def sub(self, x: int) -> int:
         self.counter -= x
         return self.counter
-"""
-                ).encode("utf-8")
-            )
+""").encode("utf-8"))
             f.flush()
             proc, port = photon_run_server(name="counter", model=f"py:{f.name}:Counter")
             res = requests.post(
@@ -433,16 +428,12 @@ class Counter(Runner):
             custom_py = os.path.join("d1", "d2", "custom.py")
             os.makedirs(os.path.dirname(custom_py))
             with open(custom_py, "w") as f:
-                f.write(
-                    dedent(
-                        f"""
+                f.write(dedent(f"""
 import torch
 from leptonai.photon.runner import RunnerPhoton as Runner, handler
 
 {inspect.getsource(CustomRunner)}
-"""
-                    )
-                )
+"""))
             subprocess.check_call(["git", "add", custom_py])
             subprocess.check_call(["git", "commit", "-m", "add custom runner"])
 
@@ -488,11 +479,12 @@ from leptonai.photon.runner import RunnerPhoton as Runner, handler
         # test github user & token autofill from environment variables
         if not os.environ.get("GITHUB_USER") or not os.environ.get("GITHUB_TOKEN"):
             logger.debug(
-                "Skip github user & token autofill test because env vars GITHUB_USER and GITHUB_TOKEN not set"
+                "Skip github user & token autofill test because env vars GITHUB_USER"
+                " and GITHUB_TOKEN not set"
             )
             return
         name = random_name()
-        model = f"py:github.com/leptonai/examples:Counter/counter.py:Counter"
+        model = "py:github.com/leptonai/examples:Counter/counter.py:Counter"
         photon = create_photon(name=name, model=model)
         path = photon.save()
         proc, port = photon_run_server(path=path)

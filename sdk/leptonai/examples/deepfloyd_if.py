@@ -1,5 +1,4 @@
 from io import BytesIO
-import os
 
 from diffusers import DiffusionPipeline
 from diffusers.utils import pt_to_pil
@@ -74,7 +73,11 @@ class If(Runner):
     @handler(
         response_class=StreamingResponse,
         example={
-            "prompt": 'a photo of a kangaroo wearing an orange hoodie and blue sunglasses standing in front of the eiffel tower holding a sign that says "very deep learning"'
+            "prompt": (
+                "a photo of a kangaroo wearing an orange hoodie and blue sunglasses"
+                ' standing in front of the eiffel tower holding a sign that says "very'
+                ' deep learning"'
+            )
         },
     )
     def run(self, prompt: str):

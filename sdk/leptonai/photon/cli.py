@@ -62,8 +62,7 @@ def remove(name, id_):
     if remote_url is not None:
         auth_token = remote.cli.get_auth_token(remote_url)
         if id_ is None and name is None:
-            console.print(
-                "Must specify --id or --name when removing remote photon")
+            console.print("Must specify --id or --name when removing remote photon")
             sys.exit(1)
 
         if id_ is None:
@@ -79,8 +78,13 @@ def remove(name, id_):
             target_photons.sort(key=lambda p: p["created_at"], reverse=True)
 
             id_ = target_photons[0]["id"]
-            if console.input(f'remove photon "[green]{name}[/]" \
-with id "[green]{id_}[/]"? \[y/n]: ') != "y":
+            if (
+                console.input(
+                    f'remove photon "[green]{name}[/]" with id "[green]{id_}[/]"?'
+                    " \[y/n]: "
+                )
+                != "y"
+            ):
                 sys.exit(0)
 
         if api.remove_remote(remote_url, id_, auth_token):
@@ -157,7 +161,7 @@ def run(ctx, name, model, path, port, id, cpu, memory, min_replicas):
             sys.exit(1)
         auth_token = remote.cli.get_auth_token(remote_url)
         api.remote_launch(id, remote_url, cpu, memory, min_replicas, auth_token)
-        
+
         return
 
     if name is None and path is None:
@@ -237,12 +241,10 @@ def prepare(ctx, path):
             default=True,
         )
         if confirmed:
-            console.print(
-                f"Installing system_dependency:\n{system_dependency}")
+            console.print(f"Installing system_dependency:\n{system_dependency}")
             try:
                 subprocess.check_call([sudo, apt, "update"])
-                subprocess.check_call(
-                    [sudo, apt, "install", "-y"] + system_dependency)
+                subprocess.check_call([sudo, apt, "install", "-y"] + system_dependency)
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to {apt} install: {e}")
                 sys.exit(1)
@@ -254,8 +256,7 @@ def push(name):
     remote_url = remote.get_remote_url()
     if remote_url is None:
         console.print("You are not logged in.")
-        console.print("You must log in ($lep remote login) or specify \
---remote_url.")
+        console.print("You must log in ($lep remote login) or specify --remote_url.")
         sys.exit(1)
     path = find_photon(name)
     if path is None or not os.path.exists(path):
@@ -276,8 +277,10 @@ def fetch(id, path):
     remote_url = remote.get_remote_url()
     if remote_url is None:
         console.print("You are not logged in.")
-        console.print("To fetch a photon, you must first log in \
-($lepton remote login) to specify a remote cluster")
+        console.print(
+            "To fetch a photon, you must first log in ($lepton remote login) to specify"
+            " a remote cluster"
+        )
     auth_token = remote.cli.get_auth_token(remote_url)
     photon = api.fetch(id, remote_url, path, auth_token)
     console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')

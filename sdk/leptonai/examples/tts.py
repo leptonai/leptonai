@@ -32,8 +32,16 @@ class Speaker(Runner):
         logger.info(f"Model has speakers {self.speakers}")
 
         return (
-            gr.Dropdown.update(choices=self.languages, visible=bool(self.languages), value=self.languages[0] if self.languages else None),
-            gr.Dropdown.update(choices=self.speakers, visible=bool(self.speakers), value=self.speakers[0] if self.speakers else None),
+            gr.Dropdown.update(
+                choices=self.languages,
+                visible=bool(self.languages),
+                value=self.languages[0] if self.languages else None,
+            ),
+            gr.Dropdown.update(
+                choices=self.speakers,
+                visible=bool(self.speakers),
+                value=self.speakers[0] if self.speakers else None,
+            ),
         )
 
     @property
@@ -54,8 +62,12 @@ class Speaker(Runner):
     def list_models(self) -> List[str]:
         return TTS.list_models()
 
-    def _tts(self, text: str, language: Optional[str] = None, speaker: Optional[str] = None) -> BytesIO:
-        logger.info(f"Synthesizing '{text}' with language '{language}' and speaker '{speaker}'")
+    def _tts(
+        self, text: str, language: Optional[str] = None, speaker: Optional[str] = None
+    ) -> BytesIO:
+        logger.info(
+            f"Synthesizing '{text}' with language '{language}' and speaker '{speaker}'"
+        )
         if not language:
             if self.languages:
                 language = self.languages[0]
@@ -77,7 +89,9 @@ class Speaker(Runner):
         return wav_io
 
     @handler()
-    def tts(self, text: str, language: Optional[str] = None, speaker: Optional[str] = None) -> WAVResponse:
+    def tts(
+        self, text: str, language: Optional[str] = None, speaker: Optional[str] = None
+    ) -> WAVResponse:
         wav_io = self._tts(text=text, language=language, speaker=speaker)
         return WAVResponse(wav_io)
 
@@ -90,7 +104,9 @@ class Speaker(Runner):
                 model = gr.Dropdown(choices=self.list_models(), label="Model")
                 language = gr.Dropdown(label="Language", visible=False)
                 speaker = gr.Dropdown(label="Speaker", visible=False)
-                model.change(self._load_model, inputs=[model], outputs=[language, speaker])
+                model.change(
+                    self._load_model, inputs=[model], outputs=[language, speaker]
+                )
 
                 text = gr.Textbox(label="Text", max_lines=3)
 

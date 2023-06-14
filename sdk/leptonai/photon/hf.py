@@ -73,12 +73,14 @@ class HuggingfacePhoton(RunnerPhoton):
         model_parts = model_str.split(":")
         if len(model_parts) != 2:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model_str}" (can not parse model name)'
+                f'Unsupported Huggingface model: "{model_str}" (can not parse model'
+                " name)"
             )
         schema = model_parts[0]
         if schema not in schemas:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model_str}" (unknown schema: "{schema}")'
+                f'Unsupported Huggingface model: "{model_str}" (unknown schema:'
+                f' "{schema}")'
             )
         hf_model_id = model_parts[1]
         if "@" in hf_model_id:
@@ -91,7 +93,8 @@ class HuggingfacePhoton(RunnerPhoton):
             hf_task = mi.pipeline_tag
         except AttributeError:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model_str}" (can not find corresponding task)'
+                f'Unsupported Huggingface model: "{model_str}" (can not find'
+                " corresponding task)"
             )
         if hf_task not in SUPPORTED_TASKS:
             raise ValueError(
@@ -135,7 +138,8 @@ class HuggingfacePhoton(RunnerPhoton):
         if pipeline_creator is None:
             raise ValueError(f"Could not find pipeline creator for {self.hf_task}")
         logger.info(
-            f"Creating pipeline for {self.hf_task}(model={self.hf_model}, revision={self.hf_revision})"
+            f"Creating pipeline for {self.hf_task}(model={self.hf_model},"
+            f" revision={self.hf_revision})"
         )
         pipeline = pipeline_creator(
             task=self.hf_task,
@@ -166,7 +170,8 @@ class HuggingfacePhoton(RunnerPhoton):
             model_name = model.name_or_path
         except AttributeError:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (can not find corresponding model name)'
+                f'Unsupported Huggingface model: "{model}" (can not find corresponding'
+                " model name)"
             )
 
         try:
@@ -376,7 +381,9 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
     @handler(
         "run",
         example={
-            "inputs": "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+            "inputs": (
+                "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+            )
         },
     )
     def run_handler(self, inputs: str) -> str:
@@ -449,12 +456,10 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
 
         blocks = gr.Blocks()
         with blocks:
-            gr.Markdown(
-                """
+            gr.Markdown("""
             # Summarize
             Start typing below to see the output.
-            """
-            )
+            """)
             input_box = gr.Textbox(placeholder="text to summarize")
             output_box = gr.Textbox()
             btn = gr.Button("Summarize")
