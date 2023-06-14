@@ -16,7 +16,11 @@ def create_header(auth_token: str) -> Dict[str, str]:
     :return: the generated HTTP header
     :rtype: dict[str, str]
     """
-    return {"Authorization": "Bearer " + auth_token} if auth_token else {}
+    return (
+        {"Authorization": "Bearer " + auth_token}
+        if auth_token and auth_token != ""
+        else {}
+    )
 
 
 def create(name: str, model: Any) -> Photon:

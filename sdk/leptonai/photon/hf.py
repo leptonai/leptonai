@@ -456,10 +456,12 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
 
         blocks = gr.Blocks()
         with blocks:
-            gr.Markdown("""
+            gr.Markdown(
+                """
             # Summarize
             Start typing below to see the output.
-            """)
+            """
+            )
             input_box = gr.Textbox(placeholder="text to summarize")
             output_box = gr.Textbox()
             btn = gr.Button("Summarize")

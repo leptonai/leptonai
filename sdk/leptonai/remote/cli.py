@@ -29,9 +29,17 @@ def remote():
 @click.option("--remote-url", "-r", help="URL of the remote cluster")
 @click.option("--auth-token", "-t", help="Authentication token for the remote cluster")
 def login(remote_name, remote_url, auth_token):
-    if remote_name and remote_url and auth_token:
+    if remote_name and remote_url:
+        if auth_token is None:
+            auth_token = (
+                console.input(
+                    f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
+                )
+                or ""
+            )
         save_cluster(remote_name, remote_url, auth_token=auth_token)
         set_current_cluster(remote_name)
+
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
 
@@ -45,8 +53,8 @@ def login(remote_name, remote_url, auth_token):
                 'Please use "lep remote login -r <URL>" to add the remote cluster first'
             )
             sys.exit(1)
-
         set_current_cluster(remote_name)
+
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
 
@@ -59,14 +67,13 @@ def login(remote_name, remote_url, auth_token):
             if not remote_name:
                 console.print("Remote cluster name cannot be empty")
 
-        auth_token = (
-            console.input(
-                f'Please enter the authentication token for "{remote_name}" (ENTER if'
-                " none): "
+        if auth_token is None:
+            auth_token = (
+                console.input(
+                    f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
+                )
+                or ""
             )
-            or None
-        )
-
         save_cluster(remote_name, remote_url, auth_token=auth_token)
         set_current_cluster(remote_name)
 
