@@ -37,6 +37,7 @@ export const SignAsOther: FC<{ tips: ReactNode }> = ({ tips }) => {
           <Typography.Paragraph>
             Oauth is not enabled in current environment.
           </Typography.Paragraph>
+          <Divider />
         </>
       )}
 
