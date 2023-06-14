@@ -92,7 +92,10 @@ export const List: FC = () => {
           </Row>
         ) : (
           <Card>
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No Photons"
+            />
           </Card>
         )}
       </Col>

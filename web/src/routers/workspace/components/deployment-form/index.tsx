@@ -3,7 +3,9 @@ import { css } from "@emotion/react";
 import {
   Button,
   Cascader,
+  Checkbox,
   Col,
+  Empty,
   Form,
   Input,
   InputNumber,
@@ -11,7 +13,8 @@ import {
   Select,
   Space,
 } from "antd";
-import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
+
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
@@ -48,6 +51,9 @@ export const DeploymentForm: FC<{
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const clusterInfo = workspaceTrackerService.cluster!.data;
   const [form] = Form.useForm();
+  const [enableAccelerator, setEnableAccelerator] = useState(
+    !!initialDeploymentValue.resource_requirement?.accelerator_num
+  );
   const supportedAccelerators = Object.keys(
     clusterInfo.supported_accelerators
   ).map((i) => ({ label: i, value: i }));
@@ -62,22 +68,17 @@ export const DeploymentForm: FC<{
   const [maxAcceleratorCount, setMaxAcceleratorCount] = useState(initialMax);
 
   const acceleratorCountRules: Rule[] = useMemo(() => {
-    const rules: Rule[] = [
+    return [
       {
         max: maxAcceleratorCount,
         type: "number",
-        message: maxAcceleratorCount
-          ? `The accelerator available is ${maxAcceleratorCount}`
-          : "please input accelerator type",
+        message: `The accelerator available is ${maxAcceleratorCount}`,
+      },
+      {
+        required: true,
+        message: `Please input the accelerator number`,
       },
     ];
-    if (maxAcceleratorCount) {
-      rules.push({
-        required: true,
-        message: `Input the accelerator number`,
-      });
-    }
-    return rules;
   }, [maxAcceleratorCount]);
   const photon = useMemo(() => {
     const latest =
@@ -98,6 +99,8 @@ export const DeploymentForm: FC<{
         initialDeploymentValue.resource_requirement?.accelerator_type,
       cpu: initialDeploymentValue.resource_requirement?.cpu,
       memory: initialDeploymentValue.resource_requirement?.memory,
+      enable_accelerator:
+        !!initialDeploymentValue.resource_requirement?.accelerator_num,
       photon: photon,
       envs: initialDeploymentValue.envs,
     };
@@ -123,8 +126,8 @@ export const DeploymentForm: FC<{
         memory: value.memory,
         cpu: value.cpu,
         min_replicas: value.min_replicas,
-        accelerator_type: value.accelerator_type || "",
-        accelerator_num: value.accelerator_num || 0,
+        accelerator_type: enableAccelerator ? value.accelerator_type : "",
+        accelerator_num: enableAccelerator ? value.accelerator_num : 0,
       },
       envs: value.envs,
     };
@@ -244,23 +247,12 @@ export const DeploymentForm: FC<{
           addonAfter="MB"
         />
       </Form.Item>
-      <Form.Item label="Accelerator Type" name="accelerator_type">
-        <Select
-          disabled={edit}
-          allowClear
-          onClear={() => form.setFieldValue(["accelerator_num"], null)}
-          options={supportedAccelerators}
-          showSearch
-        />
-      </Form.Item>
       <Form.Item
-        rules={acceleratorCountRules}
-        label="Accelerator Number"
-        name="accelerator_num"
+        css={css`
+          margin-bottom: 0;
+        `}
+        label="Environment Variables"
       >
-        <InputNumber min={0} disabled={edit} style={{ width: "100%" }} />
-      </Form.Item>
-      <Form.Item label="Environment Variables">
         <Form.List name="envs">
           {(fields, { add, remove }) => (
             <>
@@ -281,7 +273,7 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input name" },
                         ]}
                       >
-                        <Input placeholder="Env name" />
+                        <Input disabled={edit} placeholder="Env name" />
                       </Form.Item>
                       <Form.Item
                         wrapperCol={{ span: 24 }}
@@ -291,9 +283,11 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input value" },
                         ]}
                       >
-                        <Input placeholder="Env value" />
+                        <Input disabled={edit} placeholder="Env value" />
                       </Form.Item>
-                      <MinusCircleOutlined onClick={() => remove(name)} />
+                      <Button disabled={edit} onClick={() => remove(name)}>
+                        <MinusOutlined />
+                      </Button>
                     </Space>
                   </Col>
                 ))}
@@ -302,6 +296,7 @@ export const DeploymentForm: FC<{
               <Form.Item wrapperCol={{ span: 24 }}>
                 <Button
                   type="dashed"
+                  disabled={edit}
                   onClick={() => add()}
                   block
                   icon={<PlusOutlined />}
@@ -313,6 +308,55 @@ export const DeploymentForm: FC<{
           )}
         </Form.List>
       </Form.Item>
+      <Form.Item wrapperCol={{ offset: 7, span: 14 }}>
+        <Checkbox
+          disabled={edit}
+          value={enableAccelerator}
+          onChange={(e) => setEnableAccelerator(e.target.checked)}
+        >
+          Enable Accelerator
+        </Checkbox>
+      </Form.Item>
+      {enableAccelerator && (
+        <>
+          <Form.Item
+            rules={[
+              {
+                required: true,
+                message: `Please input the accelerator type`,
+              },
+            ]}
+            label="Accelerator Type"
+            name="accelerator_type"
+          >
+            <Select
+              disabled={edit}
+              notFoundContent={
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="No accelerator aviailable"
+                />
+              }
+              placeholder="Input accelerator type"
+              options={supportedAccelerators}
+              showSearch
+            />
+          </Form.Item>
+          <Form.Item
+            rules={acceleratorCountRules}
+            label="Accelerator Number"
+            name="accelerator_num"
+          >
+            <InputNumber
+              placeholder="Input accelerator number"
+              min={0}
+              disabled={edit}
+              style={{ width: "100%" }}
+            />
+          </Form.Item>
+        </>
+      )}
+
       <Form.Item wrapperCol={{ offset: 7, span: 14 }}>{buttons}</Form.Item>
     </Form>
   );

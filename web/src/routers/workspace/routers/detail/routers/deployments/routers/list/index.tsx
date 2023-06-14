@@ -1,5 +1,13 @@
 import { FC, useMemo, useState } from "react";
-import { Col, Input, Row, Select, List as AntdList, Cascader } from "antd";
+import {
+  Col,
+  Input,
+  Row,
+  Select,
+  List as AntdList,
+  Cascader,
+  Empty,
+} from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -113,6 +121,14 @@ export const List: FC = () => {
       <Col span={24}>
         <AntdList
           rowKey="id"
+          locale={{
+            emptyText: (
+              <Empty
+                description="No deployments"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            ),
+          }}
           style={{
             border: `1px solid ${theme.colorBorder}`,
             boxShadow: theme.boxShadowTertiary,
