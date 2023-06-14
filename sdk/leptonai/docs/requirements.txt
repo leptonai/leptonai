@@ -1,0 +1,4 @@
+sphinx
+autoapi
+sphinx-click
+
