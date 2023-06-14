@@ -50,7 +50,7 @@ func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []
 	if err != nil {
 		return nil, err
 	}
-	req.Header = h.Header
+	req.Header = h.Header.Clone()
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
