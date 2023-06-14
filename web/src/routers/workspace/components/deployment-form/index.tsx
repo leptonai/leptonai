@@ -52,7 +52,9 @@ export const DeploymentForm: FC<{
   const clusterInfo = workspaceTrackerService.cluster!.data;
   const [form] = Form.useForm();
   const [enableAccelerator, setEnableAccelerator] = useState(
-    !!initialDeploymentValue.resource_requirement?.accelerator_num
+    edit
+      ? !!initialDeploymentValue.resource_requirement?.accelerator_num
+      : false
   );
   const supportedAccelerators = Object.keys(
     clusterInfo.supported_accelerators
@@ -311,7 +313,7 @@ export const DeploymentForm: FC<{
       <Form.Item wrapperCol={{ offset: 7, span: 14 }}>
         <Checkbox
           disabled={edit}
-          value={enableAccelerator}
+          checked={enableAccelerator}
           onChange={(e) => setEnableAccelerator(e.target.checked)}
         >
           Enable Accelerator

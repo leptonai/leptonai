@@ -5,7 +5,7 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { css } from "@emotion/react";
 import { css as classNameCss } from "@emotion/css";
 import validator from "@rjsf/validator-ajv8";
-import { Button, Checkbox, Col, Row, theme } from "antd";
+import { Button, Checkbox, Col, Row } from "antd";
 import { Form } from "@lepton-libs/rjsf";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
@@ -15,10 +15,6 @@ import {
 } from "@lepton-dashboard/services/open-api.service";
 import { englishStringTranslator } from "@rjsf/utils";
 const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
-  const { token } = theme.useToken();
-
-  console.log(token.colorPrimary);
-
   const optionalSchema: JSONSchema7 = {
     properties: {},
     type: "object",
