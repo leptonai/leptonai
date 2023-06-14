@@ -4,7 +4,7 @@ import { Description } from "@lepton-dashboard/routers/workspace/components/desc
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Time } from "@carbon/icons-react";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { DateParser } from "@lepton-dashboard/routers/workspace/components/date-parser";
+import { DateParser } from "../../../../../../components/date-parser";
 import { useInject } from "@lepton-libs/di";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 

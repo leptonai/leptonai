@@ -1,10 +1,7 @@
-import { FC, PropsWithChildren } from "react";
+import { FC, PropsWithChildren, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
-import { Nav } from "@lepton-dashboard/routers/workspace/components/layout/components/nav";
-import { Footer } from "@lepton-dashboard/routers/workspace/components/layout/components/footer";
-import { Header } from "@lepton-dashboard/routers/workspace/components/layout/components/header";
 
 const Container = styled.div`
   height: 100%;
@@ -28,7 +25,18 @@ const FullHeight = styled.div`
   flex-direction: column;
 `;
 
-export const Layout: FC<PropsWithChildren> = ({ children }) => {
+export interface LayoutProps {
+  header?: ReactNode;
+  nav?: ReactNode;
+  footer?: ReactNode;
+}
+
+export const Layout: FC<LayoutProps & PropsWithChildren> = ({
+  children,
+  nav,
+  footer,
+  header,
+}) => {
   const theme = useAntdTheme();
   return (
     <Container
@@ -37,8 +45,8 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
       `}
     >
       <FullHeight>
-        <Header />
-        <Nav />
+        {header}
+        {nav}
         <Main
           css={css`
             background: ${theme.colorBgLayout};
@@ -47,8 +55,7 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
           {children}
         </Main>
       </FullHeight>
-
-      <Footer />
+      {footer}
     </Container>
   );
 };

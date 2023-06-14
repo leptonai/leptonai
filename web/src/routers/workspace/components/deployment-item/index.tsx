@@ -27,7 +27,7 @@ import {
 } from "@carbon/icons-react";
 import { CloseOutlined, DeleteOutlined } from "@ant-design/icons";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
-import { DateParser } from "@lepton-dashboard/routers/workspace/components/date-parser";
+import { DateParser } from "../../../../components/date-parser";
 import { useInject } from "@lepton-libs/di";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";

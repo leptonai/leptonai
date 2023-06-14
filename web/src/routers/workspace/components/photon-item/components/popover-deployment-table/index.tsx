@@ -8,7 +8,7 @@ import { css as classNameCss } from "@emotion/css";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { DateParser } from "@lepton-dashboard/routers/workspace/components/date-parser";
+import { DateParser } from "../../../../../../components/date-parser";
 import { css } from "@emotion/react";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";

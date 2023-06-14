@@ -13,8 +13,13 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { forkJoin, map, merge, switchMap } from "rxjs";
 import { Loading } from "@lepton-dashboard/components/loading";
-import { Layout } from "../../components/layout";
+import { Layout } from "../../../../components/layout";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
+import { Nav } from "@lepton-dashboard/routers/workspace/components/nav";
+import { Footer } from "@lepton-dashboard/components/layout/components/footer";
+import { Header } from "@lepton-dashboard/components/layout/components/header";
+import { WorkspaceSwitch } from "@lepton-dashboard/routers/workspace/components/workspace-switch";
+import { ProfileMenu } from "@lepton-dashboard/routers/workspace/components/profile-menu";
 const Dashboard = lazy(() =>
   import(
     "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard"
@@ -63,7 +68,11 @@ export const Detail: FC = () => {
     false
   );
   return initialized ? (
-    <Layout>
+    <Layout
+      nav={<Nav />}
+      footer={<Footer />}
+      header={<Header menu={<WorkspaceSwitch />} actions={<ProfileMenu />} />}
+    >
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="dashboard" element={<Dashboard />} />
