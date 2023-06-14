@@ -1,7 +1,7 @@
 import { MouseEvent, useEffect, useState } from "react";
-import Button from "antd/lib/button";
-import Col from "antd/lib/col";
-import Row from "antd/lib/row";
+import Button from "antd/es/button";
+import Col from "antd/es/col";
+import Row from "antd/es/row";
 import {
   ariaDescribedByIds,
   pad,

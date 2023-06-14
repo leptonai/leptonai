@@ -8,7 +8,7 @@ import {
   GenericObjectType,
 } from "@rjsf/utils";
 
-import { DatePicker } from "antd";
+import DatePicker from "antd/es/date-picker";
 
 const DATE_PICKER_STYLE = {
   width: "100%",

@@ -1,10 +1,10 @@
-import Button, { ButtonType, ButtonProps } from "antd/lib/button";
-import { BaseButtonProps } from "antd/lib/button/button";
+import Button, { ButtonType, ButtonProps } from "antd/es/button";
+import { BaseButtonProps } from "antd/es/button/button";
 import ArrowDownOutlined from "@ant-design/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/ArrowUpOutlined";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
-import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
-import PlusCircleOutlined from "@ant-design/icons/PlusCircleOutlined";
+import PlusOutlined from "@ant-design/icons/PlusOutlined";
+import MinusOutlined from "@ant-design/icons/MinusOutlined";
 import {
   getUiOptions,
   FormContextType,
@@ -57,8 +57,8 @@ export function AddButton<
       title={translateString(TranslatableString.AddItemButton)}
       {...props}
       block
-      iconType="primary"
-      icon={<PlusCircleOutlined />}
+      iconType="dashed"
+      icon={<PlusOutlined />}
     />
   );
 }
@@ -75,6 +75,7 @@ export function CopyButton<
     <IconButton
       title={translateString(TranslatableString.CopyButton)}
       {...props}
+      iconType="text"
       icon={<CopyOutlined />}
     />
   );
@@ -92,6 +93,7 @@ export function MoveDownButton<
     <IconButton
       title={translateString(TranslatableString.MoveDownButton)}
       {...props}
+      iconType="text"
       icon={<ArrowDownOutlined />}
     />
   );
@@ -109,6 +111,7 @@ export function MoveUpButton<
     <IconButton
       title={translateString(TranslatableString.MoveUpButton)}
       {...props}
+      iconType="text"
       icon={<ArrowUpOutlined />}
     />
   );
@@ -128,10 +131,9 @@ export function RemoveButton<
     <IconButton
       title={translateString(TranslatableString.RemoveButton)}
       {...props}
-      danger
       block={!!options.block}
-      iconType="primary"
-      icon={<DeleteOutlined />}
+      iconType="text"
+      icon={<MinusOutlined />}
     />
   );
 }

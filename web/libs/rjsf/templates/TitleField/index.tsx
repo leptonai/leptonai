@@ -2,7 +2,7 @@ import classNames from "classnames";
 import {
   ConfigConsumer,
   ConfigConsumerProps,
-} from "antd/lib/config-provider/context";
+} from "antd/es/config-provider/context";
 import {
   FormContextType,
   TitleFieldProps,

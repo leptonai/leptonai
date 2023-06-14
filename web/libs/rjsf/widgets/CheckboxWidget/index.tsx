@@ -1,5 +1,5 @@
 import { FocusEvent } from "react";
-import Checkbox, { CheckboxChangeEvent } from "antd/lib/checkbox";
+import Checkbox, { CheckboxChangeEvent } from "antd/es/checkbox";
 import {
   ariaDescribedByIds,
   labelValue,

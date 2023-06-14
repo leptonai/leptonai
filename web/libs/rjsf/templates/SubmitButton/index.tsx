@@ -1,4 +1,4 @@
-import Button from "antd/lib/button";
+import Button from "antd/es/button";
 import {
   getSubmitButtonOptions,
   FormContextType,

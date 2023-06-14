@@ -1,5 +1,5 @@
 import { FocusEvent } from "react";
-import Checkbox from "antd/lib/checkbox";
+import Checkbox from "antd/es/checkbox";
 import {
   ariaDescribedByIds,
   enumOptionsIndexForValue,

@@ -80,15 +80,5 @@
     "vite-plugin-checker": "^0.6.0",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^0.31.4"
-  },
-  "resolutions": {
-    "@ant-design/icons": "^5.0.1",
-    "antd": "^5.4.6"
-  },
-  "overrides": {
-    "@rjsf/antd": {
-      "antd": "^5.0.0",
-      "@ant-design/icons": "^5.0.0"
-    }
   }
 }

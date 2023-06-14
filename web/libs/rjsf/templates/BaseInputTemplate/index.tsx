@@ -1,6 +1,6 @@
 import { ChangeEvent, FocusEvent } from "react";
-import Input from "antd/lib/input";
-import InputNumber from "antd/lib/input-number";
+import Input from "antd/es/input";
+import InputNumber from "antd/es/input-number";
 import {
   ariaDescribedByIds,
   BaseInputTemplateProps,

@@ -1,4 +1,7 @@
-import { Button, Row, Col, theme } from "antd";
+import Col from "antd/es/col";
+import Row from "antd/es/row";
+import Space from "antd/es/space";
+import theme from "antd/es/theme";
 import {
   ArrayFieldTemplateItemType,
   FormContextType,
@@ -7,14 +10,6 @@ import {
 } from "@rjsf/utils";
 
 const { useToken } = theme;
-
-const BTN_GRP_STYLE = {
-  width: "100%",
-};
-
-const BTN_STYLE = {
-  width: "calc(100% / 4)",
-};
 
 /** The `ArrayFieldItemTemplate` component is the template used to render an items of an array.
  *
@@ -51,18 +46,17 @@ export default function ArrayFieldItemTemplate<
       <Col flex="1">{children}</Col>
       {hasToolbar && (
         <Col
-          flex="192px"
+          flex="128px"
           style={{
             alignSelf: "flex-end",
-            paddingBottom: token.marginLG,
+            paddingBottom: token.marginXXS,
           }}
         >
-          <Button.Group style={BTN_GRP_STYLE}>
+          <Space style={{ display: "flex", justifyContent: "space-around" }}>
             {(hasMoveUp || hasMoveDown) && (
               <MoveUpButton
                 disabled={disabled || readonly || !hasMoveUp}
                 onClick={onReorderClick(index, index - 1)}
-                style={BTN_STYLE}
                 uiSchema={uiSchema}
                 registry={registry}
               />
@@ -71,7 +65,6 @@ export default function ArrayFieldItemTemplate<
               <MoveDownButton
                 disabled={disabled || readonly || !hasMoveDown}
                 onClick={onReorderClick(index, index + 1)}
-                style={BTN_STYLE}
                 uiSchema={uiSchema}
                 registry={registry}
               />
@@ -80,7 +73,6 @@ export default function ArrayFieldItemTemplate<
               <CopyButton
                 disabled={disabled || readonly}
                 onClick={onCopyIndexClick(index)}
-                style={BTN_STYLE}
                 uiSchema={uiSchema}
                 registry={registry}
               />
@@ -89,12 +81,11 @@ export default function ArrayFieldItemTemplate<
               <RemoveButton
                 disabled={disabled || readonly}
                 onClick={onDropIndexClick(index)}
-                style={BTN_STYLE}
                 uiSchema={uiSchema}
                 registry={registry}
               />
             )}
-          </Button.Group>
+          </Space>
         </Col>
       )}
     </Row>

@@ -16,12 +16,12 @@ import {
   getUiOptions,
   titleId,
 } from "@rjsf/utils";
-import Col from "antd/lib/col";
-import Row from "antd/lib/row";
+import Col from "antd/es/col";
+import Row from "antd/es/row";
 import {
   ConfigConsumer,
   ConfigConsumerProps,
-} from "antd/lib/config-provider/context";
+} from "antd/es/config-provider/context";
 import styled from "@emotion/styled";
 import { theme } from "antd";
 import { useMemo } from "react";
@@ -129,6 +129,9 @@ export default function ObjectFieldTemplate<
 
   const Fieldset = useMemo(
     () => styled.fieldset`
+      all: unset;
+      display: block;
+
       .form-group.field-object {
         margin-bottom: 0;
       }
@@ -195,7 +198,7 @@ export default function ObjectFieldTemplate<
             {canExpand(schema, uiSchema, formData) && (
               <Col span={24}>
                 <Row gutter={rowGutter} justify="end">
-                  <Col flex="192px">
+                  <Col flex="128px">
                     <AddButton
                       className="object-property-expand"
                       disabled={disabled || readonly}

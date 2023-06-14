@@ -8,7 +8,11 @@ import {
   TranslatableString,
   WrapIfAdditionalTemplateProps,
 } from "@rjsf/utils";
-import { Row, Input, Form, Col, theme } from "antd";
+import Col from "antd/es/col";
+import Form from "antd/es/form";
+import Input from "antd/es/input";
+import Row from "antd/es/row";
+import theme from "antd/es/theme";
 
 const VERTICAL_LABEL_COL = { span: 24 };
 const VERTICAL_WRAPPER_COL = { span: 24 };
@@ -109,7 +113,7 @@ export default function WrapIfAdditionalTemplate<
           {children}
         </Col>
         <Col
-          flex="192px"
+          flex="128px"
           style={{
             alignSelf: "end",
             marginBottom: token.marginLG,
