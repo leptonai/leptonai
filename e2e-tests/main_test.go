@@ -63,13 +63,13 @@ func teardown() {
 
 func mustPrepareTest() {
 	// create a photon
-	_, err := client.RunLocal("photon", "create", "-n", mainTestPhotonName, "-m", "hf:gpt2")
+	out, err := client.RunLocal("photon", "create", "-n", mainTestPhotonName, "-m", "hf:gpt2")
 	if err != nil {
-		log.Fatal("Failed to create photon ", err)
+		log.Fatalf("Failed to create photon %s: %s: %s", mainTestPhotonName, err, out)
 	}
-	_, err = client.RunRemote("photon", "push", "-n", mainTestPhotonName)
+	out, err = client.RunRemote("photon", "push", "-n", mainTestPhotonName)
 	if err != nil {
-		log.Fatal("Failed to push photon ", err)
+		log.Fatalf("Failed to push photon %s: %s: %s", mainTestPhotonName, err, out)
 	}
 	// Sleep for a bit to let the server reconcile
 	time.Sleep(time.Second)

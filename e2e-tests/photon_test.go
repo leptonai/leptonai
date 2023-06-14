@@ -14,13 +14,13 @@ func TestPhotonCreateAndRemove(t *testing.T) {
 		pName := newName(t.Name())
 		pNames = append(pNames, pName)
 
-		_, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
+		out, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to create photon %s: %s: %s", pName, err, out)
 		}
-		_, err = client.RunRemote("photon", "push", "-n", pName)
+		out, err = client.RunRemote("photon", "push", "-n", pName)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to push photon %s: %s: %s", pName, err, out)
 		}
 	}
 	// Sleep for a bit to let the server reconcile
@@ -52,17 +52,17 @@ func TestPhotonCreateAndRemove(t *testing.T) {
 
 func TestPhotonPushTwice(t *testing.T) {
 	pName := newName(t.Name())
-	_, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
+	out, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create photon %s: %s: %s", pName, err, out)
 	}
-	_, err = client.RunRemote("photon", "push", "-n", pName)
+	out, err = client.RunRemote("photon", "push", "-n", pName)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to push photon %s: %s: %s", pName, err, out)
 	}
-	_, err = client.RunRemote("photon", "push", "-n", pName)
+	out, err = client.RunRemote("photon", "push", "-n", pName)
 	if err == nil {
-		log.Fatal("Expected error, got nil")
+		log.Fatalf("Expected error when pushing photon %s twice, got none: %s", pName, out)
 	}
 	phs, err := lepton.Photon().GetByName(pName)
 	if err != nil {
