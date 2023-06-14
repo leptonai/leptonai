@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/leptonai/lepton/lepton-mothership/db"
+	"github.com/leptonai/lepton/go-pkg/datastore"
+	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/leptonai/lepton/lepton-mothership/git"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 )
@@ -19,47 +20,17 @@ const (
 )
 
 const (
-	ClusterStateCreating = "creating"
-	ClusterStateUpdating = "updating"
-	ClusterStateReady    = "ready"
-	clusterStateFailed   = "failed"
-	ClusterStateDeleting = "deleting"
-
 	ClusterProviderEKS = "aws-eks"
+	storeNamespace     = "default"
 )
 
 type (
-	ClusterState string
-	CellState    string
+	CellState string
 )
-
-type Cluster struct {
-	Spec   ClusterSpec   `json:"spec"`
-	Status ClusterStatus `json:"status"`
-}
-
-type ClusterSpec struct {
-	// Name is a globally unique name of a cluster within mothership.
-	Name     string `json:"name"`
-	Provider string `json:"provider"`
-	Region   string `json:"region"`
-	// Terraform module version
-	Version string `json:"version"`
-
-	Description string `json:"description"`
-}
-
-type ClusterStatus struct {
-	State ClusterState `json:"state"`
-	// unix timestamp
-	UpdatedAt uint64 `json:"updatedAt"`
-
-	Cells []string `json:"cells"`
-}
 
 // Make cluster a struct and do not use global variables
 var (
-	ds = db.NewDataStore()
+	ds = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](storeNamespace)
 )
 
 func Init() {
@@ -70,10 +41,10 @@ func Init() {
 	}
 
 	for _, item := range clusters {
-		cl := item.(Cluster)
+		cl := item
 
 		switch cl.Status.State {
-		case ClusterStateCreating:
+		case crdv1alpha1.ClusterStateCreating:
 			go func() {
 				log.Println("restart creating cluster:", cl.Spec.Name)
 				// call the idempotent create function
@@ -82,15 +53,15 @@ func Init() {
 					log.Printf("init: failed to create cluster %s: %v", cl.Spec.Name, err)
 				}
 			}()
-		case ClusterStateUpdating:
+		case crdv1alpha1.ClusterStateUpdating:
 			go func() {
 				log.Println("restart updating cluster:", cl.Spec.Name)
-				_, err := Update(cl)
+				_, err := Update(cl.Spec)
 				if err != nil {
 					log.Printf("init: failed to update cluster %s: %v", cl.Spec.Name, err)
 				}
 			}()
-		case ClusterStateDeleting:
+		case crdv1alpha1.ClusterStateDeleting:
 			go func() {
 				log.Println("restart deleting cluster:", cl.Spec.Name)
 				err := Delete(cl.Spec.Name, false)
@@ -102,10 +73,15 @@ func Init() {
 	}
 }
 
-func Create(cl Cluster) (*Cluster, error) {
-	clusterName := cl.Spec.Name
-	cl.Status.State = ClusterStateCreating
-	cl.Status.UpdatedAt = uint64(time.Now().Unix())
+func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+	clusterName := spec.Name
+	cl := &crdv1alpha1.LeptonCluster{
+		Spec: spec,
+		Status: crdv1alpha1.LeptonClusterStatus{
+			State:     crdv1alpha1.ClusterStateCreating,
+			UpdatedAt: uint64(time.Now().Unix()),
+		},
+	}
 
 	err := ds.Create(clusterName, cl)
 	if err != nil {
@@ -115,36 +91,34 @@ func Create(cl Cluster) (*Cluster, error) {
 	return idempotentCreate(cl)
 }
 
-func Update(cl Cluster) (*Cluster, error) {
-	clusterName := cl.Spec.Name
-	item, err := ds.Get(clusterName)
+func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+	clusterName := spec.Name
+	cl, err := ds.Get(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
-	ocl := item.(Cluster)
-	if ocl.Status.State != ClusterStateReady {
+	if cl.Status.State != crdv1alpha1.ClusterStateReady {
 		log.Println("Updating a non-ready cluster...")
 	}
+	cl.Spec = spec
+	cl.Status.State = crdv1alpha1.ClusterStateUpdating
+	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 
-	cl.Status = ocl.Status
-	cl.Status.State = ClusterStateUpdating
-
-	err = createOrUpdateCluster(&cl)
+	err = createOrUpdateCluster(cl)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cl, nil
+	return cl, nil
 }
 
 func Delete(clusterName string, deleteWorkspace bool) error {
-	item, err := ds.Get(clusterName)
+	cl, err := ds.Get(clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
 
-	cl := item.(Cluster)
-	cl.Status.State = ClusterStateDeleting
+	cl.Status.State = crdv1alpha1.ClusterStateDeleting
 
 	defer func() {
 		if err != nil {
@@ -197,28 +171,23 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	return nil
 }
 
-func List() ([]Cluster, error) {
+func List() ([]*crdv1alpha1.LeptonCluster, error) {
 	cls, err := ds.List()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
-	clusters := make([]Cluster, len(cls))
-	for i, v := range cls {
-		clusters[i] = v.(Cluster)
-	}
-	return clusters, nil
+	return cls, nil
 }
 
-func Get(clusterName string) (*Cluster, error) {
+func Get(clusterName string) (*crdv1alpha1.LeptonCluster, error) {
 	cl, err := ds.Get(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
-	c := cl.(Cluster)
-	return &c, nil
+	return cl, nil
 }
 
-func idempotentCreate(cl Cluster) (*Cluster, error) {
+func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster, error) {
 	var err error
 	clusterName := cl.Spec.Name
 
@@ -233,31 +202,31 @@ func idempotentCreate(cl Cluster) (*Cluster, error) {
 		log.Println("created terraform workspace:", clusterName)
 	}
 
-	err = createOrUpdateCluster(&cl)
+	err = createOrUpdateCluster(cl)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cl, nil
+	return cl, nil
 }
 
-func createOrUpdateCluster(cl *Cluster) error {
+func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 	clusterName := cl.Spec.Name
 	var err error
 
-	err = ds.Update(clusterName, *cl)
+	err = ds.Update(clusterName, cl)
 	if err != nil {
 		return fmt.Errorf("failed to update cluster state in the data store: %w", err)
 	}
 
 	defer func() {
 		if err != nil {
-			cl.Status.State = clusterStateFailed
+			cl.Status.State = crdv1alpha1.ClusterStateFailed
 		} else {
-			cl.Status.State = ClusterStateReady
+			cl.Status.State = crdv1alpha1.ClusterStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
-		derr := ds.Update(clusterName, *cl)
+		derr := ds.Update(clusterName, cl)
 		if err == nil && derr != nil {
 			log.Println("failed to update cluster state in the data store:", err)
 			err = derr
