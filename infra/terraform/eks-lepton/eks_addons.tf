@@ -1,4 +1,3 @@
-
 module "eks_blueprints_kubernetes_addons" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints-addons?ref=ac7fd74d9df282ce6f8d068c4fd17ccd5638ae3a"
 
@@ -134,5 +133,13 @@ EOT
         value = "admin888"
       }
     ]
+  }
+
+  enable_aws_efs_csi_driver = true
+
+  # Optional aws_efs_csi_driver_helm_config
+  aws_efs_csi_driver_helm_config = {
+    repository = "https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
+    version    = "2.2.3"
   }
 }
