@@ -95,8 +95,13 @@ type LeptonDeploymentResourceRequirement struct {
 
 // EnvVar defines the environment variable of the deployment.
 type EnvVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name      string   `json:"name"`
+	Value     string   `json:"value,omitempty"`
+	ValueFrom EnvValue `json:"value_from,omitempty"`
+}
+
+type EnvValue struct {
+	SecretNameRef string `json:"secret_ref,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment

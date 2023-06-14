@@ -125,6 +125,10 @@ func main() {
 	v1.GET("/photons/:pid/content", handler.PhotonHanlder().Download)
 	v1.DELETE("/photons/:pid", handler.PhotonHanlder().Delete)
 
+	v1.GET("/secrets", handler.SecretHandler().List)
+	v1.POST("/secrets", handler.SecretHandler().Create)
+	v1.DELETE("/secrets/:key", handler.SecretHandler().Delete)
+
 	v1.GET("/deployments", handler.DeploymentHandler().List)
 	v1.POST("/deployments", handler.DeploymentHandler().Create)
 	v1.GET("/deployments/:did", handler.DeploymentHandler().Get)

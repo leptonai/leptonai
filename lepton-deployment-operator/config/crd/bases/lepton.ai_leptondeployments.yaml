@@ -51,9 +51,13 @@ spec:
                       type: string
                     value:
                       type: string
+                    value_from:
+                      properties:
+                        secret_ref:
+                          type: string
+                      type: object
                   required:
                   - name
-                  - value
                   type: object
                 type: array
               name:

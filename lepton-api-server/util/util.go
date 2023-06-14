@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,11 +39,27 @@ func DomainName(ld *leptonaiv1alpha1.LeptonDeployment, rootDomain string) string
 func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
 	cenvs := make([]corev1.EnvVar, 0, len(envs))
 	for _, env := range envs {
-		cenvs = append(cenvs, corev1.EnvVar{
-			Name:  env.Name,
-			Value: env.Value,
-		})
+		if env.Value == "" && env.ValueFrom.SecretNameRef == "" {
+			continue
+		}
+		if env.Value != "" {
+			cenvs = append(cenvs, corev1.EnvVar{
+				Name:  env.Name,
+				Value: env.Value,
+			})
+		} else {
+			cenvs = append(cenvs, corev1.EnvVar{
+				Name: env.Name,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secret.SecretObjectName,
+						},
+						Key: env.ValueFrom.SecretNameRef,
+					},
+				},
+			})
+		}
 	}
-
 	return cenvs
 }

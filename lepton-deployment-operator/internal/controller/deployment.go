@@ -123,14 +123,11 @@ func (k *deployment) newInitContainerArgs() []string {
 }
 
 func (k *deployment) newInitContainer() corev1.Container {
-	ld := k.leptonDeployment
-	// Define the init container
 	return corev1.Container{
 		Name:    initContainerName,
 		Image:   awscliImageURL,
 		Command: k.newInitContainerCommand(),
 		Args:    k.newInitContainerArgs(),
-		Env:     util.ToContainerEnv(ld.Spec.Envs),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      photonVolumeName,

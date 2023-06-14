@@ -40,3 +40,9 @@ func (l *Lepton) Monitoring() *Monitoring {
 		Lepton: *l,
 	}
 }
+
+func (l *Lepton) Secret() *Secret {
+	return &Secret{
+		Lepton: *l,
+	}
+}
