@@ -135,11 +135,5 @@ EOT
     ]
   }
 
-  enable_aws_efs_csi_driver = true
-
-  # Optional aws_efs_csi_driver_helm_config
-  aws_efs_csi_driver_helm_config = {
-    repository = "https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
-    version    = "2.2.3"
-  }
+  enable_efs_csi_driver = true
 }
