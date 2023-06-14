@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - .github/**
-      - leptonai/**
+      - sdk/**
     branches: [ "**" ]
 
 permissions:
@@ -28,6 +28,7 @@ jobs:
         pip install -U pip setuptools
     - name: Run Benchmark
       run: |
+        cd sdk
         pip install -e .
         cd leptonai/bench/gpt2
         pip install -r requirements.txt

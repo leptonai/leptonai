@@ -33,6 +33,7 @@ jobs:
         uses: actions/configure-pages@v3
       - name: Build
         run: |
+          cd sdk
           pip install -e .
           cd leptonai/docs
           pip install -r requirements.txt
@@ -40,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: 'leptonai/docs/_build/html'
+          path: 'sdk/leptonai/docs/_build/html'
 
   # Deployment job
   deploy:

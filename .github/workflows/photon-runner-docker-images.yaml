@@ -33,6 +33,7 @@ jobs:
         echo "VERSION_TAG=${VERSION_TAG}"
         echo "Building for python_version=${{ matrix.python_version }}"
         tag="${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}-runner-${VERSION_TAG}"
+        cd sdk
         docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/python-runner.Dockerfile --tag ${tag}
         docker push ${tag}
         docker rmi ${tag}

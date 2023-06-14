@@ -1,6 +1,0 @@
-lepton
-======
-
-.. toctree::
-
-   generated/lepton
