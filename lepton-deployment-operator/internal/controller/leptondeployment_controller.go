@@ -91,6 +91,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		ld, err := r.getLeptonDeployment(ctx, req)
 		if err != nil {
 			log.Log.Info("Failed to get LeptonDeployment " + req.NamespacedName.String() + ": " + err.Error())
+			r.wg.Add(1)
 			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
@@ -103,6 +104,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		log.Log.Info(fmt.Sprintf("LeptonDeployment %s has resource version %s, previous version %s", req.NamespacedName.String(), ld.ResourceVersion, prevLeptonDeploymentResourceVersion))
 		if ld.ResourceVersion != prevLeptonDeploymentResourceVersion {
 			if err := r.createOrUpdateResources(ctx, req, ld, ownerref); err != nil {
+				r.wg.Add(1)
 				go sleepAndPoke(&r.wg, ch)
 				continue
 			}
@@ -111,11 +113,13 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		deployment, err := r.getOrCreateDeployment(ctx, req, ld, ownerref)
 		if err != nil {
 			log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
+			r.wg.Add(1)
 			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
 		if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
 			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
+			r.wg.Add(1)
 			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
@@ -186,12 +190,12 @@ func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Reque
 	delete(r.chMap, req.NamespacedName)
 	r.chMapLock.Unlock()
 	go func() {
-		r.wg.Wait()
-		close(ch)
+		for range ch {
+			// Drain the channel
+		}
 	}()
-	for range ch {
-		// Drain the channel
-	}
+	r.wg.Wait()
+	close(ch)
 	// TODO: we may have to do additional cleanups here, for example: do we need to clean up the domain names?
 }
 

@@ -28,10 +28,7 @@ func drainChan(ch chan struct{}) {
 }
 
 func sleepAndPoke(wg *sync.WaitGroup, ch chan struct{}) {
-	if wg != nil {
-		wg.Add(1)
-		defer wg.Done()
-	}
+	defer wg.Done()
 	// TODO: avoid hard coding
 	// TODO: use exponential backoff
 	time.Sleep(10 * time.Second)

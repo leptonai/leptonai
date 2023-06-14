@@ -22,6 +22,7 @@ func TestDrainChan(t *testing.T) {
 func TestSleepAndPoke(t *testing.T) {
 	ch := make(chan struct{}, 1)
 	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go sleepAndPoke(wg, ch)
 	select {
 	case <-ch:
