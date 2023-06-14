@@ -1,4 +1,4 @@
-package main
+package httpapi
 
 import (
 	"archive/zip"
@@ -10,21 +10,18 @@ import (
 	"log"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
-	"github.com/leptonai/lepton/go-pkg/namedb"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var photonDB = namedb.NewNameDB[leptonaiv1alpha1.Photon]()
-
-func initPhotons() {
-	photonDB.Clear()
+func (h *PhotonHandler) init() {
+	h.photonDB.Clear()
 	// Watch for changes in the LeptonDeployment CR
 	ch, err := k8s.Client.Watch(context.Background(),
 		&leptonaiv1alpha1.PhotonList{},
-		client.InNamespace(*namespaceFlag))
+		client.InNamespace(h.namespace))
 	if err != nil {
 		// TODO: better error handling
 		log.Fatalln(err)
@@ -32,7 +29,7 @@ func initPhotons() {
 	// We have to finish processing all events in the channel before
 	// continuing the startup process
 	log.Println("rebuilding api server state for photons...")
-	drainAndProcessExistingEvents(ch.ResultChan(), processPhotonEvent)
+	drainAndProcessExistingEvents(ch.ResultChan(), h.processEvent)
 	log.Println("restored api server state for photons")
 	// Watch for future changes
 	go func() {
@@ -41,34 +38,34 @@ func initPhotons() {
 			log.Println("Photon watcher exited, restarting...")
 			// TODO when we re-initialize the db, users may temporarily see an
 			// in-complete list (though the time is very short)
-			go initPhotons()
+			go h.init()
 		}()
 		for event := range ch.ResultChan() {
-			processPhotonEvent(event)
+			h.processEvent(event)
 		}
 	}()
 }
 
-func processPhotonEvent(event watch.Event) {
+func (h *PhotonHandler) processEvent(event watch.Event) {
 	ph := event.Object.(*leptonaiv1alpha1.Photon)
 	log.Println("Photon CR event:", event.Type, ph.Name)
 	switch event.Type {
 	case watch.Added:
-		photonDB.Add(ph)
+		h.photonDB.Add(ph)
 	case watch.Modified:
-		photonDB.Add(ph)
+		h.photonDB.Add(ph)
 	case watch.Deleted:
-		err := photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
+		err := h.photonBucket.Delete(context.Background(), ph.GetSpecUniqName())
 		if err != nil {
 			// TODO: we should handle the error to avoid resource leak
 			log.Println("failed to delete photon " + ph.GetSpecUniqName() + " from S3: " + err.Error())
 		}
-		photonDB.Delete(ph)
+		h.photonDB.Delete(ph)
 	}
 
 }
 
-func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
+func (h *PhotonHandler) getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return nil, err
@@ -107,7 +104,7 @@ func getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
 	}
 	ph.SetID(util.HexHash(body))
 	ph.Name = ph.GetSpecUniqName()
-	ph.Namespace = *namespaceFlag
+	ph.Namespace = h.namespace
 
 	return ph, nil
 }

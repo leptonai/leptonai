@@ -17,19 +17,23 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
+type InstanceHandler struct {
+	Handler
+}
+
 const mainContainerName = "main-container"
 
-func InstanceListHandler(c *gin.Context) {
+func (h *InstanceHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()
 
-	ld := deploymentDB.GetByID(did)
+	ld := h.deploymentDB.GetByID(did)
 	if ld == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(h.namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
@@ -44,7 +48,7 @@ func InstanceListHandler(c *gin.Context) {
 		labelSelector += fmt.Sprintf("%s=%s", key, value)
 	}
 
-	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+	podList, err := clientset.CoreV1().Pods(h.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
@@ -58,7 +62,7 @@ func InstanceListHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, is)
 }
 
-func InstanceShellHandler(c *gin.Context) {
+func (h *InstanceHandler) Shell(c *gin.Context) {
 	iid := c.Param("iid")
 	httpClient, err := restclient.HTTPClientFor(k8s.Config)
 	if err != nil {
@@ -81,7 +85,7 @@ func InstanceShellHandler(c *gin.Context) {
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme
-	r.URL.Path = "/api/v1/namespaces/" + namespace + "/pods/" + iid + "/exec"
+	r.URL.Path = "/api/v1/namespaces/" + h.namespace + "/pods/" + iid + "/exec"
 	q := r.URL.Query()
 	q.Set("container", mainContainerName)
 	q.Set("command", "/bin/bash")
@@ -94,7 +98,7 @@ func InstanceShellHandler(c *gin.Context) {
 	proxy.ServeHTTP(c.Writer, r)
 }
 
-func InstanceLogHandler(c *gin.Context) {
+func (h *InstanceHandler) Log(c *gin.Context) {
 	iid := c.Param("iid")
 
 	clientset := k8s.MustInitK8sClientSet()
@@ -108,7 +112,7 @@ func InstanceLogHandler(c *gin.Context) {
 		TailLines:  &tailLines,
 		LimitBytes: &tenMBInBytes,
 	}
-	req := clientset.CoreV1().Pods(namespace).GetLogs(iid, logOptions)
+	req := clientset.CoreV1().Pods(h.namespace).GetLogs(iid, logOptions)
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {

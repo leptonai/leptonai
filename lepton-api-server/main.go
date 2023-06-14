@@ -87,12 +87,21 @@ func main() {
 	rootDomain = *rootDomainFlag
 	apiToken = *apiTokenFlag
 
-	initPhotons()
-	initDeployments()
 	mustInitAPIServerIngress()
 	mustInitUnauthorizedErrorIngress()
 
-	httpapi.Init(*prometheusURLFlag, *namespaceFlag, deploymentDB, photonDB)
+	handler := httpapi.New(
+		*namespaceFlag,
+		*prometheusURLFlag,
+		*bucketNameFlag,
+		*photonPrefixFlag,
+		*serviceAccountNameFlag,
+		*rootDomainFlag,
+		*certificateARNFlag,
+		*apiTokenFlag,
+		photonBucket,
+	)
+
 	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
 
 	log.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
@@ -110,41 +119,41 @@ func main() {
 
 	v1.GET("/cluster", cih.Handle)
 
-	v1.GET("/photons", photonListHandler)
-	v1.POST("/photons", photonPostHandler)
-	v1.GET("/photons/:pid", photonGetHandler)
-	v1.GET("/photons/:pid/content", photonDownloadHandler)
-	v1.DELETE("/photons/:pid", photonDeleteHandler)
+	v1.GET("/photons", handler.PhotonHanlder().List)
+	v1.POST("/photons", handler.PhotonHanlder().Create)
+	v1.GET("/photons/:pid", handler.PhotonHanlder().Get)
+	v1.GET("/photons/:pid/content", handler.PhotonHanlder().Download)
+	v1.DELETE("/photons/:pid", handler.PhotonHanlder().Delete)
 
-	v1.GET("/deployments", deploymentListHandler)
-	v1.POST("/deployments", deploymentPostHandler)
-	v1.GET("/deployments/:did", deploymentGetHandler)
-	v1.PATCH("/deployments/:did", deploymentPatchHandler)
-	v1.DELETE("/deployments/:did", deploymentDeleteHandler)
+	v1.GET("/deployments", handler.DeploymentHandler().List)
+	v1.POST("/deployments", handler.DeploymentHandler().Create)
+	v1.GET("/deployments/:did", handler.DeploymentHandler().Get)
+	v1.PATCH("/deployments/:did", handler.DeploymentHandler().Update)
+	v1.DELETE("/deployments/:did", handler.DeploymentHandler().Delete)
 
-	v1.GET("/deployments/:did/instances", httpapi.InstanceListHandler)
-	v1.GET("/deployments/:did/instances/:iid/shell", httpapi.InstanceShellHandler)
-	v1.GET("/deployments/:did/instances/:iid/log", httpapi.InstanceLogHandler)
+	v1.GET("/deployments/:did/instances", handler.InstanceHandler().List)
+	v1.GET("/deployments/:did/instances/:iid/shell", handler.InstanceHandler().Shell)
+	v1.GET("/deployments/:did/instances/:iid/log", handler.InstanceHandler().Log)
 
-	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUtil", httpapi.InstanceMemoryUtilHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUsage", httpapi.InstanceMemoryUsageHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryTotal", httpapi.InstanceMemoryTotalHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/CPUUtil", httpapi.InstanceCPUUtilHandler)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUtil", handler.MonitoringHandler().InstanceMemoryUtil)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryUsage", handler.MonitoringHandler().InstanceMemoryUsage)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/memoryTotal", handler.MonitoringHandler().InstanceMemoryTotal)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/CPUUtil", handler.MonitoringHandler().InstanceCPUUtil)
 
-	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIQPS", httpapi.InstanceFastAPIQPSHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPILatency", httpapi.InstanceFastAPILatencyHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIByPathQPS", httpapi.InstanceFastAPIQPSByPathHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIByPathLatency", httpapi.InstanceFastAPILatencyByPathHandler)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIQPS", handler.MonitoringHandler().InstanceFastAPIQPS)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPILatency", handler.MonitoringHandler().InstanceFastAPILatency)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIByPathQPS", handler.MonitoringHandler().InstanceFastAPIQPSByPath)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/FastAPIByPathLatency", handler.MonitoringHandler().InstanceFastAPILatencyByPath)
 
-	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUtil", httpapi.InstanceGPUMemoryUtilHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUsage", httpapi.InstanceGPUMemoryUsageHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryTotal", httpapi.InstanceGPUMemoryTotalHandler)
-	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUUtil", httpapi.InstanceGPUUtilHandler)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUtil", handler.MonitoringHandler().InstanceGPUMemoryUtil)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryUsage", handler.MonitoringHandler().InstanceGPUMemoryUsage)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUMemoryTotal", handler.MonitoringHandler().InstanceGPUMemoryTotal)
+	v1.GET("/deployments/:did/instances/:iid/monitoring/GPUUtil", handler.MonitoringHandler().InstanceGPUUtil)
 
-	v1.GET("/deployments/:did/monitoring/FastAPIQPS", httpapi.DeploymentFastAPIQPSHandler)
-	v1.GET("/deployments/:did/monitoring/FastAPILatency", httpapi.DeploymentFastAPILatencyHandler)
-	v1.GET("/deployments/:did/monitoring/FastAPIQPSByPath", httpapi.DeploymentFastAPIQPSByPathHandler)
-	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", httpapi.DeploymentFastAPILatencyByPathHandler)
+	v1.GET("/deployments/:did/monitoring/FastAPIQPS", handler.MonitoringHandler().DeploymentFastAPIQPS)
+	v1.GET("/deployments/:did/monitoring/FastAPILatency", handler.MonitoringHandler().DeploymentFastAPILatency)
+	v1.GET("/deployments/:did/monitoring/FastAPIQPSByPath", handler.MonitoringHandler().DeploymentFastAPIQPSByPath)
+	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", handler.MonitoringHandler().DeploymentFastAPILatencyByPath)
 
 	u, err := url.Parse(tunaURL)
 	if err != nil {
