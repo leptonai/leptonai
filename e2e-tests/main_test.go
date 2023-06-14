@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -38,6 +39,16 @@ func TestMain(m *testing.M) {
 
 func prepare() {
 	flag.Parse()
+	// Wait for DNS propagation
+	endpoint, err := url.Parse(*remoteURL)
+	if err != nil {
+		log.Fatal("Expected remote URL to be a valid URL, got ", *remoteURL)
+	}
+	err = waitForDNSPropagation(endpoint.Hostname())
+	if err != nil {
+		log.Fatal("Expected DNS to propagate for ", endpoint.Hostname(), ", got ", err)
+	}
+	// Prepare the test
 	lepton = goclient.New(*remoteURL, *authToken)
 	client = e2eutil.NewCliWrapper(*remoteURL, *authToken)
 	mainTestPhotonName = newName("main-test-photon")
