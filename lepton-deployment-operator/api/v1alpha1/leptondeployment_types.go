@@ -101,8 +101,9 @@ type EnvVar struct {
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment
 type LeptonDeploymentStatus struct {
-	State    LeptonDeploymentState    `json:"state"`
-	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
+	State           LeptonDeploymentState    `json:"state"`
+	Endpoint        LeptonDeploymentEndpoint `json:"endpoint"`
+	ReadinessIssues []string                 `json:"readiness_issues"`
 }
 
 // LeptonDeploymentState defines the state of the deployment.
@@ -114,6 +115,15 @@ const (
 	LeptonDeploymentStateStarting LeptonDeploymentState = "Starting"
 	LeptonDeploymentStateUpdating LeptonDeploymentState = "Updating"
 	LeptonDeploymentStateUnknown  LeptonDeploymentState = "Unknown"
+)
+
+type LeptonDeploymentNotReadyIssue string
+
+const (
+	LeptonDeploymentNotReadyIssueNoCapacity         LeptonDeploymentNotReadyIssue = "No Capacity"
+	LeptonDeploymentNotReadyIssueConfigurationError LeptonDeploymentNotReadyIssue = "Configuration Error"
+	LeptonDeploymentNotReadyIssueCodeError          LeptonDeploymentNotReadyIssue = "Code Error"
+	LeptonDeploymentNotReadyIssueUnknown            LeptonDeploymentNotReadyIssue = "Unknown"
 )
 
 // LeptonDeploymentEndpoint defines the endpoint of the deployment.
