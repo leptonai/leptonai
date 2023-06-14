@@ -54,9 +54,13 @@ spec:
                       type: string
                     value:
                       type: string
+                    value_from:
+                      properties:
+                        secret_ref:
+                          type: string
+                      type: object
                   required:
                   - name
-                  - value
                   type: object
                 type: array
               name:
@@ -92,20 +96,6 @@ spec:
                 type: object
               root_domain:
                 type: string
-              secret_envs:
-                items:
-                  description: SecretEnvVar defines the secret environment variable
-                    of the deployment.
-                  properties:
-                    key:
-                      type: string
-                    name:
-                      type: string
-                  required:
-                  - key
-                  - name
-                  type: object
-                type: array
               service_account_name:
                 type: string
             required:

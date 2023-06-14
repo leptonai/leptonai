@@ -16,8 +16,6 @@ spec:
     listKind: PhotonList
     plural: photons
     singular: photon
-    shortNames:
-      - ph
   scope: Namespaced
   versions:
   - name: v1alpha1
