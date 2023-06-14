@@ -108,7 +108,7 @@ type EnvValue struct {
 type LeptonDeploymentStatus struct {
 	State           LeptonDeploymentState    `json:"state"`
 	Endpoint        LeptonDeploymentEndpoint `json:"endpoint"`
-	ReadinessIssues []string                 `json:"readiness_issues"`
+	ReadinessIssues []string                 `json:"readiness_issues,omitempty"`
 }
 
 // LeptonDeploymentState defines the state of the deployment.

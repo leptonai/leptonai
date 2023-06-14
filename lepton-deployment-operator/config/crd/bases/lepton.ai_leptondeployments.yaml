@@ -129,7 +129,6 @@ spec:
                 type: string
             required:
             - endpoint
-            - readiness_issues
             - state
             type: object
         type: object
