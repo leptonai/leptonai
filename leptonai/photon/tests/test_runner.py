@@ -181,7 +181,9 @@ class TestRunner(unittest.TestCase):
 
     def test_runner_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
-            f.write(dedent("""
+            f.write(
+                dedent(
+                    """
 from leptonai.photon.runner import RunnerPhoton as Runner, handler
 
 
@@ -198,7 +200,9 @@ class Counter(Runner):
     def sub(self, x: int) -> int:
         self.counter -= x
         return self.counter
-""").encode("utf-8"))
+"""
+                ).encode("utf-8")
+            )
             f.flush()
             proc, port = photon_run_server(name="counter", model=f"py:{f.name}:Counter")
             res = requests.post(
@@ -428,12 +432,16 @@ class Counter(Runner):
             custom_py = os.path.join("d1", "d2", "custom.py")
             os.makedirs(os.path.dirname(custom_py))
             with open(custom_py, "w") as f:
-                f.write(dedent(f"""
+                f.write(
+                    dedent(
+                        f"""
 import torch
 from leptonai.photon.runner import RunnerPhoton as Runner, handler
 
 {inspect.getsource(CustomRunner)}
-"""))
+"""
+                    )
+                )
             subprocess.check_call(["git", "add", custom_py])
             subprocess.check_call(["git", "commit", "-m", "add custom runner"])
 
