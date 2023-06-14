@@ -8,12 +8,12 @@ import { FC } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const WorkspaceSwitch: FC = () => {
-  const profileSevice = useInject(ProfileService);
+  const profileService = useInject(ProfileService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const navigate = useNavigate();
   const theme = useAntdTheme();
   const options =
-    profileSevice.profile?.authorized_clusters?.map((c) => {
+    profileService.profile?.authorized_clusters?.map((c) => {
       return {
         label: c.data.cluster_name,
         value: c.data.cluster_name,

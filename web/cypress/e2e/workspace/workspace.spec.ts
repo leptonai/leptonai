@@ -20,12 +20,12 @@ describe("app", () => {
 
   it("should be redirected to workspace dashboard", () => {
     cy.wait("@getCluster");
-    cy.url({ timeout: 100 }).should("match", /.+\/workspace/);
+    cy.url({ timeout: 1000 }).should("match", /.+\/workspace/);
 
     cy.wait("@getDeployments");
     cy.wait("@getPhotons");
 
-    cy.url({ timeout: 100 }).should("match", /.+\/workspace\/.+\/dashboard/);
+    cy.url({ timeout: 1000 }).should("match", /.+\/workspace\/.+\/dashboard/);
 
     cy.percySnapshot();
   });

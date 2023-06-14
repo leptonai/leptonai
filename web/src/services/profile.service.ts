@@ -3,7 +3,7 @@ import { catchError, forkJoin, map, mergeMap, Observable, of, tap } from "rxjs";
 import { Profile } from "@lepton-dashboard/interfaces/profile";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { HttpClientService } from "./http-client.service";
-import { ClusterDetail } from "@lepton-dashboard/interfaces/cluster";
+import { Cluster, ClusterDetail } from "@lepton-dashboard/interfaces/cluster";
 
 @Injectable()
 export class ProfileService {
@@ -17,18 +17,20 @@ export class ProfileService {
           authClusters.length > 0
             ? forkJoin([
                 ...authClusters.map(({ url }) =>
-                  this.httpClientService.get<ClusterDetail>(
-                    `${url}/api/v1/cluster`
-                  )
+                  this.httpClientService
+                    .get<ClusterDetail>(`${url}/api/v1/cluster`)
+                    .pipe(catchError(() => of(null)))
                 ),
               ]).pipe(
                 map((detailClusters) => {
-                  return detailClusters.map((data, i) => {
-                    return {
-                      auth: authClusters[i],
-                      data,
-                    };
-                  });
+                  return detailClusters
+                    .map((data, i) => {
+                      return {
+                        auth: authClusters[i],
+                        data,
+                      };
+                    })
+                    .filter((c): c is Cluster => !!c.data);
                 })
               )
             : of([])
