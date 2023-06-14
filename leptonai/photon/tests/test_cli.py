@@ -10,7 +10,6 @@ import unittest
 from click.testing import CliRunner
 from loguru import logger
 import requests
-from textwrap import dedent
 
 from leptonai import config
 from leptonai.photon.base import find_photon

@@ -145,7 +145,7 @@ class RunnerPhoton(Photon):
             if pkg.startswith("-e"):
                 # TODO: capture local editable packages
                 continue
-            if pkg.startswith(f"pytest") or pkg == "parameterized":
+            if pkg.startswith("pytest") or pkg == "parameterized":
                 # test related packages
                 continue
             filtered_pkgs.append(pkg)
@@ -299,7 +299,8 @@ class RunnerPhoton(Photon):
                 num_params = len(inspect.signature(func).parameters)
                 if num_params > 2:
                     raise ValueError(
-                        f"Gradio mount function should only have zero or one (app) argument"
+                        "Gradio mount function should only have zero or one (app)"
+                        " argument"
                     )
                 if num_params == 2:
                     gr_blocks = func.__get__(self, self.__class__)(app)
@@ -307,7 +308,8 @@ class RunnerPhoton(Photon):
                     gr_blocks = func.__get__(self, self.__class__)()
                 if not isinstance(gr_blocks, gr.Blocks):
                     raise RuntimeError(
-                        f"Currently `mount` only supports Gradio Blocks. Got {type(gr_blocks)}"
+                        "Currently `mount` only supports Gradio Blocks. Got"
+                        f" {type(gr_blocks)}"
                     )
                 app = gr.mount_gradio_app(app, gr_blocks, f"/{path}")
                 continue

@@ -1,5 +1,4 @@
 import os
-import shutil
 
 from loguru import logger
 
@@ -22,7 +21,8 @@ def fetch_code_from_vcs(url, target_dir=None):
         from pip._internal.vcs import vcs
     except ImportError:
         raise RuntimeError(
-            f"VCS functionality is not available in this version ({pip.__version__}) of pip, try upgrading pip via `pip install --upgrade pip`"
+            f"VCS functionality is not available in this version ({pip.__version__}) of"
+            " pip, try upgrading pip via `pip install --upgrade pip`"
         )
 
     url = os.path.expandvars(url)
@@ -63,7 +63,8 @@ def fetch_code_from_vcs(url, target_dir=None):
             link = Link(url)
             hidden_url = hide_url(url)
             logger.info(
-                f"Using environment variables GITHUB_USER and GITHUB_TOKEN to auth with github.com: {hidden_url}"
+                "Using environment variables GITHUB_USER and GITHUB_TOKEN to auth with"
+                f" github.com: {hidden_url}"
             )
             _, netloc, (_, _) = split_auth_netloc_from_url(url)
 

@@ -61,7 +61,8 @@ class Photon:
                         f.writestr(name, path_or_content)
                 else:
                     raise ValueError(
-                        f"extra_files value should be str or bytes, got {path_or_content}"
+                        "extra_files value should be str or bytes, got"
+                        f" {path_or_content}"
                     )
 
         # use path as local id for now

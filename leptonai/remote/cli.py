@@ -6,7 +6,12 @@ from rich.console import Console
 from rich.table import Table
 
 from leptonai.config import CACHE_DIR
-from .util import is_command_installed, generate_random_string, run_terraform_apply, run_terraform_destroy
+from .util import (
+    is_command_installed,
+    generate_random_string,
+    run_terraform_apply,
+    run_terraform_destroy,
+)
 
 
 console = Console(highlight=False)
@@ -25,11 +30,11 @@ def remote():
 @click.option("--auth-token", "-t", help="Authentication token for the remote cluster")
 def login(remote_name, remote_url, auth_token):
     if remote_name and remote_url and auth_token:
-        save_cluster(remote_name, remote_url, auth_token = auth_token)
+        save_cluster(remote_name, remote_url, auth_token=auth_token)
         set_current_cluster(remote_name)
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
-    
+
     clusters = load_cluster_info()["clusters"]
     if remote_name is not None:
         remote_cluster = clusters.get(remote_name)
@@ -53,14 +58,18 @@ def login(remote_name, remote_url, auth_token):
             )
             if not remote_name:
                 console.print("Remote cluster name cannot be empty")
-        
-        auth_token = console.input(
-            f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
-        ) or None
-        
-        save_cluster(remote_name, remote_url, auth_token = auth_token)
+
+        auth_token = (
+            console.input(
+                f'Please enter the authentication token for "{remote_name}" (ENTER if'
+                " none): "
+            )
+            or None
+        )
+
+        save_cluster(remote_name, remote_url, auth_token=auth_token)
         set_current_cluster(remote_name)
-        
+
         console.print(f'Cluster "{remote_name}" [green]logged in[/]')
         return
 
@@ -133,7 +142,9 @@ def create(remote_name, sandbox, provider):
         sys.exit(1)
 
     if not meet_create_precondition():
-        console.print("Installation precondition not met. Please check the error message above.")
+        console.print(
+            "Installation precondition not met. Please check the error message above."
+        )
         sys.exit(1)
 
     console.print(f"Creating cluster {remote_name} on AWS")
@@ -146,11 +157,13 @@ def create(remote_name, sandbox, provider):
         console.print(f"Failed to create cluster {remote_name} with terraform")
         sys.exit(1)
 
-    save_cluster(remote_name, f"http://{ingress_hostname}", terraform_dir = str(dir))
+    save_cluster(remote_name, f"http://{ingress_hostname}", terraform_dir=str(dir))
     console.print(f"Cluster {remote_name} created successfully")
     console.print(f"The ingress URL is http://{ingress_hostname}")
 
-    console.print(f"Run `lep remote login -n {remote_name}` to login to the created cluster")
+    console.print(
+        f"Run `lep remote login -n {remote_name}` to login to the created cluster"
+    )
 
 
 def add_command(click_group):
@@ -210,7 +223,7 @@ def get_current_cluster_url():
     return clusters[current_cluster]["url"]
 
 
-def get_remote_url(remote_url = None):
+def get_remote_url(remote_url=None):
     if remote_url is not None:
         return remote_url
     return get_current_cluster_url()
