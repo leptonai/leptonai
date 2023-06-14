@@ -43,5 +43,7 @@ spec:
             - "{{ .Values.apiServer.rootDomain }}"
             - "--api-token"
             - "{{ .Values.apiServer.apiToken }}"
+            - "--photon-prefix"
+            - "{{ .Values.apiServer.photonPrefix }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}

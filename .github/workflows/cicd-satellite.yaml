@@ -156,7 +156,7 @@ jobs:
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
         API_TOKEN: ${{ steps.vars.outputs.short_sha }}
       run:
-        helm install lepton charts/lepton --namespace ci-$IMAGE_TAG --create-namespace --set crd.install=false --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} --set apiServer.serviceAccountRoleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/s3-role-${{ vars.K8S_DEV_CI }} --set apiServer.image.tag=$IMAGE_TAG  --set web.image.tag=$IMAGE_TAG --set deploymentOperator.image.tag=$IMAGE_TAG  --set apiServer.rootDomain=$IMAGE_TAG.${{ vars.K8S_DEV_CI }}.cloud.lepton.ai  --set apiServer.certificateArn=arn:aws:acm:${{ vars.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:certificate/${{ secrets.SSL_CERT_DEV_CI }} --set apiServer.apiToken=$API_TOKEN
+        helm install lepton charts/lepton --namespace ci-$IMAGE_TAG --create-namespace --set crd.install=false --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} --set apiServer.photonPrefix=$IMAGE_TAG/photons --set apiServer.serviceAccountRoleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/s3-role-${{ vars.K8S_DEV_CI }} --set apiServer.image.tag=$IMAGE_TAG  --set web.image.tag=$IMAGE_TAG --set deploymentOperator.image.tag=$IMAGE_TAG  --set apiServer.rootDomain=$IMAGE_TAG.${{ vars.K8S_DEV_CI }}.cloud.lepton.ai  --set apiServer.certificateArn=arn:aws:acm:${{ vars.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:certificate/${{ secrets.SSL_CERT_DEV_CI }} --set apiServer.apiToken=$API_TOKEN
     - name: Install Python 3.10
       uses: actions/setup-python@v4
       with:
