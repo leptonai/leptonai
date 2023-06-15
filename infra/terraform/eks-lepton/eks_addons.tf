@@ -41,14 +41,11 @@ module "eks_blueprints_kubernetes_addons" {
       policy : "sync"
 
       # When using the TXT registry, a name that identifies this instance of ExternalDNS
-      # (default: default)  
+      # (default: default)
+      #
+      # NOTE: this is used for filtering records based on the txt owner id
+      # NOTE: we do not need "domainFilters" with "${module.eks.cluster_name}.cloud.lepton.ai"
       txtOwnerId : "${module.eks.cluster_name}"
-
-      # Limit possible target zones by a domain suffix; specify multiple times for multiple domains (optional)
-      # make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
-      domainFilters : [
-        "${module.eks.cluster_name}.cloud.lepton.ai"
-      ]
 
       serviceAccount = {
         create = true
@@ -84,10 +81,17 @@ module "eks_blueprints_kubernetes_addons" {
           scrape_interval : "5s"
           scrape_timeout : "4s"
         }
-        extraFlags : [
-          "storage.tsdb.retention.time=2h",
-          "storage.tsdb.wal-compression"
+
+        # flags to override default parameters
+        defaultFlagsOverride : [
+          "--config.file=/etc/config/prometheus.yml",
+          "--storage.tsdb.path=/data",
+          "--web.console.libraries=/etc/prometheus/console_libraries",
+          "--web.console.templates=/etc/prometheus/consoles",
+          "--storage.tsdb.retention.time=2h",
+          "--storage.tsdb.wal-compression"
         ]
+
         persistentVolume : {
           enabled : true
           mountPath : "/data"
