@@ -5,6 +5,7 @@ import (
 	"os"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	mothershipv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -27,6 +28,7 @@ func init() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(leptonaiv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(mothershipv1alpha1.AddToScheme(scheme))
 	Client, _ = client.NewWithWatch(Config, client.Options{Scheme: scheme})
 }
 

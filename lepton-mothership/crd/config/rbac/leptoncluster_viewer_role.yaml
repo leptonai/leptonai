@@ -12,7 +12,7 @@ metadata:
   name: leptoncluster-viewer-role
 rules:
 - apiGroups:
-  - mothership
+  - mothership.lepton.ai
   resources:
   - leptonclusters
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - mothership
+  - mothership.lepton.ai
   resources:
   - leptonclusters/status
   verbs:

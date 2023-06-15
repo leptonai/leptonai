@@ -2,23 +2,25 @@ package datastore
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TODO: add tests (have to figure out how to mock k8s first)
 type CRStore[T client.Object] struct {
 	namespace string
+	example   T
 }
 
-func NewCRStore[T client.Object](namespace string) *CRStore[T] {
+func NewCRStore[T client.Object](namespace string, example T) *CRStore[T] {
 	return &CRStore[T]{
 		namespace: namespace,
+		example:   example,
 	}
 }
 
@@ -29,7 +31,7 @@ func (s *CRStore[T]) Create(name string, t T) error {
 }
 
 func (s *CRStore[T]) Get(name string) (T, error) {
-	var t T
+	t := s.example.DeepCopyObject().(T)
 	err := k8s.Client.Get(context.Background(), client.ObjectKey{
 		Namespace: s.namespace,
 		Name:      name,
@@ -38,25 +40,27 @@ func (s *CRStore[T]) Get(name string) (T, error) {
 }
 
 func (s *CRStore[T]) List() ([]T, error) {
-	var t T
-	gvk := schema.GroupVersionKind{
-		Group:   t.GetObjectKind().GroupVersionKind().Group,
-		Version: t.GetObjectKind().GroupVersionKind().Version,
-		Kind:    t.GetObjectKind().GroupVersionKind().Kind,
+	gvks, _, err := k8s.Client.Scheme().ObjectKinds(s.example)
+	if err != nil {
+		return nil, err
 	}
+	if len(gvks) != 1 {
+		return nil, fmt.Errorf("expected exactly one GVK, got %d", len(gvks))
+	}
+	gvk := gvks[0]
 	tList := &unstructured.UnstructuredList{}
 	tList.SetGroupVersionKind(gvk)
-	err := k8s.Client.List(context.Background(), tList)
-	if err != nil {
+	if err := k8s.Client.List(context.Background(), tList); err != nil {
 		return nil, err
 	}
 	var ts []T
 	for _, item := range tList.Items {
+		t := s.example.DeepCopyObject().(T)
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &t)
 		if err != nil {
 			return nil, err
 		}
-		ts = append(ts, t.DeepCopyObject().(T))
+		ts = append(ts, t)
 	}
 	return ts, nil
 }
@@ -68,7 +72,7 @@ func (s *CRStore[T]) Update(name string, t T) error {
 }
 
 func (s *CRStore[T]) Delete(name string) error {
-	var t T
+	t := s.example.DeepCopyObject().(T)
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.Client.Delete(context.Background(), t)

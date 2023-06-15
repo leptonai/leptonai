@@ -2,7 +2,7 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: mothership
+domain: mothership.lepton.ai
 layout:
 - go.kubebuilder.io/v4
 projectName: crd
@@ -11,7 +11,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  domain: mothership
+  domain: mothership.lepton.ai
   kind: LeptonCluster
   path: github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1
   version: v1alpha1

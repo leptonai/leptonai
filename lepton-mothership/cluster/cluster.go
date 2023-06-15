@@ -30,7 +30,10 @@ type (
 
 // Make cluster a struct and do not use global variables
 var (
-	ds = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](storeNamespace)
+	ds = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
+		storeNamespace,
+		&crdv1alpha1.LeptonCluster{},
+	)
 )
 
 func Init() {

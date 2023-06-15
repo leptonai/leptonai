@@ -55,6 +55,7 @@ type (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=lc
 
 // LeptonCluster is the Schema for the leptonclusters API
 type LeptonCluster struct {

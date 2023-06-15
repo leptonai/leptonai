@@ -2,7 +2,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: leptonclusters.mothership
+  name: leptonclusters.mothership.lepton.ai
 spec:
   conversion:
     strategy: Webhook

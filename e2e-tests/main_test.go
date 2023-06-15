@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/url"
 	"os"
@@ -14,6 +13,7 @@ import (
 
 	e2eutil "github.com/leptonai/lepton/e2e-tests/e2e-util"
 	goclient "github.com/leptonai/lepton/go-client"
+	"github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
@@ -111,23 +111,12 @@ func mustTeardownTest() {
 	}
 }
 
-var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 const (
-	charset      = "abcdefghijklmnopqrstuvwxyz"
 	nameLenLimit = 32
 )
 
-func randString(length int) string {
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
 func newName(testName string) string {
-	name := strings.ToLower(testName) + "-" + randString(6)
+	name := strings.ToLower(testName) + "-" + util.RandString(6)
 	// the server limits name lenght to 32
 	if len(name) > nameLenLimit {
 		name = name[len(name)-nameLenLimit:]

@@ -5,13 +5,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: leptonclusters.mothership
+  name: leptonclusters.mothership.lepton.ai
 spec:
-  group: mothership
+  group: mothership.lepton.ai
   names:
     kind: LeptonCluster
     listKind: LeptonClusterList
     plural: leptonclusters
+    shortNames:
+    - lc
     singular: leptoncluster
   scope: Namespaced
   versions:

@@ -1,4 +1,4 @@
-apiVersion: mothership/v1alpha1
+apiVersion: mothership.lepton.ai/v1alpha1
 kind: LeptonCluster
 metadata:
   labels:
