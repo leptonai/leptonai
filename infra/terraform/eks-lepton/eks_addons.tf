@@ -85,6 +85,7 @@ module "eks_blueprints_kubernetes_addons" {
           scrape_timeout : "4s"
         }
         extraFlags : [
+          "storage.tsdb.retention.time=2h",
           "storage.tsdb.wal-compression"
         ]
         persistentVolume : {
