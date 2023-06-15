@@ -422,7 +422,8 @@ class Counter(Runner):
         # setup a git repo with custom.py
         git_proj = tempfile.mkdtemp(dir=tmpdir)
         with switch_cwd(git_proj):
-            subprocess.check_call(["git", "init", "-b", "main"])
+            subprocess.check_call(["git", "init"])
+            subprocess.check_call(["git", "checkout", "-b", "main"])
             subprocess.check_call(["git", "config", "--local", "user.email", "a@b.c"])
             subprocess.check_call(["git", "config", "--local", "user.name", "abc"])
             custom_py = os.path.join("d1", "d2", "custom.py")
