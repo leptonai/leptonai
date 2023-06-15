@@ -245,7 +245,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 	args := []string{}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName)
+	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
 	// TODO: retry on error for a couple of times

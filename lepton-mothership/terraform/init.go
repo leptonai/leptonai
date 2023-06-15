@@ -11,13 +11,13 @@ import (
 var (
 	orgName = "lepton"
 	// TODO: update me
-	tempToken = "GkqbTdrOGe945A.atlasv1.GIhfprQqv3UJevUvB98zJrOVAPOzUbHyHVkyeTJPy9RhFBF1rV2TPvYFfUuV3pi5pK4"
+	TempToken = "GkqbTdrOGe945A.atlasv1.GIhfprQqv3UJevUvB98zJrOVAPOzUbHyHVkyeTJPy9RhFBF1rV2TPvYFfUuV3pi5pK4"
 	client    *tfe.Client
 )
 
 func MustInit() {
 	config := &tfe.Config{
-		Token:             tempToken,
+		Token:             TempToken,
 		RetryServerErrors: true,
 	}
 	var err error
