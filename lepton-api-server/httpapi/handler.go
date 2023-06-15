@@ -1,8 +1,9 @@
 package httpapi
 
 import (
+	"github.com/leptonai/lepton/go-pkg/datastore"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
-	"github.com/leptonai/lepton/go-pkg/namedb"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	"gocloud.dev/blob"
 )
@@ -18,13 +19,14 @@ type Handler struct {
 	apiToken           string
 	photonBucket       *blob.Bucket
 
-	photonDB     *namedb.NameDB[leptonaiv1alpha1.Photon]
-	deploymentDB *namedb.NameDB[leptonaiv1alpha1.LeptonDeployment]
-	secretDB     *secret.SecretSet
+	secretDB *secret.SecretSet
+	phDB     *datastore.CRStore[*leptonaiv1alpha1.Photon]
+	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
 }
 
 func New(namespace, prometheusURL, bucketName, protonPrefix, serviceAccountName,
 	rootDomain, certARN, apiToken string, photonBucket *blob.Bucket) *Handler {
+	k8s.Client.Scheme()
 	h := &Handler{
 		namespace:          namespace,
 		prometheusURL:      prometheusURL,
@@ -36,12 +38,10 @@ func New(namespace, prometheusURL, bucketName, protonPrefix, serviceAccountName,
 		apiToken:           apiToken,
 		photonBucket:       photonBucket,
 
-		photonDB:     namedb.NewNameDB[leptonaiv1alpha1.Photon](),
-		deploymentDB: namedb.NewNameDB[leptonaiv1alpha1.LeptonDeployment](),
-		secretDB:     secret.New(namespace, secret.SecretObjectName),
+		secretDB: secret.New(namespace, secret.SecretObjectName),
+		phDB:     datastore.NewCRStore[*leptonaiv1alpha1.Photon](namespace, &leptonaiv1alpha1.Photon{}),
+		ldDB:     datastore.NewCRStore[*leptonaiv1alpha1.LeptonDeployment](namespace, &leptonaiv1alpha1.LeptonDeployment{}),
 	}
-	h.PhotonHanlder().init()
-	h.DeploymentHandler().init()
 	return h
 }
 

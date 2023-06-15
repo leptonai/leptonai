@@ -50,10 +50,10 @@ func (s *CRStore[T]) List() ([]T, error) {
 	gvk := gvks[0]
 	tList := &unstructured.UnstructuredList{}
 	tList.SetGroupVersionKind(gvk)
-	if err := k8s.Client.List(context.Background(), tList); err != nil {
+	if err := k8s.Client.List(context.Background(), tList, client.InNamespace(s.namespace)); err != nil {
 		return nil, err
 	}
-	var ts []T
+	ts := make([]T, 0, len(tList.Items))
 	for _, item := range tList.Items {
 		t := s.example.DeepCopyObject().(T)
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &t)

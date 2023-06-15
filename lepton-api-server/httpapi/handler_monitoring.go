@@ -345,12 +345,12 @@ func (h *MonitorningHandler) getPhotonHTTPPaths(ph *leptonaiv1alpha1.Photon) []s
 }
 
 func (h *MonitorningHandler) listHandlersForPrometheusQuery(did string) (string, error) {
-	ld := h.deploymentDB.GetByID(did)
-	if ld == nil {
+	ld, err := h.ldDB.Get(did)
+	if err != nil {
 		return "", fmt.Errorf("deployment " + did + " does not exist.")
 	}
-	ph := h.photonDB.GetByID(ld.Spec.PhotonID)
-	if ph == nil {
+	ph, err := h.phDB.Get(ld.Spec.PhotonID)
+	if err != nil {
 		return "", fmt.Errorf("photon " + ld.Spec.PhotonID + " does not exist.")
 	}
 	paths := h.getPhotonHTTPPaths(ph)

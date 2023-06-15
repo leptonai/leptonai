@@ -15,10 +15,25 @@ func TestCRStore(t *testing.T) {
 
 	name := util.RandString(6)
 
-	err := s.Create(name, example)
+	lcs, err := s.List()
 	if err != nil {
+		t.Fatalf("Failed to list: %v", err)
+	}
+	if len(lcs) != 0 {
+		t.Fatalf("Expected 0 item in list, got %d", len(lcs))
+	}
+
+	if err = s.Create(name, example); err != nil {
 		t.Fatalf("Failed to create: %v", err)
 	}
+
+	defer func() {
+		err := s.Delete(name)
+		if err != nil {
+			t.Fatalf("Failed to delete: %v", err)
+		}
+	}()
+
 	lc, err := s.Get(name)
 	if err != nil {
 		t.Fatalf("Failed to get: %v", err)
@@ -26,7 +41,7 @@ func TestCRStore(t *testing.T) {
 	if lc.GetName() != name {
 		t.Fatalf("Failed to get: %v", err)
 	}
-	lcs, err := s.List()
+	lcs, err = s.List()
 	if err != nil {
 		t.Fatalf("Failed to list: %v", err)
 	}
@@ -35,9 +50,5 @@ func TestCRStore(t *testing.T) {
 	}
 	if lcs[0].GetName() != name {
 		t.Fatalf("Expected name %s, got %s", name, lcs[0].GetName())
-	}
-	err = s.Delete(name)
-	if err != nil {
-		t.Fatalf("Failed to delete: %v", err)
 	}
 }

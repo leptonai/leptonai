@@ -1,14 +1,12 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
@@ -36,13 +34,9 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
 		return
 	}
-	if len(h.deploymentDB.GetByName(ld.GetSpecName())) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + ld.GetSpecName() + " already exists."})
-		return
-	}
 
-	ph := h.photonDB.GetByID(ld.Spec.PhotonID)
-	if ph == nil {
+	ph, err := h.phDB.Get(ld.Spec.PhotonID)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + ld.Spec.PhotonID + " does not exist."})
 		return
 	}
@@ -62,8 +56,8 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	ld.Namespace = h.namespace
 	ld.Name = ld.GetSpecName()
 
-	if err := k8s.Client.Create(context.Background(), ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment CR: " + err.Error()})
+	if err := h.ldDB.Create(ld.Name, ld); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
 	}
 
@@ -73,7 +67,11 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 }
 
 func (h *DeploymentHandler) List(c *gin.Context) {
-	lds := h.deploymentDB.GetAll()
+	lds, err := h.ldDB.List()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list deployments: " + err.Error()})
+		return
+	}
 	ret := make([]*LeptonDeployment, 0, len(lds))
 	for _, ld := range lds {
 		ret = append(ret, NewLeptonDeployment(ld).Output())
@@ -83,8 +81,8 @@ func (h *DeploymentHandler) List(c *gin.Context) {
 
 func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
-	ld := h.deploymentDB.GetByID(did)
-	if ld == nil {
+	ld, err := h.ldDB.Get(did)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
@@ -101,15 +99,15 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		return
 	}
 	if err := h.validateUpdateInput(ldi); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid patch metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid update metadata: " + err.Error()})
 		return
 	}
 
 	ld.Patch(ldi)
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
-	if err := k8s.Client.Update(context.Background(), ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to patch deployment CR " + ld.GetSpecName() + ": " + err.Error()})
+	if err := h.ldDB.Update(ld.Name, ld); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -118,23 +116,17 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 
 func (h *DeploymentHandler) Get(c *gin.Context) {
 	did := c.Param("did")
-	ld := h.deploymentDB.GetByID(did)
-	if ld == nil {
+	ld, err := h.ldDB.Get(did)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
-
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
 }
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	ld := h.deploymentDB.GetByID(did)
-	if ld == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
-		return
-	}
-	if err := k8s.Client.Delete(context.Background(), ld); err != nil {
+	if err := h.ldDB.Delete(did); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
 		return
 	}
@@ -154,8 +146,8 @@ func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeplo
 	if ld.ResourceRequirement.MinReplicas <= 0 {
 		return fmt.Errorf("min replicas must be positive")
 	}
-	ph := h.photonDB.GetByID(ld.PhotonID)
-	if ph == nil {
+	_, err := h.phDB.Get(ld.PhotonID)
+	if err != nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
 	return nil
@@ -167,8 +159,8 @@ func (h *DeploymentHandler) validateUpdateInput(ld *leptonaiv1alpha1.LeptonDeplo
 		valid = true
 	}
 	if ld.PhotonID != "" {
-		ph := h.photonDB.GetByID(ld.PhotonID)
-		if ph == nil {
+		_, err := h.phDB.Get(ld.PhotonID)
+		if err != nil {
 			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 		}
 		valid = true

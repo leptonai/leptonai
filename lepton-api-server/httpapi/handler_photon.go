@@ -1,12 +1,16 @@
 package httpapi
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -18,8 +22,8 @@ type PhotonHandler struct {
 
 func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
-	ph := h.photonDB.GetByID(pid)
-	if ph == nil {
+	ph, err := h.phDB.Get(pid)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 		return
 	}
@@ -37,8 +41,8 @@ func (h *PhotonHandler) Get(c *gin.Context) {
 		h.Download(c)
 	} else {
 		pid := c.Param("pid")
-		ph := h.photonDB.GetByID(pid)
-		if ph == nil {
+		ph, err := h.phDB.Get(pid)
+		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
 			return
 		}
@@ -53,20 +57,20 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	// TODO: this has data race: if users create a deployment after this check
 	// but before the actual deletion of the photon from DB, then the deployment
 	// will be created with a photon that is being deleted.
-	for _, ld := range h.deploymentDB.GetAll() {
+	list, err := h.ldDB.List()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the photon is in use: " + err.Error()})
+		return
+	}
+	for _, ld := range list {
 		if ld.Spec.PhotonID == pid {
 			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " is used by deployment " + ld.Name})
 			return
 		}
 	}
 
-	ph := h.photonDB.GetByID(pid)
-	if ph == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
-		return
-	}
-	if err := k8s.Client.Delete(context.Background(), ph); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " crd: " + err.Error()})
+	if err := h.phDB.Delete(pid); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from DB: " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -75,10 +79,21 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 func (h *PhotonHandler) List(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
 	var phs []*leptonaiv1alpha1.Photon
+	phList, err := h.phDB.List()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list photons: " + err.Error()})
+		return
+	}
 	if name == "" {
-		phs = h.photonDB.GetAll()
+		phs = phList
 	} else {
-		phs = h.photonDB.GetByName(name)
+		// TODO efficiency: use a map to index the name
+		phs = make([]*leptonaiv1alpha1.Photon, 0)
+		for _, ph := range phList {
+			if ph.GetSpecName() == name {
+				phs = append(phs, ph)
+			}
+		}
 	}
 	ret := make([]*Photon, 0, len(phs))
 	for _, ph := range phs {
@@ -101,11 +116,6 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if h.photonDB.GetByID(ph.GetSpecID()) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + ph.GetSpecID() + " already exists."})
-		return
-	}
-
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
 	err = h.photonBucket.WriteAll(context.Background(), ph.GetSpecUniqName(), body, nil)
@@ -114,10 +124,8 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// TODO: failure recovery: if the server crashes here, we should be able to delete the object uploaded to S3
-	err = k8s.Client.Create(context.Background(), ph)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon CR: " + err.Error()})
+	if err := h.phDB.Create(ph.GetSpecID(), ph); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
 		return
 	}
 
@@ -137,4 +145,48 @@ func getContentFromFileOrRawBody(r *http.Request) ([]byte, error) {
 		return io.ReadAll(r.Body)
 	}
 	return body, nil
+}
+
+func (h *PhotonHandler) getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Photon, error) {
+	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the metadata.json file in the archive
+	var metadataFile *zip.File
+	for _, file := range reader.File {
+		if file.Name == "metadata.json" {
+			metadataFile = file
+			break
+		}
+	}
+	if metadataFile == nil {
+		return nil, fmt.Errorf("metadata.json not found in photon")
+	}
+
+	// Read the contents of the metadata.json file
+	metadataReader, err := metadataFile.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer metadataReader.Close()
+	metadataBytes, err := io.ReadAll(metadataReader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal the JSON into a Metadata struct
+	ph := &leptonaiv1alpha1.Photon{}
+	if err := json.Unmarshal(metadataBytes, &ph.Spec.PhotonUserSpec); err != nil {
+		return nil, err
+	}
+	if !util.ValidateName(ph.Spec.Name) {
+		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
+	}
+	ph.SetID(ph.GetSpecName() + "-" + util.HexHash(body))
+	ph.Name = ph.GetSpecUniqName()
+	ph.Namespace = h.namespace
+
+	return ph, nil
 }

@@ -27,8 +27,8 @@ func (h *InstanceHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()
 
-	ld := h.deploymentDB.GetByID(did)
-	if ld == nil {
+	ld, err := h.ldDB.Get(did)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
 		return
 	}
