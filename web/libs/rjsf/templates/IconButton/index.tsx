@@ -1,13 +1,14 @@
-import Button, { ButtonType, ButtonProps } from "antd/es/button";
-import { BaseButtonProps } from "antd/es/button/button";
+import { Button } from "antd";
+import type { ButtonProps } from "antd";
+import type { BaseButtonProps } from "antd/es/button/button";
 import ArrowDownOutlined from "@ant-design/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/ArrowUpOutlined";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import MinusOutlined from "@ant-design/icons/MinusOutlined";
 import {
-  getUiOptions,
   FormContextType,
+  getUiOptions,
   IconButtonProps,
   RJSFSchema,
   StrictRJSFSchema,
@@ -36,7 +37,7 @@ export default function IconButton<
   } = props;
   return (
     <Button
-      type={iconType as ButtonType}
+      type={iconType as ButtonProps["type"]}
       onClick={onClick as ButtonProps["onClick"]}
       icon={icon}
       {...otherProps}

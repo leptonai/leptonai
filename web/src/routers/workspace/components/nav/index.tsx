@@ -86,19 +86,27 @@ export const Nav: FC = () => {
   const menuItems: TabsProps["items"] = [
     {
       label: (
-        <>
+        <span id="nav-dashboard">
           <CarbonIcon icon={<Workspace />} />
           Dashboard
-        </>
+        </span>
       ),
       key: `${pathname}/dashboard`,
     },
     {
-      label: <PhotonLabel />,
+      label: (
+        <span id="nav-photons">
+          <PhotonLabel />
+        </span>
+      ),
       key: `${pathname}/photons`,
     },
     {
-      label: <DeploymentLabel />,
+      label: (
+        <span id="nav-deployments">
+          <DeploymentLabel />
+        </span>
+      ),
       key: `${pathname}/deployments`,
     },
   ];

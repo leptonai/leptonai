@@ -1,12 +1,12 @@
 import { ChangeEvent, FocusEvent } from "react";
-import Input from "antd/es/input";
+import { Input } from "antd";
 import {
   ariaDescribedByIds,
   FormContextType,
+  GenericObjectType,
   RJSFSchema,
   StrictRJSFSchema,
   WidgetProps,
-  GenericObjectType,
 } from "@rjsf/utils";
 
 /** The `PasswordWidget` component uses the `BaseInputTemplate` changing the type to `password`.

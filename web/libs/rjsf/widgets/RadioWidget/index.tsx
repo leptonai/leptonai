@@ -1,12 +1,12 @@
 import { FocusEvent } from "react";
-import Radio, { RadioChangeEvent } from "antd/es/radio";
+import { RadioChangeEvent, Radio } from "antd";
 import {
   ariaDescribedByIds,
   enumOptionsIndexForValue,
   enumOptionsValueForIndex,
-  optionId,
   FormContextType,
   GenericObjectType,
+  optionId,
   RJSFSchema,
   StrictRJSFSchema,
   WidgetProps,

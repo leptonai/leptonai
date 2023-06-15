@@ -1,6 +1,4 @@
-import Alert from "antd/es/alert";
-import List from "antd/es/list";
-import Space from "antd/es/space";
+import { Alert, List, Space, theme } from "antd";
 import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
 import {
   ErrorListProps,
@@ -9,7 +7,6 @@ import {
   StrictRJSFSchema,
   TranslatableString,
 } from "@rjsf/utils";
-import theme from "antd/es/theme";
 import { useMemo } from "react";
 import styled from "@emotion/styled";
 

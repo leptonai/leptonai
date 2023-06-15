@@ -70,12 +70,20 @@ export const Dashboard: FC = () => {
       <Row gutter={[16, 24]}>
         <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
           <Card>
-            <Statistic title="Total Photons" value={photonGroups.length} />
+            <Statistic
+              className="total-photons"
+              title="Total Photons"
+              value={photonGroups.length}
+            />
           </Card>
         </Col>
         <Col flex="1" style={{ maxWidth: "250px", minWidth: "160px" }}>
           <Card>
-            <Statistic title="Total Deployments" value={deployments.length} />
+            <Statistic
+              className="total-deployments"
+              title="Total Deployments"
+              value={deployments.length}
+            />
           </Card>
         </Col>
         <Col span={24}>

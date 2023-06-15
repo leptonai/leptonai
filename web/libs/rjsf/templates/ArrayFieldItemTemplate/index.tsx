@@ -1,7 +1,4 @@
-import Col from "antd/es/col";
-import Row from "antd/es/row";
-import Space from "antd/es/space";
-import theme from "antd/es/theme";
+import { Col, Row, Space, theme } from "antd";
 import {
   ArrayFieldTemplateItemType,
   FormContextType,

@@ -1,17 +1,15 @@
 import { MouseEvent, useEffect, useState } from "react";
-import Button from "antd/es/button";
-import Col from "antd/es/col";
-import Row from "antd/es/row";
+import { Button, Col, Row } from "antd";
 import {
   ariaDescribedByIds,
-  pad,
-  parseDateString,
-  toDateString,
   DateObject,
   FormContextType,
   GenericObjectType,
+  pad,
+  parseDateString,
   RJSFSchema,
   StrictRJSFSchema,
+  toDateString,
   TranslatableString,
   WidgetProps,
 } from "@rjsf/utils";

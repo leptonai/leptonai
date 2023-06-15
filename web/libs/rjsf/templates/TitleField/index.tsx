@@ -5,9 +5,9 @@ import {
 } from "antd/es/config-provider/context";
 import {
   FormContextType,
-  TitleFieldProps,
   RJSFSchema,
   StrictRJSFSchema,
+  TitleFieldProps,
 } from "@rjsf/utils";
 
 /** The `TitleField` is the template to use to render the title of a field

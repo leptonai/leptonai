@@ -1,32 +1,79 @@
-describe("app", () => {
+import { alias, intercept } from "../../helper/intercept";
+
+describe("workspace", () => {
   beforeEach(() => {
-    // intercept the cluster request
-    cy.intercept("GET", "/api/v1/cluster", {
-      fixture: "api/v1/cluster.json",
-    }).as("getCluster");
-
-    // intercept the deployments request
-    cy.intercept("GET", "/api/v1/deployments", {
-      fixture: "api/v1/deployments.json",
-    }).as("getDeployments");
-
-    // intercept the photons request
-    cy.intercept("GET", "/api/v1/photons", {
-      fixture: "api/v1/photons.json",
-    }).as("getPhotons");
-
+    intercept();
     cy.visit("http://localhost:3001");
+
+    cy.wait(`@${alias.getCluster}`);
+    cy.wait(`@${alias.getDeployments}`);
+    cy.wait(`@${alias.getPhotons}`);
+    cy.wait(1000);
   });
 
-  it("should be redirected to workspace dashboard", () => {
-    cy.wait("@getCluster");
-    cy.url({ timeout: 1000 }).should("match", /.+\/workspace/);
+  describe("dashboard", () => {
+    beforeEach(() => {
+      cy.get("#nav-dashboard").click();
+      cy.wait(200);
+    });
 
-    cy.wait("@getDeployments");
-    cy.wait("@getPhotons");
+    it("should be render dashboard", () => {
+      cy.get(".total-photons .ant-statistic-content-value").should(
+        "have.text",
+        "1"
+      );
 
-    cy.url({ timeout: 1000 }).should("match", /.+\/workspace\/.+\/dashboard/);
+      cy.get(".total-deployments .ant-statistic-content-value").should(
+        "have.text",
+        "1"
+      );
+    });
+  });
 
-    cy.percySnapshot();
+  describe("photons", () => {
+    beforeEach(() => {
+      cy.get("#nav-photons").click();
+      cy.wait(200);
+    });
+
+    it("should be render photon list", () => {
+      cy.get(".photon-item").should("have.length", 1);
+    });
+  });
+
+  describe("deployments", () => {
+    beforeEach(() => {
+      cy.get("#nav-deployments").click();
+      cy.wait(200);
+    });
+
+    it("should be render deployment list", () => {
+      cy.get("#deployment-list li").should("have.length", 1);
+    });
+
+    it("should be render deployment detail", () => {
+      cy.get("#deployment-list li a:first()").click();
+      cy.wait(200);
+
+      cy.wait(`@${alias.getFastAPIQPS}`);
+      cy.wait(`@${alias.getFastAPIQPSByPath}`);
+      cy.wait(`@${alias.getFastAPILatency}`);
+      cy.wait(`@${alias.getFastAPILatencyByPath}`);
+
+      cy.wait(200);
+
+      cy.get("#api-form").should("have.length", 1);
+
+      cy.get("form label.ant-checkbox-wrapper")
+        .contains("Show advanced options")
+        .click();
+
+      cy.wait(200);
+
+      cy.percySnapshot("Deployment API Form", {
+        scope: "#api-form",
+        minHeight: 1800,
+      });
+    });
   });
 });

@@ -1,13 +1,13 @@
 import {
+  ArrayFieldTemplateItemType,
+  ArrayFieldTemplateProps,
+  FormContextType,
   getTemplate,
   getUiOptions,
-  ArrayFieldTemplateProps,
-  ArrayFieldTemplateItemType,
-  FormContextType,
   RJSFSchema,
   StrictRJSFSchema,
 } from "@rjsf/utils";
-import Space from "antd/es/space";
+import { Space } from "antd";
 
 import styled from "@emotion/styled";
 

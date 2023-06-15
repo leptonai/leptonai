@@ -1,18 +1,14 @@
 import { FocusEvent } from "react";
 import {
   ADDITIONAL_PROPERTY_FLAG,
-  UI_OPTIONS_KEY,
   FormContextType,
   RJSFSchema,
   StrictRJSFSchema,
   TranslatableString,
+  UI_OPTIONS_KEY,
   WrapIfAdditionalTemplateProps,
 } from "@rjsf/utils";
-import Col from "antd/es/col";
-import Form from "antd/es/form";
-import Input from "antd/es/input";
-import Row from "antd/es/row";
-import theme from "antd/es/theme";
+import { Col, Form, Input, Row, theme } from "antd";
 
 const VERTICAL_LABEL_COL = { span: 24 };
 const VERTICAL_WRAPPER_COL = { span: 24 };

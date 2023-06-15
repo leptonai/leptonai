@@ -1,17 +1,17 @@
 import { FocusEvent } from "react";
-import Checkbox from "antd/es/checkbox";
+import { Checkbox } from "antd";
 import {
   ariaDescribedByIds,
   enumOptionsIndexForValue,
   enumOptionsValueForIndex,
+  FormContextType,
+  GenericObjectType,
   getTemplate,
   optionId,
-  titleId,
-  FormContextType,
-  WidgetProps,
   RJSFSchema,
   StrictRJSFSchema,
-  GenericObjectType,
+  titleId,
+  WidgetProps,
 } from "@rjsf/utils";
 
 /** The `CheckboxesWidget` is a widget for rendering checkbox groups.

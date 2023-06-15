@@ -1,13 +1,12 @@
 import { ChangeEvent, FocusEvent } from "react";
-import Input from "antd/es/input";
-import InputNumber from "antd/es/input-number";
+import { Input, InputNumber } from "antd";
 import {
   ariaDescribedByIds,
   BaseInputTemplateProps,
   examplesId,
-  getInputProps,
   FormContextType,
   GenericObjectType,
+  getInputProps,
   RJSFSchema,
   StrictRJSFSchema,
 } from "@rjsf/utils";

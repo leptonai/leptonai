@@ -1,12 +1,12 @@
-import Slider from "antd/es/slider";
+import { Slider } from "antd";
 import {
   ariaDescribedByIds,
-  rangeSpec,
   FormContextType,
+  GenericObjectType,
+  rangeSpec,
   RJSFSchema,
   StrictRJSFSchema,
   WidgetProps,
-  GenericObjectType,
 } from "@rjsf/utils";
 
 /** The `RangeWidget` component uses the `BaseInputTemplate` changing the type to `range` and wrapping the result

@@ -120,6 +120,7 @@ export const List: FC = () => {
       </Col>
       <Col span={24}>
         <AntdList
+          id="deployment-list"
           rowKey="id"
           locale={{
             emptyText: (
@@ -138,7 +139,10 @@ export const List: FC = () => {
           itemLayout="horizontal"
           dataSource={filteredDeployments}
           renderItem={(deployment) => (
-            <AntdList.Item style={{ padding: 0, display: "block" }}>
+            <AntdList.Item
+              className="deployment-item"
+              style={{ padding: 0, display: "block" }}
+            >
               <Card borderless>
                 <DeploymentItem deployment={deployment} />
               </Card>

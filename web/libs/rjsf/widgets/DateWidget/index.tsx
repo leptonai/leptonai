@@ -2,13 +2,13 @@ import dayjs from "dayjs";
 import {
   ariaDescribedByIds,
   FormContextType,
+  GenericObjectType,
   RJSFSchema,
   StrictRJSFSchema,
   WidgetProps,
-  GenericObjectType,
 } from "@rjsf/utils";
 
-import DatePicker from "antd/es/date-picker";
+import { DatePicker } from "antd";
 
 const DATE_PICKER_STYLE = {
   width: "100%",

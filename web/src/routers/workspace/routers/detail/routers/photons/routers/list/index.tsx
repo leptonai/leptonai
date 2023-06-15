@@ -84,7 +84,7 @@ export const List: FC = () => {
                 md={view === "card" ? 12 : 24}
                 key={`${group.name}`}
               >
-                <Card>
+                <Card className="photon-item">
                   <PhotonItem photon={group} versions={group.versions} />
                 </Card>
               </Col>

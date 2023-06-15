@@ -1,7 +1,7 @@
-import Button from "antd/es/button";
+import { Button } from "antd";
 import {
-  getSubmitButtonOptions,
   FormContextType,
+  getSubmitButtonOptions,
   RJSFSchema,
   StrictRJSFSchema,
   SubmitButtonProps,

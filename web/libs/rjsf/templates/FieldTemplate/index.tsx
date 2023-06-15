@@ -1,12 +1,12 @@
-import Form from "antd/es/form";
+import { Form } from "antd";
 import {
   FieldTemplateProps,
   FormContextType,
-  RJSFSchema,
-  StrictRJSFSchema,
+  GenericObjectType,
   getTemplate,
   getUiOptions,
-  GenericObjectType,
+  RJSFSchema,
+  StrictRJSFSchema,
 } from "@rjsf/utils";
 
 const VERTICAL_LABEL_COL = { span: 24 };

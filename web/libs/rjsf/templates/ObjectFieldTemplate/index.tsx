@@ -3,27 +3,25 @@ import isObject from "lodash/isObject";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import {
-  FormContextType,
-  GenericObjectType,
-  ObjectFieldTemplateProps,
-  ObjectFieldTemplatePropertyType,
-  RJSFSchema,
-  StrictRJSFSchema,
-  UiSchema,
   canExpand,
   descriptionId,
+  FormContextType,
+  GenericObjectType,
   getTemplate,
   getUiOptions,
+  ObjectFieldTemplatePropertyType,
+  ObjectFieldTemplateProps,
+  RJSFSchema,
+  StrictRJSFSchema,
   titleId,
+  UiSchema,
 } from "@rjsf/utils";
-import Col from "antd/es/col";
-import Row from "antd/es/row";
+import { Col, Row, theme } from "antd";
 import {
   ConfigConsumer,
   ConfigConsumerProps,
 } from "antd/es/config-provider/context";
 import styled from "@emotion/styled";
-import { theme } from "antd";
 import { useMemo } from "react";
 
 const DESCRIPTION_COL_STYLE = {

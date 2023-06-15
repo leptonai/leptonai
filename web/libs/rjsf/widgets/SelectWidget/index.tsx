@@ -1,4 +1,5 @@
-import Select, { DefaultOptionType } from "antd/es/select";
+import { Select } from "antd";
+import type { DefaultOptionType } from "antd/es/select";
 import {
   ariaDescribedByIds,
   enumOptionsIndexForValue,

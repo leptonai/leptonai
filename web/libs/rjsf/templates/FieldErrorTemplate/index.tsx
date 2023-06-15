@@ -1,9 +1,9 @@
 import {
+  errorId,
   FieldErrorProps,
   FormContextType,
   RJSFSchema,
   StrictRJSFSchema,
-  errorId,
 } from "@rjsf/utils";
 
 /** The `FieldErrorTemplate` component renders the errors local to the particular field
