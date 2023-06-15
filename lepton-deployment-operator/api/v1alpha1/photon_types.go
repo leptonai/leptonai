@@ -83,6 +83,7 @@ type PhotonStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=ph
 
 // Photon is the Schema for the photons API
 type Photon struct {

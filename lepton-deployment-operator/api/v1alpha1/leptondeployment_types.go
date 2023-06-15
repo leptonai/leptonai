@@ -139,6 +139,7 @@ type LeptonDeploymentEndpoint struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=ld
 
 // LeptonDeployment is the Schema for the leptondeployments API
 type LeptonDeployment struct {
