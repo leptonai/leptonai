@@ -33,7 +33,8 @@ def login(remote_name, remote_url, auth_token):
         if auth_token is None:
             auth_token = (
                 console.input(
-                    f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
+                    f'Please enter the authentication token for "{remote_name}" (ENTER'
+                    " if none): "
                 )
                 or ""
             )
@@ -70,7 +71,8 @@ def login(remote_name, remote_url, auth_token):
         if auth_token is None:
             auth_token = (
                 console.input(
-                    f'Please enter the authentication token for "{remote_name}" (ENTER if none): '
+                    f'Please enter the authentication token for "{remote_name}" (ENTER'
+                    " if none): "
                 )
                 or ""
             )
