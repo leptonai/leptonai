@@ -32,7 +32,8 @@ export TF_WORKSPACE=$CLUSTER_NAME
 
 echo "Creating cluster $CLUSTER_NAME..."
 must_create_workspace() {
-  local http_response=$(curl \
+  local http_response
+  http_response=$(curl \
     --silent \
     --output /dev/null \
     --write-out "%{http_code}" \
@@ -57,7 +58,7 @@ must_create_workspace() {
 
   if [ $exit_code -eq 0 ]; then
     # 201 = Created, 422 = Already exists
-    if [ $http_response -eq 201 ] || [ $http_response -eq 422 ]; then
+    if [ "$http_response" -eq 201 ] || [ "$http_response" -eq 422 ]; then
       echo "Workspace created successfully!"
     else
       echo "Failed to create workspace. HTTP response code: $http_response"
