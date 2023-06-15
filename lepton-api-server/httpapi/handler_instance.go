@@ -82,6 +82,8 @@ func (h *InstanceHandler) Shell(c *gin.Context) {
 	proxy.Transport = httpClient.Transport
 
 	r := c.Request
+	// delete our custom authorization header so that we don't forward it and override k8s auth
+	r.Header.Del("Authorization")
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme

@@ -23,7 +23,21 @@ func TestListInstance(t *testing.T) {
 }
 
 func TestInstanceShell(t *testing.T) {
-	// TODO: implement shell in go-client first
+	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
+		instances, err := lepton.Instance().List(mainTestDeploymentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		iid := instances[0].ID
+		_, err = lepton.Instance().Shell(mainTestDeploymentID, iid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestInstanceLog(t *testing.T) {
