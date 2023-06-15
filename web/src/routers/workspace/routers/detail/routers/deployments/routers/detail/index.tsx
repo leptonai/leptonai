@@ -1,3 +1,5 @@
+import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Empty } from "antd";
 import { FC } from "react";
 import {
   Navigate,
@@ -40,6 +42,11 @@ export const Detail: FC = () => {
       <Route path="*" element={<Navigate to={`${pathname}/demo`} replace />} />
     </Routes>
   ) : (
-    <></>
+    <Card>
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="Deployment Not Found"
+      />
+    </Card>
   );
 };

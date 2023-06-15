@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -67,6 +67,8 @@ const ApiItem: FC<{
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
+  const [loading, setLoading] = useState(true);
+
   const apis = useStateFromObservable(
     () =>
       photonService.id(deployment.photon_id).pipe(
@@ -90,11 +92,15 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
           return of([]);
         })
       ),
-    []
+    [],
+    {
+      next: () => setLoading(false),
+      error: () => setLoading(false),
+    }
   );
 
   return (
-    <Card shadowless borderless>
+    <Card loading={loading} shadowless borderless>
       {apis.length > 0 ? (
         <>
           {apis.map((api) => (

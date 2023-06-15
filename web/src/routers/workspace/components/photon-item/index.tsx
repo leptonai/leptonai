@@ -117,6 +117,6 @@ export const PhotonItem: FC<{
       {showDetail && <ExtraInfo versionView={versionView} photon={photon} />}
     </Row>
   ) : (
-    <Empty />
+    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No photon found" />
   );
 };

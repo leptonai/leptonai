@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Col, Row, Timeline, Typography } from "antd";
+import { Col, Empty, Row, Timeline, Typography } from "antd";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
@@ -53,36 +53,43 @@ export const Versions: FC = () => {
       </Col>
       <Col span={24}>
         <Card title="Version History">
-          <Timeline
-            css={css`
-              padding: 8px 0;
-            `}
-            items={photons.map((m) => {
-              return {
-                key: m.id,
-                color: theme.colorTextSecondary,
-                dot: <PhotonIcon />,
-                children: (
-                  <Col key={m.id} span={24}>
-                    <Typography.Paragraph
-                      style={{ paddingTop: "1px" }}
-                      type="secondary"
-                    >
-                      Created at {dayjs(m.created_at).format("lll")}
-                    </Typography.Paragraph>
-                    <Card shadowless>
-                      <PhotonItem
-                        versionView
-                        extraActions
-                        photon={m}
-                        showDetail
-                      />
-                    </Card>
-                  </Col>
-                ),
-              };
-            })}
-          />
+          {photons.length > 0 ? (
+            <Timeline
+              css={css`
+                padding: 8px 0;
+              `}
+              items={photons.map((m) => {
+                return {
+                  key: m.id,
+                  color: theme.colorTextSecondary,
+                  dot: <PhotonIcon />,
+                  children: (
+                    <Col key={m.id} span={24}>
+                      <Typography.Paragraph
+                        style={{ paddingTop: "1px" }}
+                        type="secondary"
+                      >
+                        Created at {dayjs(m.created_at).format("lll")}
+                      </Typography.Paragraph>
+                      <Card shadowless>
+                        <PhotonItem
+                          versionView
+                          extraActions
+                          photon={m}
+                          showDetail
+                        />
+                      </Card>
+                    </Col>
+                  ),
+                };
+              })}
+            />
+          ) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No versions found"
+            />
+          )}
         </Card>
       </Col>
     </Row>

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Col, Row } from "antd";
+import { Col, Empty, Row } from "antd";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
@@ -46,5 +46,12 @@ export const Detail: FC = () => {
         </Card>
       </Col>
     </Row>
-  ) : null;
+  ) : (
+    <Card>
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="No photon found"
+      />
+    </Card>
+  );
 };
