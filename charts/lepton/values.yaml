@@ -23,6 +23,7 @@ apiServer:
   certificateArn: ""
   apiToken: ""
   photonPrefix: "photons"
+  cellName: "default"
 
 deploymentOperator:
   name: lepton-deployment-operator

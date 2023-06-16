@@ -30,17 +30,15 @@ type LeptonDeploymentSpec struct {
 
 // LeptonDeploymentStatus defines the system-controlled spec.
 type LeptonDeploymentSystemSpec struct {
-	PhotonName         string `json:"photon_name"`
-	PhotonImage        string `json:"photon_image"`
-	BucketName         string `json:"bucket_name"`
-	PhotonPrefix       string `json:"photon_prefix"`
-	ServiceAccountName string `json:"service_account_name"`
-	// +optional
-	RootDomain string `json:"root_domain"`
-	// +optional
-	APITokens []string `json:"api_tokens"`
-	// +optional
-	CertificateARN string `json:"certificate_arn"`
+	PhotonName         string   `json:"photon_name"`
+	PhotonImage        string   `json:"photon_image"`
+	BucketName         string   `json:"bucket_name"`
+	PhotonPrefix       string   `json:"photon_prefix"`
+	ServiceAccountName string   `json:"service_account_name"`
+	RootDomain         string   `json:"root_domain,omitempty"`
+	CellName           string   `json:"cell_name,omitempty"`
+	CertificateARN     string   `json:"certificate_arn,omitempty"`
+	APITokens          []string `json:"api_tokens,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.

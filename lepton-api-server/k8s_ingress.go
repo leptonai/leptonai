@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
@@ -31,7 +32,8 @@ const (
 )
 
 func mustInitAPIServerIngress() {
-	annotation := ingress.NewAnnotation(rootDomain, certificateARN)
+	domain := domainname.New(*cellNameFlag, *rootDomainFlag)
+	annotation := ingress.NewAnnotation(domain.GetAPIServer(), certificateARN)
 	annotation.SetGroup(ingress.IngressGroupNameControlPlane(ingressNamespace), ingress.IngressGroupOrderAPIServer)
 	if len(apiToken) > 0 {
 		annotation.SetAPITokenConditions(service.ServiceName(deploymentNameAPIServer), []string{apiToken})

@@ -1,8 +1,7 @@
 package controller
 
 import (
-	"fmt"
-
+	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -24,13 +23,14 @@ func newIngress(ld *leptonaiv1alpha1.LeptonDeployment) *Ingress {
 
 func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {
 	ld := k.leptonDeployment
+	domain := domainname.New(ld.Spec.CellName, ld.Spec.RootDomain)
 
 	// Do not create host based ingress if rootDomain is not set.
 	if len(ld.Spec.RootDomain) == 0 {
 		return nil
 	}
 
-	annotation := ingress.NewAnnotation(fmt.Sprintf("%s.%s", ld.GetSpecName(), k.leptonDeployment.Spec.RootDomain), k.leptonDeployment.Spec.CertificateARN)
+	annotation := ingress.NewAnnotation(domain.GetDeployment(ld.GetSpecName()), k.leptonDeployment.Spec.CertificateARN)
 	annotation.SetGroup(ingress.IngressGroupNameDeployment(ld.Namespace), ingress.IngressGroupOrderDeployment)
 	annotation.SetAPITokenConditions(service.ServiceName(ld.GetSpecName()), k.leptonDeployment.Spec.APITokens)
 	annotation.SetDomainNameAndSSLCert()

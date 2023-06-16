@@ -23,6 +23,7 @@ var (
 	clusterNameFlag    *string
 	certificateARNFlag *string
 	rootDomainFlag     *string
+	cellNameFlag       *string
 	apiTokenFlag       *string
 
 	bucketTypeFlag, bucketNameFlag, bucketRegionFlag *string
@@ -44,6 +45,7 @@ func main() {
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
+	cellNameFlag = flag.String("cell-name", "", "cell name")
 	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
 
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
@@ -97,6 +99,7 @@ func main() {
 		*photonPrefixFlag,
 		*serviceAccountNameFlag,
 		*rootDomainFlag,
+		*cellNameFlag,
 		*certificateARNFlag,
 		*apiTokenFlag,
 		photonBucket,

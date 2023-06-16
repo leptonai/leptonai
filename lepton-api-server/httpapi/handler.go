@@ -15,6 +15,7 @@ type Handler struct {
 	photonPrefix       string
 	serviceAccountName string
 	rootDomain         string
+	cellName           string
 	certARN            string
 	apiToken           string
 	photonBucket       *blob.Bucket
@@ -25,7 +26,7 @@ type Handler struct {
 }
 
 func New(namespace, prometheusURL, bucketName, protonPrefix, serviceAccountName,
-	rootDomain, certARN, apiToken string, photonBucket *blob.Bucket) *Handler {
+	rootDomain, cellName, certARN, apiToken string, photonBucket *blob.Bucket) *Handler {
 	k8s.Client.Scheme()
 	h := &Handler{
 		namespace:          namespace,
@@ -34,6 +35,7 @@ func New(namespace, prometheusURL, bucketName, protonPrefix, serviceAccountName,
 		photonPrefix:       protonPrefix,
 		serviceAccountName: serviceAccountName,
 		rootDomain:         rootDomain,
+		cellName:           cellName,
 		certARN:            certARN,
 		apiToken:           apiToken,
 		photonBucket:       photonBucket,

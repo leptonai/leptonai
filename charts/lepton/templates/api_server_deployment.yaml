@@ -45,5 +45,7 @@ spec:
             - "{{ .Values.apiServer.apiToken }}"
             - "--photon-prefix"
             - "{{ .Values.apiServer.photonPrefix }}"
+            - "--cell-name"
+            - "{{ .Values.apiServer.cellName }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}

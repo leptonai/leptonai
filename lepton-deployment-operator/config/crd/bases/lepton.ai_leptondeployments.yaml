@@ -43,6 +43,8 @@ spec:
                 type: array
               bucket_name:
                 type: string
+              cell_name:
+                type: string
               certificate_arn:
                 type: string
               envs:
