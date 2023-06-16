@@ -3,7 +3,7 @@ resource "helm_release" "lepton_crd" {
 
   # here, we assume the running script or mothership(controller)
   # copies the whole directory in the same directory tree
-  chart = "lepton"
+  chart = "charts/lepton"
 
   namespace = "default"
 
