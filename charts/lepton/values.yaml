@@ -1,6 +1,7 @@
 clusterName: "testing"
 
 apiServer:
+  enabled: true
   name: lepton-api-server
   replicaCount: 1
   path: /api/
@@ -26,6 +27,7 @@ apiServer:
   cellName: "default"
 
 deploymentOperator:
+  enabled: true
   name: lepton-deployment-operator
   replicaCount: 1
   image:

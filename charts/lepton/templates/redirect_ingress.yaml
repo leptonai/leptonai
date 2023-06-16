@@ -1,3 +1,4 @@
+{{ if .Values.apiServer.enabled }}
 {{ if ne .Values.apiServer.rootDomain "" }}
 {{ if ne .Values.apiServer.certificateArn "" }}
 apiVersion: networking.k8s.io/v1
@@ -25,5 +26,6 @@ spec:
               name: use-annotation
         path: /
         pathType: Prefix
+{{ end }}
 {{ end }}
 {{ end }}

@@ -78,14 +78,8 @@ terraform init --upgrade
 # Apply modules in sequence
 for target in "${targets[@]}"
 do
-  if [[ -z $API_TOKEN ]]; then
-    echo "Applying module $target, no API token specified"
-  else
-    echo "Applying module $target, API token = $API_TOKEN"
-  fi
-
-  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="api_token=$API_TOKEN"
-  apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="api_token=$API_TOKEN" 2>&1)
+  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME"
+  apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" 2>&1)
   if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
     echo "SUCCESS: Terraform apply of $target completed successfully"
   else
@@ -107,8 +101,8 @@ fi
 
 # Final apply to catch any remaining resources
 echo "Applying remaining resources..."
-terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="api_token=$API_TOKEN"
-apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="api_token=$API_TOKEN" 2>&1)
+terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME"
+apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
   echo "SUCCESS: Terraform apply of all modules completed successfully"
 else

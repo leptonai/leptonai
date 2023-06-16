@@ -1,3 +1,4 @@
+{{ if .Values.apiServer.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,3 +50,4 @@ spec:
             - "{{ .Values.apiServer.cellName }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
+{{ end }}

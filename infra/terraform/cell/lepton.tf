@@ -1,17 +1,17 @@
 resource "aws_iam_role" "api-server-role" {
-  name = "api-server-role-${local.cluster_name}"
+  name = "api-server-role-${var.cell_name}"
   assume_role_policy = jsonencode({
     Version : "2012-10-17",
     Statement : [
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:aws:iam::${var.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
           StringEquals : {
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
+            "oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}:aud" : "sts.amazonaws.com",
           }
         }
       }
@@ -20,7 +20,7 @@ resource "aws_iam_role" "api-server-role" {
 }
 
 resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.s3-policy.name}"
+  policy_arn = "arn:aws:iam::${var.account_id}:policy/${aws_iam_policy.s3-policy.name}"
   role       = aws_iam_role.api-server-role.name
 
   depends_on = [
@@ -37,21 +37,11 @@ resource "helm_release" "lepton" {
   # copies the whole directory in the same directory tree
   chart = "lepton"
 
-  namespace = var.lepton_namespace
+  namespace = var.namespace
 
   set {
     name  = "clusterName"
     value = var.cluster_name
-  }
-
-  set {
-    name  = "apiServer.name"
-    value = var.lepton_api_server_name
-  }
-
-  set {
-    name  = "web.name"
-    value = var.lepton_web_name
   }
 
   set {
@@ -60,8 +50,13 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name  = "crd.install"
+    value = false
+  }
+
+  set {
     name  = "apiServer.serviceAccountRoleArn"
-    value = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.api-server-role.name}"
+    value = "arn:aws:iam::${var.account_id}:role/${aws_iam_role.api-server-role.name}"
   }
 
   set {
@@ -71,12 +66,12 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "apiServer.certificateArn"
-    value = aws_acm_certificate.cert.arn
+    value = "arn:aws:acm:${var.region}:${var.account_id}:certificate/${var.tls_cert_arn_id}"
   }
 
   set {
     name  = "apiServer.rootDomain"
-    value = aws_acm_certificate.cert.domain_name
+    value = var.root_domain
   }
 
   set {
@@ -84,10 +79,23 @@ resource "helm_release" "lepton" {
     value = var.api_token
   }
 
+  set {
+    name  = "apiServer.image.tag"
+    value = var.image_tag_api_server
+  }
+
+  set {
+    name  = "deploymentOperator.image.tag"
+    value = var.image_tag_deployment_operator
+  }
+
+  set {
+    name  = "web.image.tag"
+    value = var.image_tag_web
+  }
+
   depends_on = [
-    module.eks,
-    module.vpc,
-    helm_release.aws_load_balancer_controller,
-    aws_iam_role_policy_attachment.api-server-role-policy-attachment
+    aws_iam_role_policy_attachment.api-server-role-s3-policy-attachment,
+    kubernetes_namespace.lepton
   ]
 }
