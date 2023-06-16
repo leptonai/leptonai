@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
+	"github.com/leptonai/lepton/go-pkg/kv"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/version"
 	"gocloud.dev/blob"
@@ -31,6 +32,7 @@ var (
 	namespaceFlag                                    *string
 	serviceAccountNameFlag                           *string
 	prometheusURLFlag                                *string
+	enableTunaFlag                                   *bool
 )
 
 const (
@@ -57,6 +59,7 @@ func main() {
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
 
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
+	enableTunaFlag = flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -164,15 +167,24 @@ func main() {
 
 	u, err := url.Parse(tunaURL)
 	if err != nil {
-		log.Fatalln("Cannot parse tuna service URL:", err)
+		log.Fatal("Cannot parse tuna service URL:", err)
 	}
 
-	jh := httpapi.NewJobHandler(u)
-	v1.POST("/tuna/job/add", jh.AddJob)
-	v1.GET("/tuna/job/get/:id", jh.GetJobByID)
-	v1.GET("/tuna/job/list", jh.ListJobs)
-	v1.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
-	v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
+	if *enableTunaFlag {
+		// TODO: create this table in mothership
+		// TODO: clean up this table in mothership
+		kv, err := kv.NewKVDynamoDB(*clusterNameFlag + "-tuna")
+		if err != nil {
+			log.Fatal("Cannot create DynamoDB KV:", err)
+		}
+
+		jh := httpapi.NewJobHandler(u, kv)
+		v1.POST("/tuna/job/add", jh.AddJob)
+		v1.GET("/tuna/job/get/:id", jh.GetJobByID)
+		v1.GET("/tuna/job/list", jh.ListJobs)
+		v1.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
+		v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
+	}
 
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }

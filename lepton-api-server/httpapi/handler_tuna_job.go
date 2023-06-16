@@ -9,6 +9,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
+	"sync"
+
+	"github.com/leptonai/lepton/go-pkg/kv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,14 +27,14 @@ type Job struct {
 type JobHandler struct {
 	proxy *httputil.ReverseProxy
 	// TODO: persist me in DB
-	isMyJob map[int]bool
+	kv *kv.KVDynamoDB
 }
 
-func NewJobHandler(url *url.URL) *JobHandler {
+func NewJobHandler(url *url.URL, kv *kv.KVDynamoDB) *JobHandler {
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	return &JobHandler{
-		proxy:   proxy,
-		isMyJob: make(map[int]bool),
+		proxy: proxy,
+		kv:    kv,
 	}
 }
 
@@ -48,8 +51,8 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 		}
 	}
 
-	c.Writer.WriteHeader(response.StatusCode)
 	if response.StatusCode >= 300 {
+		c.Writer.WriteHeader(response.StatusCode)
 		io.Copy(c.Writer, response.Body)
 		return
 	}
@@ -59,8 +62,15 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 	if err != nil {
 		panic(err)
 	}
-	jh.isMyJob[j.ID] = true
 
+	err = jh.kv.Put(strconv.Itoa(j.ID), "true")
+	if err != nil {
+		log.Println("failed to add job id in DB:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	c.Writer.WriteHeader(response.StatusCode)
 	err = json.NewEncoder(c.Writer).Encode(j)
 	if err != nil {
 		log.Println(err)
@@ -73,8 +83,11 @@ func (jh *JobHandler) GetJobByID(c *gin.Context) {
 
 func (jh *JobHandler) CancelJob(c *gin.Context) {
 	id := jh.checkIDAndForward(c)
-	// todo: check return code. only delete if 200
-	delete(jh.isMyJob, id)
+
+	err := jh.kv.Delete(id)
+	if err != nil {
+		log.Println("failed to delete job id in DB:", err)
+	}
 }
 
 func (jh *JobHandler) ListJobs(c *gin.Context) {
@@ -85,14 +98,16 @@ func (jh *JobHandler) ListJobsByStatus(c *gin.Context) {
 	jh.filterByMyJob(c)
 }
 
-func (jh *JobHandler) checkIDAndForward(c *gin.Context) int {
-	jobID, err := strconv.Atoi(c.Param("id"))
+func (jh *JobHandler) checkIDAndForward(c *gin.Context) string {
+	jobID := (c.Param("id"))
+	_, err := jh.kv.Get(jobID)
 	if err != nil {
-		c.Status(http.StatusBadRequest)
-	}
-
-	if !jh.isMyJob[jobID] {
-		c.Status(http.StatusNotFound)
+		log.Println("failed to get job id in DB:", err)
+		if err == kv.ErrNotExist {
+			c.Status(http.StatusNotFound)
+		} else {
+			c.Status(http.StatusInternalServerError)
+		}
 		return jobID
 	}
 
@@ -128,12 +143,28 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 		panic(err)
 	}
 
-	var myJobs []Job
+	var (
+		myJobs []Job
+		mu     sync.Mutex
+		wg     sync.WaitGroup
+	)
 	for _, j := range js {
-		if jh.isMyJob[j.ID] {
-			myJobs = append(myJobs, j)
-		}
+		// todo: use batch get
+		wg.Add(1)
+		go func(j Job) {
+			_, err := jh.kv.Get(strconv.Itoa(j.ID))
+			if err == nil {
+				mu.Lock()
+				myJobs = append(myJobs, j)
+				mu.Unlock()
+			}
+			if err != nil && err != kv.ErrNotExist {
+				log.Println("failed to get job id in DB:", err)
+			}
+			wg.Done()
+		}(j)
 	}
+	wg.Wait()
 
 	err = json.NewEncoder(c.Writer).Encode(myJobs)
 	if err != nil {
