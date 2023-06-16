@@ -42,12 +42,20 @@ jobs:
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
-
       run: |
         echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
         docker build . --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Push Docker image to latest
+      if: github.event_name == 'push'
+      env:
+        ECR_REPOSITORY: lepton-api-server
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   build-lepton-deployment-operator:
     runs-on: self-hosted
@@ -80,6 +88,15 @@ jobs:
         docker build . --file lepton-deployment-operator/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Push Docker image to latest
+      if: github.event_name == 'push'
+      env:
+        ECR_REPOSITORY: lepton-deployment-operator
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   build-lepton-web:
     runs-on: ubuntu-latest
@@ -112,6 +129,15 @@ jobs:
         docker build web --file web/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Push Docker image to latest
+      if: github.event_name == 'push'
+      env:
+        ECR_REPOSITORY: lepton-web
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+      run: |
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   e2e-tests:
     runs-on: self-hosted
