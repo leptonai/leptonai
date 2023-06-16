@@ -48,6 +48,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		PhotonPrefix:       h.photonPrefix,
 		ServiceAccountName: h.serviceAccountName,
 		RootDomain:         h.rootDomain,
+		CellName:           h.cellName,
 		CertificateARN:     h.certARN,
 	}
 	if len(h.apiToken) > 0 {

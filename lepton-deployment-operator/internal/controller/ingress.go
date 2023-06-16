@@ -4,7 +4,6 @@ import (
 	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -35,7 +34,7 @@ func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *n
 	annotation.SetAPITokenConditions(service.ServiceName(ld.GetSpecName()), k.leptonDeployment.Spec.APITokens)
 	annotation.SetDomainNameAndSSLCert()
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetSpecName()), service.Port, service.RootPath)
-	return ingress.NewIngress(ingress.IngressNameForHostBased(ld.GetSpecName()), k.leptonDeployment.Namespace, util.DomainName(k.leptonDeployment, k.leptonDeployment.Spec.RootDomain), annotation.Get(), paths.Get(), or)
+	return ingress.NewIngress(ingress.IngressNameForHostBased(ld.GetSpecName()), k.leptonDeployment.Namespace, domain.GetDeployment(ld.GetSpecName()), annotation.Get(), paths.Get(), or)
 }
 
 func (k *Ingress) createHeaderBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {

@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -176,7 +177,7 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateNotReady
 	}
 	ld.Status.Endpoint.InternalEndpoint = "http://" + deployment.Name + "." + deployment.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
-	ld.Status.Endpoint.ExternalEndpoint = "https://" + deployment.Name + "." + ld.Spec.RootDomain
+	ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.CellName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
 	if err := r.Status().Update(ctx, ld); err != nil {
 		return err
 	}

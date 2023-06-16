@@ -3,7 +3,6 @@ package util
 import (
 	"crypto/md5"
 	"encoding/base32"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -30,10 +29,6 @@ var (
 // ValidateName returns true if the given name is valid.
 func ValidateName(name string) bool {
 	return nameRegex.MatchString(name) && len(name) <= 32
-}
-
-func DomainName(ld *leptonaiv1alpha1.LeptonDeployment, rootDomain string) string {
-	return fmt.Sprintf("%s.%s", ld.GetSpecName(), rootDomain)
 }
 
 func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
