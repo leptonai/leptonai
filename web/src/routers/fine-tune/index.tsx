@@ -35,7 +35,7 @@ export const FineTune: FC = () => {
           <Routes>
             <Route path="jobs" element={<Jobs />} />
             <Route path="create" element={<Create />} />
-            <Route path="*" element={<Navigate to="./jobs" replace />} />
+            <Route path="*" element={<Navigate to="/create" replace />} />
           </Routes>
         </Suspense>
       </Layout>

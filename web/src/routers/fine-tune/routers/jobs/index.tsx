@@ -197,7 +197,7 @@ export const Jobs: FC = () => {
       dataIndex: "modified_at",
     },
     {
-      title: "output_dir",
+      title: "Output Dir",
       ellipsis: true,
       dataIndex: "output_dir",
       render: (text) => (

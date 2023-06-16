@@ -54,7 +54,7 @@ export const Create: FC = () => {
       </Col>
       <Col span={24}>
         <ThemeProvider token={{ fontSize: 12, padding: 4 }}>
-          <Card title="JSON format">
+          <Card title="Data JSON format">
             <Typography.Paragraph>
               <Typography.Text strong>messages</Typography.Text>{" "}
               <Typography.Text type="secondary">array</Typography.Text>
@@ -71,12 +71,11 @@ export const Create: FC = () => {
                 The role of the messages author. One of{" "}
                 <Typography.Text code>system</Typography.Text>,{" "}
                 <Typography.Text code>user</Typography.Text>,{" "}
-                <Typography.Text code>assistant</Typography.Text>, or{" "}
-                <Typography.Text code>function</Typography.Text>.
+                <Typography.Text code>assistant</Typography.Text>.
               </Typography.Text>
               <Divider
                 css={css`
-                  margin: 12px 0;
+                  margin: 16px 0;
                 `}
               />
               <Typography.Paragraph>
@@ -86,7 +85,7 @@ export const Create: FC = () => {
               <Typography.Text>
                 The contents of the message.{" "}
                 <Typography.Text code>content</Typography.Text> is required for
-                all messages except assistant messages with function calls.
+                all messages.
               </Typography.Text>
             </Card>
           </Card>
