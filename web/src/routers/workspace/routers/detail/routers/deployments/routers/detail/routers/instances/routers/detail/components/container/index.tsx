@@ -5,7 +5,7 @@ import { BreadcrumbHeader } from "@lepton-dashboard/routers/workspace/components
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
-import { TabsNav } from "@lepton-dashboard/routers/workspace/components/tabs-nav";
+import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
   ChartLine,
   DataViewAlt,

@@ -1,3 +1,4 @@
+import { AxiosProgressEvent } from "axios";
 import { Injectable } from "injection-js";
 import { map, Observable, of } from "rxjs";
 import {
@@ -28,10 +29,15 @@ export class FineTuneService {
       );
   }
 
-  creatJob(file: File): Observable<void> {
+  creatJob(
+    file: File,
+    onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+  ): Observable<FineTuneJob> {
     const formData = new FormData();
     formData.append("data", file);
-    return this.httpClientService.post(`${this.backendUrl}/job/add`, formData);
+    return this.httpClientService.post(`${this.backendUrl}/job/add`, formData, {
+      onUploadProgress,
+    });
   }
 
   cancelJob(id: number): Observable<void> {

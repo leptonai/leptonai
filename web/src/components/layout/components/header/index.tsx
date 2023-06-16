@@ -1,3 +1,4 @@
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { FC, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
@@ -29,11 +30,16 @@ export interface HeaderProps {
   actions?: ReactNode;
 }
 
-export const Header: FC<HeaderProps> = ({ menu, actions }) => {
+export const Header: FC<HeaderProps & EmotionProps> = ({
+  menu,
+  actions,
+  className,
+}) => {
   const theme = useAntdTheme();
 
   return (
     <Container
+      className={className}
       css={css`
         background: ${theme.colorBgContainer};
       `}

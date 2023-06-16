@@ -6,7 +6,7 @@ import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { DeploymentItem } from "@lepton-dashboard/routers/workspace/components/deployment-item";
-import { TabsNav } from "@lepton-dashboard/routers/workspace/components/tabs-nav";
+import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";

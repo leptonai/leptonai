@@ -1,3 +1,4 @@
+import { NavContainer } from "@lepton-dashboard/components/nav-containter";
 import { FC, PropsWithChildren, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -46,7 +47,7 @@ export const Layout: FC<LayoutProps & PropsWithChildren> = ({
     >
       <FullHeight>
         {header}
-        {nav}
+        {nav && <NavContainer>{nav}</NavContainer>}
         <Main
           css={css`
             background: ${theme.colorBgLayout};

@@ -2,7 +2,6 @@ import { Badge, TabsProps } from "antd";
 import styled from "@emotion/styled";
 import { FC } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { css } from "@emotion/react";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
@@ -14,16 +13,8 @@ import {
 } from "@lepton-dashboard/components/icons";
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
 import { Workspace } from "@carbon/icons-react";
-import { TabsNav } from "@lepton-dashboard/routers/workspace/components/tabs-nav";
+import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
-
-const Container = styled.div`
-  position: sticky;
-  padding: 0 24px;
-  z-index: 2;
-  flex: 0 0 46px;
-  top: 0;
-`;
 
 const StyledBadge = styled(Badge)`
   margin-left: 12px;
@@ -81,7 +72,6 @@ const DeploymentLabel: FC = () => {
 };
 
 export const Nav: FC = () => {
-  const theme = useAntdTheme();
   const { pathname } = useResolvedPath("");
   const menuItems: TabsProps["items"] = [
     {
@@ -119,15 +109,5 @@ export const Nav: FC = () => {
       notificationService.updatePhotonNotify();
     }
   };
-  return (
-    <Container
-      css={css`
-        background: ${theme.colorBgContainer};
-        border-bottom: 1px solid ${theme.colorBorder};
-        box-shadow: ${theme.boxShadowTertiary};
-      `}
-    >
-      <TabsNav menuItems={menuItems} keyActive={keyActive} />
-    </Container>
-  );
+  return <TabsNav menuItems={menuItems} keyActive={keyActive} />;
 };

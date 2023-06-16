@@ -1,22 +1,25 @@
+import { css } from "@emotion/react";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { ColumnsType } from "antd/es/table";
 import { FC, useMemo, useState } from "react";
 import {
   Col,
-  Empty,
   Row,
   Radio,
-  List,
   Tag,
-  Space,
-  Divider,
   Button,
-  Card,
   Popconfirm,
+  Table,
+  Typography,
 } from "antd";
 import { FineTuneService } from "@lepton-dashboard/routers/fine-tune/services/fine-tune.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { FineTuneJobStatus } from "@lepton-dashboard/interfaces/fine-tune";
-import { Upload } from "@lepton-dashboard/routers/fine-tune/routers/jobs/components/upload";
+import {
+  FineTuneJob,
+  FineTuneJobStatus,
+} from "@lepton-dashboard/interfaces/fine-tune";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -24,9 +27,9 @@ import {
   MinusCircleOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { DateParser } from "@lepton-dashboard/components/date-parser";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { switchMap } from "rxjs";
+import { CopyFile, StopFilled } from "@carbon/icons-react";
 
 const AllStatus = "#all";
 
@@ -38,23 +41,23 @@ const FilterConfig = {
     },
     {
       value: FineTuneJobStatus.RUNNING,
-      label: "Running",
-    },
-    {
-      value: FineTuneJobStatus.Pending,
-      label: "Pending",
-    },
-    {
-      value: FineTuneJobStatus.CANCELLED,
-      label: "Cancelled",
+      label: "RUNNING",
     },
     {
       value: FineTuneJobStatus.SUCCESS,
-      label: "Success",
+      label: "SUCCESS",
+    },
+    {
+      value: FineTuneJobStatus.PENDING,
+      label: "PENDING",
+    },
+    {
+      value: FineTuneJobStatus.CANCELLED,
+      label: "CANCELLED",
     },
     {
       value: FineTuneJobStatus.FAILED,
-      label: "Failed",
+      label: "FAILED",
     },
   ],
 };
@@ -63,32 +66,67 @@ const StatusTag: FC<{ status: FineTuneJobStatus }> = ({ status }) => {
   switch (status) {
     case FineTuneJobStatus.RUNNING:
       return (
-        <Tag icon={<SyncOutlined spin />} color="processing">
-          running
+        <Tag
+          css={css`
+            border-color: transparent !important;
+          `}
+          icon={<SyncOutlined spin />}
+          color="processing"
+          bordered={false}
+        >
+          RUNNING
         </Tag>
       );
-    case FineTuneJobStatus.Pending:
+    case FineTuneJobStatus.PENDING:
       return (
-        <Tag icon={<ClockCircleOutlined />} color="default">
-          pending
+        <Tag
+          css={css`
+            border-color: transparent !important;
+          `}
+          icon={<ClockCircleOutlined />}
+          color="default"
+          bordered={false}
+        >
+          PENDING
         </Tag>
       );
     case FineTuneJobStatus.CANCELLED:
       return (
-        <Tag icon={<MinusCircleOutlined />} color="default">
-          cancelled
+        <Tag
+          css={css`
+            border-color: transparent !important;
+          `}
+          icon={<MinusCircleOutlined />}
+          color="default"
+          bordered={false}
+        >
+          CANCELLED
         </Tag>
       );
     case FineTuneJobStatus.SUCCESS:
       return (
-        <Tag icon={<CheckCircleOutlined />} color="success">
-          success
+        <Tag
+          css={css`
+            border-color: transparent !important;
+          `}
+          icon={<CheckCircleOutlined />}
+          color="success"
+          bordered={false}
+        >
+          SUCCESS
         </Tag>
       );
     case FineTuneJobStatus.FAILED:
       return (
-        <Tag icon={<CloseCircleOutlined />} color="error">
-          failed
+        <Tag
+          css={css`
+            border-color: transparent !important;
+          `}
+          icon={<CloseCircleOutlined />}
+          color="error"
+          bordered={false}
+        >
+          FAILED
         </Tag>
       );
     default:
@@ -141,74 +179,112 @@ export const Jobs: FC = () => {
     );
   }, [fineTunes]);
 
+  const columns: ColumnsType<FineTuneJob> = [
+    {
+      title: "Status",
+      width: "120px",
+      dataIndex: "status",
+      render: (status) => <StatusTag status={status} />,
+    },
+    {
+      title: "Created At",
+      ellipsis: true,
+      dataIndex: "created_at",
+    },
+    {
+      title: "Modified At",
+      ellipsis: true,
+      dataIndex: "modified_at",
+    },
+    {
+      title: "output_dir",
+      ellipsis: true,
+      dataIndex: "output_dir",
+      render: (text) => (
+        <Typography.Text
+          copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+        >
+          {text}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: (
+        <div
+          css={css`
+            margin-left: 8px;
+          `}
+        >
+          Action
+        </div>
+      ),
+      dataIndex: "status",
+      width: "100px",
+      render: (status, data) => {
+        const disabled = ![
+          FineTuneJobStatus.RUNNING,
+          FineTuneJobStatus.PENDING,
+        ].includes(status);
+        return (
+          <Popconfirm
+            disabled={disabled}
+            title="Cancel this job"
+            description="Are you sure to cancel this job?"
+            onConfirm={() => cancelJob(data.id)}
+          >
+            <Button
+              disabled={disabled}
+              size="small"
+              key="cancel"
+              type="text"
+              icon={<CarbonIcon icon={<StopFilled />} />}
+            >
+              Cancel
+            </Button>
+          </Popconfirm>
+        );
+      },
+    },
+  ];
+
   return (
     <Row gutter={[8, 24]}>
       <Col flex={1}>
-        <Row gutter={[8, 24]}>
-          <Col flex="auto">
-            <Radio.Group
-              buttonStyle="solid"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
+        <Radio.Group
+          buttonStyle="solid"
+          css={css`
+            display: flex;
+            width: 100%;
+          `}
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          {FilterConfig.status.map((e) => (
+            <Radio.Button
+              css={css`
+                flex: 1;
+                text-align: center;
+                text-overflow: ellipsis;
+                overflow: hidden;
+              `}
+              key={e.value}
+              value={e.value}
             >
-              {FilterConfig.status.map((e) => (
-                <Radio.Button key={e.value} value={e.value}>
-                  {e.value === AllStatus ? <strong>{e.label}</strong> : e.label}
-                  &nbsp;({statusCount[e.value as FineTuneJobStatus] || 0})
-                </Radio.Button>
-              ))}
-            </Radio.Group>
-          </Col>
-          <Col flex="0">
-            <Upload />
-          </Col>
-        </Row>
+              {e.label}&nbsp;(
+              {statusCount[e.value as FineTuneJobStatus] || 0})
+            </Radio.Button>
+          ))}
+        </Radio.Group>
       </Col>
       <Col span={24}>
-        <Card size="small">
-          {filteredFineTunes.length > 0 || loading ? (
-            <List
-              loading={loading}
-              size="small"
-              itemLayout="horizontal"
-              dataSource={filteredFineTunes}
-              renderItem={(item) => (
-                <List.Item
-                  actions={[
-                    [
-                      FineTuneJobStatus.RUNNING,
-                      FineTuneJobStatus.Pending,
-                    ].includes(item.status) ? (
-                      <Popconfirm
-                        title="Cancel this job"
-                        description="Are you sure to cancel this job?"
-                        onConfirm={() => cancelJob(item.id)}
-                      >
-                        <Button key="cancel" type="link" danger>
-                          Cancel
-                        </Button>
-                      </Popconfirm>
-                    ) : null,
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={item.id}
-                    description={
-                      <Space size={0} split={<Divider type="vertical" />}>
-                        <StatusTag status={item.status} />
-                        <DateParser
-                          prefix="Created at"
-                          date={item.created_at}
-                        />
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          )}
+        <Card>
+          <Table
+            loading={loading}
+            size="small"
+            dataSource={filteredFineTunes}
+            rowKey="id"
+            columns={columns}
+          />
         </Card>
       </Col>
     </Row>
