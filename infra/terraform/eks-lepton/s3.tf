@@ -31,44 +31,10 @@ resource "aws_iam_policy" "s3-policy" {
       }
     ]
   })
-  description = "ALB IAM policy"
+  description = "S3 IAM policy"
 
   depends_on = [
     aws_s3_bucket.s3-bucket
   ]
 }
 
-resource "aws_iam_role" "s3-role" {
-  name = "s3-role-${local.cluster_name}"
-  assume_role_policy = jsonencode({
-    Version : "2012-10-17",
-    Statement : [
-      {
-        Effect : "Allow",
-        Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
-        },
-        Action : "sts:AssumeRoleWithWebIdentity",
-        Condition : {
-          StringEquals : {
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
-          }
-        }
-      }
-    ]
-  })
-
-  depends_on = [
-    aws_s3_bucket.s3-bucket
-  ]
-}
-
-resource "aws_iam_role_policy_attachment" "s3-role-policy-attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.s3-policy.name}"
-  role       = aws_iam_role.s3-role.name
-
-  depends_on = [
-    aws_iam_policy.s3-policy,
-    aws_iam_role.s3-role
-  ]
-}

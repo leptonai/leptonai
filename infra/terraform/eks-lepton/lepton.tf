@@ -1,3 +1,35 @@
+resource "aws_iam_role" "api-server-role" {
+  name = "api-server-role-${local.cluster_name}"
+  assume_role_policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Principal : {
+          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+        },
+        Action : "sts:AssumeRoleWithWebIdentity",
+        Condition : {
+          StringEquals : {
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.s3-policy.name}"
+  role       = aws_iam_role.api-server-role.name
+
+  depends_on = [
+    aws_iam_policy.s3-policy,
+    aws_iam_role.api-server-role
+  ]
+}
+
+
 resource "helm_release" "lepton" {
   name = "lepton"
 
@@ -29,7 +61,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "apiServer.serviceAccountRoleArn"
-    value = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.s3-role.name}"
+    value = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.api-server-role.name}"
   }
 
   set {
@@ -56,6 +88,6 @@ resource "helm_release" "lepton" {
     module.eks,
     module.vpc,
     helm_release.aws_load_balancer_controller,
-    aws_iam_role_policy_attachment.s3-role-policy-attachment
+    aws_iam_role_policy_attachment.api-server-role-policy-attachment
   ]
 }
