@@ -31,7 +31,7 @@ func TestInstanceShell(t *testing.T) {
 		iid := instances[0].ID
 		_, err = lepton.Instance().Shell(mainTestDeploymentID, iid)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		return nil
 	})
