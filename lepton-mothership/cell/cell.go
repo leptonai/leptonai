@@ -98,7 +98,7 @@ func Create(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 		return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
 	}
 	cl.Status.Cells = append(cl.Status.Cells, cellName)
-	if err := cluster.DataStore.Update(cl.Name, cl); err != nil {
+	if err := cluster.DataStore.UpdateStatus(cl.Name, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 
@@ -149,6 +149,9 @@ func Delete(cellName string, deleteWorkspace bool) error {
 	}
 
 	ce.Status.State = crdv1alpha1.CellStateDeleting
+	if err := DataStore.UpdateStatus(cellName, ce); err != nil {
+		return fmt.Errorf("failed to update cell status: %w", err)
+	}
 
 	defer func() {
 		if err != nil {
@@ -251,7 +254,7 @@ func createOrUpdateCell(ce *crdv1alpha1.LeptonCell) error {
 			ce.Status.State = crdv1alpha1.CellStateReady
 		}
 		ce.Status.UpdatedAt = uint64(time.Now().Unix())
-		derr := DataStore.Update(cellName, ce)
+		derr := DataStore.UpdateStatus(cellName, ce)
 		if err == nil && derr != nil {
 			log.Println("failed to update cell state in the data store:", err)
 			err = derr

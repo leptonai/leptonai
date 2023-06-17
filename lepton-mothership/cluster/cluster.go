@@ -119,6 +119,9 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	}
 
 	cl.Status.State = crdv1alpha1.ClusterStateDeleting
+	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+		return fmt.Errorf("failed to update cluster status: %w", err)
+	}
 
 	defer func() {
 		if err != nil {
