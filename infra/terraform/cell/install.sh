@@ -31,8 +31,16 @@ if [[ -z $API_TOKEN ]]; then
 fi
 
 if [[ -z $CREATE_EFS ]]; then
-  $CREATE_EFS=false
+  CREATE_EFS="false"
 fi
+
+if [[ $CREATE_EFS == "true" ]]; then
+  if [[ -z $EFS_MOUNT_TARGETS ]]; then
+    echo "ERROR: must set EFS_MOUNT_TARGETS when CREATE_EFS is true"
+    exit 1
+  fi
+fi
+
 
 # shellcheck source=/dev/null
 source ../lib.sh
