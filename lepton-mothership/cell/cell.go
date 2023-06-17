@@ -71,10 +71,6 @@ func Create(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 	cellName := spec.Name
 	ce := &crdv1alpha1.LeptonCell{
 		Spec: spec,
-		Status: crdv1alpha1.LeptonCellStatus{
-			State:     crdv1alpha1.CellStateCreating,
-			UpdatedAt: uint64(time.Now().Unix()),
-		},
 	}
 	if ce.Spec.ImageTag == "" {
 		ce.Spec.ImageTag = "latest"
@@ -105,6 +101,10 @@ func Create(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 	if err := DataStore.Create(cellName, ce); err != nil {
 		return nil, fmt.Errorf("failed to create cell: %w", err)
 	}
+	ce.Status = crdv1alpha1.LeptonCellStatus{
+		State:     crdv1alpha1.CellStateCreating,
+		UpdatedAt: uint64(time.Now().Unix()),
+	}
 	if err := DataStore.UpdateStatus(cellName, ce); err != nil {
 		return nil, fmt.Errorf("failed to update cell status: %w", err)
 	}
@@ -125,11 +125,11 @@ func Update(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 	if ce.Spec.ImageTag == "" {
 		ce.Spec.ImageTag = "latest"
 	}
-	ce.Status.State = crdv1alpha1.CellStateUpdating
-	ce.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.Update(cellName, ce); err != nil {
 		return nil, fmt.Errorf("failed to update cell: %w", err)
 	}
+	ce.Status.State = crdv1alpha1.CellStateUpdating
+	ce.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(cellName, ce); err != nil {
 		return nil, fmt.Errorf("failed to update cell status: %w", err)
 	}

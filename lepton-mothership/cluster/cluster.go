@@ -69,14 +69,13 @@ func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 	clusterName := spec.Name
 	cl := &crdv1alpha1.LeptonCluster{
 		Spec: spec,
-		Status: crdv1alpha1.LeptonClusterStatus{
-			State:     crdv1alpha1.ClusterStateCreating,
-			UpdatedAt: uint64(time.Now().Unix()),
-		},
 	}
-
 	if err := DataStore.Create(clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
+	}
+	cl.Status = crdv1alpha1.LeptonClusterStatus{
+		State:     crdv1alpha1.ClusterStateCreating,
+		UpdatedAt: uint64(time.Now().Unix()),
 	}
 	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
@@ -95,11 +94,11 @@ func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 		log.Println("Updating a non-ready cluster...")
 	}
 	cl.Spec = spec
-	cl.Status.State = crdv1alpha1.ClusterStateUpdating
-	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.Update(clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
+	cl.Status.State = crdv1alpha1.ClusterStateUpdating
+	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
