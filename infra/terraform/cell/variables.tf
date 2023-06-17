@@ -75,3 +75,17 @@ variable "image_tag_deployment_operator" {
   type        = string
   default     = "latest"
 }
+
+variable "create_efs" {
+  description = "Whether to create a EFS"
+  type        = bool
+  default     = false
+}
+
+variable "efs_mount_targets" {
+  type = map(object({
+    subnet_id = string
+  }))
+  description = "Map of mount targets for EFS"
+  default     = null
+}
