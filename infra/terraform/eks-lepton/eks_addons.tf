@@ -126,8 +126,8 @@ EOT
     })]
   }
 
-  enable_amazon_prometheus             = true
-  amazon_prometheus_workspace_endpoint = aws_prometheus_workspace.amp.prometheus_endpoint
+  enable_amazon_prometheus             = var.enable_amazon_managed_prometheus
+  amazon_prometheus_workspace_endpoint = var.enable_amazon_managed_prometheus ? aws_prometheus_workspace.amp.prometheus_endpoint : ""
 
   enable_grafana = true
   grafana_helm_config = {
