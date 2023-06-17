@@ -3,6 +3,7 @@ module github.com/leptonai/lepton
 go 1.19
 
 require (
+	github.com/aws/aws-sdk-go v1.44.200
 	github.com/go-git/go-git/v5 v5.7.0
 	github.com/hashicorp/go-tfe v1.26.0
 	github.com/onsi/ginkgo/v2 v2.9.1
@@ -19,7 +20,6 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230518184743-7afd39499903 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
-	github.com/aws/aws-sdk-go v1.44.200 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.22 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.51 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	gocloud.dev v0.29.0
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.8.0 // indirect

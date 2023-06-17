@@ -1,0 +1,27 @@
+# permissions for end users to view leptoncells.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: leptoncell-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: crd
+    app.kubernetes.io/part-of: crd
+    app.kubernetes.io/managed-by: kustomize
+  name: leptoncell-viewer-role
+rules:
+- apiGroups:
+  - mothership.lepton.ai
+  resources:
+  - leptoncells
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - mothership.lepton.ai
+  resources:
+  - leptoncells/status
+  verbs:
+  - get

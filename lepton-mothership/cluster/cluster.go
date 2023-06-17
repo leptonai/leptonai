@@ -1,43 +1,32 @@
 package cluster
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/datastore"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
-	"github.com/leptonai/lepton/lepton-mothership/git"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
+	"github.com/leptonai/lepton/lepton-mothership/util"
 )
 
-const (
-	leptonRepoURL = "https://github.com/leptonai/lepton.git"
-)
-
-const (
-	ClusterProviderEKS = "aws-eks"
-	storeNamespace     = "default"
-)
-
-type (
-	CellState string
-)
+const storeNamespace = "default"
 
 // Make cluster a struct and do not use global variables
 var (
-	ds = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
+	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
 		storeNamespace,
 		&crdv1alpha1.LeptonCluster{},
 	)
 )
 
 func Init() {
-	clusters, err := ds.List()
+	clusters, err := DataStore.List()
 	if err != nil {
 		log.Println("failed to list clusters:", err)
 		return
@@ -47,7 +36,7 @@ func Init() {
 		cl := item
 
 		switch cl.Status.State {
-		case crdv1alpha1.ClusterStateCreating:
+		case crdv1alpha1.ClusterStateCreating, crdv1alpha1.ClusterStateUnknown:
 			go func() {
 				log.Println("restart creating cluster:", cl.Spec.Name)
 				// call the idempotent create function
@@ -86,9 +75,11 @@ func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 		},
 	}
 
-	err := ds.Create(clusterName, cl)
-	if err != nil {
+	if err := DataStore.Create(clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
+	}
+	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
 	return idempotentCreate(cl)
@@ -96,7 +87,7 @@ func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 
 func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
-	cl, err := ds.Get(clusterName)
+	cl, err := DataStore.Get(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -106,6 +97,12 @@ func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 	cl.Spec = spec
 	cl.Status.State = crdv1alpha1.ClusterStateUpdating
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
+	if err := DataStore.Update(clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster: %w", err)
+	}
+	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster status: %w", err)
+	}
 
 	err = createOrUpdateCluster(cl)
 	if err != nil {
@@ -116,7 +113,7 @@ func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 }
 
 func Delete(clusterName string, deleteWorkspace bool) error {
-	cl, err := ds.Get(clusterName)
+	cl, err := DataStore.Get(clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -128,7 +125,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 			log.Println("failed to delete cluster:", err)
 		} else {
 			log.Println("deleted cluster:", clusterName)
-			err = ds.Delete(clusterName)
+			err = DataStore.Delete(clusterName)
 			if err != nil {
 				log.Println("failed to delete cluster from the data store:", err)
 			}
@@ -141,7 +138,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = prepareWorkingDir(clusterName)
+	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton")
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -150,7 +147,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	args := []string{}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName)
+	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
@@ -175,7 +172,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 }
 
 func List() ([]*crdv1alpha1.LeptonCluster, error) {
-	cls, err := ds.List()
+	cls, err := DataStore.List()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
@@ -183,7 +180,7 @@ func List() ([]*crdv1alpha1.LeptonCluster, error) {
 }
 
 func Get(clusterName string) (*crdv1alpha1.LeptonCluster, error) {
-	cl, err := ds.Get(clusterName)
+	cl, err := DataStore.Get(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -217,11 +214,6 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 	clusterName := cl.Spec.Name
 	var err error
 
-	err = ds.Update(clusterName, cl)
-	if err != nil {
-		return fmt.Errorf("failed to update cluster state in the data store: %w", err)
-	}
-
 	defer func() {
 		if err != nil {
 			cl.Status.State = crdv1alpha1.ClusterStateFailed
@@ -229,14 +221,14 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 			cl.Status.State = crdv1alpha1.ClusterStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
-		derr := ds.Update(clusterName, cl)
+		derr := DataStore.UpdateStatus(clusterName, cl)
 		if err == nil && derr != nil {
 			log.Println("failed to update cluster state in the data store:", err)
 			err = derr
 		}
 	}()
 
-	err = prepareWorkingDir(clusterName)
+	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton")
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -246,7 +238,8 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
-	output, err := cmd.CombinedOutput()
+	var output []byte
+	output, err = cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
 	// TODO: retry on error for a couple of times
 	log.Println(string(output))
@@ -258,43 +251,27 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 		return fmt.Errorf("install exited with non-zero exit code: %d", exitCode)
 	}
 
-	return nil
-}
+	// extract necessary information from the output
+	// TODO: clean up the code
+	cmd = exec.Command("./output.sh")
+	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	output, err = cmd.CombinedOutput()
+	log.Println(string(output))
+	if err != nil {
+		return fmt.Errorf("failed to check json output: %s", err)
+	}
+	exitCode = cmd.ProcessState.ExitCode()
+	if exitCode != 0 {
+		return fmt.Errorf("check json output exited with non-zero exit code: %d", exitCode)
+	}
+	err = json.Unmarshal(output, &cl.Status.Properties)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal json output: %s", err)
+	}
 
-func prepareWorkingDir(clusterName string) error {
-	wd, err := os.Getwd()
+	err = DataStore.UpdateStatus(clusterName, cl)
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %s", err)
-	}
-	gitDir := filepath.Join(wd, clusterName, "git")
-	err = os.RemoveAll(gitDir)
-	if err != nil {
-		return fmt.Errorf("failed to remove git directory: %s", err)
-	}
-	err = os.MkdirAll(gitDir, 0750)
-	if err != nil {
-		return fmt.Errorf("failed to create git directory: %s", err)
-	}
-
-	// Optimize me: only does one clone for all clusters
-	// TODO: switch to desired version of terraform code from the git repo
-	err = git.Clone(gitDir, leptonRepoURL)
-	if err != nil {
-		return fmt.Errorf("failed to clone the git repo: %s", err)
-	}
-	log.Println("cloned the git repo:", leptonRepoURL)
-
-	src := gitDir + "/charts"
-	dest := gitDir + "/infra/terraform/eks-lepton/charts"
-	err = exec.Command("cp", "-R", src, dest).Run()
-	if err != nil {
-		return fmt.Errorf("failed to copy charts to terraform directory: %s", err)
-	}
-	log.Println("copied charts to terraform directory")
-
-	err = os.Chdir(gitDir + "/infra/terraform/eks-lepton")
-	if err != nil {
-		return fmt.Errorf("failed to change directory: %s", err)
+		return fmt.Errorf("failed to update cluster state in the data store: %w", err)
 	}
 
 	return nil

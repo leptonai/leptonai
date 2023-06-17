@@ -15,4 +15,11 @@ resources:
   kind: LeptonCluster
   path: github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: mothership.lepton.ai
+  kind: LeptonCell
+  path: github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1
+  version: v1alpha1
 version: "3"

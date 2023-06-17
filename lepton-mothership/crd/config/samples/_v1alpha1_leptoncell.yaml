@@ -1,0 +1,12 @@
+apiVersion: mothership.lepton.ai/v1alpha1
+kind: LeptonCell
+metadata:
+  labels:
+    app.kubernetes.io/name: leptoncell
+    app.kubernetes.io/instance: leptoncell-sample
+    app.kubernetes.io/part-of: crd
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: crd
+  name: leptoncell-sample
+spec:
+  # TODO(user): Add fields here

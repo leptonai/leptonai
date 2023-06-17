@@ -30,6 +30,12 @@ func (s *CRStore[T]) Create(name string, t T) error {
 	return k8s.Client.Create(context.Background(), t)
 }
 
+func (s *CRStore[T]) UpdateStatus(name string, t T) error {
+	t.SetNamespace(s.namespace)
+	t.SetName(name)
+	return k8s.Client.Status().Update(context.Background(), t)
+}
+
 func (s *CRStore[T]) Get(name string) (T, error) {
 	t := s.example.DeepCopyObject().(T)
 	err := k8s.Client.Get(context.Background(), client.ObjectKey{

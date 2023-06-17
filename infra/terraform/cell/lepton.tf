@@ -75,6 +75,11 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name  = "apiServer.cellName"
+    value = var.cell_name
+  }
+
+  set {
     name  = "apiServer.apiToken"
     value = var.api_token
   }

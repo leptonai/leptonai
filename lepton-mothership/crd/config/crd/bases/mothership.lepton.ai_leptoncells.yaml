@@ -5,22 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: leptonclusters.mothership.lepton.ai
+  name: leptoncells.mothership.lepton.ai
 spec:
   group: mothership.lepton.ai
   names:
-    kind: LeptonCluster
-    listKind: LeptonClusterList
-    plural: leptonclusters
+    kind: LeptonCell
+    listKind: LeptonCellList
+    plural: leptoncells
     shortNames:
-    - cl
-    singular: leptoncluster
+    - ce
+    singular: leptoncell
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LeptonCluster is the Schema for the leptonclusters API
+        description: LeptonCell is the Schema for the leptoncells API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,52 +35,31 @@ spec:
           metadata:
             type: object
           spec:
-            description: LeptonClusterSpec defines the desired state of LeptonCluster
+            description: LeptonCellSpec defines the desired state of LeptonCell
             properties:
+              api_token:
+                type: string
+              cluster_name:
+                type: string
               description:
                 type: string
+              image_tag:
+                type: string
               name:
-                description: Name is a globally unique name of a cluster within mothership.
-                type: string
-              provider:
-                type: string
-              region:
+                description: Name is a globally unique name of a cell within mothership.
                 type: string
               version:
                 description: Terraform module version
                 type: string
             required:
+            - cluster_name
             - description
             - name
-            - provider
-            - region
             - version
             type: object
           status:
-            description: LeptonClusterStatus defines the observed state of LeptonCluster
+            description: LeptonCellStatus defines the observed state of LeptonCell
             properties:
-              cells:
-                description: Cells are mutable and can be added/removed from cluster.
-                items:
-                  type: string
-                type: array
-              properties:
-                description: Properties are immutable and are set once cluster is
-                  created.
-                properties:
-                  oidc_id:
-                    type: string
-                  vpc_id:
-                    type: string
-                  vpc_private_subnets:
-                    items:
-                      type: string
-                    type: array
-                  vpc_public_subnets:
-                    items:
-                      type: string
-                    type: array
-                type: object
               state:
                 type: string
               updated_at:

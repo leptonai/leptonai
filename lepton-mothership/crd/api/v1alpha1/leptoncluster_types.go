@@ -36,9 +36,18 @@ type LeptonClusterSpec struct {
 type LeptonClusterStatus struct {
 	State LeptonClusterState `json:"state"`
 	// unix timestamp
-	UpdatedAt uint64 `json:"updatedAt"`
+	UpdatedAt uint64 `json:"updated_at"`
+	// Cells are mutable and can be added/removed from cluster.
+	Cells []string `json:"cells,omitempty"`
+	// Properties are immutable and are set once cluster is created.
+	Properties LeptonClusterProperties `json:"properties,omitempty"`
+}
 
-	Cells []string `json:"cells"`
+type LeptonClusterProperties struct {
+	OIDCID            string   `json:"oidc_id,omitempty"`
+	VPCID             string   `json:"vpc_id,omitempty"`
+	VPCPrivateSubnets []string `json:"vpc_private_subnets,omitempty"`
+	VPCPublicSubnets  []string `json:"vpc_public_subnets,omitempty"`
 }
 
 const (
@@ -47,6 +56,7 @@ const (
 	ClusterStateReady    = "ready"
 	ClusterStateFailed   = "failed"
 	ClusterStateDeleting = "deleting"
+	ClusterStateUnknown  = ""
 )
 
 type (
@@ -55,7 +65,7 @@ type (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=lc
+//+kubebuilder:resource:shortName=cl
 
 // LeptonCluster is the Schema for the leptonclusters API
 type LeptonCluster struct {

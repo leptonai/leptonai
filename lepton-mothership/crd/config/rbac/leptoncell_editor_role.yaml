@@ -1,0 +1,31 @@
+# permissions for end users to edit leptoncells.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: leptoncell-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: crd
+    app.kubernetes.io/part-of: crd
+    app.kubernetes.io/managed-by: kustomize
+  name: leptoncell-editor-role
+rules:
+- apiGroups:
+  - mothership.lepton.ai
+  resources:
+  - leptoncells
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - mothership.lepton.ai
+  resources:
+  - leptoncells/status
+  verbs:
+  - get

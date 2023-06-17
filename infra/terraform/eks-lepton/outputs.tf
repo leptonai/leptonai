@@ -32,6 +32,14 @@ output "account_id" {
   value = data.aws_caller_identity.current.account_id
 }
 
-output "users_in_dev_group" {
-  value = data.aws_iam_group.dev_members.users
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
+output "vpc_private_subnets" {
+  value = module.vpc.private_subnets
+}
+
+output "vpc_public_subnets" {
+  value = module.vpc.public_subnets
 }
