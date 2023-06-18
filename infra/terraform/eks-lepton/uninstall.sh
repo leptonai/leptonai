@@ -41,6 +41,7 @@ if [[ -z $TF_API_TOKEN ]]; then
 fi
 
 export TF_WORKSPACE=$CLUSTER_NAME
+export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   echo "ERROR: Cluster name not specified"

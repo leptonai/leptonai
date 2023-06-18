@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.mothership.name }}-role
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: ["mothership.lepton.ai"]
+  resources: ["leptoncells", "leptoncells/status",  "leptonclusters", "leptonclusters/status"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

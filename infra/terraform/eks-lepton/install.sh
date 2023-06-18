@@ -33,6 +33,8 @@ if [[ -z $TF_API_TOKEN ]]; then
   exit 1
 fi
 export TF_WORKSPACE=$CLUSTER_NAME
+export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
+
 echo "creating terraform workspace ${TF_WORKSPACE}"
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 

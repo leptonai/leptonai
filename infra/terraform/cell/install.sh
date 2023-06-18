@@ -41,11 +41,15 @@ if [[ $CREATE_EFS == "true" ]]; then
   fi
 fi
 
+if [[ -z $EFS_MOUNT_TARGETS ]]; then
+  EFS_MOUNT_TARGETS="{}"
+fi
 
 # shellcheck source=/dev/null
 source ../lib.sh
 
 export TF_WORKSPACE=$CLUSTER_NAME-$CELL_NAME
+export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 echo "Creating Cell $CELL_NAME at Cluster $CLUSTER_NAME..."
 
@@ -69,19 +73,19 @@ echo "Applying resources..."
 terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
-  -var "image_tag_web=$IMAGE_TAG" \
-  -var "image_tag_api_server=$IMAGE_TAG" \
-  -var "image_tag_deployment_operator=$IMAGE_TAG" \
-  -var "create_efs=$CREATE_EFS" \
-  -var "efs_mount_targets=$EFS_MOUNT_TARGETS"
+  -var="image_tag_web=$IMAGE_TAG" \
+  -var="image_tag_api_server=$IMAGE_TAG" \
+  -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
 apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
-  -var "image_tag_web=$IMAGE_TAG" \
-  -var "image_tag_api_server=$IMAGE_TAG" \
-  -var "image_tag_deployment_operator=$IMAGE_TAG" \
-  -var "create_efs=$CREATE_EFS" \
-  -var "efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
+  -var="image_tag_web=$IMAGE_TAG" \
+  -var="image_tag_api_server=$IMAGE_TAG" \
+  -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
   echo "SUCCESS: Terraform apply of all modules completed successfully"
 else

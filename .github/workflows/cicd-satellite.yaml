@@ -12,6 +12,7 @@ on:
     paths-ignore:
       - "infra/**"
       - "lepton-mothership/**"
+      - "charts/mothership/**"
     branches: [ "**" ]
 
 jobs:

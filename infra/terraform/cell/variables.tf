@@ -87,5 +87,5 @@ variable "efs_mount_targets" {
     subnet_id = string
   }))
   description = "Map of mount targets for EFS"
-  default     = null
+  default     = {}
 }

@@ -11,3 +11,5 @@ mothership:
       requests:
         memory: "2048Mi"
         cpu: "1"
+  # TODO: the role was manually created via AWS web
+  serviceAccountRoleArn: "arn:aws:iam::605454121064:role/mothership-role"

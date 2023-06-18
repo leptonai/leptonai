@@ -18,6 +18,7 @@ if [[ -z $CELL_NAME ]]; then
 fi
 
 export TF_WORKSPACE=$CLUSTER_NAME-$CELL_NAME
+export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 # initialize Terraform
 terraform init --upgrade

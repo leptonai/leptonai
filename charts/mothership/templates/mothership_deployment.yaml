@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.mothership.name }}
     spec:
+      serviceAccountName: {{ .Values.mothership.name }}
       containers:
         - name: {{ .Values.mothership.name }}
           image: {{ .Values.mothership.image.repository }}:{{ .Values.mothership.image.tag }}
