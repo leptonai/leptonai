@@ -86,9 +86,8 @@ func mustPrepareTest() {
 		Name:     mainTestDeploymentName,
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			CPU:         0.3,
-			Memory:      128,
-			MinReplicas: 1,
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
 		},
 	}
 	ld, err := lepton.Deployment().Create(d)

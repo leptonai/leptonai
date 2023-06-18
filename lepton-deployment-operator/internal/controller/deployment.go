@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"log"
 	"path"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
@@ -165,6 +166,17 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 
 	cpu := resource.NewScaledQuantity(int64(ld.Spec.ResourceRequirement.CPU*1000), -3)
 	memory := resource.NewQuantity(ld.Spec.ResourceRequirement.Memory*1024*1024, resource.BinarySI)
+
+	if ld.Spec.ResourceRequirement.ResourceShape != "" {
+		replicaResourceRequirement, err := shapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
+		if err != nil {
+			log.Fatalf("Unexpected shape to requirement error %v", err)
+		}
+
+		cpu = resource.NewScaledQuantity(int64(replicaResourceRequirement.CPU*1000), -3)
+		memory = resource.NewQuantity(replicaResourceRequirement.Memory*1024*1024, resource.BinarySI)
+	}
+
 	// Define the main container
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -215,4 +227,13 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	}
 
 	return spec
+}
+
+func shapeToReplicaResourceRequirement(shape leptonaiv1alpha1.LeptonDeploymentResourceShape) (*leptonaiv1alpha1.LeptonDeploymentReplicaResourceRequirement, error) {
+	s := leptonaiv1alpha1.SupportedShapesAWS[shape]
+	if s == nil {
+		return nil, fmt.Errorf("shape %s is not supported", shape)
+	}
+
+	return &s.Resource, nil
 }

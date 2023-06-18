@@ -138,15 +138,38 @@ func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeplo
 	if !util.ValidateName(ld.Name) {
 		return fmt.Errorf("invalid name %s: %s", ld.Name, util.NameInvalidMessage)
 	}
-	if ld.ResourceRequirement.CPU <= 0 {
-		return fmt.Errorf("cpu must be positive")
+	if ld.ResourceRequirement.CPU < 0 {
+		return fmt.Errorf("cpu must be non-negative")
 	}
-	if ld.ResourceRequirement.Memory <= 0 {
-		return fmt.Errorf("memory must be positive")
+	if ld.ResourceRequirement.Memory < 0 {
+		return fmt.Errorf("memory must be non-negative")
 	}
+
+	if ld.ResourceRequirement.ResourceShape != "" {
+		if !(ld.ResourceRequirement.CPU == 0 && ld.ResourceRequirement.Memory == 0) {
+			return fmt.Errorf("cpu and memory must be unspecified when resource shape is specified")
+		}
+
+		if leptonaiv1alpha1.SupportedShapesAWS[ld.ResourceRequirement.ResourceShape] == nil {
+			return fmt.Errorf("unsupported resource shape %s", ld.ResourceRequirement.ResourceShape)
+		}
+	} else {
+		if ld.ResourceRequirement.CPU == 0 {
+			return fmt.Errorf("cpu must be specified when resource shape is unspecified")
+		}
+		if ld.ResourceRequirement.Memory == 0 {
+			return fmt.Errorf("memory must be specified when resource shape is unspecified")
+		}
+	}
+
 	if ld.ResourceRequirement.MinReplicas <= 0 {
 		return fmt.Errorf("min replicas must be positive")
 	}
+
+	if h.phDB == nil { // for testing
+		return nil
+	}
+
 	_, err := h.phDB.Get(ld.PhotonID)
 	if err != nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)

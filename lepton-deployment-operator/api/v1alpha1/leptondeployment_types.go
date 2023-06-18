@@ -82,13 +82,27 @@ func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
 
 // LeptonDeploymentResourceRequirement defines the resource requirement of the deployment.
 type LeptonDeploymentResourceRequirement struct {
+	LeptonDeploymentReplicaResourceRequirement `json:",inline"`
+	// +optional
+	ResourceShape LeptonDeploymentResourceShape `json:"resource_shape"`
+	MinReplicas   int32                         `json:"min_replicas"`
+}
+
+type LeptonDeploymentReplicaResourceRequirement struct {
 	CPU    float64 `json:"cpu"`
 	Memory int64   `json:"memory"`
 	// +optional
 	AcceleratorType string `json:"accelerator_type"`
 	// +optional
 	AcceleratorNum float64 `json:"accelerator_num"`
-	MinReplicas    int32   `json:"min_replicas"`
+}
+
+type ResourceShape struct {
+	// Name of the shape. E.g. "Large"
+	Name string `json:"name"`
+	// Description of the shape. E.g. "Large shape with 4 CPUs and 16GB of RAM"
+	Description string                                     `json:"description"`
+	Resource    LeptonDeploymentReplicaResourceRequirement `json:"resource"`
 }
 
 // EnvVar defines the environment variable of the deployment.
@@ -108,6 +122,8 @@ type LeptonDeploymentStatus struct {
 	Endpoint        LeptonDeploymentEndpoint `json:"endpoint"`
 	ReadinessIssues []string                 `json:"readiness_issues,omitempty"`
 }
+
+type LeptonDeploymentResourceShape string
 
 // LeptonDeploymentState defines the state of the deployment.
 type LeptonDeploymentState string

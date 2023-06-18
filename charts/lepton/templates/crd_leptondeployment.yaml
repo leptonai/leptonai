@@ -93,6 +93,8 @@ spec:
                   min_replicas:
                     format: int32
                     type: integer
+                  resource_shape:
+                    type: string
                 required:
                 - cpu
                 - memory
