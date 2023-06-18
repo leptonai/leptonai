@@ -14,9 +14,9 @@ apiServer:
     resources:
       requests:
         memory: "128Mi"
-        cpu: "250m"
+        cpu: "50m"
       limits:
-        memory: "1024Mi"
+        memory: "512Mi"
         cpu: "1"
   serviceAccountRoleArn: ""
   bucketName: "leptonai"
@@ -38,9 +38,9 @@ deploymentOperator:
     resources:
       requests:
         memory: "128Mi"
-        cpu: "250m"
+        cpu: "100m"
       limits:
-        memory: "1024Mi"
+        memory: "512Mi"
         cpu: "1"
 
 web:
@@ -57,9 +57,9 @@ web:
     resources:
       requests:
         memory: "128Mi"
-        cpu: "250m"
+        cpu: "100m"
       limits:
-        memory: "1024Mi"
+        memory: "512Mi"
         cpu: "1"
 
 crd:
