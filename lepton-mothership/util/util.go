@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 
 	"github.com/leptonai/lepton/lepton-mothership/git"
 )
@@ -51,4 +52,17 @@ func PrepareTerraformWorkingDir(dirName, moduleName string) error {
 	}
 
 	return nil
+}
+
+const (
+	NameInvalidMessage = "Name must consist of lower case alphanumeric characters, and must start with an alphabetical character and be no longer than 16 characters"
+)
+
+var (
+	nameRegex = regexp.MustCompile("^[a-z]([a-z0-9]*)?$")
+)
+
+// ValidateName returns true if the given name is valid.
+func ValidateName(name string) bool {
+	return nameRegex.MatchString(name) && len(name) <= 16
 }

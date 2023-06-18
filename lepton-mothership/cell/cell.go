@@ -69,6 +69,10 @@ func Init() {
 
 func Create(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 	cellName := spec.Name
+	if !util.ValidateName(cellName) {
+		return nil, fmt.Errorf("invalid cell name %s: %s", cellName, util.NameInvalidMessage)
+	}
+
 	ce := &crdv1alpha1.LeptonCell{
 		Spec: spec,
 	}
@@ -114,6 +118,10 @@ func Create(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 
 func Update(spec crdv1alpha1.LeptonCellSpec) (*crdv1alpha1.LeptonCell, error) {
 	cellName := spec.Name
+	if !util.ValidateName(cellName) {
+		return nil, fmt.Errorf("invalid cell name %s: %s", cellName, util.NameInvalidMessage)
+	}
+
 	ce, err := DataStore.Get(cellName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cell: %w", err)
