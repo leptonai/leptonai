@@ -56,7 +56,7 @@ func Init() {
 		case crdv1alpha1.ClusterStateDeleting:
 			go func() {
 				log.Println("restart deleting cluster:", cl.Spec.Name)
-				err := Delete(cl.Spec.Name, false)
+				err := Delete(cl.Spec.Name, true)
 				if err != nil {
 					log.Printf("init: failed to delete cluster %s: %v", cl.Spec.Name, err)
 				}
@@ -164,7 +164,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	}
 
 	if deleteWorkspace {
-		err := terraform.DeleteWorkspace(clusterName)
+		err := terraform.DeleteEmptyWorkspace(clusterName)
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}

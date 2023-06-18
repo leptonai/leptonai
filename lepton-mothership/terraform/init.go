@@ -54,6 +54,24 @@ func CreateWorkspace(name string) error {
 	return nil
 }
 
+func DeleteEmptyWorkspace(name string) error {
+	if err := IsWorkspaceEmpty(name); err != nil {
+		return err
+	}
+	return DeleteWorkspace(name)
+}
+
 func DeleteWorkspace(name string) error {
 	return client.Workspaces.Delete(context.TODO(), orgName, name)
+}
+
+func IsWorkspaceEmpty(name string) error {
+	w, err := GetWorkspace(name)
+	if err != nil {
+		return err
+	}
+	if w.ResourceCount > 0 {
+		return fmt.Errorf("workspace %s is not empty", name)
+	}
+	return nil
 }

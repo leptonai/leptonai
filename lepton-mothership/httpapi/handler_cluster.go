@@ -52,7 +52,7 @@ func HandleClusterCreate(c *gin.Context) {
 }
 
 func HandleClusterDelete(c *gin.Context) {
-	err := cluster.Delete(c.Param("clname"), false)
+	err := cluster.Delete(c.Param("clname"), true)
 	if err != nil {
 		log.Println("failed to delete cluster:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cluster: " + err.Error()})

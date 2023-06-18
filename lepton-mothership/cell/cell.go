@@ -58,7 +58,7 @@ func Init() {
 		case crdv1alpha1.CellStateDeleting:
 			go func() {
 				log.Println("restart deleting cell:", ce.Spec.Name)
-				err := Delete(ce.Spec.Name, false)
+				err := Delete(ce.Spec.Name, true)
 				if err != nil {
 					log.Printf("init: failed to delete cell %s: %v", ce.Spec.Name, err)
 				}
@@ -195,7 +195,7 @@ func Delete(cellName string, deleteWorkspace bool) error {
 	}
 
 	if deleteWorkspace {
-		err := terraform.DeleteWorkspace(workspaceName(ce.Spec.ClusterName, cellName))
+		err := terraform.DeleteEmptyWorkspace(workspaceName(ce.Spec.ClusterName, cellName))
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}

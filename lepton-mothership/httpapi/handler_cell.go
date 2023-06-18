@@ -52,7 +52,7 @@ func HandleCellCreate(c *gin.Context) {
 }
 
 func HandleCellDelete(c *gin.Context) {
-	err := cell.Delete(c.Param("cename"), false)
+	err := cell.Delete(c.Param("cename"), true)
 	if err != nil {
 		log.Println("failed to delete cell:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cell: " + err.Error()})

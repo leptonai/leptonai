@@ -29,6 +29,10 @@ func TestWorkspace(t *testing.T) {
 		t.Fatalf("workspace %s not found", testWorkspaceName)
 	}
 
+	if err := IsWorkspaceEmpty(testWorkspaceName); err != nil {
+		t.Fatal("workspace should be empty")
+	}
+
 	err = DeleteWorkspace(testWorkspaceName)
 	if err != nil {
 		t.Fatal(err)
