@@ -210,7 +210,7 @@ jobs:
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
       run: kubectl delete namespace $IMAGE_TAG
 
-  deploy-to-dev-staging:
+  deploy-to-dev-latest:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [e2e-tests]
@@ -239,20 +239,22 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
     - name: Switch to the proper k8s context
-      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV_STAGING }} --region ${{ vars.AWS_REGION }}
+      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV }} --region ${{ vars.AWS_REGION }}
     - name: Install Helm
       uses: azure/setup-helm@v3
       with:
           version: 'v3.11.3'
       id: install
     - name: Helm upgrade charts
+      env:
+        NAMESPACE: latest
       run: |
         # Not to setting the image tag here to avoid having to update here when, in the
         # future, we update flags of the helm charts, because if we set image tag, we
         # must set all flags. As a result, this commend will shortly set the image tag
         # to `:latest` and then the image tag will be updated to the correct one in the
         # following step.
-        helm upgrade lepton charts/lepton
+        helm upgrade lepton charts/lepton --namespace $NAMESPACE
     - name: Deploy Lepton API server and web
       env:
         API_SERVER_ECR_REPOSITORY: lepton-api-server
@@ -260,7 +262,8 @@ jobs:
         WEB_ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        NAMESPACE: latest
       run: |
-        kubectl set image deployment/$API_SERVER_ECR_REPOSITORY $API_SERVER_ECR_REPOSITORY=$ECR_REGISTRY/$API_SERVER_ECR_REPOSITORY:$IMAGE_TAG
-        kubectl set image deployment/$LD_OPERATOR_ECR_REPOSITORY $LD_OPERATOR_ECR_REPOSITORY=$ECR_REGISTRY/$LD_OPERATOR_ECR_REPOSITORY:$IMAGE_TAG
-        kubectl set image deployment/$WEB_ECR_REPOSITORY $WEB_ECR_REPOSITORY=$ECR_REGISTRY/$WEB_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl -n $NAMESPACE set image deployment/$API_SERVER_ECR_REPOSITORY $API_SERVER_ECR_REPOSITORY=$ECR_REGISTRY/$API_SERVER_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl -n $NAMESPACE set image deployment/$LD_OPERATOR_ECR_REPOSITORY $LD_OPERATOR_ECR_REPOSITORY=$ECR_REGISTRY/$LD_OPERATOR_ECR_REPOSITORY:$IMAGE_TAG
+        kubectl -n $NAMESPACE set image deployment/$WEB_ECR_REPOSITORY $WEB_ECR_REPOSITORY=$ECR_REGISTRY/$WEB_ECR_REPOSITORY:$IMAGE_TAG
