@@ -41,7 +41,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "clusterName"
-    value = var.cluster_name
+    value = var.cell_name
   }
 
   set {

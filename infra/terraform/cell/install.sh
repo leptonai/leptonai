@@ -70,7 +70,7 @@ else
 fi
 
 echo "Applying resources..."
-terraform apply -auto-approve -var="cluster_name=$CELL_NAME" \
+terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
   -var="image_tag_web=$IMAGE_TAG" \
@@ -78,7 +78,7 @@ terraform apply -auto-approve -var="cluster_name=$CELL_NAME" \
   -var="image_tag_deployment_operator=$IMAGE_TAG" \
   -var="create_efs=$CREATE_EFS" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
-apply_output=$(terraform apply -auto-approve -var="cluster_name=$CELL_NAME" \
+apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
   -var="image_tag_web=$IMAGE_TAG" \
