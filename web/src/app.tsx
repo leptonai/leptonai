@@ -1,4 +1,4 @@
-import { AuthNoopService } from "@lepton-dashboard/services/auth.noop.service";
+import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
 import { AuthSupabaseService } from "@lepton-dashboard/services/auth.supabase.service";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { DIContainer } from "@lepton-libs/di";
@@ -13,7 +13,11 @@ import { TitleService } from "@lepton-dashboard/services/title.service";
 import { InitializerService } from "@lepton-dashboard/services/initializer.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { Root } from "@lepton-dashboard/components/root";
-import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
+import {
+  AxiosHandler,
+  HttpClientService,
+  HTTPInterceptorToken,
+} from "@lepton-dashboard/services/http-client.service";
 import { App as AntdApp } from "antd";
 import { css } from "@emotion/react";
 import { lazy } from "react";
@@ -25,6 +29,9 @@ import {
   OAuthGuard,
   WorkspaceGuard,
 } from "./components/auth-guard";
+import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { Navigator } from "@lepton-dashboard/components/navigator";
 
 const Login = lazy(() =>
   import("@lepton-dashboard/routers/login").then((e) => ({
@@ -63,6 +70,7 @@ const router = createBrowserRouter([
           height: 100%;
         `}
       >
+        <Navigator />
         <Root />
       </AntdApp>
     ),
@@ -121,17 +129,23 @@ function App() {
         TitleService,
         InitializerService,
         RefreshService,
+        AxiosHandler,
         HttpClientService,
         StorageService,
         OpenApiService,
         ProfileService,
-        AuthNoopService,
+        AuthTokenService,
         AuthSupabaseService,
+        NavigateService,
+        {
+          provide: HTTPInterceptorToken,
+          useClass: AppInterceptor,
+        },
         {
           provide: AuthService,
           useFactory: (
             authSupabaseService: AuthSupabaseService,
-            authNoopService: AuthNoopService
+            authNoopService: AuthTokenService
           ) => {
             if (import.meta.env.VITE_ENABLE_OAUTH === "enable") {
               return authSupabaseService;
@@ -139,7 +153,7 @@ function App() {
               return authNoopService;
             }
           },
-          deps: [AuthSupabaseService, AuthNoopService],
+          deps: [AuthSupabaseService, AuthTokenService],
         },
       ]}
     >

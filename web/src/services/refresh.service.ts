@@ -6,12 +6,12 @@ import {
   interval,
   map,
   merge,
-  ReplaySubject,
   share,
   startWith,
   Subject,
   switchMap,
 } from "rxjs";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 @Injectable()
 export class RefreshService {
@@ -21,24 +21,21 @@ export class RefreshService {
   );
 
   private readonly manual$ = new Subject<boolean>();
-  private readonly navigation$ = new ReplaySubject<string>(1);
 
   private readonly visibility$ = fromEvent(window, "visibilitychange").pipe(
     map((e) => !(e.target as Document).hidden)
   );
 
+  constructor(private navigateService: NavigateService) {}
+
   public refresh(): void {
     this.manual$.next(true);
-  }
-
-  public integrateWithRouter(pathname: string): void {
-    this.navigation$.next(pathname);
   }
 
   public refresh$ = merge(
     this.visibility$,
     this.manual$,
-    this.navigation$.pipe(map(() => true))
+    this.navigateService.onNavigated().pipe(map(() => true))
   ).pipe(
     startWith(true),
     debounceTime(300),

@@ -8,6 +8,7 @@ import { Divider, Typography } from "antd";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { CenterBox } from "@lepton-dashboard/components/center-box";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
+import { LoginWithToken } from "@lepton-dashboard/routers/login/components/login-with-token";
 
 export const Login = () => {
   const titleService = useInject(TitleService);
@@ -79,14 +80,16 @@ export const Login = () => {
     titleService.setTitle("Login");
   }, [titleService]);
 
-  if (!authService.client)
+  if (!authService.client) {
     return (
       <CenterBox>
-        <Typography.Title level={3}>
-          Oauth is not enabled in current environment.
-        </Typography.Title>
+        <LoginWithToken />
+        <Typography.Paragraph type="secondary">
+          Token authentication is enabled.
+        </Typography.Paragraph>
       </CenterBox>
     );
+  }
 
   return (
     <CenterBox>

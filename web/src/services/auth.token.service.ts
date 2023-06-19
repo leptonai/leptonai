@@ -4,13 +4,23 @@ import { Observable, of } from "rxjs";
 import { AuthorizedCluster } from "@lepton-dashboard/interfaces/cluster";
 import { User } from "@lepton-dashboard/interfaces/user";
 import { Session } from "@supabase/supabase-js";
+import { StorageService } from "@lepton-dashboard/services/storage.service";
 
 @Injectable()
-export class AuthNoopService implements AuthService {
+export class AuthTokenService implements AuthService {
   readonly client = null;
 
+  constructor(private storageService: StorageService) {}
+
+  private getTokenMapFromStorage(): string {
+    return (
+      this.storageService.get(StorageService.GLOBAL_SCOPE, "CLUSTER_TOKEN") ||
+      ""
+    );
+  }
+
   getUserProfile(): Observable<User | null> {
-    return of({ id: "test", email: "test@lepton.test", enable: true });
+    return of({ id: "me", email: "yourself@lepton.ai", enable: true });
   }
 
   getSessionProfile(): Observable<Session["user"] | null> {
@@ -24,11 +34,13 @@ export class AuthNoopService implements AuthService {
   }
 
   listAuthorizedClusters(): Observable<AuthorizedCluster[]> {
-    const host = import.meta.env.VITE_CLUSTER_URL || window.location.origin;
-    return of([{ url: host, token: "" }]);
+    const url = import.meta.env.VITE_CLUSTER_URL || window.location.origin;
+    const token = this.getTokenMapFromStorage();
+    return of([{ url, token }]);
   }
 
   logout(): Promise<void> {
+    this.storageService.set(StorageService.GLOBAL_SCOPE, "CLUSTER_TOKEN", "");
     return Promise.resolve(undefined);
   }
 }

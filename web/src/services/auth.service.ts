@@ -4,6 +4,13 @@ import { Observable } from "rxjs";
 import { AuthorizedCluster } from "@lepton-dashboard/interfaces/cluster";
 import { User } from "@lepton-dashboard/interfaces/user";
 
+export class UnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
 @Injectable()
 export abstract class AuthService {
   public readonly client: SupabaseClient | null = null;

@@ -34,9 +34,13 @@ export const SignAsOther: FC<{ tips: ReactNode }> = ({ tips }) => {
         </>
       ) : (
         <>
-          <Typography.Paragraph>
-            Oauth is not enabled in current environment.
-          </Typography.Paragraph>
+          <Button
+            size="large"
+            type="primary"
+            onClick={() => navigate("/login", { relative: "route" })}
+          >
+            Log in as a different token
+          </Button>
           <Divider />
         </>
       )}

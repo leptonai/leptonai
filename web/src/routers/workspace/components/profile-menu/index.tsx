@@ -68,7 +68,20 @@ export const ProfileMenu: FC = () => {
             {profileService.profile?.identification?.email}
           </Button>
         </Dropdown>
-      ) : null}
+      ) : (
+        <Button
+          type="text"
+          size="small"
+          icon={<CarbonIcon icon={<Logout />} />}
+          onClick={() => {
+            authService.logout().then(() => {
+              navigate("/login", { relative: "route" });
+            });
+          }}
+        >
+          Logout
+        </Button>
+      )}
     </>
   );
 };

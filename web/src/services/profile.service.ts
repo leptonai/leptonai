@@ -16,11 +16,17 @@ export class ProfileService {
         mergeMap((authClusters) =>
           authClusters.length > 0
             ? forkJoin([
-                ...authClusters.map(({ url }) =>
-                  this.httpClientService
-                    .get<ClusterDetail>(`${url}/api/v1/cluster`)
-                    .pipe(catchError(() => of(null)))
-                ),
+                ...authClusters.map(({ url, token }) => {
+                  return this.httpClientService
+                    .get<ClusterDetail>(`${url}/api/v1/cluster`, {
+                      headers: {
+                        // The interceptor will set the token from the profile to the header,
+                        // but the token is not set to profile now, so we need to set it manually.
+                        Authorization: `Bearer ${token}`,
+                      },
+                    })
+                    .pipe(catchError(() => of(null)));
+                }),
               ]).pipe(
                 map((detailClusters) => {
                   return detailClusters
