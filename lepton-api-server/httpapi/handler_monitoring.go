@@ -242,7 +242,7 @@ func (h *MonitorningHandler) cleanAndScalePrometheusQueryResult(result model.Val
 		return nil, err
 	}
 	// JSON decoding
-	var data []map[string]interface{}
+	data := make([]map[string]interface{}, 0)
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func (h *MonitorningHandler) cleanAndScalePrometheusQueryResult(result model.Val
 			for _, value := range values {
 				if v, ok := value.([]interface{}); ok {
 					if len(v) == 2 {
-						if v[1] == "NaN" {
+						if v[1] == "NaN" || v[1] == "Inf" || v[1] == "-Inf" || v[1] == "+Inf" {
 							v[1] = 0
 						}
 						switch v[1].(type) {
