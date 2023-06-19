@@ -15,6 +15,7 @@ import {
 } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
 import { OpenAPI } from "openapi-types";
+import { MethodTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/method-tag";
 
 export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -109,7 +110,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                   `}
                   flex="0 0 40px"
                 >
-                  <Typography.Text>Path:</Typography.Text>
+                  <Typography.Text>API:</Typography.Text>
                 </Col>
                 <Col flex="auto">
                   <Select
@@ -119,7 +120,25 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                     value={currentAPI?.operationId}
                     onChange={(v) => setOperationId(v)}
                     options={apis.map((i) => {
-                      return { label: i.operation.path, value: i.operationId };
+                      return {
+                        label: (
+                          <Typography.Text
+                            css={css`
+                              display: inline-flex;
+                              width: 100%;
+                              justify-content: space-between;
+                            `}
+                          >
+                            <Typography.Text>
+                              {i.operation.path}
+                            </Typography.Text>
+                            {i.request?.method ? (
+                              <MethodTag method={i.request.method} />
+                            ) : null}
+                          </Typography.Text>
+                        ),
+                        value: i.operationId,
+                      };
                     })}
                   />
                 </Col>
