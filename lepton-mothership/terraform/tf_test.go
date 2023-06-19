@@ -2,12 +2,14 @@ package terraform
 
 import (
 	"testing"
+
+	"github.com/leptonai/lepton/go-pkg/util"
 )
 
 func TestWorkspace(t *testing.T) {
 	// Move to test main
 	MustInit()
-	testWorkspaceName := "test-workspace"
+	testWorkspaceName := "test-workspace-" + util.RandString(6)
 
 	err := CreateWorkspace(testWorkspaceName)
 	if err != nil {
