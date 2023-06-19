@@ -310,7 +310,12 @@ export const DeploymentForm: FC<{
           )}
         </Form.List>
       </Form.Item>
-      <Form.Item wrapperCol={{ offset: 7, span: 14 }}>
+      <Form.Item
+        wrapperCol={{
+          sm: { offset: 0, span: 24 },
+          xl: { offset: 7, span: 14 },
+        }}
+      >
         <Checkbox
           disabled={edit}
           checked={enableAccelerator}

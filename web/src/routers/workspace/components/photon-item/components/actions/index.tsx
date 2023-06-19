@@ -68,7 +68,7 @@ export const Actions: FC<{
             }}
           >
             {relatedDeployments.length > 0 ? (
-              <Tooltip title="Cannot delete due to associated deployment">
+              <Tooltip title="Cannot delete a currently deployed version">
                 {deleteButton}
               </Tooltip>
             ) : (

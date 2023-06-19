@@ -1,8 +1,9 @@
+import { WatsonHealth3DCursor } from "@carbon/icons-react";
 import { FC } from "react";
 import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Col, Empty, Row } from "antd";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { PhotonIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
@@ -45,33 +46,45 @@ export const PhotonItem: FC<{
   });
   return photon ? (
     <Row gutter={[0, 12]}>
-      {!versionView && (
-        <Col span={24}>
-          <Row>
-            <Col flex="1 1 auto">
-              <Link
+      <Col span={24}>
+        <Row gutter={[0, 12]}>
+          <Col flex="1 1 auto">
+            <Link
+              css={css`
+                color: ${theme.colorTextHeading};
+              `}
+              to={
+                showDetail
+                  ? `/workspace/${workspaceTrackerService.name}/photons/detail/${photon.id}`
+                  : `/workspace/${workspaceTrackerService.name}/photons/versions/${photon.name}`
+              }
+              relative="route"
+            >
+              <Description.Item
                 css={css`
-                  color: ${theme.colorTextHeading};
+                  font-weight: 600;
+                  font-size: 16px;
                 `}
-                to={`/workspace/${workspaceTrackerService.name}/photons/versions/${photon.name}`}
-                relative="route"
-              >
-                <Description.Item
-                  css={css`
-                    font-weight: 600;
-                    font-size: 16px;
-                  `}
-                  icon={<PhotonIcon />}
-                  term={photon.name}
-                />
-              </Link>
-            </Col>
-            <Col flex="0 0 auto">
-              <Actions photon={photon} extraActions={extraActions} />
-            </Col>
-          </Row>
-        </Col>
-      )}
+                icon={
+                  showDetail ? (
+                    <CarbonIcon icon={<WatsonHealth3DCursor />} />
+                  ) : (
+                    <PhotonIcon />
+                  )
+                }
+                term={showDetail ? photon.id : photon.name}
+              />
+            </Link>
+          </Col>
+          <Col flex="0 0 auto">
+            <Actions
+              relatedDeployments={relatedDeployments}
+              photon={photon}
+              extraActions={extraActions}
+            />
+          </Col>
+        </Row>
+      </Col>
       {!versionView && (
         <Col span={24}>
           <Description.Item description={photon.model} />
@@ -101,19 +114,8 @@ export const PhotonItem: FC<{
               )}
             </Description.Container>
           </Col>
-
-          {versionView && (
-            <Col flex="0 0 auto">
-              <Actions
-                relatedDeployments={relatedDeployments}
-                photon={photon}
-                extraActions={extraActions}
-              />
-            </Col>
-          )}
         </Row>
       </Col>
-
       {showDetail && <ExtraInfo versionView={versionView} photon={photon} />}
     </Row>
   ) : (

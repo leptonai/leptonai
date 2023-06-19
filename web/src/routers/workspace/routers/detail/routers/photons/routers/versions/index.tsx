@@ -1,3 +1,4 @@
+import { Time } from "@carbon/icons-react";
 import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
@@ -10,7 +11,7 @@ import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";
-import { PhotonIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 
@@ -52,7 +53,7 @@ export const Versions: FC = () => {
         </Card>
       </Col>
       <Col span={24}>
-        <Card title="Version History">
+        <Card title="History Versions">
           {photons.length > 0 ? (
             <Timeline
               css={css`
@@ -62,7 +63,7 @@ export const Versions: FC = () => {
                 return {
                   key: m.id,
                   color: theme.colorTextSecondary,
-                  dot: <PhotonIcon />,
+                  dot: <CarbonIcon icon={<Time />} />,
                   children: (
                     <Col key={m.id} span={24}>
                       <Typography.Paragraph
