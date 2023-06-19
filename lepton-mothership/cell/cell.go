@@ -179,7 +179,7 @@ func Delete(cellName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = util.PrepareTerraformWorkingDir(workspaceName(ce.Spec.ClusterName, cellName), "cell")
+	err = util.PrepareTerraformWorkingDir(workspaceName(ce.Spec.ClusterName, cellName), "cell", ce.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -276,7 +276,7 @@ func createOrUpdateCell(ce *crdv1alpha1.LeptonCell) error {
 	}
 	oidcID := cl.Status.Properties.OIDCID
 
-	err = util.PrepareTerraformWorkingDir(workspaceName(ce.Spec.ClusterName, cellName), "cell")
+	err = util.PrepareTerraformWorkingDir(workspaceName(ce.Spec.ClusterName, cellName), "cell", ce.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}

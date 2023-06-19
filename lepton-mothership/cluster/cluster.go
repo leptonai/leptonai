@@ -148,7 +148,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton")
+	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -238,7 +238,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 		}
 	}()
 
-	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton")
+	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}

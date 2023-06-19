@@ -15,7 +15,7 @@ const (
 	leptonRepoURL = "https://github.com/leptonai/lepton.git"
 )
 
-func PrepareTerraformWorkingDir(dirName, moduleName string) error {
+func PrepareTerraformWorkingDir(dirName, moduleName, version string) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %s", err)
@@ -32,7 +32,7 @@ func PrepareTerraformWorkingDir(dirName, moduleName string) error {
 
 	// Optimize me: only does one clone for all clusters
 	// TODO: switch to desired version of terraform code from the git repo
-	err = git.Clone(gitDir, leptonRepoURL)
+	err = git.Clone(gitDir, leptonRepoURL, version)
 	if err != nil {
 		return fmt.Errorf("failed to clone the git repo: %s", err)
 	}

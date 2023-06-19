@@ -5,6 +5,7 @@ import (
 	"os"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
@@ -15,7 +16,10 @@ var (
 )
 
 // TODO: add branch and tag support
-func Clone(dir, url string) error {
+func Clone(dir, url, version string) error {
+	if version == "" {
+		version = string(plumbing.HEAD)
+	}
 	_, err := git.PlainClone(dir, false, &git.CloneOptions{
 		// The intended use of a GitHub personal access token is in replace of your password
 		// because access tokens can easily be revoked.
@@ -24,8 +28,9 @@ func Clone(dir, url string) error {
 			Username: username, // yes, this can be anything except an empty string
 			Password: token,
 		},
-		URL:      url,
-		Progress: os.Stdout,
+		URL:           url,
+		Progress:      os.Stdout,
+		ReferenceName: plumbing.ReferenceName(version),
 	})
 	if err != nil {
 		return err
