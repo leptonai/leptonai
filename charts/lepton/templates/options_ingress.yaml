@@ -1,0 +1,29 @@
+{{ if .Values.apiServer.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lepton-all-options-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: lepton-{{ .Release.Namespace }}-control-plane
+    # The group order must be after https redirect and before everything else. It is the same
+    # as configured in ingress.IngressGroupOrderAllOptions
+    alb.ingress.kubernetes.io/group.order: '1'
+    alb.ingress.kubernetes.io/conditions.{{ .Values.apiServer.name }}-service: '[{"field":"http-request-method","httpRequestMethodConfig":{"Values":["OPTIONS"]}}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.apiServer.name }}-service
+                port:
+                  number: {{ .Values.apiServer.service.port }}
+{{ end }}
