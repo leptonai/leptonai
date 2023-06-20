@@ -294,6 +294,8 @@ func createOrUpdateCell(ce *crdv1alpha1.LeptonCell) error {
 		"API_TOKEN="+ce.Spec.APIToken,
 		"OIDC_ID="+oidcID,
 		"WEB_ENABLED="+strconv.FormatBool(ce.Spec.EnableWeb),
+		"CREATE_EFS=true",
+		"CREATE_EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPrivateSubnets),
 	)
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
@@ -312,4 +314,17 @@ func createOrUpdateCell(ce *crdv1alpha1.LeptonCell) error {
 
 func workspaceName(clusterName, cellName string) string {
 	return clusterName + "-" + cellName
+}
+
+func efsMountTargets(privateSubnets []string) string {
+	var sb strings.Builder
+	sb.WriteString("'mount_targets={")
+	for i, subnet := range privateSubnets {
+		sb.WriteString(fmt.Sprintf(`az-%d={subnet_id=%s}`, i, subnet))
+		if i < len(privateSubnets)-1 {
+			sb.WriteString(",")
+		}
+	}
+	sb.WriteString("}'")
+	return sb.String()
 }
