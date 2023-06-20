@@ -21,7 +21,16 @@ const ApiItem: FC<{
 
   const curl = useMemo(() => {
     if (api.request) {
-      return openApiService.curlify(api.request);
+      const hasAuthHeader = Object.hasOwn(api.request.headers, "Authorization");
+      return openApiService.curlify({
+        ...api.request,
+        headers: hasAuthHeader
+          ? api.request.headers
+          : {
+              ...api.request.headers,
+              Authorization: "Bearer $YOUR_TOKEN",
+            },
+      });
     } else {
       return "";
     }
