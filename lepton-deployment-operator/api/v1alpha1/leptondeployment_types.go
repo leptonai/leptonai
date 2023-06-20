@@ -133,7 +133,7 @@ const (
 	LeptonDeploymentStateNotReady LeptonDeploymentState = "Not Ready"
 	LeptonDeploymentStateStarting LeptonDeploymentState = "Starting"
 	LeptonDeploymentStateUpdating LeptonDeploymentState = "Updating"
-	LeptonDeploymentStateUnknown  LeptonDeploymentState = "Unknown"
+	LeptonDeploymentStateUnknown  LeptonDeploymentState = ""
 )
 
 type LeptonDeploymentNotReadyIssue string

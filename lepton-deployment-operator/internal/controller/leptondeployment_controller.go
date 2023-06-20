@@ -171,17 +171,35 @@ func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context
 }
 
 func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, deployment *appsv1.Deployment) error {
-	if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
-		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateRunning
-	} else {
-		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateNotReady
-	}
+	ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
 	ld.Status.Endpoint.InternalEndpoint = "http://" + deployment.Name + "." + deployment.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
 	ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.CellName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
 	if err := r.Status().Update(ctx, ld); err != nil {
 		return err
 	}
 	return nil
+}
+
+func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.LeptonDeploymentState) leptonaiv1alpha1.LeptonDeploymentState {
+	if replicas == readyReplicas {
+		return leptonaiv1alpha1.LeptonDeploymentStateRunning
+	}
+	switch state {
+	case leptonaiv1alpha1.LeptonDeploymentStateUnknown:
+		// State unknown means api-server just created the LD spec, so it is starting
+		return leptonaiv1alpha1.LeptonDeploymentStateStarting
+	case leptonaiv1alpha1.LeptonDeploymentStateStarting:
+		// If starting and not ready, then still starting
+		return leptonaiv1alpha1.LeptonDeploymentStateStarting
+	default:
+		if readyReplicas == 0 {
+			// If not starting and no ready replicas, then not ready
+			return leptonaiv1alpha1.LeptonDeploymentStateNotReady
+		} else {
+			// Otherwise, it is updating
+			return leptonaiv1alpha1.LeptonDeploymentStateUpdating
+		}
+	}
 }
 
 func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request) {
