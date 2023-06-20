@@ -1,0 +1,43 @@
+{{ if .Values.apiServer.enabled }}
+{{ if ne .Values.apiServer.apiToken "" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/actions.response-401-apiserver: '{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"401","messageBody":"Not Authorized"}}'
+    alb.ingress.kubernetes.io/actions.response-401-deployment: '{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"401","messageBody":"Not Authorized"}}'
+    alb.ingress.kubernetes.io/conditions.response-401-deployment: '[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Deployment","values":["*"]}}]'
+    alb.ingress.kubernetes.io/group.name: lepton-{{ .Release.Namespace }}-control-plane
+    # Should match ingress.IngressGroupOrderUnauthorized
+    alb.ingress.kubernetes.io/group.order: "950"
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+{{ if ne .Values.apiServer.rootDomain "" }}
+{{ if ne .Values.apiServer.certificateArn "" }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+{{ end }}
+{{ end }}
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  name: response-401-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: response-401-deployment
+            port:
+              name: use-annotation
+        path: /
+        pathType: Prefix
+      - backend:
+          service:
+            name: response-401-apiserver
+            port:
+              name: use-annotation
+        path: {{ .Values.apiServer.path }}
+        pathType: Prefix
+{{ end }}
+{{ end }}

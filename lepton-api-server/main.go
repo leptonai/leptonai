@@ -86,15 +86,6 @@ func main() {
 		log.Fatalln("bucket is not accessible")
 	}
 
-	// Set the namespace for various resources.
-	ingressNamespace = *namespaceFlag
-	certificateARN = *certificateARNFlag
-	rootDomain = *rootDomainFlag
-	apiToken = *apiTokenFlag
-
-	mustInitAPIServerIngress()
-	mustInitUnauthorizedErrorIngress()
-
 	handler := httpapi.New(
 		*namespaceFlag,
 		*prometheusURLFlag,

@@ -1,0 +1,40 @@
+{{ if .Values.apiServer.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+{{ if ne .Values.apiServer.certificateArn "" }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.apiServer.certificateArn }}
+{{ end }}
+{{ if ne .Values.apiServer.apiToken "" }}
+    alb.ingress.kubernetes.io/conditions.lepton-api-server-service: '[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Authorization","values":["Bearer {{ .Values.apiServer.apiToken }}"]}}]'
+{{ end }}
+    alb.ingress.kubernetes.io/group.name: lepton-{{ .Release.Namespace }}-control-plane
+    # Should match ingress.IngressGroupOrderAPIServer
+    alb.ingress.kubernetes.io/group.order: "900"
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+{{ if ne .Values.apiServer.rootDomain "" }}
+{{ if ne .Values.apiServer.certificateArn "" }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+{{ end }}
+{{ end }}
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+{{ if ne .Values.apiServer.rootDomain "" }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Release.Namespace }}.{{ .Values.apiServer.rootDomain }}
+{{ end }}
+  name: {{ .Values.apiServer.name }}-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Values.apiServer.name }}-service
+            port:
+              number: {{ .Values.apiServer.service.port }}
+        path: {{ .Values.apiServer.path }}
+        pathType: Prefix
+{{ end }}
