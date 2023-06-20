@@ -145,7 +145,7 @@ class RunnerPhoton(Photon):
             if pkg.startswith("-e"):
                 # TODO: capture local editable packages
                 continue
-            if pkg.startswith("pytest") or pkg == "parameterized":
+            if pkg.startswith("pytest") or pkg == "parameterized" or pkg == "responses":
                 # test related packages
                 continue
             filtered_pkgs.append(pkg)
