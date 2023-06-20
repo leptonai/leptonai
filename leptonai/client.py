@@ -6,9 +6,11 @@ import requests
 
 class Client:
     # TODO: add support for creating client with name/id
-    def __init__(self, url):
+    def __init__(self, url, token=None):
         self.url = url
         self._session = requests.Session()
+        if token is not None:
+            self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
 
     # Normal usages will go through then `__getattr__` path (which triggers
