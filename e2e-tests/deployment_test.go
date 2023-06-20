@@ -102,10 +102,19 @@ func waitForDeploymentToRunningState(id string) error {
 	})
 }
 
-func TestDeploymentStatus(t *testing.T) {
+func TestDeploymentStatusAndEvents(t *testing.T) {
 	if err := waitForDeploymentToRunningState(mainTestDeploymentID); err != nil {
 		t.Fatal(err)
 	}
+
+	es, err := lepton.Event().GetDeploymentEvents(mainTestDeploymentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(es) == 0 {
+		t.Fatalf("Expected deployment to have at least one event, got %d", len(es))
+	}
+	t.Log("Deployment events:", es[0].Reason)
 }
 
 func TestUpdateDeploymentMinReplicas(t *testing.T) {

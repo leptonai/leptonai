@@ -45,3 +45,9 @@ func (l *Lepton) Secret() *Secret {
 		Lepton: *l,
 	}
 }
+
+func (l *Lepton) Event() *Event {
+	return &Event{
+		Lepton: *l,
+	}
+}

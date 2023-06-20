@@ -76,3 +76,9 @@ func (h *Handler) SecretHandler() *SecretHandler {
 		Handler: *h,
 	}
 }
+
+func (h *Handler) DeploymentEventHandler() *DeploymentEventHandler {
+	return &DeploymentEventHandler{
+		Handler: *h,
+	}
+}
