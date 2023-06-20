@@ -42,5 +42,5 @@ jobs:
         cd sdk
         pip install -e .
         pip install -r leptonai/examples/requirements.txt
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov responses
         pytest -v --cov=leptonai
