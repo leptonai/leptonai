@@ -27,6 +27,7 @@ type LeptonCellSpec struct {
 	ClusterName string `json:"cluster_name"`
 	ImageTag    string `json:"image_tag,omitempty"`
 	APIToken    string `json:"api_token,omitempty"`
+	EnableWeb   bool   `json:"enable_web,omitempty"`
 	// Terraform module version
 	Version string `json:"version"`
 

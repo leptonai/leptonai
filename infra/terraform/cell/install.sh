@@ -30,6 +30,10 @@ if [[ -z $API_TOKEN ]]; then
   API_TOKEN=""
 fi
 
+if [[ -z $WEB_ENABLED ]]; then
+  WEB_ENABLED="false"
+fi
+
 if [[ -z $CREATE_EFS ]]; then
   CREATE_EFS="false"
 fi
@@ -76,6 +80,7 @@ terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="image_tag_web=$IMAGE_TAG" \
   -var="image_tag_api_server=$IMAGE_TAG" \
   -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
 apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
@@ -84,6 +89,7 @@ apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="image_tag_web=$IMAGE_TAG" \
   -var="image_tag_api_server=$IMAGE_TAG" \
   -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then

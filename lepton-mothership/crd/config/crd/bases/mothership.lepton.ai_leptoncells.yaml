@@ -43,6 +43,8 @@ spec:
                 type: string
               description:
                 type: string
+              enable_web:
+                type: boolean
               image_tag:
                 type: string
               name:

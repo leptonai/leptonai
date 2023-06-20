@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -292,6 +293,7 @@ func createOrUpdateCell(ce *crdv1alpha1.LeptonCell) error {
 		"IMAGE_TAG="+ce.Spec.ImageTag,
 		"API_TOKEN="+ce.Spec.APIToken,
 		"OIDC_ID="+oidcID,
+		"WEB_ENABLED="+strconv.FormatBool(ce.Spec.EnableWeb),
 	)
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
