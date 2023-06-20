@@ -191,7 +191,7 @@ jobs:
           --set web.enabled=false \
           --set apiServer.cellName=$NAMESPACE \
           --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} \
-          --set apiServer.photonPrefix=photons \
+          --set apiServer.photonPrefix=$NAMESPACE/photons \
           --set apiServer.rootDomain=cloud.lepton.ai \
           --set apiServer.serviceAccountRoleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/s3-role-${{ vars.K8S_DEV_CI }} \
           --set apiServer.certificateArn=arn:aws:acm:${{ vars.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:certificate/${{ secrets.SSL_CERT_CLOUD }} \
