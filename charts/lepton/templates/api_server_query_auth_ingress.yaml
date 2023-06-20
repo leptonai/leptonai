@@ -1,0 +1,34 @@
+{{ if .Values.apiServer.enabled }}
+{{ if ne .Values.apiServer.apiToken "" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/conditions.lepton-api-server-service: '[{"field":"query-string","queryStringConfig":{"values":[{"key":"access_token","value":"{{ .Values.apiServer.apiToken }}"}]}}]'
+    alb.ingress.kubernetes.io/group.name: lepton-{{ .Release.Namespace }}-control-plane
+    # Should match ingress.IngressGroupOrderAPIServerQueryAuth
+    alb.ingress.kubernetes.io/group.order: "910"
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+{{ if ne .Values.apiServer.rootDomain "" }}
+{{ if ne .Values.apiServer.certificateArn "" }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+{{ end }}
+{{ end }}
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  name: {{ .Values.apiServer.name }}-query-auth-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Values.apiServer.name }}-service
+            port:
+              number: {{ .Values.apiServer.service.port }}
+        path: {{ .Values.apiServer.path }}
+        pathType: Prefix
+{{ end }}
+{{ end }}

@@ -1,11 +1,12 @@
 package ingress
 
 const (
-	IngressGroupOrderSSLRedirect  = 0
-	IngressGroupOrderAllOptions   = 1
-	IngressGroupOrderDeployment   = 100
-	IngressGroupOrderAPIServer    = 900
-	IngressGroupOrderUnauthorized = 950
+	IngressGroupOrderSSLRedirect        = 0
+	IngressGroupOrderAllOptions         = 1
+	IngressGroupOrderDeployment         = 100
+	IngressGroupOrderAPIServer          = 900
+	IngressGroupOrderAPIServerQueryAuth = 910
+	IngressGroupOrderUnauthorized       = 950
 	// IngressGroupOrderWeb is set in helm charts at /charts/template/web_ingress.yaml
 	IngressGroupOrderWeb = 1000
 )
