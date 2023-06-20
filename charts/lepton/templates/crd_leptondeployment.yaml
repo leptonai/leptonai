@@ -60,7 +60,7 @@ spec:
                       type: string
                     value_from:
                       properties:
-                        secret_ref:
+                        secret_name_ref:
                           type: string
                       type: object
                   required:

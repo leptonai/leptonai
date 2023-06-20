@@ -113,7 +113,7 @@ type EnvVar struct {
 }
 
 type EnvValue struct {
-	SecretNameRef string `json:"secret_ref,omitempty"`
+	SecretNameRef string `json:"secret_name_ref,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment
