@@ -28,6 +28,7 @@ export const Card: FC<
   const theme = useAntdTheme();
   return (
     <div
+      className={className}
       css={css`
         display: flex;
         flex-direction: column;
@@ -65,8 +66,9 @@ export const Card: FC<
         </div>
       )}
       <div
-        className={className}
         css={css`
+          flex: 1 1 auto;
+          position: relative;
           padding: ${paddingless ? 0 : "16px"};
         `}
       >

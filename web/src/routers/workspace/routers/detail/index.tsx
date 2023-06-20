@@ -1,3 +1,4 @@
+import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
 import { FC, Suspense, lazy } from "react";
 import {
   Navigate,
@@ -13,7 +14,11 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { forkJoin, map, merge, switchMap } from "rxjs";
 import { Loading } from "@lepton-dashboard/components/loading";
-import { Layout } from "../../../../components/layout";
+import {
+  FullLayoutWidth,
+  Layout,
+  LimitedLayoutWidth,
+} from "../../../../components/layout";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { Nav } from "@lepton-dashboard/routers/workspace/components/nav";
 import { Footer } from "@lepton-dashboard/components/layout/components/footer";
@@ -75,9 +80,38 @@ export const Detail: FC = () => {
     >
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="photons/*" element={<Photons />} />
-          <Route path="deployments/*" element={<Deployments />} />
+          <Route
+            path="dashboard"
+            element={
+              <LimitedLayoutWidth>
+                <Dashboard />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="photons/*"
+            element={
+              <LimitedLayoutWidth>
+                <Photons />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="deployments/*"
+            element={
+              <LimitedLayoutWidth>
+                <Deployments />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="settings/*"
+            element={
+              <FullLayoutWidth>
+                <Settings />
+              </FullLayoutWidth>
+            }
+          />
           <Route
             path="*"
             element={<Navigate to={`${pathname}/dashboard`} replace />}

@@ -99,6 +99,14 @@ export const Nav: FC = () => {
       ),
       key: `${pathname}/deployments`,
     },
+    // {
+    //   label: (
+    //     <span id="nav-settings">
+    //       <CarbonIcon icon={<Settings />} /> Settings
+    //     </span>
+    //   ),
+    //   key: `${pathname}/settings`,
+    // },
   ];
 
   const notificationService = useInject(IndicatorService);

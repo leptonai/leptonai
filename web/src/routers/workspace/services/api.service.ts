@@ -30,6 +30,7 @@ export abstract class ApiService {
     instanceId: string
   ): Observable<string>;
   abstract getDeploymentInstanceSocketUrl(
+    host: string,
     deploymentId: string,
     instanceId: string
   ): string;

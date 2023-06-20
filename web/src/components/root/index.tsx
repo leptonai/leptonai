@@ -1,3 +1,4 @@
+import { UseSetupNavigate } from "@lepton-dashboard/hooks/use-setup-navigate";
 import { FC, Suspense } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
@@ -17,6 +18,7 @@ export const Root: FC = () => {
   useSetupMonaco();
   useSetupInterceptor();
   useSetupEcharts();
+  UseSetupNavigate();
   const initialized = useInitialize();
   return initialized ? (
     <Container

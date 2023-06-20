@@ -1,3 +1,4 @@
+import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { FC, useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
@@ -20,6 +21,7 @@ export const TerminalDetail: FC<{
   const theme = useAntdTheme();
   const terminalDOMRef = useRef<HTMLDivElement>(null);
   const deploymentService = useInject(DeploymentService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   useEffect(() => {
     const term = new Xterm({
       fontFamily: theme.fontFamilyCode,
@@ -54,7 +56,11 @@ export const TerminalDetail: FC<{
       },
     });
     const socket = new WebSocket(
-      deploymentService.getInstanceSocketUrl(deploymentId, instanceId),
+      deploymentService.getInstanceSocketUrl(
+        workspaceTrackerService.cluster!.auth.url,
+        deploymentId,
+        instanceId
+      ),
       "v4.channel.k8s.io"
     );
     const fitAddon = new FitAddon();
@@ -104,7 +110,13 @@ export const TerminalDetail: FC<{
       term.dispose();
       socket.close();
     };
-  }, [deploymentId, deploymentService, instanceId, theme.fontFamilyCode]);
+  }, [
+    deploymentId,
+    deploymentService,
+    instanceId,
+    theme.fontFamilyCode,
+    workspaceTrackerService.cluster,
+  ]);
   return (
     <div
       css={css`

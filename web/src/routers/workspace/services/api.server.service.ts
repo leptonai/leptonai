@@ -140,13 +140,12 @@ export class ApiServerService implements ApiService {
   }
 
   getDeploymentInstanceSocketUrl(
+    host: string,
     deploymentId: string,
     instanceId: string
   ): string {
-    const host = import.meta.env.VITE_CLUSTER_URL
-      ? new URL(import.meta.env.VITE_CLUSTER_URL).host
-      : window.location.host;
-    return `wss://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
+    const hostname = new URL(host).hostname;
+    return `wss://${hostname}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
   }
 
   getDeploymentInstanceMetrics(

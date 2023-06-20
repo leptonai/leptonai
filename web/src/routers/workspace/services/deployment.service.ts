@@ -25,8 +25,13 @@ export class DeploymentService {
     return this.apiService.getDeploymentInstanceLogs(deploymentId, instanceId);
   }
 
-  getInstanceSocketUrl(deploymentId: string, instanceId: string): string {
+  getInstanceSocketUrl(
+    host: string,
+    deploymentId: string,
+    instanceId: string
+  ): string {
     return this.apiService.getDeploymentInstanceSocketUrl(
+      host,
       deploymentId,
       instanceId
     );

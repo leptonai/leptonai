@@ -9,17 +9,6 @@ const Container = styled.div`
   overflow: auto;
 `;
 
-const Main = styled.div`
-  min-height: 100%;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  padding: 24px;
-`;
-
 const FullHeight = styled.div`
   min-height: 100%;
   display: flex;
@@ -31,6 +20,20 @@ export interface LayoutProps {
   nav?: ReactNode;
   footer?: ReactNode;
 }
+
+export const FullLayoutWidth = styled.div`
+  min-height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 24px;
+`;
+
+export const LimitedLayoutWidth = styled(FullLayoutWidth)`
+  max-width: 1200px;
+`;
 
 export const Layout: FC<LayoutProps & PropsWithChildren> = ({
   children,
@@ -48,13 +51,16 @@ export const Layout: FC<LayoutProps & PropsWithChildren> = ({
       <FullHeight>
         {header}
         {nav && <NavContainer>{nav}</NavContainer>}
-        <Main
+        <div
           css={css`
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
             background: ${theme.colorBgLayout};
           `}
         >
           {children}
-        </Main>
+        </div>
       </FullHeight>
       {footer}
     </Container>

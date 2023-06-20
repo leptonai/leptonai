@@ -7,6 +7,7 @@ import { css } from "@emotion/react";
 export const BreadcrumbHeader: FC<NewBreadcrumbProps> = ({ items }) => {
   return (
     <Card
+      paddingless
       css={css`
         padding: 6px 16px;
       `}

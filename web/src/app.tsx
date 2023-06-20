@@ -31,7 +31,6 @@ import {
 } from "./components/auth-guard";
 import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
-import { Navigator } from "@lepton-dashboard/components/navigator";
 
 const Login = lazy(() =>
   import("@lepton-dashboard/routers/login").then((e) => ({
@@ -70,7 +69,6 @@ const router = createBrowserRouter([
           height: 100%;
         `}
       >
-        <Navigator />
         <Root />
       </AntdApp>
     ),

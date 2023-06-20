@@ -167,10 +167,11 @@ export class ApiLocalService implements ApiService {
   }
 
   getDeploymentInstanceSocketUrl(
+    host: string,
     deploymentId: string,
     instanceId: string
   ): string {
-    console.log(deploymentId, instanceId);
+    console.log(host, deploymentId, instanceId);
     return "";
   }
 

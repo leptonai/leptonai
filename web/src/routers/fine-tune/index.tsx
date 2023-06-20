@@ -8,7 +8,10 @@ import { FineTuneService } from "@lepton-dashboard/routers/fine-tune/services/fi
 import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Header } from "@lepton-dashboard/components/layout/components/header";
 
-import { Layout } from "@lepton-dashboard/components/layout";
+import {
+  Layout,
+  LimitedLayoutWidth,
+} from "@lepton-dashboard/components/layout";
 import { TitleService } from "@lepton-dashboard/services/title.service";
 
 const Jobs = lazy(() =>
@@ -33,8 +36,22 @@ export const FineTune: FC = () => {
       <Layout footer={<Footer />} header={<Header />} nav={<Nav />}>
         <Suspense fallback={<Loading />}>
           <Routes>
-            <Route path="jobs" element={<Jobs />} />
-            <Route path="create" element={<Create />} />
+            <Route
+              path="jobs"
+              element={
+                <LimitedLayoutWidth>
+                  <Jobs />
+                </LimitedLayoutWidth>
+              }
+            />
+            <Route
+              path="create"
+              element={
+                <LimitedLayoutWidth>
+                  <Create />
+                </LimitedLayoutWidth>
+              }
+            />
             <Route path="*" element={<Navigate to="/create" replace />} />
           </Routes>
         </Suspense>

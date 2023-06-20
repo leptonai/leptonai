@@ -1,9 +1,9 @@
-import { FC, useEffect } from "react";
-import { useInject } from "@lepton-libs/di";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { useInject } from "@lepton-libs/di";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-export const Navigator: FC = () => {
+export const UseSetupNavigate = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navigateService = useInject(NavigateService);
@@ -20,5 +20,4 @@ export const Navigator: FC = () => {
       subscription.unsubscribe();
     };
   }, [navigateService, navigate]);
-  return null;
 };
