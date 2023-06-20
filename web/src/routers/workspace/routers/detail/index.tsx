@@ -78,7 +78,13 @@ export const Detail: FC = () => {
       footer={<Footer />}
       header={<Header menu={<WorkspaceSwitch />} actions={<ProfileMenu />} />}
     >
-      <Suspense fallback={<Loading />}>
+      <Suspense
+        fallback={
+          <LimitedLayoutWidth>
+            <Loading />
+          </LimitedLayoutWidth>
+        }
+      >
         <Routes>
           <Route
             path="dashboard"

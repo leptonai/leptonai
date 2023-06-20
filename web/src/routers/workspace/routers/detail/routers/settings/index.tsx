@@ -1,5 +1,7 @@
 import { Layout } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/components/layout";
+import { ApiTokens } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/api-tokens";
 import { General } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/general";
+import { Secrets } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets";
 import { TitleService } from "@lepton-dashboard/services/title.service";
 import { useInject } from "@lepton-libs/di";
 import { FC, useEffect } from "react";
@@ -17,6 +19,8 @@ export const Settings: FC = () => {
     <Layout>
       <Routes>
         <Route path="general" element={<General />} />
+        <Route path="api-tokens" element={<ApiTokens />} />
+        <Route path="secrets" element={<Secrets />} />
         <Route
           path="*"
           element={<Navigate to={`${pathname}/general`} replace />}

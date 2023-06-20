@@ -312,8 +312,8 @@ export const DeploymentForm: FC<{
       </Form.Item>
       <Form.Item
         wrapperCol={{
-          sm: { offset: 0, span: 24 },
-          xl: { offset: 7, span: 14 },
+          xs: { offset: 0, span: 24 },
+          sm: { offset: 7, span: 14 },
         }}
       >
         <Checkbox

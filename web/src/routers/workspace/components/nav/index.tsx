@@ -12,7 +12,7 @@ import {
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
-import { Workspace } from "@carbon/icons-react";
+import { Settings, Workspace } from "@carbon/icons-react";
 import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
 
@@ -99,14 +99,14 @@ export const Nav: FC = () => {
       ),
       key: `${pathname}/deployments`,
     },
-    // {
-    //   label: (
-    //     <span id="nav-settings">
-    //       <CarbonIcon icon={<Settings />} /> Settings
-    //     </span>
-    //   ),
-    //   key: `${pathname}/settings`,
-    // },
+    {
+      label: (
+        <span id="nav-settings">
+          <CarbonIcon icon={<Settings />} /> Settings
+        </span>
+      ),
+      key: `${pathname}/settings`,
+    },
   ];
 
   const notificationService = useInject(IndicatorService);
