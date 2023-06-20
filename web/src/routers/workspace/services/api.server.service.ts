@@ -3,6 +3,7 @@ import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
+  DeploymentEvent,
   Instance,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
@@ -99,6 +100,12 @@ export class ApiServerService implements ApiService {
   listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
     return this.httpClientService.get(
       `${this.prefix}/deployments/${deploymentId}/instances`
+    );
+  }
+
+  listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
+    return this.httpClientService.get(
+      `${this.prefix}/deployments/${deploymentId}/events`
     );
   }
 

@@ -7,7 +7,12 @@ import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { DeploymentItem } from "@lepton-dashboard/routers/workspace/components/deployment-item";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
-import { BlockStorageAlt, Book, Play } from "@carbon/icons-react";
+import {
+  BlockStorageAlt,
+  Book,
+  EventSchedule,
+  Play,
+} from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { css } from "@emotion/react";
@@ -36,6 +41,15 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
         <>
           <CarbonIcon icon={<Book />} />
           API
+        </>
+      ),
+    },
+    {
+      key: `${pathname}/events`,
+      label: (
+        <>
+          <CarbonIcon icon={<EventSchedule />} />
+          Events
         </>
       ),
     },

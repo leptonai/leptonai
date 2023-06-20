@@ -4,7 +4,7 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { debounceTime, startWith, switchMap, tap } from "rxjs";
+import { switchMap, tap } from "rxjs";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { Divider, Space, Table } from "antd";
 import { css } from "@emotion/react";
@@ -20,8 +20,6 @@ export const List: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const instances = useStateFromObservable(
     () =>
       refreshService.refresh$.pipe(
-        startWith(true),
-        debounceTime(300),
         switchMap(() =>
           deploymentService
             .listInstances(deployment.id)

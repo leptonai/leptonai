@@ -3,6 +3,7 @@ import { EMPTY, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
+  DeploymentEvent,
   Instance,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
@@ -128,6 +129,11 @@ export class ApiLocalService implements ApiService {
   }
 
   listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
+    console.log(deploymentId);
+    return of([]);
+  }
+
+  listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
     console.log(deploymentId);
     return of([]);
   }

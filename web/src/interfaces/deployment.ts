@@ -25,3 +25,17 @@ export interface Metric {
   metric: { name: string; handler?: string };
   values: Array<[number, string]>;
 }
+
+/**
+ * https://pkg.go.dev/k8s.io/api/events/v1#Event
+ */
+export enum DeploymentEventTypes {
+  Normal = "Normal",
+  Warning = "Warning",
+}
+export interface DeploymentEvent {
+  type: string;
+  reason: DeploymentEventTypes | string;
+  count: number;
+  last_observed_time: string;
+}

@@ -3,6 +3,7 @@ import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
+  DeploymentEvent,
   Instance,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
@@ -20,6 +21,10 @@ export abstract class ApiService {
   abstract listDeploymentInstances(
     deploymentId: string
   ): Observable<Instance[]>;
+
+  abstract listDeploymentEvents(
+    deploymentId: string
+  ): Observable<DeploymentEvent[]>;
 
   abstract getDeploymentMetrics(
     deploymentId: string,

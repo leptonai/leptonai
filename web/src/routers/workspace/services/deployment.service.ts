@@ -4,6 +4,7 @@ import { BehaviorSubject, forkJoin, map, Observable, tap } from "rxjs";
 import {
   Deployment,
   Instance,
+  DeploymentEvent,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
@@ -19,6 +20,10 @@ export class DeploymentService {
 
   listInstances(deploymentId: string): Observable<Instance[]> {
     return this.apiService.listDeploymentInstances(deploymentId);
+  }
+
+  listEvents(deploymentId: string): Observable<DeploymentEvent[]> {
+    return this.apiService.listDeploymentEvents(deploymentId);
   }
 
   getInstanceLog(deploymentId: string, instanceId: string): Observable<string> {
