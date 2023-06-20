@@ -164,9 +164,7 @@ func main() {
 	}
 
 	if *enableTunaFlag {
-		// TODO: create this table in mothership
-		// TODO: clean up this table in mothership
-		kv, err := kv.NewKVDynamoDB(*clusterNameFlag + "-tuna")
+		kv, err := kv.NewKVDynamoDB("lepton-db-" + *cellNameFlag + "-tuna")
 		if err != nil {
 			log.Fatal("Cannot create DynamoDB KV:", err)
 		}

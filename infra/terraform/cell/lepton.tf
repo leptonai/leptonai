@@ -29,6 +29,15 @@ resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment"
   ]
 }
 
+resource "aws_iam_role_policy_attachment" "api-server-role-dynamodb-policy-attachment" {
+  policy_arn = "arn:aws:iam::${var.account_id}:policy/${aws_iam_policy.dynamodb-policy.name}"
+  role       = aws_iam_role.api-server-role.name
+
+  depends_on = [
+    aws_iam_policy.dynamodb-policy,
+    aws_iam_role.api-server-role
+  ]
+}
 
 resource "helm_release" "lepton" {
   name = "lepton"
