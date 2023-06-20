@@ -37,12 +37,7 @@ func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
 		if env.Value == "" && env.ValueFrom.SecretNameRef == "" {
 			continue
 		}
-		if env.Value != "" {
-			cenvs = append(cenvs, corev1.EnvVar{
-				Name:  env.Name,
-				Value: env.Value,
-			})
-		} else {
+		if env.ValueFrom.SecretNameRef != "" {
 			cenvs = append(cenvs, corev1.EnvVar{
 				Name: env.Name,
 				ValueFrom: &corev1.EnvVarSource{
@@ -53,6 +48,12 @@ func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
 						Key: env.ValueFrom.SecretNameRef,
 					},
 				},
+			})
+		} else {
+			// allow empty value if valueFrom.SecretNameRef is not set
+			cenvs = append(cenvs, corev1.EnvVar{
+				Name:  env.Name,
+				Value: env.Value,
 			})
 		}
 	}
