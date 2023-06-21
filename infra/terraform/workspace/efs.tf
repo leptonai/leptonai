@@ -17,5 +17,6 @@ module "efs" {
   }
   // TODO: explore how to set it to true
   deny_nonsecure_transport = false
+  attach_policy            = false
   # TODO: add tags
 }
