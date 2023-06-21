@@ -68,13 +68,14 @@ terraform init --upgrade
 
 # here, we assume the running script or mothership(controller)
 # copies the whole directory in the same directory tree
-if [[ -z $COPY_LEPTON_CHARTS ]]; then
-  echo "skipping copying lepton charts"
-else
+ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
+if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
   # this is not running via mothership, thus requiring manual copy
-  echo "copying lepton charts from ../../../charts/lepton"
-  rm -rf ./lepton || true
-  cp -r ../../../charts/lepton ./lepton
+  echo "copying lepton charts from ../../../charts"
+  rm -rf ./charts || true
+  cp -r ../../../charts .
+else
+  echo "skipping copying lepton charts"
 fi
 
 echo "Applying resources..."
