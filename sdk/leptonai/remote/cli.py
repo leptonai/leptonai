@@ -62,20 +62,12 @@ def login(remote_name, remote_url, auth_token):
     if remote_url is not None:
         remote_name = None
         while not remote_name:
-            remote_name = console.input(
-                f'Please enter the remote cluster name for "{remote_url}": '
-            )
+            remote_name = console.input("Please name the remote (eg. my-remote):")
             if not remote_name:
                 console.print("Remote cluster name cannot be empty")
 
         if auth_token is None:
-            auth_token = (
-                console.input(
-                    f'Please enter the authentication token for "{remote_name}" (ENTER'
-                    " if none): "
-                )
-                or ""
-            )
+            auth_token = console.input("Please enter the authentication token:") or ""
         save_cluster(remote_name, remote_url, auth_token=auth_token)
         set_current_cluster(remote_name)
 
