@@ -33,6 +33,20 @@ def create_diffusion_pipeline(task, model, revision):
     )
     if torch.cuda.is_available():
         pipeline = pipeline.to("cuda")
+        try:
+            torch._dynamo.config.suppress_errors = True
+            pipeline.unet = torch.compile(
+                pipeline.unet, mode="reduce-overhead", fullgraph=True
+            )
+        except Exception as e:
+            device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+            torch_version = torch.__version__
+            logger.info(
+                f"Failed to enable torch.compile on device_name={device_name},"
+                f" torch_version={torch_version}: {e}"
+            )
+        else:
+            logger.info("Enabled torch.compile")
     return pipeline
 
 
