@@ -12,10 +12,6 @@ RUN curl https://get.helm.sh/helm-v3.12.0-linux-amd64.tar.gz -o helm.tar.gz && \
     tar -zxvf helm.tar.gz && \
     mv linux-amd64/helm /usr/local/bin/helm
 
-# Install EKS CLI (eksctl)
-RUN curl -L https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz | tar xz -C /tmp && \
-    mv /tmp/eksctl /usr/local/bin
-
 # Install kubectl
 RUN curl -LO https://dl.k8s.io/release/v1.26.5/bin/linux/amd64/kubectl && \
     chmod +x kubectl && mv kubectl /usr/local/bin/
@@ -42,7 +38,6 @@ RUN yum update && yum install -y git
 # Copy the built components from the builder stage
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY --from=builder /usr/local/bin/eksctl /usr/local/bin/eksctl
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/jq /usr/local/bin/jq
 
