@@ -320,7 +320,7 @@ func efsMountTargets(privateSubnets []string) string {
 	var sb strings.Builder
 	sb.WriteString("'mount_targets={")
 	for i, subnet := range privateSubnets {
-		sb.WriteString(fmt.Sprintf(`az-%d={subnet_id=%s}`, i, subnet))
+		sb.WriteString(fmt.Sprintf(`"az-%d"={"subnet_id"="%s"}`, i, subnet))
 		if i < len(privateSubnets)-1 {
 			sb.WriteString(",")
 		}
