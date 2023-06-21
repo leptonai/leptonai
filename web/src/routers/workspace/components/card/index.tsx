@@ -12,6 +12,7 @@ export const Card: FC<
       extra?: ReactNode;
       loading?: boolean;
       borderless?: boolean;
+      radiusless?: boolean;
       overflowShow?: boolean;
       shadowless?: boolean;
       paddingless?: boolean;
@@ -23,6 +24,7 @@ export const Card: FC<
   title,
   extra,
   loading = false,
+  radiusless = false,
   borderless = false,
   overflowShow = false,
   shadowless = false,
@@ -39,7 +41,7 @@ export const Card: FC<
         overflow: ${overflowShow ? "visible" : "hidden"};
         background-color: ${theme.colorBgContainer};
         border-color: ${theme.colorBorder};
-        border-radius: ${theme.borderRadius}px;
+        border-radius: ${radiusless ? 0 : theme.borderRadius}px;
         border-style: solid;
         border-width: ${borderless ? 0 : "1px"};
         box-shadow: ${shadowless ? "none" : theme.boxShadowTertiary};
@@ -63,7 +65,7 @@ export const Card: FC<
           <div
             css={css`
               width: 100%;
-              display: flex;
+              display: ${icon ? "flex" : "block"};
             `}
           >
             {icon && (

@@ -17,7 +17,7 @@ import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
 
 const StyledBadge = styled(Badge)`
-  margin-left: 8px;
+  margin-left: 6px;
   top: -1px;
   min-width: 20px;
 `;
