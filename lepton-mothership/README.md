@@ -14,6 +14,6 @@ We have a single global mothership that operates within a Lepton-controlled EKS 
 
 The mothership utilizes Terraform to manage the infrastructure across various cloud providers. It is responsible for managing the Terraform state, ensuring that we maintain control and visibility.
 
-Within the Kubernetes cluster it runs in, the mothership maintains the lepton cell as a custom resource (CR). Each lepton environment is associated with a Lepton API server and a set of operators that run within a single namespace. As we introduce the workspace concept, a lepton cell may consist of multiple workspaces across multiple namespaces in remote Kubernetes clusters.
+Within the Kubernetes cluster it runs in, the mothership maintains the lepton workspace as a custom resource (CR). Each lepton environment is associated with a Lepton API server and a set of operators that run within a single namespace.
 
 User information is stored in a shared database with the web authentication system. The mothership serves as the exclusive writer to this database, taking responsibility for managing access tokens and maintaining the relationship between users and their respective lepton environments.

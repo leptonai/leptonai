@@ -13,7 +13,7 @@ spec:
     listKind: LeptonClusterList
     plural: leptonclusters
     shortNames:
-    - cl
+    - lc
     singular: leptoncluster
   scope: Namespaced
   versions:
@@ -59,11 +59,6 @@ spec:
           status:
             description: LeptonClusterStatus defines the observed state of LeptonCluster
             properties:
-              cells:
-                description: Cells are mutable and can be added/removed from cluster.
-                items:
-                  type: string
-                type: array
               properties:
                 description: Properties are immutable and are set once cluster is
                   created.
@@ -87,6 +82,12 @@ spec:
                 description: unix timestamp
                 format: int64
                 type: integer
+              workspaces:
+                description: Workspaces are mutable and can be added/removed from
+                  cluster.
+                items:
+                  type: string
+                type: array
             required:
             - state
             - updated_at

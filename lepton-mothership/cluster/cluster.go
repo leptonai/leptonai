@@ -68,7 +68,7 @@ func Init() {
 func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
-		return nil, fmt.Errorf("invalid cell name %s: %s", clusterName, util.NameInvalidMessage)
+		return nil, fmt.Errorf("invalid workspace name %s: %s", clusterName, util.NameInvalidMessage)
 	}
 
 	cl := &crdv1alpha1.LeptonCluster{
@@ -91,7 +91,7 @@ func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
-		return nil, fmt.Errorf("invalid cell name %s: %s", clusterName, util.NameInvalidMessage)
+		return nil, fmt.Errorf("invalid workspace name %s: %s", clusterName, util.NameInvalidMessage)
 	}
 
 	cl, err := DataStore.Get(clusterName)

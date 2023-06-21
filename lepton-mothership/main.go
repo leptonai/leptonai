@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/leptonai/lepton/lepton-mothership/cell"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	"github.com/leptonai/lepton/lepton-mothership/httpapi"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
+	"github.com/leptonai/lepton/lepton-mothership/workspace"
 
 	"github.com/gin-gonic/gin"
 	_ "gocloud.dev/blob/s3blob"
@@ -14,7 +14,7 @@ func main() {
 	terraform.MustInit()
 
 	cluster.Init()
-	cell.Init()
+	workspace.Init()
 
 	router := gin.Default()
 	api := router.Group("/api")
@@ -26,11 +26,11 @@ func main() {
 	v1.PATCH("/clusters", httpapi.HandleClusterUpdate)
 	v1.DELETE("/clusters/:clname", httpapi.HandleClusterDelete)
 
-	v1.GET("/cells", httpapi.HandleCellList)
-	v1.POST("/cells", httpapi.HandleCellCreate)
-	v1.GET("/cells/:cename", httpapi.HandleCellGet)
-	v1.PATCH("/cells", httpapi.HandleCellUpdate)
-	v1.DELETE("/cells/:cename", httpapi.HandleCellDelete)
+	v1.GET("/workspaces", httpapi.HandleWorkspaceList)
+	v1.POST("/workspaces", httpapi.HandleWorkspaceCreate)
+	v1.GET("/workspaces/:wsname", httpapi.HandleWorkspaceGet)
+	v1.PATCH("/workspaces", httpapi.HandleWorkspaceUpdate)
+	v1.DELETE("/workspaces/:wsname", httpapi.HandleWorkspaceDelete)
 
 	v1.GET("/users", httpapi.HandleUserList)
 	v1.POST("/users", httpapi.HandleUserCreate)

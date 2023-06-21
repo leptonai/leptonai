@@ -5,22 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: leptoncells.mothership.lepton.ai
+  name: leptonworkspaces.mothership.lepton.ai
 spec:
   group: mothership.lepton.ai
   names:
-    kind: LeptonCell
-    listKind: LeptonCellList
-    plural: leptoncells
+    kind: LeptonWorkspace
+    listKind: LeptonWorkspaceList
+    plural: leptonworkspaces
     shortNames:
-    - ce
-    singular: leptoncell
+    - lw
+    singular: leptonworkspace
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LeptonCell is the Schema for the leptoncells API
+        description: LeptonWorkspace is the Schema for the leptonworkspaces API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,7 +35,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: LeptonCellSpec defines the desired state of LeptonCell
+            description: LeptonWorkspaceSpec defines the desired state of LeptonWorkspace
             properties:
               api_token:
                 type: string
@@ -48,7 +48,8 @@ spec:
               image_tag:
                 type: string
               name:
-                description: Name is a globally unique name of a cell within mothership.
+                description: Name is a globally unique name of a workspace within
+                  mothership.
                 type: string
               version:
                 description: Terraform module version
@@ -60,7 +61,7 @@ spec:
             - version
             type: object
           status:
-            description: LeptonCellStatus defines the observed state of LeptonCell
+            description: LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
             properties:
               state:
                 type: string

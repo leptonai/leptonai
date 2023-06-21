@@ -37,8 +37,8 @@ type LeptonClusterStatus struct {
 	State LeptonClusterState `json:"state"`
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
-	// Cells are mutable and can be added/removed from cluster.
-	Cells []string `json:"cells,omitempty"`
+	// Workspaces are mutable and can be added/removed from cluster.
+	Workspaces []string `json:"workspaces,omitempty"`
 	// Properties are immutable and are set once cluster is created.
 	Properties LeptonClusterProperties `json:"properties,omitempty"`
 }
@@ -65,7 +65,7 @@ type (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=cl
+//+kubebuilder:resource:shortName=lc
 
 // LeptonCluster is the Schema for the leptonclusters API
 type LeptonCluster struct {

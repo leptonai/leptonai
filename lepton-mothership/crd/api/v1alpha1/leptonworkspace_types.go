@@ -20,9 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// LeptonCellSpec defines the desired state of LeptonCell
-type LeptonCellSpec struct {
-	// Name is a globally unique name of a cell within mothership.
+// LeptonWorkspaceSpec defines the desired state of LeptonWorkspace
+type LeptonWorkspaceSpec struct {
+	// Name is a globally unique name of a workspace within mothership.
 	Name        string `json:"name"`
 	ClusterName string `json:"cluster_name"`
 	ImageTag    string `json:"image_tag,omitempty"`
@@ -34,48 +34,48 @@ type LeptonCellSpec struct {
 	Description string `json:"description"`
 }
 
-// LeptonCellStatus defines the observed state of LeptonCell
-type LeptonCellStatus struct {
-	State LeptonCellState `json:"state"`
+// LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
+type LeptonWorkspaceStatus struct {
+	State LeptonWorkspaceState `json:"state"`
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
 }
 
 const (
-	CellStateCreating = "creating"
-	CellStateUpdating = "updating"
-	CellStateReady    = "ready"
-	CellStateFailed   = "failed"
-	CellStateDeleting = "deleting"
-	CellStateUnknown  = ""
+	WorkspaceStateCreating = "creating"
+	WorkspaceStateUpdating = "updating"
+	WorkspaceStateReady    = "ready"
+	WorkspaceStateFailed   = "failed"
+	WorkspaceStateDeleting = "deleting"
+	WorkspaceStateUnknown  = ""
 )
 
 type (
-	LeptonCellState string
+	LeptonWorkspaceState string
 )
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=ce
+//+kubebuilder:resource:shortName=lw
 
-// LeptonCell is the Schema for the leptoncells API
-type LeptonCell struct {
+// LeptonWorkspace is the Schema for the leptonworkspaces API
+type LeptonWorkspace struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LeptonCellSpec   `json:"spec,omitempty"`
-	Status LeptonCellStatus `json:"status,omitempty"`
+	Spec   LeptonWorkspaceSpec   `json:"spec,omitempty"`
+	Status LeptonWorkspaceStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// LeptonCellList contains a list of LeptonCell
-type LeptonCellList struct {
+// LeptonWorkspaceList contains a list of LeptonWorkspace
+type LeptonWorkspaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LeptonCell `json:"items"`
+	Items           []LeptonWorkspace `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&LeptonCell{}, &LeptonCellList{})
+	SchemeBuilder.Register(&LeptonWorkspace{}, &LeptonWorkspaceList{})
 }
