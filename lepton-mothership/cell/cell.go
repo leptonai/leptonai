@@ -318,13 +318,13 @@ func workspaceName(clusterName, cellName string) string {
 
 func efsMountTargets(privateSubnets []string) string {
 	var sb strings.Builder
-	sb.WriteString("'mount_targets={")
+	sb.WriteString("{")
 	for i, subnet := range privateSubnets {
 		sb.WriteString(fmt.Sprintf(`"az-%d"={"subnet_id"="%s"}`, i, subnet))
 		if i < len(privateSubnets)-1 {
 			sb.WriteString(",")
 		}
 	}
-	sb.WriteString("}'")
+	sb.WriteString("}")
 	return sb.String()
 }
