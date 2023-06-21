@@ -403,17 +403,34 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
     )
     def run_handler(
         self,
-        prompt: str,
+        prompt: Union[str, List[str]],
         height: Optional[int] = None,
         width: Optional[int] = None,
         num_inference_steps: int = 50,
+        guidance_scale: float = 7.5,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        seed: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ) -> PNGResponse:
+        import torch
+
+        if seed is not None:
+            if not isinstance(seed, list):
+                seed = [seed]
+            generator = [
+                torch.Generator(device=self._device).manual_seed(s) for s in seed
+            ]
+        else:
+            generator = None
+
         res = self.run(
             prompt,
             height=height,
             width=width,
             num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            negative_prompt=negative_prompt,
+            generator=generator,
             **kwargs,
         )
         img_io = BytesIO()
