@@ -10,6 +10,7 @@ import {
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
+import { ProfileService } from "@lepton-dashboard/services/profile.service";
 
 @Injectable()
 export class DeploymentService {
@@ -31,15 +32,26 @@ export class DeploymentService {
   }
 
   getInstanceSocketUrl(
-    host: string,
+    origin: string,
     deploymentId: string,
     instanceId: string
   ): string {
-    return this.apiService.getDeploymentInstanceSocketUrl(
-      host,
-      deploymentId,
-      instanceId
+    const host = new URL(origin).host;
+    const url = new URL(
+      this.apiService.getDeploymentInstanceSocketUrl(
+        host,
+        deploymentId,
+        instanceId
+      )
     );
+    const token =
+      this.profileService.profile?.authorized_clusters?.find(
+        (i) => new URL(i.auth.url).host === host
+      )?.auth.token || "";
+
+    url.searchParams.set("access_token", token);
+
+    return url.toString();
   }
   getInstanceMetrics(
     deploymentId: string,
@@ -120,6 +132,7 @@ export class DeploymentService {
   }
   constructor(
     private apiService: ApiService,
-    private metricServiceUtil: MetricUtilService
+    private metricServiceUtil: MetricUtilService,
+    private profileService: ProfileService
   ) {}
 }

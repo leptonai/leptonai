@@ -151,8 +151,7 @@ export class ApiServerService implements ApiService {
     deploymentId: string,
     instanceId: string
   ): string {
-    const hostname = new URL(host).hostname;
-    return `wss://${hostname}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
+    return `wss://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
   }
 
   getDeploymentInstanceMetrics(
