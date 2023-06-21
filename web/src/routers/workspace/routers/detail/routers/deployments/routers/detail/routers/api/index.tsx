@@ -1,4 +1,4 @@
-import { CopyFile } from "@carbon/icons-react";
+import { CopyFile, Launch } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
@@ -7,7 +7,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Alert, Divider, Typography } from "antd";
+import { Alert, Button, Divider, Typography } from "antd";
 import { css } from "@emotion/react";
 import {
   LeptonAPIItem,
@@ -78,6 +78,7 @@ const ApiItem: FC<{
 };
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
+  const theme = useAntdTheme();
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
   const [loading, setLoading] = useState(true);
@@ -112,10 +113,47 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
     }
   );
 
+  const docsUrl = useMemo(() => {
+    const url = deployment.status.endpoint.external_endpoint;
+    return `${url}/docs`;
+  }, [deployment]);
+
   return (
-    <Card loading={loading} shadowless borderless>
+    <Card
+      loading={loading}
+      shadowless
+      borderless
+      css={css`
+        position: relative;
+      `}
+    >
       {apis.length > 0 ? (
         <>
+          <Button
+            size="small"
+            type="default"
+            icon={<CarbonIcon icon={<Launch />} />}
+            href={docsUrl}
+            target="_blank"
+            css={css`
+              position: absolute;
+              right: 16px;
+              top: auto;
+              z-index: 2;
+              &::before {
+                content: "";
+                display: block;
+                width: 1em;
+                height: 100%;
+                background: ${theme.colorBgContainer};
+                position: absolute;
+                left: -1em;
+                margin-left: -1px;
+              }
+            `}
+          >
+            API Docs
+          </Button>
           {apis.map((api) => (
             <ApiItem api={api} key={api.operationId} />
           ))}
