@@ -95,3 +95,9 @@ variable "efs_mount_targets" {
   description = "Map of mount targets for EFS"
   default     = {}
 }
+
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+  default     = "vpc-0a0b0c0d0e0f0g0h0"
+}

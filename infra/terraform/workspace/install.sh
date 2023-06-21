@@ -43,6 +43,10 @@ if [[ $CREATE_EFS == "true" ]]; then
     echo "ERROR: must set EFS_MOUNT_TARGETS when CREATE_EFS is true"
     exit 1
   fi
+  if [[ -z $VPC_ID ]]; then
+    echo "ERROR: must set VPC_ID when CREATE_EFS is true"
+    exit 1
+  fi
 fi
 
 if [[ -z $EFS_MOUNT_TARGETS ]]; then
@@ -82,6 +86,7 @@ terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="image_tag_deployment_operator=$IMAGE_TAG" \
   -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
 apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
@@ -91,6 +96,7 @@ apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="image_tag_deployment_operator=$IMAGE_TAG" \
   -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
   echo "SUCCESS: Terraform apply of all modules completed successfully"

@@ -295,7 +295,8 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace) error {
 		"OIDC_ID="+oidcID,
 		"WEB_ENABLED="+strconv.FormatBool(ws.Spec.EnableWeb),
 		"CREATE_EFS=true",
-		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPrivateSubnets),
+		"VPC_ID="+cl.Status.Properties.VPCID,
+		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 	)
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
