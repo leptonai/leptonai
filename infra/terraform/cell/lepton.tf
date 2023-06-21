@@ -108,6 +108,11 @@ resource "helm_release" "lepton" {
     value = var.image_tag_web
   }
 
+  set {
+    name  = "apiServer.enableTuna"
+    value = var.lepton_api_server_enable_tuna
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.api-server-role-s3-policy-attachment,
     kubernetes_namespace.lepton

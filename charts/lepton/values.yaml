@@ -25,6 +25,7 @@ apiServer:
   apiToken: ""
   photonPrefix: "photons"
   cellName: "default"
+  enableTuna: false
 
 deploymentOperator:
   enabled: true

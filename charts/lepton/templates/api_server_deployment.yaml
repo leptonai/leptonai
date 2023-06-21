@@ -48,6 +48,7 @@ spec:
             - "{{ .Values.apiServer.photonPrefix }}"
             - "--cell-name"
             - "{{ .Values.apiServer.cellName }}"
+            - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
 {{ end }}

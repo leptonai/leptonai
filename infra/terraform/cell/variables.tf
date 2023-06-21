@@ -58,6 +58,12 @@ variable "lepton_web_enabled" {
   default     = true
 }
 
+variable "lepton_api_server_enable_tuna" {
+  description = "Whether to enable tuna for the api server"
+  type        = bool
+  default     = true
+}
+
 variable "image_tag_web" {
   description = "Image tag for web"
   type        = string
