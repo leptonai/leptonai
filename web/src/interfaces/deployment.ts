@@ -14,7 +14,17 @@ export interface Deployment {
     accelerator_type?: string;
     accelerator_num?: number;
   };
-  envs?: { name: string; value: string }[];
+  envs?: Array<DeploymentEnv | DeploymentSecretEnv>;
+}
+
+export interface DeploymentEnv {
+  name: string;
+  value: string;
+}
+
+export interface DeploymentSecretEnv {
+  name: string;
+  value_from: { secret_name_ref: string };
 }
 
 export interface Instance {

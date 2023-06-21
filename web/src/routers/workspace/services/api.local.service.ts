@@ -1,3 +1,4 @@
+import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
 import { EMPTY, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -193,5 +194,17 @@ export class ApiLocalService implements ApiService {
         values: [],
       },
     ]);
+  }
+
+  createSecret(secret: Secret): Observable<void> {
+    console.log(secret);
+    return EMPTY;
+  }
+  listSecrets(): Observable<string[]> {
+    return of([]);
+  }
+  deleteSecret(id: string): Observable<void> {
+    console.log(id);
+    return EMPTY;
   }
 }

@@ -1,3 +1,4 @@
+import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -54,4 +55,8 @@ export abstract class ApiService {
     name: string,
     request: OpenAPIRequest
   ): Observable<unknown>;
+
+  abstract createSecret(secret: Secret): Observable<void>;
+  abstract listSecrets(): Observable<string[]>;
+  abstract deleteSecret(id: string): Observable<void>;
 }

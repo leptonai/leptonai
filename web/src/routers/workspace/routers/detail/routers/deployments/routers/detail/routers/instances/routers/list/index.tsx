@@ -1,3 +1,4 @@
+import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { FC, useState } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
@@ -7,7 +8,6 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { switchMap, tap } from "rxjs";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { Divider, Space, Table } from "antd";
-import { css } from "@emotion/react";
 import { Terminal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/terminal";
 import { LogsViewer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/logs-viewer";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/metrics";
@@ -50,15 +50,7 @@ export const List: FC<{ deployment: Deployment }> = ({ deployment }) => {
           },
           {
             ellipsis: true,
-            title: (
-              <div
-                css={css`
-                  margin-left: 8px;
-                `}
-              >
-                Actions
-              </div>
-            ),
+            title: <ActionsHeader />,
             render: (_, instance) => (
               <Space size={0} split={<Divider type="vertical" />}>
                 <Terminal instance={instance} deployment={deployment} />

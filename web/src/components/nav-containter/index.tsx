@@ -5,7 +5,7 @@ import { css } from "@emotion/react";
 
 const Container = styled.div`
   position: sticky;
-  padding: 0 24px;
+  padding: 0 26px;
   z-index: 2;
   flex: 0 0 46px;
   top: 0;

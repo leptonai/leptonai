@@ -24,8 +24,9 @@ import {
   MessageQueue,
   Replicate,
   Time,
+  TrashCan,
 } from "@carbon/icons-react";
-import { CloseOutlined, DeleteOutlined } from "@ant-design/icons";
+import { CloseOutlined } from "@ant-design/icons";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
 import { DateParser } from "../../../../components/date-parser";
 import { useInject } from "@lepton-libs/di";
@@ -117,7 +118,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   type="text"
                   danger
                   size="small"
-                  icon={<DeleteOutlined />}
+                  icon={<CarbonIcon icon={<TrashCan />} />}
                 >
                   Delete
                 </Button>

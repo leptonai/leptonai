@@ -1,9 +1,10 @@
-import { CopyFile, View, ViewOff } from "@carbon/icons-react";
+import { CopyFile, Password, View, ViewOff } from "@carbon/icons-react";
+import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
-import { Button, Divider, Space, Table, Typography } from "antd";
+import { Button, Table, Typography } from "antd";
 import { ColumnsType } from "antd/es/table";
 import { FC, useMemo, useState } from "react";
 
@@ -16,49 +17,49 @@ export const ApiTokens: FC = () => {
       {
         title: "Token",
         dataIndex: "token",
-        render: (v) => (mask ? "******" : v),
+        render: (v) => (
+          <Typography.Text
+            copyable={{
+              icon: <CarbonIcon icon={<CopyFile />} />,
+              text: v,
+            }}
+          >
+            {mask ? "••••••••••••" : v}
+          </Typography.Text>
+        ),
       },
       {
-        title: "Actions",
+        title: <ActionsHeader />,
         dataIndex: "token",
-        render: (v) => {
-          return (
-            <Space size={0} split={<Divider type="vertical" />}>
-              <Button
-                size="small"
-                type="text"
-                icon={
-                  mask ? (
-                    <CarbonIcon icon={<View />} />
-                  ) : (
-                    <CarbonIcon icon={<ViewOff />} />
-                  )
-                }
-                onClick={() => {
-                  setMask(!mask);
-                }}
-              />
-              <Button
-                size="small"
-                type="text"
-                icon={
-                  <Typography.Text
-                    copyable={{
-                      icon: <CarbonIcon icon={<CopyFile />} />,
-                      text: v,
-                    }}
-                  />
-                }
-              />
-            </Space>
-          );
-        },
+        render: () => (
+          <Button
+            size="small"
+            type="text"
+            icon={
+              mask ? (
+                <CarbonIcon icon={<View />} />
+              ) : (
+                <CarbonIcon icon={<ViewOff />} />
+              )
+            }
+            onClick={() => {
+              setMask(!mask);
+            }}
+          >
+            {mask ? "View" : "Hide"}
+          </Button>
+        ),
       },
     ],
     [mask]
   );
   return (
-    <Card borderless shadowless title="API Tokens">
+    <Card
+      icon={<CarbonIcon icon={<Password />} />}
+      borderless
+      shadowless
+      title="API Tokens"
+    >
       <Table
         size="small"
         pagination={false}

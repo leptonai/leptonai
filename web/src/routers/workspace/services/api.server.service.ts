@@ -1,3 +1,4 @@
+import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -162,6 +163,21 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.get(
       `${this.prefix}/deployments/${deploymentId}/instances/${instanceId}/monitoring/${metricName}`
     );
+  }
+
+  createSecret(secret: Secret): Observable<void> {
+    return this.httpClientService.post(
+      `${this.prefix}/secrets`,
+      JSON.stringify([secret])
+    );
+  }
+
+  listSecrets(): Observable<string[]> {
+    return this.httpClientService.get(`${this.prefix}/secrets`);
+  }
+
+  deleteSecret(id: string): Observable<void> {
+    return this.httpClientService.delete(`${this.prefix}/secrets/${id}`);
   }
 
   constructor(

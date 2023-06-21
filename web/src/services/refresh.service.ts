@@ -6,7 +6,7 @@ import {
   interval,
   map,
   merge,
-  share,
+  shareReplay,
   startWith,
   Subject,
   switchMap,
@@ -41,6 +41,6 @@ export class RefreshService {
     debounceTime(300),
     switchMap((active) => (active ? this.interval$ : EMPTY)),
     debounceTime(300),
-    share()
+    shareReplay(1)
   );
 }

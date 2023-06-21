@@ -7,7 +7,9 @@ import { Skeleton } from "antd";
 export const Card: FC<
   PropsWithChildren<
     {
+      icon?: ReactNode;
       title?: ReactNode;
+      extra?: ReactNode;
       loading?: boolean;
       borderless?: boolean;
       overflowShow?: boolean;
@@ -17,7 +19,9 @@ export const Card: FC<
   >
 > = ({
   children,
+  icon,
   title,
+  extra,
   loading = false,
   borderless = false,
   overflowShow = false,
@@ -59,10 +63,33 @@ export const Card: FC<
           <div
             css={css`
               width: 100%;
+              display: flex;
             `}
           >
+            {icon && (
+              <div
+                css={css`
+                  margin-right: 8px;
+                `}
+              >
+                {icon}
+              </div>
+            )}
             {title}
           </div>
+          {extra && (
+            <div
+              css={css`
+                flex: 0 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 8px;
+              `}
+            >
+              {extra}
+            </div>
+          )}
         </div>
       )}
       <div

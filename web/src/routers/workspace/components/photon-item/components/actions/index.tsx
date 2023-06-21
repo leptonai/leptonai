@@ -6,8 +6,7 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Download } from "@carbon/icons-react";
-import { DeleteOutlined } from "@ant-design/icons";
+import { Download, TrashCan } from "@carbon/icons-react";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 
 export const Actions: FC<{
@@ -24,7 +23,7 @@ export const Actions: FC<{
       danger
       size="small"
       type="text"
-      icon={<DeleteOutlined />}
+      icon={<CarbonIcon icon={<TrashCan />} />}
     >
       Delete
     </Button>

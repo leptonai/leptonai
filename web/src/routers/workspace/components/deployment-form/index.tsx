@@ -1,3 +1,5 @@
+import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
+import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FC, ReactNode, useMemo, useState } from "react";
 import { css } from "@emotion/react";
 import {
@@ -15,11 +17,16 @@ import {
 } from "antd";
 import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
 
-import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import {
+  Deployment,
+  DeploymentEnv,
+  DeploymentSecretEnv,
+} from "@lepton-dashboard/interfaces/deployment";
 import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
 import { Rule } from "rc-field-form/lib/interface";
+import { map } from "rxjs";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 
 interface RawForm {
@@ -31,6 +38,7 @@ interface RawForm {
   memory: number;
   photon: string[];
   envs: { name: string; value: string }[];
+  secret_envs: { name: string; value: string }[];
 }
 
 export const DeploymentForm: FC<{
@@ -49,7 +57,17 @@ export const DeploymentForm: FC<{
   edit = false,
 }) => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
+  const secretService = useInject(SecretService);
   const clusterInfo = workspaceTrackerService.cluster!.data;
+  const secretOptions = useStateFromObservable(
+    () =>
+      secretService.listSecrets().pipe(
+        map((secrets) => {
+          return secrets.map((s) => ({ label: s.name, value: s.name }));
+        })
+      ),
+    []
+  );
   const [form] = Form.useForm();
   const [enableAccelerator, setEnableAccelerator] = useState(
     edit
@@ -104,7 +122,20 @@ export const DeploymentForm: FC<{
       enable_accelerator:
         !!initialDeploymentValue.resource_requirement?.accelerator_num,
       photon: photon,
-      envs: initialDeploymentValue.envs,
+      envs: initialDeploymentValue.envs?.filter(
+        (e): e is DeploymentEnv => !!(e as DeploymentEnv).value
+      ),
+      secret_envs: initialDeploymentValue.envs
+        ?.filter(
+          (e): e is DeploymentSecretEnv =>
+            !!(e as DeploymentSecretEnv).value_from.secret_name_ref
+        )
+        .map((e) => {
+          return {
+            name: e.name,
+            value: e.value_from.secret_name_ref,
+          };
+        }),
     };
   }, [initialDeploymentValue, photon]);
 
@@ -131,7 +162,17 @@ export const DeploymentForm: FC<{
         accelerator_type: enableAccelerator ? value.accelerator_type : "",
         accelerator_num: enableAccelerator ? value.accelerator_num : 0,
       },
-      envs: value.envs,
+      envs: [
+        ...value.envs,
+        ...value.secret_envs.map((e) => {
+          return {
+            name: e.name,
+            value_from: {
+              secret_name_ref: e.value,
+            },
+          };
+        }),
+      ],
     };
   };
   return (
@@ -253,14 +294,14 @@ export const DeploymentForm: FC<{
         css={css`
           margin-bottom: 0;
         `}
-        label="Environment Variables"
+        label="Secrets"
       >
-        <Form.List name="envs">
+        <Form.List name="secret_envs">
           {(fields, { add, remove }) => (
             <>
               <Row gutter={0}>
                 {fields.map(({ key, name, ...restField }) => (
-                  <Col key={key} span={24}>
+                  <Col key={`${name}-${key}`} span={24}>
                     <Space
                       css={css`
                         display: flex;
@@ -275,7 +316,7 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input name" },
                         ]}
                       >
-                        <Input disabled={edit} placeholder="Env name" />
+                        <Input disabled={edit} placeholder="Secret name" />
                       </Form.Item>
                       <Form.Item
                         wrapperCol={{ span: 24 }}
@@ -285,7 +326,12 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input value" },
                         ]}
                       >
-                        <Input disabled={edit} placeholder="Env value" />
+                        <Select
+                          disabled={edit}
+                          placeholder="Secret value"
+                          style={{ width: "170px" }}
+                          options={secretOptions}
+                        />
                       </Form.Item>
                       <Button disabled={edit} onClick={() => remove(name)}>
                         <MinusOutlined />
@@ -303,13 +349,75 @@ export const DeploymentForm: FC<{
                   block
                   icon={<PlusOutlined />}
                 >
-                  Add environment variable
+                  Add secret
                 </Button>
               </Form.Item>
             </>
           )}
         </Form.List>
       </Form.Item>
+      <Form.Item
+        css={css`
+          margin-bottom: 0;
+        `}
+        label="Variables"
+      >
+        <Form.List name="envs">
+          {(fields, { add, remove }) => (
+            <>
+              <Row gutter={0}>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Col key={`${name}-${key}`} span={24}>
+                    <Space
+                      css={css`
+                        display: flex;
+                      `}
+                      align="baseline"
+                    >
+                      <Form.Item
+                        wrapperCol={{ span: 24 }}
+                        {...restField}
+                        name={[name, "name"]}
+                        rules={[
+                          { required: true, message: "Please input name" },
+                        ]}
+                      >
+                        <Input disabled={edit} placeholder="Variable name" />
+                      </Form.Item>
+                      <Form.Item
+                        wrapperCol={{ span: 24 }}
+                        {...restField}
+                        name={[name, "value"]}
+                        rules={[
+                          { required: true, message: "Please input value" },
+                        ]}
+                      >
+                        <Input disabled={edit} placeholder="Variable value" />
+                      </Form.Item>
+                      <Button disabled={edit} onClick={() => remove(name)}>
+                        <MinusOutlined />
+                      </Button>
+                    </Space>
+                  </Col>
+                ))}
+              </Row>
+
+              <Form.Item wrapperCol={{ span: 24 }}>
+                <Button
+                  type="dashed"
+                  disabled={edit}
+                  onClick={() => add()}
+                  block
+                  icon={<PlusOutlined />}
+                >
+                  Add variable
+                </Button>
+              </Form.Item>
+            </>
+          )}
+        </Form.List>
+      </Form.Item>
+
       <Form.Item
         wrapperCol={{
           xs: { offset: 0, span: 24 },

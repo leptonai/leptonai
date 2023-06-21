@@ -1,3 +1,5 @@
+import { CopyFile } from "@carbon/icons-react";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
@@ -55,7 +57,9 @@ const ApiItem: FC<{
           }
         `}
       >
-        <Typography.Paragraph copyable={{ text: curl }}>
+        <Typography.Paragraph
+          copyable={{ text: curl, icon: <CarbonIcon icon={<CopyFile />} /> }}
+        >
           <pre
             css={css`
               margin: 0 !important;

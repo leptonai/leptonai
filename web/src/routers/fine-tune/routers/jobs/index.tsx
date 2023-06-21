@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { ColumnsType } from "antd/es/table";
@@ -209,15 +210,7 @@ export const Jobs: FC = () => {
       ),
     },
     {
-      title: (
-        <div
-          css={css`
-            margin-left: 8px;
-          `}
-        >
-          Action
-        </div>
-      ),
+      title: <ActionsHeader />,
       dataIndex: "status",
       width: "100px",
       render: (status, data) => {

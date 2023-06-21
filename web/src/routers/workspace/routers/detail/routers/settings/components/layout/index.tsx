@@ -1,4 +1,4 @@
-import { Password, Settings } from "@carbon/icons-react";
+import { Asterisk, Password, Settings } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
@@ -24,11 +24,11 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         label: "API tokens",
         icon: <CarbonIcon icon={<Password />} />,
       },
-      // {
-      //   key: `${pathname}/secrets`,
-      //   label: "Secrets",
-      //   icon: <CarbonIcon icon={<Asterisk />} />,
-      // },
+      {
+        key: `${pathname}/secrets`,
+        label: "Secrets",
+        icon: <CarbonIcon icon={<Asterisk />} />,
+      },
     ],
     [pathname]
   );
@@ -65,7 +65,7 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
           css={css`
             height: 100%;
             padding-right: 16px;
-            flex: 0 0 200px;
+            flex: 0 0 auto;
             border-right: 1px solid ${theme.colorBorder};
           `}
         >
