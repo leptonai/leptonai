@@ -22,6 +22,10 @@ export class ApiServerService implements ApiService {
     return this.workspaceTrackerService.cluster?.auth.url;
   }
 
+  get token() {
+    return this.workspaceTrackerService.cluster?.auth.token;
+  }
+
   get prefix() {
     return `${this.host}${this.apiVersionPrefix}`;
   }
@@ -138,6 +142,9 @@ export class ApiServerService implements ApiService {
       fetch(
         `${this.prefix}/deployments/${deploymentId}/instances/${instanceId}/log`,
         {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
           signal: abortController.signal,
         }
       ).then(readInfinity);
