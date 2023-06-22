@@ -9,8 +9,6 @@ from leptonai.config import CACHE_DIR
 from .util import (
     is_command_installed,
     generate_random_string,
-    run_terraform_apply,
-    run_terraform_destroy,
 )
 
 
@@ -85,24 +83,6 @@ def logout():
 
 
 @remote.command()
-@click.option("--remote-name", "-n", help="Name of the remote cluster", required=True)
-def remove(remote_name):
-    cluster_info = load_cluster_info()["clusters"].get(remote_name)
-    if cluster_info is None:
-        console.print(f'Cluster "{remote_name}" [red]does not exist[/]')
-        sys.exit(1)
-
-    dir = cluster_info.get("terraform_dir")
-    if dir is not None:
-        if not run_terraform_destroy(dir, remote_name):
-            console.print(f"Failed to destroy cluster {remote_name} with terraform")
-            sys.exit(1)
-
-    remove_cluster(remote_name)
-    console.print(f'Cluster "{remote_name}" [green]removed[/]')
-
-
-@remote.command()
 def list():
     cluster_info = load_cluster_info()
     clusters = cluster_info["clusters"]
@@ -125,46 +105,6 @@ def list():
             token = f"{token[:2]}***{token[-2:]}" if len(token) > 4 else "*****"
         table.add_row(name, url, role, token)
     console.print(table)
-
-
-@remote.command()
-@click.option("--remote-name", "-n", help="Name of the remote cluster", default=None)
-@click.option("--sandbox", "-s", help="Sandbox name", is_flag=True, default=True)
-@click.option("--provider", "-p", help="Provider name", default="aws")
-def create(remote_name, sandbox, provider):
-    if remote_name is None:
-        remote_name = "lepton-cluster-" + generate_random_string(5)
-        # TODO: check if the name already exists
-    if sandbox is False:
-        console.print("TODO: support a non-sandbox cluster")
-        sys.exit(1)
-    if provider != "aws":
-        console.print("TODO: support non-aws providers")
-        sys.exit(1)
-
-    if not meet_create_precondition():
-        console.print(
-            "Installation precondition not met. Please check the error message above."
-        )
-        sys.exit(1)
-
-    console.print(f"Creating cluster {remote_name} on AWS")
-
-    # TODO: pass in cluster name
-    # TODO: pass in auth token
-    dir = CACHE_DIR / "cluster_states" / remote_name
-    success, ingress_hostname = run_terraform_apply(dir, remote_name)
-    if not success:
-        console.print(f"Failed to create cluster {remote_name} with terraform")
-        sys.exit(1)
-
-    save_cluster(remote_name, f"http://{ingress_hostname}", terraform_dir=str(dir))
-    console.print(f"Cluster {remote_name} created successfully")
-    console.print(f"The ingress URL is http://{ingress_hostname}")
-
-    console.print(
-        f"Run `lep remote login -n {remote_name}` to login to the created cluster"
-    )
 
 
 def add_command(click_group):
@@ -228,17 +168,3 @@ def get_remote_url(remote_url=None):
     if remote_url is not None:
         return remote_url
     return get_current_cluster_url()
-
-
-def meet_create_precondition():
-    if not is_command_installed("terraform"):
-        console.print("Terraform is not installed. Please install Terraform first.")
-        return False
-    if not is_command_installed("aws"):
-        console.print("AWS is not installed. Please install AWS first.")
-        return False
-    if not is_command_installed("git"):
-        console.print("Git is not installed. Please install Git first.")
-        return False
-    # TODO: check if the user has AWS credentials
-    return True
