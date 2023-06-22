@@ -105,7 +105,6 @@ class TestPhotonCli(unittest.TestCase):
         assert result.exit_code == 0
         assert "abcdef" not in result.output.lower()
 
-    @unittest.skipIf(os.environ.get("GITHUB_ACTIONS"), "Skip on Github CI, too slow")
     @sub_test(
         [
             (diffusers_model,),
