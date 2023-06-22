@@ -6,10 +6,6 @@ from rich.console import Console
 from rich.table import Table
 
 from leptonai.config import CACHE_DIR
-from .util import (
-    is_command_installed,
-    generate_random_string,
-)
 
 
 console = Console(highlight=False)
