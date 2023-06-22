@@ -394,11 +394,22 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
 class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
     hf_task: str = "text-to-image"
 
+    def init(self):
+        super().init()
+
+        import torch
+
+        if torch.cuda.is_available():
+            self._device = "cuda"
+        else:
+            self._device = "cpu"
+
     @handler(
         "run",
         example={
             "prompt": "a photograph of an astronaut riding a horse",
             "num_inference_steps": 25,
+            "seed": 42,
         },
     )
     def run_handler(
