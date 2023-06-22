@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/kv"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,7 @@ import (
 // Job represents a job entity
 type Job struct {
 	ID         int    `json:"id"`
+	Name       string `json:"name"`
 	CreatedAt  string `json:"created_at"`
 	ModifiedAt string `json:"modified_at"`
 	Status     string `json:"status"`
@@ -40,6 +42,7 @@ func NewJobHandler(url *url.URL, kv *kv.KVDynamoDB) *JobHandler {
 
 func (jh *JobHandler) AddJob(c *gin.Context) {
 	r := httptest.NewRecorder()
+	name := c.DefaultQuery("name", "")
 
 	setForwardURL(c)
 	jh.proxy.ServeHTTP(r, c.Request)
@@ -60,10 +63,11 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 	var j Job
 	err := json.NewDecoder(response.Body).Decode(&j)
 	if err != nil {
-		panic(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+		return
 	}
 
-	err = jh.kv.Put(strconv.Itoa(j.ID), "true")
+	err = jh.kv.Put(strconv.Itoa(j.ID), name)
 	if err != nil {
 		log.Println("failed to add job id in DB:", err)
 		c.Status(http.StatusInternalServerError)
@@ -130,9 +134,8 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 		}
 	}
 
-	c.Writer.WriteHeader(response.StatusCode)
-
 	if response.StatusCode >= 300 {
+		c.Writer.WriteHeader(response.StatusCode)
 		io.Copy(c.Writer, response.Body)
 		return
 	}
@@ -140,7 +143,8 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 	var js []Job
 	err := json.NewDecoder(response.Body).Decode(&js)
 	if err != nil {
-		panic(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+		return
 	}
 
 	var (
@@ -152,8 +156,9 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 		// todo: use batch get
 		wg.Add(1)
 		go func(j Job) {
-			_, err := jh.kv.Get(strconv.Itoa(j.ID))
+			name, err := jh.kv.Get(strconv.Itoa(j.ID))
 			if err == nil {
+				j.Name = name
 				mu.Lock()
 				myJobs = append(myJobs, j)
 				mu.Unlock()
@@ -166,6 +171,7 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 	}
 	wg.Wait()
 
+	c.Writer.WriteHeader(response.StatusCode)
 	err = json.NewEncoder(c.Writer).Encode(myJobs)
 	if err != nil {
 		log.Println(err)
@@ -173,6 +179,11 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 }
 
 func setForwardURL(c *gin.Context) {
+	values := c.Request.URL.Query()
+	if values.Has("name") {
+		values.Del("name")
+		c.Request.URL.RawQuery = values.Encode()
+	}
 	c.Request.URL.Path = c.Request.URL.Path[len("/api/v1/tuna"):]
 	c.Request.URL.Scheme = "https"
 	c.Request.URL.Host = "tuna-tunaml.vercel.app"
