@@ -48,6 +48,14 @@ const Deployments = lazy(() =>
     default: e.Deployments,
   }))
 );
+
+const Secrets = lazy(() =>
+  import(
+    "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets"
+  ).then((e) => ({
+    default: e.Secrets,
+  }))
+);
 export const Detail: FC = () => {
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
@@ -107,6 +115,14 @@ export const Detail: FC = () => {
             element={
               <LimitedLayoutWidth>
                 <Deployments />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="secrets"
+            element={
+              <LimitedLayoutWidth>
+                <Secrets />
               </LimitedLayoutWidth>
             }
           />

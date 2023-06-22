@@ -3,8 +3,8 @@ import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
-import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/edit-secret";
-import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/new-secret";
+import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/edit-secret";
+import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/new-secret";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useInject } from "@lepton-libs/di";
@@ -83,8 +83,6 @@ export const Secrets: FC = () => {
   return (
     <Card
       icon={<CarbonIcon icon={<Asterisk />} />}
-      borderless
-      shadowless
       title="Secrets"
       extra={<NewSecret afterAction={() => refreshService.refresh()} />}
     >

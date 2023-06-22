@@ -1,3 +1,5 @@
+import { Asterisk } from "@carbon/icons-react";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FC, ReactNode, useMemo, useState } from "react";
@@ -294,7 +296,7 @@ export const DeploymentForm: FC<{
         css={css`
           margin-bottom: 0;
         `}
-        label="Secrets"
+        label="Environment Variables"
       >
         <Form.List name="secret_envs">
           {(fields, { add, remove }) => (
@@ -316,7 +318,7 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input name" },
                         ]}
                       >
-                        <Input disabled={edit} placeholder="Secret name" />
+                        <Input disabled={edit} placeholder="Variable name" />
                       </Form.Item>
                       <Form.Item
                         wrapperCol={{ span: 24 }}
@@ -327,6 +329,7 @@ export const DeploymentForm: FC<{
                         ]}
                       >
                         <Select
+                          suffixIcon={<CarbonIcon icon={<Asterisk />} />}
                           disabled={edit}
                           placeholder="Secret value"
                           style={{ width: "170px" }}
@@ -360,7 +363,10 @@ export const DeploymentForm: FC<{
         css={css`
           margin-bottom: 0;
         `}
-        label="Variables"
+        wrapperCol={{
+          xs: { offset: 0, span: 24 },
+          sm: { offset: 7, span: 14 },
+        }}
       >
         <Form.List name="envs">
           {(fields, { add, remove }) => (

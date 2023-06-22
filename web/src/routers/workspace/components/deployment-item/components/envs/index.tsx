@@ -10,7 +10,7 @@ import { Description } from "@lepton-dashboard/routers/workspace/components/desc
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Asterisk, ListDropdown } from "@carbon/icons-react";
 import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
-import { Popover, Table, Tag } from "antd";
+import { Popover, Table, Tag, Typography } from "antd";
 import { css } from "@emotion/react";
 
 export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
@@ -35,6 +35,7 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
                 ellipsis: true,
                 title: "Env name",
                 dataIndex: "name",
+                render: (v) => <Typography.Text strong>{v}</Typography.Text>,
               },
               {
                 width: "60%",
