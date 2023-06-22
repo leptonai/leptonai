@@ -96,6 +96,7 @@ module "eks" {
     ami_type = "AL2_x86_64"
   }
 
+  # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
   eks_managed_node_groups = {
     one = {
       use_custom_launch_template = false
@@ -120,6 +121,15 @@ module "eks" {
       min_size     = 0
       max_size     = 10
       desired_size = 0
+
+      # prevents unnecessary scale-outs by cluster autoscaler (see FilterOutNodesWithUnreadyResources, GPULabel)
+      # the cluster autoscaler only checks the existence of the label
+      # the label value can be anything, and here we label by the device name for internal use
+      # https://aws.github.io/aws-eks-best-practices/cluster-autoscaling/
+      # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#special-note-on-gpu-instances
+      labels = {
+        "k8s.amazonaws.com/accelerator" = "nvidia-t4"
+      }
     }
   }
 
