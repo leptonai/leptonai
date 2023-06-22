@@ -3,6 +3,8 @@ package kv
 import (
 	"testing"
 
+	"github.com/leptonai/lepton/go-pkg/util"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -10,8 +12,9 @@ import (
 )
 
 func TestDynamoDB(t *testing.T) {
-	tname := "test-kv"
-	kv, err := NewKVDynamoDB(tname)
+	tname := "test-kv-" + util.RandString(6)
+	region := "us-east-1"
+	kv, err := NewKVDynamoDB(tname, region)
 	if err != nil {
 		t.Fatal("Failed to create KVDynamoDB instance:", err)
 	}

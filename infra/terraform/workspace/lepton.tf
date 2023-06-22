@@ -113,6 +113,11 @@ resource "helm_release" "lepton" {
     value = var.lepton_api_server_enable_tuna
   }
 
+  set {
+    name  = "apiServer.dynamodbName"
+    value = aws_dynamodb_table.tuna.name
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.api-server-role-s3-policy-attachment,
     kubernetes_namespace.lepton

@@ -25,6 +25,7 @@ apiServer:
   apiToken: ""
   photonPrefix: "photons"
   cellName: "default"
+  dynamodbName: ""
   enableTuna: false
 
 deploymentOperator:

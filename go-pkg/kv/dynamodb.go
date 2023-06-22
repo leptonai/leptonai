@@ -24,9 +24,9 @@ type kvDynamoDBItem struct {
 	Value string `json:"value"`
 }
 
-func NewKVDynamoDB(name string) (*KVDynamoDB, error) {
+func NewKVDynamoDB(name, region string) (*KVDynamoDB, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"), // Set your preferred AWS region
+		Region: aws.String(region),
 	})
 	if err != nil {
 		return nil, err

@@ -27,12 +27,14 @@ var (
 	cellNameFlag       *string
 	apiTokenFlag       *string
 
-	bucketTypeFlag, bucketNameFlag, bucketRegionFlag *string
-	photonPrefixFlag                                 *string
-	namespaceFlag                                    *string
-	serviceAccountNameFlag                           *string
-	prometheusURLFlag                                *string
-	enableTunaFlag                                   *bool
+	bucketTypeFlag, bucketNameFlag *string
+	photonPrefixFlag               *string
+	regionFlag                     *string
+	dynamodbNameFlag               *string
+	namespaceFlag                  *string
+	serviceAccountNameFlag         *string
+	prometheusURLFlag              *string
+	enableTunaFlag                 *bool
 )
 
 const (
@@ -44,6 +46,7 @@ const (
 )
 
 func main() {
+	regionFlag = flag.String("region", "us-east-1", "cluster region")
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
@@ -52,8 +55,9 @@ func main() {
 
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
 	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
-	bucketRegionFlag = flag.String("bucket-region", "us-east-1", "object store region")
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
+
+	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
 
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
@@ -73,7 +77,7 @@ func main() {
 		fmt.Sprintf("%s://%s?region=%s&prefix=%s/",
 			*bucketTypeFlag,
 			*bucketNameFlag,
-			*bucketRegionFlag,
+			*regionFlag,
 			*photonPrefixFlag))
 	if err != nil {
 		log.Fatalln(err)
@@ -164,7 +168,7 @@ func main() {
 	}
 
 	if *enableTunaFlag {
-		kv, err := kv.NewKVDynamoDB("lepton-db-" + *cellNameFlag + "-tuna")
+		kv, err := kv.NewKVDynamoDB(*dynamodbNameFlag, *regionFlag)
 		if err != nil {
 			log.Fatal("Cannot create DynamoDB KV:", err)
 		}

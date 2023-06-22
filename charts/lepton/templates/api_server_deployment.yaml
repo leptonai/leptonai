@@ -48,6 +48,8 @@ spec:
             - "{{ .Values.apiServer.photonPrefix }}"
             - "--cell-name"
             - "{{ .Values.apiServer.cellName }}"
+            - "--dynamodb-name"
+            - "{{ .Values.apiServer.dynamodbName }}"
             - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
