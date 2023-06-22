@@ -169,14 +169,23 @@ def fetch(id: str, url: str, path: str, auth_token: str):
 
 
 def remote_launch(
-    id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str
+    id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str, deployment_name: str
 ):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
     # name
+    dn = deployment_name
     print(f"Launching photon {id}")
+    if dn is None:
+        dn = f"deploy-{id}"
+        # format name to be valid
+        dn = dn[:32] if len(dn) > 32 else dn
+        if not dn[-1].isalnum():
+            dn = dn[:-1] + "x"
+        dn = dn.lower()
+
     deployment = {
-        "name": f"deploy-{id[:6]}",
+        "name": dn,
         "photon_id": id,
         "resource_requirement": {
             "cpu": cpu,

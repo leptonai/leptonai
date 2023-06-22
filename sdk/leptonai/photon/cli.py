@@ -149,8 +149,9 @@ def list():
 @click.option("--cpu", help="Number of CPU to require", default=1)
 @click.option("--memory", help="Number of RAM to require in MB", default=1024)
 @click.option("--min-replicas", help="Number of replicas to require", default=1)
+@click.option("--deployment-name", "-dn", help= "Optional name for the deployment", default=None)
 @click.pass_context
-def run(ctx, name, model, path, port, id, cpu, memory, min_replicas):
+def run(ctx, name, model, path, port, id, cpu, memory, min_replicas, deployment_name):
     remote_url = remote.get_remote_url()
 
     if remote_url is not None:
@@ -160,7 +161,7 @@ def run(ctx, name, model, path, port, id, cpu, memory, min_replicas):
             console.print("Must specify --id when running remote photon")
             sys.exit(1)
         auth_token = remote.cli.get_auth_token(remote_url)
-        api.remote_launch(id, remote_url, cpu, memory, min_replicas, auth_token)
+        api.remote_launch(id, remote_url, cpu, memory, min_replicas, auth_token, deployment_name)
 
         return
 
