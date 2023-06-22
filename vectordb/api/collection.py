@@ -30,7 +30,6 @@ class Collection:
         Returns:
             SearchResponse: Contains top k search results.
         """
-        pass
 
     def get(self, keys: List[str]) -> GetResponse:
         """
@@ -42,7 +41,6 @@ class Collection:
         Returns:
             GetResponse: Contains vector embeddings.
         """
-        pass
 
     def upsert(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
@@ -65,7 +63,6 @@ class Collection:
             embeddings=[[1,2,3,4,5], [2,2,3,4,5]], #
             metadatas=[{"source": "notion"}, {"source": "google-docs"}],
         """
-        pass
 
     def insert(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
@@ -82,7 +79,6 @@ class Collection:
         Returns:
             InsertResponse: Contains insert response.
         """
-        pass
 
     def update(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
@@ -99,7 +95,6 @@ class Collection:
         Returns:
             UpdateResponse: Contains update response.
         """
-        pass
 
     def delete(self, keys: List[str]) -> DeleteResponse:
         """
@@ -111,4 +106,3 @@ class Collection:
         Returns:
             DeleteResponse: Contains delete response.
         """
-        pass

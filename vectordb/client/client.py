@@ -1,6 +1,5 @@
 from vectordb.api import Collection
-from vectordb.client.types import Config
-from typing import List, Dict, Any
+from typing import List
 
 
 class Client:
@@ -19,7 +18,6 @@ class Client:
         Returns:
             Collection.
         """
-        pass
 
     def delete_collection(self, name: str) -> None:
         """
@@ -28,7 +26,6 @@ class Client:
         Args:
             name (str): The name of the collection.
         """
-        pass
 
     def get_collection(self, name: str) -> Collection:
         """
@@ -40,7 +37,6 @@ class Client:
         Returns:
             Collection.
         """
-        pass
 
     def list_collection(self) -> List[Collection]:
         """
@@ -49,4 +45,3 @@ class Client:
         Returns:
             List[Collection]: A list of collections.
         """
-        pass
