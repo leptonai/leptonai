@@ -169,7 +169,13 @@ def fetch(id: str, url: str, path: str, auth_token: str):
 
 
 def remote_launch(
-    id: str, url: str, cpu: float, memory: int, min_replicas: int, auth_token: str, deployment_name: str
+    id: str,
+    url: str,
+    cpu: float,
+    memory: int,
+    min_replicas: int,
+    auth_token: str,
+    deployment_name: str,
 ):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
