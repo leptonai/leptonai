@@ -263,7 +263,10 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 
 	// extract necessary information from the output
 	// TODO: clean up the code
-	cmd = exec.Command("./output.sh")
+	command = "sh"
+	args = []string{"-c", "cd " + dir + " && ./output.sh"}
+
+	cmd = exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 	output, err = cmd.CombinedOutput()
 	log.Println(string(output))
