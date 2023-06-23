@@ -1,5 +1,5 @@
 resource "aws_iam_role" "api-server-role" {
-  name = "api-server-role-${var.cell_name}"
+  name = "api-server-role-${var.workspace_name}"
   assume_role_policy = jsonencode({
     Version : "2012-10-17",
     Statement : [
@@ -50,7 +50,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "clusterName"
-    value = var.cell_name
+    value = var.workspace_name
   }
 
   set {
@@ -84,8 +84,8 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name  = "apiServer.cellName"
-    value = var.cell_name
+    name  = "apiServer.workspaceName"
+    value = var.workspace_name
   }
 
   set {

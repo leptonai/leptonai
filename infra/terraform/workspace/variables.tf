@@ -34,8 +34,8 @@ variable "root_domain" {
   default     = "cloud.lepton.ai"
 }
 
-variable "cell_name" {
-  description = "Cell name"
+variable "workspace_name" {
+  description = "Workspace name"
   type        = string
   default     = "dev"
 }

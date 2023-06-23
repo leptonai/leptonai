@@ -189,7 +189,7 @@ jobs:
           --create-namespace \
           --set crd.install=false \
           --set web.enabled=false \
-          --set apiServer.cellName=$NAMESPACE \
+          --set apiServer.workspaceName=$NAMESPACE \
           --set apiServer.bucketName=s3-lepton-${{ vars.K8S_DEV_CI }} \
           --set apiServer.photonPrefix=$NAMESPACE/photons \
           --set apiServer.rootDomain=cloud.lepton.ai \

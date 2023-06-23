@@ -24,7 +24,7 @@ apiServer:
   certificateArn: ""
   apiToken: ""
   photonPrefix: "photons"
-  cellName: "default"
+  workspaceName: "default"
   dynamodbName: ""
   enableTuna: false
 

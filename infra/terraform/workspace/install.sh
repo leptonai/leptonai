@@ -12,8 +12,8 @@ if [[ -z $CLUSTER_NAME ]]; then
   exit 1
 fi
 
-if [[ -z $CELL_NAME ]]; then
-  echo "ERROR: Cell name not specified"
+if [[ -z $WORKSPACE_NAME ]]; then
+  echo "ERROR: Workspace name not specified"
   exit 1
 fi
 
@@ -56,10 +56,10 @@ fi
 # shellcheck source=/dev/null
 source ../lib.sh
 
-export TF_WORKSPACE=$CLUSTER_NAME-$CELL_NAME
+export TF_WORKSPACE=$CLUSTER_NAME-$WORKSPACE_NAME
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
-echo "Creating Cell $CELL_NAME at Cluster $CLUSTER_NAME..."
+echo "Creating Workspace $WORKSPACE_NAME at Cluster $CLUSTER_NAME..."
 
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
@@ -80,7 +80,7 @@ fi
 
 echo "Applying resources..."
 terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
-  -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
+  -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
   -var="image_tag_web=$IMAGE_TAG" \
   -var="image_tag_api_server=$IMAGE_TAG" \
@@ -90,7 +90,7 @@ terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="vpc_id=$VPC_ID" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
 apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
-  -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME" \
+  -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
   -var="image_tag_web=$IMAGE_TAG" \
   -var="image_tag_api_server=$IMAGE_TAG" \

@@ -22,7 +22,7 @@ func newIngress(ld *leptonaiv1alpha1.LeptonDeployment) *Ingress {
 
 func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {
 	ld := k.leptonDeployment
-	domain := domainname.New(ld.Spec.CellName, ld.Spec.RootDomain)
+	domain := domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain)
 
 	// Do not create host based ingress if rootDomain is not set.
 	if len(ld.Spec.RootDomain) == 0 {

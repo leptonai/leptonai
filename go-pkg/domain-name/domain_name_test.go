@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestDomainNameEmptyCell(t *testing.T) {
+func TestDomainNameEmptyWorkspace(t *testing.T) {
 	domainName := New("", "example.com")
 	if domainName.GetAPIServer() != "" {
 		t.Errorf("Empty namespace domain name should be empty")
@@ -14,7 +14,7 @@ func TestDomainNameEmptyCell(t *testing.T) {
 	}
 }
 func TestDomainNameEmptyRoot(t *testing.T) {
-	domainName := New("cell", "")
+	domainName := New("workspace", "")
 	if domainName.GetAPIServer() != "" {
 		t.Errorf("Empty namespace domain name should be empty")
 	}

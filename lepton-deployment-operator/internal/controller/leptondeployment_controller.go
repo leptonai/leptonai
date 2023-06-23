@@ -173,7 +173,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context
 func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, deployment *appsv1.Deployment) error {
 	ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
 	ld.Status.Endpoint.InternalEndpoint = "http://" + deployment.Name + "." + deployment.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
-	ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.CellName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
+	ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
 	if err := r.Status().Update(ctx, ld); err != nil {
 		return err
 	}

@@ -12,19 +12,19 @@ if [[ -z $CLUSTER_NAME ]]; then
   exit 1
 fi
 
-if [[ -z $CELL_NAME ]]; then
-  echo "ERROR: Cell name not specified"
+if [[ -z $WORKSPACE_NAME ]]; then
+  echo "ERROR: Workspace name not specified"
   exit 1
 fi
 
-export TF_WORKSPACE=$CLUSTER_NAME-$CELL_NAME
+export TF_WORKSPACE=$CLUSTER_NAME-$WORKSPACE_NAME
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 # initialize Terraform
 terraform init --upgrade
 
 # refresh once
-terraform refresh -var="cluster_name=$CLUSTER_NAME" -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME"
+terraform refresh -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME"
 
 echo "Deleting resources..."
-terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$CELL_NAME" -var="cell_name=$CELL_NAME"
+terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME"

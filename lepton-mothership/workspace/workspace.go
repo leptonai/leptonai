@@ -189,7 +189,7 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 	args := []string{}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+ws.Spec.ClusterName, "TF_API_TOKEN="+terraform.TempToken, "CELL_NAME="+workspaceName)
+	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+ws.Spec.ClusterName, "TF_API_TOKEN="+terraform.TempToken, "WORKSPACE_NAME="+workspaceName)
 
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error
@@ -289,7 +289,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace) error {
 	cmd.Env = append(os.Environ(),
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,
-		"CELL_NAME="+workspaceName,
+		"WORKSPACE_NAME="+workspaceName,
 		"IMAGE_TAG="+ws.Spec.ImageTag,
 		"API_TOKEN="+ws.Spec.APIToken,
 		"OIDC_ID="+oidcID,

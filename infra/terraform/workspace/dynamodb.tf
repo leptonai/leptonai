@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "tuna" {
-  name         = "lepton-db-${var.cell_name}-tuna"
+  name         = "lepton-db-${var.workspace_name}-tuna"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "Key"
 
@@ -10,7 +10,7 @@ resource "aws_dynamodb_table" "tuna" {
 }
 
 resource "aws_iam_policy" "dynamodb-policy" {
-  name = "dynamodb-policy-${var.cell_name}-tuna"
+  name = "dynamodb-policy-${var.workspace_name}-tuna"
   policy = jsonencode({
     Version : "2012-10-17",
     Statement : [

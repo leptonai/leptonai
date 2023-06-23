@@ -36,7 +36,7 @@ type LeptonDeploymentSystemSpec struct {
 	PhotonPrefix       string   `json:"photon_prefix"`
 	ServiceAccountName string   `json:"service_account_name"`
 	RootDomain         string   `json:"root_domain,omitempty"`
-	CellName           string   `json:"cell_name,omitempty"`
+	WorkspaceName      string   `json:"workspace_name,omitempty"`
 	CertificateARN     string   `json:"certificate_arn,omitempty"`
 	APITokens          []string `json:"api_tokens,omitempty"`
 }

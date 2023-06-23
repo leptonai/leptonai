@@ -21,10 +21,10 @@ import (
 var photonBucket *blob.Bucket
 
 var (
-	clusterNameFlag    *string
 	certificateARNFlag *string
+	clusterNameFlag    *string
 	rootDomainFlag     *string
-	cellNameFlag       *string
+	workspaceNameFlag  *string
 	apiTokenFlag       *string
 
 	bucketTypeFlag, bucketNameFlag *string
@@ -46,11 +46,16 @@ const (
 )
 
 func main() {
-	regionFlag = flag.String("region", "us-east-1", "cluster region")
+	regionFlag = flag.String("region", "us-east-1", "region")
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
+	workspaceNameFlag = flag.String("workspace-name", "", "workspace name")
+	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
+
+	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
+
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
-	cellNameFlag = flag.String("cell-name", "", "cell name")
+
 	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
 
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
@@ -58,10 +63,6 @@ func main() {
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
 
 	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
-
-	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
-	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
-
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
 	enableTunaFlag = flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
 	flag.Parse()
@@ -97,7 +98,7 @@ func main() {
 		*photonPrefixFlag,
 		*serviceAccountNameFlag,
 		*rootDomainFlag,
-		*cellNameFlag,
+		*workspaceNameFlag,
 		*certificateARNFlag,
 		*apiTokenFlag,
 		photonBucket,
