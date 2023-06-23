@@ -37,19 +37,26 @@ def create(name: str, model: Any) -> Photon:
     """
     check_photon_name(name)
 
-    if isinstance(model, str):
+    def _find_creator(model: str):
         model_parts = model.split(":")
         schema = model_parts[0]
-        creator = schema_registry.get(schema)
+        return schema_registry.get(schema)
+
+    if isinstance(model, str):
+        creator = _find_creator(model)
+        if creator is None:
+            model = f"py:{model}"
+            # default to Python Photon, try again with auto-filling schema
+            creator = _find_creator(model)
         if creator is not None:
             return creator(name, model)
+    else:
+        for type_checker in type_registry.get_all():
+            if type_checker(model):
+                creator = type_registry.get(type_checker)
+                return creator(name, model)
 
-    for type_checker in type_registry.get_all():
-        if type_checker(model):
-            creator = type_registry.get(type_checker)
-            return creator(name, model)
-
-    raise ValueError(f"Failed to create photon: name={name}, model={model}")
+    raise ValueError(f"Failed to find Photon creator for name={name} and model={model}")
 
 
 def save(photon, path: str = None) -> str:

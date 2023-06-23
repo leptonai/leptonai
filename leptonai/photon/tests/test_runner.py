@@ -200,28 +200,29 @@ class Counter(Runner):
         return self.counter
 """).encode("utf-8"))
             f.flush()
-            proc, port = photon_run_server(name="counter", model=f"py:{f.name}:Counter")
-            res = requests.post(
-                f"http://127.0.0.1:{port}/add",
-                json={"x": 1},
-            )
-            self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.json(), 1)
+            for model in [f"py:{f.name}:Counter", f"{f.name}:Counter"]:
+                proc, port = photon_run_server(name="counter", model=model)
+                res = requests.post(
+                    f"http://127.0.0.1:{port}/add",
+                    json={"x": 1},
+                )
+                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.json(), 1)
 
-            res = requests.post(
-                f"http://127.0.0.1:{port}/add",
-                json={"x": 1},
-            )
-            self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.json(), 2)
+                res = requests.post(
+                    f"http://127.0.0.1:{port}/add",
+                    json={"x": 1},
+                )
+                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.json(), 2)
 
-            res = requests.post(
-                f"http://127.0.0.1:{port}/sub",
-                json={"x": 2},
-            )
-            self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.json(), 0)
-            proc.kill()
+                res = requests.post(
+                    f"http://127.0.0.1:{port}/sub",
+                    json={"x": 2},
+                )
+                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.json(), 0)
+                proc.kill()
 
     def test_photon_file_metadata(self):
         name = random_name()
@@ -454,16 +455,18 @@ from leptonai.photon.runner import RunnerPhoton as Runner, handler
             subprocess.check_call(["git", "add", custom_py])
             subprocess.check_call(["git", "commit", "-m", "add custom runner"])
 
-        name = random_name()
-        proc, port = photon_run_server(
-            name=name, model=f"py:file://{git_proj}:{custom_py}:CustomRunner"
-        )
-        res = requests.post(
-            f"http://127.0.0.1:{port}/some_path",
-            json={"x": 1.0},
-        )
-        proc.kill()
-        self.assertEqual(res.status_code, 200)
+        for model in [
+            f"py:file://{git_proj}:{custom_py}:CustomRunner",
+            f"file://{git_proj}:{custom_py}:CustomRunner",
+        ]:
+            name = random_name()
+            proc, port = photon_run_server(name=name, model=model)
+            res = requests.post(
+                f"http://127.0.0.1:{port}/some_path",
+                json={"x": 1.0},
+            )
+            proc.kill()
+            self.assertEqual(res.status_code, 200)
 
         # test environment variable substitution in vcs url
         with switch_cwd(git_proj):
