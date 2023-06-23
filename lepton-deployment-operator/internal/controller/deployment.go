@@ -218,12 +218,14 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		},
 	}
 
+	enableServiceLinks := false
 	spec := &corev1.PodSpec{
 		InitContainers:     []corev1.Container{k.newInitContainer()},
 		Containers:         []corev1.Container{container},
 		Volumes:            []corev1.Volume{sharedVolume},
 		ServiceAccountName: ld.Spec.ServiceAccountName,
 		NodeSelector:       nodeSelector,
+		EnableServiceLinks: &enableServiceLinks, // https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery
 	}
 
 	return spec
