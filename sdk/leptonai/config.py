@@ -12,6 +12,6 @@ if not CACHE_DIR.exists():
 
 DB_PATH = CACHE_DIR / "lepton.db"
 
-BASE_IMAGE_VERSION = "0.1.2"
+BASE_IMAGE_VERSION = "0.1.3"
 BASE_IMAGE = f"605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
