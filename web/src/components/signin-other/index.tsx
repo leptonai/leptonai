@@ -34,12 +34,15 @@ export const SignAsOther: FC<{ tips: ReactNode }> = ({ tips }) => {
         </>
       ) : (
         <>
+          <Typography.Paragraph>
+            Or the token is invalid or expired
+          </Typography.Paragraph>
           <Button
             size="large"
             type="primary"
             onClick={() => navigate("/login", { relative: "route" })}
           >
-            Log in as a different token
+            Try a different token
           </Button>
           <Divider />
         </>

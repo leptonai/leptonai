@@ -17,7 +17,7 @@ export const TokenLogin: FC = () => {
   };
   return (
     <Form layout="horizontal" onFinish={onFinish}>
-      <Form.Item name="token" rules={[{ required: true }]}>
+      <Form.Item name="token" rules={[{ required: true, message: "" }]}>
         <Input
           style={{ width: "100%" }}
           placeholder="Access Token"
