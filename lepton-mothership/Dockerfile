@@ -43,7 +43,7 @@ COPY --from=builder /usr/local/bin/jq /usr/local/bin/jq
 
 RUN mkdir /clusters
 WORKDIR /clusters/
-COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-mothership/mothership .
+COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-mothership/mothership /
 EXPOSE 15213
 
 ENTRYPOINT ["/mothership"]
