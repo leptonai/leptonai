@@ -103,6 +103,23 @@ def list():
     console.print(table)
 
 
+@remote.command()
+@click.option("--remote-name", "-n", help="Name of the remote cluster", required=True)
+def remove(remote_name):
+    if remote_name is None:
+        console.print("Must specify --remote-name")
+        sys.exit(1)
+    try:
+        remove_cluster(remote_name)
+        console.print(f'Cluster "{remote_name}" [green]removed[/]')
+    except KeyError:
+        console.print(f'Cluster "{remote_name}" [red]does not exist[/]')
+        console.print(
+            'Please use "lep remote list" to check the name of the remote clusters.'
+        )
+        sys.exit(1)
+
+
 def add_command(click_group):
     click_group.add_command(remote)
 
