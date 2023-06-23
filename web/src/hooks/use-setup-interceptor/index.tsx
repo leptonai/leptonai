@@ -1,6 +1,11 @@
-import { useEffect } from "react";
-import axios from "axios";
+import { ReactNode, useEffect } from "react";
+import axios, { AxiosError, CanceledError } from "axios";
 import { App } from "antd";
+
+interface LeptonError {
+  code: string;
+  message: string;
+}
 
 export const useSetupInterceptor = () => {
   const { notification } = App.useApp();
@@ -8,7 +13,11 @@ export const useSetupInterceptor = () => {
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
-      (error) => {
+      (error: AxiosError<LeptonError>) => {
+        if (error instanceof CanceledError) {
+          return Promise.reject(error);
+        }
+
         /**
          * This error will be caught and handled by the {@link AppInterceptor#intercept} method.
          */
@@ -17,8 +26,9 @@ export const useSetupInterceptor = () => {
         }
 
         const requestId = error.response?.headers?.["x-request-id"];
-        const message = error.response?.data?.code || error.code;
-        let description = error.response?.data?.message || error.message;
+        const message: ReactNode = error.response?.data?.code || error.code;
+        let description: ReactNode =
+          error.response?.data?.message || error.message;
         description = requestId ? (
           <>
             <strong>Error Message</strong>: {description}
