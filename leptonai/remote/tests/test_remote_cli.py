@@ -61,6 +61,18 @@ class TestRemoteCli(unittest.TestCase):
         self.assertIn("test-remote-0", result.output.lower())
         self.assertEqual(result.exit_code, 0)
 
+    def test_remote_remove(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["remote", "login", "-n", "test-remote-0"])
+        self.assertIn("logged in", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        result = runner.invoke(cli, ["remote", "remove", "-n", "test-remote-0"])
+        self.assertIn("removed", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        result = runner.invoke(cli, ["remote", "remove", "-n", "nonexistent-remote"])
+        self.assertIn("does not exist", result.output.lower())
+        self.assertEqual(result.exit_code, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
