@@ -295,6 +295,22 @@ class Counter(Runner):
         self.assertRegex(
             res.text, r'http_request_duration_seconds_count{handler="/some_path"}'
         )
+        self.assertRegex(
+            res.text,
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.01"}',
+        )
+        self.assertRegex(
+            res.text,
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.78"}',
+        )
+        self.assertRegex(
+            res.text,
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="1.1"}',
+        )
+        self.assertRegex(
+            res.text,
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="2.3"}',
+        )
         proc.kill()
 
     def test_vec_db_examples(self):
