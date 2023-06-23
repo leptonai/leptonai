@@ -1,10 +1,6 @@
 import { Badge, TabsProps } from "antd";
-import styled from "@emotion/styled";
 import { FC } from "react";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
-import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import {
   CarbonIcon,
@@ -16,58 +12,31 @@ import { Asterisk, Settings, Workspace } from "@carbon/icons-react";
 import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
 
-const StyledBadge = styled(Badge)`
-  margin-left: 6px;
-  top: -1px;
-  min-width: 20px;
-`;
-
 const PhotonLabel: FC = () => {
-  const theme = useAntdTheme();
-  const photonService = useInject(PhotonService);
   const notificationService = useInject(IndicatorService);
   const notify = useStateFromObservable(
     () => notificationService.photonNotify$,
     false
   );
-  const photons = useStateFromObservable(() => photonService.listGroups(), []);
   return (
-    <>
+    <Badge dot={notify} offset={[6, 0]}>
       <PhotonIcon />
       Photons
-      <StyledBadge
-        showZero
-        size="small"
-        color={notify ? theme.colorLink : theme.colorTextTertiary}
-        count={photons.length}
-      />
-    </>
+    </Badge>
   );
 };
 
 const DeploymentLabel: FC = () => {
-  const theme = useAntdTheme();
   const notificationService = useInject(IndicatorService);
   const notify = useStateFromObservable(
     () => notificationService.deploymentNotify$,
     false
   );
-  const deploymentService = useInject(DeploymentService);
-  const deployments = useStateFromObservable(
-    () => deploymentService.list(),
-    []
-  );
   return (
-    <>
+    <Badge dot={notify} offset={[6, 0]}>
       <DeploymentIcon />
       Deployments
-      <StyledBadge
-        showZero
-        size="small"
-        color={notify ? theme.colorLink : theme.colorTextTertiary}
-        count={deployments.length}
-      />
-    </>
+    </Badge>
   );
 };
 
