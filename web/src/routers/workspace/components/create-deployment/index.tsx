@@ -34,17 +34,17 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
     photon_id: photonId,
     resource_requirement: {
       min_replicas: 1,
-      cpu: workspaceTrackerService.cluster!.data?.max_generic_compute_size?.Core
+      cpu: workspaceTrackerService.cluster!.data?.max_generic_compute_size?.core
         ? Math.min(
-            workspaceTrackerService.cluster!.data.max_generic_compute_size.Core,
+            workspaceTrackerService.cluster!.data.max_generic_compute_size.core,
             1
           )
         : 1,
       memory: workspaceTrackerService.cluster!.data?.max_generic_compute_size
-        ?.Memory
+        ?.memory
         ? Math.min(
             workspaceTrackerService.cluster!.data.max_generic_compute_size
-              .Memory,
+              .memory,
             2048
           )
         : 2048,

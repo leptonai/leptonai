@@ -252,9 +252,9 @@ export const DeploymentForm: FC<{
         name="cpu"
         rules={[
           {
-            max: clusterInfo.max_generic_compute_size.Core,
+            max: clusterInfo.max_generic_compute_size.core,
             type: "number",
-            message: `The maximum available core is ${clusterInfo.max_generic_compute_size.Core}`,
+            message: `The maximum available core is ${clusterInfo.max_generic_compute_size.core}`,
           },
           {
             required: true,
@@ -262,21 +262,16 @@ export const DeploymentForm: FC<{
           },
         ]}
       >
-        <InputNumber
-          disabled={edit}
-          style={{ width: "100%" }}
-          min={1}
-          max={clusterInfo.max_generic_compute_size.Core}
-        />
+        <InputNumber disabled={edit} style={{ width: "100%" }} min={1} />
       </Form.Item>
       <Form.Item
         label="Memory"
         name="memory"
         rules={[
           {
-            max: clusterInfo.max_generic_compute_size.Memory,
+            max: clusterInfo.max_generic_compute_size.memory,
             type: "number",
-            message: `The maximum available memory is ${clusterInfo.max_generic_compute_size.Memory} MB`,
+            message: `The maximum available memory is ${clusterInfo.max_generic_compute_size.memory} MB`,
           },
           {
             required: true,
@@ -288,7 +283,6 @@ export const DeploymentForm: FC<{
           disabled={edit}
           style={{ width: "100%" }}
           min={1}
-          max={clusterInfo.max_generic_compute_size.Memory}
           addonAfter="MB"
         />
       </Form.Item>
