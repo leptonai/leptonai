@@ -1,7 +1,7 @@
 import os
 import requests
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from .base import schema_registry, type_registry, Photon, add_photon
 from . import runner  # noqa: F401
 from . import hf  # noqa: F401
@@ -177,7 +177,7 @@ def remote_launch(
     memory: int,
     min_replicas: int,
     auth_token: str,
-    deployment_name: str,
+    deployment_name: Optional[str] = None,
 ):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
