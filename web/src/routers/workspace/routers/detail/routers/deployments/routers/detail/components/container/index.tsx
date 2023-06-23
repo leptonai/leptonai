@@ -10,11 +10,11 @@ import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
   BlockStorageAlt,
   Book,
+  ChartLine,
   EventSchedule,
   Play,
 } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { css } from "@emotion/react";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
@@ -41,6 +41,15 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
         <>
           <CarbonIcon icon={<Book />} />
           API
+        </>
+      ),
+    },
+    {
+      key: `${pathname}/metrics`,
+      label: (
+        <>
+          <CarbonIcon icon={<ChartLine />} />
+          Metrics
         </>
       ),
     },
@@ -89,9 +98,6 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
       </Col>
       <Col span={24}>
         <Card>{deployment && <DeploymentItem deployment={deployment} />}</Card>
-      </Col>
-      <Col span={24}>
-        <Card>{deployment && <Metrics deployment={deployment} />}</Card>
       </Col>
       <Col span={24}>
         <Card

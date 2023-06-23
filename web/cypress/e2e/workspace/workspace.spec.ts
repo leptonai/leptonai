@@ -55,13 +55,6 @@ describe("workspace", () => {
       cy.get("#deployment-list li a:first()").click();
       cy.wait(200);
 
-      cy.wait(`@${alias.getFastAPIQPS}`);
-      cy.wait(`@${alias.getFastAPIQPSByPath}`);
-      cy.wait(`@${alias.getFastAPILatency}`);
-      cy.wait(`@${alias.getFastAPILatencyByPath}`);
-
-      cy.wait(200);
-
       cy.get("#api-form").should("have.length", 1);
 
       cy.get("form label.ant-checkbox-wrapper")

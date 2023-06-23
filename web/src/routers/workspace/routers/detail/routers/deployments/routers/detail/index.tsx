@@ -1,4 +1,5 @@
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { Empty } from "antd";
 import { FC } from "react";
 import {
@@ -32,6 +33,7 @@ export const Detail: FC = () => {
         <Route path="demo" element={<Demo deployment={deployment} />} />
         <Route path="api" element={<Api deployment={deployment} />} />
         <Route path="events" element={<Events deployment={deployment} />} />
+        <Route path="metrics" element={<Metrics deployment={deployment} />} />
         <Route
           path="instances/list"
           element={<InstanceList deployment={deployment} />}
