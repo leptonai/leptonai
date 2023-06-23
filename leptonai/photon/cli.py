@@ -26,6 +26,19 @@ def get_remote_url(ctx, param, value):
     return value
 
 
+def get_most_recent_photon_id_or_none(remote_url, auth_token, name):
+    """
+    Returns the most recent photon id for a given name. If no photon of such
+    name exists, returns None.
+    """
+    photons = api.list_remote(remote_url, auth_token)
+    target_photons = [p for p in photons if p["name"] == name]
+    if len(target_photons) == 0:
+        return None
+    photon_id = max(target_photons, key=lambda p: p["created_at"])["id"]
+    return photon_id
+
+
 @click.group()
 def photon():
     pass
@@ -64,20 +77,13 @@ def remove(name, id_):
         if id_ is None and name is None:
             console.print("Must specify --id or --name when removing remote photon")
             sys.exit(1)
-
-        if id_ is None:
-            photons = api.list_remote(remote_url, auth_token)
-            if len(photons) == 0:
-                console.print("No photons found on remote server")
-                sys.exit(1)
-
-            target_photons = [p for p in photons if p["name"] == name]
-            if len(target_photons) == 0:
+        elif id_ is None:
+            # Default behavior without id is to remove the most recent photon.
+            id_ = get_most_recent_photon_id_or_none(remote_url, auth_token, name)
+            if id_ is None:
                 console.print(f'Photon "{name}" [red]does not exist[/]')
                 sys.exit(1)
-            target_photons.sort(key=lambda p: p["created_at"], reverse=True)
 
-            id_ = target_photons[0]["id"]
             if (
                 console.input(
                     f'remove photon "[green]{name}[/]" with id "[green]{id_}[/]"?'
@@ -90,14 +96,16 @@ def remove(name, id_):
         if api.remove_remote(remote_url, id_, auth_token):
             console.print(f'Remote photon "{id_}" [green]removed[/]')
         else:
+            # TODO: if we do find the photon, but it's not removed, should we
+            # assume that it does not exist (because it did exist), or should
+            # we do something else?
             console.print(f'Remote photon "{id_}" [red]does not exist[/]')
         return
-
-    if name is None:
+    elif name is None:
+        # In local mode, photons do not have ids, so we must specify a name.
         console.print("Must specify --name when removing local photon")
         sys.exit(1)
-
-    if find_photon(name) is None:
+    elif find_photon(name) is None:
         console.print(f'Photon "{name}" [red]does not exist[/]')
         sys.exit(1)
     remove_photon(name)
@@ -156,17 +164,33 @@ def list():
 def run(ctx, name, model, path, port, id, cpu, memory, min_replicas, deployment_name):
     remote_url = remote.get_remote_url()
 
+    if name is not None and id is not None:
+        # TODO: support sainity checking that the id matches the name. This
+        # will require a remote call to get the names and ids, so for now we
+        # will tell users to give either id or name.
+        console.print("Must specify either --id or --name, not both.")
+        sys.exit(1)
+
     if remote_url is not None:
-        if id is None:
-            # TODO: Support run remote by name
-            # TODO: Support push and run if the Photon does not exist on remote
-            console.print("Must specify --id when running remote photon")
-            sys.exit(1)
         auth_token = remote.cli.get_auth_token(remote_url)
+        # We first check if id is specified - this is the most specific way to
+        # refer to a photon. If not, we will check if name is specified - this
+        # might lead to multiple photons, so we will pick the latest one to run
+        # as the default behavior.
+        # TODO: Support push and run if the Photon does not exist on remote
+        if id is None:
+            # look for the latest photon with the given name.
+            id = get_most_recent_photon_id_or_none(remote_url, auth_token, name)
+            if id is None:
+                console.print(f'Photon "{name}" [red]does not exist[/]')
+                sys.exit(1)
+            else:
+                console.print(f"Running the most recent version: [green]{id}[/]")
+        else:
+            console.print("Running the specified version: [green]{id}[/]")
         api.remote_launch(
             id, remote_url, cpu, memory, min_replicas, auth_token, deployment_name
         )
-
         return
 
     if name is None and path is None:
