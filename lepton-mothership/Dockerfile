@@ -41,7 +41,8 @@ COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/jq /usr/local/bin/jq
 
-WORKDIR /
+RUN mkdir /clusters
+WORKDIR /clusters/
 COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-mothership/mothership .
 EXPOSE 15213
 

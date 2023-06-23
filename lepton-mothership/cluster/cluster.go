@@ -148,13 +148,13 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	command := "./uninstall.sh"
-	args := []string{}
+	command := "sh"
+	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
@@ -238,13 +238,13 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 		}
 	}()
 
-	err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	command := "./install.sh"
-	args := []string{}
+	command := "sh"
+	args := []string{"-c", "cd " + dir + " && ./install.sh"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)

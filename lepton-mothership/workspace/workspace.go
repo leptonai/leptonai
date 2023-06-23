@@ -180,13 +180,13 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	command := "./uninstall.sh"
-	args := []string{}
+	command := "sh"
+	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+ws.Spec.ClusterName, "TF_API_TOKEN="+terraform.TempToken, "WORKSPACE_NAME="+workspaceName)
@@ -277,13 +277,13 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace) error {
 	}
 	oidcID := cl.Status.Properties.OIDCID
 
-	err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	command := "./install.sh"
-	args := []string{}
+	command := "sh"
+	args := []string{"-c", "cd " + dir + " && ./install.sh"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(),
