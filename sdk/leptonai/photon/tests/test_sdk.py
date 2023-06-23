@@ -12,6 +12,7 @@ from transformers import AutoModel, pipeline
 
 from leptonai import config
 from leptonai import photon
+from leptonai.util import check_photon_name
 
 from utils import random_name
 
@@ -83,6 +84,13 @@ class TestPhotonSdk(unittest.TestCase):
         path = photon.save(ph)
         metadata = photon.load_metadata(path)
         self.assertEqual(metadata["name"], name)
+
+    def test_check_photon_name(self):
+        for name in ["abcde", "abcde123", "abcde-123", "a" * 32]:
+            check_photon_name(name)
+        for name in ["abc 123", "abcde_123", "abcde-123_456", "abcde-", "a" * 33]:
+            with self.assertRaisesRegex(ValueError, "Invalid Photon name"):
+                check_photon_name(name)
 
 
 if __name__ == "__main__":
