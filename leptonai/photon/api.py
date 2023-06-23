@@ -6,7 +6,7 @@ from .base import schema_registry, type_registry, Photon, add_photon
 from . import runner  # noqa: F401
 from . import hf  # noqa: F401
 from leptonai.config import CACHE_DIR
-from leptonai.util import check_and_print_http_error
+from leptonai.util import check_and_print_http_error, check_photon_name
 
 
 def create_header(auth_token: str) -> Dict[str, str]:
@@ -35,6 +35,8 @@ def create(name: str, model: Any) -> Photon:
 
     :raises ValueError: if the model is not supported
     """
+    check_photon_name(name)
+
     if isinstance(model, str):
         model_parts = model.split(":")
         schema = model_parts[0]

@@ -308,7 +308,7 @@ class Counter(Runner):
         ) as vec_db_file:
             f.write(vec_db_file.read())
             f.flush()
-            proc, port = photon_run_server(name="vec_db", model=f"py:{f.name}:VecDB")
+            proc, port = photon_run_server(name="vec-db", model=f"py:{f.name}:VecDB")
 
         dim = 2
         name = "two"
