@@ -1,5 +1,5 @@
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { FC } from "react";
+import { FC, useCallback } from "react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import { App, Button, Divider, Popconfirm, Space, Tooltip } from "antd";
 import { useInject } from "@lepton-libs/di";
@@ -8,6 +8,7 @@ import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Download, TrashCan } from "@carbon/icons-react";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
+import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 
 export const Actions: FC<{
   photon: Photon;
@@ -15,8 +16,30 @@ export const Actions: FC<{
   relatedDeployments?: Deployment[];
 }> = ({ photon, extraActions = false, relatedDeployments = [] }) => {
   const { message } = App.useApp();
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
+
+  const downloadPhoton = useCallback(() => {
+    const url = photonService.getDownloadUrlById(photon.id);
+    const token = workspaceTrackerService.cluster?.auth.token;
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }).then((res) => {
+      res.blob().then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${photon.id}.photon.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    });
+  }, [photon, photonService, workspaceTrackerService]);
+
   const deleteButton = (
     <Button
       disabled={relatedDeployments.length > 0}
@@ -37,7 +60,7 @@ export const Actions: FC<{
             icon={<CarbonIcon icon={<Download />} />}
             type="text"
             size="small"
-            href={photonService.getDownloadUrlById(photon.id)}
+            onClick={downloadPhoton}
             download
           >
             Download
