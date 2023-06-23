@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import shutil
 import subprocess
@@ -122,29 +123,42 @@ def list():
         auth_token = remote.cli.get_auth_token(remote_url)
         photons = api.list_remote(remote_url, auth_token)
         records = [
-            (photon["name"], photon["model"], photon["id"]) for photon in photons
+            (photon["name"], photon["model"], photon["id"], photon["created_at"])
+            for photon in photons
         ]
     else:
         records = find_all_photons()
         records = [
-            (name, model, id_) for id_, name, model, path, creation_time in records
+            (name, model, id_, creation_time)
+            for id_, name, model, path, creation_time in records
         ]
 
     table = Table(title="Photons", show_lines=True)
     table.add_column("Name")
     table.add_column("Model")
     table.add_column("ID")
+    table.add_column("Created At")
 
     records_by_name = {}
-    for name, model, id_ in records:
-        records_by_name.setdefault(name, []).append((model, id_))
+    for name, model, id_, creation_time in records:
+        records_by_name.setdefault(name, []).append((model, id_, creation_time))
+    # Sort by creation time and print
     for name, sub_records in records_by_name.items():
+        sub_records.sort(key=lambda r: r[2], reverse=True)
         model_table = Table(show_header=False, box=None)
         id_table = Table(show_header=False, box=None)
-        for model, id_ in sub_records:
+        creation_table = Table(show_header=False, box=None)
+        for model, id_, creation_time in sub_records:
             model_table.add_row(model)
             id_table.add_row(id_)
-        table.add_row(name, model_table, id_table)
+            # Photon database stores creation time as a timestamp in
+            # milliseconds, so we need to convert.
+            creation_table.add_row(
+                datetime.fromtimestamp(creation_time / 1000).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
+        table.add_row(name, model_table, id_table, creation_table)
     console.print(table)
 
 
