@@ -5,7 +5,7 @@ import {
   Request,
   Response,
 } from "@lepton-dashboard/services/http-client.service";
-import { mergeMap, Observable, of, throwError } from "rxjs";
+import { catchError, mergeMap, Observable, throwError } from "rxjs";
 import {
   AuthService,
   UnauthorizedError,
@@ -28,33 +28,31 @@ export class AppInterceptor implements HTTPInterceptor {
       (cluster) => new URL(cluster.auth.url).host === reqHost
     )?.auth.token;
 
-    if (token) {
-      return next
-        .handle({
-          ...req,
-          headers: {
-            ...req.headers,
-            Authorization: `Bearer ${token}`,
-          },
+    const headers = token
+      ? { ...req.headers, Authorization: `Bearer ${token}` }
+      : req.headers;
+
+    return next
+      .handle({
+        ...req,
+        headers,
+      })
+      .pipe(
+        catchError((err) => {
+          console.error(err);
+          if (err.status === 401 || err.response?.status === 401) {
+            return fromPromise(
+              this.authService.logout().then(() => {
+                this.navigateService.navigateTo("/login");
+              })
+            ).pipe(
+              mergeMap(() =>
+                throwError(() => new UnauthorizedError("Unauthorized"))
+              )
+            );
+          }
+          return throwError(err);
         })
-        .pipe(
-          mergeMap((res) => {
-            if (res.status === 401) {
-              return fromPromise(
-                this.authService.logout().then(() => {
-                  this.navigateService.navigateTo("/login");
-                })
-              ).pipe(
-                mergeMap(() =>
-                  throwError(() => new UnauthorizedError("Unauthorized"))
-                )
-              );
-            }
-            return of(res);
-          })
-        );
-    } else {
-      return next.handle(req);
-    }
+      );
   }
 }

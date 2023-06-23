@@ -9,7 +9,14 @@ export const useSetupInterceptor = () => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
-        const requestId = error.response.headers?.["x-request-id"];
+        /**
+         * This error will be caught and handled by the {@link AppInterceptor#intercept} method.
+         */
+        if (error?.status === 401 || error.response?.status === 401) {
+          return Promise.reject(error);
+        }
+
+        const requestId = error.response?.headers?.["x-request-id"];
         const message = error.response?.data?.code || error.code;
         let description = error.response?.data?.message || error.message;
         description = requestId ? (
