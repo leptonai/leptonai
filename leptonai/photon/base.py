@@ -116,7 +116,7 @@ def add_photon(id: str, name: str, model: str, path: str):
     DB.commit()
 
 
-def find_all_photons():
+def find_all_local_photons():
     res = DB.cursor().execute("SELECT * FROM photon ORDER BY creation_time DESC")
     records = res.fetchall()
     return records
