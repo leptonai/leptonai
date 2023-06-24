@@ -162,6 +162,12 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 		return fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
+	var cl *crdv1alpha1.LeptonCluster
+	cl, err = cluster.DataStore.Get(ws.Spec.ClusterName)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster: %w", err)
+	}
+
 	defer func() {
 		if err != nil {
 			log.Println("failed to delete workspace:", err)
@@ -189,7 +195,14 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+ws.Spec.ClusterName, "TF_API_TOKEN="+terraform.TempToken, "WORKSPACE_NAME="+workspaceName)
+	cmd.Env = append(os.Environ(),
+		"CLUSTER_NAME="+ws.Spec.ClusterName,
+		"TF_API_TOKEN="+terraform.TempToken,
+		"WORKSPACE_NAME="+workspaceName,
+		"CREATE_EFS=true",
+		"VPC_ID="+cl.Status.Properties.VPCID,
+		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
+	)
 
 	output, err := cmd.CombinedOutput()
 	// TODO: Stream and only print output if there is an error

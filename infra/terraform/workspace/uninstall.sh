@@ -17,6 +17,21 @@ if [[ -z $WORKSPACE_NAME ]]; then
   exit 1
 fi
 
+if [[ -z $CREATE_EFS ]]; then
+  CREATE_EFS="false"
+fi
+
+if [[ $CREATE_EFS == "true" ]]; then
+  if [[ -z $EFS_MOUNT_TARGETS ]]; then
+    echo "ERROR: must set EFS_MOUNT_TARGETS when CREATE_EFS is true"
+    exit 1
+  fi
+  if [[ -z $VPC_ID ]]; then
+    echo "ERROR: must set VPC_ID when CREATE_EFS is true"
+    exit 1
+  fi
+fi
+
 export TF_WORKSPACE=$CLUSTER_NAME-$WORKSPACE_NAME
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
@@ -24,7 +39,13 @@ export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 terraform init --upgrade
 
 # refresh once
-terraform refresh -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME"
+terraform refresh -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
 
 echo "Deleting resources..."
-terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME"
+terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
