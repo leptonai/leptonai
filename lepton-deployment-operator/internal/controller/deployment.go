@@ -229,7 +229,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery
 		EnableServiceLinks: &enableServiceLinks,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-automountserviceaccounttoken
-		AutomountServiceAccountToken: &automountServiceAccountToken,
+		AutomountServiceAccountToken: &autoMountServiceAccountToken,
 	}
 
 	return spec
