@@ -14,11 +14,7 @@ on:
   pull_request:
     paths:
       - .github/**
-      - lepton-api-server/**
-      - lepton-deployment-operator/**
-      - lepton-mothership/**
-      - go-pkg/**
-      - go-client/**
+      - '**.go'
       - go.mod
       - go.sum
     branches: [ "**" ]
@@ -50,7 +46,7 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
     - name: Switch to the proper k8s context
-      run: aws eks update-kubeconfig --name ${{ vars.K8S_DEV_CI }} --region ${{ vars.AWS_REGION }}
+      run: aws eks update-kubeconfig --name ${{ vars.K8S_CI }} --region ${{ vars.AWS_REGION }}
     - name: Test
       run: |
         (cd lepton-api-server && go test -v ./...)
