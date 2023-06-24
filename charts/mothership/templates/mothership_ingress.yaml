@@ -4,9 +4,13 @@ metadata:
   name: mothership-ingress
   namespace: {{ .Release.Namespace }}
   annotations:
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/conditions.mothership-service: '[{"field":"http-header","httpHeaderConfig":{"httpHeaderName": "Authorization","values":["Bearer {{ .Values.mothership.apiToken }}"]}}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.mothership.certificateArn }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.mothership.hostname }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: mothership-{{ .Release.Namespace }}
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
 spec:
   ingressClassName: alb

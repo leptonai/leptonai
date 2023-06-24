@@ -13,3 +13,6 @@ mothership:
         cpu: "1"
   # TODO: the role was manually created via AWS web
   serviceAccountRoleArn: "arn:aws:iam::605454121064:role/mothership-role"
+  certificateArn: "arn:aws:acm:us-east-1:605454121064:certificate/d8d5e0e1-ecc5-4716-aa79-01625e60704d"
+  apiToken: "cd17aef833bb660da98e7235b57ffe8d"
+  hostname: "mothership.cloud.lepton.ai"
