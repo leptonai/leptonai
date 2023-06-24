@@ -1,14 +1,61 @@
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
+import warnings
 
 from backports.cached_property import cached_property
 import requests
 
 
+def _is_valid_url(candidate_str):
+    parsed = urlparse(candidate_str)
+    return parsed.scheme != "" and parsed.netloc != ""
+
+
+def _is_local_url(candidate_str):
+    parsed = urlparse(candidate_str)
+    local_hosts = ["localhost", "127.0.0.1", "::1"]
+    return parsed.netloc.lower() in local_hosts
+
+
 class Client:
     # TODO: add support for creating client with name/id
-    def __init__(self, url, token=None):
-        self.url = url
+    def __init__(self, workspace, deployment=None, token=None):
+        """
+        Initializes a Lepton client that calls a deployment in a workspace.
+
+        Args:
+            workspace (str): The workspace name.
+            deployment (str): The deployment name.
+            token (str, optional): The token to use for authentication. Defaults to None.
+        """
+        if _is_valid_url(workspace):
+            if not _is_local_url(workspace):
+                warnings.warn(
+                    (
+                        "Explicitly passing in a remote URL is deprecated, and may be"
+                        " removed in the future."
+                    ),
+                    DeprecationWarning,
+                )
+            self.url = workspace
+        else:
+            # TODO: sanity check if the workspace name is legit.
+            self.url = f"https://{workspace}.cloud.lepton.ai"
         self._session = requests.Session()
+        if deployment is None:
+            if not _is_local_url(workspace):
+                warnings.warn(
+                    (
+                        "Remote execution without an explicit deployment is deprecated,"
+                        " and may be removed in the future."
+                    ),
+                    DeprecationWarning,
+                )
+        else:
+            # TODO: at the right time, change it to X-Lepton-Deployment
+            self._session.headers.update({"Deployment": deployment})
+            # As a future-proof approach, we pass in both at the moment, so the backend
+            # code can land asynchronously.
+            self._session.headers.update({"X-Lepton-Deployment": deployment})
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
