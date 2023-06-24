@@ -21,6 +21,11 @@ if [[ -z $CREATE_EFS ]]; then
   CREATE_EFS="false"
 fi
 
+if [[ $CREATE_EFS == "false" ]]; then
+  EFS_MOUNT_TARGETS="null"
+  VPC_ID=""
+fi
+
 if [[ $CREATE_EFS == "true" ]]; then
   if [[ -z $EFS_MOUNT_TARGETS ]]; then
     echo "ERROR: must set EFS_MOUNT_TARGETS when CREATE_EFS is true"
