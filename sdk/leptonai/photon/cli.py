@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 import click
-from .base import find_all_photons, find_photon, remove_photon
+from .base import find_all_local_photons, find_photon, remove_photon
 from . import api
 import leptonai.remote as remote
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
@@ -114,10 +114,11 @@ def remove(name, id_):
 
 
 @photon.command()
-def list():
+@click.option("--local", "-n", help="If specified, list local photons", is_flag=True)
+def list(local):
     remote_url = remote.get_remote_url()
 
-    if remote_url is not None:
+    if remote_url is not None and not local:
         # TODO: Add Creation Time and other metadata
         console.print(f"Using remote cluster: [green]{remote_url}[/green]")
         auth_token = remote.cli.get_auth_token(remote_url)
@@ -127,7 +128,7 @@ def list():
             for photon in photons
         ]
     else:
-        records = find_all_photons()
+        records = find_all_local_photons()
         records = [
             (name, model, id_, creation_time)
             for id_, name, model, path, creation_time in records

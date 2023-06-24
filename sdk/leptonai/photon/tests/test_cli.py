@@ -75,6 +75,13 @@ class TestPhotonCli(unittest.TestCase):
         assert result.exit_code == 0
         assert "abcde" in result.output.lower()
 
+        # Todo: actually this only checks whether the local
+        # flag works, as we are not testing remote photons
+        # yet.
+        result = runner.invoke(cli, ["photon", "list", "--local"])
+        assert result.exit_code == 0
+        assert "abcde" in result.output.lower()
+
     def test_photon_remove(self):
         runner = CliRunner()
         result = runner.invoke(
