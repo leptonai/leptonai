@@ -156,14 +156,6 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
 	env := util.ToContainerEnv(ld.Spec.Envs)
 
-	// Define the shared volume
-	sharedVolume := corev1.Volume{
-		Name: photonVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
 	cpu := resource.NewScaledQuantity(int64(ld.Spec.ResourceRequirement.CPU*1000), -3)
 	memory := resource.NewQuantity(ld.Spec.ResourceRequirement.Memory*1024*1024, resource.BinarySI)
 
@@ -218,12 +210,43 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		},
 	}
 
+	volumes := []corev1.Volume{}
+	for i, m := range k.leptonDeployment.Spec.Mounts {
+		ns, name := k.leptonDeployment.Namespace, k.leptonDeployment.GetSpecName()
+		// TODO: ensure the name is short enough
+		pvname := fmt.Sprintf("pv-%s-%s-%d", ns, name, i)
+		pvcname := fmt.Sprintf("pvc-%s-%s-%d", ns, name, i)
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      pvname,
+			MountPath: m.MountPath,
+		})
+
+		pvVolume := corev1.Volume{
+			Name: pvname,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcname,
+				},
+			},
+		}
+		volumes = append(volumes, pvVolume)
+	}
+
+	// Define the shared volume
+	sharedVolume := corev1.Volume{
+		Name: photonVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
 	enableServiceLinks := false
 	autoMountServiceAccountToken := false
 	spec := &corev1.PodSpec{
 		InitContainers:     []corev1.Container{k.newInitContainer()},
 		Containers:         []corev1.Container{container},
-		Volumes:            []corev1.Volume{sharedVolume},
+		Volumes:            append(volumes, sharedVolume),
 		ServiceAccountName: ld.Spec.ServiceAccountName,
 		NodeSelector:       nodeSelector,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery

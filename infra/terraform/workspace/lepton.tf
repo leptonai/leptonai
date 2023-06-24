@@ -39,6 +39,10 @@ resource "aws_iam_role_policy_attachment" "api-server-role-dynamodb-policy-attac
   ]
 }
 
+locals {
+  efs_exists = length(module.efs) > 0
+}
+
 resource "helm_release" "lepton" {
   name = "lepton"
 
@@ -71,6 +75,11 @@ resource "helm_release" "lepton" {
   set {
     name  = "apiServer.bucketName"
     value = aws_s3_bucket.s3-bucket.bucket
+  }
+
+  set {
+    name  = "apiServer.efsID"
+    value = local.efs_exists ? module.efs[0].id : ""
   }
 
   set {
@@ -120,6 +129,7 @@ resource "helm_release" "lepton" {
 
   depends_on = [
     aws_iam_role_policy_attachment.api-server-role-s3-policy-attachment,
-    kubernetes_namespace.lepton
+    kubernetes_namespace.lepton,
+    module.efs
   ]
 }

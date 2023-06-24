@@ -45,6 +45,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		PhotonName:         ph.GetSpecName(),
 		PhotonImage:        ph.Spec.Image,
 		BucketName:         h.bucketName,
+		EFSID:              h.efsID,
 		PhotonPrefix:       h.photonPrefix,
 		ServiceAccountName: h.serviceAccountName,
 		RootDomain:         h.rootDomain,

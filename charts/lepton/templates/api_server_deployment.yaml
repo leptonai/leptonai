@@ -38,6 +38,8 @@ spec:
             - "{{ .Values.apiServer.name }}"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
+            - "--efs-id"
+            - "{{ .Values.apiServer.efsID }}"
             - "--certificate-arn"
             - "{{ .Values.apiServer.certificateArn }}"
             - "--root-domain"

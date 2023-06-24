@@ -20,6 +20,7 @@ apiServer:
         cpu: "1"
   serviceAccountRoleArn: ""
   bucketName: "leptonai"
+  efsID: ""
   rootDomain: ""
   certificateArn: ""
   apiToken: ""

@@ -45,6 +45,8 @@ spec:
                 type: string
               certificate_arn:
                 type: string
+              efs_id:
+                type: string
               envs:
                 items:
                   description: EnvVar defines the environment variable of the deployment.
@@ -60,6 +62,18 @@ spec:
                       type: object
                   required:
                   - name
+                  type: object
+                type: array
+              mounts:
+                items:
+                  properties:
+                    mount_path:
+                      type: string
+                    path:
+                      type: string
+                  required:
+                  - mount_path
+                  - path
                   type: object
                 type: array
               name:
@@ -103,6 +117,7 @@ spec:
                 type: string
             required:
             - bucket_name
+            - efs_id
             - name
             - photon_id
             - photon_image

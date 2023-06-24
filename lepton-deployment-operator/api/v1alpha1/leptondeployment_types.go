@@ -33,6 +33,7 @@ type LeptonDeploymentSystemSpec struct {
 	PhotonName         string   `json:"photon_name"`
 	PhotonImage        string   `json:"photon_image"`
 	BucketName         string   `json:"bucket_name"`
+	EFSID              string   `json:"efs_id"`
 	PhotonPrefix       string   `json:"photon_prefix"`
 	ServiceAccountName string   `json:"service_account_name"`
 	RootDomain         string   `json:"root_domain,omitempty"`
@@ -48,6 +49,8 @@ type LeptonDeploymentUserSpec struct {
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
 	// +optional
 	Envs []EnvVar `json:"envs"`
+	// +optional
+	Mounts []Mount `json:"mounts"`
 }
 
 // GetSpecName returns the name of the deployment.
@@ -114,6 +117,11 @@ type EnvVar struct {
 
 type EnvValue struct {
 	SecretNameRef string `json:"secret_name_ref,omitempty"`
+}
+
+type Mount struct {
+	Path      string `json:"path"`
+	MountPath string `json:"mount_path"`
 }
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment

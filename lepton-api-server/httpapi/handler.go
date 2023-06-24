@@ -12,6 +12,7 @@ type Handler struct {
 	namespace          string
 	prometheusURL      string
 	bucketName         string
+	efsID              string
 	photonPrefix       string
 	serviceAccountName string
 	rootDomain         string
@@ -25,13 +26,14 @@ type Handler struct {
 	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
 }
 
-func New(namespace, prometheusURL, bucketName, protonPrefix, serviceAccountName,
+func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, serviceAccountName,
 	rootDomain, workspaceName, certARN, apiToken string, photonBucket *blob.Bucket) *Handler {
 	k8s.Client.Scheme()
 	h := &Handler{
 		namespace:          namespace,
 		prometheusURL:      prometheusURL,
 		bucketName:         bucketName,
+		efsID:              efsID,
 		photonPrefix:       protonPrefix,
 		serviceAccountName: serviceAccountName,
 		rootDomain:         rootDomain,

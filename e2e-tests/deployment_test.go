@@ -22,6 +22,12 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 				ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
 				MinReplicas:   1,
 			},
+			Mounts: []leptonaiv1alpha1.Mount{
+				{
+					Path:      "/",
+					MountPath: "/mnt/efs",
+				},
+			},
 		}
 		ld, err := lepton.Deployment().Create(d)
 		if err != nil {

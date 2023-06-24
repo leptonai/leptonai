@@ -27,14 +27,19 @@ var (
 	workspaceNameFlag  *string
 	apiTokenFlag       *string
 
-	bucketTypeFlag, bucketNameFlag *string
-	photonPrefixFlag               *string
+	// Workspace level Cloud Resources Flags
 	regionFlag                     *string
+	bucketTypeFlag, bucketNameFlag *string
+	efsIDFlag                      *string
 	dynamodbNameFlag               *string
-	namespaceFlag                  *string
-	serviceAccountNameFlag         *string
-	prometheusURLFlag              *string
-	enableTunaFlag                 *bool
+
+	photonPrefixFlag *string
+	namespaceFlag    *string
+
+	serviceAccountNameFlag *string
+	prometheusURLFlag      *string
+
+	enableTunaFlag *bool
 )
 
 const (
@@ -46,7 +51,6 @@ const (
 )
 
 func main() {
-	regionFlag = flag.String("region", "us-east-1", "region")
 	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
 	workspaceNameFlag = flag.String("workspace-name", "", "workspace name")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
@@ -57,9 +61,13 @@ func main() {
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
 
 	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
+	regionFlag = flag.String("region", "us-east-1", "cluster region")
 
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
 	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
+
+	efsIDFlag = flag.String("efs-id", "", "EFS ID")
+
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
 
 	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
@@ -95,6 +103,7 @@ func main() {
 		*namespaceFlag,
 		*prometheusURLFlag,
 		*bucketNameFlag,
+		*efsIDFlag,
 		*photonPrefixFlag,
 		*serviceAccountNameFlag,
 		*rootDomainFlag,

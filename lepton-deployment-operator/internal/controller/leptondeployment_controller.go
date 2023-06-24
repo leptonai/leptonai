@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -146,8 +147,7 @@ func (r *LeptonDeploymentReconciler) getOrCreateDeployment(ctx context.Context, 
 			return nil, err
 		}
 		log.Log.Info("Deployment " + req.NamespacedName.String() + " not found, creating resources")
-		deployment = newDeploymentNvidia(ld).createDeployment(or)
-		if err := r.Client.Create(ctx, deployment); err != nil {
+		if err := r.createDeployment(ctx, ld, or); err != nil {
 			return nil, err
 		}
 	}
@@ -226,8 +226,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			return nil
 		}
 		log.Log.Info("Deployment not found, creating a new one: " + req.NamespacedName.String())
-		deployment = newDeploymentNvidia(ld).createDeployment(or)
-		if err := r.Client.Create(ctx, deployment); err != nil {
+		if err := r.createDeployment(ctx, ld, or); err != nil {
 			return err
 		}
 	} else {
@@ -345,4 +344,24 @@ func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
 		).
 		Complete(r)
+}
+
+func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+	deployment := newDeploymentNvidia(ld).createDeployment(or)
+
+	for i, v := range ld.Spec.Mounts {
+		pvname := fmt.Sprintf("pv-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
+		pvcname := fmt.Sprintf("pvc-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
+
+		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path, or)
+		if err != nil {
+			return err
+		}
+		err = k8s.CreatePVC(ld.Namespace, pvcname, pvname, or)
+		if err != nil {
+			return err
+		}
+	}
+
+	return r.Client.Create(ctx, deployment)
 }
