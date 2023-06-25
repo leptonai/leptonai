@@ -1,54 +1,44 @@
-import { ReactNode, useEffect } from "react";
-import axios, { AxiosError, CanceledError } from "axios";
+import { useEffect } from "react";
 import { App } from "antd";
+import { NotificationService } from "@lepton-dashboard/services/notification.service";
+import { useInject } from "@lepton-libs/di";
 
-interface LeptonError {
-  code: string;
-  message: string;
-}
-
-export const useSetupInterceptor = () => {
+export const useSetupNotification = () => {
   const { notification } = App.useApp();
+  const notificationService = useInject(NotificationService);
 
   useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error: AxiosError<LeptonError>) => {
-        if (error instanceof CanceledError) {
-          return Promise.reject(error);
+    const notificationSubscription = notificationService
+      .onNotification()
+      .subscribe((payload) => {
+        switch (payload.type) {
+          case "success":
+            notification.success(payload.args);
+            break;
+          case "error":
+            notification.error(payload.args);
+            break;
+          case "info":
+            notification.info(payload.args);
+            break;
+          case "warning":
+            notification.warning(payload.args);
+            break;
+          default:
+            notification.open(payload.args);
+            break;
         }
+      });
 
-        /**
-         * This error will be caught and handled by the {@link AppInterceptor#intercept} method.
-         */
-        if (error?.status === 401 || error.response?.status === 401) {
-          return Promise.reject(error);
-        }
+    const destroySubscription = notificationService
+      .onDestroyNotification()
+      .subscribe((id) => {
+        notification.destroy(id);
+      });
 
-        const requestId = error.response?.headers?.["x-request-id"];
-        const message: ReactNode = error.response?.data?.code || error.code;
-        let description: ReactNode =
-          error.response?.data?.message || error.message;
-        description = requestId ? (
-          <>
-            <strong>Error Message</strong>: {description}
-            <br />
-            <strong>Request ID</strong>: {requestId}
-            <br />
-            <strong>Timestamp</strong>: {new Date().toLocaleString()}
-          </>
-        ) : (
-          description
-        );
-        notification.error({
-          message,
-          description,
-        });
-        return Promise.reject(error);
-      }
-    );
     return () => {
-      axios.interceptors.response.eject(interceptor);
+      notificationSubscription.unsubscribe();
+      destroySubscription.unsubscribe();
     };
-  }, [notification]);
+  }, [notification, notificationService]);
 };

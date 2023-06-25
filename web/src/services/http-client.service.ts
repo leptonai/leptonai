@@ -78,7 +78,7 @@ export class AxiosHandler implements HttpHandler {
 @Injectable()
 export class HttpClientService {
   constructor(private injector: Injector, private httpHandler: AxiosHandler) {}
-  handle(req: AxiosRequestConfig): Observable<Response> {
+  handle(req: Request): Observable<Response> {
     const interceptor = this.injector.get(HTTPInterceptorToken, null);
 
     // TODO(hsuanxyz): support multiple interceptors and chain them together

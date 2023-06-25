@@ -2,8 +2,9 @@ import { Injectable } from "injection-js";
 import { catchError, forkJoin, map, mergeMap, Observable, of, tap } from "rxjs";
 import { Profile } from "@lepton-dashboard/interfaces/profile";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
-import { HttpClientService } from "./http-client.service";
+import { HttpClientService, HttpContext } from "./http-client.service";
 import { Cluster, ClusterDetail } from "@lepton-dashboard/interfaces/cluster";
+import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 
 @Injectable()
 export class ProfileService {
@@ -24,6 +25,9 @@ export class ProfileService {
                         // but the token is not set to profile now, so we need to set it manually.
                         Authorization: `Bearer ${token}`,
                       },
+                      context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+                        ignoreErrors: true,
+                      }),
                     })
                     .pipe(catchError(() => of(null)));
                 }),

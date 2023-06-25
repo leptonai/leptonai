@@ -31,6 +31,7 @@ import {
 } from "./components/auth-guard";
 import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { NotificationService } from "@lepton-dashboard/services/notification.service";
 
 const Login = lazy(() =>
   import("@lepton-dashboard/routers/login").then((e) => ({
@@ -125,6 +126,7 @@ function App() {
         AuthTokenService,
         AuthSupabaseService,
         NavigateService,
+        NotificationService,
         {
           provide: HTTPInterceptorToken,
           useClass: AppInterceptor,

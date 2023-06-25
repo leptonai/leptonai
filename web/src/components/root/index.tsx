@@ -5,7 +5,7 @@ import { css } from "@emotion/react";
 import styled from "@emotion/styled";
 import { Loading } from "@lepton-dashboard/components/loading";
 import { useSetupMonaco } from "@lepton-dashboard/hooks/use-setup-monaco";
-import { useSetupInterceptor } from "@lepton-dashboard/hooks/use-setup-interceptor";
+import { useSetupNotification } from "@lepton-dashboard/hooks/use-setup-interceptor";
 import { useInitialize } from "@lepton-dashboard/hooks/use-initialize";
 import { useSetupEcharts } from "@lepton-dashboard/hooks/use-setup-echarts";
 import { Outlet } from "react-router-dom";
@@ -16,7 +16,7 @@ const Container = styled.div`
 export const Root: FC = () => {
   const theme = useAntdTheme();
   useSetupMonaco();
-  useSetupInterceptor();
+  useSetupNotification();
   useSetupEcharts();
   UseSetupNavigate();
   const initialized = useInitialize();
