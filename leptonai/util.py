@@ -2,11 +2,21 @@ from contextlib import contextmanager
 import json
 import os
 import re
-
 from rich.console import Console
+from typing import Dict
 
 
 console = Console(highlight=False)
+
+
+def create_header(auth_token: str) -> Dict[str, str]:
+    """
+    Generate HTTP header for a request given an auth token.
+    :param str auth_token: auth token to use in the header
+    :return: the generated HTTP header
+    :rtype: dict[str, str]
+    """
+    return {"Authorization": "Bearer " + auth_token} if auth_token else {}
 
 
 def check_and_print_http_error(response):

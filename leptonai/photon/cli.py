@@ -175,8 +175,37 @@ def list(local):
 @click.option(
     "--deployment-name", "-dn", help="Optional name for the deployment", default=None
 )
+@click.option(
+    "--env",
+    "-e",
+    help="Environment variables to pass to the deployment, in the format NAME=VALUE.",
+    multiple=True,
+)
+@click.option(
+    "--secret",
+    "-s",
+    help=(
+        "Secrets to pass to the deployment, in the format NAME=SECRET_NAME. If"
+        " SECRET_NAME is also going to be the name of the environment variable, you can"
+        " omit it and simply pass SECRET_NAME."
+    ),
+    multiple=True,
+)
 @click.pass_context
-def run(ctx, name, model, path, port, id, cpu, memory, min_replicas, deployment_name):
+def run(
+    ctx,
+    name,
+    model,
+    path,
+    port,
+    id,
+    cpu,
+    memory,
+    min_replicas,
+    deployment_name,
+    env,
+    secret,
+):
     remote_url = remote.get_remote_url()
 
     if name is not None and id is not None:
@@ -203,8 +232,37 @@ def run(ctx, name, model, path, port, id, cpu, memory, min_replicas, deployment_
                 console.print(f"Running the most recent version: [green]{id}[/]")
         else:
             console.print("Running the specified version: [green]{id}[/]")
+        # parse environment variables and secrets
+        env_parsed = {}
+        secret_parsed = {}
+        for s in env:
+            try:
+                name, value = s.split("=", 1)
+            except ValueError:
+                console.print(f"Invalid environment definition: {s}")
+                sys.exit(1)
+            env_parsed[name] = value
+        for s in secret:
+            if "=" in s:
+                name, secret_name = s.split("=", 1)
+            else:
+                # We provide the user a shorcut: instead of having to specify
+                # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
+                # if the local env name and the secret name are the same.
+                name = s
+                secret = s
+            # TODO: check if these secrets exist.
+            secret_parsed[name] = secret_name
         api.remote_launch(
-            id, remote_url, cpu, memory, min_replicas, auth_token, deployment_name
+            id,
+            remote_url,
+            cpu,
+            memory,
+            min_replicas,
+            auth_token,
+            deployment_name,
+            env_parsed,
+            secret_parsed,
         )
         return
 
