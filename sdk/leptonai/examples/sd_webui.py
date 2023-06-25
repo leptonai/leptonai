@@ -3,15 +3,15 @@ import sys
 
 from loguru import logger
 
-from leptonai.photon.runner import RunnerPhoton as Runner, handler
+from leptonai.photon import Photon
 
 
-class WebUI(Runner):
+class WebUI(Photon):
     vcs_url: str = "https://github.com/AUTOMATIC1111/stable-diffusion-webui.git@v1.3.0"
     requirement_dependency = ["loguru", "gradio==3.32.0"]
     system_dependency = ["libgl1"]
 
-    @handler("", mount=True)
+    @Photon.handler("", mount=True)
     def ui(self, app):
         # patch gradio version, 3.31.0 is known to have a bug causes mounting
         # not correctly working:

@@ -58,6 +58,17 @@ class TestDocker(unittest.TestCase):
         path = photon.save(ph)
         self._run_photon(path)
 
+    def test_run_local_photon(self):
+        ph = photon.create(
+            random_name(),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "examples/counter.py:Counter",
+            ),
+        )
+        path = photon.save(ph)
+        self._run_photon(path)
+
     def test_run_remote_git_photon(self):
         ph = photon.create(
             random_name(),

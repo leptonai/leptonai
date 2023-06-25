@@ -5,11 +5,10 @@ from diffusers.utils import pt_to_pil
 import gradio as gr
 import torch
 
-from leptonai.photon.runner import RunnerPhoton as Runner, handler, PNGResponse
-from fastapi.responses import StreamingResponse
+from leptonai.photon import Photon, PNGResponse
 
 
-class If(Runner):
+class If(Photon):
     requirement_dependency = ["diffusers", "torch", "gradio"]
 
     def init(self):
@@ -70,8 +69,7 @@ class If(Runner):
 
         return res
 
-    @handler(
-        response_class=StreamingResponse,
+    @Photon.handler(
         example={
             "prompt": (
                 "a photo of a kangaroo wearing an orange hoodie and blue sunglasses"
@@ -80,7 +78,7 @@ class If(Runner):
             )
         },
     )
-    def run(self, prompt: str):
+    def run(self, prompt: str) -> PNGResponse:
         images = self._run(prompt=prompt)
 
         img_io = BytesIO()
@@ -88,7 +86,7 @@ class If(Runner):
         img_io.seek(0)
         return PNGResponse(img_io)
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         blocks = gr.Blocks()
 

@@ -11,14 +11,14 @@ type_registry = Registry()
 type_str_registry = Registry()
 
 
-class Photon:
+class BasePhoton:
     photon_type = "base"
     extra_files = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         for base in cls.__bases__:
-            if issubclass(base, Photon) and base.photon_type == cls.photon_type:
+            if issubclass(base, BasePhoton) and base.photon_type == cls.photon_type:
                 # do not override load if its photon_type the same as parent class
                 break
         else:
@@ -81,7 +81,13 @@ class Photon:
                 with open(path, "wb") as out, photon_file.open(path) as extra_file:
                     out.write(extra_file.read())
             photon_type = metadata["type"]
-            photon = type_str_registry.get(photon_type)(photon_file, metadata)
+            photon_cls = type_str_registry.get(photon_type)
+            if photon_cls is None:
+                raise ValueError(
+                    f"Can not find Photon class for type '{photon_type}', please"
+                    " make sure the corresponding module is imported."
+                )
+            photon = photon_cls(photon_file, metadata)
             return photon
 
     @staticmethod

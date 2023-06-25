@@ -2,8 +2,8 @@ import os
 import requests
 import sys
 from typing import Any, Dict, Optional
-from .base import schema_registry, type_registry, Photon, add_photon
-from . import runner  # noqa: F401
+from .base import schema_registry, type_registry, BasePhoton, add_photon
+from . import photon  # noqa: F401
 from . import hf  # noqa: F401
 from leptonai.config import CACHE_DIR
 from leptonai.util import check_and_print_http_error, check_photon_name
@@ -23,7 +23,7 @@ def create_header(auth_token: str) -> Dict[str, str]:
     )
 
 
-def create(name: str, model: Any) -> Photon:
+def create(name: str, model: Any) -> BasePhoton:
     """
     Create a photon from a model.
 
@@ -31,7 +31,7 @@ def create(name: str, model: Any) -> Photon:
     :param Any model: model to create the photon from
 
     :return: the created photon
-    :rtype: Photon
+    :rtype: BasePhoton
 
     :raises ValueError: if the model is not supported
     """
@@ -59,12 +59,12 @@ def create(name: str, model: Any) -> Photon:
     raise ValueError(f"Failed to find Photon creator for name={name} and model={model}")
 
 
-def save(photon, path: str = None) -> str:
+def save(photon: BasePhoton, path: str = None) -> str:
     """
     Save a photon to a file. By default, the file is saved in the
     cache directory (``{CACHE_DIR} / {name}.photon``)
 
-    :param Photon photon: photon to save
+    :param BasePhoton photon: photon to save
     :param str path: path to save the photon to
 
     :return: path to the saved photon
@@ -75,15 +75,15 @@ def save(photon, path: str = None) -> str:
     return photon.save(path)
 
 
-def load(path: str) -> Photon:
+def load(path: str) -> BasePhoton:
     """
     Load a photon from a file.
     :param str path: path to the photon file
 
     :return: the loaded photon
-    :rtype: Photon
+    :rtype: BasePhoton
     """
-    return Photon.load(path)
+    return BasePhoton.load(path)
 
 
 def load_metadata(path: str) -> Dict[Any, Any]:
@@ -94,7 +94,7 @@ def load_metadata(path: str) -> Dict[Any, Any]:
     :return: the metadata of the photon
     :rtype: dict
     """
-    return Photon.load_metadata(path)
+    return BasePhoton.load_metadata(path)
 
 
 def push(path, url: str, auth_token: str):

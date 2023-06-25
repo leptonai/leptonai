@@ -3,10 +3,10 @@ from typing import List, Optional, Dict, Any
 
 from hnsqlite import Collection, Embedding
 
-from leptonai.photon.runner import RunnerPhoton as Runner, handler, HTTPException
+from leptonai.photon import Photon, HTTPException
 
 
-class VecDB(Runner):
+class VecDB(Photon):
     requirement_dependency = ["git+https://github.com/bddppq/hnsqlite.git@1f63bc5"]
 
     def init(self):
@@ -26,7 +26,7 @@ class VecDB(Runner):
     def _db_filepath(self, name: str) -> str:
         return os.path.join(self.db_dir, f"{name}.sqlite")
 
-    @handler()
+    @Photon.handler()
     def create_collection(self, name: str, dim: int = 128):
         if name in self.collections:
             raise HTTPException(
@@ -37,7 +37,7 @@ class VecDB(Runner):
             collection_name=name, dimension=dim, sqlite_filename=sqlite_filename
         )
 
-    @handler()
+    @Photon.handler()
     def remove_collection(self, name: str):
         if name not in self.collections:
             raise HTTPException(
@@ -47,7 +47,7 @@ class VecDB(Runner):
         sqlite_filename = self._db_filepath(name)
         os.remove(sqlite_filename)
 
-    @handler()
+    @Photon.handler()
     def list_collections(self) -> List[str]:
         return [(name, col.config.dim) for name, col in self.collections.items()]
 
@@ -58,29 +58,29 @@ class VecDB(Runner):
             )
         return self.collections[name]
 
-    @handler()
+    @Photon.handler()
     def add(self, name: str, embeddings: List[Embedding]):
         collection = self._get_collection(name)
         collection.add_embeddings(embeddings)
 
-    @handler()
+    @Photon.handler()
     def get(self, name: str, doc_ids: List[str]) -> List[Dict[str, Any]]:
         collection = self._get_collection(name)
         return [r.dict() for r in collection.get_embeddings_doc_ids(doc_ids)]
 
-    @handler()
+    @Photon.handler()
     def search(
         self, name: str, vector: List[float], k: int = 12
     ) -> List[Dict[str, Any]]:
         collection = self._get_collection(name)
         return [r.dict() for r in collection.search(vector, k)]
 
-    @handler()
+    @Photon.handler()
     def count(self, name: str) -> int:
         collection = self._get_collection(name)
         return collection.count()
 
-    @handler()
+    @Photon.handler()
     def delete(
         self,
         name: str,

@@ -24,39 +24,38 @@ import leptonai
 from leptonai import Client
 from leptonai.photon.api import create as create_photon, load_metadata
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
-from leptonai.photon import RunnerPhoton as Runner
-from leptonai.photon.runner import HTTPException, PNGResponse
+from leptonai.photon import Photon, HTTPException, PNGResponse
 from leptonai.util import switch_cwd
 
 
 from utils import random_name, photon_run_server
 
 
-class CustomRunner(Runner):
+class CustomRunner(Photon):
     input_example = {"x": 2.0}
 
     def init(self):
         self.nn = torch.nn.Linear(1, 1)
 
-    @Runner.handler("some_path", example=input_example)
+    @Photon.handler("some_path", example=input_example)
     def run(self, x: float) -> float:
         return self.nn(torch.tensor(x).reshape(1, 1)).item()
 
-    @Runner.handler("some_path_2")
+    @Photon.handler("some_path_2")
     def run2(self, x: float) -> float:
         return x * 2
 
-    @Runner.handler("")
+    @Photon.handler("")
     def run3(self, x: float) -> float:
         return x * 3
 
 
-class CustomRunnerWithCustomDeps(Runner):
+class CustomRunnerWithCustomDeps(Photon):
     requirement_dependency = ["torch"]
     system_dependency = ["ffmpeg"]
 
 
-class CustomRunnerAutoCaptureDeps(Runner):
+class CustomRunnerAutoCaptureDeps(Photon):
     capture_requirement_dependency = True
 
 
@@ -67,7 +66,7 @@ with open(test_txt.name, "w") as f:
     f.flush()
 
 
-class CustomRunnerWithCustomExtraFiles(Runner):
+class CustomRunnerWithCustomExtraFiles(Photon):
     extra_files = {
         "test.txt": test_txt.name,
         "a/b/c/test.txt": test_txt.name,
@@ -79,7 +78,7 @@ class CustomRunnerWithCustomExtraFiles(Runner):
         with open("a/b/c/test.txt") as f:
             self.lines.extend(f.readlines())
 
-    @Runner.handler("line")
+    @Photon.handler("line")
     def run(self, n: int) -> str:
         if n >= len(self.lines):
             raise HTTPException(
@@ -88,8 +87,8 @@ class CustomRunnerWithCustomExtraFiles(Runner):
         return self.lines[n]
 
 
-class CustomRunnerWithPNGResponse(Runner):
-    @Runner.handler()
+class CustomRunnerWithPNGResponse(Photon):
+    @Photon.handler()
     def img(self, content: str) -> PNGResponse:
         img_io = BytesIO()
         img_io.write(content.encode("utf-8"))
@@ -179,19 +178,19 @@ class TestRunner(unittest.TestCase):
     def test_runner_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
             f.write(dedent("""
-from leptonai.photon.runner import RunnerPhoton as Runner, handler
+from leptonai.photon import Photon
 
 
-class Counter(Runner):
+class Counter(Photon):
     def init(self):
         self.counter = 0
 
-    @handler("add")
+    @Photon.handler("add")
     def add(self, x: int) -> int:
         self.counter += x
         return self.counter
 
-    @handler("sub")
+    @Photon.handler("sub")
     def sub(self, x: int) -> int:
         self.counter -= x
         return self.counter
@@ -450,7 +449,7 @@ class Counter(Runner):
             with open(custom_py, "w") as f:
                 f.write(dedent(f"""
 import torch
-from leptonai.photon.runner import RunnerPhoton as Runner, handler
+from leptonai.photon import Photon
 
 {inspect.getsource(CustomRunner)}
 """))

@@ -1,16 +1,16 @@
-from leptonai.photon.runner import RunnerPhoton as Runner, handler
+from leptonai.photon import Photon
 
 
-class Counter(Runner):
+class Counter(Photon):
     def init(self):
         self.counter = 0
 
-    @handler("add")
+    @Photon.handler("add")
     def add(self, x: int) -> int:
         self.counter += x
         return self.counter
 
-    @handler("sub")
+    @Photon.handler("sub")
     def sub(self, x: int) -> int:
         self.counter -= x
         return self.counter

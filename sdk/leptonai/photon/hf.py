@@ -8,8 +8,8 @@ from loguru import logger
 
 from leptonai.registry import Registry
 from .base import schema_registry, type_registry
-from .runner import RunnerPhoton, handler, PNGResponse
-from .hf_runner import pipeline_registry
+from .photon import Photon, PNGResponse
+from .hf_utils import pipeline_registry
 
 task_cls_registry = Registry()
 
@@ -60,7 +60,7 @@ def is_transformers_model(model):
     return isinstance(model, _get_transformers_base_types())
 
 
-class HuggingfacePhoton(RunnerPhoton):
+class HuggingfacePhoton(Photon):
     photon_type: str = "hf"
     requirement_dependency: Optional[List[str]] = []
 
@@ -216,7 +216,7 @@ def _get_generated_text(res):
 class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
     hf_task: str = "text-generation"
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "inputs": "I enjoy walking with my cute dog",
@@ -278,7 +278,7 @@ assistant:
         ]
         return messages, history
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         import gradio as gr
 
@@ -299,7 +299,7 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
     hf_task: str = "text2text-generation"
     requirement_dependency: Optional[List[str]] = ["protobuf==3.20.*"]
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "inputs": "I enjoy walking with my cute dog",
@@ -359,7 +359,7 @@ assistant:
         ]
         return messages, history
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         import gradio as gr
 
@@ -378,7 +378,7 @@ assistant:
 class HuggingfaceASRPhoton(HuggingfacePhoton):
     hf_task: str = "automatic-speech-recognition"
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "inputs": (
@@ -404,7 +404,7 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
         else:
             self._device = "cpu"
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "prompt": "a photograph of an astronaut riding a horse",
@@ -453,7 +453,7 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
 class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
     hf_task: str = "summarization"
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "inputs": """The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct."""
@@ -478,7 +478,7 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
     def summarize(self, text: str) -> str:
         return self.run_handler(text)
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         import gradio as gr
 
@@ -499,7 +499,7 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
 class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
     hf_task: str = "sentence-similarity"
 
-    @handler(example={"inputs": "The cat sat on the mat"})
+    @Photon.handler(example={"inputs": "The cat sat on the mat"})
     def embed(
         self,
         inputs: Union[str, List[str]],
@@ -514,7 +514,7 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
         else:
             return res.tolist()
 
-    @handler(
+    @Photon.handler(
         "run",
         example={
             "source_sentence": "That is a happy person",

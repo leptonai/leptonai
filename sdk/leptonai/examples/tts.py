@@ -7,10 +7,10 @@ from loguru import logger
 import torch
 from TTS.api import TTS
 
-from leptonai.photon.runner import RunnerPhoton as Runner, handler, WAVResponse
+from leptonai.photon import Photon, WAVResponse
 
 
-class Speaker(Runner):
+class Speaker(Photon):
     requirement_dependency = ["TTS"]
 
     def init(self):
@@ -58,7 +58,7 @@ class Speaker(Runner):
     def speakers(self):
         return self._model.speakers or []
 
-    @handler()
+    @Photon.handler()
     def list_models(self) -> List[str]:
         return TTS.list_models()
 
@@ -88,14 +88,14 @@ class Speaker(Runner):
         wav_io.seek(0)
         return wav_io
 
-    @handler()
+    @Photon.handler()
     def tts(
         self, text: str, language: Optional[str] = None, speaker: Optional[str] = None
     ) -> WAVResponse:
         wav_io = self._tts(text=text, language=language, speaker=speaker)
         return WAVResponse(wav_io)
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         blocks = gr.Blocks()
 
