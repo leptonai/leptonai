@@ -55,4 +55,16 @@ spec:
             - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.apiServer.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.apiServer.service.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
 {{ end }}
