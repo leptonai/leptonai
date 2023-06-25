@@ -1,22 +1,22 @@
-import { Asterisk, TrashCan } from "@carbon/icons-react";
+import { Asterisk } from "@carbon/icons-react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { DeleteSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/delete-secret";
 import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/edit-secret";
 import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/new-secret";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { App, Button, Divider, Popconfirm, Space, Table } from "antd";
+import { Divider, Space, Table } from "antd";
 import { ColumnsType } from "antd/es/table";
 import { FC, useState } from "react";
 import { switchMap } from "rxjs";
 
 export const Secrets: FC = () => {
   const [loading, setLoading] = useState(true);
-  const { message } = App.useApp();
 
   const refreshService = useInject(RefreshService);
   const secretService = useInject(SecretService);
@@ -45,36 +45,7 @@ export const Secrets: FC = () => {
             afterAction={() => refreshService.refresh()}
             secret={value}
           />
-          <Popconfirm
-            title="Delete the secret"
-            description="Are you sure to delete?"
-            onConfirm={() => {
-              void message.loading({
-                content: `Deleting secret ${name}, please wait...`,
-                key: "delete-secret",
-                duration: 0,
-              });
-              secretService.deleteSecret(name).subscribe({
-                next: () => {
-                  message.destroy("delete-secret");
-                  void message.success(`Successfully deleted secret ${name}`);
-                  refreshService.refresh();
-                },
-                error: () => {
-                  message.destroy("delete-secret");
-                },
-              });
-            }}
-          >
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<CarbonIcon icon={<TrashCan />} />}
-            >
-              Delete
-            </Button>
-          </Popconfirm>
+          <DeleteSecret secret={name} />
         </Space>
       ),
     },

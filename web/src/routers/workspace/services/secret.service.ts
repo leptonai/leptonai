@@ -13,7 +13,11 @@ export class SecretService {
     return this.apiService
       .listSecrets()
       .pipe(
-        map((secrets) => secrets.map((secret) => ({ name: secret, value: "" })))
+        map((secrets) =>
+          secrets
+            .map((secret) => ({ name: secret, value: "" }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
       );
   }
 
