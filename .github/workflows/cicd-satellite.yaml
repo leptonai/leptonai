@@ -205,7 +205,11 @@ jobs:
         IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
       run: |
         curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X PATCH \
-          -d '{"cluster_name": "${{ vars.K8S_DEV }}", "name":"'$NAMESPACE'", \
-          "api_token": "${{ secrets.WORKSPACE_LATEST_API_TOKEN }}", \
-          "image_tag": "'$IMAGE_TAG'", "enable_web": true}' \
+          -d '{
+                "cluster_name": "${{ vars.K8S_DEV }}",
+                "name":"'$NAMESPACE'",
+                "api_token": "${{ secrets.WORKSPACE_LATEST_API_TOKEN }}",
+                "image_tag": "'$IMAGE_TAG'",
+                "enable_web": true,
+              }' \
           https://mothership.cloud.lepton.ai/api/v1/workspaces
