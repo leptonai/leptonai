@@ -50,6 +50,8 @@ spec:
                 type: string
               certificate_arn:
                 type: string
+              efs_id:
+                type: string
               envs:
                 items:
                   description: EnvVar defines the environment variable of the deployment.

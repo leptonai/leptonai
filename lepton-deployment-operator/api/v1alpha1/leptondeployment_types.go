@@ -30,9 +30,10 @@ type LeptonDeploymentSpec struct {
 
 // LeptonDeploymentStatus defines the system-controlled spec.
 type LeptonDeploymentSystemSpec struct {
-	PhotonName         string   `json:"photon_name"`
-	PhotonImage        string   `json:"photon_image"`
-	BucketName         string   `json:"bucket_name"`
+	PhotonName  string `json:"photon_name"`
+	PhotonImage string `json:"photon_image"`
+	BucketName  string `json:"bucket_name"`
+	// +optional
 	EFSID              string   `json:"efs_id"`
 	PhotonPrefix       string   `json:"photon_prefix"`
 	ServiceAccountName string   `json:"service_account_name"`

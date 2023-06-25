@@ -117,7 +117,6 @@ spec:
                 type: string
             required:
             - bucket_name
-            - efs_id
             - name
             - photon_id
             - photon_image
