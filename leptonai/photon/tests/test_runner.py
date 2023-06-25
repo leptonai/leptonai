@@ -55,12 +55,9 @@ class CustomRunnerWithCustomDeps(Runner):
     requirement_dependency = ["torch"]
     system_dependency = ["ffmpeg"]
 
-    def init(self):
-        self.nn = torch.nn.Linear(1, 1)
 
-    @Runner.handler("some_path")
-    def run(self, x: float) -> float:
-        return self.nn(torch.tensor(x).reshape(1, 1)).item()
+class CustomRunnerAutoCaptureDeps(Runner):
+    capture_requirement_dependency = True
 
 
 test_txt = tempfile.NamedTemporaryFile(suffix=".txt")
@@ -253,15 +250,20 @@ class Counter(Runner):
             ]["application/json"]["example"]
         self.assertEqual(raises.exception.args[0], "example")
 
+        self.assertEqual(len(metadata["requirement_dependency"]), 0)
+
+    def test_capture_dependency(self):
+        name = random_name()
+        runner = CustomRunnerAutoCaptureDeps(name=name)
+        path = runner.save()
+        metadata = load_metadata(path)
         self.assertGreater(len(metadata["requirement_dependency"]), 0)
 
     def test_custom_dependency(self):
         name = random_name()
         runner = CustomRunnerWithCustomDeps(name=name)
         path = runner.save()
-        with zipfile.ZipFile(path, "r") as photon_file:
-            with photon_file.open("metadata.json") as metadata_file:
-                metadata = json.load(metadata_file)
+        metadata = load_metadata(path)
         self.assertEqual(
             metadata["requirement_dependency"],
             CustomRunnerWithCustomDeps.requirement_dependency,
