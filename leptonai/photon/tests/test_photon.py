@@ -31,7 +31,7 @@ from leptonai.util import switch_cwd
 from utils import random_name, photon_run_server
 
 
-class CustomRunner(Photon):
+class CustomPhoton(Photon):
     input_example = {"x": 2.0}
 
     def init(self):
@@ -50,12 +50,12 @@ class CustomRunner(Photon):
         return x * 3
 
 
-class CustomRunnerWithCustomDeps(Photon):
+class CustomPhotonWithCustomDeps(Photon):
     requirement_dependency = ["torch"]
     system_dependency = ["ffmpeg"]
 
 
-class CustomRunnerAutoCaptureDeps(Photon):
+class CustomPhotonAutoCaptureDeps(Photon):
     capture_requirement_dependency = True
 
 
@@ -66,7 +66,7 @@ with open(test_txt.name, "w") as f:
     f.flush()
 
 
-class CustomRunnerWithCustomExtraFiles(Photon):
+class CustomPhotonWithCustomExtraFiles(Photon):
     extra_files = {
         "test.txt": test_txt.name,
         "a/b/c/test.txt": test_txt.name,
@@ -87,7 +87,7 @@ class CustomRunnerWithCustomExtraFiles(Photon):
         return self.lines[n]
 
 
-class CustomRunnerWithPNGResponse(Photon):
+class CustomPhotonWithPNGResponse(Photon):
     @Photon.handler()
     def img(self, content: str) -> PNGResponse:
         img_io = BytesIO()
@@ -96,27 +96,27 @@ class CustomRunnerWithPNGResponse(Photon):
         return PNGResponse(img_io)
 
 
-class TestRunner(unittest.TestCase):
+class TestPhoton(unittest.TestCase):
     def test_run(self):
         name = random_name()
-        runner = CustomRunner(name=name)
+        ph = CustomPhoton(name=name)
         x = 2.0
-        y1 = runner.run(x)
+        y1 = ph.run(x)
 
         xtensor = torch.tensor(x).reshape(1, 1)
-        y2 = runner.nn(xtensor).item()
+        y2 = ph.nn(xtensor).item()
         self.assertEqual(y1, y2)
 
     def test_save_load(self):
         name = random_name()
-        runner = CustomRunner(name=name)
+        ph = CustomPhoton(name=name)
         x = 2.0
-        y1 = runner.run(x)
+        y1 = ph.run(x)
 
-        path = runner.save()
+        path = ph.save()
 
-        runner = leptonai.photon.load(path)
-        y2 = runner.run(x)
+        ph = leptonai.photon.load(path)
+        y2 = ph.run(x)
         self.assertEqual(y1, y2)
 
     def test_run_server(self):
@@ -128,8 +128,8 @@ class TestRunner(unittest.TestCase):
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunner(name=name)
-        path = runner.save()
+        ph = CustomPhoton(name=name)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
 
@@ -156,10 +156,10 @@ class TestRunner(unittest.TestCase):
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunner(name=name)
+        ph = CustomPhoton(name=name)
         x = 2.0
-        y1 = runner.run(x)
-        path = runner.save()
+        y1 = ph.run(x)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
         url = f"http://localhost:{port}"
@@ -175,7 +175,7 @@ class TestRunner(unittest.TestCase):
             self.fail("AttributeError not raised")
         proc.kill()
 
-    def test_runner_cli(self):
+    def test_ph_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
             f.write(dedent("""
 from leptonai.photon import Photon
@@ -222,13 +222,13 @@ class Counter(Photon):
 
     def test_photon_file_metadata(self):
         name = random_name()
-        runner = CustomRunner(name=name)
-        path = runner.save()
+        ph = CustomPhoton(name=name)
+        path = ph.save()
         with zipfile.ZipFile(path, "r") as photon_file:
             with photon_file.open("metadata.json") as metadata_file:
                 metadata = json.load(metadata_file)
         self.assertEqual(metadata["name"], name)
-        self.assertEqual(metadata["model"], "CustomRunner")
+        self.assertEqual(metadata["model"], "CustomPhoton")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
 
@@ -240,7 +240,7 @@ class Counter(Photon):
             metadata["openapi_schema"]["paths"]["/some_path"]["post"]["requestBody"][
                 "content"
             ]["application/json"]["example"],
-            CustomRunner.input_example,
+            CustomPhoton.input_example,
         )
         # handler without specifying example should not have 'example' in metadata
         with self.assertRaises(KeyError) as raises:
@@ -253,23 +253,23 @@ class Counter(Photon):
 
     def test_capture_dependency(self):
         name = random_name()
-        runner = CustomRunnerAutoCaptureDeps(name=name)
-        path = runner.save()
+        ph = CustomPhotonAutoCaptureDeps(name=name)
+        path = ph.save()
         metadata = load_metadata(path)
         self.assertGreater(len(metadata["requirement_dependency"]), 0)
 
     def test_custom_dependency(self):
         name = random_name()
-        runner = CustomRunnerWithCustomDeps(name=name)
-        path = runner.save()
+        ph = CustomPhotonWithCustomDeps(name=name)
+        path = ph.save()
         metadata = load_metadata(path)
         self.assertEqual(
             metadata["requirement_dependency"],
-            CustomRunnerWithCustomDeps.requirement_dependency,
+            CustomPhotonWithCustomDeps.requirement_dependency,
         )
         self.assertEqual(
             metadata["system_dependency"],
-            CustomRunnerWithCustomDeps.system_dependency,
+            CustomPhotonWithCustomDeps.system_dependency,
         )
 
     def test_metrics(self):
@@ -281,8 +281,8 @@ class Counter(Photon):
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunner(name=name)
-        path = runner.save()
+        ph = CustomPhoton(name=name)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
 
@@ -424,8 +424,8 @@ class Counter(Photon):
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunnerWithCustomExtraFiles(name=name)
-        path = runner.save()
+        ph = CustomPhotonWithCustomExtraFiles(name=name)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
         res = requests.post(
@@ -451,14 +451,14 @@ class Counter(Photon):
 import torch
 from leptonai.photon import Photon
 
-{inspect.getsource(CustomRunner)}
+{inspect.getsource(CustomPhoton)}
 """))
             subprocess.check_call(["git", "add", custom_py])
-            subprocess.check_call(["git", "commit", "-m", "add custom runner"])
+            subprocess.check_call(["git", "commit", "-m", "add custom ph"])
 
         for model in [
-            f"py:file://{git_proj}:{custom_py}:CustomRunner",
-            f"file://{git_proj}:{custom_py}:CustomRunner",
+            f"py:file://{git_proj}:{custom_py}:CustomPhoton",
+            f"file://{git_proj}:{custom_py}:CustomPhoton",
         ]:
             name = random_name()
             proc, port = photon_run_server(name=name, model=model)
@@ -475,12 +475,12 @@ from leptonai.photon import Photon
             custom_2_py = os.path.join("d1", "d2", "custom2.py")
             shutil.copyfile(custom_py, custom_2_py)
             subprocess.check_call(["git", "add", custom_2_py])
-            subprocess.check_call(["git", "commit", "-m", "add custom runner 2"])
+            subprocess.check_call(["git", "commit", "-m", "add custom ph 2"])
 
         try:
             name = random_name()
             os.environ["GIT_PROJ_URL"] = git_proj
-            model = "py:file://${GIT_PROJ_URL}:" + custom_2_py + ":CustomRunner"
+            model = "py:file://${GIT_PROJ_URL}:" + custom_2_py + ":CustomPhoton"
             photon = create_photon(name=name, model=model)
             path = photon.save()
             metadata = load_metadata(path)
@@ -524,8 +524,8 @@ from leptonai.photon import Photon
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunnerWithPNGResponse(name=name)
-        path = runner.save()
+        ph = CustomPhotonWithPNGResponse(name=name)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
         res = requests.post(
@@ -543,8 +543,8 @@ from leptonai.photon import Photon
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
         name = random_name()
-        runner = CustomRunner(name=name)
-        path = runner.save()
+        ph = CustomPhoton(name=name)
+        path = ph.save()
 
         proc, port = photon_run_server(path=path)
         res = requests.post(
