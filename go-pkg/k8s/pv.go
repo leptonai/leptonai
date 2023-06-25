@@ -35,6 +35,7 @@ func CreatePV(name string, volumeHandle string, or *metav1.OwnerReference) error
 					VolumeHandle: volumeHandle,
 				},
 			},
+			StorageClassName: "efs-sc",
 		},
 	}
 
@@ -70,6 +71,7 @@ func DeletePV(name string) error {
 
 // CreatePVC creates a PersistentVolumeClaim object points to the PV with the given name.
 func CreatePVC(namespace, name, pvname string, or *metav1.OwnerReference) error {
+	storageClass := "efs-sc"
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -85,6 +87,7 @@ func CreatePVC(namespace, name, pvname string, or *metav1.OwnerReference) error 
 					corev1.ResourceStorage: resource.MustParse("5Gi"),
 				},
 			},
+			StorageClassName: &storageClass,
 		},
 	}
 
