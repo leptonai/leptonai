@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
@@ -15,7 +17,7 @@ func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 	}
 	url := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
 	header := map[string]string{
-		"Deployment": mainTestDeploymentID,
+		ingress.HTTPHeaderNameForDeployment: mainTestDeploymentID,
 	}
 	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
 		out, err := lepton.HTTP.RequestURL(http.MethodGet, url, header, nil)

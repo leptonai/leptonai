@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	HTTPHeaderNameForDeployment    = "Deployment"
+	HTTPHeaderNameForDeployment    = "X-Lepton-Deployment"
 	HTTPHeaderNameForAuthorization = "Authorization"
 )
 
