@@ -113,7 +113,7 @@ Step 3: Create photon via lep cli
 +----------------+------------------------------------------------------+---------------------------------------------+
 | GIT_REPO_URL   | The url for the repo                                 | github.com/leptonai/examples.git            |
 +----------------+------------------------------------------------------+---------------------------------------------+
-| PATH_TO_SCRIPT | The file extends the runner class                    | Counter_with_file_and_dependency/counter.py |
+| PATH_TO_SCRIPT | The file extends the Photon class                    | Counter_with_file_and_dependency/counter.py |
 +----------------+------------------------------------------------------+---------------------------------------------+
-| CLASS_NAME     | The class extends the runner class inside the script | Counter                                     |
+| CLASS_NAME     | The class extends the Photon class inside the script | Counter                                     |
 +----------------+------------------------------------------------------+---------------------------------------------+
