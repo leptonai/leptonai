@@ -165,8 +165,8 @@ export const DeploymentForm: FC<{
         accelerator_num: enableAccelerator ? value.accelerator_num : 0,
       },
       envs: [
-        ...value.envs,
-        ...value.secret_envs.map((e) => {
+        ...(value.envs || []),
+        ...(value.secret_envs || []).map((e) => {
           return {
             name: e.name,
             value_from: {
