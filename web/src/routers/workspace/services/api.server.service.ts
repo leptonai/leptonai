@@ -82,7 +82,7 @@ export class ApiServerService implements ApiService {
     const path = `${url.pathname}${url.search}${url.hash}`;
     const headers = {
       ...request.headers,
-      deployment: name,
+      "X-Lepton-Deployment": name,
     };
     const data = request.body;
     return this.httpClientService.request({
