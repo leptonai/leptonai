@@ -148,10 +148,10 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 	}
 
 	var (
-		myJobs []Job
-		mu     sync.Mutex
-		wg     sync.WaitGroup
+		mu sync.Mutex
+		wg sync.WaitGroup
 	)
+	myJobs := []Job{}
 	for _, j := range js {
 		// todo: use batch get
 		wg.Add(1)
