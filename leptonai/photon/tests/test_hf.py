@@ -5,11 +5,9 @@ import tempfile
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
-import json
 import unittest
-import zipfile
 
-from leptonai.photon import create
+from leptonai.photon import create, load_metadata
 from utils import random_name
 
 
@@ -17,11 +15,9 @@ class TestHF(unittest.TestCase):
     def test_photon_file_metadata(self):
         name = random_name()
         model = "hf:gpt2"
-        runner = create(name, model)
-        path = runner.save()
-        with zipfile.ZipFile(path, "r") as photon_file:
-            with photon_file.open("metadata.json") as metadata_file:
-                metadata = json.load(metadata_file)
+        ph = create(name, model)
+        path = ph.save()
+        metadata = load_metadata(path)
         self.assertEqual(metadata["name"], name)
         self.assertTrue(metadata["model"].startswith(model))
         self.assertTrue("image" in metadata)

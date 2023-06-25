@@ -22,7 +22,7 @@ from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd
-from .base import Photon, schema_registry
+from .base import BasePhoton, schema_registry
 
 schemas = ["py"]
 
@@ -111,8 +111,8 @@ def get_routes(var):
     return _routes[cls_name]
 
 
-class RunnerPhoton(Photon):
-    photon_type: str = "runner"
+class Photon(BasePhoton):
+    photon_type: str = "photon"
     obj_pkl_filename: str = "obj.pkl"
 
     image: str = BASE_IMAGE
@@ -439,7 +439,7 @@ class RunnerPhoton(Photon):
             return runner
 
 
-handler = RunnerPhoton.handler
+handler = Photon.handler
 
 
-schema_registry.register(schemas, RunnerPhoton.create_from_model_str)
+schema_registry.register(schemas, Photon.create_from_model_str)

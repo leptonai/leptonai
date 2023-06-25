@@ -1,11 +1,11 @@
 import gradio as gr
 import torch
 
-from leptonai.photon.runner import RunnerPhoton as Runner, handler
-from leptonai.photon.hf_runner import create_diffusion_pipeline
+from leptonai.photon import Photon
+from leptonai.photon.hf_utils import create_diffusion_pipeline
 
 
-class ImageGen(Runner):
+class ImageGen(Photon):
     requirement_dependency = ["gradio", "torch"]
 
     def init(self):
@@ -26,7 +26,7 @@ class ImageGen(Runner):
             generator=generator,
         ).images
 
-    @handler(mount=True)
+    @Photon.handler(mount=True)
     def ui(self):
         blocks = gr.Blocks()
 
