@@ -29,13 +29,13 @@ func (h *InstanceHandler) List(c *gin.Context) {
 
 	ld, err := h.ldDB.Get(did)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
 	}
 
 	deployment, err := clientset.AppsV1().Deployments(h.namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *InstanceHandler) List(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(h.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get pods for deployment " + ld.GetSpecName() + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get replicas for deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
@@ -66,13 +66,13 @@ func (h *InstanceHandler) Shell(c *gin.Context) {
 	iid := c.Param("iid")
 	httpClient, err := restclient.HTTPClientFor(k8s.Config)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "Failed to get the logging client"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create client for shell"})
 		return
 	}
 
 	targetURL, err := url.Parse(k8s.Config.Host)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "Bad logging URL"})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create connection for shell"})
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *InstanceHandler) Log(c *gin.Context) {
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get pod logs for " + iid + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get logs for replica " + iid + ": " + err.Error()})
 		return
 	}
 	defer podLogs.Close()
@@ -138,7 +138,7 @@ func (h *InstanceHandler) Log(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream pod logs for " + iid + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream logs for replica " + iid + ": " + err.Error()})
 		return
 	}
 }

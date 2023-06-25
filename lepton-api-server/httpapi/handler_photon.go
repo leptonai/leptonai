@@ -24,12 +24,12 @@ func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
 	ph, err := h.phDB.Get(pid)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 		return
 	}
 	body, err := h.photonBucket.ReadAll(context.Background(), ph.GetSpecUniqName())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + pid + " from S3: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + pid + " from object storage: " + err.Error()})
 		return
 	}
 	c.Data(http.StatusOK, "application/zip", body)
@@ -43,7 +43,7 @@ func (h *PhotonHandler) Get(c *gin.Context) {
 		pid := c.Param("pid")
 		ph, err := h.phDB.Get(pid)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " does not exist."})
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 			return
 		}
 		c.JSON(http.StatusOK, NewPhoton(ph).Output())
@@ -59,18 +59,18 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	// will be created with a photon that is being deleted.
 	list, err := h.ldDB.List()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the photon is in use: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the photon is in use: " + err.Error()})
 		return
 	}
 	for _, ld := range list {
 		if ld.Spec.PhotonID == pid {
-			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + pid + " is used by deployment " + ld.Name})
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "photon " + pid + " is in use: deployment " + ld.Name})
 			return
 		}
 	}
 
 	if err := h.phDB.Delete(pid); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from DB: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from database: " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)
@@ -81,7 +81,7 @@ func (h *PhotonHandler) List(c *gin.Context) {
 	var phs []*leptonaiv1alpha1.Photon
 	phList, err := h.phDB.List()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list photons: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list photons: " + err.Error()})
 		return
 	}
 	if name == "" {
@@ -106,13 +106,13 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 	// Open the zip archive
 	body, err := getContentFromFileOrRawBody(c.Request)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ph, err := h.getPhotonFromMetadata(body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get photon metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
 
@@ -120,12 +120,12 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 	// TODO: append the content hash to the s3 key as suffix
 	err = h.photonBucket.WriteAll(context.Background(), ph.GetSpecUniqName(), body, nil)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to upload photon to S3: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to upload photon to object storage: " + err.Error()})
 		return
 	}
 
 	if err := h.phDB.Create(ph.GetSpecID(), ph); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
 		return
 	}
 

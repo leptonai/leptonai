@@ -25,7 +25,7 @@ func (h *SecretHandler) List(c *gin.Context) {
 func (h *SecretHandler) Create(c *gin.Context) {
 	secrets := []secret.SecretItem{}
 	if err := c.BindJSON(&secrets); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to parse input: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
 	err := h.secretDB.Put(secrets)

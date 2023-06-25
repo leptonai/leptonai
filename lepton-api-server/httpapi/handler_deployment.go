@@ -20,24 +20,24 @@ type DeploymentHandler struct {
 func (h *DeploymentHandler) Create(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ld := &leptonaiv1alpha1.LeptonDeployment{}
 
 	if err := json.Unmarshal(body, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
 	if err := h.validateCreateInput(&ld.Spec.LeptonDeploymentUserSpec); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
 
 	ph, err := h.phDB.Get(ld.Spec.PhotonID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "photon " + ld.Spec.PhotonID + " does not exist."})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
 		return
 	}
 
@@ -85,23 +85,23 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
 	ld, err := h.ldDB.Get(did)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
 	}
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to read request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ldi := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
 	if err := json.Unmarshal(body, &ldi); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get deployment metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
 	if err := h.validateUpdateInput(ldi); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "invalid update metadata: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 	did := c.Param("did")
 	ld, err := h.ldDB.Get(did)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "deployment " + did + " does not exist."})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
 	}
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
@@ -129,7 +129,7 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
 	if err := h.ldDB.Delete(did); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + " crd: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + ": " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

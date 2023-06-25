@@ -37,7 +37,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 	err := c.BindJSON(&spec)
 	if err != nil {
 		log.Println("failed to bind json:", err)
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get workspace: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to get workspace: " + err.Error()})
 		return
 	}
 
@@ -66,7 +66,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 	err := c.BindJSON(&spec)
 	if err != nil {
 		log.Println("failed to bind json:", err)
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidParameterValue, "message": "failed to get workspace: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to get workspace: " + err.Error()})
 		return
 	}
 
