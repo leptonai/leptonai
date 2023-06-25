@@ -250,7 +250,7 @@ def run(
                 # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
                 # if the local env name and the secret name are the same.
                 name = s
-                secret = s
+                secret_name = s
             # TODO: check if these secrets exist.
             secret_parsed[name] = secret_name
         api.remote_launch(
