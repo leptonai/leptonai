@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: [""]
-  resources: ["services"]
+  resources: ["services", "persistentvolumeclaims"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
@@ -16,5 +16,14 @@ rules:
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["lepton.ai"]
   resources: ["leptondeployments", "leptondeployments/finalizers", "leptondeployments/status"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.deploymentOperator.name }}-{{ .Release.Namespace }}-clusterrole
+rules:
+- apiGroups: [""]
+  resources: ["persistentvolumes"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 {{ end }}
