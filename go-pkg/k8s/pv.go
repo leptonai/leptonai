@@ -10,7 +10,7 @@ import (
 )
 
 // CreatePV creates a PersistentVolume object points to the EFS volume Handle.
-func CreatePV(name string, volumeHandle string, or *metav1.OwnerReference) error {
+func CreatePV(name string, volumeHandle string) error {
 	mode := corev1.PersistentVolumeFilesystem
 	csiDriver := "efs.csi.aws.com"
 
@@ -27,7 +27,7 @@ func CreatePV(name string, volumeHandle string, or *metav1.OwnerReference) error
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteMany,
 			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 			MountOptions:                  []string{"tls"},
 			PersistentVolumeSource: corev1.PersistentVolumeSource{
 				CSI: &corev1.CSIPersistentVolumeSource{
@@ -37,10 +37,6 @@ func CreatePV(name string, volumeHandle string, or *metav1.OwnerReference) error
 			},
 			StorageClassName: "efs-sc",
 		},
-	}
-
-	if or != nil {
-		pv.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
 	}
 
 	err := Client.Create(context.TODO(), pv)

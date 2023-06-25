@@ -353,7 +353,7 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 		pvname := fmt.Sprintf("pv-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
 		pvcname := fmt.Sprintf("pvc-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
 
-		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path, or)
+		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path)
 		if err != nil {
 			return err
 		}

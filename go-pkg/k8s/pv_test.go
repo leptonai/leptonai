@@ -14,7 +14,7 @@ import (
 func TestPVandPVC(t *testing.T) {
 	name := "test-pv-" + util.RandString(5)
 	handle := "fs-12345678"
-	err := CreatePV(name, handle, nil)
+	err := CreatePV(name, handle)
 	if err != nil {
 		t.Fatal("failed to create PV:", err)
 	}
