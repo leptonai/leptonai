@@ -430,13 +430,13 @@ class Photon(BasePhoton):
             if spec.loader is None:
                 raise ValueError(f"Could not import Python module from path: {path}")
             spec.loader.exec_module(module)
-            runner_cls = getattr(module, cls_name)
-            if not inspect.isclass(runner_cls) or not issubclass(runner_cls, cls):
+            ph_cls = getattr(module, cls_name)
+            if not inspect.isclass(ph_cls) or not issubclass(ph_cls, cls):
                 raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
-            runner = runner_cls(name=name, model=model_str)
+            ph = ph_cls(name=name, model=model_str)
             if vcs_url is not None:
-                runner.vcs_url = vcs_url
-            return runner
+                ph.vcs_url = vcs_url
+            return ph
 
 
 handler = Photon.handler
