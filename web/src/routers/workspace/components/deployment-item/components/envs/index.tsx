@@ -48,7 +48,7 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
                   if (secretRef) {
                     return (
                       <Link
-                        to={`/workspace/${workspaceTrackerService.name}/settings/secrets`}
+                        to={`/workspace/${workspaceTrackerService.name}/secrets`}
                       >
                         <Tag
                           color="default"
