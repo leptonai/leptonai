@@ -72,7 +72,7 @@ class TestDocker(unittest.TestCase):
     def test_run_remote_git_photon(self):
         ph = photon.create(
             random_name(),
-            "py:git+https://github.com/leptonai/examples.git@ce1ceaa#subdirectory=Counter:counter.py:Counter",
+            "py:git+https://github.com/leptonai/lepton.git@bdf8508#subdirectory=sdk/leptonai/examples:counter.py:Counter",
         )
         path = photon.save(ph)
         self._run_photon(path)
