@@ -51,6 +51,10 @@ class Client:
                     DeprecationWarning,
                 )
         else:
+            # TODO: at the right time, change it to X-Lepton-Deployment
+            self._session.headers.update({"Deployment": deployment})
+            # As a future-proof approach, we pass in both at the moment, so the backend
+            # code can land asynchronously.
             self._session.headers.update({"X-Lepton-Deployment": deployment})
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
