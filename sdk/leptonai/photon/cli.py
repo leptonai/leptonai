@@ -239,18 +239,13 @@ def run(ctx, name, model, path, port, id, cpu, memory, min_replicas, deployment_
 def prepare(ctx, path):
     metadata = api.load_metadata(path)
 
-    default_requirement_dependency = []
     if metadata.get(METADATA_VCS_URL_KEY, None):
-        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
-        if os.path.exists(os.path.join(workpath, "requirements.txt")):
-            with open(os.path.join(workpath, "requirements.txt")) as f:
-                default_requirement_dependency = f.read().splitlines()
+        fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+
     # pip install
-    requirement_dependency = metadata.get(
-        "requirement_dependency", default_requirement_dependency
-    )
+    requirement_dependency = metadata.get("requirement_dependency", [])
     if requirement_dependency:
-        with tempfile.NamedTemporaryFile("w") as f:
+        with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
             content = "\n".join(requirement_dependency)
             f.write(content)
             f.flush()

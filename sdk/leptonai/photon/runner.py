@@ -6,6 +6,7 @@ import importlib
 import inspect
 import logging
 import os
+import re
 from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
 
@@ -117,6 +118,7 @@ class RunnerPhoton(Photon):
     image: str = BASE_IMAGE
     args: list = BASE_IMAGE_ARGS
     requirement_dependency: Optional[List[str]] = None
+    capture_requirement_dependency: bool = False
     system_dependency: Optional[List[str]] = None
     vcs_url: Optional[str] = None
 
@@ -142,7 +144,7 @@ class RunnerPhoton(Photon):
 
         filtered_pkgs = []
         for pkg in pkgs:
-            if pkg.startswith("-e"):
+            if pkg.startswith("-e") or re.search(r"@\s*file://", pkg):
                 # TODO: capture local editable packages
                 continue
             if pkg.startswith("pytest") or pkg == "parameterized" or pkg == "responses":
@@ -156,12 +158,24 @@ class RunnerPhoton(Photon):
         # If users have specified the requirement_dependency, use it and do not
         # try to infer
         if self.requirement_dependency is not None:
+            if self.capture_requirement_dependency:
+                raise ValueError(
+                    "Should not set `capture_requirement_dependency` to True when"
+                    f" `requirement_dependency` is set ({self.requirement_dependency})"
+                )
             return self.requirement_dependency
 
+        if not self.capture_requirement_dependency:
+            return []
+
+        logger.info(
+            "Auto capturing pip dependencies (note this could result in a large list of"
+            " dependencies)"
+        )
         try:
             requirement_dependency = self._infer_requirement_dependency()
         except Exception as e:
-            logger.warning(f"Failed to get pip dependencies: {e}")
+            logger.warning(f"Failed to auto capture pip dependencies: {e}")
             requirement_dependency = []
         return requirement_dependency
 
@@ -176,6 +190,9 @@ class RunnerPhoton(Photon):
             "obj_pkl_file": self.obj_pkl_filename,
         }
 
+        res.update(
+            {"capture_requirement_dependency": self.capture_requirement_dependency}
+        )
         res.update({"requirement_dependency": self._requirement_dependency})
         res.update({"system_dependency": self.system_dependency})
         res.update({METADATA_VCS_URL_KEY: self.vcs_url})
