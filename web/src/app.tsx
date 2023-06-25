@@ -53,12 +53,6 @@ const Workspace = lazy(() =>
   }))
 );
 
-const FineTune = lazy(() =>
-  import("@lepton-dashboard/routers/fine-tune").then((e) => ({
-    default: e.FineTune,
-  }))
-);
-
 const router = createBrowserRouter([
   {
     path: "*",
@@ -73,10 +67,6 @@ const router = createBrowserRouter([
       </AntdApp>
     ),
     children: [
-      {
-        path: "fine-tune/*",
-        element: <FineTune />,
-      },
       {
         path: "login",
         element: <Login />,

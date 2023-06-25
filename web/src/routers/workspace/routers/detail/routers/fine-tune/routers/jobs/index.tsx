@@ -1,7 +1,6 @@
 import { css } from "@emotion/react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { ColumnsType } from "antd/es/table";
 import { FC, useMemo, useState } from "react";
 import {
@@ -14,7 +13,7 @@ import {
   Table,
   Typography,
 } from "antd";
-import { FineTuneService } from "@lepton-dashboard/routers/fine-tune/services/fine-tune.service";
+import { FineTuneService } from "@lepton-dashboard/routers/workspace/services/fine-tune.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import {
@@ -270,15 +269,13 @@ export const Jobs: FC = () => {
         </Radio.Group>
       </Col>
       <Col span={24}>
-        <Card>
-          <Table
-            loading={loading}
-            size="small"
-            dataSource={filteredFineTunes}
-            rowKey="id"
-            columns={columns}
-          />
-        </Card>
+        <Table
+          loading={loading}
+          size="small"
+          dataSource={filteredFineTunes}
+          rowKey="id"
+          columns={columns}
+        />
       </Col>
     </Row>
   );

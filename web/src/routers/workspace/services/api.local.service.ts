@@ -11,6 +11,7 @@ import {
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
+import { FineTuneJob } from "@lepton-dashboard/interfaces/fine-tune";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -205,6 +206,22 @@ export class ApiLocalService implements ApiService {
   }
   deleteSecret(id: string): Observable<void> {
     console.log(id);
+    return EMPTY;
+  }
+
+  cancelFineTuneJob(_id: number): Observable<void> {
+    return EMPTY;
+  }
+
+  addFineTuneJob(_file: File): Observable<FineTuneJob> {
+    return EMPTY;
+  }
+
+  getFineTuneJob(_id: number): Observable<FineTuneJob> {
+    return EMPTY;
+  }
+
+  listFineTuneJobs(): Observable<FineTuneJob[]> {
     return EMPTY;
   }
 }

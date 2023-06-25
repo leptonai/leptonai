@@ -10,6 +10,10 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
+import {
+  FineTuneJob,
+  FineTuneJobStatus,
+} from "@lepton-dashboard/interfaces/fine-tune";
 
 @Injectable()
 export abstract class ApiService {
@@ -59,4 +63,11 @@ export abstract class ApiService {
   abstract createSecret(secret: Secret): Observable<void>;
   abstract listSecrets(): Observable<string[]>;
   abstract deleteSecret(id: string): Observable<void>;
+
+  abstract listFineTuneJobs(
+    status?: FineTuneJobStatus
+  ): Observable<FineTuneJob[]>;
+  abstract addFineTuneJob(file: File): Observable<FineTuneJob>;
+  abstract cancelFineTuneJob(id: number): Observable<void>;
+  abstract getFineTuneJob(id: number): Observable<FineTuneJob>;
 }

@@ -11,6 +11,7 @@ import { DeploymentService } from "./services/deployment.service";
 import { ApiService } from "./services/api.service";
 import { ApiServerService } from "./services/api.server.service";
 import { IndicatorService } from "./services/indicator.service";
+import { FineTuneService } from "@lepton-dashboard/routers/workspace/services/fine-tune.service";
 
 const Detail = lazy(() =>
   import("@lepton-dashboard/routers/workspace/routers/detail").then((e) => ({
@@ -28,6 +29,7 @@ export const Workspace: FC = () => {
         MetricUtilService,
         DeploymentService,
         SecretService,
+        FineTuneService,
         { provide: ApiService, useClass: ApiServerService },
       ]}
     >

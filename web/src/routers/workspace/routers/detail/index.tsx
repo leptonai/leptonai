@@ -1,4 +1,3 @@
-import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
 import { FC, Suspense, lazy } from "react";
 import {
   Navigate,
@@ -56,6 +55,23 @@ const Secrets = lazy(() =>
     default: e.Secrets,
   }))
 );
+
+const Settings = lazy(() =>
+  import(
+    "@lepton-dashboard/routers/workspace/routers/detail/routers/settings"
+  ).then((e) => ({
+    default: e.Settings,
+  }))
+);
+
+const FineTune = lazy(() =>
+  import(
+    "@lepton-dashboard/routers/workspace/routers/detail/routers/fine-tune"
+  ).then((e) => ({
+    default: e.FineTune,
+  }))
+);
+
 export const Detail: FC = () => {
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
@@ -132,6 +148,14 @@ export const Detail: FC = () => {
               <FullLayoutWidth>
                 <Settings />
               </FullLayoutWidth>
+            }
+          />
+          <Route
+            path="fine-tune/*"
+            element={
+              <LimitedLayoutWidth>
+                <FineTune />
+              </LimitedLayoutWidth>
             }
           />
           <Route

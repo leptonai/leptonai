@@ -13,6 +13,10 @@ import { HttpClientService } from "@lepton-dashboard/services/http-client.servic
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 import { WorkspaceTrackerService } from "./workspace-tracker.service";
+import {
+  FineTuneJob,
+  FineTuneJobStatus,
+} from "@lepton-dashboard/interfaces/fine-tune";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -185,6 +189,38 @@ export class ApiServerService implements ApiService {
 
   deleteSecret(id: string): Observable<void> {
     return this.httpClientService.delete(`${this.prefix}/secrets/${id}`);
+  }
+
+  listFineTuneJobs(status?: FineTuneJobStatus): Observable<FineTuneJob[]> {
+    return this.httpClientService.get<FineTuneJob[]>(
+      `${this.prefix}/tuna/job/list${status ? `/${status}` : ""}`
+    );
+  }
+
+  addFineTuneJob(file: File): Observable<FineTuneJob> {
+    const formData = new FormData();
+    formData.append("data", file);
+    return this.httpClientService.post<FineTuneJob>(
+      `${this.prefix}/tuna/job/add`,
+      formData,
+      {
+        params: {
+          name: file.name,
+        },
+      }
+    );
+  }
+
+  cancelFineTuneJob(id: number): Observable<void> {
+    return this.httpClientService.get<void>(
+      `${this.prefix}/tuna/job/cancel/${id}`
+    );
+  }
+
+  getFineTuneJob(id: number): Observable<FineTuneJob> {
+    return this.httpClientService.get<FineTuneJob>(
+      `${this.prefix}/tuna/job/${id}`
+    );
   }
 
   constructor(
