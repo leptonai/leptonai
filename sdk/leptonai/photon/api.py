@@ -6,21 +6,7 @@ from .base import schema_registry, type_registry, BasePhoton, add_photon
 from . import photon  # noqa: F401
 from . import hf  # noqa: F401
 from leptonai.config import CACHE_DIR
-from leptonai.util import check_and_print_http_error, check_photon_name
-
-
-def create_header(auth_token: str) -> Dict[str, str]:
-    """
-    Generate HTTP header for a request given an auth token.
-    :param str auth_token: auth token to use in the header
-    :return: the generated HTTP header
-    :rtype: dict[str, str]
-    """
-    return (
-        {"Authorization": "Bearer " + auth_token}
-        if auth_token and auth_token != ""
-        else {}
-    )
+from leptonai.util import create_header, check_and_print_http_error, check_photon_name
 
 
 def create(name: str, model: Any) -> BasePhoton:
@@ -185,6 +171,8 @@ def remote_launch(
     min_replicas: int,
     auth_token: str,
     deployment_name: Optional[str] = None,
+    env_list: Optional[Dict[str, str]] = None,
+    secret_list: Optional[Dict[str, str]] = None,
 ):
     # TODO: check if the given id is a valid photon id
     # TODO: get the photon name from the remote and use it as the deployment
@@ -199,6 +187,11 @@ def remote_launch(
             dn = dn[:-1] + "x"
         dn = dn.lower()
 
+    envs_and_secrets = []
+    for k, v in env_list.items():
+        envs_and_secrets.append({"name": k, "value": v})
+    for k, v in secret_list.items():
+        envs_and_secrets.append({"name": k, "value_from": {"secret_name_ref": v}})
     deployment = {
         "name": dn,
         "photon_id": id,
@@ -207,6 +200,7 @@ def remote_launch(
             "memory": memory,
             "min_replicas": min_replicas,
         },
+        "envs": envs_and_secrets,
     }
     response = requests.post(
         url + "/deployments", json=deployment, headers=create_header(auth_token)
