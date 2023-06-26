@@ -1,8 +1,9 @@
-import { Asterisk } from "@carbon/icons-react";
+import { Asterisk, Hashtag } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { FC, ReactNode, useMemo, useState } from "react";
+import { FormListOperation } from "antd/es/form/FormList";
+import { FC, ReactNode, useMemo, useRef, useState } from "react";
 import { css } from "@emotion/react";
 import {
   Button,
@@ -58,6 +59,8 @@ export const DeploymentForm: FC<{
   photonGroups,
   edit = false,
 }) => {
+  const addSecretFnRef = useRef<FormListOperation["add"] | null>(null);
+  const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretService = useInject(SecretService);
   const clusterInfo = workspaceTrackerService.cluster!.data;
@@ -292,9 +295,10 @@ export const DeploymentForm: FC<{
         `}
         label="Environment Variables"
       >
-        <Form.List name="secret_envs">
-          {(fields, { add, remove }) => (
-            <>
+        <Form.List name="envs">
+          {(fields, { add, remove }) => {
+            addVariableFnRef.current = add;
+            return (
               <Row gutter={0}>
                 {fields.map(({ key, name, ...restField }) => (
                   <Col key={`${name}-${key}`} span={24}>
@@ -312,24 +316,37 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input name" },
                         ]}
                       >
-                        <Input disabled={edit} placeholder="Variable name" />
-                      </Form.Item>
-                      <Form.Item
-                        wrapperCol={{ span: 24 }}
-                        {...restField}
-                        name={[name, "value"]}
-                        rules={[
-                          { required: true, message: "Please input value" },
-                        ]}
-                      >
-                        <Select
-                          suffixIcon={<CarbonIcon icon={<Asterisk />} />}
+                        <Input
+                          autoFocus
                           disabled={edit}
-                          placeholder="Secret value"
-                          style={{ width: "170px" }}
-                          options={secretOptions}
+                          placeholder="Variable name"
                         />
                       </Form.Item>
+                      <Form.Item
+                        css={css`
+                          margin-bottom: 0;
+                        `}
+                        wrapperCol={{ span: 24 }}
+                      >
+                        <Space.Compact block>
+                          <Button
+                            disabled
+                            icon={<CarbonIcon icon={<Hashtag />} />}
+                          />
+                          <Form.Item
+                            {...restField}
+                            name={[name, "value"]}
+                            rules={[
+                              { required: true, message: "Please input value" },
+                            ]}
+                          >
+                            <Input
+                              disabled={edit}
+                              placeholder="Variable value"
+                            />
+                          </Form.Item>
+                        </Space.Compact>
+                      </Form.Item>
                       <Button disabled={edit} onClick={() => remove(name)}>
                         <MinusOutlined />
                       </Button>
@@ -337,34 +354,13 @@ export const DeploymentForm: FC<{
                   </Col>
                 ))}
               </Row>
-
-              <Form.Item wrapperCol={{ span: 24 }}>
-                <Button
-                  type="dashed"
-                  disabled={edit}
-                  onClick={() => add()}
-                  block
-                  icon={<PlusOutlined />}
-                >
-                  Add secret
-                </Button>
-              </Form.Item>
-            </>
-          )}
+            );
+          }}
         </Form.List>
-      </Form.Item>
-      <Form.Item
-        css={css`
-          margin-bottom: 0;
-        `}
-        wrapperCol={{
-          xs: { offset: 0, span: 24 },
-          sm: { offset: 7, span: 14 },
-        }}
-      >
-        <Form.List name="envs">
-          {(fields, { add, remove }) => (
-            <>
+        <Form.List name="secret_envs">
+          {(fields, { add, remove }) => {
+            addSecretFnRef.current = add;
+            return (
               <Row gutter={0}>
                 {fields.map(({ key, name, ...restField }) => (
                   <Col key={`${name}-${key}`} span={24}>
@@ -382,17 +378,38 @@ export const DeploymentForm: FC<{
                           { required: true, message: "Please input name" },
                         ]}
                       >
-                        <Input disabled={edit} placeholder="Variable name" />
+                        <Input
+                          autoFocus
+                          disabled={edit}
+                          placeholder="Variable name"
+                        />
                       </Form.Item>
                       <Form.Item
+                        css={css`
+                          margin-bottom: 0;
+                        `}
                         wrapperCol={{ span: 24 }}
-                        {...restField}
-                        name={[name, "value"]}
-                        rules={[
-                          { required: true, message: "Please input value" },
-                        ]}
                       >
-                        <Input disabled={edit} placeholder="Variable value" />
+                        <Space.Compact block>
+                          <Button
+                            disabled
+                            icon={<CarbonIcon icon={<Asterisk />} />}
+                          />
+                          <Form.Item
+                            {...restField}
+                            name={[name, "value"]}
+                            rules={[
+                              { required: true, message: "Please input value" },
+                            ]}
+                          >
+                            <Select
+                              disabled={edit}
+                              placeholder="Secret"
+                              style={{ width: "152px" }}
+                              options={secretOptions}
+                            />
+                          </Form.Item>
+                        </Space.Compact>
                       </Form.Item>
                       <Button disabled={edit} onClick={() => remove(name)}>
                         <MinusOutlined />
@@ -401,21 +418,31 @@ export const DeploymentForm: FC<{
                   </Col>
                 ))}
               </Row>
-
-              <Form.Item wrapperCol={{ span: 24 }}>
-                <Button
-                  type="dashed"
-                  disabled={edit}
-                  onClick={() => add()}
-                  block
-                  icon={<PlusOutlined />}
-                >
-                  Add variable
-                </Button>
-              </Form.Item>
-            </>
-          )}
+            );
+          }}
         </Form.List>
+        <Form.Item wrapperCol={{ span: 24 }}>
+          <Space.Compact block>
+            <Button
+              disabled={edit}
+              block
+              onClick={() =>
+                addVariableFnRef.current && addVariableFnRef.current()
+              }
+              icon={<PlusOutlined />}
+            >
+              Add variable
+            </Button>
+            <Button
+              disabled={edit}
+              block
+              onClick={() => addSecretFnRef.current && addSecretFnRef.current()}
+              icon={<PlusOutlined />}
+            >
+              Add secret
+            </Button>
+          </Space.Compact>
+        </Form.Item>
       </Form.Item>
 
       <Form.Item
