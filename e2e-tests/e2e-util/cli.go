@@ -32,13 +32,13 @@ func (c *CliWrapper) Logout() (string, error) {
 }
 
 func (c *CliWrapper) RunRemote(object, action string, args ...string) (string, error) {
-	_, err := c.Login(c.RemoteURL)
+	output, err := c.Login(c.RemoteURL)
 	if err != nil {
-		return "", err
+		return output, err
 	}
 	fullArgs := []string{object, action}
 	fullArgs = append(fullArgs, args...)
-	output, err := c.Run(fullArgs...)
+	output, err = c.Run(fullArgs...)
 	if err != nil {
 		return output, err
 	}
