@@ -266,7 +266,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Description.Container>
                   <Description.Item
                     icon={<CarbonIcon icon={<Replicate />} />}
-                    term="Min Replicas"
+                    term="Replicas"
                     description={deployment.resource_requirement.min_replicas}
                   />
                   {deployment.envs && deployment.envs.length > 0 ? (

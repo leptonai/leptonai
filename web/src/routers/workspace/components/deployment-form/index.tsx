@@ -236,12 +236,12 @@ export const DeploymentForm: FC<{
         <Input disabled={edit} autoFocus placeholder="Deployment name" />
       </Form.Item>
       <Form.Item
-        label="Min Replicas"
+        label="Replicas"
         name="min_replicas"
         rules={[
           {
             required: true,
-            message: "Please input min replicas",
+            message: "Please input replicas",
           },
         ]}
       >
