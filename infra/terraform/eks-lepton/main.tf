@@ -102,6 +102,8 @@ module "eks" {
       use_custom_launch_template = false
       name                       = "t3xlarge"
 
+      capacity_type = "ON_DEMAND" # ON_DEMAND, SPOT
+
       instance_types = ["t3.xlarge"]
       disk_size      = 100
 
@@ -114,6 +116,8 @@ module "eks" {
       use_custom_launch_template = false
       name                       = "g4dnxlarge"
       ami_type                   = "AL2_x86_64_GPU"
+
+      capacity_type = "ON_DEMAND" # ON_DEMAND, SPOT
 
       instance_types = ["g4dn.xlarge"]
       disk_size      = 120
