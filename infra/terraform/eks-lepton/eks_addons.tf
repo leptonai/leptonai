@@ -14,8 +14,6 @@ module "eks_blueprints_kubernetes_addons" {
     }
   }
 
-  enable_cluster_autoscaler = true
-
   # https://github.com/kubernetes-sigs/external-dns/releases
   enable_external_dns = true
   external_dns = {
