@@ -1,11 +1,11 @@
-import { Settings } from "@carbon/icons-react";
+import { CopyFile, Settings } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
-import { Descriptions } from "antd";
+import { Descriptions, Typography } from "antd";
 import { FC } from "react";
 
 export const General: FC = () => {
@@ -25,13 +25,25 @@ export const General: FC = () => {
         labelStyle={{ fontWeight: 500, color: theme.colorTextHeading }}
       >
         <Descriptions.Item label="Name">
-          {workspaceTrackerService.cluster?.data.cluster_name}
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            {workspaceTrackerService.cluster?.data.cluster_name}
+          </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Release date">
-          {workspaceTrackerService.cluster?.data.build_time}
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            {workspaceTrackerService.cluster?.data.build_time}
+          </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Version hash">
-          {workspaceTrackerService.cluster?.data.git_commit}
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            {workspaceTrackerService.cluster?.data.git_commit}
+          </Typography.Text>
         </Descriptions.Item>
       </Descriptions>
     </Card>
