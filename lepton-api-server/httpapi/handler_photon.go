@@ -64,7 +64,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	}
 	for _, ld := range list {
 		if ld.Spec.PhotonID == pid {
-			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "photon " + pid + " is in use: deployment " + ld.Name})
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "photon " + pid + " is in use: deployment " + ld.GetSpecName()})
 			return
 		}
 	}

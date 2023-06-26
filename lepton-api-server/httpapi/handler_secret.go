@@ -37,8 +37,27 @@ func (h *SecretHandler) Create(c *gin.Context) {
 }
 
 func (h *SecretHandler) Delete(c *gin.Context) {
-	err := h.secretDB.Delete(c.Param("key"))
+	key := c.Param("key")
+
+	// check if the secret is used by any deployments
+	// TODO: this has data race: if users create a deployment after this check
+	// but before the actual deletion of the secret from DB, then the deployment
+	// will be created with a secret that is being deleted.
+	list, err := h.ldDB.List()
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the secret is in use: " + err.Error()})
+		return
+	}
+	for _, ld := range list {
+		for _, env := range ld.Spec.Envs {
+			if env.ValueFrom.SecretNameRef == key {
+				c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "secret " + key + " is in use: deployment " + ld.GetSpecName()})
+				return
+			}
+		}
+	}
+
+	if err := h.secretDB.Delete(key); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete secret: " + err.Error()})
 		return
 	}
