@@ -76,7 +76,7 @@ def remove(name, id_):
     if remote_url is not None:
         auth_token = remote.cli.get_auth_token(remote_url)
         if id_ is None and name is None:
-            console.print("Must specify --id or --name when removing remote photon")
+            console.print("Must specify --id or --name when removing remote photon.")
             sys.exit(1)
         elif id_ is None:
             # Default behavior without id is to remove the most recent photon.
@@ -87,8 +87,8 @@ def remove(name, id_):
 
             if (
                 console.input(
-                    f'remove photon "[green]{name}[/]" with id "[green]{id_}[/]"?'
-                    " \[y/n]: "
+                    f'remove photon "[green]{name}[/]" with id '
+                    f'"[green]{id_}[/]"?[y/n]: '
                 )
                 != "y"
             ):
@@ -143,6 +143,7 @@ def list(local):
     records_by_name = {}
     for name, model, id_, creation_time in records:
         records_by_name.setdefault(name, []).append((model, id_, creation_time))
+
     # Sort by creation time and print
     for name, sub_records in records_by_name.items():
         sub_records.sort(key=lambda r: r[2], reverse=True)
@@ -163,6 +164,14 @@ def list(local):
     console.print(table)
 
 
+def parse_mount(mount_str: str):
+    parts = mount_str.split(":")
+    if len(parts) == 2:
+        return {"path": parts[0].strip(), "mount_path": parts[1].strip()}
+    else:
+        raise ValueError(f"Invalid mount: {mount_str}")
+
+
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon")
 @click.option("--model", "-m", help="Model Spec")
@@ -171,7 +180,15 @@ def list(local):
 @click.option("--id", "-i", help="ID of the Photon (only required for remote)")
 @click.option("--cpu", help="Number of CPU to require", default=1)
 @click.option("--memory", help="Number of RAM to require in MB", default=1024)
-@click.option("--min-replicas", help="Number of replicas to require", default=1)
+@click.option("--min-replicas", help="Number of replicas", default=1)
+@click.option(
+    "--mount",
+    help=(
+        "Storage to be mounted to the deployment, in the format"
+        " STORAGE_PATH:MOUNT_PATH."
+    ),
+    multiple=True,
+)
 @click.option(
     "--deployment-name", "-dn", help="Optional name for the deployment", default=None
 )
@@ -202,6 +219,7 @@ def run(
     cpu,
     memory,
     min_replicas,
+    mount,
     deployment_name,
     env,
     secret,
@@ -243,16 +261,19 @@ def run(
                 sys.exit(1)
             env_parsed[name] = value
         for s in secret:
-            if "=" in s:
-                name, secret_name = s.split("=", 1)
-            else:
-                # We provide the user a shorcut: instead of having to specify
-                # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
-                # if the local env name and the secret name are the same.
-                name = s
-                secret_name = s
-            # TODO: check if these secrets exist.
+            # We provide the user a shorcut: instead of having to specify
+            # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
+            # if the local env name and the secret name are the same.
+            name, secret_name = s.split("=", 1) if name in s else s, s
+            # TODO: sanity check if these secrets exist.
             secret_parsed[name] = secret_name
+        mount_parsed = []
+        for m in mount:
+            try:
+                mount_parsed.append(parse_mount(m))
+            except ValueError:
+                console.print(f"Invalid mount definition: {m}")
+                sys.exit(1)
         api.remote_launch(
             id,
             remote_url,
@@ -260,6 +281,7 @@ def run(
             memory,
             min_replicas,
             auth_token,
+            mount_parsed,
             deployment_name,
             env_parsed,
             secret_parsed,
@@ -375,8 +397,8 @@ def fetch(id, path):
     if remote_url is None:
         console.print("You are not logged in.")
         console.print(
-            "To fetch a photon, you must first log in ($lepton remote login) to specify"
-            " a remote cluster"
+            "To fetch a photon, you must first log in ($lepton remote login) "
+            "to specify a remote cluster"
         )
     auth_token = remote.cli.get_auth_token(remote_url)
     photon = api.fetch(id, remote_url, path, auth_token)

@@ -1,7 +1,7 @@
 import os
 import requests
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from .base import schema_registry, type_registry, BasePhoton, add_photon
 from . import photon  # noqa: F401
 from . import hf  # noqa: F401
@@ -170,6 +170,7 @@ def remote_launch(
     memory: int,
     min_replicas: int,
     auth_token: str,
+    mounts: Optional[List[str]] = None,
     deployment_name: Optional[str] = None,
     env_list: Optional[Dict[str, str]] = None,
     secret_list: Optional[Dict[str, str]] = None,
@@ -201,7 +202,9 @@ def remote_launch(
             "min_replicas": min_replicas,
         },
         "envs": envs_and_secrets,
+        "mounts": mounts,
     }
+
     response = requests.post(
         url + "/deployments", json=deployment, headers=create_header(auth_token)
     )
