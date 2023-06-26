@@ -18,12 +18,13 @@ func newService(ld *leptonaiv1alpha1.LeptonDeployment) *Service {
 	}
 }
 
-func (k *Service) createService(or *metav1.OwnerReference) *corev1.Service {
+func (k *Service) createService(or []metav1.OwnerReference) *corev1.Service {
 	ld := k.leptonDeployment
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.ServiceName(ld.GetSpecName()),
-			Namespace: ld.Namespace,
+			Name:            service.ServiceName(ld.GetSpecName()),
+			Namespace:       ld.Namespace,
+			OwnerReferences: or,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
@@ -36,9 +37,6 @@ func (k *Service) createService(or *metav1.OwnerReference) *corev1.Service {
 				},
 			},
 		},
-	}
-	if or != nil {
-		service.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
 	}
 	return service
 }

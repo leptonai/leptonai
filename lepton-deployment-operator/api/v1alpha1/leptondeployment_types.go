@@ -142,8 +142,11 @@ const (
 	LeptonDeploymentStateNotReady LeptonDeploymentState = "Not Ready"
 	LeptonDeploymentStateStarting LeptonDeploymentState = "Starting"
 	LeptonDeploymentStateUpdating LeptonDeploymentState = "Updating"
+	LeptonDeploymentStateDeleting LeptonDeploymentState = "Deleting"
 	LeptonDeploymentStateUnknown  LeptonDeploymentState = ""
 )
+
+const AnnotationKeyDelete = "lepton.ai/delete"
 
 type LeptonDeploymentNotReadyIssue string
 

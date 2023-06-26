@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -85,7 +84,6 @@ func (r *LeptonDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 // watch watches for changes to LeptonDeployment resources
 func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request, ch chan struct{}) {
-	prevLeptonDeploymentResourceVersion := ""
 	// Listen to the chan for LeptonDeployment updates
 	for range ch {
 		log.Log.Info("Being poked for LeptonDeployment " + req.NamespacedName.String())
@@ -97,35 +95,27 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
-		if ld == nil { // LeptonDeployment has been deleted
-			log.Log.Info("LeptonDeployment " + req.NamespacedName.String() + " not found, destroying resources")
-			r.destroy(ctx, req)
-			return
-		}
-		ownerref := getOwnerRefFromLeptonDeployment(ld)
-		log.Log.Info(fmt.Sprintf("LeptonDeployment %s has resource version %s, previous version %s", req.NamespacedName.String(), ld.ResourceVersion, prevLeptonDeploymentResourceVersion))
-		if ld.ResourceVersion != prevLeptonDeploymentResourceVersion {
-			if err := r.createOrUpdateResources(ctx, req, ld, ownerref); err != nil {
-				r.wg.Add(1)
-				go sleepAndPoke(&r.wg, ch)
-				continue
-			}
-		}
 		// Check the deployment status
-		deployment, err := r.getOrCreateDeployment(ctx, req, ld, ownerref)
-		if err != nil {
-			log.Log.Info("Failed to get or create deployment " + req.NamespacedName.String() + ": " + err.Error())
-			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, ch)
-			continue
-		}
-		if err := r.updateDeploymentStatus(ctx, req, ld, deployment); err != nil {
+		if err := r.updateDeploymentStatus(ctx, req, ld); err != nil {
 			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
 			r.wg.Add(1)
 			go sleepAndPoke(&r.wg, ch)
 			continue
 		}
-		prevLeptonDeploymentResourceVersion = ld.ResourceVersion
+		// LeptonDeployment has been deleted or marked for deletion
+		if ld == nil || (ld.Annotations != nil && ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] == "true") {
+			log.Log.Info("LeptonDeployment " + req.NamespacedName.String() + " marked for deletion, destroying resources")
+			if r.destroy(ctx, req, ld) {
+				return
+			}
+			continue
+		}
+		// Reconcile resources
+		if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
+			r.wg.Add(1)
+			go sleepAndPoke(&r.wg, ch)
+			continue
+		}
 	}
 }
 
@@ -140,48 +130,65 @@ func (r *LeptonDeploymentReconciler) getLeptonDeployment(ctx context.Context, re
 	return ld, nil
 }
 
-func (r *LeptonDeploymentReconciler) getOrCreateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) (*appsv1.Deployment, error) {
+func (r *LeptonDeploymentReconciler) getDeployment(ctx context.Context, req ctrl.Request) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
 	if err := r.Client.Get(ctx, req.NamespacedName, deployment); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-		log.Log.Info("Deployment " + req.NamespacedName.String() + " not found, creating resources")
-		if err := r.createDeployment(ctx, ld, or); err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return deployment, nil
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
-	if err := r.createOrUpdateDeployment(ctx, req, ld, or); err != nil {
-		log.Log.Error(err, "Failed to create or update Deployment: "+req.NamespacedName.String())
-		return err
-	}
-	if err := r.createOrUpdateService(ctx, req, ld, or); err != nil {
+func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context, req ctrl.Request,
+	ld *leptonaiv1alpha1.LeptonDeployment) error {
+	ldOr := getOwnerRefFromLeptonDeployment(ld)
+	// Attaches all resources to the service using owner reference, so that they
+	// are deleted when the service is deleted. The only exception is the PV,
+	// which has to be deleted separately.
+	service, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
+	if err != nil {
 		log.Log.Error(err, "Failed to create or update Service: "+req.NamespacedName.String())
 		return err
 	}
-	if err := r.createOrUpdateIngress(ctx, req, ld, or); err != nil {
+	svcOr := getOwnerRefFromService(service)
+	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr})
+	if err != nil {
+		log.Log.Error(err, "Failed to create or update Deployment: "+req.NamespacedName.String())
+		return err
+	}
+	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr}); err != nil {
 		log.Log.Error(err, "Failed to create or update Ingress: "+req.NamespacedName.String())
 		return err
 	}
 	return nil
 }
 
-func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, deployment *appsv1.Deployment) error {
-	ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
-	ld.Status.Endpoint.InternalEndpoint = "http://" + deployment.Name + "." + deployment.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
-	ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
-	if err := r.Status().Update(ctx, ld); err != nil {
-		return err
+func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) error {
+	if ld == nil {
+		return nil
 	}
-	return nil
+	if ld.Annotations != nil && ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] == "true" {
+		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateDeleting
+		ld.Status.Endpoint.InternalEndpoint = ""
+		ld.Status.Endpoint.ExternalEndpoint = ""
+	} else {
+		deployment, err := r.getDeployment(ctx, req)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
+			} else {
+				return err
+			}
+		} else {
+			ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
+		}
+		ld.Status.Endpoint.InternalEndpoint = "http://" + ld.GetSpecName() + "." + ld.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
+		ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
+	}
+	return r.Status().Update(ctx, ld)
 }
 
 func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.LeptonDeploymentState) leptonaiv1alpha1.LeptonDeploymentState {
-	if replicas == readyReplicas {
+	if replicas > 0 && replicas == readyReplicas {
 		return leptonaiv1alpha1.LeptonDeploymentStateRunning
 	}
 	switch state {
@@ -202,7 +209,42 @@ func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.Lepto
 	}
 }
 
-func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request) {
+func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
+	// Delete resources
+	if ld != nil {
+		if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+			log.Log.Error(err, "Failed to delete service: "+req.NamespacedName.String())
+			r.wg.Add(1)
+			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
+			return false
+		}
+		if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+			log.Log.Error(err, "Failed to delete pv: "+req.NamespacedName.String())
+			r.wg.Add(1)
+			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
+			return false
+		}
+		if err := r.Client.Delete(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+			log.Log.Error(err, "Failed to delete LeptonDeployment: "+req.NamespacedName.String())
+			r.wg.Add(1)
+			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
+			return false
+		}
+	} else {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: req.Namespace,
+			},
+		}
+		err := r.Client.Delete(ctx, service)
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Log.Error(err, "Failed to delete Deployment: "+req.NamespacedName.String())
+			r.wg.Add(1)
+			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
+			return false
+		}
+	}
 	// Remove the chan from the map when the function exits
 	r.chMapLock.Lock()
 	ch := r.chMap[req.NamespacedName]
@@ -215,31 +257,32 @@ func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Reque
 	}()
 	r.wg.Wait()
 	close(ch)
-	// TODO: we may have to do additional cleanups here, for example: do we need to clean up the domain names?
+	return true
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
 	err := r.Client.Get(ctx, req.NamespacedName, deployment)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil
+			return nil, err
 		}
 		log.Log.Info("Deployment not found, creating a new one: " + req.NamespacedName.String())
-		if err := r.createDeployment(ctx, ld, or); err != nil {
-			return err
+		deployment, err = r.createDeployment(ctx, ld, or)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		log.Log.Info("Deployment found, patching it: " + req.NamespacedName.String())
 		newDeploymentNvidia(ld).patchDeployment(deployment)
 		if err := r.Client.Update(ctx, deployment); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return deployment, nil
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*corev1.Service, error) {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      service.ServiceName(ld.GetSpecName()),
@@ -248,24 +291,24 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 	err := r.Client.Get(ctx, namespacedName, service)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			return err
+			return nil, err
 		}
 		log.Log.Info("Service not found, creating a new one: " + req.NamespacedName.String())
-		service := newService(ld).createService(or)
+		service = newService(ld).createService(or)
 		if err := r.Client.Create(ctx, service); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		log.Log.Info("Service found, patching it: " + req.NamespacedName.String())
-		service := newService(ld).createService(or)
+		service = newService(ld).createService(or)
 		if err := r.Client.Update(ctx, service); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return service, nil
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
 	if err := r.createOrUpdateHeaderBasedIngress(ctx, req, ld, or); err != nil {
 		return err
 	}
@@ -275,7 +318,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, 
 	return nil
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      ingress.IngressNameForHeaderBased(ld.GetSpecName()),
@@ -305,7 +348,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 	return nil
 }
 
-func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      ingress.IngressNameForHostBased(ld.GetSpecName()),
@@ -343,25 +386,59 @@ func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &appsv1.Deployment{}},
 			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
 		).
+		Watches(
+			&source.Kind{Type: &corev1.Service{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
+		).
+		Watches(
+			&source.Kind{Type: &networkingv1.Ingress{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
+		).
 		Complete(r)
 }
 
-func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment, or *metav1.OwnerReference) error {
+func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*appsv1.Deployment, error) {
 	deployment := newDeploymentNvidia(ld).createDeployment(or)
 
 	for i, v := range ld.Spec.Mounts {
-		pvname := fmt.Sprintf("pv-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
-		pvcname := fmt.Sprintf("pvc-%s-%s-%d", ld.Namespace, ld.GetSpecName(), i)
+		pvname := getPVName(ld.Namespace, ld.GetSpecName(), i)
+		pvcname := getPVCName(ld.Namespace, ld.GetSpecName(), i)
 
 		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path)
-		if err != nil {
-			return err
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
 		}
 		err = k8s.CreatePVC(ld.Namespace, pvcname, pvname, or)
-		if err != nil {
-			return err
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
 		}
 	}
 
-	return r.Client.Create(ctx, deployment)
+	err := r.Client.Create(ctx, deployment)
+	if err != nil {
+		return nil, err
+	}
+	return deployment, nil
+}
+
+func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment) error {
+	for i := range ld.Spec.Mounts {
+		pvname := getPVName(ld.Namespace, ld.GetSpecName(), i)
+
+		err := k8s.DeletePV(pvname)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *LeptonDeploymentReconciler) deleteService(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment) error {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ld.GetSpecName(),
+			Namespace: ld.Namespace,
+		},
+	}
+	return r.Client.Delete(ctx, service)
 }

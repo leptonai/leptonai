@@ -11,6 +11,7 @@ import (
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type DeploymentHandler struct {
@@ -128,8 +129,22 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	if err := h.ldDB.Delete(did); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + ": " + err.Error()})
+	ld, err := h.ldDB.Get(did)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment: " + err.Error()})
+		return
+	}
+	if ld.Annotations == nil {
+		ld.Annotations = make(map[string]string)
+	}
+	ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] = "true"
+	err = h.ldDB.Update(ld.Name, ld)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment: " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

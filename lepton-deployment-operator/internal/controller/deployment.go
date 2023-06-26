@@ -62,7 +62,7 @@ func (k *deployment) patchDeployment(d *appsv1.Deployment) {
 	d.Spec.Replicas = &ld.Spec.ResourceRequirement.MinReplicas
 }
 
-func (k *deployment) createDeployment(or *metav1.OwnerReference) *appsv1.Deployment {
+func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deployment {
 	ld := k.leptonDeployment
 	podSpec := k.createDeploymentPodSpec()
 
@@ -88,6 +88,7 @@ func (k *deployment) createDeployment(or *metav1.OwnerReference) *appsv1.Deploym
 				labelKeyLeptonDeploymentName: ld.GetSpecName(),
 				labelKeyLeptonDeploymentID:   ld.GetSpecID(),
 			},
+			OwnerReferences: or,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &ld.Spec.ResourceRequirement.MinReplicas,
@@ -98,9 +99,6 @@ func (k *deployment) createDeployment(or *metav1.OwnerReference) *appsv1.Deploym
 			},
 			Template: template,
 		},
-	}
-	if or != nil {
-		deployment.OwnerReferences = []metav1.OwnerReference{*or}
 	}
 
 	return deployment
@@ -214,8 +212,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	for i, m := range k.leptonDeployment.Spec.Mounts {
 		ns, name := k.leptonDeployment.Namespace, k.leptonDeployment.GetSpecName()
 		// TODO: ensure the name is short enough
-		pvname := fmt.Sprintf("pv-%s-%s-%d", ns, name, i)
-		pvcname := fmt.Sprintf("pvc-%s-%s-%d", ns, name, i)
+		pvname := getPVName(ns, name, i)
+		pvcname := getPVCName(ns, name, i)
 
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      pvname,

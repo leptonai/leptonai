@@ -66,12 +66,13 @@ func DeletePV(name string) error {
 }
 
 // CreatePVC creates a PersistentVolumeClaim object points to the PV with the given name.
-func CreatePVC(namespace, name, pvname string, or *metav1.OwnerReference) error {
+func CreatePVC(namespace, name, pvname string, or []metav1.OwnerReference) error {
 	storageClass := "efs-sc"
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:            name,
+			Namespace:       namespace,
+			OwnerReferences: or,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName: pvname,
@@ -85,10 +86,6 @@ func CreatePVC(namespace, name, pvname string, or *metav1.OwnerReference) error 
 			},
 			StorageClassName: &storageClass,
 		},
-	}
-
-	if or != nil {
-		pvc.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
 	}
 
 	err := Client.Create(context.Background(), pvc)

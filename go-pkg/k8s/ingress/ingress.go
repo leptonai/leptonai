@@ -6,13 +6,14 @@ import (
 )
 
 // IngressGroupNameDeployment returns the ingress based on given annotations and paths
-func NewIngress(name, namespace, hostName string, annotations map[string]string, paths []networkingv1.HTTPIngressPath, or *metav1.OwnerReference) *networkingv1.Ingress {
+func NewIngress(name, namespace, hostName string, annotations map[string]string, paths []networkingv1.HTTPIngressPath, or []metav1.OwnerReference) *networkingv1.Ingress {
 	albstr := "alb"
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotations,
+			Name:            name,
+			Namespace:       namespace,
+			Annotations:     annotations,
+			OwnerReferences: or,
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &albstr,
@@ -29,9 +30,6 @@ func NewIngress(name, namespace, hostName string, annotations map[string]string,
 	}
 	if len(hostName) != 0 {
 		ingress.Spec.Rules[0].Host = hostName
-	}
-	if or != nil {
-		ingress.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*or}
 	}
 	return ingress
 }

@@ -20,7 +20,7 @@ func newIngress(ld *leptonaiv1alpha1.LeptonDeployment) *Ingress {
 	}
 }
 
-func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {
+func (k *Ingress) createHostBasedDeploymentIngress(or []metav1.OwnerReference) *networkingv1.Ingress {
 	ld := k.leptonDeployment
 	domain := domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain)
 
@@ -37,7 +37,7 @@ func (k *Ingress) createHostBasedDeploymentIngress(or *metav1.OwnerReference) *n
 	return ingress.NewIngress(ingress.IngressNameForHostBased(ld.GetSpecName()), k.leptonDeployment.Namespace, domain.GetDeployment(ld.GetSpecName()), annotation.Get(), paths.Get(), or)
 }
 
-func (k *Ingress) createHeaderBasedDeploymentIngress(or *metav1.OwnerReference) *networkingv1.Ingress {
+func (k *Ingress) createHeaderBasedDeploymentIngress(or []metav1.OwnerReference) *networkingv1.Ingress {
 	ld := k.leptonDeployment
 
 	annotation := ingress.NewAnnotation(ld.Spec.RootDomain, k.leptonDeployment.Spec.CertificateARN)
