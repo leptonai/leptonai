@@ -1,3 +1,4 @@
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FC, useMemo } from "react";
 import { Tabs, TabsProps } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -10,6 +11,7 @@ export const TabsNav: FC<
     keyActive?: (key: string) => void;
   } & EmotionProps
 > = ({ menuItems, keyActive, className }) => {
+  const theme = useAntdTheme();
   const location = useLocation();
   const selectedKey = useMemo(() => {
     return menuItems.find((item) =>
@@ -29,6 +31,16 @@ export const TabsNav: FC<
     <Tabs
       className={className}
       css={css`
+        .ant-tabs-tab {
+          padding: 9px 0 !important;
+          &:hover .ant-tabs-tab-btn {
+            background: ${theme.colorBgTextHover};
+            border-radius: ${theme.borderRadius}px;
+          }
+        }
+        .ant-tabs-tab-btn {
+          padding: 3px 8px;
+        }
         .ant-tabs-nav {
           margin-bottom: 0;
         }
@@ -40,10 +52,11 @@ export const TabsNav: FC<
         }
       `}
       moreIcon={null}
-      tabBarGutter={32}
+      tabBarGutter={16}
       tabBarStyle={{ marginBottom: 0 }}
       activeKey={selectedKey}
       items={menuItems}
+      animated={false}
       onTabClick={(key) => navigateTo(key)}
     />
   );
