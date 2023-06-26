@@ -198,3 +198,6 @@ _testmain.go
 
 *.exe
 .vercel
+
+# Lepton photon compiled file
+obj.pkl
