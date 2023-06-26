@@ -21,4 +21,5 @@ FROM public.ecr.aws/docker/library/alpine:latest
 COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-api-server/lepton-api-server /app/
 WORKDIR /app
 EXPOSE 20863
+USER 65532:65532
 CMD ["/app/lepton-api-server"]

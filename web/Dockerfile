@@ -17,3 +17,4 @@ FROM amd64/nginx:latest
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/dist /usr/share/nginx/html/
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/default.conf /etc/nginx/conf.d/
 EXPOSE 80
+USER 65532:65532
