@@ -154,14 +154,14 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 	if d.ResourceRequirement.MinReplicas != numReplicas {
 		return fmt.Errorf("Expected deployment to have %d replicas when running, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
-	// Verify there are numReplicas instances
+	// Verify there are numReplicas replicas
 	return retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		instances, err := lepton.Instance().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentID)
 		if err != nil {
-			return fmt.Errorf("Failed to list instances: %v", err)
+			return fmt.Errorf("Failed to list replicas: %v", err)
 		}
-		if len(instances) != int(numReplicas) {
-			return fmt.Errorf("Expected deployment to have %d instances, got %d", numReplicas, len(instances))
+		if len(replicas) != int(numReplicas) {
+			return fmt.Errorf("Expected deployment to have %d replicas, got %d", numReplicas, len(replicas))
 		}
 		return nil
 	})

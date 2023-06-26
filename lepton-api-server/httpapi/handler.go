@@ -67,8 +67,8 @@ func (h *Handler) MonitoringHandler() *MonitorningHandler {
 	}
 }
 
-func (h *Handler) InstanceHandler() *InstanceHandler {
-	return &InstanceHandler{
+func (h *Handler) ReplicaHandler() *ReplicaHandler {
+	return &ReplicaHandler{
 		Handler: *h,
 	}
 }

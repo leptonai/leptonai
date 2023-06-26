@@ -28,8 +28,8 @@ func (l *Lepton) Deployment() *Deployment {
 	}
 }
 
-func (l *Lepton) Instance() *Instance {
-	return &Instance{
+func (l *Lepton) Replica() *Replica {
+	return &Replica{
 		Lepton: *l,
 	}
 }

@@ -17,13 +17,13 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
-type InstanceHandler struct {
+type ReplicaHandler struct {
 	Handler
 }
 
 const mainContainerName = "main-container"
 
-func (h *InstanceHandler) List(c *gin.Context) {
+func (h *ReplicaHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()
 
@@ -54,16 +54,16 @@ func (h *InstanceHandler) List(c *gin.Context) {
 		return
 	}
 
-	is := make([]Instance, 0, len(podList.Items))
+	is := make([]Replica, 0, len(podList.Items))
 	for _, pod := range podList.Items {
-		is = append(is, Instance{ID: pod.Name})
+		is = append(is, Replica{ID: pod.Name})
 	}
 
 	c.JSON(http.StatusOK, is)
 }
 
-func (h *InstanceHandler) Shell(c *gin.Context) {
-	iid := c.Param("iid")
+func (h *ReplicaHandler) Shell(c *gin.Context) {
+	rid := c.Param("rid")
 	httpClient, err := restclient.HTTPClientFor(k8s.Config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create client for shell"})
@@ -87,7 +87,7 @@ func (h *InstanceHandler) Shell(c *gin.Context) {
 	r.Host = targetURL.Host
 	r.URL.Host = targetURL.Host
 	r.URL.Scheme = targetURL.Scheme
-	r.URL.Path = "/api/v1/namespaces/" + h.namespace + "/pods/" + iid + "/exec"
+	r.URL.Path = "/api/v1/namespaces/" + h.namespace + "/pods/" + rid + "/exec"
 	q := r.URL.Query()
 	q.Set("container", mainContainerName)
 	q.Set("command", "/bin/bash")
@@ -100,8 +100,8 @@ func (h *InstanceHandler) Shell(c *gin.Context) {
 	proxy.ServeHTTP(c.Writer, r)
 }
 
-func (h *InstanceHandler) Log(c *gin.Context) {
-	iid := c.Param("iid")
+func (h *ReplicaHandler) Log(c *gin.Context) {
+	rid := c.Param("rid")
 
 	clientset := k8s.MustInitK8sClientSet()
 
@@ -114,11 +114,11 @@ func (h *InstanceHandler) Log(c *gin.Context) {
 		TailLines:  &tailLines,
 		LimitBytes: &tenMBInBytes,
 	}
-	req := clientset.CoreV1().Pods(h.namespace).GetLogs(iid, logOptions)
+	req := clientset.CoreV1().Pods(h.namespace).GetLogs(rid, logOptions)
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get logs for replica " + iid + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get logs for replica " + rid + ": " + err.Error()})
 		return
 	}
 	defer podLogs.Close()
@@ -138,7 +138,7 @@ func (h *InstanceHandler) Log(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream logs for replica " + iid + ": " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream logs for replica " + rid + ": " + err.Error()})
 		return
 	}
 }

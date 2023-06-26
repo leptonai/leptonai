@@ -9,18 +9,18 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-const instancesPath = "/instances"
+const replicasPath = "/instances"
 
-type Instance struct {
+type Replica struct {
 	Lepton
 }
 
-func (l *Instance) List(deploymentID string) ([]httpapi.Instance, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+instancesPath, nil, nil)
+func (l *Replica) List(deploymentID string) ([]httpapi.Replica, error) {
+	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	ret := []httpapi.Instance{}
+	ret := []httpapi.Replica{}
 	if err := json.Unmarshal(output, &ret); err != nil {
 		return nil, err
 	}
@@ -29,8 +29,8 @@ func (l *Instance) List(deploymentID string) ([]httpapi.Instance, error) {
 
 // TODO: refactor this to return a meaningful message instead of a single byte
 // quick implementation to test the websocket connection
-func (l *Instance) Shell(deploymentID string, instanceID string) ([]byte, error) {
-	shellURL := l.HTTP.RemoteURL + deploymentsPath + "/" + deploymentID + instancesPath + "/" + instanceID + "/shell"
+func (l *Replica) Shell(deploymentID string, replicaID string) ([]byte, error) {
+	shellURL := l.HTTP.RemoteURL + deploymentsPath + "/" + deploymentID + replicasPath + "/" + replicaID + "/shell"
 	u, err := url.Parse(shellURL)
 	if err != nil {
 		return nil, err

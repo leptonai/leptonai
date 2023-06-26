@@ -18,8 +18,8 @@ func (l *Monitoring) GetDeploymentRaw(metricName, deploymentID string) (string, 
 	return string(output), nil
 }
 
-func (l *Monitoring) GetInstanceRaw(metricName, deploymentID, instanceID string) (string, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+instancesPath+"/"+instanceID+monitoringPath+"/"+metricName, nil, nil)
+func (l *Monitoring) GetReplicaRaw(metricName, deploymentID, replicaID string) (string, error) {
+	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+monitoringPath+"/"+metricName, nil, nil)
 	if err != nil {
 		return "", err
 	}

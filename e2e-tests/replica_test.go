@@ -9,14 +9,14 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-func TestListInstance(t *testing.T) {
+func TestListReplica(t *testing.T) {
 	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		instances, err := lepton.Instance().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(instances) != 1 {
-			return fmt.Errorf("expected 1 instance, got %d", len(instances))
+		if len(replicas) != 1 {
+			return fmt.Errorf("expected 1 replica, got %d", len(replicas))
 		}
 		return nil
 	})
@@ -25,14 +25,14 @@ func TestListInstance(t *testing.T) {
 	}
 }
 
-func TestInstanceShell(t *testing.T) {
+func TestReplicaShell(t *testing.T) {
 	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		instances, err := lepton.Instance().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		iid := instances[0].ID
-		_, err = lepton.Instance().Shell(mainTestDeploymentID, iid)
+		rid := replicas[0].ID
+		_, err = lepton.Replica().Shell(mainTestDeploymentID, rid)
 		if err != nil {
 			return err
 		}
@@ -43,13 +43,13 @@ func TestInstanceShell(t *testing.T) {
 	}
 }
 
-func TestInstanceShellQueryString(t *testing.T) {
-	instances, err := lepton.Instance().List(mainTestDeploymentID)
+func TestReplicaShellQueryString(t *testing.T) {
+	replicas, err := lepton.Replica().List(mainTestDeploymentID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	iid := instances[0].ID
-	shellURL := client.RemoteURL + "/deployments/" + mainTestDeploymentID + "/instances/" + iid + "/shell" + "?access_token=" + *authToken
+	rid := replicas[0].ID
+	shellURL := client.RemoteURL + "/deployments/" + mainTestDeploymentID + "/instances/" + rid + "/shell" + "?access_token=" + *authToken
 	u, err := url.Parse(shellURL)
 	if err != nil {
 		t.Fatal(err)
@@ -77,6 +77,6 @@ func TestInstanceShellQueryString(t *testing.T) {
 	}
 }
 
-func TestInstanceLog(t *testing.T) {
+func TestReplicaLog(t *testing.T) {
 	// TODO: implement log in go-client first
 }

@@ -1,5 +1,5 @@
 package httpapi
 
-type Instance struct {
+type Replica struct {
 	ID string `json:"id"`
 }
