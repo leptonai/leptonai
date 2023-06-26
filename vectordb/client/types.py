@@ -1,5 +1,7 @@
-from typing import TypedDict
+from dataclasses import dataclass
 
 
-class Config(TypedDict):
-    pass
+@dataclass
+class Config:
+    url: str
+    token: str
