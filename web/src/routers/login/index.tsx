@@ -1,8 +1,7 @@
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { OAuthLogin } from "@lepton-dashboard/routers/login/components/oauth-login";
 import { TokenLogin } from "@lepton-dashboard/routers/login/components/token-login";
 import { useInject } from "@lepton-libs/di";
-import { TitleService } from "@lepton-dashboard/services/title.service";
-import { useEffect } from "react";
 import { css } from "@emotion/react";
 import { Divider, Typography } from "antd";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
@@ -10,13 +9,8 @@ import { CenterBox } from "@lepton-dashboard/components/center-box";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 
 export const Login = () => {
-  const titleService = useInject(TitleService);
   const authService = useInject(AuthService);
-
-  useEffect(() => {
-    titleService.setTitle("Login");
-  }, [titleService]);
-
+  useDocumentTitle("Login");
   return (
     <CenterBox>
       <div

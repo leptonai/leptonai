@@ -1,6 +1,7 @@
 import { Asterisk } from "@carbon/icons-react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { DeleteSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/delete-secret";
@@ -17,9 +18,9 @@ import { switchMap } from "rxjs";
 
 export const Secrets: FC = () => {
   const [loading, setLoading] = useState(true);
-
   const refreshService = useInject(RefreshService);
   const secretService = useInject(SecretService);
+  useDocumentTitle("Secrets");
   const secrets = useStateFromObservable(
     () =>
       refreshService.refresh$.pipe(

@@ -1,7 +1,6 @@
-import { FC, lazy, useEffect } from "react";
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
+import { FC, lazy } from "react";
 import { Navigate, Route, Routes, useResolvedPath } from "react-router-dom";
-import { useInject } from "@lepton-libs/di";
-import { TitleService } from "@lepton-dashboard/services/title.service";
 import { Container as ContainerWithNav } from "./components/container";
 import styled from "@emotion/styled";
 
@@ -28,10 +27,7 @@ const Container = styled.div`
 export const FineTune: FC = () => {
   const { pathname } = useResolvedPath("");
 
-  const titleService = useInject(TitleService);
-  useEffect(() => {
-    titleService.setTitle("Fine Tuning");
-  }, [titleService]);
+  useDocumentTitle("Fine Tuning");
   return (
     <Container>
       <Routes>

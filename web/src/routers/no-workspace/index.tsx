@@ -1,15 +1,11 @@
-import { FC, useEffect } from "react";
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
+import { FC } from "react";
 import { Typography } from "antd";
 import { SignAsOther } from "@lepton-dashboard/components/signin-other";
-import { useInject } from "@lepton-libs/di";
-import { TitleService } from "@lepton-dashboard/services/title.service";
 
 export const NoWorkspace: FC = () => {
-  const titleService = useInject(TitleService);
+  useDocumentTitle("Workspace Unavailable");
 
-  useEffect(() => {
-    titleService.setTitle("Workspace Unavailable");
-  }, [titleService]);
   return (
     <SignAsOther
       tips={

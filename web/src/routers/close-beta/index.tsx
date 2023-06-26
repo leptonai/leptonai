@@ -1,15 +1,11 @@
 import { SignAsOther } from "@lepton-dashboard/components/signin-other";
-import { TitleService } from "@lepton-dashboard/services/title.service";
-import { useInject } from "@lepton-libs/di";
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { Typography } from "antd";
-import { FC, useEffect } from "react";
+import { FC } from "react";
 
 export const CloseBeta: FC = () => {
-  const titleService = useInject(TitleService);
+  useDocumentTitle("Close Beta");
 
-  useEffect(() => {
-    titleService.setTitle("Close Beta");
-  }, [titleService]);
   return (
     <SignAsOther
       tips={

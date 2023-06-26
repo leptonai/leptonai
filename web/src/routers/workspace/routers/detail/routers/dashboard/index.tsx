@@ -1,11 +1,11 @@
-import { FC, useEffect } from "react";
+import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
+import { FC } from "react";
 import styled from "@emotion/styled";
 import { Col, Row, Statistic, Timeline, Typography } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
-import { TitleService } from "@lepton-dashboard/services/title.service";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import dayjs from "dayjs";
 import { css } from "@emotion/react";
@@ -21,10 +21,7 @@ const Container = styled.div`
 export const Dashboard: FC = () => {
   const theme = useAntdTheme();
   const photonService = useInject(PhotonService);
-  const titleService = useInject(TitleService);
-  useEffect(() => {
-    titleService.setTitle("Dashboard");
-  }, [titleService]);
+  useDocumentTitle("Dashboard");
   const deploymentService = useInject(DeploymentService);
   const photonGroups = useStateFromObservable(
     () => photonService.listGroups(),
