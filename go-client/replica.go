@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-const replicasPath = "/instances"
+const replicasPath = "/replicas"
 
 type Replica struct {
 	Lepton
