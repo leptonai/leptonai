@@ -181,7 +181,13 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
 		// if gpu is enabled, set gpu resource limit and node selector
-		resources.Limits[corev1.ResourceName(k.gpuResourceKey)] = *resource.NewQuantity(int64(ld.Spec.ResourceRequirement.AcceleratorNum), resource.DecimalSI)
+		rv := *resource.NewQuantity(int64(ld.Spec.ResourceRequirement.AcceleratorNum), resource.DecimalSI)
+		resources.Limits[corev1.ResourceName(k.gpuResourceKey)] = rv
+
+		// cluster-autoscaler uses this key to prevent early scale-down on new/upcoming pods
+		// even without this, execution uses the "resources.Limits" as defaults
+		resources.Requests[corev1.ResourceName(k.gpuResourceKey)] = rv
+
 		nodeSelector[k.gpuProductLableKey] = ld.Spec.ResourceRequirement.AcceleratorType
 	}
 
