@@ -15,9 +15,6 @@ targets=(
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"
   "module.ebs_csi_driver_irsa"
-  "null_resource.delete_all_lepton_deployments_and_ingresses"
-  "null_resource.delete_prometheus"
-  "null_resource.delete_grafana"
   "helm_release.gpu-operator"
   "module.eks_blueprints_kubernetes_addons"
 )

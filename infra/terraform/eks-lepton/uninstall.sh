@@ -24,10 +24,6 @@ targets=(
   "module.eks_blueprints_kubernetes_addons"
   "helm_release.aws_load_balancer_controller"
   "module.ebs_csi_driver_irsa"
-  "module.eks"
-  "aws_acm_certificate.cert"
-  "aws_route53_record.cert-record"
-  "module.vpc"
 )
 
 if [ -z "$CLUSTER_NAME" ]; then
