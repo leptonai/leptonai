@@ -49,13 +49,7 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 	jh.proxy.ServeHTTP(r, c.Request)
 	response := r.Result()
 
-	for key, values := range response.Header {
-		for _, value := range values {
-			c.Writer.Header().Add(key, value)
-		}
-	}
-	c.Writer.Header().Del("Content-Length")
-	c.Writer.Header().Del("Content-Encoding")
+	copyResponseHeader(c, response.Header)
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -127,13 +121,7 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 	jh.proxy.ServeHTTP(r, c.Request)
 	response := r.Result()
 
-	for key, values := range response.Header {
-		for _, value := range values {
-			c.Writer.Header().Add(key, value)
-		}
-	}
-	c.Writer.Header().Del("Content-Length")
-	c.Writer.Header().Del("Content-Encoding")
+	copyResponseHeader(c, response.Header)
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -187,4 +175,24 @@ func setForwardURL(c *gin.Context) {
 	c.Request.URL.Scheme = "https"
 	c.Request.URL.Host = "tuna-prod.vercel.app"
 	c.Request.Host = "tuna-prod.vercel.app"
+}
+
+var removingResponseHeaders = map[string]bool{
+	"Content-Length":                   true,
+	"Content-Encoding":                 true,
+	"Access-Control-Allow-Origin":      true,
+	"Access-Control-Allow-Credentials": true,
+	"Access-Control-Allow-Headers":     true,
+	"Access-Control-Allow-Methods":     true,
+}
+
+func copyResponseHeader(c *gin.Context, header http.Header) {
+	for key, values := range header {
+		if removingResponseHeaders[key] {
+			continue
+		}
+		for _, value := range values {
+			c.Writer.Header().Add(key, value)
+		}
+	}
 }
