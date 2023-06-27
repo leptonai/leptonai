@@ -19,6 +19,13 @@ func RandString(length int) string {
 	return string(b)
 }
 
+func MinInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {

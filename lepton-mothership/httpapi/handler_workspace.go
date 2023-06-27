@@ -22,6 +22,16 @@ func HandleWorkspaceGet(c *gin.Context) {
 	c.JSON(http.StatusOK, lw)
 }
 
+func HandleWorkspaceGetLogs(c *gin.Context) {
+	wname := c.Param("wsname")
+	job := workspace.Worker.GetJob(wname)
+	if job == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the workspace is not running"})
+		return
+	}
+	c.String(http.StatusOK, job.GetLog())
+}
+
 func HandleWorkspaceList(c *gin.Context) {
 	lws, err := workspace.List()
 	if err != nil {

@@ -23,12 +23,14 @@ func main() {
 	v1.GET("/clusters", httpapi.HandleClusterList)
 	v1.POST("/clusters", httpapi.HandleClusterCreate)
 	v1.GET("/clusters/:clname", httpapi.HandleClusterGet)
+	v1.GET("/clusters/:clname/logs", httpapi.HandleClusterGetLogs)
 	v1.PATCH("/clusters", httpapi.HandleClusterUpdate)
 	v1.DELETE("/clusters/:clname", httpapi.HandleClusterDelete)
 
 	v1.GET("/workspaces", httpapi.HandleWorkspaceList)
 	v1.POST("/workspaces", httpapi.HandleWorkspaceCreate)
 	v1.GET("/workspaces/:wsname", httpapi.HandleWorkspaceGet)
+	v1.GET("/workspaces/:wsname/logs", httpapi.HandleWorkspaceGetLogs)
 	v1.PATCH("/workspaces", httpapi.HandleWorkspaceUpdate)
 	v1.DELETE("/workspaces/:wsname", httpapi.HandleWorkspaceDelete)
 

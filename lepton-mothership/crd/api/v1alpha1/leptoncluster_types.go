@@ -51,12 +51,12 @@ type LeptonClusterProperties struct {
 }
 
 const (
-	ClusterStateCreating = "creating"
-	ClusterStateUpdating = "updating"
-	ClusterStateReady    = "ready"
-	ClusterStateFailed   = "failed"
-	ClusterStateDeleting = "deleting"
-	ClusterStateUnknown  = ""
+	ClusterStateCreating LeptonClusterState = "creating"
+	ClusterStateUpdating LeptonClusterState = "updating"
+	ClusterStateReady    LeptonClusterState = "ready"
+	ClusterStateFailed   LeptonClusterState = "failed"
+	ClusterStateDeleting LeptonClusterState = "deleting"
+	ClusterStateUnknown  LeptonClusterState = ""
 )
 
 type (

@@ -9,10 +9,14 @@ import (
 	"strings"
 	"time"
 
+	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
+	"github.com/leptonai/lepton/go-pkg/worker"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 	"github.com/leptonai/lepton/lepton-mothership/util"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const storeNamespace = "default"
@@ -23,6 +27,8 @@ var (
 		storeNamespace,
 		&crdv1alpha1.LeptonCluster{},
 	)
+
+	Worker = worker.New()
 )
 
 func Init() {
@@ -111,17 +117,32 @@ func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
-	err = createOrUpdateCluster(cl)
+	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		return createOrUpdateCluster(cl, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(clusterName)
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
 	return cl, nil
 }
 
 func Delete(clusterName string, deleteWorkspace bool) error {
+	return Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		return delete(clusterName, deleteWorkspace, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(clusterName)
+	})
+}
+
+func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error {
 	cl, err := DataStore.Get(clusterName)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
 
@@ -159,10 +180,10 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 
-	output, err := cmd.CombinedOutput()
-	// TODO: Stream and only print output if there is an error
-	// TODO: retry on error for a couple of times
-	log.Println(string(output))
+	cw := chanwriter.New(logCh)
+	cmd.Stdout = cw
+	cmd.Stderr = cw
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run uninstall: %s", err)
 	}
@@ -212,22 +233,24 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		log.Println("created terraform workspace:", clusterName)
 	}
 
-	err = createOrUpdateCluster(cl)
+	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		return createOrUpdateCluster(cl, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(clusterName)
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
 	return cl, nil
 }
 
-func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
+func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
 	clusterName := cl.Spec.Name
 	var err error
 
 	defer func() {
-		if err != nil {
-			cl.Status.State = crdv1alpha1.ClusterStateFailed
-		} else {
+		if err == nil {
 			cl.Status.State = crdv1alpha1.ClusterStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
@@ -248,11 +271,10 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
-	var output []byte
-	output, err = cmd.CombinedOutput()
-	// TODO: Stream and only print output if there is an error
-	// TODO: retry on error for a couple of times
-	log.Println(string(output))
+	cw := chanwriter.New(logCh)
+	cmd.Stdout = cw
+	cmd.Stderr = cw
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run install: %s", err)
 	}
@@ -268,6 +290,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 
 	cmd = exec.Command(command, args...)
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	var output []byte
 	output, err = cmd.CombinedOutput()
 	log.Println(string(output))
 	if err != nil {
@@ -288,4 +311,21 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster) error {
 	}
 
 	return nil
+}
+
+func tryUpdatingStateToFailed(clusterName string) {
+	cl, err := DataStore.Get(clusterName)
+	if err != nil {
+		log.Printf("failed to get cluster %s: %s", clusterName, err)
+		return
+	}
+	if err := updateState(cl, crdv1alpha1.ClusterStateFailed); err != nil {
+		log.Printf("failed to update cluster %s state to failed: %s", clusterName, err)
+	}
+}
+
+func updateState(cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterState) error {
+	cl.Status.State = state
+	cl.Status.UpdatedAt = uint64(time.Now().Unix())
+	return DataStore.UpdateStatus(cl.Spec.Name, cl)
 }

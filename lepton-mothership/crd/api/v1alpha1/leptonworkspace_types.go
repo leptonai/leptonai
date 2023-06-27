@@ -42,12 +42,12 @@ type LeptonWorkspaceStatus struct {
 }
 
 const (
-	WorkspaceStateCreating = "creating"
-	WorkspaceStateUpdating = "updating"
-	WorkspaceStateReady    = "ready"
-	WorkspaceStateFailed   = "failed"
-	WorkspaceStateDeleting = "deleting"
-	WorkspaceStateUnknown  = ""
+	WorkspaceStateCreating LeptonWorkspaceState = "creating"
+	WorkspaceStateUpdating LeptonWorkspaceState = "updating"
+	WorkspaceStateReady    LeptonWorkspaceState = "ready"
+	WorkspaceStateFailed   LeptonWorkspaceState = "failed"
+	WorkspaceStateDeleting LeptonWorkspaceState = "deleting"
+	WorkspaceStateUnknown  LeptonWorkspaceState = ""
 )
 
 type (

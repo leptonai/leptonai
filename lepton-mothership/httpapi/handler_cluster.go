@@ -22,6 +22,16 @@ func HandleClusterGet(c *gin.Context) {
 	c.JSON(http.StatusOK, cl)
 }
 
+func HandleClusterGetLogs(c *gin.Context) {
+	cname := c.Param("clname")
+	job := cluster.Worker.GetJob(cname)
+	if job == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the cluster is not running"})
+		return
+	}
+	c.String(http.StatusOK, job.GetLog())
+}
+
 func HandleClusterList(c *gin.Context) {
 	cls, err := cluster.List()
 	if err != nil {

@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
+	"github.com/leptonai/lepton/go-pkg/worker"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
@@ -26,6 +28,8 @@ var (
 		storeNamespace,
 		&crdv1alpha1.LeptonWorkspace{},
 	)
+
+	Worker = worker.New()
 )
 
 func Init() {
@@ -106,11 +110,7 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	if err := DataStore.Create(workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
-	ws.Status = crdv1alpha1.LeptonWorkspaceStatus{
-		State:     crdv1alpha1.WorkspaceStateCreating,
-		UpdatedAt: uint64(time.Now().Unix()),
-	}
-	if err := DataStore.UpdateStatus(workspaceName, ws); err != nil {
+	if err := updateState(ws, crdv1alpha1.WorkspaceStateCreating); err != nil {
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
@@ -143,17 +143,32 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
-	err = createOrUpdateWorkspace(ws)
+	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
+		return createOrUpdateWorkspace(ws, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(workspaceName)
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
 	return ws, nil
 }
 
 func Delete(workspaceName string, deleteWorkspace bool) error {
+	return Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
+		return delete(workspaceName, deleteWorkspace, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(workspaceName)
+	})
+}
+
+func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) error {
 	ws, err := DataStore.Get(workspaceName)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
@@ -170,12 +185,12 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 
 	defer func() {
 		if err != nil {
-			log.Println("failed to delete workspace:", err)
+			log.Println("failed to delete workspace:", workspaceName, err)
 		} else {
 			log.Println("deleted workspace:", workspaceName)
 			err = DataStore.Delete(workspaceName)
 			if err != nil {
-				log.Println("failed to delete workspace from the data store:", err)
+				log.Println("failed to delete workspace from the data store:", workspaceName, err)
 			}
 		}
 	}()
@@ -188,7 +203,14 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 
 	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
 	if err != nil {
-		return fmt.Errorf("failed to prepare working dir: %w", err)
+		if !strings.Contains(err.Error(), "reference not found") {
+			return fmt.Errorf("failed to prepare working dir: %w", err)
+		}
+		// If the branch was deleted, we should still be able to delete the workspace. This is especially true for CI workloads.
+		dir, err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", "")
+		if err != nil {
+			return fmt.Errorf("failed to prepare working dir: %w", err)
+		}
 	}
 
 	command := "sh"
@@ -204,10 +226,10 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 	)
 
-	output, err := cmd.CombinedOutput()
-	// TODO: Stream and only print output if there is an error
-	// TODO: retry on error for a couple of times
-	log.Println(string(output))
+	cw := chanwriter.New(logCh)
+	cmd.Stdout = cw
+	cmd.Stderr = cw
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run uninstall: %s", err)
 	}
@@ -257,22 +279,24 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 		log.Println("created terraform workspace:", workspaceName)
 	}
 
-	err = createOrUpdateWorkspace(ws)
+	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
+		return createOrUpdateWorkspace(ws, logCh)
+	}, func() {
+		tryUpdatingStateToFailed(workspaceName)
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
 	return ws, nil
 }
 
-func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace) error {
+func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- string) error {
 	workspaceName := ws.Spec.Name
 	var err error
 
 	defer func() {
-		if err != nil {
-			ws.Status.State = crdv1alpha1.WorkspaceStateFailed
-		} else {
+		if err == nil {
 			ws.Status.State = crdv1alpha1.WorkspaceStateReady
 		}
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
@@ -311,10 +335,10 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace) error {
 		"VPC_ID="+cl.Status.Properties.VPCID,
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 	)
-	output, err := cmd.CombinedOutput()
-	// TODO: Stream and only print output if there is an error
-	// TODO: retry on error for a couple of times
-	log.Println(string(output))
+	cw := chanwriter.New(logCh)
+	cmd.Stdout = cw
+	cmd.Stderr = cw
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run install: %s", err)
 	}
@@ -341,4 +365,21 @@ func efsMountTargets(privateSubnets []string) string {
 	}
 	sb.WriteString("}")
 	return sb.String()
+}
+
+func tryUpdatingStateToFailed(workspaceName string) {
+	ws, err := DataStore.Get(workspaceName)
+	if err != nil {
+		log.Printf("failed to get workspace %s: %s", workspaceName, err)
+		return
+	}
+	if err := updateState(ws, crdv1alpha1.WorkspaceStateFailed); err != nil {
+		log.Printf("failed to update workspace %s state to failed: %s", workspaceName, err)
+	}
+}
+
+func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceState) error {
+	ws.Status.State = state
+	ws.Status.UpdatedAt = uint64(time.Now().Unix())
+	return DataStore.UpdateStatus(ws.Spec.Name, ws)
 }
