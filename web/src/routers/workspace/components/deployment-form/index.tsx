@@ -10,15 +10,17 @@ import {
   Cascader,
   Checkbox,
   Col,
+  Dropdown,
   Empty,
   Form,
   Input,
   InputNumber,
+  MenuProps,
   Row,
   Select,
   Space,
 } from "antd";
-import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
+import { DownOutlined, MinusOutlined, PlusOutlined } from "@ant-design/icons";
 
 import {
   Deployment,
@@ -29,7 +31,6 @@ import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
 import { Rule } from "rc-field-form/lib/interface";
-import { map } from "rxjs";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 
 interface RawForm {
@@ -64,15 +65,20 @@ export const DeploymentForm: FC<{
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretService = useInject(SecretService);
   const clusterInfo = workspaceTrackerService.cluster!.data;
-  const secretOptions = useStateFromObservable(
-    () =>
-      secretService.listSecrets().pipe(
-        map((secrets) => {
-          return secrets.map((s) => ({ label: s.name, value: s.name }));
-        })
-      ),
-    []
-  );
+  const secrets = useStateFromObservable(() => secretService.listSecrets(), []);
+  const secretOptions = useMemo(() => {
+    return secrets.map((s) => ({ label: s.name, value: s.name }));
+  }, [secrets]);
+  const secretMenus: MenuProps["items"] = useMemo(() => {
+    return secrets.map((s) => ({
+      label: s.name,
+      key: s.name,
+      icon: <Asterisk />,
+      onClick: (v) => {
+        addSecretFnRef.current?.({ name: v.key, value: v.key });
+      },
+    }));
+  }, [secrets]);
   const [form] = Form.useForm();
   const [enableAccelerator, setEnableAccelerator] = useState(
     edit
@@ -433,14 +439,15 @@ export const DeploymentForm: FC<{
             >
               Add variable
             </Button>
-            <Button
-              disabled={edit}
-              block
-              onClick={() => addSecretFnRef.current && addSecretFnRef.current()}
-              icon={<PlusOutlined />}
-            >
-              Add secret
-            </Button>
+            <Dropdown menu={{ items: secretMenus }} trigger={["click"]}>
+              <Button disabled={edit} block>
+                <Space>
+                  <PlusOutlined />
+                  Add secret
+                  <DownOutlined />
+                </Space>
+              </Button>
+            </Dropdown>
           </Space.Compact>
         </Form.Item>
       </Form.Item>
