@@ -3,7 +3,7 @@ import { Injectable } from "injection-js";
 import { BehaviorSubject, forkJoin, map, Observable, tap } from "rxjs";
 import {
   Deployment,
-  Instance,
+  Replica,
   DeploymentEvent,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
@@ -19,29 +19,29 @@ export class DeploymentService {
     return this.list$;
   }
 
-  listInstances(deploymentId: string): Observable<Instance[]> {
-    return this.apiService.listDeploymentInstances(deploymentId);
+  listReplicas(deploymentId: string): Observable<Replica[]> {
+    return this.apiService.listDeploymentReplicas(deploymentId);
   }
 
   listEvents(deploymentId: string): Observable<DeploymentEvent[]> {
     return this.apiService.listDeploymentEvents(deploymentId);
   }
 
-  getInstanceLog(deploymentId: string, instanceId: string): Observable<string> {
-    return this.apiService.getDeploymentInstanceLogs(deploymentId, instanceId);
+  getReplicaLog(deploymentId: string, replicaId: string): Observable<string> {
+    return this.apiService.getDeploymentReplicaLogs(deploymentId, replicaId);
   }
 
-  getInstanceSocketUrl(
+  getReplicaSocketUrl(
     origin: string,
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): string {
     const host = new URL(origin).host;
     const url = new URL(
-      this.apiService.getDeploymentInstanceSocketUrl(
+      this.apiService.getDeploymentReplicaSocketUrl(
         host,
         deploymentId,
-        instanceId
+        replicaId
       )
     );
     const token =
@@ -53,18 +53,14 @@ export class DeploymentService {
 
     return url.toString();
   }
-  getInstanceMetrics(
+  getReplicaMetrics(
     deploymentId: string,
-    instanceId: string,
+    replicaId: string,
     metricName: string[]
   ): Observable<Metric[]> {
     return forkJoin(
       metricName.map((m) =>
-        this.apiService.getDeploymentInstanceMetrics(
-          deploymentId,
-          instanceId,
-          m
-        )
+        this.apiService.getDeploymentReplicaMetrics(deploymentId, replicaId, m)
       )
     ).pipe(
       map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),

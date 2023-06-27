@@ -5,7 +5,7 @@ import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
   DeploymentEvent,
-  Instance,
+  Replica,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
@@ -23,9 +23,7 @@ export abstract class ApiService {
   abstract getPhotonDownloadUrl(id: string): string;
 
   abstract listDeployments(): Observable<Deployment[]>;
-  abstract listDeploymentInstances(
-    deploymentId: string
-  ): Observable<Instance[]>;
+  abstract listDeploymentReplicas(deploymentId: string): Observable<Replica[]>;
 
   abstract listDeploymentEvents(
     deploymentId: string
@@ -35,18 +33,18 @@ export abstract class ApiService {
     deploymentId: string,
     metricName: string
   ): Observable<Metric[]>;
-  abstract getDeploymentInstanceLogs(
+  abstract getDeploymentReplicaLogs(
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): Observable<string>;
-  abstract getDeploymentInstanceSocketUrl(
+  abstract getDeploymentReplicaSocketUrl(
     host: string,
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): string;
-  abstract getDeploymentInstanceMetrics(
+  abstract getDeploymentReplicaMetrics(
     deploymentId: string,
-    instanceId: string,
+    replicaId: string,
     metricName: string
   ): Observable<Metric[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;

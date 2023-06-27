@@ -2,7 +2,7 @@ import { FC, memo, useRef, useState } from "react";
 import { Button, Spin } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { DataViewAlt } from "@carbon/icons-react";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import { Deployment, Replica } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -14,16 +14,16 @@ import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/de
 
 export const LogDetail: FC<{
   deploymentId: string;
-  instanceId: string;
+  replicaId: string;
 }> = memo(
-  ({ deploymentId, instanceId }) => {
+  ({ deploymentId, replicaId }) => {
     const theme = useAntdTheme();
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
     const isFocusRef = useRef(false);
     const [loading, setLoading] = useState(true);
     const deploymentService = useInject(DeploymentService);
     const logs = useStateFromObservable(
-      () => deploymentService.getInstanceLog(deploymentId, instanceId),
+      () => deploymentService.getReplicaLog(deploymentId, replicaId),
       "",
       {
         next: () => setLoading(false),
@@ -81,8 +81,8 @@ export const LogDetail: FC<{
 
 export const LogsViewer: FC<{
   deployment: Deployment;
-  instance: Instance;
-}> = ({ deployment, instance }) => {
+  replica: Replica;
+}> = ({ deployment, replica }) => {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -95,7 +95,7 @@ export const LogsViewer: FC<{
         Logs
       </Button>
       <FullScreenDrawer open={open} onClose={() => setOpen(false)}>
-        <LogDetail deploymentId={deployment.id} instanceId={instance.id} />
+        <LogDetail deploymentId={deployment.id} replicaId={replica.id} />
       </FullScreenDrawer>
     </>
   );

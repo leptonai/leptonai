@@ -63,11 +63,11 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
       ),
     },
     {
-      key: `${pathname}/instances/list`,
+      key: `${pathname}/replicas/list`,
       label: (
         <>
           <CarbonIcon icon={<BlockStorageAlt />} />
-          Instances
+          Replicas
         </>
       ),
     },

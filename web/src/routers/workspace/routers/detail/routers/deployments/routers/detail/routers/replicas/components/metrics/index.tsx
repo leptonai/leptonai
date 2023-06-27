@@ -4,8 +4,8 @@ import { FC, useCallback, useMemo, useRef, useState } from "react";
 import { Button, Col, Row } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ChartLine } from "@carbon/icons-react";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
-import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/metrics/components/metric-item";
+import { Deployment, Replica } from "@lepton-dashboard/interfaces/deployment";
+import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics/components/metric-item";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/components/full-screen-drawer";
 import { Card } from "@lepton-dashboard/routers/workspace/components/card";
 import { connect, EChartsType } from "echarts";
@@ -13,9 +13,9 @@ import { css } from "@emotion/react";
 
 export const MetricsDetail: FC<{
   deploymentId: string;
-  instanceId: string;
+  replicaId: string;
   gpu: boolean;
-}> = ({ deploymentId, instanceId, gpu }) => {
+}> = ({ deploymentId, replicaId, gpu }) => {
   const metricUtilService = useInject(MetricUtilService);
   const metrics = useMemo(() => {
     const data = [
@@ -88,7 +88,7 @@ export const MetricsDetail: FC<{
               <MetricItem
                 onInit={(chart) => onInit(chart, m.title)}
                 deploymentId={deploymentId}
-                instanceId={instanceId}
+                replicaId={replicaId}
                 metricName={m.name}
                 format={m.format}
                 title={m.title}
@@ -104,8 +104,8 @@ export const MetricsDetail: FC<{
 
 export const Metrics: FC<{
   deployment: Deployment;
-  instance: Instance;
-}> = ({ deployment, instance }) => {
+  replica: Replica;
+}> = ({ deployment, replica }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -128,7 +128,7 @@ export const Metrics: FC<{
           <MetricsDetail
             gpu={!!deployment.resource_requirement.accelerator_num}
             deploymentId={deployment.id}
-            instanceId={instance.id}
+            replicaId={replica.id}
           />
         </div>
       </FullScreenDrawer>

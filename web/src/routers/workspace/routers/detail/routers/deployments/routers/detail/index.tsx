@@ -15,8 +15,8 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Api } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api";
-import { List as InstanceList } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/routers/list";
-import { Detail as InstanceDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/routers/detail";
+import { List as ReplicaList } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list";
+import { Detail as ReplicaDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/detail";
 import { Events } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/events";
 
 export const Detail: FC = () => {
@@ -35,13 +35,13 @@ export const Detail: FC = () => {
         <Route path="events" element={<Events deployment={deployment} />} />
         <Route path="metrics" element={<Metrics deployment={deployment} />} />
         <Route
-          path="instances/list"
-          element={<InstanceList deployment={deployment} />}
+          path="replicas/list"
+          element={<ReplicaList deployment={deployment} />}
         />
       </Route>
       <Route
-        path="instances/detail/:id/*"
-        element={<InstanceDetail deployment={deployment} />}
+        path="replicas/detail/:id/*"
+        element={<ReplicaDetail deployment={deployment} />}
       />
       <Route path="*" element={<Navigate to={`${pathname}/demo`} replace />} />
     </Routes>

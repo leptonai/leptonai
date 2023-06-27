@@ -7,10 +7,10 @@ import {
   useParams,
   useResolvedPath,
 } from "react-router-dom";
-import { TerminalDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/terminal";
-import { LogDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/logs-viewer";
-import { MetricsDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/components/metrics";
-import { Container } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/instances/routers/detail/components/container";
+import { TerminalDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/terminal";
+import { LogDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/logs-viewer";
+import { MetricsDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics";
+import { Container } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/detail/components/container";
 import { css } from "@emotion/react";
 
 export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
@@ -19,11 +19,11 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   return (
     <Routes>
-      <Route element={<Container instanceId={id!} deployment={deployment} />}>
+      <Route element={<Container replicaId={id!} deployment={deployment} />}>
         <Route
           path="terminal"
           element={
-            <TerminalDetail deploymentId={deployment.id} instanceId={id!} />
+            <TerminalDetail deploymentId={deployment.id} replicaId={id!} />
           }
         />
         <Route
@@ -34,7 +34,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
                 height: 500px;
               `}
             >
-              <LogDetail deploymentId={deployment.id} instanceId={id!} />
+              <LogDetail deploymentId={deployment.id} replicaId={id!} />
             </div>
           }
         />
@@ -44,7 +44,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
             <MetricsDetail
               gpu={!!deployment.resource_requirement.accelerator_num}
               deploymentId={deployment.id}
-              instanceId={id!}
+              replicaId={id!}
             />
           }
         />

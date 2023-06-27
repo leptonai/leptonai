@@ -7,7 +7,7 @@ import { EChartsType } from "echarts";
 
 export const MetricItem: FC<{
   deploymentId: string;
-  instanceId: string;
+  replicaId: string;
   metricName: string[];
   title: string;
   description: string[];
@@ -16,7 +16,7 @@ export const MetricItem: FC<{
 }> = ({
   title,
   deploymentId,
-  instanceId,
+  replicaId,
   metricName,
   onInit,
   format,
@@ -32,11 +32,7 @@ export const MetricItem: FC<{
   const deploymentService = useInject(DeploymentService);
   useStateFromObservable(
     () =>
-      deploymentService.getInstanceMetrics(
-        deploymentId,
-        instanceId,
-        metricName
-      ),
+      deploymentService.getReplicaMetrics(deploymentId, replicaId, metricName),
     [],
     {
       next: (data) => {

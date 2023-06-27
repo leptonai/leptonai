@@ -27,7 +27,7 @@ export interface DeploymentSecretEnv {
   value_from: { secret_name_ref: string };
 }
 
-export interface Instance {
+export interface Replica {
   id: string;
 }
 

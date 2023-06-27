@@ -5,7 +5,7 @@ import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
   DeploymentEvent,
-  Instance,
+  Replica,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
@@ -106,9 +106,9 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
+  listDeploymentReplicas(deploymentId: string): Observable<Replica[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/instances`
+      `${this.prefix}/deployments/${deploymentId}/replicas`
     );
   }
 
@@ -118,9 +118,9 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  getDeploymentInstanceLogs(
+  getDeploymentReplicaLogs(
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): Observable<string> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
@@ -144,7 +144,7 @@ export class ApiServerService implements ApiService {
         return reader.read().then(pushToReader);
       };
       fetch(
-        `${this.prefix}/deployments/${deploymentId}/instances/${instanceId}/log`,
+        `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/log`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -158,21 +158,21 @@ export class ApiServerService implements ApiService {
     });
   }
 
-  getDeploymentInstanceSocketUrl(
+  getDeploymentReplicaSocketUrl(
     host: string,
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): string {
-    return `wss://${host}/api/v1/deployments/${deploymentId}/instances/${instanceId}/shell`;
+    return `wss://${host}/api/v1/deployments/${deploymentId}/replicas/${replicaId}/shell`;
   }
 
-  getDeploymentInstanceMetrics(
+  getDeploymentReplicaMetrics(
     deploymentId: string,
-    instanceId: string,
+    replicaId: string,
     metricName: string
   ): Observable<Metric[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/instances/${instanceId}/monitoring/${metricName}`
+      `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/monitoring/${metricName}`
     );
   }
 

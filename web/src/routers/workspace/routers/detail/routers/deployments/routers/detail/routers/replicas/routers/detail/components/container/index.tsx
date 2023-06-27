@@ -17,8 +17,8 @@ import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/ser
 import { useInject } from "@lepton-libs/di";
 
 export const Container: FC<
-  PropsWithChildren<{ deployment: Deployment; instanceId: string }>
-> = ({ deployment, instanceId }) => {
+  PropsWithChildren<{ deployment: Deployment; replicaId: string }>
+> = ({ deployment, replicaId }) => {
   const { pathname } = useResolvedPath("");
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
@@ -82,15 +82,15 @@ export const Container: FC<
             {
               title: (
                 <Link
-                  to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}/instances/list`}
+                  to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}/replicas/list`}
                   relative="route"
                 >
-                  Instances
+                  Replicas
                 </Link>
               ),
             },
             {
-              title: instanceId,
+              title: replicaId,
             },
           ]}
         />

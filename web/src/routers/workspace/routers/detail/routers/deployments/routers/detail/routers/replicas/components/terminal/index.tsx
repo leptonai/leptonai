@@ -3,7 +3,7 @@ import { FC, useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Terminal as CarbonTerminal } from "@carbon/icons-react";
-import { Deployment, Instance } from "@lepton-dashboard/interfaces/deployment";
+import { Deployment, Replica } from "@lepton-dashboard/interfaces/deployment";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/components/full-screen-drawer";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FitAddon } from "xterm-addon-fit";
@@ -16,8 +16,8 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 
 export const TerminalDetail: FC<{
   deploymentId: string;
-  instanceId: string;
-}> = ({ deploymentId, instanceId }) => {
+  replicaId: string;
+}> = ({ deploymentId, replicaId }) => {
   const theme = useAntdTheme();
   const terminalDOMRef = useRef<HTMLDivElement>(null);
   const deploymentService = useInject(DeploymentService);
@@ -56,10 +56,10 @@ export const TerminalDetail: FC<{
       },
     });
     const socket = new WebSocket(
-      deploymentService.getInstanceSocketUrl(
+      deploymentService.getReplicaSocketUrl(
         workspaceTrackerService.cluster!.auth.url,
         deploymentId,
-        instanceId
+        replicaId
       ),
       "v4.channel.k8s.io"
     );
@@ -113,7 +113,7 @@ export const TerminalDetail: FC<{
   }, [
     deploymentId,
     deploymentService,
-    instanceId,
+    replicaId,
     theme.fontFamilyCode,
     workspaceTrackerService.cluster,
   ]);
@@ -131,8 +131,8 @@ export const TerminalDetail: FC<{
 };
 export const Terminal: FC<{
   deployment: Deployment;
-  instance: Instance;
-}> = ({ deployment, instance }) => {
+  replica: Replica;
+}> = ({ deployment, replica }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -146,7 +146,7 @@ export const Terminal: FC<{
         Terminal
       </Button>
       <FullScreenDrawer open={open} onClose={() => setOpen(false)}>
-        <TerminalDetail deploymentId={deployment.id} instanceId={instance.id} />
+        <TerminalDetail deploymentId={deployment.id} replicaId={replica.id} />
       </FullScreenDrawer>
     </>
   );

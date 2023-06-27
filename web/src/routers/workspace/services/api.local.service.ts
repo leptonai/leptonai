@@ -5,7 +5,7 @@ import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
   DeploymentEvent,
-  Instance,
+  Replica,
   Metric,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
@@ -130,7 +130,7 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  listDeploymentInstances(deploymentId: string): Observable<Instance[]> {
+  listDeploymentReplicas(deploymentId: string): Observable<Replica[]> {
     console.log(deploymentId);
     return of([]);
   }
@@ -166,29 +166,29 @@ export class ApiLocalService implements ApiService {
     ]);
   }
 
-  getDeploymentInstanceLogs(
+  getDeploymentReplicaLogs(
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): Observable<string> {
-    console.log(deploymentId, instanceId);
+    console.log(deploymentId, replicaId);
     return of("");
   }
 
-  getDeploymentInstanceSocketUrl(
+  getDeploymentReplicaSocketUrl(
     host: string,
     deploymentId: string,
-    instanceId: string
+    replicaId: string
   ): string {
-    console.log(host, deploymentId, instanceId);
+    console.log(host, deploymentId, replicaId);
     return "";
   }
 
-  getDeploymentInstanceMetrics(
+  getDeploymentReplicaMetrics(
     deploymentId: string,
-    instanceId: string,
+    replicaId: string,
     metricName: string
   ): Observable<Metric[]> {
-    console.log(deploymentId, instanceId, metricName);
+    console.log(deploymentId, replicaId, metricName);
     return of([
       {
         metric: { name: "demo" },
