@@ -15,6 +15,7 @@ import sys
 import unittest
 import zipfile
 
+from fastapi import FastAPI
 from loguru import logger
 import numpy as np
 import requests
@@ -94,6 +95,22 @@ class CustomPhotonWithPNGResponse(Photon):
         img_io.write(content.encode("utf-8"))
         img_io.seek(0)
         return PNGResponse(img_io)
+
+
+class CustomPhotonWithMount(Photon):
+    @Photon.handler(mount=True)
+    def myapp(self):
+        app = FastAPI()
+
+        @app.post("/hello")
+        def hello():
+            return "world"
+
+        return app
+
+    @Photon.handler()
+    def run(self):
+        return "hello"
 
 
 class TestPhoton(unittest.TestCase):
@@ -564,6 +581,35 @@ from leptonai.photon import Photon
         )
         self.assertEqual(res.status_code, 200)
         self.assertFalse("Access-Control-Allow-Origin" in res.headers)
+        proc.kill()
+
+    def test_mount(self):
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        ph = CustomPhotonWithMount(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.post(
+            f"http://127.0.0.1:{port}/myapp/hello",
+            json={},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.json(),
+            "world",
+        )
+        res = requests.post(
+            f"http://127.0.0.1:{port}/run",
+            json={},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.json(),
+            "hello",
+        )
         proc.kill()
 
 
