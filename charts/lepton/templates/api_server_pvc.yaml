@@ -1,0 +1,14 @@
+{{ if .Values.apiServer.efsID }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lepton-api-sever-efs-default-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  volumeName: lepton-api-sever-efs-default-pv
+  resources:
+    requests:
+      storage: 5Gi
+{{ end }}

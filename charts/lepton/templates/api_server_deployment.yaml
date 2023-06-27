@@ -17,6 +17,12 @@ spec:
         app: {{ .Values.apiServer.name }}
     spec:
       serviceAccountName: {{ .Values.apiServer.name }}
+      {{ if .Values.apiServer.efsID }}
+      volumes:
+        - name: default-efs
+          persistentVolumeClaim:
+            claimName: lepton-api-sever-efs-default-pvc
+      {{ end }}
       containers:
         - name: {{ .Values.apiServer.name }}
           image: {{ .Values.apiServer.image.repository }}:{{ .Values.apiServer.image.tag }}
@@ -28,6 +34,11 @@ spec:
             limits:
               memory: {{ .Values.apiServer.service.resources.limits.memory }}
               cpu: {{ .Values.apiServer.service.resources.limits.cpu }}
+          {{ if .Values.apiServer.efsID }}
+          volumeMounts:
+            - name: default-efs
+              mountPath: /mnt/efs/default
+          {{ end }}
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
             - "--cluster-name"
