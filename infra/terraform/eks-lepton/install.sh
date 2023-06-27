@@ -7,6 +7,10 @@ set -xe
 # to set gp3 as default
 targets=(
   "module.vpc"
+  "aws_security_group.eks"
+  "aws_security_group.nodes"
+  "aws_security_group_rule.nodes"
+  "aws_security_group_rule.ingress_from_node_to_cluster"
   "module.eks"
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"

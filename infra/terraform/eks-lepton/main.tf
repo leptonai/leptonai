@@ -71,16 +71,6 @@ module "vpc" {
   }
 }
 
-resource "aws_security_group" "eks" {
-  name_prefix = local.cluster_name
-  description = "EKS cluster security group."
-  vpc_id      = module.vpc.vpc_id
-
-  tags = {
-    "Name" = "${local.cluster_name}-eks_cluster_sg"
-  }
-}
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.5.1"
@@ -93,7 +83,9 @@ module "eks" {
   cluster_endpoint_public_access = true
 
   eks_managed_node_group_defaults = {
-    ami_type = "AL2_x86_64"
+    # required for managed node groups with "custom" AMIs to connect to EKS cluster
+    # not required for default EKS-provided AMIs
+    vpc_security_group_ids = [aws_security_group.nodes.id]
   }
 
   # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
@@ -101,6 +93,7 @@ module "eks" {
     one = {
       use_custom_launch_template = false
       name                       = "t3xlarge"
+      ami_type                   = "AL2_x86_64"
 
       capacity_type = "ON_DEMAND" # ON_DEMAND, SPOT
 
@@ -148,6 +141,12 @@ module "eks" {
       username = "${user.user_name}"
       groups   = ["system:masters"]
     }
+  ]
+
+  depends_on = [
+    module.vpc,
+    aws_security_group.eks,
+    aws_security_group.nodes
   ]
 }
 
