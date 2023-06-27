@@ -55,6 +55,7 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 		}
 	}
 	c.Writer.Header().Del("Content-Length")
+	c.Writer.Header().Del("Content-Encoding")
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -132,6 +133,7 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 		}
 	}
 	c.Writer.Header().Del("Content-Length")
+	c.Writer.Header().Del("Content-Encoding")
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -180,6 +182,7 @@ func setForwardURL(c *gin.Context) {
 		c.Request.URL.RawQuery = values.Encode()
 	}
 	c.Request.Header.Del("Authorization")
+	c.Request.Header.Del("Accept-Encoding")
 	c.Request.URL.Path = c.Request.URL.Path[len("/api/v1/tuna"):]
 	c.Request.URL.Scheme = "https"
 	c.Request.URL.Host = "tuna-prod.vercel.app"
