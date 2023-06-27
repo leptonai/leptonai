@@ -146,7 +146,7 @@ const (
 	LeptonDeploymentStateUnknown  LeptonDeploymentState = ""
 )
 
-const AnnotationKeyDelete = "lepton.ai/delete"
+const DeletionFinalizerName = "lepton.ai/deletion"
 
 type LeptonDeploymentNotReadyIssue string
 

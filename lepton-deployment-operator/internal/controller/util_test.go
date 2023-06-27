@@ -23,7 +23,7 @@ func TestSleepAndPoke(t *testing.T) {
 	ch := make(chan struct{}, 1)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go sleepAndPoke(wg, ch)
+	go backoffAndRetry(wg, ch)
 	select {
 	case <-ch:
 		t.Error("channel should not be poked yet")

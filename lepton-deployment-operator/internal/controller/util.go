@@ -42,7 +42,7 @@ func drainChan(ch chan struct{}) {
 	}
 }
 
-func sleepAndPoke(wg *sync.WaitGroup, ch chan struct{}) {
+func backoffAndRetry(wg *sync.WaitGroup, ch chan struct{}) {
 	defer wg.Done()
 	// TODO: avoid hard coding
 	// TODO: use exponential backoff

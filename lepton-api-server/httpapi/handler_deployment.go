@@ -129,22 +129,12 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	ld, err := h.ldDB.Get(did)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
+	if err := h.ldDB.Delete(did); err != nil {
+		if _, err := h.ldDB.Get(did); err != nil && apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment: " + err.Error()})
-		return
-	}
-	if ld.Annotations == nil {
-		ld.Annotations = make(map[string]string)
-	}
-	ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] = "true"
-	err = h.ldDB.Update(ld.Name, ld)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + ": " + err.Error()})
 		return
 	}
 	c.Status(http.StatusOK)

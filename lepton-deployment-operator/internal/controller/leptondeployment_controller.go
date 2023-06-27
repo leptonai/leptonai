@@ -38,6 +38,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
+	"github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
@@ -92,18 +93,28 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		if err != nil {
 			log.Log.Info("Failed to get LeptonDeployment " + req.NamespacedName.String() + ": " + err.Error())
 			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, ch)
+			go backoffAndRetry(&r.wg, ch)
 			continue
+		}
+		// Add our finalizer if it does not exist
+		if ld != nil && !util.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
+			ld.SetFinalizers(append(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
+			if err := r.Update(ctx, ld); err != nil {
+				log.Log.Error(err, "Failed to update add finalizer to LeptonDeployment: "+req.NamespacedName.String()+": "+err.Error())
+				r.wg.Add(1)
+				go backoffAndRetry(&r.wg, ch)
+				continue
+			}
 		}
 		// Check the deployment status
 		if err := r.updateDeploymentStatus(ctx, req, ld); err != nil {
 			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
 			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, ch)
+			go backoffAndRetry(&r.wg, ch)
 			continue
 		}
 		// LeptonDeployment has been deleted or marked for deletion
-		if ld == nil || (ld.Annotations != nil && ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] == "true") {
+		if ld == nil || !ld.DeletionTimestamp.IsZero() {
 			log.Log.Info("LeptonDeployment " + req.NamespacedName.String() + " marked for deletion, destroying resources")
 			if r.destroy(ctx, req, ld) {
 				return
@@ -113,7 +124,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		// Reconcile resources
 		if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
 			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, ch)
+			go backoffAndRetry(&r.wg, ch)
 			continue
 		}
 	}
@@ -166,7 +177,7 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 	if ld == nil {
 		return nil
 	}
-	if ld.Annotations != nil && ld.Annotations[leptonaiv1alpha1.AnnotationKeyDelete] == "true" {
+	if !ld.DeletionTimestamp.IsZero() {
 		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateDeleting
 		ld.Status.Endpoint.InternalEndpoint = ""
 		ld.Status.Endpoint.ExternalEndpoint = ""
@@ -209,39 +220,33 @@ func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.Lepto
 	}
 }
 
+func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
+	if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+		log.Log.Error(err, "Failed to delete service: "+req.NamespacedName.String())
+		r.wg.Add(1)
+		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
+		return false
+	}
+	if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+		log.Log.Error(err, "Failed to delete pv: "+req.NamespacedName.String())
+		r.wg.Add(1)
+		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
+		return false
+	}
+	ld.SetFinalizers(util.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
+	if err := r.Update(ctx, ld); err != nil {
+		log.Log.Error(err, "Failed to remove finalizer from LeptonDeployment: "+req.NamespacedName.String())
+		r.wg.Add(1)
+		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
+		return false
+	}
+	return true
+}
+
 func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
 	// Delete resources
 	if ld != nil {
-		if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-			log.Log.Error(err, "Failed to delete service: "+req.NamespacedName.String())
-			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
-			return false
-		}
-		if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-			log.Log.Error(err, "Failed to delete pv: "+req.NamespacedName.String())
-			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
-			return false
-		}
-		if err := r.Client.Delete(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-			log.Log.Error(err, "Failed to delete LeptonDeployment: "+req.NamespacedName.String())
-			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
-			return false
-		}
-	} else {
-		service := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: req.Namespace,
-			},
-		}
-		err := r.Client.Delete(ctx, service)
-		if err != nil && !apierrors.IsNotFound(err) {
-			log.Log.Error(err, "Failed to delete Deployment: "+req.NamespacedName.String())
-			r.wg.Add(1)
-			go sleepAndPoke(&r.wg, r.chMap[req.NamespacedName])
+		if !r.finalize(ctx, req, ld) {
 			return false
 		}
 	}
