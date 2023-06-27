@@ -1,10 +1,10 @@
 resource "aws_dynamodb_table" "tuna" {
   name         = "lepton-db-${var.workspace_name}-tuna"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "Key"
+  hash_key     = "key"
 
   attribute {
-    name = "Key"
+    name = "key"
     type = "S"
   }
 }

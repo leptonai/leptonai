@@ -54,6 +54,7 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 			c.Writer.Header().Add(key, value)
 		}
 	}
+	c.Writer.Header().Del("Content-Length")
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -75,11 +76,7 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 		return
 	}
 
-	c.Writer.WriteHeader(response.StatusCode)
-	err = json.NewEncoder(c.Writer).Encode(j)
-	if err != nil {
-		log.Println(err)
-	}
+	c.JSON(response.StatusCode, j)
 }
 
 func (jh *JobHandler) GetJobByID(c *gin.Context) {
@@ -134,6 +131,7 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 			c.Writer.Header().Add(key, value)
 		}
 	}
+	c.Writer.Header().Del("Content-Length")
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
@@ -181,7 +179,7 @@ func setForwardURL(c *gin.Context) {
 		values.Del("name")
 		c.Request.URL.RawQuery = values.Encode()
 	}
-	c.Request.Header.Set("Authorization", "")
+	c.Request.Header.Del("Authorization")
 	c.Request.URL.Path = c.Request.URL.Path[len("/api/v1/tuna"):]
 	c.Request.URL.Scheme = "https"
 	c.Request.URL.Host = "tuna-prod.vercel.app"
