@@ -427,29 +427,35 @@ export const DeploymentForm: FC<{
             );
           }}
         </Form.List>
-        <Form.Item wrapperCol={{ span: 24 }}>
-          <Space.Compact block>
-            <Button
-              disabled={edit}
-              block
-              onClick={() =>
-                addVariableFnRef.current && addVariableFnRef.current()
-              }
-              icon={<PlusOutlined />}
-            >
-              Add variable
-            </Button>
-            <Dropdown menu={{ items: secretMenus }} trigger={["click"]}>
-              <Button disabled={edit} block>
-                <Space>
-                  <PlusOutlined />
-                  Add secret
-                  <DownOutlined />
-                </Space>
+        {!edit && (
+          <Form.Item wrapperCol={{ span: 24 }}>
+            <Space.Compact block>
+              <Button
+                disabled={edit}
+                block
+                onClick={() =>
+                  addVariableFnRef.current && addVariableFnRef.current()
+                }
+                icon={<PlusOutlined />}
+              >
+                Add variable
               </Button>
-            </Dropdown>
-          </Space.Compact>
-        </Form.Item>
+              <Dropdown
+                disabled={edit}
+                menu={{ items: secretMenus }}
+                trigger={["click"]}
+              >
+                <Button disabled={edit} block>
+                  <Space>
+                    <PlusOutlined />
+                    Add secret
+                    <DownOutlined />
+                  </Space>
+                </Button>
+              </Dropdown>
+            </Space.Compact>
+          </Form.Item>
+        )}
       </Form.Item>
 
       <Form.Item
