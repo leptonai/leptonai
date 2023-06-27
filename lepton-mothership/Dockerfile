@@ -33,7 +33,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o mothership main.go
 FROM public.ecr.aws/aws-cli/aws-cli:latest
 
 # Install git
-RUN yum update && yum install -y git
+RUN yum update -y && yum install -y git
 
 # Copy the built components from the builder stage
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
