@@ -4,10 +4,6 @@
 ## ✨ Introduction
 Lepton Dashboard is a general purpose, web-based UI for Lepton clusters. It allows users to manage deployments and troubleshoot them.
 
-<p align="center">
-    <img width="300" src="https://user-images.githubusercontent.com/1506722/234311473-6a90db7e-451f-4d29-be94-af69af5e2be8.svg">
-</p>
-
 ## ⌨️ Development
 
 ### 1. Install Dependencies

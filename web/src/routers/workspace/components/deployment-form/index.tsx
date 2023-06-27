@@ -499,7 +499,14 @@ export const DeploymentForm: FC<{
         </>
       )}
 
-      <Form.Item wrapperCol={{ offset: 7, span: 14 }}>{buttons}</Form.Item>
+      <Form.Item
+        wrapperCol={{
+          xs: { offset: 0, span: 24 },
+          sm: { offset: 7, span: 14 },
+        }}
+      >
+        {buttons}
+      </Form.Item>
     </Form>
   );
 };
