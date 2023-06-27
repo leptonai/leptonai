@@ -24,6 +24,7 @@ type Job struct {
 	CreatedAt  string `json:"created_at"`
 	ModifiedAt string `json:"modified_at"`
 	Status     string `json:"status"`
+	OutputDir  string `json:"output_dir"`
 }
 
 type JobHandler struct {
@@ -171,11 +172,7 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 	}
 	wg.Wait()
 
-	c.Writer.WriteHeader(response.StatusCode)
-	err = json.NewEncoder(c.Writer).Encode(myJobs)
-	if err != nil {
-		log.Println(err)
-	}
+	c.JSON(http.StatusOK, myJobs)
 }
 
 func setForwardURL(c *gin.Context) {
@@ -184,6 +181,7 @@ func setForwardURL(c *gin.Context) {
 		values.Del("name")
 		c.Request.URL.RawQuery = values.Encode()
 	}
+	c.Request.Header.Set("Authorization", "")
 	c.Request.URL.Path = c.Request.URL.Path[len("/api/v1/tuna"):]
 	c.Request.URL.Scheme = "https"
 	c.Request.URL.Host = "tuna-prod.vercel.app"
