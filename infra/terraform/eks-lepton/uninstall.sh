@@ -22,7 +22,6 @@ targets=(
   "null_resource.delete_prometheus"
   "null_resource.delete_grafana"
   "module.eks_blueprints_kubernetes_addons"
-  "helm_release.gpu-operator"
   "helm_release.aws_load_balancer_controller"
   "module.ebs_csi_driver_irsa"
   "module.eks"
