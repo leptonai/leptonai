@@ -305,38 +305,48 @@ class Photon(BasePhoton):
             instrumentator.expose(app, endpoint="/metrics")
 
     def _register_routes(self, app, load_mount):
-        try:
-            import gradio as gr
-        except ImportError:
-            has_gradio = False
-        else:
-            has_gradio = True
-
         api_router = APIRouter()
         for path, (func, kwargs) in self.routes.items():
             if kwargs.get("mount"):
                 if not load_mount:
                     continue
-                if not has_gradio:
-                    logger.warning(f'Gradio is not installed. Skip mounting "{path}"')
-                    continue
 
                 num_params = len(inspect.signature(func).parameters)
                 if num_params > 2:
                     raise ValueError(
-                        "Gradio mount function should only have zero or one (app)"
-                        " argument"
+                        "Mount function should only have zero or one (app) argument"
                     )
-                if num_params == 2:
-                    gr_blocks = func.__get__(self, self.__class__)(app)
+                try:
+                    if num_params == 2:
+                        subapp = func.__get__(self, self.__class__)(app)
+                    else:
+                        subapp = func.__get__(self, self.__class__)()
+                except ImportError as e:
+                    if "gradio" in str(e):
+                        logger.warning(
+                            f"Skip mounting {path} as `gradio` is not installed"
+                        )
+                        continue
+                    raise
+
+                if isinstance(subapp, FastAPI):
+                    app.mount(f"/{path}", subapp)
                 else:
-                    gr_blocks = func.__get__(self, self.__class__)()
-                if not isinstance(gr_blocks, gr.Blocks):
-                    raise RuntimeError(
-                        "Currently `mount` only supports Gradio Blocks. Got"
-                        f" {type(gr_blocks)}"
-                    )
-                app = gr.mount_gradio_app(app, gr_blocks, f"/{path}")
+                    try:
+                        import gradio as gr
+                    except ImportError:
+                        logger.warning(
+                            f"Skip mounting {path} as `gradio` is not installed and"
+                            " it is not a FastAPI"
+                        )
+                        continue
+
+                    if not isinstance(subapp, gr.Blocks):
+                        raise RuntimeError(
+                            "Currently `mount` only supports FastAPI and Gradio"
+                            f" Blocks, got {type(subapp)}"
+                        )
+                    gr.mount_gradio_app(app, subapp, f"/{path}")
                 continue
 
             def create_typed_handler(func, kwargs):
