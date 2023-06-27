@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: lepton-api-sever-efs-default-pv
+  name: {{ .Release.Namespace }}-efs-default-pv
 spec:
   capacity:
     storage: 5Gi

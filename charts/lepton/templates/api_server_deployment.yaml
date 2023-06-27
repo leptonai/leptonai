@@ -17,11 +17,15 @@ spec:
         app: {{ .Values.apiServer.name }}
     spec:
       serviceAccountName: {{ .Values.apiServer.name }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       {{ if .Values.apiServer.efsID }}
       volumes:
         - name: default-efs
           persistentVolumeClaim:
-            claimName: lepton-api-sever-efs-default-pvc
+            claimName: {{ .Release.Namespace }}-efs-default-pvc
       {{ end }}
       containers:
         - name: {{ .Values.apiServer.name }}

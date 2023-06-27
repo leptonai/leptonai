@@ -2,12 +2,13 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: lepton-api-sever-efs-default-pvc
+  name: {{ .Release.Namespace }}-efs-default-pvc
+  namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
     - ReadWriteMany
   storageClassName: efs-sc
-  volumeName: lepton-api-sever-efs-default-pv
+  volumeName: {{ .Release.Namespace }}-efs-default-pv
   resources:
     requests:
       storage: 5Gi
