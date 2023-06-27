@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -114,8 +115,11 @@ def remove(name, id_):
 
 
 @photon.command()
-@click.option("--local", "-n", help="If specified, list local photons", is_flag=True)
-def list(local):
+@click.option("--local", "-l", help="If specified, list local photons", is_flag=True)
+@click.option(
+    "--pattern", help="Regular expression pattern to filter Photon names", default=None
+)
+def list(local, pattern):
     remote_url = remote.get_remote_url()
 
     if remote_url is not None and not local:
@@ -142,7 +146,8 @@ def list(local):
 
     records_by_name = {}
     for name, model, id_, creation_time in records:
-        records_by_name.setdefault(name, []).append((model, id_, creation_time))
+        if pattern is None or re.match(pattern, name):
+            records_by_name.setdefault(name, []).append((model, id_, creation_time))
 
     # Sort by creation time and print
     for name, sub_records in records_by_name.items():
