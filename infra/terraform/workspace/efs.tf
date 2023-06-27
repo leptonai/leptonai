@@ -19,4 +19,22 @@ module "efs" {
   deny_nonsecure_transport = false
   attach_policy            = false
   # TODO: add tags
+
+  access_points = {
+    non_root = {
+      name = "non_root"
+      posix_user = {
+        gid            = 1000
+        uid            = 1000
+      }
+      root_directory = {
+        path = "/lepton_non_root"
+        creation_info = {
+          owner_gid   = 1000
+          owner_uid   = 1000
+          permissions = "755"
+        }
+      }
+    }
+  }
 }

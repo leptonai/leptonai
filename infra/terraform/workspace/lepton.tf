@@ -79,7 +79,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "apiServer.efsID"
-    value = local.efs_exists ? module.efs[0].id : ""
+    value = local.efs_exists ? "${module.efs[0].id}::${module.efs[0].access_points["non_root"].id}" : ""
   }
 
   set {

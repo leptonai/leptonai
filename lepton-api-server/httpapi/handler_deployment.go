@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -42,11 +43,14 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// efsID:path:accessPointID
+	// TODO: add accessPointID
+	efsID := strings.Split(h.efsID, ":")[0]
 	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
 		PhotonName:         ph.GetSpecName(),
 		PhotonImage:        ph.Spec.Image,
 		BucketName:         h.bucketName,
-		EFSID:              h.efsID,
+		EFSID:              efsID,
 		PhotonPrefix:       h.photonPrefix,
 		ServiceAccountName: h.serviceAccountName,
 		RootDomain:         h.rootDomain,

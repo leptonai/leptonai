@@ -67,6 +67,8 @@ func main() {
 	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
 	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
 
+	// rename to EFS root handle
+	// e.g. fs-12345678:/:fsap-12345678
 	efsIDFlag = flag.String("efs-id", "", "EFS ID")
 
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
