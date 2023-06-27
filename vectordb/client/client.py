@@ -55,7 +55,7 @@ class Client:
         """
         resp = self.list_collections()
         for c in resp:
-            if c[0] is name:
+            if c[0] == name:
                 return Collection(name=name, client=self.client)
         raise Exception(f"collection {name} not found")
 

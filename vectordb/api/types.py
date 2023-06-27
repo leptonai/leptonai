@@ -1,11 +1,22 @@
 from typing import Dict, List, TypedDict
+from dataclasses import dataclass
+
 
 Embedding = List[float]
 Metadata = Dict[str, str]
 
 
-class SearchResponse(TypedDict):
-    pass
+@dataclass
+class Result:
+    embedding: Embedding
+    metadata: Metadata
+    key: str
+    distance: float
+
+
+@dataclass
+class SearchResponse:
+    results: List[Result]
 
 
 class GetResponse(TypedDict):
