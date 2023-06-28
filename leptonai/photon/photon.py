@@ -9,6 +9,7 @@ import os
 import re
 from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
+import zipfile
 
 from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -206,15 +207,13 @@ class Photon(BasePhoton):
 
         return res
 
-    @property
-    def _extra_files(self):
-        res = super()._extra_files
-        res.update(
-            {
-                self.obj_pkl_filename: cloudpickle.dumps(self),
-            }
-        )
-        return res
+    def save(self, path: str = None):
+        path = super().save(path=path)
+        with zipfile.ZipFile(path, "a") as photon_file:
+            photon_file.writestr(
+                self.obj_pkl_filename, cloudpickle.dumps(self, protocol=4)
+            )
+        return path
 
     @classmethod
     def load(cls, photon_file, metadata):

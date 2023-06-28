@@ -126,12 +126,6 @@ class HuggingfacePhoton(Photon):
         )
         return res
 
-    @property
-    def _extra_files(self):
-        res = super()._extra_files
-        res.pop(self.obj_pkl_filename)
-        return res
-
     @cached_property
     def pipeline(self):
         pipeline_creator = pipeline_registry.get(self.hf_task)
