@@ -19,6 +19,7 @@ module "efs" {
   deny_nonsecure_transport = false
   attach_policy            = false
   # TODO: add tags
+  throughput_mode = "elastic"
 
   access_points = {
     non_root = {
