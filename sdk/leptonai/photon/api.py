@@ -72,15 +72,16 @@ def load(path: str) -> BasePhoton:
     return BasePhoton.load(path)
 
 
-def load_metadata(path: str) -> Dict[Any, Any]:
+def load_metadata(path: str, unpack_extra_files: bool = False) -> Dict[Any, Any]:
     """
     Load the metadata of a photon from a file.
     :param str path: path to the photon file
+    :param bool unpack_extra_files: whether to unpack extra files
 
     :return: the metadata of the photon
     :rtype: dict
     """
-    return BasePhoton.load_metadata(path)
+    return BasePhoton.load_metadata(path, unpack_extra_files)
 
 
 def push(path, url: str, auth_token: str):
