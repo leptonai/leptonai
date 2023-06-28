@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import tempfile
 
@@ -74,6 +75,15 @@ class TestPhotonCli(unittest.TestCase):
         result = runner.invoke(cli, ["photon", "list"])
         assert result.exit_code == 0
         assert "abcde" in result.output.lower()
+        # Check if the current time is in the output
+        print(result.output)
+        assert datetime.now().strftime("%Y-%m-%d") in result.output
+        assert datetime.now().strftime("%H:%M") in result.output
+        # Making sure that we don't make stupid errors and make the wrong
+        # assumption about timestamp. No photon should have been created in 1970
+        # and if we see that in the output, we know we used the wrong timestamp
+        # granularity.
+        assert "1970" not in result.output.lower()
 
         # Todo: actually this only checks whether the local
         # flag works, as we are not testing remote photons
