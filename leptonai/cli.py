@@ -2,6 +2,7 @@ import click
 from .photon import cli as photon_cli
 from .remote import cli as remote_cli
 from .secret import cli as secret_cli
+from .deployment import cli as deployment_cli
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
@@ -14,6 +15,7 @@ def lep():
 photon_cli.add_command(lep)
 remote_cli.add_command(lep)
 secret_cli.add_command(lep)
+deployment_cli.add_command(lep)
 
 
 if __name__ == "__main__":
