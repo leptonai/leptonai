@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 )
 
 type Job struct {
+	name       string
 	f          func(chan<- string) error
 	cancelFunc func()
 	ctx        context.Context
@@ -24,8 +26,9 @@ type Job struct {
 
 // NewJob creates a new job. It takes a `chan string` as a parameter,
 // which is used to expose the log to the caller.
-func NewJob(ctx context.Context, f func(chan<- string) error, cancelFunc func()) *Job {
+func NewJob(ctx context.Context, name string, f func(chan<- string) error, cancelFunc func()) *Job {
 	job := &Job{
+		name:       name,
 		f:          f,
 		cancelFunc: cancelFunc,
 		ctx:        ctx,
@@ -71,11 +74,13 @@ func (j *Job) run() {
 			return
 		// exponential backoff with an upper limit of 120 seconds
 		case <-time.After(time.Duration(util.MinInt(j.failureCount*j.failureCount, 12)) * 10 * time.Second):
-			if err := j.f(j.logCh); err == nil {
+			err := j.f(j.logCh)
+			if err == nil {
 				close(j.logCh)
 				j.wg.Done()
 				return
 			}
+			log.Printf("job %s failed: %v", j.name, err)
 			j.failureCount++
 		}
 	}
