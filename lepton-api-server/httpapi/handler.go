@@ -90,3 +90,9 @@ func (h *Handler) StorageHandler() *StorageHandler {
 		Handler: *h,
 	}
 }
+
+func (h *Handler) StorageSyncerHandler() *StorageSyncerHandler {
+	return &StorageSyncerHandler{
+		Handler: *h,
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"log"
 	"path"
 
+	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -36,11 +37,7 @@ const (
 )
 
 var (
-	trueBool  = true
 	falseBool = false
-	userID    = int64(65534)
-	groupID   = int64(65534)
-	fsGroup   = int64(65534)
 )
 
 type deployment struct {
@@ -244,18 +241,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 				MountPath: homeVolumeMountPath,
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:                &userID,
-			RunAsGroup:               &groupID,
-			AllowPrivilegeEscalation: &falseBool,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			RunAsNonRoot: &trueBool,
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext: k8s.DefaultContainerSecurityContext(),
 	}
 
 	volumes := []corev1.Volume{}
@@ -308,9 +294,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		EnableServiceLinks: &enableServiceLinks,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-automountserviceaccounttoken
 		AutomountServiceAccountToken: &autoMountServiceAccountToken,
-		SecurityContext: &corev1.PodSecurityContext{
-			FSGroup: &fsGroup,
-		},
+		SecurityContext:              k8s.DefaultPodSecurityContext(),
 	}
 
 	return spec

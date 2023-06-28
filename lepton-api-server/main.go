@@ -208,6 +208,12 @@ func main() {
 		v1.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
 	}
 
+	if *efsIDFlag != "" {
+		v1.POST("/syncer", handler.StorageSyncerHandler().Create)
+		v1.DELETE("/syncer/:name", handler.StorageSyncerHandler().Delete)
+		// TODO: add list and get
+	}
+
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
