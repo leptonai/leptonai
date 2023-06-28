@@ -169,9 +169,17 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
 	if err != nil {
-		return fmt.Errorf("failed to prepare working dir: %w", err)
+		if !strings.Contains(err.Error(), "reference not found") {
+			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
+		}
+		// If the branch was deleted, we should still be able to delete the cluster. This is especially true when we were testing
+		log.Printf("failed to prepare working dir with GitRef %s, using main", cl.Spec.GitRef)
+		dir, err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", "")
+		if err != nil {
+			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
+		}
 	}
 
 	command := "sh"
@@ -261,7 +269,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) e
 		}
 	}()
 
-	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}

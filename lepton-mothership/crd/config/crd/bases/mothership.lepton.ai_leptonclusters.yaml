@@ -39,6 +39,9 @@ spec:
             properties:
               description:
                 type: string
+              git_ref:
+                description: Terraform module git ref
+                type: string
               name:
                 description: Name is a globally unique name of a cluster within mothership.
                 type: string
@@ -46,15 +49,12 @@ spec:
                 type: string
               region:
                 type: string
-              version:
-                description: Terraform module version
-                type: string
             required:
             - description
+            - git_ref
             - name
             - provider
             - region
-            - version
             type: object
           status:
             description: LeptonClusterStatus defines the observed state of LeptonCluster

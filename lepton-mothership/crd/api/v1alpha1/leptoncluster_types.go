@@ -26,8 +26,8 @@ type LeptonClusterSpec struct {
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
 	Region   string `json:"region"`
-	// Terraform module version
-	Version string `json:"version"`
+	// Terraform module git ref
+	GitRef string `json:"git_ref"`
 
 	Description string `json:"description"`
 }

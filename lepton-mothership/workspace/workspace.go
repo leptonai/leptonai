@@ -201,15 +201,16 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.GitRef)
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
-			return fmt.Errorf("failed to prepare working dir: %w", err)
+			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", ws.Spec.GitRef, err)
 		}
 		// If the branch was deleted, we should still be able to delete the workspace. This is especially true for CI workloads.
+		log.Printf("failed to prepare working dir with GitRef %s, using main", ws.Spec.GitRef)
 		dir, err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", "")
 		if err != nil {
-			return fmt.Errorf("failed to prepare working dir: %w", err)
+			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
 		}
 	}
 
@@ -314,7 +315,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 	}
 	oidcID := cl.Status.Properties.OIDCID
 
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.Version)
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.GitRef)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}

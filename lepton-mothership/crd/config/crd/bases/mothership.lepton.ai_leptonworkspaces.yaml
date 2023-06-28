@@ -45,20 +45,20 @@ spec:
                 type: string
               enable_web:
                 type: boolean
+              git_ref:
+                description: Terraform module git ref
+                type: string
               image_tag:
                 type: string
               name:
                 description: Name is a globally unique name of a workspace within
                   mothership.
                 type: string
-              version:
-                description: Terraform module version
-                type: string
             required:
             - cluster_name
             - description
+            - git_ref
             - name
-            - version
             type: object
           status:
             description: LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
