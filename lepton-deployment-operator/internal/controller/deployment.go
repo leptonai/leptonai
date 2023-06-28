@@ -224,6 +224,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         k.newMainContainerCommand(),
 		Args:            k.newMainContainerArgs(),
+		WorkingDir:      homeVolumeMountPath,
 		Resources:       resources,
 		Env:             env,
 
