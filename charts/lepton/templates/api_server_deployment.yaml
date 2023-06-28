@@ -75,6 +75,9 @@ spec:
             - "--dynamodb-name"
             - "{{ .Values.apiServer.dynamodbName }}"
             - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
+            - "--storage-mount-path"
+            - "{{ .Values.apiServer.storageMountPath }}"
+            - "--enable-storage={{ .Values.apiServer.enableStorage }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
           readinessProbe:

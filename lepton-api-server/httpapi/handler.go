@@ -84,3 +84,9 @@ func (h *Handler) DeploymentEventHandler() *DeploymentEventHandler {
 		Handler: *h,
 	}
 }
+
+func (h *Handler) StorageHandler() *StorageHandler {
+	return &StorageHandler{
+		Handler: *h,
+	}
+}

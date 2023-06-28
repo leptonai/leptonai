@@ -28,6 +28,8 @@ apiServer:
   workspaceName: "default"
   dynamodbName: ""
   enableTuna: false
+  enableStorage: true
+  storageMountPath: "/mnt/efs/default"
 
 deploymentOperator:
   enabled: true

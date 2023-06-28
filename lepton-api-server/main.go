@@ -41,6 +41,9 @@ var (
 	prometheusURLFlag      *string
 
 	enableTunaFlag *bool
+
+	storageMountPathFlag *string
+	enableStorageFlag    *bool
 )
 
 const (
@@ -76,6 +79,9 @@ func main() {
 	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
 	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
 	enableTunaFlag = flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
+
+	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
+	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -192,6 +198,14 @@ func main() {
 		v1.GET("/tuna/job/list", jh.ListJobs)
 		v1.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
 		v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
+	}
+
+	if *enableStorageFlag {
+		sh := httpapi.NewStorageHandler(*handler, *storageMountPathFlag)
+		v1.GET("/storage/default/*path", sh.GetFileOrDir)
+		v1.POST("/storage/default/*path", sh.CreateFile)
+		v1.PUT("/storage/default/*path", sh.CreateDir)
+		v1.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
 	}
 
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
