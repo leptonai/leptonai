@@ -1,5 +1,5 @@
-resource "aws_iam_policy" "alb-policy" {
-  name        = "alb-policy-${local.cluster_name}"
+resource "aws_iam_policy" "alb_iam_policy" {
+  name        = "${local.cluster_name}-alb-iam-policy"
   policy      = file("alb-policy.json")
   description = "ALB IAM policy"
 
@@ -9,8 +9,8 @@ resource "aws_iam_policy" "alb-policy" {
   ]
 }
 
-resource "aws_iam_role" "alb-role" {
-  name = "alb-role-${local.cluster_name}"
+resource "aws_iam_role" "alb_iam_role" {
+  name = "${local.cluster_name}-alb-iam-role"
   assume_role_policy = jsonencode({
     Version : "2012-10-17",
     Statement : [
@@ -36,13 +36,13 @@ resource "aws_iam_role" "alb-role" {
   ]
 }
 
-resource "aws_iam_role_policy_attachment" "alb-role-policy-attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb-policy.name}"
-  role       = aws_iam_role.alb-role.name
+resource "aws_iam_role_policy_attachment" "alb_iam_role_policy_attachment" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb_iam_policy.name}"
+  role       = aws_iam_role.alb_iam_role.name
 
   depends_on = [
-    aws_iam_policy.alb-policy,
-    aws_iam_role.alb-role
+    aws_iam_policy.alb_iam_policy,
+    aws_iam_role.alb_iam_role
   ]
 }
 
@@ -57,12 +57,12 @@ resource "kubernetes_service_account" "aws_load_balancer_controller" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb-role.name}"
+      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb_iam_role.name}"
     }
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.alb-role-policy-attachment
+    aws_iam_role_policy_attachment.alb_iam_role_policy_attachment
   ]
 }
 
