@@ -123,12 +123,14 @@ def list(local, pattern):
     remote_url = remote.get_remote_url()
 
     if remote_url is not None and not local:
-        # TODO: Add Creation Time and other metadata
         console.print(f"Using remote cluster: [green]{remote_url}[/green]")
         auth_token = remote.cli.get_auth_token(remote_url)
         photons = api.list_remote(remote_url, auth_token)
+        # Note: created_at returned by the server is in milliseconds, and as a
+        # result we need to divide by 1000 to get seconds that is understandable
+        # by the Python CLI.
         records = [
-            (photon["name"], photon["model"], photon["id"], photon["created_at"])
+            (photon["name"], photon["model"], photon["id"], photon["created_at"] / 1000)
             for photon in photons
         ]
     else:
@@ -161,9 +163,7 @@ def list(local, pattern):
             # Photon database stores creation time as a timestamp in
             # milliseconds, so we need to convert.
             creation_table.add_row(
-                datetime.fromtimestamp(creation_time / 1000).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+                datetime.fromtimestamp(creation_time).strftime("%Y-%m-%d %H:%M:%S")
             )
         table.add_row(name, model_table, id_table, creation_table)
     console.print(table)
