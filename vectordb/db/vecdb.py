@@ -60,9 +60,13 @@ class VecDB(Photon):
 
     @Photon.handler()
     def add(self, name: str, embeddings: List[Embedding]):
-        print(embeddings)
-        print(type(embeddings))
         collection = self._get_collection(name)
+        to_add = [e.doc_id for e in embeddings]
+        existing_doc_ids = [r.doc_id for r in collection.get_embeddings_doc_ids(to_add)]
+        if existing_doc_ids:
+            raise HTTPException(
+                status_code=400, detail=f"'{existing_doc_ids}' already exist"
+            )
         collection.add_embeddings(embeddings)
 
     @Photon.handler()

@@ -140,7 +140,8 @@ class Collection:
         Returns:
             InsertResponse: Contains insert response.
         """
-        self._add(keys, embeddings, metadatas)
+        resp = self._add(keys, embeddings, metadatas)
+        _raise_resp_error(resp)
 
     def update(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
