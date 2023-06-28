@@ -36,91 +36,90 @@ class TestPhotonCli(unittest.TestCase):
 
         # missing required --name option
         result = runner.invoke(cli, ["photon", "create", "-m", diffusers_model])
-        assert result.exit_code != 0
-        assert "--name" in result.output.lower()
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--name", result.output.lower())
 
         # missing required --model option
         result = runner.invoke(cli, ["photon", "create", "-n", "abc"])
-        assert result.exit_code != 0
-        assert "--model" in result.output.lower()
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--model", result.output.lower())
 
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abc", "-m", diffusers_model]
         )
-        assert result.exit_code == 0
-        assert "created" in result.output
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("created", result.output)
 
     def test_photon_create_duplicate_name(self):
         runner = CliRunner()
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abcd", "-m", diffusers_model]
         )
-        assert result.exit_code == 0
-        assert "created" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("created", result.output.lower())
 
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abcd", "-m", diffusers_model]
         )
-        assert result.exit_code == 0
-        assert "created" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("created", result.output.lower())
 
     def test_photon_list(self):
         runner = CliRunner()
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abcde", "-m", diffusers_model]
         )
-        assert result.exit_code == 0
-        assert "created" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("created", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "list"])
-        assert result.exit_code == 0
-        assert "abcde" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("abcde", result.output.lower())
         # Check if the current time is in the output
-        print(result.output)
         assert datetime.now().strftime("%Y-%m-%d") in result.output
         assert datetime.now().strftime("%H:%M") in result.output
         # Making sure that we don't make stupid errors and make the wrong
         # assumption about timestamp. No photon should have been created in 1970
         # and if we see that in the output, we know we used the wrong timestamp
         # granularity.
-        assert "1970" not in result.output.lower()
+        self.assertNotIn("1970", result.output.lower())
 
         # Todo: actually this only checks whether the local
         # flag works, as we are not testing remote photons
         # yet.
         result = runner.invoke(cli, ["photon", "list", "--local"])
-        assert result.exit_code == 0
-        assert "abcde" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("abcde", result.output.lower())
 
     def test_photon_remove(self):
         runner = CliRunner()
         result = runner.invoke(
             cli, ["photon", "create", "-n", "abcdef", "-m", diffusers_model]
         )
-        assert result.exit_code == 0
-        assert "created" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("created", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "list"])
-        assert result.exit_code == 0
-        assert "abcdef" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("abcdef", result.output.lower())
 
         # when deleting local photons, must specify name
         result = runner.invoke(cli, ["photon", "remove"])
-        assert result.exit_code != 0
-        assert "--name" in result.output.lower()
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--name", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "remove", "-n", "abcdef"])
-        assert result.exit_code == 0
-        assert "abcdef" in result.output.lower()
-        assert "removed" in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("abcdef", result.output.lower())
+        self.assertIn("removed", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "remove", "-n", "abcdef"])
         assert result.exit_code == 1
-        assert "abcdef" in result.output.lower()
+        self.assertIn("abcdef", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "list"])
-        assert result.exit_code == 0
-        assert "abcdef" not in result.output.lower()
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("abcdef", result.output.lower())
 
     @sub_test(
         [
