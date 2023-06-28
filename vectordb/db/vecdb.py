@@ -59,6 +59,21 @@ class VecDB(Photon):
         return self.collections[name]
 
     @Photon.handler()
+    def update(self, name: str, embeddings: List[Embedding]):
+        collection = self._get_collection(name)
+        to_update = [e.doc_id for e in embeddings]
+        existing_doc_ids = [
+            r.doc_id for r in collection.get_embeddings_doc_ids(to_update)
+        ]
+        if len(existing_doc_ids) != len(to_update):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{set(to_update) - set(existing_doc_ids)}' do not exist",
+            )
+        collection.delete(doc_ids=to_update)
+        collection.add_embeddings(embeddings)
+
+    @Photon.handler()
     def add(self, name: str, embeddings: List[Embedding]):
         collection = self._get_collection(name)
         to_add = [e.doc_id for e in embeddings]

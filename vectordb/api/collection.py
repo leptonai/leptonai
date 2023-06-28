@@ -8,7 +8,6 @@ from vectordb.api.types import (
     GetResponse,
     SearchResponse,
     InsertResponse,
-    UpdateResponse,
 )
 
 _ERROR = "error"
@@ -17,6 +16,20 @@ _ERROR = "error"
 def _raise_resp_error(response: dict):
     if response is not None and _ERROR in response:
         raise Exception(response[_ERROR])
+
+
+def _to_embs(keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]):
+    embs = []
+    for k, e, m in zip(keys, embeddings, metadatas):
+        embs.append(
+            {
+                "vector": e,
+                "doc_id": k,
+                "metatdata": m,
+                "text": "",
+            }
+        )
+    return embs
 
 
 def _has_same_length(
@@ -95,9 +108,6 @@ class Collection:
             embeddings (List[Embedding]): A list of vector embeddings.
             metadatas (List[Metadata]): The metadatas of the vector embeddings.
 
-        Returns:
-            UpsertResponse: _description_
-
         Examples:
             collection.insert(
             keys=["doc1", "doc2"], # must be unique per embedding
@@ -112,17 +122,12 @@ class Collection:
             raise Exception(
                 "length of keys, embeddings, and metadatas must be the same"
             )
-        embs = []
-        for idx, e in enumerate(embeddings):
-            embs.append(
-                {
-                    "vector": e,
-                    "doc_id": keys[idx],
-                    "metatdata": metadatas[idx],
-                    "text": "",
-                }
-            )
-        inputs = {"name": self.name, "embeddings": embs}
+        inputs = {
+            "name": self.name,
+            "embeddings": _to_embs(
+                keys=keys, embeddings=embeddings, metadatas=metadatas
+            ),
+        }
         return self.client.add(**inputs)
 
     def insert(
@@ -145,10 +150,10 @@ class Collection:
 
     def update(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
-    ) -> UpdateResponse:
+    ) -> None:
         """
-        Given the vector embedding keys, updates their embeddings and metadatas. If the key doesn't exist, then
-        an exception will be raised.
+        Given the vector embedding keys, updates their embeddings and metadatas. If any of the keys don't exist, then
+        no updates will be made.
 
         Args:
             keys (List[str]): The vector embedding keys.
@@ -158,6 +163,18 @@ class Collection:
         Returns:
             UpdateResponse: Contains update response.
         """
+        if not _has_same_length(keys, embeddings, metadatas):
+            raise Exception(
+                "length of keys, embeddings, and metadatas must be the same"
+            )
+        inputs = {
+            "name": self.name,
+            "embeddings": _to_embs(
+                keys=keys, embeddings=embeddings, metadatas=metadatas
+            ),
+        }
+        resp = self.client.update(**inputs)
+        _raise_resp_error(resp)
 
     def delete(self, keys: List[str]) -> None:
         """
