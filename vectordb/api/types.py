@@ -7,10 +7,14 @@ Metadata = Dict[str, str]
 
 
 @dataclass
-class Result:
+class Vector:
     embedding: Embedding
     metadata: Metadata
     key: str
+
+
+@dataclass
+class Result(Vector):
     distance: float
 
 
@@ -19,8 +23,9 @@ class SearchResponse:
     results: List[Result]
 
 
-class GetResponse(TypedDict):
-    pass
+@dataclass
+class GetResponse:
+    vectors: List[Vector]
 
 
 class UpsertResponse(TypedDict):

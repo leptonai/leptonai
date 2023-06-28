@@ -4,6 +4,7 @@ from vectordb.api.types import (
     Embedding,
     Metadata,
     Result,
+    Vector,
     GetResponse,
     SearchResponse,
     InsertResponse,
@@ -70,6 +71,18 @@ class Collection:
         Returns:
             GetResponse: Contains vector embeddings.
         """
+        inputs = {"name": self.name, "doc_ids": keys}
+        resp = self.client.get(**inputs)
+        vectors = []
+        for v in resp:
+            vectors.append(
+                Vector(
+                    embedding=v["vector"],
+                    metadata=v["metadata"],
+                    key=v["doc_id"],
+                )
+            )
+        return GetResponse(vectors=vectors)
 
     def upsert(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]
