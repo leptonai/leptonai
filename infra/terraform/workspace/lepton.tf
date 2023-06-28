@@ -29,6 +29,37 @@ resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment"
   ]
 }
 
+resource "aws_iam_role" "lepton-deployment-role" {
+  name = "lepton-deployment-role-${var.workspace_name}"
+  assume_role_policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Principal : {
+          Federated : "arn:aws:iam::${var.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}"
+        },
+        Action : "sts:AssumeRoleWithWebIdentity",
+        Condition : {
+          StringEquals : {
+            "oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}:aud" : "sts.amazonaws.com",
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lepton-deployment-role-s3-policy-attachment" {
+  policy_arn = "arn:aws:iam::${var.account_id}:policy/${aws_iam_policy.s3-ro-policy.name}"
+  role       = aws_iam_role.lepton-deployment-role.name
+
+  depends_on = [
+    aws_iam_policy.s3-ro-policy,
+    aws_iam_role.lepton-deployment-role
+  ]
+}
+
 resource "aws_iam_role_policy_attachment" "api-server-role-dynamodb-policy-attachment" {
   policy_arn = "arn:aws:iam::${var.account_id}:policy/${aws_iam_policy.dynamodb-policy.name}"
   role       = aws_iam_role.api-server-role.name
@@ -70,6 +101,11 @@ resource "helm_release" "lepton" {
   set {
     name  = "apiServer.serviceAccountRoleArn"
     value = "arn:aws:iam::${var.account_id}:role/${aws_iam_role.api-server-role.name}"
+  }
+
+  set {
+    name  = "apiServer.deploymentServiceAccountRoleArn"
+    value = "arn:aws:iam::${var.account_id}:role/${aws_iam_role.lepton-deployment-role.name}"
   }
 
   set {

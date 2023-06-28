@@ -3,8 +3,6 @@ resource "aws_s3_bucket" "s3-bucket" {
   force_destroy = true
 }
 
-# TODO: finer grain tuning for s3 policies: for example, we should not allow
-# LeptonDeployment to have write permissions
 resource "aws_iam_policy" "s3-policy" {
   name = "s3-policy-${var.workspace_name}"
   policy = jsonencode({
@@ -21,6 +19,29 @@ resource "aws_iam_policy" "s3-policy" {
         ],
         Resource : [
           "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}",
+          "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
+        ]
+      }
+    ]
+  })
+  description = "S3 IAM policy"
+
+  depends_on = [
+    aws_s3_bucket.s3-bucket
+  ]
+}
+
+resource "aws_iam_policy" "s3-ro-policy" {
+  name = "s3-policy-${var.workspace_name}"
+  policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Action : [
+          "s3:GetObject",
+        ],
+        Resource : [
           "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
         ]
       }

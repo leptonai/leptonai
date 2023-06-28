@@ -19,6 +19,7 @@ apiServer:
         memory: "512Mi"
         cpu: "1"
   serviceAccountRoleArn: ""
+  deploymentServiceAccountRoleArn: ""
   bucketName: "leptonai"
   efsID: ""
   rootDomain: ""

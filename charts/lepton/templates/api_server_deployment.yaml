@@ -57,7 +57,7 @@ spec:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--service-account-name"
-            - "{{ .Values.apiServer.name }}"
+            - "{{ .Values.apiServer.name }}-deployment"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
             - "--efs-id"
