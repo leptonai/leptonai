@@ -24,14 +24,14 @@ module "efs" {
     non_root = {
       name = "non_root"
       posix_user = {
-        gid            = 1000
-        uid            = 1000
+        gid = 65534
+        uid = 65534
       }
       root_directory = {
         path = "/lepton_non_root"
         creation_info = {
-          owner_gid   = 1000
-          owner_uid   = 1000
+          owner_gid   = 65534
+          owner_uid   = 65534
           permissions = "755"
         }
       }

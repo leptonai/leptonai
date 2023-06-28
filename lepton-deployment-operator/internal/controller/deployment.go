@@ -16,11 +16,15 @@ import (
 )
 
 const (
-	initContainerName     = "env-preparation"
-	mainContainerName     = "main-container"
+	initContainerName = "env-preparation"
+	mainContainerName = "main-container"
+
 	photonVolumeName      = "photon"
 	photonVolumeMountPath = "/photon"
-	awscliImageURL        = "amazon/aws-cli"
+	homeVolumeName        = "home"
+	homeVolumeMountPath   = "/nonexistent"
+
+	awscliImageURL = "amazon/aws-cli"
 
 	nvidiaGPUProductLabelKey = "nvidia.com/gpu.product"
 	nvidiaGPUResourceKey     = "nvidia.com/gpu"
@@ -29,6 +33,14 @@ const (
 	labelKeyPhotonID             = "photon_id"
 	labelKeyLeptonDeploymentName = "lepton_deployment_name"
 	labelKeyLeptonDeploymentID   = "lepton_deployment_id"
+)
+
+var (
+	trueBool  = true
+	falseBool = false
+	userID    = int64(65534)
+	groupID   = int64(65534)
+	fsGroup   = int64(65534)
 )
 
 type deployment struct {
@@ -123,14 +135,29 @@ func (k *deployment) newInitContainerArgs() []string {
 
 func (k *deployment) newInitContainer() corev1.Container {
 	return corev1.Container{
-		Name:    initContainerName,
-		Image:   awscliImageURL,
+		Name:  initContainerName,
+		Image: awscliImageURL,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "HOME",
+				Value: "/",
+			},
+		},
 		Command: k.newInitContainerCommand(),
 		Args:    k.newInitContainerArgs(),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      photonVolumeName,
 				MountPath: photonVolumeMountPath,
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &falseBool,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
 		},
 	}
@@ -211,6 +238,22 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 				Name:      photonVolumeName,
 				MountPath: photonVolumeMountPath,
 			},
+			{
+				Name:      homeVolumeName,
+				MountPath: homeVolumeMountPath,
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:                &userID,
+			RunAsGroup:               &groupID,
+			AllowPrivilegeEscalation: &falseBool,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			RunAsNonRoot: &trueBool,
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
 		},
 	}
 
@@ -245,18 +288,28 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		},
 	}
 
+	homeVolume := corev1.Volume{
+		Name: homeVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
 	enableServiceLinks := false
 	autoMountServiceAccountToken := false
 	spec := &corev1.PodSpec{
 		InitContainers:     []corev1.Container{k.newInitContainer()},
 		Containers:         []corev1.Container{container},
-		Volumes:            append(volumes, sharedVolume),
+		Volumes:            append(volumes, sharedVolume, homeVolume),
 		ServiceAccountName: ld.Spec.ServiceAccountName,
 		NodeSelector:       nodeSelector,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery
 		EnableServiceLinks: &enableServiceLinks,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-automountserviceaccounttoken
 		AutomountServiceAccountToken: &autoMountServiceAccountToken,
+		SecurityContext: &corev1.PodSecurityContext{
+			FSGroup: &fsGroup,
+		},
 	}
 
 	return spec

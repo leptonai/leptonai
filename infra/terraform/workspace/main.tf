@@ -27,5 +27,12 @@ provider "helm" {
 resource "kubernetes_namespace" "lepton" {
   metadata {
     name = var.namespace
+    # Heavily restricted policy, following current Pod hardening best practices.
+    # See https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    labels = {
+      "pod-security.kubernetes.io/audit" = "restricted"
+      # "pod-security.kubernetes.io/enforce" = "restricted"
+      "pod-security.kubernetes.io/warn" = "restricted"
+    }
   }
 }

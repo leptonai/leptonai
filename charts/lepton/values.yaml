@@ -56,7 +56,7 @@ web:
     tag: "latest"
     pullPolicy: Always
   service:
-    port: 80
+    port: 8080
     resources:
       requests:
         memory: "128Mi"

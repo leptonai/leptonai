@@ -18,9 +18,9 @@ spec:
     spec:
       serviceAccountName: {{ .Values.apiServer.name }}
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
       {{ if .Values.apiServer.efsID }}
       volumes:
         - name: default-efs
@@ -31,6 +31,13 @@ spec:
         - name: {{ .Values.apiServer.name }}
           image: {{ .Values.apiServer.image.repository }}:{{ .Values.apiServer.image.tag }}
           imagePullPolicy: {{ .Values.apiServer.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: {{ .Values.apiServer.service.resources.requests.memory }}

@@ -16,4 +16,16 @@ FROM amd64/nginx:latest
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/dist /usr/share/nginx/html/
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/default.conf /etc/nginx/conf.d/
-EXPOSE 80
+
+WORKDIR /app
+
+## add permissions for nginx user
+RUN chown -R nginx:nginx /app && chmod -R 755 /app && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d
+RUN touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
+
+USER nginx
+EXPOSE 8080

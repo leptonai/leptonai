@@ -17,10 +17,21 @@ spec:
         app: {{ .Values.deploymentOperator.name }}
     spec:
       serviceAccountName: {{ .Values.deploymentOperator.name }}
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
       containers:
         - name: {{ .Values.deploymentOperator.name }}
           image: {{ .Values.deploymentOperator.image.repository }}:{{ .Values.deploymentOperator.image.tag }}
           imagePullPolicy: {{ .Values.deploymentOperator.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: {{ .Values.deploymentOperator.service.resources.requests.memory }}

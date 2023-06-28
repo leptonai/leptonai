@@ -16,10 +16,22 @@ spec:
       labels:
         app: {{ .Values.web.name }}
     spec:
+      securityContext:
+        # nginx's user id is 101
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
       containers:
         - name: {{ .Values.web.name }}
           image: {{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}
           imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: {{ .Values.web.service.resources.requests.memory }}
