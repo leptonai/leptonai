@@ -34,7 +34,9 @@ type LeptonDeploymentSystemSpec struct {
 	PhotonImage string `json:"photon_image"`
 	BucketName  string `json:"bucket_name"`
 	// +optional
-	EFSID              string   `json:"efs_id"`
+	EFSID string `json:"efs_id"`
+	// +optional
+	EFSAccessPointID   string   `json:"efs_access_point_id"`
 	PhotonPrefix       string   `json:"photon_prefix"`
 	ServiceAccountName string   `json:"service_account_name"`
 	RootDomain         string   `json:"root_domain,omitempty"`

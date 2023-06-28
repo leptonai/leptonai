@@ -44,13 +44,18 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	}
 
 	// efsID:path:accessPointID
-	// TODO: add accessPointID
-	efsID := strings.Split(h.efsID, ":")[0]
+	efsFields := strings.Split(h.efsID, ":")
+	efsID := efsFields[0]
+	efsAccessPointID := ""
+	if len(efsFields) >= 3 {
+		efsAccessPointID = efsFields[2]
+	}
 	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
 		PhotonName:         ph.GetSpecName(),
 		PhotonImage:        ph.Spec.Image,
 		BucketName:         h.bucketName,
 		EFSID:              efsID,
+		EFSAccessPointID:   efsAccessPointID,
 		PhotonPrefix:       h.photonPrefix,
 		ServiceAccountName: h.serviceAccountName,
 		RootDomain:         h.rootDomain,

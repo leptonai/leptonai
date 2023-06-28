@@ -409,7 +409,7 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 		pvname := getPVName(ld.Namespace, ld.GetSpecName(), i)
 		pvcname := getPVCName(ld.Namespace, ld.GetSpecName(), i)
 
-		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path)
+		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path+":"+ld.Spec.EFSAccessPointID)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}

@@ -45,6 +45,8 @@ spec:
                 type: string
               certificate_arn:
                 type: string
+              efs_access_point_id:
+                type: string
               efs_id:
                 type: string
               envs:
