@@ -38,7 +38,3 @@ class InsertResponse(TypedDict):
 
 class UpdateResponse(TypedDict):
     pass
-
-
-class DeleteResponse(TypedDict):
-    pass

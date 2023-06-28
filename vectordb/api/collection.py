@@ -9,7 +9,6 @@ from vectordb.api.types import (
     SearchResponse,
     InsertResponse,
     UpdateResponse,
-    DeleteResponse,
 )
 
 _ERROR = "error"
@@ -159,7 +158,7 @@ class Collection:
             UpdateResponse: Contains update response.
         """
 
-    def delete(self, keys: List[str]) -> DeleteResponse:
+    def delete(self, keys: List[str]) -> None:
         """
         Delete the vector embeddings given their keys.
 
@@ -169,3 +168,6 @@ class Collection:
         Returns:
             DeleteResponse: Contains delete response.
         """
+        inputs = {"name": self.name, "doc_ids": keys}
+        resp = self.client.delete(**inputs)
+        _raise_resp_error(resp)
