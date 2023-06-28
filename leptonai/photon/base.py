@@ -71,30 +71,30 @@ class BasePhoton:
 
     @staticmethod
     def load(path: str):
+        metadata = BasePhoton.load_metadata(path, unpack_extra_files=True)
+        photon_type = metadata["type"]
+        photon_cls = type_str_registry.get(photon_type)
+        if photon_cls is None:
+            raise ValueError(
+                f"Can not find Photon class for type '{photon_type}', please"
+                " make sure the corresponding module is imported."
+            )
         with zipfile.ZipFile(path, "r") as photon_file:
-            with photon_file.open("metadata.json") as config:
-                metadata = json.load(config)
-            for path in metadata["extra_files"]:
-                dirname = os.path.dirname(path)
-                if dirname:
-                    os.makedirs(dirname, exist_ok=True)
-                with open(path, "wb") as out, photon_file.open(path) as extra_file:
-                    out.write(extra_file.read())
-            photon_type = metadata["type"]
-            photon_cls = type_str_registry.get(photon_type)
-            if photon_cls is None:
-                raise ValueError(
-                    f"Can not find Photon class for type '{photon_type}', please"
-                    " make sure the corresponding module is imported."
-                )
             photon = photon_cls(photon_file, metadata)
-            return photon
+        return photon
 
     @staticmethod
-    def load_metadata(path: str):
+    def load_metadata(path: str, unpack_extra_files: bool = False):
         with zipfile.ZipFile(path, "r") as photon_file:
             with photon_file.open("metadata.json") as config:
                 metadata = json.load(config)
+            if unpack_extra_files:
+                for path in metadata["extra_files"]:
+                    dirname = os.path.dirname(path)
+                    if dirname:
+                        os.makedirs(dirname, exist_ok=True)
+                    with open(path, "wb") as out, photon_file.open(path) as extra_file:
+                        out.write(extra_file.read())
         return metadata
 
     @property
