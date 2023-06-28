@@ -14,6 +14,6 @@ EOD
   }
 
   depends_on = [
-    resource.helm_release.lepton
+    helm_release.lepton
    ]
 }
