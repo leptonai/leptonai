@@ -1,4 +1,4 @@
-import { Asterisk, Hashtag } from "@carbon/icons-react";
+import { Asterisk, Hashtag, Launch } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -31,6 +31,7 @@ import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
 import { Rule } from "rc-field-form/lib/interface";
+import { useNavigate } from "react-router-dom";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 
 interface RawForm {
@@ -60,6 +61,7 @@ export const DeploymentForm: FC<{
   photonGroups,
   edit = false,
 }) => {
+  const navigate = useNavigate();
   const addSecretFnRef = useRef<FormListOperation["add"] | null>(null);
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
@@ -70,15 +72,40 @@ export const DeploymentForm: FC<{
     return secrets.map((s) => ({ label: s.name, value: s.name }));
   }, [secrets]);
   const secretMenus: MenuProps["items"] = useMemo(() => {
-    return secrets.map((s) => ({
-      label: s.name,
-      key: s.name,
-      icon: <Asterisk />,
-      onClick: (v) => {
-        addSecretFnRef.current?.({ name: v.key, value: v.key });
-      },
-    }));
-  }, [secrets]);
+    if (secrets.length > 0) {
+      return secrets.map((s) => ({
+        label: s.name,
+        key: s.name,
+        icon: <Asterisk />,
+        onClick: (v) => {
+          addSecretFnRef.current?.({ name: v.key, value: v.key });
+        },
+      }));
+    } else {
+      return [
+        {
+          label: "No secret found, create one",
+          icon: (
+            <div
+              css={css`
+                position: relative;
+                top: 1px;
+                margin-right: 8px;
+              `}
+            >
+              <CarbonIcon icon={<Launch />} />
+            </div>
+          ),
+          key: "create_new_secret",
+          onClick: () => {
+            navigate(`/workspace/${workspaceTrackerService.name}/secrets`, {
+              relative: "route",
+            });
+          },
+        },
+      ];
+    }
+  }, [navigate, secrets, workspaceTrackerService.name]);
   const [form] = Form.useForm();
   const [enableAccelerator, setEnableAccelerator] = useState(
     edit
