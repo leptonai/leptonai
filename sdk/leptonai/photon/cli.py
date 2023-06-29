@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 import click
-from .base import find_all_local_photons, find_photon, remove_photon
+from .base import find_all_local_photons, find_local_photon, remove_local_photon
 from . import api
 import leptonai.remote as remote
 from leptonai.util import click_group
@@ -71,11 +71,13 @@ def create(name, model):
     "-n",
     help="Name of the Photon (The latest version of the Photon will be removed)",
 )
+@click.option("--local", "-l", is_flag=True, help="Remove local photon.")
 @click.option("--id", "-i", "id_", help="ID of the Photon")
-def remove(name, id_):
+def remove(name, local, id_):
     remote_url = remote.get_remote_url()
 
-    if remote_url is not None:
+    if not local and remote_url is not None:
+        # Remove remote photon.
         auth_token = remote.cli.get_auth_token(remote_url)
         if id_ is None and name is None:
             console.print("Must specify --id or --name when removing remote photon.")
@@ -104,15 +106,18 @@ def remove(name, id_):
             # we do something else?
             console.print(f'Remote photon "{id_}" [red]does not exist[/]')
         return
-    elif name is None:
-        # In local mode, photons do not have ids, so we must specify a name.
-        console.print("Must specify --name when removing local photon")
-        sys.exit(1)
-    elif find_photon(name) is None:
-        console.print(f'Photon "{name}" [red]does not exist[/]')
-        sys.exit(1)
-    remove_photon(name)
-    console.print(f'Photon "{name}" [green]removed[/]')
+    else:
+        # local mode
+        if name is None:
+            # In local mode, photons do not have ids, so we must specify a name.
+            console.print("Must specify --name when removing local photon")
+            sys.exit(1)
+        if find_local_photon(name) is None:
+            console.print(f'Photon "{name}" [red]does not exist[/]')
+            sys.exit(1)
+        remove_local_photon(name)
+        console.print(f'Photon "{name}" [green]removed[/]')
+        return
 
 
 @photon.command()
@@ -182,6 +187,12 @@ def parse_mount(mount_str: str):
 @click.option("--name", "-n", help="Name of the Photon")
 @click.option("--model", "-m", help="Model Spec")
 @click.option("--file", "-f", "path", help="Path to .photon file")
+@click.option(
+    "--local",
+    "-l",
+    help="If specified, run photon on local (can only run locally stored photons)",
+    is_flag=True,
+)
 @click.option("--port", "-p", help="Port to run on", default=8080)
 @click.option("--id", "-i", help="ID of the Photon (only required for remote)")
 @click.option("--cpu", help="Number of CPU to require", default=1)
@@ -220,6 +231,7 @@ def run(
     name,
     model,
     path,
+    local,
     port,
     id,
     cpu,
@@ -239,7 +251,8 @@ def run(
         console.print("Must specify either --id or --name, not both.")
         sys.exit(1)
 
-    if remote_url is not None:
+    if not local and remote_url is not None:
+        # remote execution.
         auth_token = remote.cli.get_auth_token(remote_url)
         # We first check if id is specified - this is the most specific way to
         # refer to a photon. If not, we will check if name is specified - this
@@ -293,28 +306,35 @@ def run(
             secret_parsed,
         )
         return
-
-    if name is None and path is None:
-        console.print("Must specify either --name or --path")
-        sys.exit(1)
-    if path is None:
-        path = find_photon(name)
-    if path is None or not os.path.exists(path):
-        name_or_path = name if name is not None else path
-        console.print(f'Photon "{name_or_path}" [red]does not exist[/]')
-        if name and model:
-            ctx.invoke(create, name=name, model=model)
-            path = find_photon(name)
-        else:
+    else:
+        # local execution
+        if name is None and path is None:
+            console.print("Must specify either --name or --path")
             sys.exit(1)
+        if len(mount) or len(env) or len(secret):
+            console.print(
+                "Mounts, environment variables and secrets are only supported for"
+                " remote execution. They will be ignored for local execution."
+            )
+        if path is None:
+            path = find_local_photon(name)
+        if path is None or not os.path.exists(path):
+            name_or_path = name if name is not None else path
+            console.print(f'Photon "{name_or_path}" [red]does not exist[/]')
+            if name and model:
+                ctx.invoke(create, name=name, model=model)
+                path = find_local_photon(name)
+            else:
+                sys.exit(1)
 
-    metadata = api.load_metadata(path)
+        metadata = api.load_metadata(path)
 
-    if metadata.get(METADATA_VCS_URL_KEY, None):
-        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
-        os.chdir(workpath)
-    photon = api.load(path)
-    photon.launch(port=port)
+        if metadata.get(METADATA_VCS_URL_KEY, None):
+            workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+            os.chdir(workpath)
+        photon = api.load(path)
+        photon.launch(port=port)
+        return
 
 
 # Only used by platform to prepare the environment inside the container and not
@@ -383,7 +403,7 @@ def push(name):
         console.print("You are not logged in.")
         console.print("You must log in ($lep remote login) or specify --remote_url.")
         sys.exit(1)
-    path = find_photon(name)
+    path = find_local_photon(name)
     if path is None or not os.path.exists(path):
         console.print(f'Photon "{name}" [red]does not exist[/]')
         sys.exit(1)
