@@ -32,7 +32,7 @@ resource "aws_iam_policy" "s3-policy" {
 }
 
 resource "aws_iam_policy" "s3-ro-policy" {
-  name = "s3-policy-${var.workspace_name}"
+  name = "s3-ro-policy-${var.workspace_name}"
   policy = jsonencode({
     Version : "2012-10-17",
     Statement : [
