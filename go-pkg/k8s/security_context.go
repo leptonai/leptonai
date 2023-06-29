@@ -12,6 +12,11 @@ var (
 	fsGroup   = int64(65534)
 )
 
+const (
+	HomePathNonRoot = "/nonexistent"
+	HomeVolumeName  = "home"
+)
+
 // DefaultContainerSecurityContext returns a default restricted security context for a container.
 func DefaultContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
@@ -45,5 +50,23 @@ func RootContainerSecurityContext() *corev1.SecurityContext {
 func DefaultPodSecurityContext() *corev1.PodSecurityContext {
 	return &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
+	}
+}
+
+// WorkingDirVolumeForNonRoot returns a volume for the working directory for a non-root container.
+func WorkingDirVolumeForNonRoot() corev1.Volume {
+	return corev1.Volume{
+		Name: HomeVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+}
+
+// WorkingDirVolumeMountForNonRoot returns a volume mount for the working directory for a non-root container.
+func WorkingDirVolumeMountForNonRoot() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      HomeVolumeName,
+		MountPath: HomePathNonRoot,
 	}
 }

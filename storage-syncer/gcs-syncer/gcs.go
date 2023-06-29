@@ -60,8 +60,10 @@ func CreateSyncerForDefaultEFS(ns, name string, gcsURL, path, credJSON string) e
 							Name:      volumeName,
 							MountPath: mountPath,
 						},
+						k8s.WorkingDirVolumeMountForNonRoot(),
 					},
 					SecurityContext: k8s.DefaultContainerSecurityContext(),
+					WorkingDir:      k8s.HomePathNonRoot,
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -73,6 +75,7 @@ func CreateSyncerForDefaultEFS(ns, name string, gcsURL, path, credJSON string) e
 						},
 					},
 				},
+				k8s.WorkingDirVolumeForNonRoot(),
 			},
 		},
 	}
