@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -34,6 +35,11 @@ const (
 	labelKeyPhotonID             = "photon_id"
 	labelKeyLeptonDeploymentName = "lepton_deployment_name"
 	labelKeyLeptonDeploymentID   = "lepton_deployment_id"
+
+	readinessProbeInitialDelaySeconds = 5
+	readinessProbePeriodSeconds       = 5
+	livenessProbeInitialDelaySeconds  = 15
+	livenessProbePeriodSeconds        = 20
 )
 
 type deployment struct {
@@ -229,6 +235,24 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 			},
 		},
 		SecurityContext: k8s.RootContainerSecurityContext(),
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Port: intstr.FromInt(service.Port),
+				},
+			},
+			InitialDelaySeconds: readinessProbeInitialDelaySeconds,
+			PeriodSeconds:       readinessProbePeriodSeconds,
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Port: intstr.FromInt(service.Port),
+				},
+			},
+			InitialDelaySeconds: livenessProbeInitialDelaySeconds,
+			PeriodSeconds:       livenessProbePeriodSeconds,
+		},
 	}
 
 	volumes := []corev1.Volume{}
