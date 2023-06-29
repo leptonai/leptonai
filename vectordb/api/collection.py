@@ -25,7 +25,7 @@ def _to_embs(keys: List[str], embeddings: List[Embedding], metadatas: List[Metad
             {
                 "vector": e,
                 "doc_id": k,
-                "metatdata": m,
+                "metadata": m,
                 "text": "",
             }
         )
