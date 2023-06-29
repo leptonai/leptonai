@@ -1,0 +1,27 @@
+name: CI/CD - cluster
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cicd-cluster.yaml
+      - "infra/terraform/eks-lepton/**"
+    branches: [ "**" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Extract branch name
+      shell: bash
+      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      id: extract_branch
+    - name: Install Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Create and delete cluster
+      run: |
+        cd infra-tests
+        pip install -r requirements.txt
+        python test_cluster_creation.py ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }}
