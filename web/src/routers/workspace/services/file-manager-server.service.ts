@@ -10,41 +10,39 @@ export class FileManagerServerService implements FileManagerService<FileInfo> {
 
   constructor(private apiService: ApiService) {}
 
-  getStoragePath(path?: string) {
-    const normalizedPath = path?.replace(/^\//, "");
-    return `${this.storage}${path ? `/${normalizedPath}/` : "/"}`;
+  getStoragePath(file?: FileInfo) {
+    const normalizedPath = file?.path.replace(/^\//, "") || "";
+    const path = normalizedPath ? encodeURIComponent(normalizedPath) : "";
+    // we don't need to encode the end slash
+    return `${this.storage}${
+      path ? `/${path}` + (file?.type === "dir" ? "/" : "") : "/"
+    }`;
   }
 
   list(file?: FileInfo): Observable<FileInfo[]> {
-    return this.apiService
-      .listStorageEntries(this.getStoragePath(file?.path))
-      .pipe(
-        map((entries) =>
-          entries.map((entry) => ({
-            ...entry,
-            // FIXME(hsuanxyz): don't hardcode this, should remove it by backend or config from API
-            path: entry.path.replace("/mnt/efs/default", ""),
-          }))
-        )
-      );
+    return this.apiService.listStorageEntries(this.getStoragePath(file)).pipe(
+      map((entries) =>
+        entries.map((entry) => ({
+          ...entry,
+          // FIXME(hsuanxyz): don't hardcode this, should remove it by backend or config from API
+          path: entry.path.replace("/mnt/efs/default", ""),
+        }))
+      )
+    );
   }
 
   create(file: FileInfo, content?: File): Observable<void> {
     if (content) {
       return this.apiService.uploadStorageFile(
-        this.getStoragePath(encodeURIComponent(file.path)),
+        this.getStoragePath(file),
         content
       );
     } else {
-      return this.apiService.makeStorageDirectory(
-        this.getStoragePath(encodeURIComponent(file.path))
-      );
+      return this.apiService.makeStorageDirectory(this.getStoragePath(file));
     }
   }
 
   remove(file: FileInfo): Observable<void> {
-    return this.apiService.removeStorageEntry(
-      encodeURIComponent(this.getStoragePath(file.path))
-    );
+    return this.apiService.removeStorageEntry(this.getStoragePath(file));
   }
 }
