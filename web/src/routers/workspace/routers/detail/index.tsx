@@ -24,6 +24,7 @@ import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { WorkspaceSwitch } from "@lepton-dashboard/routers/workspace/components/workspace-switch";
 import { ProfileMenu } from "@lepton-dashboard/routers/workspace/components/profile-menu";
+
 const Dashboard = lazy(() =>
   import(
     "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard"
@@ -45,6 +46,14 @@ const Deployments = lazy(() =>
     "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments"
   ).then((e) => ({
     default: e.Deployments,
+  }))
+);
+
+const Storage = lazy(() =>
+  import(
+    "@lepton-dashboard/routers/workspace/routers/detail/routers/storage"
+  ).then((e) => ({
+    default: e.Storage,
   }))
 );
 
@@ -131,6 +140,14 @@ export const Detail: FC = () => {
             element={
               <LimitedLayoutWidth>
                 <Deployments />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="storage"
+            element={
+              <LimitedLayoutWidth>
+                <Storage />
               </LimitedLayoutWidth>
             }
           />

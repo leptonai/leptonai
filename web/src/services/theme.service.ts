@@ -34,6 +34,10 @@ export class ThemeService {
           width: 500,
           fontSize: 12,
         },
+        Table: {
+          controlItemBgActive: "#dde5ec",
+          controlItemBgActiveHover: "#d0d7de",
+        },
       },
     },
     dark: {

@@ -17,6 +17,7 @@ import {
   FineTuneJob,
   FineTuneJobStatus,
 } from "@lepton-dashboard/interfaces/fine-tune";
+import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -221,6 +222,31 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.get<FineTuneJob>(
       `${this.prefix}/tuna/job/${id}`
     );
+  }
+
+  uploadStorageFile(path: string, file: File): Observable<void> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.httpClientService.post<void>(
+      `${this.prefix}/storage/${path}`,
+      formData
+    );
+  }
+
+  removeStorageEntry(path: string): Observable<void> {
+    return this.httpClientService.delete<void>(
+      `${this.prefix}/storage/${path}`
+    );
+  }
+
+  listStorageEntries(path: string): Observable<FileInfo[]> {
+    return this.httpClientService.get<FileInfo[]>(
+      `${this.prefix}/storage/${path}`
+    );
+  }
+
+  makeStorageDirectory(path: string): Observable<void> {
+    return this.httpClientService.put<void>(`${this.prefix}/storage/${path}`);
   }
 
   constructor(

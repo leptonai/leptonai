@@ -12,6 +12,8 @@ import { ApiService } from "./services/api.service";
 import { ApiServerService } from "./services/api.server.service";
 import { IndicatorService } from "./services/indicator.service";
 import { FineTuneService } from "@lepton-dashboard/routers/workspace/services/fine-tune.service";
+import { FileManagerServerService } from "@lepton-dashboard/routers/workspace/services/file-manager-server.service";
+import { FileManagerService } from "@lepton-dashboard/routers/workspace/services/file-manager.service";
 
 const Detail = lazy(() =>
   import("@lepton-dashboard/routers/workspace/routers/detail").then((e) => ({
@@ -31,6 +33,7 @@ export const Workspace: FC = () => {
         SecretService,
         FineTuneService,
         { provide: ApiService, useClass: ApiServerService },
+        { provide: FileManagerService, useClass: FileManagerServerService },
       ]}
     >
       <Suspense fallback={<Loading />}>

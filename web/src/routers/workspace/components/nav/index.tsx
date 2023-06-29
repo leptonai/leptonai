@@ -8,7 +8,7 @@ import {
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
-import { Asterisk, Settings, Workspace } from "@carbon/icons-react";
+import { Asterisk, DataVolume, Settings, Workspace } from "@carbon/icons-react";
 import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
 
@@ -67,6 +67,15 @@ export const Nav: FC = () => {
         </span>
       ),
       key: `${pathname}/deployments`,
+    },
+    {
+      label: (
+        <span id="nav-storage">
+          <CarbonIcon icon={<DataVolume />} />
+          Storage
+        </span>
+      ),
+      key: `${pathname}/storage`,
     },
     {
       key: `${pathname}/secrets`,

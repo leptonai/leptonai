@@ -14,6 +14,7 @@ import {
   FineTuneJob,
   FineTuneJobStatus,
 } from "@lepton-dashboard/interfaces/fine-tune";
+import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 
 @Injectable()
 export abstract class ApiService {
@@ -68,4 +69,9 @@ export abstract class ApiService {
   abstract addFineTuneJob(file: File): Observable<FineTuneJob>;
   abstract cancelFineTuneJob(id: number): Observable<void>;
   abstract getFineTuneJob(id: number): Observable<FineTuneJob>;
+
+  abstract listStorageEntries(path: string): Observable<FileInfo[]>;
+  abstract makeStorageDirectory(path: string): Observable<void>;
+  abstract uploadStorageFile(path: string, file: File): Observable<void>;
+  abstract removeStorageEntry(path: string): Observable<void>;
 }

@@ -12,6 +12,7 @@ import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.ser
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 import { FineTuneJob } from "@lepton-dashboard/interfaces/fine-tune";
+import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -222,6 +223,22 @@ export class ApiLocalService implements ApiService {
   }
 
   listFineTuneJobs(): Observable<FineTuneJob[]> {
+    return EMPTY;
+  }
+
+  uploadStorageFile(): Observable<void> {
+    return EMPTY;
+  }
+
+  removeStorageEntry(): Observable<void> {
+    return EMPTY;
+  }
+
+  listStorageEntries(): Observable<FileInfo[]> {
+    return EMPTY;
+  }
+
+  makeStorageDirectory(): Observable<void> {
     return EMPTY;
   }
 }
