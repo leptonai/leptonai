@@ -6,13 +6,14 @@ from rich.console import Console
 from rich.table import Table
 
 import leptonai.remote as remote
+from leptonai.util import click_group
 from . import api
 
 
 console = Console(highlight=False)
 
 
-@click.group()
+@click_group()
 def deployment():
     pass
 
@@ -75,5 +76,5 @@ def remove(name):
     console.print(f"deployment deleted successfully: {name}.")
 
 
-def add_command(click_group):
-    click_group.add_command(deployment)
+def add_command(cli_group):
+    cli_group.add_command(deployment)
