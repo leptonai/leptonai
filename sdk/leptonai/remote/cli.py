@@ -1,4 +1,5 @@
 import click
+import requests
 import sys
 import yaml
 
@@ -7,7 +8,7 @@ from rich.table import Table
 from urllib.parse import urlparse
 
 from leptonai.config import CACHE_DIR
-from leptonai.util import click_group
+from leptonai.util import click_group, create_header
 
 
 console = Console(highlight=False)
@@ -25,9 +26,18 @@ def _is_valid_url(candidate_str):
     return parsed.scheme != "" and parsed.netloc != ""
 
 
-def _register_and_login(remote_name, remote_url, auth_token=None):
+def _register_and_set(remote_name, remote_url, auth_token=None):
     # Helper function to register the remote url and log in. It does not check
     # duplicates - assuming that it has already been done.
+    if remote_url is None:
+        console.print("You hit a programming error: no remote URL given.")
+        sys.exit(1)
+    while remote_name is None:
+        remote_name = console.input(
+            "Please give the remote cluster a display name (eg. my-remote):"
+        )
+        if not remote_name:
+            console.print("Remote cluster name cannot be empty.")
     if auth_token is None:
         auth_token = (
             console.input(
@@ -38,7 +48,7 @@ def _register_and_login(remote_name, remote_url, auth_token=None):
         )
     save_cluster(remote_name, remote_url, auth_token=auth_token)
     set_current_cluster(remote_name)
-    console.print(f'Cluster "{remote_url}" [green]registered and logged in[/]')
+    console.print(f'Cluster "{remote_url}" [green]registered[/].')
     console.print(
         f"Next time, you can just use `lep remote login -n {remote_name}` to log in."
     )
@@ -48,7 +58,17 @@ def _register_and_login(remote_name, remote_url, auth_token=None):
 @click.option("--remote-name", "-n", help="Name of the remote cluster")
 @click.option("--remote-url", "-r", help="URL of the remote cluster")
 @click.option("--auth-token", "-t", help="Authentication token for the remote cluster")
-def login(remote_name, remote_url, auth_token):
+@click.option(
+    "--dry-run",
+    "-d",
+    is_flag=True,
+    help=(
+        "[Test use only] if specified, do not attempt to verify if we can log in to the"
+        " remote cluster. This is only used in testing."
+    ),
+    hidden=True,
+)
+def login(remote_name, remote_url, auth_token, dry_run):
     """
     Login to a remote cluster.
     """
@@ -72,22 +92,17 @@ def login(remote_name, remote_url, auth_token):
                 break
         if registered_name == remote_name:
             set_current_cluster(remote_name)
-            console.print(f'Cluster "{remote_name}" [green]logged in[/]')
-            return
         else:
             # This implies that, we can possibly register multiple names to the
             # same url. This is not a problem, but it won't create any conflicts
             # so we allow users to do it.
-            _register_and_login(remote_name, remote_url, auth_token=auth_token)
-            return
+            _register_and_set(remote_name, remote_url, auth_token=auth_token)
     elif remote_name:
         # Check if remote name exists.
         clusters = load_cluster_info()["clusters"]
         if remote_name in clusters:
             remote_url = clusters[remote_name]["url"]
             set_current_cluster(remote_name)
-            console.print(f'Cluster "{remote_name}" [green]logged in[/]')
-            return
         else:
             console.print(
                 f'[red]Cluster "{remote_name}" does not exist[/]. Please check your'
@@ -107,7 +122,7 @@ def login(remote_name, remote_url, auth_token):
             if cluster["url"] == remote_url:
                 remote_name = name
                 break
-        if remote_name is not None:
+        if remote_name:
             # if it does, log in.
             set_current_cluster(remote_name)
             console.print(
@@ -118,28 +133,44 @@ def login(remote_name, remote_url, auth_token):
                 f"Next time, you can just use `lep remote login -n {remote_name}` to"
                 " log in."
             )
-            console.print(f'Cluster "{remote_url}" [green]logged in[/]')
-            return
         else:
             console.print(f"Adding a new remote cluster {remote_url}.")
-            while remote_name is None:
-                remote_name = console.input(
-                    "Please give the remote cluster a display name (eg. my-remote):"
-                )
-                if not remote_name:
-                    console.print("Remote cluster name cannot be empty.")
-            _register_and_login(remote_name, remote_url, auth_token=auth_token)
-            return
+            _register_and_set(remote_name, remote_url, auth_token=auth_token)
+    # If all above logic has passed, we will have a remote_name and remote_url
+    # at this point that we can use to log in.
+    if not dry_run:
+        # do sanity checks.
+        try:
+            auth_token = get_auth_token(remote_url)
+            response = requests.get(
+                remote_url + "/cluster", headers=create_header(auth_token)
+            )
+        except Exception as e:
+            console.print("[red]Cannot connect to the remote url.[/]")
+            console.print("Include the following exception message when you seek help:")
+            console.print(str(e))
+            sys.exit(1)
+        console.print(
+            f"Cluster info: build_time={response.json()['build_time']},"
+            f" git_commit={response.json()['git_commit']}"
+        )
+    console.print(f"Cluster {remote_name} ({remote_url}) [green]logged in[/]")
 
 
 @remote.command()
 def logout():
+    """
+    Log out of the current cluster.
+    """
     set_current_cluster(None)
     console.print("[green]Logged out[/]")
 
 
 @remote.command()
 def list():
+    """
+    List currently recorded remote clusteres.
+    """
     cluster_info = load_cluster_info()
     clusters = cluster_info["clusters"]
     current_cluster = cluster_info["current_cluster"]
@@ -166,6 +197,9 @@ def list():
 @remote.command()
 @click.option("--remote-name", "-n", help="Name of the remote cluster", required=True)
 def remove(remote_name):
+    """
+    Remove a remote cluster from the list.
+    """
     if remote_name is None:
         console.print("Must specify --remote-name")
         sys.exit(1)
