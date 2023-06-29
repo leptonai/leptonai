@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import re
+import sys
 from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
 import zipfile
@@ -106,7 +107,24 @@ def get_routes(var):
     qualname = var.__qualname__
     if not inspect.isclass(var):
         qualname = ".".join(qualname.split(".")[:-1])
-    cls_name = f"{var.__module__}.{qualname}"
+
+    mod_path = None
+
+    if mod_path is None:
+        try:
+            mod = sys.modules[var.__module__]
+            mod_path = os.path.abspath(mod.__file__)
+        except (KeyError, AttributeError):
+            pass
+    if mod_path is None:
+        try:
+            mod_path = os.path.abspath(inspect.getfile(var))
+        except TypeError:
+            pass
+    if mod_path is None:
+        mod_path = var.__module__
+
+    cls_name = f"{mod_path}:{qualname}"
     if cls_name not in _routes:
         _routes[cls_name] = {}
     return _routes[cls_name]
@@ -436,6 +454,8 @@ class Photon(BasePhoton):
             if spec is None:
                 raise ValueError(f"Could not import Python module from path: {path}")
             module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            cloudpickle.register_pickle_by_value(module)
             if spec.loader is None:
                 raise ValueError(f"Could not import Python module from path: {path}")
             spec.loader.exec_module(module)

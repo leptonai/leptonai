@@ -1,12 +1,13 @@
 import atexit
 from contextlib import closing
 import functools
-import os
 import random
 import socket
 import subprocess
 import string
 import time
+
+from loguru import logger
 
 
 def find_free_port():
@@ -59,10 +60,12 @@ def photon_run_server(name=None, path=None, model=None, port=None):
         # server failed to start
         proc.kill()
         stdout = proc.stdout.read().decode("utf-8")
-        stderr = os.linesep.join(lines)
+        stderr = "".join(lines)
         raise RuntimeError(
             f"Photon server failed to start:\nstdout:\n{stdout}\nstderr:\n{stderr}"
         )
+    stderr = "".join(lines)
+    logger.info(f"Photon server started:\nstderr:\n{stderr}")
     return proc, port
 
 
