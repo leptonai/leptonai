@@ -33,33 +33,18 @@ def delete_cluster(cluster_name, auth_token):
     return False
 
 
-def check_ready(cluster_name, auth_token):
+def check_state(cluster_name, auth_token):
     url = f"https://mothership.cloud.lepton.ai/api/v1/clusters/{cluster_name}"
     headers = {"Authorization": "Bearer " + auth_token}
     response = requests.get(url, headers=headers)
     if response.status_code >= 200 and response.status_code < 300:
         resp = json.loads(response.text)
-        if (
-            "status" in resp
-            and "state" in resp["status"]
-            and resp["status"]["state"] == "ready"
-        ):
-            print(f"Cluster {cluster_name} is ready")
-            return True
-    print(f"Cluster {cluster_name} is not ready")
-    return False
-
-
-def check_deleted(cluster_name, auth_token):
-    url = f"https://mothership.cloud.lepton.ai/api/v1/clusters/{cluster_name}"
-    headers = {"Authorization": "Bearer " + auth_token}
-    response = requests.get(url, headers=headers)
+        if "status" in resp and "state" in resp["status"]:
+            return resp["status"]["state"]
     if response.status_code >= 500:
         if "failed to get cluster" in response.text:
-            print(f"Cluster {cluster_name} deletion finished")
-            return True
-    print(f"Cluster {cluster_name} deletion not finished")
-    return False
+            return "deleted"
+    return "unknown"
 
 
 if __name__ == "__main__":
@@ -75,19 +60,18 @@ if __name__ == "__main__":
 
     # do cluster creation
     if not create_cluster(cluster_name, auth_token, git_ref):
+        time.sleep(60)
         delete_cluster(cluster_name, auth_token)
         sys.exit(1)
-    # if it doesn't finish creation in 2 hours, we fail the test, because mothership
-    # has a timeout of 2 hours for cluster creation
-    start_time = time.time()
-    print("Cluster creation start time: " + time.ctime(start_time))
+    print("Cluster creation start time: " + time.ctime(time.time()))
     while True:
         time.sleep(60)
-        if check_ready(cluster_name, auth_token):
+        state = check_state(cluster_name, auth_token)
+        print("Cluster state: " + state + " at " + time.ctime(time.time()))
+        if state == "ready":
             break
-        end_time = time.time()
-        if end_time - start_time > 7200 + 60:  # 2 hours + a little buffer
-            print("Cluster creation timeout" + time.ctime(end_time))
+        if state == "failed":
+            print("Cluster creation failed: " + time.ctime(time.now()))
             delete_cluster(cluster_name, auth_token)
             sys.exit(1)
     print("Cluster creation end time: " + time.ctime(time.time()))
@@ -95,16 +79,15 @@ if __name__ == "__main__":
     # do cluster deletion
     if not delete_cluster(cluster_name, auth_token):
         sys.exit(1)
-    # if it doesn't finish deletion in 2 hours, we fail the test, because mothership
-    # has a timeout of 2 hours for cluster deletion
-    start_time = time.time()
-    print("Cluster deletion start time: " + time.ctime(start_time))
+    print("Cluster deletion start time: " + time.ctime(time.time()))
     while True:
         time.sleep(60)
-        if check_deleted(cluster_name, auth_token):
+        state = check_state(cluster_name, auth_token)
+        print("Cluster state: " + state + " at " + time.ctime(time.time()))
+        if state == "deleted":
             break
-        end_time = time.time()
-        print("Cluster deletion timeout" + time.ctime(end_time))
-        if end_time - start_time > 7200:
+        if state == "failed":
+            print("Cluster deletion failed: " + time.ctime(time.now()))
+            delete_cluster(cluster_name, auth_token)
             sys.exit(1)
     print("Cluster deletion end time: " + time.ctime(time.time()))
