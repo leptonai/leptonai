@@ -35,7 +35,7 @@ def create(name, value):
     auth_token = remote.cli.get_auth_token(remote_url)
     existing_secrets = api.list_remote(remote_url, auth_token)
     for n in name:
-        if n in existing_secrets:
+        if existing_secrets and n in existing_secrets:
             console.print(
                 f"Secret with name {n} already exists. Please use a different name or"
                 " remove the existing secret with `lep secret remove` first."
