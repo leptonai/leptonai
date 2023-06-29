@@ -51,7 +51,7 @@ const (
 	apiServerPath = "/api/"
 	rootPath      = "/"
 
-	tunaURL = "https://tuna-tunaml.vercel.app"
+	tunaURL = "https://tuna-dev.vercel.app/"
 )
 
 func main() {

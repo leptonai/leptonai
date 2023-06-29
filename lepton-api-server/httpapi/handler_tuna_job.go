@@ -173,8 +173,8 @@ func setForwardURL(c *gin.Context) {
 	c.Request.Header.Del("Accept-Encoding")
 	c.Request.URL.Path = c.Request.URL.Path[len("/api/v1/tuna"):]
 	c.Request.URL.Scheme = "https"
-	c.Request.URL.Host = "tuna-prod.vercel.app"
-	c.Request.Host = "tuna-prod.vercel.app"
+	c.Request.URL.Host = "tuna-dev.vercel.app"
+	c.Request.Host = "tuna-dev.vercel.app"
 }
 
 var removingResponseHeaders = map[string]bool{
