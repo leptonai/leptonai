@@ -207,6 +207,7 @@ func main() {
 		v1.POST("/storage/default/*path", sh.CreateFile)
 		v1.PUT("/storage/default/*path", sh.CreateDir)
 		v1.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
+		v1.HEAD("/storage/default/*path", sh.CheckExists)
 	}
 
 	if *efsIDFlag != "" {

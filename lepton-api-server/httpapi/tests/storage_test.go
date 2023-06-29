@@ -21,6 +21,44 @@ const (
 	apiPath = "/api/v1/storage/default/"
 )
 
+func TestStorageCheckExists(t *testing.T) {
+	testDir, err := makeTestDir(mountPath, t.Name())
+	if err != nil {
+		t.Errorf("Error creating test path: %s", err)
+	}
+	relTestDir := filepath.Base(testDir)
+
+	err = makeFilesAndDirs(testDir)
+	if err != nil {
+		t.Errorf("Error creating test files and dirs: %s", err)
+	}
+
+	toTest := []string{"file-0", "file-1", "file-2", "dir-0", "dir-1", "dir-2"}
+	for _, f := range toTest {
+		url := filepath.Join(apiPath, relTestDir, f)
+		req, _ := http.NewRequest("HEAD", url, nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Response code is %v", w.Code)
+		}
+	}
+	doesNotExist := []string{"file-3", "dir-3"}
+	for _, f := range doesNotExist {
+		url := filepath.Join(apiPath, relTestDir, f)
+		req, _ := http.NewRequest("HEAD", url, nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Response code is %v", w.Code)
+		}
+	}
+}
+
 func TestStorageGetDir(t *testing.T) {
 	testDir, err := makeTestDir(mountPath, t.Name())
 	if err != nil {

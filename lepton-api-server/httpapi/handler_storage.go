@@ -199,6 +199,32 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 	}
 }
 
+func (sh *StorageHandler) CheckExists(c *gin.Context) {
+	relPath := c.Param("path")
+	absPath := filepath.Join(sh.mountPath, relPath)
+
+	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.truncateErr(err)})
+		return
+	}
+	if !validPath {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "Provided path is not a valid subpath"})
+		return
+	}
+
+	exists, err := util.CheckPathExists(absPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.truncateErr(err)})
+		return
+	}
+	if exists {
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Path '%s' exists", relPath)})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("Path '%s' does not exist", relPath)})
+	}
+}
+
 func (sh *StorageHandler) truncateErr(e error) error {
 	return errors.New((util.RemovePrefix(e.Error(), sh.mountPath)))
 }
