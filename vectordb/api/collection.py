@@ -107,13 +107,19 @@ class Collection:
             keys (List[str]): The vector embedding keys.
             embeddings (List[Embedding]): A list of vector embeddings.
             metadatas (List[Metadata]): The metadatas of the vector embeddings.
-
-        Examples:
-            collection.insert(
-            keys=["doc1", "doc2"], # must be unique per embedding
-            embeddings=[[1,2,3,4,5], [2,2,3,4,5]], #
-            metadatas=[{"source": "notion"}, {"source": "google-docs"}],
         """
+        if not _has_same_length(keys, embeddings, metadatas):
+            raise Exception(
+                "length of keys, embeddings, and metadatas must be the same"
+            )
+        inputs = {
+            "name": self.name,
+            "embeddings": _to_embs(
+                keys=keys, embeddings=embeddings, metadatas=metadatas
+            ),
+        }
+        resp = self.client.upsert(**inputs)
+        _raise_resp_error(resp)
 
     def _add(
         self, keys: List[str], embeddings: List[Embedding], metadatas: List[Metadata]

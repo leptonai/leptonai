@@ -74,6 +74,14 @@ class VecDB(Photon):
         collection.add_embeddings(embeddings)
 
     @Photon.handler()
+    def upsert(self, name: str, embeddings: List[Embedding]):
+        collection = self._get_collection(name)
+        to_upsert = [e.doc_id for e in embeddings]
+        # TODO(fanminshi): handle update without deleting entries.
+        collection.delete(doc_ids=to_upsert)
+        collection.add_embeddings(embeddings)
+
+    @Photon.handler()
     def add(self, name: str, embeddings: List[Embedding]):
         collection = self._get_collection(name)
         to_add = [e.doc_id for e in embeddings]
