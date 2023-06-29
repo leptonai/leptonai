@@ -1,4 +1,5 @@
 from collections import namedtuple
+import os
 
 from leptonai.photon import Photon
 
@@ -9,7 +10,9 @@ class Server(Photon):
     requirement_dependency = ["https://github.com/leptonai/FastChat.git@d426b61"]
 
     def init(self):
-        fastchat.serve.gradio_web_server.controller_url = "http://0.0.0.0:21001"
+        fastchat.serve.gradio_web_server.controller_url = os.environ.get(
+            "CONTROLLER_ADDR", "http://0.0.0.0:21001"
+        )
         fastchat.serve.gradio_web_server.enable_moderation = False
         fastchat.serve.gradio_web_server.templates_map.clear()
 

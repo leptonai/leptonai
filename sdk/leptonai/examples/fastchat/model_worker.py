@@ -1,4 +1,5 @@
 from collections import namedtuple
+import os
 
 from leptonai.photon import Photon
 
@@ -10,8 +11,8 @@ class Server(Photon):
 
     def init(self):
         worker = fastchat.serve.model_worker.ModelWorker(
-            controller_addr="http://0.0.0.0:21001",
-            worker_addr="http://0.0.0.0:21002",
+            controller_addr=os.environ.get("CONTROLLER_ADDR", "http://0.0.0.0:21001"),
+            worker_addr=os.environ.get("WORKER_ADDR", "http://0.0.0.0:21002"),
             worker_id=fastchat.serve.model_worker.worker_id,
             no_register=False,
             model_path="./model",
