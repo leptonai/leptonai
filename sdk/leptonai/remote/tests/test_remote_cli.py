@@ -5,12 +5,13 @@ import unittest
 from click.testing import CliRunner
 from loguru import logger
 
-from leptonai import config
-from leptonai.cli import lep as cli
-
 # Set cache dir to a temp dir before importing anything from lepton
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
+
+from leptonai import config
+from leptonai.cli import lep as cli
+
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
@@ -28,9 +29,83 @@ class TestRemoteCli(unittest.TestCase):
 
     def test_remote_login(self):
         runner = CliRunner()
+        # If nothing, cannot log in
+        result = runner.invoke(cli, ["remote", "login"])
+        self.assertIn("must specify", result.output.lower())
+        self.assertEqual(result.exit_code, 1)
+        # using -n name, OK
         result = runner.invoke(cli, ["remote", "login", "-n", "test-remote-0"])
         self.assertIn("logged in", result.output.lower())
         self.assertEqual(result.exit_code, 0)
+        # using -n nonexisting name, not ok
+        result = runner.invoke(cli, ["remote", "login", "-n", "nonexistent-remote"])
+        self.assertIn("does not exist", result.output.lower())
+        self.assertEqual(result.exit_code, 1)
+        # using -r, already registered, ok
+        result = runner.invoke(
+            cli, ["remote", "login", "-r", "http://example-0.lepton.ai"]
+        )
+        self.assertIn("already registered", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        # using -r -n together, both match, ok
+        result = runner.invoke(
+            cli,
+            [
+                "remote",
+                "login",
+                "-r",
+                "http://example-0.lepton.ai",
+                "-n",
+                "test-remote-0",
+            ],
+        )
+        self.assertIn("logged in", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        # using -r -n together, not match, will go to registration
+        result = runner.invoke(
+            cli,
+            [
+                "remote",
+                "login",
+                "-r",
+                "http://example-0.lepton.ai",
+                "-n",
+                "non-matching-name",
+            ],
+            input="\n",  # empty auth token
+        )
+        self.assertIn("registered and logged in", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        # using -r -n but not registered url, ok
+        result = runner.invoke(
+            cli,
+            [
+                "remote",
+                "login",
+                "-r",
+                "http://example-1.lepton.ai",
+                "-n",
+                "test-remote-1",
+            ],
+            input="\n",  # empty auth token
+        )
+        self.assertIn("registered and logged in", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
+        # using -r -n, not registered url, existing name, not ok
+        result = runner.invoke(
+            cli,
+            [
+                "remote",
+                "login",
+                "-r",
+                "http://example-1.lepton.ai",
+                "-n",
+                "test-remote-0",
+            ],
+            input="\n",  # empty auth token
+        )
+        self.assertIn("already registered", result.output.lower())
+        self.assertNotEqual(result.exit_code, 0)
 
     def test_remote_list(self):
         runner = CliRunner()
