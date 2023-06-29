@@ -7,6 +7,7 @@ from rich.table import Table
 from urllib.parse import urlparse
 
 from leptonai.config import CACHE_DIR
+from leptonai.util import click_group
 
 
 console = Console(highlight=False)
@@ -14,7 +15,7 @@ console = Console(highlight=False)
 CLUSTER_FILE = CACHE_DIR / "cluster_info.yaml"
 
 
-@click.group()
+@click_group()
 def remote():
     pass
 
@@ -179,8 +180,8 @@ def remove(remote_name):
         sys.exit(1)
 
 
-def add_command(click_group):
-    click_group.add_command(remote)
+def add_command(cli_group):
+    cli_group.add_command(remote)
 
 
 def load_cluster_info():

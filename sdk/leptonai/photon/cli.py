@@ -13,6 +13,7 @@ import click
 from .base import find_all_local_photons, find_photon, remove_photon
 from . import api
 import leptonai.remote as remote
+from leptonai.util import click_group
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
 
@@ -41,7 +42,7 @@ def get_most_recent_photon_id_or_none(remote_url, auth_token, name):
     return photon_id
 
 
-@click.group()
+@click_group()
 def photon():
     pass
 
@@ -410,5 +411,5 @@ def fetch(id, path):
     console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')
 
 
-def add_command(click_group):
-    click_group.add_command(photon)
+def add_command(cli_group):
+    cli_group.add_command(photon)
