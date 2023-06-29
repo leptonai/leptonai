@@ -241,7 +241,6 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 				MountPath: homeVolumeMountPath,
 			},
 		},
-		SecurityContext: k8s.DefaultContainerSecurityContext(),
 	}
 
 	volumes := []corev1.Volume{}
