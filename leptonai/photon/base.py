@@ -128,7 +128,7 @@ def find_all_local_photons():
     return records
 
 
-def find_photon(name):
+def find_local_photon(name):
     res = DB.cursor().execute(
         "SELECT * FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
     )
@@ -139,7 +139,7 @@ def find_photon(name):
         return record_or_none[0]
 
 
-def remove_photon(name):
+def remove_local_photon(name):
     res = DB.cursor().execute(
         "SELECT path FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
     )

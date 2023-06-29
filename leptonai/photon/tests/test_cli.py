@@ -13,7 +13,7 @@ from loguru import logger
 import requests
 
 from leptonai import config
-from leptonai.photon.base import find_photon
+from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
 from utils import random_name, photon_run_server, sub_test
 
@@ -207,7 +207,7 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertTrue("created" in result.output)
 
-        path = find_photon(name)
+        path = find_local_photon(name)
         self.assertIsNotNone(path)
 
         proc, port = photon_run_server(path=path, model=transformers_model)
