@@ -28,6 +28,19 @@ func DefaultContainerSecurityContext() *corev1.SecurityContext {
 	}
 }
 
+// RootContainerSecurityContext returns a restricted security context running as root for a container.
+func RootContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &falseBool,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
 // DefaultPodSecurityContext returns a default security context for a pod with the default FS Group.
 func DefaultPodSecurityContext() *corev1.PodSecurityContext {
 	return &corev1.PodSecurityContext{

@@ -22,8 +22,8 @@ const (
 
 	photonVolumeName      = "photon"
 	photonVolumeMountPath = "/photon"
-	homeVolumeName        = "home"
-	homeVolumeMountPath   = "/nonexistent"
+	awsVolumeName         = "aws"
+	awsVolumeMountPath    = "/.aws"
 
 	awscliImageURL = "amazon/aws-cli"
 
@@ -34,10 +34,6 @@ const (
 	labelKeyPhotonID             = "photon_id"
 	labelKeyLeptonDeploymentName = "lepton_deployment_name"
 	labelKeyLeptonDeploymentID   = "lepton_deployment_id"
-)
-
-var (
-	falseBool = false
 )
 
 type deployment struct {
@@ -147,16 +143,12 @@ func (k *deployment) newInitContainer() corev1.Container {
 				Name:      photonVolumeName,
 				MountPath: photonVolumeMountPath,
 			},
-		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &falseBool,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			{
+				Name:      awsVolumeName,
+				MountPath: awsVolumeMountPath,
 			},
 		},
+		SecurityContext: k8s.DefaultContainerSecurityContext(),
 	}
 }
 
@@ -221,7 +213,6 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         k.newMainContainerCommand(),
 		Args:            k.newMainContainerArgs(),
-		WorkingDir:      homeVolumeMountPath,
 		Resources:       resources,
 		Env:             env,
 
@@ -236,11 +227,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 				Name:      photonVolumeName,
 				MountPath: photonVolumeMountPath,
 			},
-			{
-				Name:      homeVolumeName,
-				MountPath: homeVolumeMountPath,
-			},
 		},
+		SecurityContext: k8s.RootContainerSecurityContext(),
 	}
 
 	volumes := []corev1.Volume{}
@@ -274,8 +262,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		},
 	}
 
-	homeVolume := corev1.Volume{
-		Name: homeVolumeName,
+	awsVolume := corev1.Volume{
+		Name: awsVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
@@ -286,7 +274,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	spec := &corev1.PodSpec{
 		InitContainers:     []corev1.Container{k.newInitContainer()},
 		Containers:         []corev1.Container{container},
-		Volumes:            append(volumes, sharedVolume, homeVolume),
+		Volumes:            append(volumes, sharedVolume, awsVolume),
 		ServiceAccountName: ld.Spec.ServiceAccountName,
 		NodeSelector:       nodeSelector,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery
