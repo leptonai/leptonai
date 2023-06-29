@@ -129,9 +129,8 @@ type Mount struct {
 
 // LeptonDeploymentStatus defines the observed state of LeptonDeployment
 type LeptonDeploymentStatus struct {
-	State           LeptonDeploymentState    `json:"state"`
-	Endpoint        LeptonDeploymentEndpoint `json:"endpoint"`
-	ReadinessIssues []string                 `json:"readiness_issues,omitempty"`
+	State    LeptonDeploymentState    `json:"state"`
+	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
 }
 
 type LeptonDeploymentResourceShape string
@@ -149,15 +148,6 @@ const (
 )
 
 const DeletionFinalizerName = "lepton.ai/deletion"
-
-type LeptonDeploymentNotReadyIssue string
-
-const (
-	LeptonDeploymentNotReadyIssueNoCapacity         LeptonDeploymentNotReadyIssue = "No Capacity"
-	LeptonDeploymentNotReadyIssueConfigurationError LeptonDeploymentNotReadyIssue = "Configuration Error"
-	LeptonDeploymentNotReadyIssueCodeError          LeptonDeploymentNotReadyIssue = "Code Error"
-	LeptonDeploymentNotReadyIssueUnknown            LeptonDeploymentNotReadyIssue = "Unknown"
-)
 
 // LeptonDeploymentEndpoint defines the endpoint of the deployment.
 type LeptonDeploymentEndpoint struct {

@@ -96,3 +96,9 @@ func (h *Handler) StorageSyncerHandler() *StorageSyncerHandler {
 		Handler: *h,
 	}
 }
+
+func (h *Handler) DeploymentReadinessHandler() *DeploymentReadinessHandler {
+	return &DeploymentReadinessHandler{
+		Handler: *h,
+	}
+}

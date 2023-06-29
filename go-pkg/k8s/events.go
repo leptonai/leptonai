@@ -8,9 +8,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func ListPodEvents(namespace, name string) (*eventv1.EventList, error) {
+	return ListEvents(namespace, name, "Pod")
+}
+
 func ListDeploymentEvents(namespace, name string) (*eventv1.EventList, error) {
+	return ListEvents(namespace, name, "Deployment")
+}
+
+func ListEvents(namespace, name, kind string) (*eventv1.EventList, error) {
 	selector := fields.SelectorFromSet(fields.Set{
-		"regarding.kind": "Deployment",
+		"regarding.kind": kind,
 		"regarding.name": name,
 	})
 

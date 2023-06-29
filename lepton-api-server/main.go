@@ -180,6 +180,7 @@ func main() {
 	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", handler.MonitoringHandler().DeploymentFastAPILatencyByPath)
 
 	v1.GET("/deployments/:did/events", handler.DeploymentEventHandler().Get)
+	v1.GET("/deployments/:did/readiness", handler.DeploymentReadinessHandler().Get)
 
 	u, err := url.Parse(tunaURL)
 	if err != nil {

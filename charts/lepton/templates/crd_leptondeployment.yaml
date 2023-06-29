@@ -145,10 +145,6 @@ spec:
                 - external_endpoint
                 - internal_endpoint
                 type: object
-              readiness_issues:
-                items:
-                  type: string
-                type: array
               state:
                 description: LeptonDeploymentState defines the state of the deployment.
                 type: string

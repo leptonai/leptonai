@@ -51,3 +51,9 @@ func (l *Lepton) Event() *Event {
 		Lepton: *l,
 	}
 }
+
+func (l *Lepton) Readiness() *Readiness {
+	return &Readiness{
+		Lepton: *l,
+	}
+}
