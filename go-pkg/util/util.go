@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -47,6 +48,16 @@ func RemoveString(slice []string, s string) (result []string) {
 		result = append(result, item)
 	}
 	return
+}
+
+func RemovePrefix(msg string, prefix string) string {
+	// remove the prefix from all words in the message
+	// return the new message
+	words := strings.Split(msg, " ")
+	for i := range words {
+		words[i] = strings.TrimPrefix(words[i], prefix)
+	}
+	return strings.Join(words, " ")
 }
 
 // deepCompare compares two files byte by byte without loading them into memory

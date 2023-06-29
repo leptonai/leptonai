@@ -2,6 +2,7 @@ package util
 
 import (
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,6 +33,24 @@ func TestRemoveString(t *testing.T) {
 	}
 	if len(result) != 2 {
 		t.Errorf("RemoveString(slice, \"a\") = %v; want length 2", result)
+	}
+}
+
+func TestRemovePrefix(t *testing.T) {
+	pre := "l33t"
+	msg := ""
+	expected := ""
+	for i := 0; i < 10; i++ {
+		word := RandString(10)
+		expected += word + " "
+		if rand.Intn(3) == 0 {
+			word = pre + word
+		}
+		msg += word + " "
+	}
+	result := RemovePrefix(msg, pre)
+	if result != expected {
+		t.Errorf("RemovePrefix(%s, %s) = %s; want %s", msg, pre, result, expected)
 	}
 }
 
