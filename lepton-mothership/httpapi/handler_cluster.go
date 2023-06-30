@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/lepton-api-server/version"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -64,7 +64,9 @@ func HandleClusterCreate(c *gin.Context) {
 	if spec.Region == "" {
 		spec.Region = defaultRegion
 	}
-	spec.GitRef = version.VersionInfo.GitCommit
+	if spec.GitRef == "" {
+		spec.GitRef = string(plumbing.Main)
+	}
 
 	cl, err := cluster.Create(spec)
 	if err != nil {
@@ -101,7 +103,9 @@ func HandleClusterUpdate(c *gin.Context) {
 	if spec.Region == "" {
 		spec.Region = defaultRegion
 	}
-	spec.GitRef = version.VersionInfo.GitCommit
+	if spec.GitRef == "" {
+		spec.GitRef = string(plumbing.Main)
+	}
 
 	cl, err := cluster.Update(spec)
 	if err != nil {
