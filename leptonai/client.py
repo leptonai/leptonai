@@ -17,18 +17,45 @@ def _is_local_url(candidate_str):
 
 
 class Client:
+    """
+    The lepton python client that calls a deployment in a workspace.
+
+    A Client gives pythonic access to the functions defined in a deployment. For
+    example, if a deployment defines two functions, `foo` and `bar`, they can
+    usually be accessed via two openapi endpoint urls, `/foo` and `/bar`. The
+    python equivalent will then be `client.foo` and `client.bar`, as one would
+    expect a python class may have.
+
+    The client can be initialized with a workspace name and the deployment name,
+    or a full URL to the deployment's endpoint. For example, if the workspace is
+    `my-workspace` and the deployment is `my-deployment`, the client can be created
+    via
+        client = Client("my-workspace", "my-deployment", token=MY_TOKEN)
+    or via the full URL (given you are using the public cloud deployment):
+        client = Client("https://my-workspace-my-deployment.cloud.lepton.ai", token=MY_TOKEN)
+    """
+
     # TODO: add support for creating client with name/id
-    def __init__(self, workspace, deployment=None, token=None):
+    def __init__(self, workspace_or_url, deployment=None, token=None):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
 
         Args:
-            workspace (str): The workspace name.
-            deployment (str): The deployment name.
+            workspace_or_url (str): The workspace name, or a full URL to the deployment's
+                endpoint.
+            deployment (str, optional): The deployment name. If a full URL is passed
+                in, deployment can be None.
             token (str, optional): The token to use for authentication. Defaults to None.
+
+        Implementation Note: when one uses a full URL, the client accesses the deployment
+        specific endpoint directly. This endpoint may have a certain delay, and may not be
+        immediately available after the deployment is created. when one uses a workspace
+        name and the deployment name, the client accesses the workspace endpoint and uses
+        the deployment name as a header. This is the recommended way to use the client.
+        We may remove the ability to use a full URL in the future.
         """
-        if _is_valid_url(workspace):
-            if not _is_local_url(workspace):
+        if _is_valid_url(workspace_or_url):
+            if not _is_local_url(workspace_or_url):
                 warnings.warn(
                     (
                         "Explicitly passing in a remote URL is deprecated, and may be"
@@ -36,13 +63,13 @@ class Client:
                     ),
                     DeprecationWarning,
                 )
-            self.url = workspace
+            self.url = workspace_or_url
         else:
             # TODO: sanity check if the workspace name is legit.
-            self.url = f"https://{workspace}.cloud.lepton.ai"
+            self.url = f"https://{workspace_or_url}.cloud.lepton.ai"
         self._session = requests.Session()
         if deployment is None:
-            if not _is_local_url(workspace):
+            if not _is_local_url(workspace_or_url):
                 warnings.warn(
                     (
                         "Remote execution without an explicit deployment is deprecated,"
@@ -82,6 +109,10 @@ class Client:
 
     @cached_property
     def openapi(self):
+        """
+        Returns the OpenAPI specification of the deployment, or None if the
+        deployment does not have an openapi specified.
+        """
         try:
             return self._get("/openapi.json").json()
         except requests.exceptions.ConnectionError:
