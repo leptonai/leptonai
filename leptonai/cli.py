@@ -1,5 +1,5 @@
 from .photon import cli as photon_cli
-from .remote import cli as remote_cli
+from .workspace import cli as workspace_cli
 from .secret import cli as secret_cli
 from .deployment import cli as deployment_cli
 from .util import click_group
@@ -13,7 +13,7 @@ def lep():
 
 
 photon_cli.add_command(lep)
-remote_cli.add_command(lep)
+workspace_cli.add_command(lep)
 secret_cli.add_command(lep)
 deployment_cli.add_command(lep)
 
