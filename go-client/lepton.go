@@ -57,3 +57,9 @@ func (l *Lepton) Readiness() *Readiness {
 		Lepton: *l,
 	}
 }
+
+func (l *Lepton) Storage() *Storage {
+	return &Storage{
+		Lepton: *l,
+	}
+}
