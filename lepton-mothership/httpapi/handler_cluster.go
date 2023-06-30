@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/lepton-api-server/version"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -42,6 +43,12 @@ func HandleClusterList(c *gin.Context) {
 	c.JSON(http.StatusOK, cls)
 }
 
+// TODO: make this configurable, or derive
+const (
+	defaultProvider = "aws"
+	defaultRegion   = "us-east-1"
+)
+
 func HandleClusterCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
@@ -50,6 +57,14 @@ func HandleClusterCreate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
+
+	if spec.Provider == "" {
+		spec.Provider = defaultProvider
+	}
+	if spec.Region == "" {
+		spec.Region = defaultRegion
+	}
+	spec.GitRef = version.VersionInfo.GitCommit
 
 	cl, err := cluster.Create(spec)
 	if err != nil {
@@ -79,6 +94,14 @@ func HandleClusterUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
+
+	if spec.Provider == "" {
+		spec.Provider = defaultProvider
+	}
+	if spec.Region == "" {
+		spec.Region = defaultRegion
+	}
+	spec.GitRef = version.VersionInfo.GitCommit
 
 	cl, err := cluster.Update(spec)
 	if err != nil {
