@@ -14,6 +14,7 @@ import zipfile
 
 from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.wsgi import WSGIMiddleware
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
@@ -344,26 +345,47 @@ class Photon(BasePhoton):
                             f"Skip mounting {path} as `gradio` is not installed"
                         )
                         continue
+                    if "flask" in str(e):
+                        logger.warning(
+                            f"Skip mounting {path} as `flask` is not installed"
+                        )
+                        continue
                     raise
 
                 if isinstance(subapp, FastAPI):
                     app.mount(f"/{path}", subapp)
-                else:
-                    try:
-                        import gradio as gr
-                    except ImportError:
-                        logger.warning(
-                            f"Skip mounting {path} as `gradio` is not installed and"
-                            " it is not a FastAPI"
-                        )
-                        continue
+                    continue
 
-                    if not isinstance(subapp, gr.Blocks):
-                        raise RuntimeError(
-                            "Currently `mount` only supports FastAPI and Gradio"
-                            f" Blocks, got {type(subapp)}"
-                        )
+                try:
+                    import gradio as gr
+                except ImportError:
+                    has_gradio = False
+                else:
+                    has_gradio = True
+
+                try:
+                    from flask import Flask
+                except ImportError:
+                    has_flask = False
+                else:
+                    has_flask = True
+
+                if not has_gradio and not has_flask:
+                    logger.warning(
+                        f"Skip mounting {path} as none of [`gradio`, `flask`] is"
+                        " installed and it is not a FastAPI"
+                    )
+                    continue
+
+                if has_gradio and isinstance(subapp, gr.Blocks):
                     gr.mount_gradio_app(app, subapp, f"/{path}")
+                elif has_flask and isinstance(subapp, Flask):
+                    app.mount(f"/{path}", WSGIMiddleware(subapp))
+                else:
+                    raise ValueError(
+                        f"Cannot mount {subapp} to {path} as it is not a FastAPI,"
+                        " gradio.Blocks or Flask"
+                    )
                 continue
 
             def create_typed_handler(func, kwargs):
