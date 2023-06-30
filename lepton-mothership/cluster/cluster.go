@@ -169,6 +169,11 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
+	err = terraform.ForceUnlockWorkspace(clusterName)
+	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+		return fmt.Errorf("failed to force unlock workspace: %w", err)
+	}
+
 	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
@@ -239,6 +244,11 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		}
 	} else {
 		log.Println("created terraform workspace:", clusterName)
+	}
+
+	err = terraform.ForceUnlockWorkspace(clusterName)
+	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+		return nil, fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {

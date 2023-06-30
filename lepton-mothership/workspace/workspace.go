@@ -195,23 +195,29 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		}
 	}()
 
-	_, err = terraform.GetWorkspace(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName))
+	tfws := terraformWorkspaceName(ws.Spec.ClusterName, workspaceName)
+
+	_, err = terraform.GetWorkspace(tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
-
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.GitRef)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", ws.Spec.GitRef, err)
 		}
 		// If the branch was deleted, we should still be able to delete the workspace. This is especially true for CI workloads.
 		log.Printf("failed to prepare working dir with GitRef %s, using main", ws.Spec.GitRef)
-		dir, err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", "")
+		dir, err = util.PrepareTerraformWorkingDir(tfws, "workspace", "")
 		if err != nil {
 			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
 		}
+	}
+
+	err = terraform.ForceUnlockWorkspace(tfws)
+	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
 	command := "sh"
@@ -240,7 +246,7 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 	}
 
 	if deleteWorkspace {
-		err := terraform.DeleteEmptyWorkspace(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName))
+		err := terraform.DeleteEmptyWorkspace(tfws)
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}
@@ -315,9 +321,15 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 	}
 	oidcID := cl.Status.Properties.OIDCID
 
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName), "workspace", ws.Spec.GitRef)
+	tfws := terraformWorkspaceName(ws.Spec.ClusterName, workspaceName)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
+	}
+
+	err = terraform.ForceUnlockWorkspace(tfws)
+	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
 	command := "sh"

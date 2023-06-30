@@ -27,15 +27,18 @@ func MustInit() {
 	}
 }
 
+// ListWorkspaces lists all workspaces.
 func ListWorkspaces() (*tfe.WorkspaceList, error) {
 	listOpt := tfe.WorkspaceListOptions{}
 	return client.Workspaces.List(context.TODO(), orgName, &listOpt)
 }
 
+// GetWorkspace gets a workspace.
 func GetWorkspace(name string) (*tfe.Workspace, error) {
 	return client.Workspaces.Read(context.TODO(), orgName, name)
 }
 
+// CreateWorkspace creates a workspace.
 func CreateWorkspace(name string) error {
 	localExecution := "local"
 	autoApply := true
@@ -54,6 +57,7 @@ func CreateWorkspace(name string) error {
 	return nil
 }
 
+// DeleteEmptyWorkspace deletes a workspace if it is empty.
 func DeleteEmptyWorkspace(name string) error {
 	if err := IsWorkspaceEmpty(name); err != nil {
 		return err
@@ -61,10 +65,12 @@ func DeleteEmptyWorkspace(name string) error {
 	return DeleteWorkspace(name)
 }
 
+// DeleteWorkspace deletes a workspace.
 func DeleteWorkspace(name string) error {
 	return client.Workspaces.Delete(context.TODO(), orgName, name)
 }
 
+// IsWorkspaceEmpty returns an error if the workspace is not empty.
 func IsWorkspaceEmpty(name string) error {
 	w, err := GetWorkspace(name)
 	if err != nil {
@@ -74,4 +80,14 @@ func IsWorkspaceEmpty(name string) error {
 		return fmt.Errorf("workspace %s is not empty", name)
 	}
 	return nil
+}
+
+// ForceUnlockWorkspace unlocks a workspace that is locked by a run.
+func ForceUnlockWorkspace(name string) error {
+	w, err := client.Workspaces.Read(context.TODO(), orgName, name)
+	if err != nil {
+		return err
+	}
+	_, err = client.Workspaces.ForceUnlock(context.TODO(), w.ID)
+	return err
 }

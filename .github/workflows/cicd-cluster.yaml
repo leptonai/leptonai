@@ -6,6 +6,7 @@ on:
       - .github/workflows/cicd-cluster.yaml
       - "infra/terraform/eks-lepton/**"
       - "infra-tests/**"
+      - "lepton-mothership/**"
     branches: [ "**" ]
 
 jobs:
