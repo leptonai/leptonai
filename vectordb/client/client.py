@@ -1,7 +1,8 @@
 from leptonai import Client as LepClient
 from vectordb.api.collection import Collection
 from vectordb.client.types import Config
-from typing import List, Tuple
+from vectordb.db.embed import VecDBEmbed
+from typing import List, Tuple, Optional
 
 _ERROR = "error"
 
@@ -12,8 +13,12 @@ def _raise_resp_error(response: dict):
 
 
 class Client:
-    def __init__(self, config: Config) -> None:
-        self.client = LepClient(config.url)
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            self.client = VecDBEmbed()
+            self.client.init()
+        else:
+            self.client = LepClient(config.url, config.token)
 
     def create_collection(self, name: str, dim: int = 128) -> Collection:
         """

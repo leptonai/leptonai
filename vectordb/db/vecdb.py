@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from hnsqlite import Collection, Embedding
 
@@ -48,7 +48,7 @@ class VecDB(Photon):
         os.remove(sqlite_filename)
 
     @Photon.handler()
-    def list_collections(self) -> List[str]:
+    def list_collections(self) -> List[Tuple[Any, Any]]:
         return [(name, col.config.dim) for name, col in self.collections.items()]
 
     def _get_collection(self, name: str) -> Collection:
