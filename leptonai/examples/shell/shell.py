@@ -6,7 +6,7 @@ try:
     from leptonai.photon.runner import RunnerPhoton as Runner, handler
 
     Photon = Runner
-except:
+except ImportError:
     # This is what you should do to load the Photon class and write your code.
     from leptonai.photon import Photon, handler
 
