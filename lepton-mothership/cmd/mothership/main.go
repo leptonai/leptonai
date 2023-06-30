@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
-	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 	"github.com/spf13/cobra"
+
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 )
 
 const appName = "mothership"
@@ -26,6 +28,7 @@ func init() {
 func init() {
 	rootCmd.AddCommand(
 		clusters.NewCommand(),
+		token.NewCommand(),
 		version.NewCommand(),
 	)
 }

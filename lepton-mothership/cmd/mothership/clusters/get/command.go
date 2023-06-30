@@ -8,21 +8,29 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
+	"github.com/leptonai/lepton/go-pkg/aws"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 )
 
 var (
 	mothershipURL string
 	token         string
+	tokenPath     string
+)
+
+var (
+	homeDir, _       = os.UserHomeDir()
+	defaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
 )
 
 func init() {
@@ -37,11 +45,21 @@ func NewCommand() *cobra.Command {
 		Run:   clustersFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1/clusters", "Mothership API endpoint URL")
-	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call")
+	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
+	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", defaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
 	return cmd
 }
 
 func clustersFunc(cmd *cobra.Command, args []string) {
+	if token == "" {
+		log.Printf("empty --token, fallback to default token-path %q", defaultTokenPath)
+		b, err := os.ReadFile(tokenPath)
+		if err != nil {
+			log.Fatalf("failed to read token file %v", err)
+		}
+		token = string(b)
+	}
+
 	req, err := http.NewRequestWithContext(
 		context.Background(),
 		"GET",
