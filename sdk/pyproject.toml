@@ -1,0 +1,76 @@
+[project]
+name = "leptonai"
+version = "0.1"
+description = "Lepton AI Platform"
+authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://lepton.ai"
+
+[project.scripts]
+lep = "leptonai.cli:lep"
+
+[project.optional-dependencies]
+lint = [
+    "black",
+    "ruff"
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "responses"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["leptonai/requirements.txt"]}
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.black]
+preview = true
+
+[tool.ruff]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E", "F"]
+ignore = ["E402", "E501"]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=leptonai"
+
+[tool.coverage.run]
+omit = ["*/tests/test_*.py"]
