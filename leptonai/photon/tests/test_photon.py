@@ -5,6 +5,13 @@ import tempfile
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
+try:
+    from flask import Flask
+except ImportError:
+    has_flask = False
+else:
+    has_flask = True
+
 from io import BytesIO
 import inspect
 import json
@@ -583,7 +590,7 @@ from leptonai.photon import Photon
         self.assertFalse("Access-Control-Allow-Origin" in res.headers)
         proc.kill()
 
-    def test_mount(self):
+    def test_mount_fastapi(self):
         if "PYTEST_CURRENT_TEST" in os.environ:
             import cloudpickle
 
@@ -610,6 +617,32 @@ from leptonai.photon import Photon
             res.json(),
             "hello",
         )
+        proc.kill()
+
+    @unittest.skipIf(not has_flask, "flask not installed")
+    def test_mount_flask(self):
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+        class FlaskPhoton(Photon):
+            @Photon.handler("", mount=True)
+            def flask_app(self):
+                flask_app = Flask(__name__)
+
+                @flask_app.get("/run")
+                def hello():
+                    return "hello from flask"
+
+                return flask_app
+
+        ph = FlaskPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/run")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.text, "hello from flask")
         proc.kill()
 
 
