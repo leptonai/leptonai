@@ -86,9 +86,9 @@ def load_metadata(path: str, unpack_extra_files: bool = False) -> Dict[Any, Any]
 
 def push(path, url: str, auth_token: str):
     """
-    Push a photon to a remote server.
+    Push a photon to a workspace.
     :param str path: path to the photon file
-    :param str url: url of the remote server including the schema
+    :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
     """
     with open(path, "rb") as file:
@@ -102,8 +102,8 @@ def push(path, url: str, auth_token: str):
 
 def list_remote(url: str, auth_token: str):
     """
-    List the photons on a remote server.
-    :param str url: url of the remote server including the schema
+    List the photons on a workspace.
+    :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
     """
     response = requests.get(url + "/photons", headers=create_header(auth_token))
@@ -114,8 +114,8 @@ def list_remote(url: str, auth_token: str):
 
 def remove_remote(url: str, id: str, auth_token: str):
     """
-    Remove a photon from a remote server.
-    :param str url: url of the remote server including the schema
+    Remove a photon from a workspace.
+    :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """
@@ -131,9 +131,9 @@ def remove_remote(url: str, id: str, auth_token: str):
 
 def fetch(id: str, url: str, path: str, auth_token: str):
     """
-    Fetch a photon from a remote server.
+    Fetch a photon from a workspace.
     :param str id: id of the photon to fetch
-    :param str url: url of the remote server including the schema
+    :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
     :param str path: path to save the photon to
     """

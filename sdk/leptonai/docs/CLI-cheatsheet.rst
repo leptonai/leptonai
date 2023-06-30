@@ -36,7 +36,7 @@ List Photon
 
 .. code:: shell
    
-   # List photons on remote
+   # List photons in workspace
    lep photon list -r http://k8s-default-leptonse-42c1558c73-673051545.us-east-1.elb.amazonaws.com
    # List photons on local
    lep photon list
@@ -65,13 +65,13 @@ Remote mode usage
 
 .. code:: shell
 
-   # List remotes
-   lep remote list
-   # Switch to remote cluster via url
-   lep remote login -r https://dev-staging.cloud.lepton.ai/api/v1
-   # Switch to remote cluster via name
-   lep remote login -n staging
-   # Push photon to remote from local
+   # List workspaces
+   lep workspace list
+   # Switch to workspace via url
+   lep workspace login -r https://dev-staging.cloud.lepton.ai/api/v1
+   # Switch to workspace via name
+   lep workspace login -n staging
+   # Push photon to workspace from local
    lep photon push -n {PHOTON_NAME}
   
 

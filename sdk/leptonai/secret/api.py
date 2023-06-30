@@ -26,7 +26,7 @@ def create_remote(url: str, auth_token: str, names: List[str], values: List[str]
 
 def list_remote(url: str, auth_token: str):
     """
-    List all secrets on a remote server.
+    List all secrets on a workspace.
     """
     response = requests.get(url + "/secrets", headers=create_header(auth_token))
     if check_and_print_http_error(response):
@@ -36,8 +36,8 @@ def list_remote(url: str, auth_token: str):
 
 def remove_remote(url: str, auth_token: str, name: str):
     """
-    Remove a photon from a remote server.
-    :param str url: url of the remote server including the schema
+    Remove a photon from a workspace.
+    :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """

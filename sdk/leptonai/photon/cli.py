@@ -12,7 +12,7 @@ from rich.table import Table
 import click
 from .base import find_all_local_photons, find_local_photon, remove_local_photon
 from . import api
-import leptonai.remote as remote
+import leptonai.workspace as workspace
 from leptonai.util import click_group
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -20,21 +20,21 @@ from leptonai.photon.download import fetch_code_from_vcs
 console = Console(highlight=False)
 
 
-def get_remote_url(ctx, param, value):
-    value = remote.get_remote_url(value)
+def get_workspace_url(ctx, param, value):
+    value = workspace.get_workspace_url(value)
     if value is not None:
-        console.print(f"Using remote cluster: [green]{value}[/green]")
+        console.print(f"Using workspace: [green]{value}[/green]")
     else:
         console.print("Using [green]local server[/green]")
     return value
 
 
-def get_most_recent_photon_id_or_none(remote_url, auth_token, name):
+def get_most_recent_photon_id_or_none(workspace_url, auth_token, name):
     """
     Returns the most recent photon id for a given name. If no photon of such
     name exists, returns None.
     """
-    photons = api.list_remote(remote_url, auth_token)
+    photons = api.list_remote(workspace_url, auth_token)
     target_photons = [p for p in photons if p["name"] == name]
     if len(target_photons) == 0:
         return None
@@ -74,17 +74,17 @@ def create(name, model):
 @click.option("--local", "-l", is_flag=True, help="Remove local photon.")
 @click.option("--id", "-i", "id_", help="ID of the Photon")
 def remove(name, local, id_):
-    remote_url = remote.get_remote_url()
+    workspace_url = workspace.get_workspace_url()
 
-    if not local and remote_url is not None:
+    if not local and workspace_url is not None:
         # Remove remote photon.
-        auth_token = remote.cli.get_auth_token(remote_url)
+        auth_token = workspace.cli.get_auth_token(workspace_url)
         if id_ is None and name is None:
             console.print("Must specify --id or --name when removing remote photon.")
             sys.exit(1)
         elif id_ is None:
             # Default behavior without id is to remove the most recent photon.
-            id_ = get_most_recent_photon_id_or_none(remote_url, auth_token, name)
+            id_ = get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
             if id_ is None:
                 console.print(f'Photon "{name}" [red]does not exist[/]')
                 sys.exit(1)
@@ -98,13 +98,13 @@ def remove(name, local, id_):
             ):
                 sys.exit(0)
 
-        if api.remove_remote(remote_url, id_, auth_token):
-            console.print(f'Remote photon "{id_}" [green]removed[/]')
+        if api.remove_remote(workspace_url, id_, auth_token):
+            console.print(f'Photon "{id_}" [green]removed[/]')
         else:
             # TODO: if we do find the photon, but it's not removed, should we
             # assume that it does not exist (because it did exist), or should
             # we do something else?
-            console.print(f'Remote photon "{id_}" [red]does not exist[/]')
+            console.print(f'Photon "{id_}" [red]does not exist[/]')
         return
     else:
         # local mode
@@ -126,12 +126,12 @@ def remove(name, local, id_):
     "--pattern", help="Regular expression pattern to filter Photon names", default=None
 )
 def list(local, pattern):
-    remote_url = remote.get_remote_url()
+    workspace_url = workspace.get_workspace_url()
 
-    if remote_url is not None and not local:
-        console.print(f"Using remote cluster: [green]{remote_url}[/green]")
-        auth_token = remote.cli.get_auth_token(remote_url)
-        photons = api.list_remote(remote_url, auth_token)
+    if workspace_url is not None and not local:
+        console.print(f"Using workspace: [green]{workspace_url}[/green]")
+        auth_token = workspace.cli.get_auth_token(workspace_url)
+        photons = api.list_remote(workspace_url, auth_token)
         # Note: created_at returned by the server is in milliseconds, and as a
         # result we need to divide by 1000 to get seconds that is understandable
         # by the Python CLI.
@@ -242,7 +242,7 @@ def run(
     env,
     secret,
 ):
-    remote_url = remote.get_remote_url()
+    workspace_url = workspace.get_workspace_url()
 
     if name is not None and id is not None:
         # TODO: support sainity checking that the id matches the name. This
@@ -251,9 +251,9 @@ def run(
         console.print("Must specify either --id or --name, not both.")
         sys.exit(1)
 
-    if not local and remote_url is not None:
+    if not local and workspace_url is not None:
         # remote execution.
-        auth_token = remote.cli.get_auth_token(remote_url)
+        auth_token = workspace.cli.get_auth_token(workspace_url)
         # We first check if id is specified - this is the most specific way to
         # refer to a photon. If not, we will check if name is specified - this
         # might lead to multiple photons, so we will pick the latest one to run
@@ -261,7 +261,7 @@ def run(
         # TODO: Support push and run if the Photon does not exist on remote
         if id is None:
             # look for the latest photon with the given name.
-            id = get_most_recent_photon_id_or_none(remote_url, auth_token, name)
+            id = get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
             if id is None:
                 console.print(f'Photon "{name}" [red]does not exist[/]')
                 sys.exit(1)
@@ -295,7 +295,7 @@ def run(
                 sys.exit(1)
         api.remote_launch(
             id,
-            remote_url,
+            workspace_url,
             cpu,
             memory,
             min_replicas,
@@ -398,18 +398,20 @@ def prepare(ctx, path):
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon", required=True)
 def push(name):
-    remote_url = remote.get_remote_url()
-    if remote_url is None:
+    workspace_url = workspace.get_workspace_url()
+    if workspace_url is None:
         console.print("You are not logged in.")
-        console.print("You must log in ($lep remote login) or specify --remote_url.")
+        console.print(
+            "You must log in ($lep workspace login) or specify --workspace_url."
+        )
         sys.exit(1)
     path = find_local_photon(name)
     if path is None or not os.path.exists(path):
         console.print(f'Photon "{name}" [red]does not exist[/]')
         sys.exit(1)
 
-    auth_token = remote.cli.get_auth_token(remote_url)
-    if not api.push(path, remote_url, auth_token):
+    auth_token = workspace.cli.get_auth_token(workspace_url)
+    if not api.push(path, workspace_url, auth_token):
         console.print(f'Photon "{name}" [red]failed to push[/]')
         sys.exit(1)
     console.print(f'Photon "{name}" [green]pushed[/]')
@@ -419,15 +421,15 @@ def push(name):
 @click.option("--id", "-i", help="ID of the Photon", required=True)
 @click.option("--file", "-f", "path", help="Path to .photon file")
 def fetch(id, path):
-    remote_url = remote.get_remote_url()
-    if remote_url is None:
+    workspace_url = workspace.get_workspace_url()
+    if workspace_url is None:
         console.print("You are not logged in.")
         console.print(
-            "To fetch a photon, you must first log in ($lepton remote login) "
-            "to specify a remote cluster"
+            "To fetch a photon, you must first log in ($lepton workspace login) "
+            "to specify a workspace"
         )
-    auth_token = remote.cli.get_auth_token(remote_url)
-    photon = api.fetch(id, remote_url, path, auth_token)
+    auth_token = workspace.cli.get_auth_token(workspace_url)
+    photon = api.fetch(id, workspace_url, path, auth_token)
     console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')
 
 
