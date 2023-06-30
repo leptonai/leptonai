@@ -49,7 +49,7 @@ func TestReplicaShellQueryString(t *testing.T) {
 		t.Fatal(err)
 	}
 	rid := replicas[0].ID
-	shellURL := client.RemoteURL + "/deployments/" + mainTestDeploymentID + "/replicas/" + rid + "/shell" + "?access_token=" + *authToken
+	shellURL := client.WorkspaceURL + "/deployments/" + mainTestDeploymentID + "/replicas/" + rid + "/shell" + "?access_token=" + *authToken
 	u, err := url.Parse(shellURL)
 	if err != nil {
 		t.Fatal(err)

@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	remoteURL = flag.String("remote-url", "", "Remote URL for the Lepton API server")
+	workspaceURL = flag.String("workspace-url", "", "URL for the Lepton API server")
 	authToken = flag.String("auth-token", "", "Auth token for the Lepton API server")
 
 	mainTestPhotonName     string
@@ -40,17 +40,17 @@ func TestMain(m *testing.M) {
 func prepare() {
 	flag.Parse()
 	// Wait for DNS propagation
-	endpoint, err := url.Parse(*remoteURL)
+	endpoint, err := url.Parse(*workspaceURL)
 	if err != nil {
-		log.Fatal("Expected remote URL to be a valid URL, got ", *remoteURL)
+		log.Fatal("Expected workspace URL to be a valid URL, got ", *workspaceURL)
 	}
 	err = waitForDNSPropagation(endpoint.Hostname())
 	if err != nil {
 		log.Fatal("Expected DNS to propagate for ", endpoint.Hostname(), ", got ", err)
 	}
 	// Prepare the test
-	lepton = goclient.New(*remoteURL, *authToken)
-	client = e2eutil.NewCliWrapper(*remoteURL, *authToken)
+	lepton = goclient.New(*workspaceURL, *authToken)
+	client = e2eutil.NewCliWrapper(*workspaceURL, *authToken)
 	mainTestPhotonName = newName("main-test-photon")
 	mainTestDeploymentName = newName("main-test-deploy")
 

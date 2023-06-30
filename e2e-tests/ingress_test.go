@@ -11,9 +11,9 @@ import (
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 	waitForDeploymentToRunningState(mainTestDeploymentID)
-	endpoint, err := url.Parse(*remoteURL)
+	endpoint, err := url.Parse(*workspaceURL)
 	if err != nil {
-		t.Fatalf("Expected remote URL to be a valid URL, got %s", *remoteURL)
+		t.Fatalf("Expected workspace URL to be a valid URL, got %s", *workspaceURL)
 	}
 	url := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
 	header := map[string]string{

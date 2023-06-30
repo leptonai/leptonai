@@ -5,34 +5,34 @@ import (
 )
 
 type CliWrapper struct {
-	RemoteURL string
+	WorkspaceURL string
 	AuthToken string
 }
 
 const cmdName = "lep"
 
-func NewCliWrapper(remoteURL string, authToken string) *CliWrapper {
+func NewCliWrapper(workspaceURL string, authToken string) *CliWrapper {
 	return &CliWrapper{
-		RemoteURL: remoteURL,
+		WorkspaceURL: workspaceURL,
 		AuthToken: authToken,
 	}
 }
 
 func (c *CliWrapper) Login(name string) (string, error) {
 	if name == "" {
-		name = c.RemoteURL
+		name = c.WorkspaceURL
 	}
-	fullArgs := []string{"remote", "login", "-r", c.RemoteURL, "-n", name, "-t", c.AuthToken}
+	fullArgs := []string{"workspace", "login", "-r", c.WorkspaceURL, "-n", name, "-t", c.AuthToken}
 	return c.Run(fullArgs...)
 }
 
 func (c *CliWrapper) Logout() (string, error) {
-	fullArgs := []string{"remote", "logout"}
+	fullArgs := []string{"workspace", "logout"}
 	return c.Run(fullArgs...)
 }
 
 func (c *CliWrapper) RunRemote(object, action string, args ...string) (string, error) {
-	output, err := c.Login(c.RemoteURL)
+	output, err := c.Login(c.WorkspaceURL)
 	if err != nil {
 		return output, err
 	}

@@ -18,7 +18,7 @@ var (
 	// is there a good way to handle the error?
 	homeDir, _        = os.UserHomeDir()
 	leptonCacheDir    = filepath.Join(homeDir, ".cache", "lepton")
-	clusterInfoPath   = filepath.Join(leptonCacheDir, "cluster_info.yaml")
+	workspaceInfoPath   = filepath.Join(leptonCacheDir, "workspace_info.yaml")
 	cliTestPhotonName = newName("cli-test-photon")
 )
 

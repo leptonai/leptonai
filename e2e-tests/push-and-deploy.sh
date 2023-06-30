@@ -14,13 +14,13 @@ if [ -z "$TOKEN" ]; then
     echo "No token provided: continuing without auth token"
 fi
 
-REMOTE=$3
-if [ -z "$REMOTE" ]; then
-    echo "No remote url provided"
+WORKSPACE=$3
+if [ -z "$WORKSPACE" ]; then
+    echo "No workspace url provided"
     exit 1
 fi
 
 # run up to 60-minute as we add more e2e tests for example models
-if ! COLUMNS=2000 go test -timeout 3600s -v ./e2e-tests/... --remote-url "$REMOTE" --auth-token "$TOKEN"; then
+if ! COLUMNS=2000 go test -timeout 3600s -v ./e2e-tests/... --workspace-url "$WORKSPACE" --auth-token "$TOKEN"; then
     exit 1
 fi
