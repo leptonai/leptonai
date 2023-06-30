@@ -74,7 +74,7 @@ func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if !(200 <= resp.StatusCode && resp.StatusCode < 300) {
 		return nil, fmt.Errorf("unexpected HTTP status code %v with body %s", resp.StatusCode, string(body))
 	}
 	return body, nil
