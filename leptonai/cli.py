@@ -1,4 +1,5 @@
 from .photon import cli as photon_cli
+from .storage import cli as storage_cli
 from .workspace import cli as workspace_cli
 from .secret import cli as secret_cli
 from .deployment import cli as deployment_cli
@@ -13,6 +14,7 @@ def lep():
 
 
 photon_cli.add_command(lep)
+storage_cli.add_command(lep)
 workspace_cli.add_command(lep)
 secret_cli.add_command(lep)
 deployment_cli.add_command(lep)
