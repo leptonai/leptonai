@@ -12,11 +12,11 @@ func init() {
 	cobra.EnablePrefixMatching = true
 }
 
-// NewCommand implements "cw-utils version" command.
+// NewCommand implements "mothership version" command.
 func NewCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Prints out cw-utils version",
+		Short: "Prints out Lepton version",
 		Run:   versionFunc,
 	}
 }

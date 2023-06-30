@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,7 @@ func init() {
 
 func init() {
 	rootCmd.AddCommand(
+		clusters.NewCommand(),
 		version.NewCommand(),
 	)
 }
