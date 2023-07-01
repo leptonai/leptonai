@@ -322,113 +322,111 @@ class Photon(BasePhoton):
         async def _startup():
             instrumentator.expose(app, endpoint="/metrics")
 
+    # helper function of _register_routes
+    def _mount_route(self, app, path, func):
+        num_params = len(inspect.signature(func).parameters)
+        if num_params > 2:
+            raise ValueError(
+                "Mount function should only have zero or one (app) argument"
+            )
+        try:
+            if num_params == 2:
+                subapp = func.__get__(self, self.__class__)(app)
+            else:
+                subapp = func.__get__(self, self.__class__)()
+        except ImportError as e:
+            if "gradio" in str(e):
+                logger.warning(f"Skip mounting {path} as `gradio` is not installed")
+                return
+            if "flask" in str(e):
+                logger.warning(f"Skip mounting {path} as `flask` is not installed")
+                return
+            raise
+
+        if isinstance(subapp, FastAPI):
+            app.mount(f"/{path}", subapp)
+            return
+
+        try:
+            import gradio as gr
+        except ImportError:
+            has_gradio = False
+        else:
+            has_gradio = True
+
+        try:
+            from flask import Flask
+        except ImportError:
+            has_flask = False
+        else:
+            has_flask = True
+
+        if not has_gradio and not has_flask:
+            logger.warning(
+                f"Skip mounting {path} as none of [`gradio`, `flask`] is"
+                " installed and it is not a FastAPI"
+            )
+            return
+
+        if has_gradio and isinstance(subapp, gr.Blocks):
+            gr.mount_gradio_app(app, subapp, f"/{path}")
+        elif has_flask and isinstance(subapp, Flask):
+            app.mount(f"/{path}", WSGIMiddleware(subapp))
+        else:
+            raise ValueError(
+                f"Cannot mount {subapp} to {path} as it is not a FastAPI,"
+                " gradio.Blocks or Flask"
+            )
+        return
+
+    def _create_typed_handler(self, path, func, kwargs):
+        method = func.__get__(self, self.__class__)
+        request_model, response_model, response_class = create_model_for_func(
+            method, func_name=path
+        )
+        if "example" in kwargs:
+            request_model = Annotated[request_model, Body(example=kwargs["example"])]
+        if "examples" in kwargs:
+            request_model = Annotated[request_model, Body(examples=kwargs["examples"])]
+        vd = pydantic.decorator.ValidatedFunction(method, None)
+
+        async def typed_handler(request: request_model):
+            logger.info(request)
+            try:
+                res = vd.execute(request)
+            except Exception as e:
+                logger.error(e)
+                if isinstance(e, HTTPException):
+                    return JSONResponse({"error": e.detail}, status_code=e.status_code)
+                return JSONResponse({"error": str(e)}, status_code=500)
+            else:
+                if not isinstance(res, response_class):
+                    res = response_class(res)
+                return res
+
+        typed_handler_kwargs = {
+            "response_model": response_model,
+            "response_class": response_class,
+        }
+        return typed_handler, typed_handler_kwargs
+
+    # helper function of _register_routes
+    def _add_route(self, api_router, path, func, kwargs):
+        typed_handler, typed_handler_kwargs = self._create_typed_handler(
+            path, func, kwargs
+        )
+        api_router.add_api_route(
+            f"/{path}", typed_handler, methods=["POST"], **typed_handler_kwargs
+        )
+
     def _register_routes(self, app, load_mount):
         api_router = APIRouter()
         for path, (func, kwargs) in self.routes.items():
             if kwargs.get("mount"):
-                if not load_mount:
-                    continue
-
-                num_params = len(inspect.signature(func).parameters)
-                if num_params > 2:
-                    raise ValueError(
-                        "Mount function should only have zero or one (app) argument"
-                    )
-                try:
-                    if num_params == 2:
-                        subapp = func.__get__(self, self.__class__)(app)
-                    else:
-                        subapp = func.__get__(self, self.__class__)()
-                except ImportError as e:
-                    if "gradio" in str(e):
-                        logger.warning(
-                            f"Skip mounting {path} as `gradio` is not installed"
-                        )
-                        continue
-                    if "flask" in str(e):
-                        logger.warning(
-                            f"Skip mounting {path} as `flask` is not installed"
-                        )
-                        continue
-                    raise
-
-                if isinstance(subapp, FastAPI):
-                    app.mount(f"/{path}", subapp)
-                    continue
-
-                try:
-                    import gradio as gr
-                except ImportError:
-                    has_gradio = False
-                else:
-                    has_gradio = True
-
-                try:
-                    from flask import Flask
-                except ImportError:
-                    has_flask = False
-                else:
-                    has_flask = True
-
-                if not has_gradio and not has_flask:
-                    logger.warning(
-                        f"Skip mounting {path} as none of [`gradio`, `flask`] is"
-                        " installed and it is not a FastAPI"
-                    )
-                    continue
-
-                if has_gradio and isinstance(subapp, gr.Blocks):
-                    gr.mount_gradio_app(app, subapp, f"/{path}")
-                elif has_flask and isinstance(subapp, Flask):
-                    app.mount(f"/{path}", WSGIMiddleware(subapp))
-                else:
-                    raise ValueError(
-                        f"Cannot mount {subapp} to {path} as it is not a FastAPI,"
-                        " gradio.Blocks or Flask"
-                    )
-                continue
-
-            def create_typed_handler(func, kwargs):
-                method = func.__get__(self, self.__class__)
-                request_model, response_model, response_class = create_model_for_func(
-                    method, func_name=path
-                )
-                if "example" in kwargs:
-                    request_model = Annotated[
-                        request_model, Body(example=kwargs["example"])
-                    ]
-                if "examples" in kwargs:
-                    request_model = Annotated[
-                        request_model, Body(examples=kwargs["examples"])
-                    ]
-                vd = pydantic.decorator.ValidatedFunction(method, None)
-
-                async def typed_handler(request: request_model):
-                    logger.info(request)
-                    try:
-                        res = vd.execute(request)
-                    except Exception as e:
-                        logger.error(e)
-                        if isinstance(e, HTTPException):
-                            return JSONResponse(
-                                {"error": e.detail}, status_code=e.status_code
-                            )
-                        return JSONResponse({"error": str(e)}, status_code=500)
-                    else:
-                        if not isinstance(res, response_class):
-                            res = response_class(res)
-                        return res
-
-                typed_handler_kwargs = {
-                    "response_model": response_model,
-                    "response_class": response_class,
-                }
-                return typed_handler, typed_handler_kwargs
-
-            typed_handler, typed_handler_kwargs = create_typed_handler(func, kwargs)
-            api_router.add_api_route(
-                f"/{path}", typed_handler, methods=["POST"], **typed_handler_kwargs
-            )
+                if load_mount:
+                    self._mount_route(app, path, func)
+            else:
+                self._add_route(api_router, path, func, kwargs)
         app.include_router(api_router)
 
     @staticmethod
