@@ -69,6 +69,10 @@ class TestDocker(unittest.TestCase):
         path = photon.save(ph)
         self._run_photon(path)
 
+    @unittest.skipIf(
+        not (os.environ.get("GITHUB_USER") and os.environ.get("GITHUB_TOKEN")),
+        "No github credentials",
+    )
     def test_run_remote_git_photon(self):
         ph = photon.create(
             random_name(),
