@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xue
+set -x
 
 # List of Terraform modules/resources to destroy in sequence (reverse order of apply)
 # need to delete existing kubernetes resources to avoid dependency conflicts
@@ -21,6 +21,9 @@ targets=(
   "helm_release.lepton"
   "null_resource.delete_prometheus"
   "null_resource.delete_grafana"
+  # bug https://github.com/tigera/operator/issues/2031
+  "null_resource.delete_calico_installation"
+
   "module.eks_blueprints_kubernetes_addons"
   "helm_release.aws_load_balancer_controller"
   "module.ebs_csi_driver_irsa"
@@ -43,10 +46,12 @@ if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   exit 1
 fi
 
-terraform init --upgrade
-
-# refresh once
-terraform refresh -var="cluster_name=$CLUSTER_NAME"
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 for target in "${targets[@]}"
 do
@@ -54,10 +59,13 @@ do
   terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -target="$target"
 done
 
-# sync the state file with the infrastructure resources
-# this does not modify the infrastructure
 echo "deleting the remaining resources"
-terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME"
+if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" ; then
+  echo "SUCCESS: Terraform destroy completed successfully"
+else
+  echo "FAILED: Terraform destroy failed"
+  exit 1
+fi
 
 # NOTE: to clean up kubeconfig file used for "local-exec"
 # rm -f /tmp/$CLUSTER_NAME.kubeconfig

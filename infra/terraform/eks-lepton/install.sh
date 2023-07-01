@@ -7,15 +7,22 @@ set -xe
 # to set gp3 as default
 targets=(
   "module.vpc"
+
   "aws_security_group.eks"
   "aws_security_group.nodes"
   "aws_security_group_rule.nodes"
   "aws_security_group_rule.ingress_from_node_to_cluster"
+
   "module.eks"
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"
   "module.ebs_csi_driver_irsa"
   "helm_release.gpu-operator"
+
+  # bug https://github.com/hashicorp/terraform-provider-kubernetes/issues/1917
+  # need to apply this first to avoid network policy CRD creation error, [depend on] does not work
+  "helm_release.calico"
+
   "module.eks_blueprints_kubernetes_addons"
 )
 

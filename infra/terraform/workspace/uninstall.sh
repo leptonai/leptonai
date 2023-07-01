@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -x
 
 if [[ -z $TF_API_TOKEN ]]; then
   echo "ERROR: Terraform Cloud API token not specified"
@@ -40,17 +40,20 @@ fi
 export TF_WORKSPACE=$CLUSTER_NAME-$WORKSPACE_NAME
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
-# initialize Terraform
-terraform init --upgrade
-
-# refresh once
-terraform refresh -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
-  -var="create_efs=$CREATE_EFS" \
-  -var="vpc_id=$VPC_ID" \
-  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
+if terraform init --upgrade; then 
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 echo "Deleting resources..."
-terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="create_efs=$CREATE_EFS" \
   -var="vpc_id=$VPC_ID" \
-  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"; then
+  echo "SUCCESS: Terraform destroy completed successfully"
+else
+  echo "FAILED: Terraform destroy failed"
+  exit 1
+fi
