@@ -1,6 +1,3 @@
-#------------------------------------------
-# Amazon Prometheus
-#------------------------------------------
 locals {
   amp_ingest_service_account = "amp-iamproxy-ingest-service-account"
   namespace                  = "prometheus"
@@ -10,9 +7,6 @@ resource "aws_prometheus_workspace" "amp" {
   alias = format("%s-%s", "amp-ws", local.cluster_name)
 }
 
-#---------------------------------------------------------------
-# IRSA for VPC CNI
-#---------------------------------------------------------------
 module "amp_ingest_irsa" {
   source    = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version   = "~> 5.14"
