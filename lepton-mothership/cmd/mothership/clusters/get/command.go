@@ -78,6 +78,9 @@ func clustersFunc(cmd *cobra.Command, args []string) {
 		log.Fatalf("failed http request %v", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("failed http request %v", resp.Status)
+	}
 
 	var rs []*crdv1alpha1.LeptonCluster
 	if err = json.NewDecoder(resp.Body).Decode(&rs); err != nil {
@@ -95,7 +98,7 @@ func clustersFunc(cmd *cobra.Command, args []string) {
 	}
 	eksAPI := aws_eks_v2.NewFromConfig(cfg)
 
-	colums := []string{"name", "provider", "region", "eks k8s version", "eks status", "eks health"}
+	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 	rows := make([][]string, 0, len(rs))
 	for _, c := range rs {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -122,7 +125,7 @@ func clustersFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		rows = append(rows, []string{c.GetName(), c.Spec.Provider, c.Spec.Region, version, status, health})
+		rows = append(rows, []string{c.GetName(), c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
 	}
 
 	buf := bytes.NewBuffer(nil)

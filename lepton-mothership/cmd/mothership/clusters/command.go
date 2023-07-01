@@ -2,7 +2,9 @@
 package clusters
 
 import (
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/delete"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/get"
+
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +20,7 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.AddCommand(
 		get.NewCommand(),
+		delete.NewCommand(),
 	)
 	return cmd
 }
