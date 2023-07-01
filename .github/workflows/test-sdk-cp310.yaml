@@ -40,4 +40,4 @@ jobs:
         pip install .
         pip install -r leptonai/examples/requirements.txt
         pip install .[test]
-        pytest
+        pytest -n 2
