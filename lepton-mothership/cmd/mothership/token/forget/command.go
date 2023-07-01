@@ -4,16 +4,11 @@ package forget
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/leptonai/lepton/go-pkg/util"
-)
-
-var (
-	homeDir, _       = os.UserHomeDir()
-	defaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 )
 
 var (
@@ -31,7 +26,7 @@ func NewCommand() *cobra.Command {
 		Short: "Forgets the mothership token",
 		Run:   forgetFunc,
 	}
-	cmd.PersistentFlags().StringVarP(&path, "path", "p", defaultTokenPath, "File path to save the token")
+	cmd.PersistentFlags().StringVarP(&path, "path", "p", common.DefaultTokenPath, "File path to save the token")
 	return cmd
 }
 

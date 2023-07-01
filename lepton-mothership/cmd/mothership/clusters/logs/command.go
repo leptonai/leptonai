@@ -7,22 +7,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/spf13/cobra"
 )
 
-var (
-	mothershipURL string
-	token         string
-	tokenPath     string
-	clusterName   string
-)
-
-var (
-	homeDir, _       = os.UserHomeDir()
-	defaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
-)
+var clusterName string
 
 func init() {
 	cobra.EnablePrefixMatching = true
@@ -33,24 +23,15 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs",
 		Short: "Print logs of the give cluster",
-		Run:   clustersFunc,
+		Run:   logsFunc,
 	}
-	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1/clusters", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to delete")
-	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
-	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", defaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
 	return cmd
 }
 
-func clustersFunc(cmd *cobra.Command, args []string) {
-	if token == "" {
-		log.Printf("empty --token, fallback to default token-path %q", defaultTokenPath)
-		b, err := os.ReadFile(tokenPath)
-		if err != nil {
-			log.Fatalf("failed to read token file %v", err)
-		}
-		token = string(b)
-	}
+func logsFunc(cmd *cobra.Command, args []string) {
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	req, err := http.NewRequestWithContext(
 		context.Background(),

@@ -9,11 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/leptonai/lepton/go-pkg/util"
-)
-
-var (
-	homeDir, _       = os.UserHomeDir()
-	defaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 )
 
 var (
@@ -33,7 +29,7 @@ func NewCommand() *cobra.Command {
 		Short: "Saves the mothership token",
 		Run:   saveFunc,
 	}
-	cmd.PersistentFlags().StringVarP(&path, "path", "p", defaultTokenPath, "File path to save the token")
+	cmd.PersistentFlags().StringVarP(&path, "path", "p", common.DefaultTokenPath, "File path to save the token")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call")
 	cmd.PersistentFlags().BoolVarP(&overwrite, "overwrite", "o", false, "true to overwrite if exists")
 	return cmd
