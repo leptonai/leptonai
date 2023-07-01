@@ -12,6 +12,13 @@ except ImportError:
 else:
     has_flask = True
 
+try:
+    import gradio as gr
+except ImportError:
+    has_gradio = False
+else:
+    has_gradio = True
+
 from io import BytesIO
 import inspect
 import json
@@ -121,6 +128,14 @@ class CustomPhotonWithMount(Photon):
 
 
 class TestPhoton(unittest.TestCase):
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
     def test_run(self):
         name = random_name()
         ph = CustomPhoton(name=name)
@@ -144,13 +159,6 @@ class TestPhoton(unittest.TestCase):
         self.assertEqual(y1, y2)
 
     def test_run_server(self):
-        # pytest imports test files as top-level module which becomes
-        # unavailable in server process
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhoton(name=name)
         path = ph.save()
@@ -172,13 +180,6 @@ class TestPhoton(unittest.TestCase):
         proc.kill()
 
     def test_client(self):
-        # pytest imports test files as top-level module which becomes
-        # unavailable in server process
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhoton(name=name)
         x = 2.0
@@ -297,13 +298,6 @@ class Counter(Photon):
         )
 
     def test_metrics(self):
-        # pytest imports test files as top-level module which becomes
-        # unavailable in server process
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhoton(name=name)
         path = ph.save()
@@ -440,13 +434,6 @@ class Counter(Photon):
         proc.kill()
 
     def test_extra_files(self):
-        # pytest imports test files as top-level module which becomes
-        # unavailable in server process
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhotonWithCustomExtraFiles(name=name)
         path = ph.save()
@@ -542,11 +529,6 @@ from leptonai.photon import Photon
         self.assertEqual(res.json(), 1.0)
 
     def test_media_response(self):
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhotonWithPNGResponse(name=name)
         path = ph.save()
@@ -561,11 +543,6 @@ from leptonai.photon import Photon
         self.assertEqual(res.headers["Content-Type"], "image/png")
 
     def test_allow_dashboard_cors(self):
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         name = random_name()
         ph = CustomPhoton(name=name)
         path = ph.save()
@@ -591,11 +568,6 @@ from leptonai.photon import Photon
         proc.kill()
 
     def test_mount_fastapi(self):
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         ph = CustomPhotonWithMount(name=random_name())
         path = ph.save()
         proc, port = photon_run_server(path=path)
@@ -621,11 +593,6 @@ from leptonai.photon import Photon
 
     @unittest.skipIf(not has_flask, "flask not installed")
     def test_mount_flask(self):
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            import cloudpickle
-
-            cloudpickle.register_pickle_by_value(sys.modules[__name__])
-
         class FlaskPhoton(Photon):
             @Photon.handler("", mount=True)
             def flask_app(self):
@@ -644,6 +611,23 @@ from leptonai.photon import Photon
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.text, "hello from flask")
         proc.kill()
+
+    @unittest.skipIf(not has_gradio, "gradio not installed")
+    def test_mount_gradio(self):
+        def greet(name):
+            return "Hello " + name + "!"
+
+        class GradioPhoton(Photon):
+            @Photon.handler("ui", mount=True)
+            def gradio_app(self):
+                app = gr.Interface(fn=greet, inputs="text", outputs="text")
+                return app
+
+        ph = GradioPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/ui")
+        self.assertEqual(res.status_code, 200)
 
 
 if __name__ == "__main__":
