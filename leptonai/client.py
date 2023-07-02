@@ -4,12 +4,6 @@ import warnings
 from backports.cached_property import cached_property
 import requests
 
-from leptonai.util import (
-    get_full_workspace_url,
-    get_full_workspace_api_url,
-)
-from leptonai import deployment
-
 
 def _is_valid_url(candidate_str):
     parsed = urlparse(candidate_str)
@@ -20,63 +14,6 @@ def _is_local_url(candidate_str):
     parsed = urlparse(candidate_str)
     local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
     return parsed.netloc.lower() in local_hosts
-
-
-class Workspace:
-    """
-    The lepton python class that holds necessary info to access a workspace.
-
-    A workspace allows one to access a set of deployments under this workspace.
-    Currently, we do not support local workspaces - all workspaces are remote.
-    """
-
-    def __init__(self, workspace_name, token=None):
-        """
-        Creates a Lepton workspace.
-
-        Args:
-            workspace_name (str): The workspace name.
-            token (str, optional): The token to use for authentication. Defaults to None.
-        """
-        self.workspace_name = workspace_name
-        self.token = token
-
-    @cached_property
-    def _workspace_deployments(self):
-        return deployment.list_deployment(
-            get_full_workspace_api_url(self.workspace_name), self.token
-        )
-
-    @cached_property
-    def _workspace_deployments_names(self):
-        return [deployment["name"] for deployment in self._workspace_deployments]
-
-    def list_deployments(self):
-        """
-        List all deployments on this workspace.
-        """
-        return self._workspace_deployments_names
-
-    def client(self, deployment_name, token=None):
-        """
-        Get the client to call a deployment in this workspace. Note that this
-        does not actually start a deployment - it only creates a client that
-        can call the currently active deployment.
-
-        Args:
-            deployment_name (str): The deployment name.
-            token (str, optional): The token to use for authentication. If None,
-                the default is to use the token passed in when the workspace was
-                created. Defaults to None.
-        """
-        if deployment_name not in self._workspace_deployments_names:
-            raise ValueError(
-                f"Deployment {deployment_name} not found in workspace"
-                f" {self.workspace_name}."
-            )
-        return Client(
-            self.workspace_name, deployment_name, token if token else self.token
-        )
 
 
 class Client:
@@ -129,7 +66,7 @@ class Client:
             self.url = workspace_or_url
         else:
             # TODO: sanity check if the workspace name is legit.
-            self.url = get_full_workspace_url(workspace_or_url)
+            self.url = f"https://{workspace_or_url}.cloud.lepton.ai"
         self._session = requests.Session()
         if deployment is None:
             if not _is_local_url(workspace_or_url):

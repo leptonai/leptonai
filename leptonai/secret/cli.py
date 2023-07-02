@@ -33,7 +33,7 @@ def create(name, value):
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
     auth_token = workspace.cli.get_auth_token(workspace_url)
-    existing_secrets = api.list_secret(workspace_url, auth_token)
+    existing_secrets = api.list_remote(workspace_url, auth_token)
     for n in name:
         if existing_secrets and n in existing_secrets:
             console.print(
@@ -41,7 +41,7 @@ def create(name, value):
                 " remove the existing secret with `lep secret remove` first."
             )
             sys.exit(1)
-    api.create_secret(workspace_url, auth_token, name, value)
+    api.create_remote(workspace_url, auth_token, name, value)
     console.print(f"Secret created successfully: {', '.join(name)}.")
 
 
@@ -52,7 +52,7 @@ def list():
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
     auth_token = workspace.cli.get_auth_token(workspace_url)
-    secrets = api.list_secret(workspace_url, auth_token)
+    secrets = api.list_remote(workspace_url, auth_token)
     secrets.sort()
     table = Table(title="Secrets", show_lines=True)
     table.add_column("ID")
@@ -70,7 +70,7 @@ def remove(name):
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
     auth_token = workspace.cli.get_auth_token(workspace_url)
-    api.remove_secret(workspace_url, auth_token, name)
+    api.remove_remote(workspace_url, auth_token, name)
     console.print(f"Secret deleted successfully: {name}.")
 
 
