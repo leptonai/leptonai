@@ -2,11 +2,13 @@
 package delete
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"net/http"
 
+	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
+
 	"github.com/spf13/cobra"
 )
 
@@ -31,25 +33,10 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
-	req, err := http.NewRequestWithContext(
-		context.Background(),
-		"DELETE",
-		mothershipURL+"/"+clusterName,
-		nil,
-	)
+	cli := goclient.NewHTTP(mothershipURL+"/"+clusterName, token)
+	b, err := cli.RequestURL(http.MethodDelete, mothershipURL+"/"+clusterName, nil, nil)
 	if err != nil {
-		log.Fatalf("failed to create base query request %v", err)
+		log.Fatal(err)
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
-	log.Printf("sending DELETE to: %s", req.URL.String())
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("failed http request %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("failed http request %v", resp.Status)
-	}
+	fmt.Printf("successfully sent %q: %s\n", http.MethodDelete, string(b))
 }

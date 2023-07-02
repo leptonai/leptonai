@@ -13,6 +13,7 @@ import (
 	aws_elbv2_v2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/spf13/cobra"
 
+	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
@@ -49,34 +50,15 @@ func inspectFunc(cmd *cobra.Command, args []string) {
 		token := common.ReadTokenFromFlag(cmd)
 		mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
-		req, err := http.NewRequestWithContext(
-			context.Background(),
-			"GET",
-			mothershipURL,
-			nil,
-		)
+		cli := goclient.NewHTTP(mothershipURL, token)
+		b, err := cli.RequestURL(http.MethodGet, mothershipURL, nil, nil)
 		if err != nil {
-			log.Fatalf("failed to create base query request %v", err)
+			log.Fatal(err)
 		}
-		req.Header.Add("Authorization", "Bearer "+token)
-		log.Printf("sending GET to: %s", req.URL.String())
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Fatalf("failed http request %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("failed http request %v", resp.Status)
-		}
-
 		var rs []*crdv1alpha1.LeptonCluster
-		if err = json.NewDecoder(resp.Body).Decode(&rs); err != nil {
+		if err = json.Unmarshal(b, &rs); err != nil {
 			log.Fatalf("failed to decode %v", err)
 		}
-		log.Printf("fetched %d clusters", len(rs))
-
 		for _, r := range rs {
 			clusterNames = append(clusterNames, r.Name)
 		}
