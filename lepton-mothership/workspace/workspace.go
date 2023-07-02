@@ -295,7 +295,7 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 
 	err = terraform.CreateWorkspace(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName))
 	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
 		} else {
 			log.Println("skip terraform workspace creation: already exists")
