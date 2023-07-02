@@ -178,6 +178,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 
 	cpu := resource.NewScaledQuantity(int64(ld.Spec.ResourceRequirement.CPU*1000), -3)
 	memory := resource.NewQuantity(ld.Spec.ResourceRequirement.Memory*1024*1024, resource.BinarySI)
+	storage := resource.NewQuantity(ld.Spec.ResourceRequirement.EphemeralStorageInGB*1024*1024*1024, resource.BinarySI)
 
 	if ld.Spec.ResourceRequirement.ResourceShape != "" {
 		replicaResourceRequirement, err := shapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
@@ -187,17 +188,20 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 
 		cpu = resource.NewScaledQuantity(int64(replicaResourceRequirement.CPU*1000), -3)
 		memory = resource.NewQuantity(replicaResourceRequirement.Memory*1024*1024, resource.BinarySI)
+		storage = resource.NewQuantity(replicaResourceRequirement.EphemeralStorageInGB*1024*1024*1024, resource.BinarySI)
 	}
 
 	// Define the main container
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    *cpu,
-			corev1.ResourceMemory: *memory,
+			corev1.ResourceCPU:              *cpu,
+			corev1.ResourceMemory:           *memory,
+			corev1.ResourceEphemeralStorage: *storage,
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    *cpu,
-			corev1.ResourceMemory: *memory,
+			corev1.ResourceCPU:              *cpu,
+			corev1.ResourceMemory:           *memory,
+			corev1.ResourceEphemeralStorage: *storage,
 		},
 	}
 	nodeSelector := map[string]string{}

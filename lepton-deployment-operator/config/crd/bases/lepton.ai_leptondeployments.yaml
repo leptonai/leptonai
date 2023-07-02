@@ -98,6 +98,9 @@ spec:
                     type: string
                   cpu:
                     type: number
+                  ephemeral_storage_in_gb:
+                    format: int64
+                    type: integer
                   memory:
                     format: int64
                     type: integer

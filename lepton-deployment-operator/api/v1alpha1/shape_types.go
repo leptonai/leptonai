@@ -12,32 +12,36 @@ var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 		Name:        "gp1.hidden_test",
 		Description: "Hidden test shape with 0.3 CPUs and 128MB of RAM",
 		Resource: LeptonDeploymentReplicaResourceRequirement{
-			CPU:    0.3,
-			Memory: 128,
+			CPU:                  0.3,
+			Memory:               128,
+			EphemeralStorageInGB: 16,
 		},
 	},
 	GP1Small: {
 		Name:        "gp1.small",
-		Description: "Small shape with 2 CPUs and 8GB of RAM",
+		Description: "Small shape with 1 CPUs, 4GB of RAM and 16GB of ephemeral storage",
 		Resource: LeptonDeploymentReplicaResourceRequirement{
-			CPU:    2,
-			Memory: 8 * 1024,
+			CPU:                  1,
+			Memory:               4 * 1024,
+			EphemeralStorageInGB: 16,
 		},
 	},
 	GP1Medium: {
 		Name:        "gp1.medium",
-		Description: "Medium shape with 4 CPUs and 16GB of RAM",
+		Description: "Medium shape with 2 CPUs, 8GB of RAM and 32GB of ephemeral storage",
 		Resource: LeptonDeploymentReplicaResourceRequirement{
-			CPU:    4,
-			Memory: 16 * 1024,
+			CPU:                  2,
+			Memory:               8 * 1024,
+			EphemeralStorageInGB: 32,
 		},
 	},
 	GP1Large: {
 		Name:        "gp1.large",
-		Description: "Large shape with 8 CPUs and 32GB of RAM",
+		Description: "Large shape with 4 CPUs, 16GB of RAM and 64GB of ephemeral storage",
 		Resource: LeptonDeploymentReplicaResourceRequirement{
-			CPU:    8,
-			Memory: 32 * 1024,
+			CPU:                  4,
+			Memory:               16 * 1024,
+			EphemeralStorageInGB: 64,
 		},
 	},
 }

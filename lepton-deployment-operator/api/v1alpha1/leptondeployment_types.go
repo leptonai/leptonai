@@ -101,6 +101,8 @@ type LeptonDeploymentReplicaResourceRequirement struct {
 	AcceleratorType string `json:"accelerator_type"`
 	// +optional
 	AcceleratorNum float64 `json:"accelerator_num"`
+	// +optional
+	EphemeralStorageInGB int64 `json:"ephemeral_storage_in_gb"`
 }
 
 type ResourceShape struct {
