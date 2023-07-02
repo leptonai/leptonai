@@ -8,7 +8,7 @@ from rich.table import Table
 from urllib.parse import urlparse
 
 from leptonai.config import CACHE_DIR
-from leptonai.util import click_group, create_header
+from leptonai.util import click_group, create_header, get_full_workspace_api_url
 
 
 console = Console(highlight=False)
@@ -109,12 +109,10 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             workspace_url = workspaces[workspace_name]["url"]
             set_current_workspace(workspace_name)
         else:
-            console.print(
-                f'[red]Workspace "{workspace_name}" does not exist[/]. Please check'
-                " your name, or use `lep workspace login -r [url]` to register a new"
-                " workspace workspace."
-            )
-            sys.exit(1)
+            # New supported feature: if no workspace url is given and workspace name
+            # does not exist, we register it with the automatically generated url.
+            workspace_url = get_full_workspace_api_url(workspace_name)
+            _register_and_set(workspace_name, workspace_url, auth_token=auth_token)
     elif workspace_url:
         if not _is_valid_url(workspace_url):
             console.print(
