@@ -11,6 +11,7 @@ import (
 
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/worker"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
@@ -39,8 +40,11 @@ func Init() {
 		return
 	}
 
+	ctow := make(map[string][]string)
+
 	for _, item := range wss {
 		ws := item
+		ctow[ws.Spec.ClusterName] = append(ctow[ws.Spec.ClusterName], ws.Spec.Name)
 
 		switch ws.Status.State {
 		case crdv1alpha1.WorkspaceStateCreating, crdv1alpha1.WorkspaceStateUnknown:
@@ -68,6 +72,18 @@ func Init() {
 					log.Printf("init: failed to delete workspace %s: %v", ws.Spec.Name, err)
 				}
 			}()
+		}
+	}
+
+	for clusterName, wss := range ctow {
+		cl, err := cluster.DataStore.Get(clusterName)
+		if err != nil {
+			log.Printf("init: failed to get cluster %s: %v", clusterName, err)
+			continue
+		}
+		cl.Status.Workspaces = wss
+		if err := cluster.DataStore.UpdateStatus(cl.Name, cl); err != nil {
+			log.Printf("init: failed to update cluster %s: %v", clusterName, err)
 		}
 	}
 }
@@ -244,6 +260,8 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 	if exitCode != 0 {
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
+
+	cl.Status.Workspaces = goutil.RemoveString(cl.Status.Workspaces, workspaceName)
 
 	if deleteWorkspace {
 		err := terraform.DeleteEmptyWorkspace(tfws)
