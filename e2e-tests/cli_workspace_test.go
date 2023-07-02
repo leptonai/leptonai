@@ -99,11 +99,6 @@ func TestWorkspaceLoginToExisting(t *testing.T) {
 	}
 }
 
-/*
-TODO: right now, cliwrapper does not support passing in stdin to Run(). In the
-future we should complete this test by testing if one can login with a new URL.
-This is currently being covered in python test with dryrun, so we are relatively
-OK for now.
 func TestWorkspaceLoginNoURL(t *testing.T) {
 	prevWorkspace, err := getCurrentWorkspace()
 	if err != nil {
@@ -123,7 +118,6 @@ func TestWorkspaceLoginNoURL(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-*/
 
 func TestWorkspaceLoginNoFlags(t *testing.T) {
 	prevWorkspace, err := getCurrentWorkspace()
