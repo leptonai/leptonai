@@ -8,15 +8,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
+	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 )
@@ -90,18 +89,14 @@ func getFunc(cmd *cobra.Command, args []string) {
 		status := "UNKNOWN"
 		health := "OK"
 		if err != nil {
-			if isEKSDeleted(err) {
+			if eks.IsErrClusterDeleted(err) {
 				status = "DELETED"
 				health = "DELETED"
 			} else {
 				log.Panicf("failed to describe EKS cluster %q %v", c.Name, err)
 			}
 		} else {
-			version = *eksOut.Cluster.Version
-			status = string(eksOut.Cluster.Status)
-			if eksOut.Cluster.Health != nil && eksOut.Cluster.Health.Issues != nil && len(eksOut.Cluster.Health.Issues) > 0 {
-				health = fmt.Sprintf("%+v", eksOut.Cluster.Health.Issues)
-			}
+			version, status, health = eks.GetClusterStatus(eksOut)
 		}
 
 		rows = append(rows, []string{c.GetName(), c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
@@ -116,17 +111,4 @@ func getFunc(cmd *cobra.Command, args []string) {
 	tb.AppendBulk(rows)
 	tb.Render()
 	fmt.Println(buf.String())
-}
-
-func isEKSDeleted(err error) bool {
-	if err == nil {
-		return false
-	}
-	awsErr, ok := err.(awserr.Error)
-	if ok && awsErr.Code() == "ResourceNotFoundException" &&
-		strings.HasPrefix(awsErr.Message(), "No cluster found for") {
-		return true
-	}
-	// ResourceNotFoundException: No cluster found for name: aws-k8s-tester-155468BC717E03B003\n\tstatus code: 404, request id: 1e3fe41c-b878-11e8-adca-b503e0ba731d
-	return strings.Contains(err.Error(), "No cluster found for name: ")
 }
