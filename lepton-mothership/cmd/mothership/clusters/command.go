@@ -4,6 +4,7 @@ package clusters
 import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/delete"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/get"
+	inspectEKS "github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/inspect"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/logs"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 
@@ -32,6 +33,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(
 		get.NewCommand(),
 		delete.NewCommand(),
+		inspectEKS.NewCommand(),
 		logs.NewCommand(),
 	)
 	return cmd
