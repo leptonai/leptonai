@@ -34,7 +34,9 @@ export const DeploymentMinTable: FC<{ deployments: Deployment[] }> = ({
         {
           title: "Status",
           dataIndex: ["status", "state"],
-          render: (state) => <DeploymentStatus status={state} />,
+          render: (state, record) => (
+            <DeploymentStatus deploymentId={record.id} status={state} />
+          ),
         },
         {
           title: "Name",

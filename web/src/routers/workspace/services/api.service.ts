@@ -7,6 +7,7 @@ import {
   DeploymentEvent,
   Replica,
   Metric,
+  DeploymentReadiness,
 } from "@lepton-dashboard/interfaces/deployment";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
@@ -29,6 +30,10 @@ export abstract class ApiService {
   abstract listDeploymentEvents(
     deploymentId: string
   ): Observable<DeploymentEvent[]>;
+
+  abstract getDeploymentReadiness(
+    deploymentId: string
+  ): Observable<DeploymentReadiness>;
 
   abstract getDeploymentMetrics(
     deploymentId: string,

@@ -56,6 +56,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
     () => photonService.id(deployment.photon_id),
     undefined
   );
+
   return (
     <Row gutter={[16, 8]}>
       <Col span={24}>
@@ -71,7 +72,12 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               css={css`
                 color: ${theme.colorTextHeading};
               `}
-              icon={<DeploymentStatus status={deployment.status.state} />}
+              icon={
+                <DeploymentStatus
+                  deploymentId={deployment.id}
+                  status={deployment.status.state}
+                />
+              }
               to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}`}
               relative="route"
             >

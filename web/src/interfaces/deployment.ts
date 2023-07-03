@@ -1,3 +1,11 @@
+export enum State {
+  Running = "Running",
+  NotReady = "Not Ready",
+  Starting = "Starting",
+  Updating = "Updating",
+  Unknown = "",
+}
+
 export interface Deployment {
   id: string;
   name: string;
@@ -5,7 +13,7 @@ export interface Deployment {
   created_at: number;
   status: {
     endpoint: { internal_endpoint: string; external_endpoint: string };
-    state: string;
+    state: State | string;
   };
   resource_requirement: {
     memory: number;
@@ -54,4 +62,22 @@ export interface DeploymentEvent {
   reason: DeploymentEventTypes | string;
   count: number;
   last_observed_time: string;
+}
+
+export enum ReadinessReason {
+  ReadinessReasonInProgress = "Ready",
+  ConfigurationError = "InProgress",
+  ReadinessReasonNoCapacity = "NoCapacity",
+  ReadinessReasonUserCodeError = "UserCodeError",
+  ReadinessReasonSystemError = "SystemError",
+  ReadinessReasonUnknown = "Unknown",
+}
+
+export interface DeploymentReadinessIssue {
+  reason: ReadinessReason;
+  message: string;
+}
+
+export interface DeploymentReadiness {
+  [replicaID: string]: DeploymentReadinessIssue[];
 }

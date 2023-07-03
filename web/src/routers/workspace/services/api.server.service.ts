@@ -7,6 +7,7 @@ import {
   DeploymentEvent,
   Replica,
   Metric,
+  DeploymentReadiness,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
@@ -117,6 +118,14 @@ export class ApiServerService implements ApiService {
   listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
     return this.httpClientService.get(
       `${this.prefix}/deployments/${deploymentId}/events`
+    );
+  }
+
+  getDeploymentReadiness(
+    deploymentId: string
+  ): Observable<DeploymentReadiness> {
+    return this.httpClientService.get(
+      `${this.prefix}/deployments/${deploymentId}/readiness`
     );
   }
 

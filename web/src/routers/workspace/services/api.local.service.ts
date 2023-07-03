@@ -7,6 +7,7 @@ import {
   DeploymentEvent,
   Replica,
   Metric,
+  DeploymentReadiness,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
@@ -139,6 +140,10 @@ export class ApiLocalService implements ApiService {
   listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
     console.log(deploymentId);
     return of([]);
+  }
+
+  getDeploymentReadiness(): Observable<DeploymentReadiness> {
+    return EMPTY;
   }
 
   updateDeployment(

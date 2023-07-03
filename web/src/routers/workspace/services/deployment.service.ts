@@ -6,6 +6,7 @@ import {
   Replica,
   DeploymentEvent,
   Metric,
+  DeploymentReadiness,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
@@ -25,6 +26,10 @@ export class DeploymentService {
 
   listEvents(deploymentId: string): Observable<DeploymentEvent[]> {
     return this.apiService.listDeploymentEvents(deploymentId);
+  }
+
+  getReadiness(deploymentId: string): Observable<DeploymentReadiness> {
+    return this.apiService.getDeploymentReadiness(deploymentId);
   }
 
   getReplicaLog(deploymentId: string, replicaId: string): Observable<string> {
