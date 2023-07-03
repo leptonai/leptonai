@@ -1,4 +1,4 @@
-import { Cluster } from "@lepton-dashboard/interfaces/cluster";
+import { Workspace } from "@lepton-dashboard/interfaces/workspace";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { Injectable } from "injection-js";
 
@@ -6,12 +6,12 @@ import { Injectable } from "injection-js";
 export class WorkspaceTrackerService {
   name: string | null = null;
 
-  cluster: Cluster | null = null;
+  workspace: Workspace | null = null;
 
   trackWorkspace(name: string) {
     this.name = name;
-    this.cluster =
-      this.profileService.profile?.authorized_clusters?.find(
+    this.workspace =
+      this.profileService.profile?.authorized_workspaces?.find(
         (c) => c.data.cluster_name === name
       ) || null;
   }

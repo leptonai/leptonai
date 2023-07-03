@@ -28,8 +28,8 @@ export class AppInterceptor implements HTTPInterceptor {
 
   intercept(req: Request, next: HttpHandler): Observable<Response> {
     const reqHost = new URL(req.url!).host;
-    const token = this.profileService.profile?.authorized_clusters.find(
-      (cluster) => new URL(cluster.auth.url).host === reqHost
+    const token = this.profileService.profile?.authorized_workspaces.find(
+      (workspace) => new URL(workspace.auth.url).host === reqHost
     )?.auth.token;
 
     const headers = token

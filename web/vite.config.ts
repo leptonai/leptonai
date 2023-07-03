@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       hmr: false,
       proxy: {
         "/api/v1": {
-          target: env.VITE_CLUSTER_URL,
+          target: env.VITE_WORKSPACE_URL,
           changeOrigin: true,
         },
       },

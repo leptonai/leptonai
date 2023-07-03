@@ -2,7 +2,7 @@
 
 [![frontend-build](https://github.com/leptonai/lepton/actions/workflows/frontend.yaml/badge.svg)](https://github.com/leptonai/lepton/actions/workflows/frontend.yaml)
 ## ✨ Introduction
-Lepton Dashboard is a general purpose, web-based UI for Lepton clusters. It allows users to manage deployments and troubleshoot them.
+Lepton Dashboard is a general purpose, web-based UI for Lepton workspaces. It allows users to manage deployments and troubleshoot them.
 
 ## ⌨️ Development
 

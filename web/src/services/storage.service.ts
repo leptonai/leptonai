@@ -5,7 +5,7 @@ const StorageKeys = {
   PHOTON_TIME: "lepton-photon-latest-date",
   PHOTON_LAYOUT: "lepton-photon-layout",
   THEME: "lepton-theme",
-  CLUSTER_TOKEN: "lepton-cluster-token",
+  WORKSPACE_TOKEN: "lepton-workspace-token",
 };
 
 type Key = keyof typeof StorageKeys;

@@ -10,7 +10,7 @@ import { FC, useMemo, useState } from "react";
 
 export const ApiTokens: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const data = [{ token: workspaceTrackerService.cluster!.auth.token }];
+  const data = [{ token: workspaceTrackerService.workspace!.auth.token }];
   const [mask, setMask] = useState(true);
   const columns: ColumnsType<{ token: string }> = useMemo(
     () => [

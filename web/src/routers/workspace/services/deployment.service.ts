@@ -45,7 +45,7 @@ export class DeploymentService {
       )
     );
     const token =
-      this.profileService.profile?.authorized_clusters?.find(
+      this.profileService.profile?.authorized_workspaces?.find(
         (i) => new URL(i.auth.url).host === host
       )?.auth.token || "";
 

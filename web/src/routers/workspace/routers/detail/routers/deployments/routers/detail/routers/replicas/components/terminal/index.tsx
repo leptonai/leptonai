@@ -57,7 +57,7 @@ export const TerminalDetail: FC<{
     });
     const socket = new WebSocket(
       deploymentService.getReplicaSocketUrl(
-        workspaceTrackerService.cluster!.auth.url,
+        workspaceTrackerService.workspace!.auth.url,
         deploymentId,
         replicaId
       ),
@@ -115,7 +115,7 @@ export const TerminalDetail: FC<{
     deploymentService,
     replicaId,
     theme.fontFamilyCode,
-    workspaceTrackerService.cluster,
+    workspaceTrackerService.workspace,
   ]);
   return (
     <div

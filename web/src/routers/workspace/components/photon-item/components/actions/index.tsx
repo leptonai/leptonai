@@ -22,7 +22,7 @@ export const Actions: FC<{
 
   const downloadPhoton = useCallback(() => {
     const url = photonService.getDownloadUrlById(photon.id);
-    const token = workspaceTrackerService.cluster?.auth.token;
+    const token = workspaceTrackerService.workspace?.auth.token;
     fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,

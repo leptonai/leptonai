@@ -76,7 +76,7 @@ export const DeploymentForm: FC<{
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretService = useInject(SecretService);
-  const clusterInfo = workspaceTrackerService.cluster!.data;
+  const workspaceDetail = workspaceTrackerService.workspace!.data;
   const secrets = useStateFromObservable(() => secretService.listSecrets(), []);
   const secretOptions = useMemo(() => {
     return secrets.map((s) => ({ label: s.name, value: s.name }));
@@ -123,12 +123,12 @@ export const DeploymentForm: FC<{
       : false
   );
   const supportedAccelerators = Object.keys(
-    clusterInfo.supported_accelerators
+    workspaceDetail.supported_accelerators
   ).map((i) => ({ label: i, value: i }));
 
   const initialMax = initialDeploymentValue.resource_requirement
     ?.accelerator_type
-    ? clusterInfo.supported_accelerators[
+    ? workspaceDetail.supported_accelerators[
         initialDeploymentValue.resource_requirement?.accelerator_type
       ] || 0
     : 0;
@@ -239,7 +239,7 @@ export const DeploymentForm: FC<{
         const acceleratorType = form.getFieldValue(["accelerator_type"]);
         if (acceleratorType) {
           setMaxAcceleratorCount(
-            clusterInfo.supported_accelerators[acceleratorType]
+            workspaceDetail.supported_accelerators[acceleratorType]
           );
         } else {
           setMaxAcceleratorCount(0);
@@ -307,9 +307,9 @@ export const DeploymentForm: FC<{
         name="cpu"
         rules={[
           {
-            max: clusterInfo.max_generic_compute_size.core,
+            max: workspaceDetail.max_generic_compute_size.core,
             type: "number",
-            message: `The maximum available core is ${clusterInfo.max_generic_compute_size.core}`,
+            message: `The maximum available core is ${workspaceDetail.max_generic_compute_size.core}`,
           },
           {
             required: true,
@@ -324,9 +324,9 @@ export const DeploymentForm: FC<{
         name="memory"
         rules={[
           {
-            max: clusterInfo.max_generic_compute_size.memory,
+            max: workspaceDetail.max_generic_compute_size.memory,
             type: "number",
-            message: `The maximum available memory is ${clusterInfo.max_generic_compute_size.memory} MB`,
+            message: `The maximum available memory is ${workspaceDetail.max_generic_compute_size.memory} MB`,
           },
           {
             required: true,

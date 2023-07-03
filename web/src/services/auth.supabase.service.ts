@@ -3,7 +3,7 @@ import { createClient, Session } from "@supabase/supabase-js";
 import { Database } from "@lepton-dashboard/interfaces/database";
 import { BehaviorSubject, from, map, Observable } from "rxjs";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
-import { AuthorizedCluster } from "@lepton-dashboard/interfaces/cluster";
+import { AuthorizedWorkspace } from "@lepton-dashboard/interfaces/workspace";
 import { User } from "@lepton-dashboard/interfaces/user";
 
 /**
@@ -54,10 +54,10 @@ export class AuthSupabaseService implements AuthService {
     });
   }
 
-  listAuthorizedClusters(): Observable<AuthorizedCluster[]> {
-    return new Observable<AuthorizedCluster[]>((subscriber) => {
+  listAuthorizedWorkspaces(): Observable<AuthorizedWorkspace[]> {
+    return new Observable<AuthorizedWorkspace[]>((subscriber) => {
       const abort = new AbortController();
-      this.selectClusters(abort)
+      this.selectWorkspace(abort)
         .then((d) => {
           subscriber.next(d);
           subscriber.complete();
@@ -85,15 +85,15 @@ export class AuthSupabaseService implements AuthService {
     return users[0] || null;
   }
 
-  private async selectClusters(
+  private async selectWorkspace(
     abort: AbortController
-  ): Promise<AuthorizedCluster[]> {
-    const { data: clusters, error } = await this.client
-      .from("user_cluster")
+  ): Promise<AuthorizedWorkspace[]> {
+    const { data: workspaces, error } = await this.client
+      .from("user_workspace")
       .select(
         `
       token,
-      clusters(cluster_id: id, url)
+      workspaces(workspace_id: id, url)
     `
       )
       .abortSignal(abort.signal);
@@ -102,15 +102,15 @@ export class AuthSupabaseService implements AuthService {
       throw error;
     }
 
-    return (clusters || [])
-      .map((cluster) => {
+    return (workspaces || [])
+      .map((workspace) => {
         return {
-          url: Array.isArray(cluster.clusters)
-            ? cluster.clusters[0].url
-            : cluster.clusters?.url,
-          token: cluster.token,
+          url: Array.isArray(workspace.workspaces)
+            ? workspace.workspaces[0].url
+            : workspace.workspaces?.url,
+          token: workspace.token,
         };
       })
-      .filter((cluster): cluster is AuthorizedCluster => !!cluster.url);
+      .filter((workspace): workspace is AuthorizedWorkspace => !!workspace.url);
   }
 }

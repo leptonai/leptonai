@@ -24,11 +24,11 @@ export class ApiServerService implements ApiService {
   private apiVersionPrefix = `/api/v1`;
 
   get host() {
-    return this.workspaceTrackerService.cluster?.auth.url;
+    return this.workspaceTrackerService.workspace?.auth.url;
   }
 
   get token() {
-    return this.workspaceTrackerService.cluster?.auth.token;
+    return this.workspaceTrackerService.workspace?.auth.token;
   }
 
   get prefix() {

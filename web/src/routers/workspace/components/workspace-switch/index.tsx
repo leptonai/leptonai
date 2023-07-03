@@ -13,7 +13,7 @@ export const WorkspaceSwitch: FC = () => {
   const navigate = useNavigate();
   const theme = useAntdTheme();
   const options =
-    profileService.profile?.authorized_clusters?.map((c) => {
+    profileService.profile?.authorized_workspaces?.map((c) => {
       return {
         label: c.data.cluster_name,
         value: c.data.cluster_name,

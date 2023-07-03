@@ -11,16 +11,16 @@ export const Validate: FC<PropsWithChildren> = ({ children }) => {
 
   if (
     profileService.profile &&
-    profileService.profile.authorized_clusters.some(
+    profileService.profile.authorized_workspaces.some(
       (e) => e.data.cluster_name === workspaceName
     )
   ) {
     workspaceTrackerService.trackWorkspace(workspaceName!);
     return <>{children}</>;
   } else {
-    const firstClusterName =
-      profileService.profile!.authorized_clusters[0].data.cluster_name;
-    workspaceTrackerService.trackWorkspace(firstClusterName);
-    return <Navigate to={`/workspace/${firstClusterName}`} replace />;
+    const firstWorkspaceName =
+      profileService.profile!.authorized_workspaces[0].data.cluster_name;
+    workspaceTrackerService.trackWorkspace(firstWorkspaceName);
+    return <Navigate to={`/workspace/${firstWorkspaceName}`} replace />;
   }
 };

@@ -28,21 +28,21 @@ export const General: FC = () => {
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.cluster?.data.cluster_name}
+            {workspaceTrackerService.workspace?.data.cluster_name}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Release date">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.cluster?.data.build_time}
+            {workspaceTrackerService.workspace?.data.build_time}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Version hash">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.cluster?.data.git_commit}
+            {workspaceTrackerService.workspace?.data.git_commit}
           </Typography.Text>
         </Descriptions.Item>
       </Descriptions>

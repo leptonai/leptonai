@@ -28,7 +28,7 @@ export const WorkspaceGuard: FC<PropsWithChildren> = ({ children }) => {
   const profileService = useInject(ProfileService);
   if (
     !profileService.profile ||
-    profileService.profile.authorized_clusters.length === 0
+    profileService.profile.authorized_workspaces.length === 0
   ) {
     return <Navigate to="/no-workspace" replace />;
   } else {

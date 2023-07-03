@@ -10,7 +10,7 @@ export const TokenLogin: FC = () => {
   const onFinish = (values: { token: string }) => {
     storageService.set(
       StorageService.GLOBAL_SCOPE,
-      "CLUSTER_TOKEN",
+      "WORKSPACE_TOKEN",
       values.token
     );
     window.location.replace("/");

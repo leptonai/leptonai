@@ -34,54 +34,36 @@ export interface Database {
   };
   public: {
     Tables: {
-      clusters: {
+      user_workspace: {
         Row: {
-          created_at: string | null;
-          id: string;
-          url: string;
-        };
-        Insert: {
-          created_at?: string | null;
-          id?: string;
-          url: string;
-        };
-        Update: {
-          created_at?: string | null;
-          id?: string;
-          url?: string;
-        };
-        Relationships: [];
-      };
-      user_cluster: {
-        Row: {
-          cluster_id: string;
           id: number;
           token: string;
           user_id: string;
+          workspace_id: string;
         };
         Insert: {
-          cluster_id: string;
           id?: number;
           token: string;
           user_id: string;
+          workspace_id: string;
         };
         Update: {
-          cluster_id?: string;
           id?: number;
           token?: string;
           user_id?: string;
+          workspace_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "user_cluster_cluster_id_fkey";
-            columns: ["cluster_id"];
-            referencedRelation: "clusters";
+            foreignKeyName: "user_workspace_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "user_cluster_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "users";
+            foreignKeyName: "user_workspace_workspace_id_fkey";
+            columns: ["workspace_id"];
+            referencedRelation: "workspaces";
             referencedColumns: ["id"];
           }
         ];
@@ -116,6 +98,24 @@ export interface Database {
             referencedColumns: ["id"];
           }
         ];
+      };
+      workspaces: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          url: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          url: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          url?: string;
+        };
+        Relationships: [];
       };
     };
     Views: {
