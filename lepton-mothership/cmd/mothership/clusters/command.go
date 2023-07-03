@@ -7,6 +7,7 @@ import (
 	inspectEKS "github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/inspect"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/list"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/logs"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters/update"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 
 	"github.com/spf13/cobra"
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(
 		list.NewCommand(),
 		delete.NewCommand(),
+		update.NewCommand(),
 		inspectEKS.NewCommand(),
 		logs.NewCommand(),
 		create.NewCommand(),
