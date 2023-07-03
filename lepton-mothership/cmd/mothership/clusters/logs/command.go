@@ -25,7 +25,7 @@ func NewCommand() *cobra.Command {
 		Short: "Print logs of the give cluster",
 		Run:   logsFunc,
 	}
-	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to delete")
+	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to fetch logs for")
 	return cmd
 }
 
