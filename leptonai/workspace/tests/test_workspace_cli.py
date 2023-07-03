@@ -41,10 +41,16 @@ class TestWorkspaceCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         # using -n nonexisting name, not ok
         result = runner.invoke(
-            cli, ["workspace", "login", "-n", "nonexistent-workspace", "--dry-run"]
+            cli,
+            ["workspace", "login", "-n", "new-workspace", "--dry-run"],
+            input="\n",  # empty auth token
         )
-        self.assertIn("does not exist", result.output.lower())
-        self.assertEqual(result.exit_code, 1)
+        self.assertIn(
+            "https://new-workspace.cloud.lepton.ai/api/v1", result.output.lower()
+        )
+        self.assertIn("registered", result.output.lower())
+        self.assertIn("logged in", result.output.lower())
+        self.assertEqual(result.exit_code, 0)
         # using -r, already registered, ok
         result = runner.invoke(
             cli, ["workspace", "login", "-r", "http://example-0.lepton.ai", "--dry-run"]

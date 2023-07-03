@@ -11,6 +11,14 @@ from rich.console import Console
 console = Console(highlight=False)
 
 
+def get_full_workspace_url(workspace_name):
+    return f"https://{workspace_name}.cloud.lepton.ai"
+
+
+def get_full_workspace_api_url(workspace_name):
+    return get_full_workspace_url(workspace_name) + "/api/v1"
+
+
 def create_header(auth_token: str) -> Dict[str, str]:
     """
     Generate HTTP header for a request given an auth token.
