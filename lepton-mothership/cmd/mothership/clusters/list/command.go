@@ -51,19 +51,28 @@ func listFunc(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("fetched %d clusters", len(rs))
 
-	cfg, err := aws.New(&aws.Config{
-		// TODO: make these configurable, or derive from cluster spec
-		DebugAPICalls: false,
-		Region:        "us-east-1",
-	})
-	if err != nil {
-		log.Panicf("failed to create AWS session %v", err)
+	eksAPIs := make(map[string]*aws_eks_v2.Client)
+	for _, c := range rs {
+		if _, ok := eksAPIs[c.Spec.Region]; ok {
+			continue
+		}
+
+		cfg, err := aws.New(&aws.Config{
+			DebugAPICalls: false,
+			Region:        c.Spec.Region,
+		})
+		if err != nil {
+			log.Panicf("failed to create AWS session %v", err)
+		}
+		eksAPI := aws_eks_v2.NewFromConfig(cfg)
+		eksAPIs[c.Spec.Region] = eksAPI
 	}
-	eksAPI := aws_eks_v2.NewFromConfig(cfg)
 
 	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 	rows := make([][]string, 0, len(rs))
 	for _, c := range rs {
+		eksAPI := eksAPIs[c.Spec.Region]
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
 			Name: &c.Name,
