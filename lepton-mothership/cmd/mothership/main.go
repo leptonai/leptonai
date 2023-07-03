@@ -11,6 +11,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces"
 )
 
 const appName = "mothership"
@@ -30,6 +31,7 @@ func init() {
 		clusters.NewCommand(),
 		token.NewCommand(),
 		version.NewCommand(),
+		workspaces.NewCommand(),
 	)
 }
 
