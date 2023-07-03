@@ -35,6 +35,10 @@ data "aws_iam_group" "dev_members" {
 }
 
 locals {
+  # from 10.0.0.0 to 10.0.255.255 for 65534 hosts
+  vpc_cidr = "10.0.0.0/16"
+  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
+
   cluster_name = coalesce(var.cluster_name, "eks-${random_string.suffix.result}")
 }
 
@@ -50,11 +54,32 @@ module "vpc" {
 
   name = "vpc-${local.cluster_name}"
 
-  cidr = "10.0.0.0/16"
-  azs  = slice(data.aws_availability_zones.available.names, 0, 3)
+  cidr = local.vpc_cidr
+  azs  = local.azs
 
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets  = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+  # VPC CIDR 10.0.0.0/16 ranges from 10.0.0.0 to 10.0.255.255 with 65534 IPs.
+  #
+  # We need more private subnets since we can just deploy load balancers in public subnets
+  # and still route traffic to pods in private subnets.
+  # ref. https://docs.aws.amazon.com/eks/latest/userguide/creating-a-vpc.html
+  #
+  # e.g., a reigon of 4 AZs will have:
+  # 10.0.0.0/20  from 10.0.0.0  to 10.0.15.255 with 4094 IPs.
+  # 10.0.16.0/20 from 10.0.16.0 to 10.0.31.255 with 4094 IPs.
+  # 10.0.32.0/20 from 10.0.32.0 to 10.0.47.255 with 4094 IPs.
+  # 10.0.48.0/20 from 10.0.48.0 to 10.0.63.255 with 4094 IPs.
+  # ref. https://developer.hashicorp.com/terraform/language/functions/cidrsubnet
+  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
+  #
+  # e.g., a reigon of 4 AZs will have:
+  # 10.0.60.0/24 from 10.0.60.0 to 10.0.60.255 with 254 IPs.
+  # 10.0.61.0/24 from 10.0.61.0 to 10.0.61.255 with 254 IPs.
+  # 10.0.62.0/24 from 10.0.62.0 to 10.0.62.255 with 254 IPs.
+  # 10.0.63.0/24 from 10.0.63.0 to 10.0.63.255 with 254 IPs.
+  #
+  # NOTE: use 60 to avoid CIDR range conflicts in a region of >=4 AZs.
+  # ref. https://developer.hashicorp.com/terraform/language/functions/cidrsubnet
+  public_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 60)]
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
