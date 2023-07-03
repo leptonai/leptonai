@@ -15,6 +15,12 @@ export interface Deployment {
     accelerator_num?: number;
   };
   envs?: Array<DeploymentEnv | DeploymentSecretEnv>;
+  mounts?: Array<DeploymentMount>;
+}
+
+export interface DeploymentMount {
+  mount_path: string;
+  path: string;
 }
 
 export interface DeploymentEnv {

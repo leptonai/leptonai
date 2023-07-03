@@ -58,6 +58,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
         )[0] || undefined,
     },
     envs: [],
+    mounts: [],
   };
   const createDeployment = (deployment: Partial<Deployment>) => {
     setLoading(true);

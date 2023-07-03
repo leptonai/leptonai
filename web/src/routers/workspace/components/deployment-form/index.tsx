@@ -1,4 +1,11 @@
-import { Asterisk, Hashtag, Launch } from "@carbon/icons-react";
+import {
+  Add,
+  ArrowRight,
+  Asterisk,
+  Hashtag,
+  Launch,
+  Subtract,
+} from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -25,6 +32,7 @@ import { DownOutlined, MinusOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Deployment,
   DeploymentEnv,
+  DeploymentMount,
   DeploymentSecretEnv,
 } from "@lepton-dashboard/interfaces/deployment";
 import dayjs from "dayjs";
@@ -33,6 +41,7 @@ import { useInject } from "@lepton-libs/di";
 import { Rule } from "rc-field-form/lib/interface";
 import { useNavigate } from "react-router-dom";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
+import { StorageSelect } from "@lepton-dashboard/routers/workspace/components/storage-select";
 
 interface RawForm {
   name: string;
@@ -44,6 +53,7 @@ interface RawForm {
   photon: string[];
   envs: { name: string; value: string }[];
   secret_envs: { name: string; value: string }[];
+  mounts: DeploymentMount[];
 }
 
 export const DeploymentForm: FC<{
@@ -174,6 +184,7 @@ export const DeploymentForm: FC<{
             value: e.value_from.secret_name_ref,
           };
         }),
+      mounts: initialDeploymentValue.mounts || [],
     };
   }, [initialDeploymentValue, photon]);
 
@@ -211,6 +222,14 @@ export const DeploymentForm: FC<{
           };
         }),
       ],
+      mounts: (value.mounts || [])
+        .map((m) => {
+          return {
+            path: m.path?.trim(),
+            mount_path: m.mount_path?.trim(),
+          };
+        })
+        .filter((m) => m.path && m.mount_path),
     };
   };
   return (
@@ -482,7 +501,72 @@ export const DeploymentForm: FC<{
           </Space.Compact>
         </Form.Item>
       </Form.Item>
-
+      <Form.Item
+        css={css`
+          margin-bottom: 0;
+        `}
+        label="Storage Mounts"
+      >
+        <Form.List name="mounts">
+          {(fields, { add, remove }) => {
+            return (
+              <>
+                {fields.map((field, index) => (
+                  <Space key={`mounts-${index}`}>
+                    <Form.Item
+                      {...field}
+                      initialValue=""
+                      name={[field.name, "path"]}
+                      key={`mounts-${index}-path`}
+                      rules={[
+                        { required: true, message: "Missing storage path" },
+                      ]}
+                    >
+                      <StorageSelect
+                        disabled={edit}
+                        placeholder="from storage"
+                      />
+                    </Form.Item>
+                    <Form.Item>
+                      <CarbonIcon icon={<ArrowRight />} />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      initialValue=""
+                      name={[field.name, "mount_path"]}
+                      key={`mounts-${index}-mount_path`}
+                      rules={[
+                        { required: true, message: "Missing mount path" },
+                      ]}
+                    >
+                      <Input disabled={edit} placeholder="mount to" />
+                    </Form.Item>
+                    <Form.Item>
+                      <Button
+                        type="default"
+                        disabled={edit}
+                        icon={<CarbonIcon icon={<Subtract />} />}
+                        onClick={() => remove(index)}
+                      />
+                    </Form.Item>
+                  </Space>
+                ))}
+                <Form.Item>
+                  <Button
+                    block
+                    disabled={edit}
+                    type="dashed"
+                    icon={<CarbonIcon icon={<Add />} />}
+                    onClick={add}
+                  >
+                    Add Storage Mount
+                  </Button>
+                </Form.Item>
+              </>
+            );
+          }}
+        </Form.List>
+      </Form.Item>
       <Form.Item
         wrapperCol={{
           xs: { offset: 0, span: 24 },

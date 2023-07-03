@@ -21,20 +21,26 @@ export abstract class FileManagerService<T = Record<string, unknown>> {
 export interface FileTreeControlOptions<T, K> {
   readonly trackBy: (file: FileEntry<T>) => K;
   readonly isExpandable: (file: FileEntry<T>) => file is DirectoryItem<T>;
+  /**
+   * @default "single"
+   */
   readonly expansionMode?: "single" | "multiple";
+  /**
+   * @default "none"
+   */
   readonly selectionMode?: "single" | "multiple" | "none";
   readonly initData?: readonly FileEntry<T>[];
 }
 
 export class FileTreeControl<T, K = FileEntry<T>> {
   // Record the expanded state of the tree nodes.
-  private expansionModel: SelectionModel<K>;
+  readonly expansionModel: SelectionModel<K>;
 
   // Record the loading state of the tree nodes.
-  private loadingModel = new SelectionModel<K>(true);
+  readonly loadingModel = new SelectionModel<K>(true);
 
   // Record the selected state of the tree nodes.
-  private readonly selectionModel: SelectionModel<K> | null = null;
+  readonly selectionModel: SelectionModel<K> | null = null;
 
   private data: readonly FileEntry<T>[] | null = this.options.initData || null;
 
@@ -49,7 +55,7 @@ export class FileTreeControl<T, K = FileEntry<T>> {
     private options: FileTreeControlOptions<T, K>
   ) {
     const expansionModel = this.options?.expansionMode || "single";
-    const selectionMode = this.options?.selectionMode || "single";
+    const selectionMode = this.options?.selectionMode || "none";
     if (selectionMode === "single") {
       this.selectionModel = new SelectionModel<K>(false);
     } else if (selectionMode === "multiple") {
@@ -82,7 +88,7 @@ export class FileTreeControl<T, K = FileEntry<T>> {
         : (EMPTY as Observable<SelectionChange<K>>)
     );
     return merge(this.loadRootIfNeeds(), refresh$).pipe(
-      map(() => this.data || [])
+      map(() => [...(this.data || [])])
     );
   }
 
