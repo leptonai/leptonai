@@ -1,6 +1,6 @@
 import { Injectable } from "injection-js";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
-import { Observable, of } from "rxjs";
+import { EMPTY, Observable, of } from "rxjs";
 import { AuthorizedWorkspace } from "@lepton-dashboard/interfaces/workspace";
 import { User } from "@lepton-dashboard/interfaces/user";
 import { Session } from "@supabase/supabase-js";
@@ -42,5 +42,9 @@ export class AuthTokenService implements AuthService {
   logout(): Promise<void> {
     this.storageService.set(StorageService.GLOBAL_SCOPE, "WORKSPACE_TOKEN", "");
     return Promise.resolve(undefined);
+  }
+
+  joinWaitlist(): Observable<void> {
+    return EMPTY;
   }
 }

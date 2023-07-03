@@ -1,10 +1,13 @@
 import { Injectable } from "injection-js";
 import { createClient, Session } from "@supabase/supabase-js";
-import { Database } from "@lepton-dashboard/interfaces/database";
 import { BehaviorSubject, from, map, Observable } from "rxjs";
-import { AuthService } from "@lepton-dashboard/services/auth.service";
+import {
+  AuthService,
+  WaitlistEntry,
+} from "@lepton-dashboard/services/auth.service";
 import { AuthorizedWorkspace } from "@lepton-dashboard/interfaces/workspace";
 import { User } from "@lepton-dashboard/interfaces/user";
+import { Database } from "@lepton-dashboard/interfaces/database";
 
 /**
  * Must be instantiated outside OauthService
@@ -69,6 +72,21 @@ export class AuthSupabaseService implements AuthService {
     });
   }
 
+  joinWaitlist(entry: WaitlistEntry): Observable<void> {
+    return new Observable((subscriber) => {
+      const abort = new AbortController();
+      this.updateWaitInfo(entry, abort)
+        .then(() => {
+          subscriber.next();
+          subscriber.complete();
+        })
+        .catch((e) => subscriber.error(e));
+      return () => {
+        abort.abort();
+      };
+    });
+  }
+
   private async selectUserProfile(
     abort: AbortController
   ): Promise<User | null> {
@@ -112,5 +130,23 @@ export class AuthSupabaseService implements AuthService {
         };
       })
       .filter((workspace): workspace is AuthorizedWorkspace => !!workspace.url);
+  }
+
+  private async updateWaitInfo(user: Partial<User>, abort: AbortController) {
+    const { data, error } = await this.client
+      .rpc("join_waitlist", {
+        company: user.company || "",
+        company_size: user.companySize || "",
+        industry: user.industry || "",
+        role: user.role || "",
+        name: user.name || "",
+      })
+      .abortSignal(abort.signal);
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
   }
 }

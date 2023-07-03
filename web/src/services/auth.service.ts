@@ -11,6 +11,11 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export type WaitlistEntry = Pick<
+  User,
+  "company" | "companySize" | "industry" | "role" | "name"
+>;
+
 @Injectable()
 export abstract class AuthService {
   public readonly client: SupabaseClient | null = null;
@@ -18,4 +23,5 @@ export abstract class AuthService {
   abstract getSessionProfile(): Observable<Session["user"] | null>;
   abstract listAuthorizedWorkspaces(): Observable<AuthorizedWorkspace[]>;
   abstract logout(): Promise<void>;
+  abstract joinWaitlist(entry: WaitlistEntry): Observable<void>;
 }

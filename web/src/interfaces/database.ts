@@ -3,7 +3,7 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json }
+  | { [key: string]: Json | undefined }
   | Json[];
 
 export interface Database {
@@ -71,24 +71,39 @@ export interface Database {
       users: {
         Row: {
           auth_user_id: string | null;
+          company: string | null;
+          company_size: string | null;
           created_at: string | null;
           email: string;
           enable: boolean;
           id: string;
+          industry: string | null;
+          name: string | null;
+          role: string | null;
         };
         Insert: {
           auth_user_id?: string | null;
+          company?: string | null;
+          company_size?: string | null;
           created_at?: string | null;
           email: string;
           enable?: boolean;
           id?: string;
+          industry?: string | null;
+          name?: string | null;
+          role?: string | null;
         };
         Update: {
           auth_user_id?: string | null;
+          company?: string | null;
+          company_size?: string | null;
           created_at?: string | null;
           email?: string;
           enable?: boolean;
           id?: string;
+          industry?: string | null;
+          name?: string | null;
+          role?: string | null;
         };
         Relationships: [
           {
@@ -122,7 +137,16 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      join_waitlist: {
+        Args: {
+          company: string;
+          company_size: string;
+          industry: string;
+          role: string;
+          name: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;
