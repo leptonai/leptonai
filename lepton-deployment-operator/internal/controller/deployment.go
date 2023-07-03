@@ -194,16 +194,20 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	// Define the main container
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:              *cpu,
-			corev1.ResourceMemory:           *memory,
-			corev1.ResourceEphemeralStorage: *storage,
+			corev1.ResourceCPU:    *cpu,
+			corev1.ResourceMemory: *memory,
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:              *cpu,
-			corev1.ResourceMemory:           *memory,
-			corev1.ResourceEphemeralStorage: *storage,
+			corev1.ResourceCPU:    *cpu,
+			corev1.ResourceMemory: *memory,
 		},
 	}
+
+	if storage.Value() != 0 {
+		resources.Requests[corev1.ResourceEphemeralStorage] = *storage
+		resources.Limits[corev1.ResourceEphemeralStorage] = *storage
+	}
+
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
 		// if gpu is enabled, set gpu resource limit and node selector
