@@ -1,5 +1,5 @@
-// Package get implements get command.
-package get
+// Package list implements list command.
+package list
 
 import (
 	"bytes"
@@ -10,15 +10,15 @@ import (
 	"net/http"
 	"time"
 
-	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
-	"github.com/olekukonko/tablewriter"
-	"github.com/spf13/cobra"
-
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+
+	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/olekukonko/tablewriter"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -28,14 +28,14 @@ func init() {
 // NewCommand implements "mothership clusters get" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get all the clusters (either EKS/*)",
-		Run:   getFunc,
+		Use:   "list",
+		Short: "List all the clusters (either EKS/*), use 'inspect' to get individual clusters",
+		Run:   listFunc,
 	}
 	return cmd
 }
 
-func getFunc(cmd *cobra.Command, args []string) {
+func listFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
