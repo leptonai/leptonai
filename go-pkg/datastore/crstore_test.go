@@ -28,6 +28,7 @@ func TestCRStore(t *testing.T) {
 	s := NewCRStore[*mothershipv1alpha1.LeptonCluster](namespace, example)
 
 	crName := util.RandString(6)
+
 	// Create
 	if err := s.Create(crName, example); err != nil {
 		t.Fatalf("Failed to create: %v", err)

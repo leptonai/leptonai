@@ -6,6 +6,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +26,13 @@ func NewCRStore[T client.Object](namespace string, example T) *CRStore[T] {
 }
 
 func (s *CRStore[T]) Create(name string, t T) error {
+	// when CRD "kindMatchErr.GroupKind" is not installed, its controller will be no-op
+	// returning "*meta.NoKindMatchError" error type, but we don't care about this case now
+	// ref. https://github.com/openkruise/kruise/blob/6ca91fe04e521dafbd7d8170d03c3af4072ac645/pkg/controller/controllers.go#L75
+	if _, err := s.Get(name); !apierrors.IsNotFound(err) {
+		return fmt.Errorf("cluster %q already exists", name)
+	}
+
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.Client.Create(context.Background(), t)

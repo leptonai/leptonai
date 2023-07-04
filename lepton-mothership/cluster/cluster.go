@@ -71,6 +71,9 @@ func Init() {
 	}
 }
 
+// Create schedules a cluster create job via "eks-lepton".
+// Note that the cluster name is globally unique, guaranteed by the Kubernetes and namespace.
+// A redundant cluster creation with the same name will fail.
 func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
