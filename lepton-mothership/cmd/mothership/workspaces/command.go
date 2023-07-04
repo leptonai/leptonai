@@ -7,6 +7,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/delete"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/list"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/logs"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/update"
 
 	"github.com/spf13/cobra"
 )
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(
 		list.NewCommand(),
 		create.NewCommand(),
+		update.NewCommand(),
 		delete.NewCommand(),
 		logs.NewCommand(),
 	)
