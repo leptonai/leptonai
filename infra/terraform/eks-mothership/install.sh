@@ -34,13 +34,15 @@ terraform init --upgrade
 
 CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"
 
+AURORA_MASTER_USERNAME=${AURORA_MASTER_USERNAME:-root}
+
 # Apply modules in sequence
 for target in "${targets[@]}"
 do
-  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME"
+  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="aurora_master_username=$AURORA_MASTER_USERNAME"
 
   if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-    apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" 2>&1)
+    apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="aurora_master_username=$AURORA_MASTER_USERNAME" 2>&1)
     if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
       echo "SUCCESS: Terraform apply of $target completed successfully"
     else

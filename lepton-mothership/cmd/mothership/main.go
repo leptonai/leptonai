@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
@@ -29,6 +30,7 @@ func init() {
 
 func init() {
 	rootCmd.AddCommand(
+		aurora.NewCommand(),
 		clusters.NewCommand(),
 		token.NewCommand(),
 		metering.NewCommand(),

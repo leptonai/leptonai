@@ -39,6 +39,9 @@ locals {
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
   cluster_name = coalesce(var.cluster_name, "eks-${random_string.suffix.result}")
+
+  vpc_cidr = "10.0.0.0/16"
+  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 }
 
 resource "random_string" "suffix" {

@@ -1,9 +1,11 @@
 package common
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -50,4 +52,48 @@ func ReadTokenFromFlag(cmd *cobra.Command) string {
 
 func ReadMothershipURLFromFlag(cmd *cobra.Command) string {
 	return cmd.Flag("mothership-url").Value.String()
+}
+
+type AuroraConfig struct {
+	Region        string
+	DBDriverName  string
+	DBName        string
+	DBHost        string
+	DBPort        int
+	DBEndpoint    string
+	DBUser        string
+	DBPassword    string
+	AuthWithToken bool
+}
+
+func ReadAuroraConfigFromFlag(cmd *cobra.Command) AuroraConfig {
+	dbHost := cmd.Flag("db-host").Value.String()
+	dbPort, _ := strconv.Atoi(cmd.Flag("db-port").Value.String())
+
+	s := cmd.Flag("auth-with-token").Value.String()
+	authWithToken, _ := strconv.ParseBool(s)
+
+	return AuroraConfig{
+		Region:        cmd.Flag("region").Value.String(),
+		DBDriverName:  cmd.Flag("db-driver-name").Value.String(),
+		DBName:        cmd.Flag("db-name").Value.String(),
+		DBHost:        dbHost,
+		DBPort:        dbPort,
+		DBEndpoint:    fmt.Sprintf("%s:%d", dbHost, dbPort),
+		DBUser:        cmd.Flag("db-user").Value.String(),
+		DBPassword:    cmd.Flag("db-password").Value.String(),
+		AuthWithToken: authWithToken,
+	}
+}
+
+func (c AuroraConfig) DSN() string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName,
+	)
+}
+
+func (c AuroraConfig) DSNWithAuthToken(authToken string) string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+		c.DBHost, c.DBPort, c.DBUser, authToken, c.DBName,
+	)
 }
