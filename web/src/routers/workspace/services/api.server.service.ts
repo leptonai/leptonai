@@ -1,6 +1,6 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
-import { Observable } from "rxjs";
+import { catchError, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -10,7 +10,10 @@ import {
   DeploymentReadiness,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
-import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
+import {
+  HttpClientService,
+  HttpContext,
+} from "@lepton-dashboard/services/http-client.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 import { WorkspaceTrackerService } from "./workspace-tracker.service";
@@ -19,6 +22,7 @@ import {
   FineTuneJobStatus,
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
+import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -124,9 +128,24 @@ export class ApiServerService implements ApiService {
   getDeploymentReadiness(
     deploymentId: string
   ): Observable<DeploymentReadiness> {
-    return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/readiness`
-    );
+    return this.httpClientService
+      .get<DeploymentReadiness>(
+        `${this.prefix}/deployments/${deploymentId}/readiness`,
+        // FIXME(hsuanxyz): this is a hotfix to ignore errors
+        {
+          context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+            ignoreErrors: true,
+          }),
+        }
+      )
+      .pipe(
+        catchError((err) => {
+          if (err?.response?.status === 404) {
+            return of({});
+          }
+          throw err;
+        })
+      );
   }
 
   getDeploymentReplicaLogs(
