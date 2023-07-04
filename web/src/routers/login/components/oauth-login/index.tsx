@@ -4,7 +4,10 @@ import { Auth } from "@supabase/auth-ui-react";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { FC, useMemo } from "react";
 
-export const OAuthLogin: FC<{ client: SupabaseClient }> = ({ client }) => {
+export const OAuthLogin: FC<{ client: SupabaseClient; url: string }> = ({
+  client,
+  url,
+}) => {
   const theme = useAntdTheme();
   const appearance = useMemo(() => {
     return {
@@ -78,7 +81,7 @@ export const OAuthLogin: FC<{ client: SupabaseClient }> = ({ client }) => {
       <Auth
         onlyThirdPartyProviders
         providers={["google", "github"]}
-        redirectTo={window.location.origin}
+        redirectTo={url}
         supabaseClient={client}
         localization={{
           variables: {

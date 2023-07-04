@@ -2,7 +2,10 @@ import { FC, PropsWithChildren } from "react";
 import { css } from "@emotion/react";
 import { Logo } from "@lepton-dashboard/components/logo";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-export const CenterBox: FC<PropsWithChildren> = ({ children }) => {
+export const CenterBox: FC<PropsWithChildren<{ width?: string }>> = ({
+  children,
+  width = `400px`,
+}) => {
   const theme = useAntdTheme();
 
   return (
@@ -16,7 +19,7 @@ export const CenterBox: FC<PropsWithChildren> = ({ children }) => {
     >
       <div
         css={css`
-          flex: 0 1 400px;
+          flex: 0 1 ${width};
           padding: 16px 64px;
           * {
             transition: none !important;

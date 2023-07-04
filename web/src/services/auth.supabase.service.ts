@@ -133,7 +133,7 @@ export class AuthSupabaseService implements AuthService {
   ): Promise<User | null> {
     const { data: users, error } = await this.client
       .from("users")
-      .select("id, email, enable")
+      .select("id, email, enable, name")
       .eq("email", (await this.client.auth.getUser()).data.user?.email)
       .abortSignal(abort.signal);
 

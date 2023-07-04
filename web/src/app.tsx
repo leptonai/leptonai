@@ -43,6 +43,11 @@ const CloseBeta = lazy(() =>
     default: e.CloseBeta,
   }))
 );
+const WaitList = lazy(() =>
+  import("@lepton-dashboard/routers/wait-list").then((e) => ({
+    default: e.WaitList,
+  }))
+);
 const NoWorkspace = lazy(() =>
   import("@lepton-dashboard/routers/no-workspace").then((e) => ({
     default: e.NoWorkspace,
@@ -77,6 +82,14 @@ const router = createBrowserRouter([
         element: (
           <OAuthGuard>
             <CloseBeta />
+          </OAuthGuard>
+        ),
+      },
+      {
+        path: "waitlist",
+        element: (
+          <OAuthGuard>
+            <WaitList />
           </OAuthGuard>
         ),
       },

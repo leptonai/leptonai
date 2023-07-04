@@ -11,7 +11,10 @@ import { Button, Divider, Space, Typography } from "antd";
 import { FC, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-export const SignAsOther: FC<{ tips: ReactNode }> = ({ tips }) => {
+export const SignAsOther: FC<{ tips: ReactNode; waitlist?: boolean }> = ({
+  tips,
+  waitlist = false,
+}) => {
   const navigate = useNavigate();
   const profileService = useInject(ProfileService);
   return (
@@ -23,13 +26,25 @@ export const SignAsOther: FC<{ tips: ReactNode }> = ({ tips }) => {
             You are logged in as{" "}
             <strong>{profileService.profile?.oauth?.email}</strong>
           </Typography.Paragraph>
-          <Button
-            size="large"
-            type="primary"
-            onClick={() => navigate("/login", { relative: "route" })}
-          >
-            Sign in as a different user
-          </Button>
+          <Space direction="vertical">
+            {waitlist && (
+              <Button
+                block
+                type="primary"
+                onClick={() => navigate("/waitlist", { relative: "route" })}
+              >
+                Join waitlist
+              </Button>
+            )}
+            <Button
+              block
+              type="primary"
+              onClick={() => navigate("/login", { relative: "route" })}
+            >
+              Sign in as a different user
+            </Button>
+          </Space>
+
           <Divider />
         </>
       ) : (

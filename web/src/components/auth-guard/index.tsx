@@ -5,8 +5,9 @@ import { Navigate } from "react-router-dom";
 
 export const OAuthGuard: FC<PropsWithChildren> = ({ children }) => {
   const profileService = useInject(ProfileService);
+  const href = window.location.href;
   if (!profileService.profile?.oauth) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/login?callbackURL=${href}`} replace />;
   } else {
     return <>{children}</>;
   }

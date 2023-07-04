@@ -8,6 +8,7 @@ export const CloseBeta: FC = () => {
 
   return (
     <SignAsOther
+      waitlist
       tips={
         <>
           <Typography.Title level={3}>

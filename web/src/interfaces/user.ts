@@ -6,5 +6,5 @@ export interface User {
   companySize?: string;
   industry?: string;
   role?: string;
-  name?: string;
+  name?: string | null;
 }
