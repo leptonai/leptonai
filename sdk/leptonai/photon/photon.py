@@ -12,6 +12,7 @@ from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
 import zipfile
 
+import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -301,10 +302,46 @@ class Photon(BasePhoton):
     def launch(self, host="0.0.0.0", port=8080, log_level="info"):
         self.call_init()
         app = self._create_app(load_mount=True)
+
+        logger = logging.getLogger("Lepton Photon Launcher")
+        logger.setLevel(log_level.upper())
+        formatter = logging.Formatter(
+            "%(asctime)s - \x1b[32m%(levelname)s\x1b[0m:  %(message)s\t"
+        )
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.propagate = False
+        # Send the welcome message, especially to make sure that users will know
+        # whicl URL to visit in order to not get a "not found" error.
+        logger.info("If you are using standard photon, a few urls that may be helpful:")
+        logger.info(
+            "\t- "
+            + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
+            + " OpenAPI documentation"
+        )
+        logger.info(
+            "\t- "
+            + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
+            + " Redoc documentation"
+        )
+        logger.info(
+            "\t- "
+            + click.style(f"http://{host}:{port}/openapi.json", fg="green", bold=True)
+            + " Raw OpenAPI schema"
+        )
+        logger.info(
+            "\t- "
+            + click.style(f"http://{host}:{port}/metrics", fg="green", bold=True)
+            + " Prometheus metrics"
+        )
+
         log_config = self._uvicorn_log_config()
-        return uvicorn.run(
+        ret = uvicorn.run(
             app, host=host, port=port, log_level=log_level, log_config=log_config
         )
+        logger.info("Photon exited with code: " + str(ret))
+        return ret
 
     @staticmethod
     def _collect_metrics(app):
@@ -416,7 +453,11 @@ class Photon(BasePhoton):
             path, func, kwargs
         )
         api_router.add_api_route(
-            f"/{path}", typed_handler, methods=["POST"], **typed_handler_kwargs
+            f"/{path}",
+            typed_handler,
+            name=path,
+            methods=["POST"],
+            **typed_handler_kwargs,
         )
 
     def _register_routes(self, app, load_mount):
