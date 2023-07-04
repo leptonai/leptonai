@@ -156,15 +156,25 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	}
 
 	defer func() {
-		if err != nil {
-			log.Println("failed to delete cluster:", err)
-		} else {
-			log.Println("deleted cluster:", clusterName)
-			err = DataStore.Delete(context.Background(), clusterName)
-			if err != nil {
+		success := err == nil
+		if err == nil {
+			if err = DataStore.Delete(context.Background(), clusterName); err != nil {
 				log.Println("failed to delete cluster from the data store:", err)
+				success = false
 			}
 		}
+		if success {
+			log.Printf("successfully deleted cluster %q", clusterName)
+			return
+		}
+		log.Printf("failed to delete cluster: %v", err)
+
+		// TODO: implement fallback
+		// step 1. inspect the cluster based on provider resources
+		// step 2. manually delete resources
+		// that's it! do not try to delete everything such as mothership resources
+		// as long as we destroy AWS-bill generating resources with best effort
+		// we should debug why the delete failed manually and actually fix the root cause
 	}()
 
 	_, err = terraform.GetWorkspace(clusterName)

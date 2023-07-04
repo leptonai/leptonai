@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/aws"
+	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_elbv2_v2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -70,74 +73,113 @@ const describeELBInterval = 5 * time.Second
 // Inspects EKS resources based on the cluster name.
 // It may take long time, if the account has many number of ELB resources
 // since ELB does not support filter-based list APIs.
-func InspectClusters(
-	ctx context.Context,
-	eksAPI *aws_eks_v2.Client,
-	elbv2API *aws_elbv2_v2.Client,
-	clusterNames ...string) ([]Cluster, error) {
-	vpcToELBv2s := make(map[string][]string)
-	var nextMarker *string = nil
-	for i := 0; i < 10; i++ {
-		out, err := elbv2API.DescribeLoadBalancers(ctx, &aws_elbv2_v2.DescribeLoadBalancersInput{
-			Marker: nextMarker,
+func InspectClusters(ctx context.Context, clusters map[string]crdv1alpha1.LeptonCluster) ([]Cluster, error) {
+	log.Printf("inspect %d clusters", len(clusters))
+
+	// for each region, in case one mothership handles all regions
+	eksAPIs := make(map[string]*aws_eks_v2.Client)
+	elbv2APIs := make(map[string]*aws_elbv2_v2.Client)
+	for _, cs := range clusters {
+		if _, ok := eksAPIs[cs.Spec.Region]; ok {
+			continue
+		}
+		cfg, err := aws.New(&aws.Config{
+			// TODO: make these configurable, or derive from cluster spec
+			DebugAPICalls: false,
+			Region:        cs.Spec.Region,
 		})
 		if err != nil {
 			return nil, err
 		}
-
-		for _, lb := range out.LoadBalancers {
-			vpcID := *lb.VpcId
-			arn := *lb.LoadBalancerArn
-
-			elbs, ok := vpcToELBv2s[vpcID]
-			if !ok {
-				elbs = []string{arn}
-			} else {
-				elbs = append(elbs, arn)
-				sort.Strings(elbs)
-			}
-			vpcToELBv2s[vpcID] = elbs
-		}
-
-		nextMarker = out.NextMarker
-		if nextMarker == nil {
-			// no more resources are available
-			break
-		}
-
-		time.Sleep(describeELBInterval)
+		eksAPIs[cs.Spec.Region] = aws_eks_v2.NewFromConfig(cfg)
+		elbv2APIs[cs.Spec.Region] = aws_elbv2_v2.NewFromConfig(cfg)
 	}
 
-	cs := make([]Cluster, 0)
-	for _, name := range clusterNames {
-		c, err := inspectCluster(ctx, eksAPI, vpcToELBv2s, name)
+	// region -> vpc id -> elb v2 arns
+	regionToVPCToELBv2s := make(map[string]map[string][]string)
+	for reg, elbv2API := range elbv2APIs {
+		if _, ok := regionToVPCToELBv2s[reg]; !ok {
+			regionToVPCToELBv2s[reg] = make(map[string][]string)
+		}
+		vpcToELBv2s := regionToVPCToELBv2s[reg]
+
+		log.Printf("fetching all ELB v2 for the region %q", reg)
+		var nextMarker *string = nil
+		for i := 0; i < 10; i++ {
+			out, err := elbv2API.DescribeLoadBalancers(ctx, &aws_elbv2_v2.DescribeLoadBalancersInput{
+				Marker: nextMarker,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			for _, lb := range out.LoadBalancers {
+				vpcID := *lb.VpcId
+				arn := *lb.LoadBalancerArn
+
+				elbs, ok := vpcToELBv2s[vpcID]
+				if !ok {
+					elbs = []string{arn}
+				} else {
+					elbs = append(elbs, arn)
+					sort.Strings(elbs)
+				}
+				vpcToELBv2s[vpcID] = elbs
+			}
+
+			nextMarker = out.NextMarker
+			if nextMarker == nil {
+				// no more resources are available
+				break
+			}
+
+			time.Sleep(describeELBInterval)
+		}
+	}
+
+	css := make([]Cluster, 0)
+	for clusterName, cs := range clusters {
+		c, err := inspectCluster(
+			ctx,
+			cs.Spec.Region,
+			string(cs.Status.State),
+			eksAPIs[cs.Spec.Region],
+			regionToVPCToELBv2s[cs.Spec.Region],
+			clusterName,
+		)
 		if err != nil {
 			return nil, err
 		}
-		cs = append(cs, c)
+		css = append(css, c)
 	}
 
-	sort.SliceStable(cs, func(i, j int) bool {
-		if cs[i].CreatedAt == cs[j].CreatedAt {
-			return cs[i].Name < cs[j].Name
+	sort.SliceStable(css, func(i, j int) bool {
+		if css[i].CreatedAt == css[j].CreatedAt {
+			return css[i].Name < css[j].Name
 		}
+
 		// descending order by create timestamp
 		// that way, deleted clusters with zero timestamp
 		// value are located at last
-		return !cs[i].CreatedAt.Before(cs[j].CreatedAt)
+		return !css[i].CreatedAt.Before(css[j].CreatedAt)
 	})
-	return cs, nil
+	return css, nil
 }
 
 func inspectCluster(
 	ctx context.Context,
+	region string,
+	mothershipState string,
 	eksAPI *aws_eks_v2.Client,
 	vpcToELBv2s map[string][]string,
 	clusterName string,
 ) (Cluster, error) {
-	eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
-		Name: &clusterName,
-	})
+	eksOut, err := eksAPI.DescribeCluster(
+		ctx,
+		&aws_eks_v2.DescribeClusterInput{
+			Name: &clusterName,
+		},
+	)
 	if err != nil {
 		if IsErrClusterDeleted(err) {
 			log.Printf("cluster %q already deleted", clusterName)
@@ -150,21 +192,31 @@ func inspectCluster(
 	if eksOut.Cluster.PlatformVersion != nil {
 		platformVeresion = *eksOut.Cluster.PlatformVersion
 	}
+	vpcID := ""
+	if eksOut.Cluster.ResourcesVpcConfig != nil {
+		vpcID = *eksOut.Cluster.ResourcesVpcConfig.VpcId
+	}
+
 	version, status, health := GetClusterStatus(eksOut)
 	c := Cluster{
-		Name: clusterName,
-		ARN:  *eksOut.Cluster.Arn,
+		Name:   clusterName,
+		ARN:    *eksOut.Cluster.Arn,
+		Region: region,
 
 		Version:         version,
 		PlatformVersion: platformVeresion,
+		MothershipState: mothershipState,
 		Status:          status,
 		Health:          health,
 
 		CreatedAt: *eksOut.Cluster.CreatedAt,
 
-		VPCID: *eksOut.Cluster.ResourcesVpcConfig.VpcId,
+		VPCID:             vpcID,
+		AttachedELBv2ARNs: vpcToELBv2s[vpcID],
+
+		// to populate below
+		NodeGroups: nil,
 	}
-	c.AttachedELBv2ARNs = vpcToELBv2s[c.VPCID]
 
 	mngs, err := eksAPI.ListNodegroups(ctx, &aws_eks_v2.ListNodegroupsInput{ClusterName: &clusterName})
 	if err != nil {
@@ -188,12 +240,21 @@ func inspectCluster(
 			asgs[i] = *r.Name
 		}
 
+		k8sVersion := "UNKNOWN"
+		if out.Nodegroup.Version != nil {
+			k8sVersion = *out.Nodegroup.Version
+		}
+		releaseVersion := "UNKNOWN"
+		if out.Nodegroup.ReleaseVersion != nil {
+			releaseVersion = *out.Nodegroup.ReleaseVersion
+		}
+
 		nodes[i] = MNG{
 			Name: mngName,
 			ARN:  *out.Nodegroup.NodegroupArn,
 
-			K8SVersion:     *out.Nodegroup.Version,
-			ReleaseVersion: *out.Nodegroup.ReleaseVersion,
+			K8SVersion:     k8sVersion,
+			ReleaseVersion: releaseVersion,
 
 			CapacityType: string(out.Nodegroup.CapacityType),
 			Status:       string(out.Nodegroup.Status),
@@ -207,11 +268,13 @@ func inspectCluster(
 }
 
 type Cluster struct {
-	Name string `json:"name"`
-	ARN  string `json:"arn"`
+	Name   string `json:"name"`
+	ARN    string `json:"arn"`
+	Region string `json:"region"`
 
 	Version         string `json:"version"`
 	PlatformVersion string `json:"platform-version"`
+	MothershipState string `json:"mothership-state"`
 	Status          string `json:"status"`
 	Health          string `json:"health"`
 
@@ -248,6 +311,7 @@ func (c Cluster) String() string {
 	tb.Append([]string{"ARN", c.ARN})
 	tb.Append([]string{"VERSION", c.Version})
 	tb.Append([]string{"PLATFORM VERSION", c.PlatformVersion})
+	tb.Append([]string{"MOTHERSHIP STATE", c.MothershipState})
 	tb.Append([]string{"STATUS", c.Status})
 	tb.Append([]string{"HEALTH", c.Health})
 	tb.Append([]string{"CREATED AT", c.CreatedAt.String()})

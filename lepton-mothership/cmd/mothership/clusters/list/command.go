@@ -53,6 +53,11 @@ func listFunc(cmd *cobra.Command, args []string) {
 
 	eksAPIs := make(map[string]*aws_eks_v2.Client)
 	for _, c := range rs {
+		if c.Spec.Region == "" {
+			log.Printf("cluster %q spec may be outdated -- region is not populated, default to us-east-1", c.Name)
+			c.Spec.Region = "us-east-1"
+		}
+
 		if _, ok := eksAPIs[c.Spec.Region]; ok {
 			continue
 		}

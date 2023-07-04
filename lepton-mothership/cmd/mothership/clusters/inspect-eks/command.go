@@ -1,5 +1,5 @@
-// Package inspect implements inspect command.
-package inspectEKS
+// Package inspect_eks implements inspect-eks command.
+package inspect_eks
 
 import (
 	"context"
@@ -9,15 +9,12 @@ import (
 	"net/http"
 	"time"
 
-	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
-	aws_elbv2_v2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	"github.com/spf13/cobra"
-
 	goclient "github.com/leptonai/lepton/go-client"
-	"github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -42,41 +39,49 @@ func NewCommand() *cobra.Command {
 }
 
 func inspectFunc(cmd *cobra.Command, args []string) {
-	clusterNames := make([]string, 0)
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	cli := goclient.NewHTTP(mothershipURL, token)
+
+	// cluster name -> cluster object
+	css := make(map[string]crdv1alpha1.LeptonCluster)
 
 	if clusterName != "" {
-		clusterNames = append(clusterNames, clusterName)
+		log.Printf("fetching a single cluster %q via mothership API", clusterName)
+		b, err := cli.RequestURL(http.MethodGet, mothershipURL+"/"+clusterName, nil, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var cluster crdv1alpha1.LeptonCluster
+		if err = json.Unmarshal(b, &cluster); err != nil {
+			log.Fatalf("failed to decode %v", err)
+		}
+		if cluster.Spec.Region == "" {
+			log.Printf("cluster %q spec may be outdated -- region is not populated, default to us-east-1", clusterName)
+			cluster.Spec.Region = "us-east-1"
+		}
+		css[clusterName] = cluster
 	} else {
-		token := common.ReadTokenFromFlag(cmd)
-		mothershipURL := common.ReadMothershipURLFromFlag(cmd)
-
-		cli := goclient.NewHTTP(mothershipURL, token)
+		log.Printf("fetching all clusters via mothership API")
 		b, err := cli.RequestURL(http.MethodGet, mothershipURL, nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
-		var rs []*crdv1alpha1.LeptonCluster
-		if err = json.Unmarshal(b, &rs); err != nil {
+		var clusters []*crdv1alpha1.LeptonCluster
+		if err = json.Unmarshal(b, &clusters); err != nil {
 			log.Fatalf("failed to decode %v", err)
 		}
-		for _, r := range rs {
-			clusterNames = append(clusterNames, r.Name)
+		for _, cluster := range clusters {
+			if cluster.Spec.Region == "" {
+				log.Printf("cluster %q spec may be outdated -- region is not populated, default to us-east-1", cluster.Name)
+				cluster.Spec.Region = "us-east-1"
+			}
+			css[cluster.Name] = *cluster
 		}
 	}
 
-	cfg, err := aws.New(&aws.Config{
-		// TODO: make these configurable, or derive from cluster spec
-		DebugAPICalls: false,
-		Region:        "us-east-1",
-	})
-	if err != nil {
-		log.Fatalf("failed to create AWS session %v", err)
-	}
-	eksAPI := aws_eks_v2.NewFromConfig(cfg)
-	elbv2API := aws_elbv2_v2.NewFromConfig(cfg)
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	cs, err := eks.InspectClusters(ctx, eksAPI, elbv2API, clusterNames...)
+	cs, err := eks.InspectClusters(ctx, css)
 	cancel()
 	if err != nil {
 		log.Fatalf("failed to inspect clusters (%v)", err)
