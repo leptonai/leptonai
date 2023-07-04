@@ -7,6 +7,7 @@ on:
       - "infra/terraform/eks-lepton/**"
       - "infra-tests/**"
       - "lepton-mothership/**"
+      - "!lepton-mothership/cmd/**"
     branches: [ "**" ]
 
 jobs:
