@@ -17,3 +17,10 @@ The mothership utilizes Terraform to manage the infrastructure across various cl
 Within the Kubernetes cluster it runs in, the mothership maintains the lepton workspace as a custom resource (CR). Each lepton environment is associated with a Lepton API server and a set of operators that run within a single namespace.
 
 User information is stored in a shared database with the web authentication system. The mothership serves as the exclusive writer to this database, taking responsibility for managing access tokens and maintaining the relationship between users and their respective lepton environments.
+
+### Command-line interface
+
+```bash
+go install -v ./lepton-mothership/cmd/mothership
+mothership -h
+```

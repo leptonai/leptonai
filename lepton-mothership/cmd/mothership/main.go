@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces"
@@ -30,6 +31,7 @@ func init() {
 	rootCmd.AddCommand(
 		clusters.NewCommand(),
 		token.NewCommand(),
+		metering.NewCommand(),
 		version.NewCommand(),
 		workspaces.NewCommand(),
 	)
