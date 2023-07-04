@@ -6,7 +6,7 @@ import fastchat.serve.openai_api_server
 
 
 class Server(Photon):
-    requirement_dependency = ["https://github.com/leptonai/FastChat.git@d426b61"]
+    requirement_dependency = ["git+https://github.com/leptonai/FastChat.git@2f18851"]
 
     def init(self):
         fastchat.serve.openai_api_server.app_settings.controller_address = (

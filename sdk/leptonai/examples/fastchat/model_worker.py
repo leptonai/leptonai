@@ -7,7 +7,7 @@ import fastchat.serve.model_worker
 
 
 class Server(Photon):
-    requirement_dependency = ["https://github.com/leptonai/FastChat.git@d426b61"]
+    requirement_dependency = ["git+https://github.com/leptonai/FastChat.git@2f18851"]
 
     def init(self):
         worker = fastchat.serve.model_worker.ModelWorker(
@@ -15,7 +15,7 @@ class Server(Photon):
             worker_addr=os.environ.get("WORKER_ADDR", "http://0.0.0.0:21002"),
             worker_id=fastchat.serve.model_worker.worker_id,
             no_register=False,
-            model_path="./model",
+            model_path=os.environ.get("MODEL_PATH", "./model"),
             model_names=[
                 "tuna",
                 "gpt-3.5-turbo",
