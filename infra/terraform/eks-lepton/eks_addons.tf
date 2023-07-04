@@ -86,14 +86,14 @@ module "eks_blueprints_kubernetes_addons" {
           "--storage.tsdb.path=/data",
           "--web.console.libraries=/etc/prometheus/console_libraries",
           "--web.console.templates=/etc/prometheus/consoles",
-          "--storage.tsdb.retention.time=2h",
+          "--storage.tsdb.retention.time=30m",
           "--storage.tsdb.wal-compression"
         ]
 
         persistentVolume : {
           enabled : true
           mountPath : "/data"
-          size : "8Gi"
+          size : "12Gi"
           storageClass : "gp3"
         }
       }
