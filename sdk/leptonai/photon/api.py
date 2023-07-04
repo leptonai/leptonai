@@ -182,7 +182,6 @@ def remote_launch(
     # TODO: get the photon name from the remote and use it as the deployment
     # name
     dn = deployment_name
-    print(f"Launching photon {id}")
     if dn is None:
         dn = f"deploy-{id}"
         # format name to be valid
@@ -190,6 +189,8 @@ def remote_launch(
         if not dn[-1].isalnum():
             dn = dn[:-1] + "x"
         dn = dn.lower()
+
+    print(f"Launching photon {id} as {dn}")
 
     envs_and_secrets = []
     for k, v in env_list.items():
