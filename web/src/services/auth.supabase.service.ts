@@ -17,6 +17,12 @@ const client = createClient<Database>(
   import.meta.env.VITE_SUPABASE_KEY || "invalid"
 );
 
+const SSO_CONFIG = {
+  domain: "lepton.ai",
+  access_token_key: "lepton-access-token",
+  refresh_token_key: "lepton-refresh-token",
+};
+
 @Injectable()
 export class AuthSupabaseService implements AuthService {
   private session$ = new BehaviorSubject<Session | null>(null);
@@ -27,7 +33,25 @@ export class AuthSupabaseService implements AuthService {
       this.session$.next(session);
     });
 
-    this.client.auth.onAuthStateChange((_event, session) => {
+    this.client.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        // delete cookies on sign out
+        const expires = new Date(0).toUTCString();
+        document.cookie = `${SSO_CONFIG.access_token_key}=; Domain=${SSO_CONFIG.domain}; path=/; expires=${expires}; SameSite=Lax; secure`;
+        document.cookie = `${SSO_CONFIG.refresh_token_key}=; Domain=${SSO_CONFIG.domain}}; path=/; expires=${expires}; SameSite=Lax; secure`;
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        const maxAge = 100 * 365 * 24 * 60 * 60; // 100 years, never expires
+        document.cookie = `${SSO_CONFIG.access_token_key}=${
+          session!.access_token
+        }; Domain=${
+          SSO_CONFIG.domain
+        }; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
+        document.cookie = `${SSO_CONFIG.refresh_token_key}=${
+          session!.refresh_token
+        }; Domain=${
+          SSO_CONFIG.domain
+        }; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
+      }
       this.session$.next(session);
     });
   }
@@ -39,9 +63,26 @@ export class AuthSupabaseService implements AuthService {
   }
 
   getSessionProfile(): Observable<Session["user"] | null> {
-    return from(this.client.auth.getSession()).pipe(
-      map(({ data }) => data.session?.user || null)
+    const cookies = document.cookie
+      .split(/\s*;\s*/)
+      .map((cookie) => cookie.split("="));
+
+    const accessTokenCookie = cookies.find(
+      (x) => x[0] == `${SSO_CONFIG.access_token_key}`
     );
+    const refreshTokenCookie = cookies.find(
+      (x) => x[0] == `${SSO_CONFIG.refresh_token_key}`
+    );
+
+    const setSession =
+      accessTokenCookie && refreshTokenCookie
+        ? client.auth.setSession({
+            access_token: accessTokenCookie[1],
+            refresh_token: refreshTokenCookie[1],
+          })
+        : this.client.auth.getSession();
+
+    return from(setSession).pipe(map(({ data }) => data.session?.user || null));
   }
 
   getUserProfile(): Observable<User | null> {
