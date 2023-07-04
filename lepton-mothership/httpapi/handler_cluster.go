@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -12,8 +14,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const defaultGetTimeout = time.Minute
+
 func HandleClusterGet(c *gin.Context) {
-	cl, err := cluster.Get(c.Param("clname"))
+	ctx, cancel := context.WithTimeout(context.Background(), defaultGetTimeout)
+	cl, err := cluster.Get(ctx, c.Param("clname"))
+	cancel()
 	if err != nil {
 		log.Println("failed to get cluster:", err)
 		// TODO: check if cluster not found and return user error if not found
@@ -33,8 +39,12 @@ func HandleClusterGetLogs(c *gin.Context) {
 	c.String(http.StatusOK, job.GetLog())
 }
 
+const defaultListTimeout = time.Minute
+
 func HandleClusterList(c *gin.Context) {
-	cls, err := cluster.List()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultListTimeout)
+	cls, err := cluster.List(ctx)
+	cancel()
 	if err != nil {
 		log.Println("failed to list clusters:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list clusters: " + err.Error()})
@@ -48,6 +58,9 @@ const (
 	defaultProvider = "aws"
 	defaultRegion   = "us-east-1"
 )
+
+// create is async, so we don't need full duration
+const defaultCreateTimeout = time.Minute
 
 func HandleClusterCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
@@ -68,7 +81,9 @@ func HandleClusterCreate(c *gin.Context) {
 		spec.GitRef = string(plumbing.Main)
 	}
 
-	cl, err := cluster.Create(spec)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultCreateTimeout)
+	cl, err := cluster.Create(ctx, spec)
+	cancel()
 	if err != nil {
 		log.Println("failed to create cluster:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create cluster: " + err.Error()})
@@ -87,6 +102,9 @@ func HandleClusterDelete(c *gin.Context) {
 	}
 	c.Status(http.StatusOK)
 }
+
+// update is async, so we don't need full duration
+const defaultUpdateTimeout = time.Minute
 
 func HandleClusterUpdate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
@@ -107,7 +125,9 @@ func HandleClusterUpdate(c *gin.Context) {
 		spec.GitRef = string(plumbing.Main)
 	}
 
-	cl, err := cluster.Update(spec)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultUpdateTimeout)
+	cl, err := cluster.Update(ctx, spec)
+	cancel()
 	if err != nil {
 		log.Println("failed to update cluster:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update cluster: " + err.Error()})

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -43,7 +44,7 @@ func (h *SecretHandler) Delete(c *gin.Context) {
 	// TODO: this has data race: if users create a deployment after this check
 	// but before the actual deletion of the secret from DB, then the deployment
 	// will be created with a secret that is being deleted.
-	list, err := h.ldDB.List()
+	list, err := h.ldDB.List(context.Background())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the secret is in use: " + err.Error()})
 		return

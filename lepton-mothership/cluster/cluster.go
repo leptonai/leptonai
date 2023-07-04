@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -32,7 +33,7 @@ var (
 )
 
 func Init() {
-	clusters, err := DataStore.List()
+	clusters, err := DataStore.List(context.Background())
 	if err != nil {
 		log.Println("failed to list clusters:", err)
 		return
@@ -54,7 +55,7 @@ func Init() {
 		case crdv1alpha1.ClusterStateUpdating:
 			go func() {
 				log.Println("restart updating cluster:", cl.Spec.Name)
-				_, err := Update(cl.Spec)
+				_, err := Update(context.Background(), cl.Spec)
 				if err != nil {
 					log.Printf("init: failed to update cluster %s: %v", cl.Spec.Name, err)
 				}
@@ -74,7 +75,7 @@ func Init() {
 // Create schedules a cluster create job via "eks-lepton".
 // Note that the cluster name is globally unique, guaranteed by the Kubernetes and namespace.
 // A redundant cluster creation with the same name will fail.
-func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
 		return nil, fmt.Errorf("invalid workspace name %s: %s", clusterName, util.NameInvalidMessage)
@@ -83,27 +84,27 @@ func Create(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 	cl := &crdv1alpha1.LeptonCluster{
 		Spec: spec,
 	}
-	if err := DataStore.Create(clusterName, cl); err != nil {
+	if err := DataStore.Create(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
 	cl.Status = crdv1alpha1.LeptonClusterStatus{
 		State:     crdv1alpha1.ClusterStateCreating,
 		UpdatedAt: uint64(time.Now().Unix()),
 	}
-	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
 	return idempotentCreate(cl)
 }
 
-func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
 		return nil, fmt.Errorf("invalid workspace name %s: %s", clusterName, util.NameInvalidMessage)
 	}
 
-	cl, err := DataStore.Get(clusterName)
+	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -111,19 +112,19 @@ func Update(spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, err
 		log.Println("Updating a non-ready cluster...")
 	}
 	cl.Spec = spec
-	if err := DataStore.Update(clusterName, cl); err != nil {
+	if err := DataStore.Update(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 	cl.Status.State = crdv1alpha1.ClusterStateUpdating
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
-	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		return createOrUpdateCluster(cl, logCh)
+		return createOrUpdateCluster(context.Background(), cl, logCh)
 	}, func() {
-		tryUpdatingStateToFailed(clusterName)
+		tryUpdatingStateToFailed(context.Background(), clusterName)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -136,12 +137,12 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 	return Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
 		return delete(clusterName, deleteWorkspace, logCh)
 	}, func() {
-		tryUpdatingStateToFailed(clusterName)
+		tryUpdatingStateToFailed(context.Background(), clusterName)
 	})
 }
 
 func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error {
-	cl, err := DataStore.Get(clusterName)
+	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -150,7 +151,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	}
 
 	cl.Status.State = crdv1alpha1.ClusterStateDeleting
-	if err := DataStore.UpdateStatus(clusterName, cl); err != nil {
+	if err := DataStore.UpdateStatus(context.Background(), clusterName, cl); err != nil {
 		return fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
@@ -159,7 +160,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 			log.Println("failed to delete cluster:", err)
 		} else {
 			log.Println("deleted cluster:", clusterName)
-			err = DataStore.Delete(clusterName)
+			err = DataStore.Delete(context.Background(), clusterName)
 			if err != nil {
 				log.Println("failed to delete cluster from the data store:", err)
 			}
@@ -218,16 +219,16 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	return nil
 }
 
-func List() ([]*crdv1alpha1.LeptonCluster, error) {
-	cls, err := DataStore.List()
+func List(ctx context.Context) ([]*crdv1alpha1.LeptonCluster, error) {
+	cls, err := DataStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
 	return cls, nil
 }
 
-func Get(clusterName string) (*crdv1alpha1.LeptonCluster, error) {
-	cl, err := DataStore.Get(clusterName)
+func Get(ctx context.Context, clusterName string) (*crdv1alpha1.LeptonCluster, error) {
+	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -255,9 +256,9 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		return createOrUpdateCluster(cl, logCh)
+		return createOrUpdateCluster(context.Background(), cl, logCh)
 	}, func() {
-		tryUpdatingStateToFailed(clusterName)
+		tryUpdatingStateToFailed(context.Background(), clusterName)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -266,7 +267,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	return cl, nil
 }
 
-func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
+func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
 	clusterName := cl.Spec.Name
 	var err error
 
@@ -275,7 +276,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) e
 			cl.Status.State = crdv1alpha1.ClusterStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
-		derr := DataStore.UpdateStatus(clusterName, cl)
+		derr := DataStore.UpdateStatus(ctx, clusterName, cl)
 		if err == nil && derr != nil {
 			log.Println("failed to update cluster state in the data store:", err)
 			err = derr
@@ -326,7 +327,7 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) e
 		return fmt.Errorf("failed to unmarshal json output: %s", err)
 	}
 
-	err = DataStore.UpdateStatus(clusterName, cl)
+	err = DataStore.UpdateStatus(ctx, clusterName, cl)
 	if err != nil {
 		return fmt.Errorf("failed to update cluster state in the data store: %w", err)
 	}
@@ -334,19 +335,19 @@ func createOrUpdateCluster(cl *crdv1alpha1.LeptonCluster, logCh chan<- string) e
 	return nil
 }
 
-func tryUpdatingStateToFailed(clusterName string) {
-	cl, err := DataStore.Get(clusterName)
+func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
+	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
 		log.Printf("failed to get cluster %s: %s", clusterName, err)
 		return
 	}
-	if err := updateState(cl, crdv1alpha1.ClusterStateFailed); err != nil {
+	if err := updateState(ctx, cl, crdv1alpha1.ClusterStateFailed); err != nil {
 		log.Printf("failed to update cluster %s state to failed: %s", clusterName, err)
 	}
 }
 
-func updateState(cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterState) error {
+func updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterState) error {
 	cl.Status.State = state
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
-	return DataStore.UpdateStatus(cl.Spec.Name, cl)
+	return DataStore.UpdateStatus(ctx, cl.Spec.Name, cl)
 }

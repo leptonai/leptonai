@@ -22,7 +22,7 @@ type PhotonHandler struct {
 
 func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
-	ph, err := h.phDB.Get(pid)
+	ph, err := h.phDB.Get(context.Background(), pid)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 		return
@@ -41,7 +41,7 @@ func (h *PhotonHandler) Get(c *gin.Context) {
 		h.Download(c)
 	} else {
 		pid := c.Param("pid")
-		ph, err := h.phDB.Get(pid)
+		ph, err := h.phDB.Get(context.Background(), pid)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 			return
@@ -57,7 +57,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	// TODO: this has data race: if users create a deployment after this check
 	// but before the actual deletion of the photon from DB, then the deployment
 	// will be created with a photon that is being deleted.
-	list, err := h.ldDB.List()
+	list, err := h.ldDB.List(context.Background())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the photon is in use: " + err.Error()})
 		return
@@ -69,7 +69,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 		}
 	}
 
-	if err := h.phDB.Delete(pid); err != nil {
+	if err := h.phDB.Delete(context.Background(), pid); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from database: " + err.Error()})
 		return
 	}
@@ -79,7 +79,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 func (h *PhotonHandler) List(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
 	var phs []*leptonaiv1alpha1.Photon
-	phList, err := h.phDB.List()
+	phList, err := h.phDB.List(context.Background())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list photons: " + err.Error()})
 		return
@@ -124,7 +124,7 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.phDB.Create(ph.GetSpecID(), ph); err != nil {
+	if err := h.phDB.Create(context.Background(), ph.GetSpecID(), ph); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
 		return
 	}

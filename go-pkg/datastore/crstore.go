@@ -25,35 +25,35 @@ func NewCRStore[T client.Object](namespace string, example T) *CRStore[T] {
 	}
 }
 
-func (s *CRStore[T]) Create(name string, t T) error {
+func (s *CRStore[T]) Create(ctx context.Context, name string, t T) error {
 	// when CRD "kindMatchErr.GroupKind" is not installed, its controller will be no-op
 	// returning "*meta.NoKindMatchError" error type, but we don't care about this case now
 	// ref. https://github.com/openkruise/kruise/blob/6ca91fe04e521dafbd7d8170d03c3af4072ac645/pkg/controller/controllers.go#L75
-	if _, err := s.Get(name); !apierrors.IsNotFound(err) {
+	if _, err := s.Get(ctx, name); !apierrors.IsNotFound(err) {
 		return fmt.Errorf("cluster %q already exists", name)
 	}
 
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Create(context.Background(), t)
+	return k8s.Client.Create(ctx, t)
 }
 
-func (s *CRStore[T]) UpdateStatus(name string, t T) error {
+func (s *CRStore[T]) UpdateStatus(ctx context.Context, name string, t T) error {
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Status().Update(context.Background(), t)
+	return k8s.Client.Status().Update(ctx, t)
 }
 
-func (s *CRStore[T]) Get(name string) (T, error) {
+func (s *CRStore[T]) Get(ctx context.Context, name string) (T, error) {
 	t := s.example.DeepCopyObject().(T)
-	err := k8s.Client.Get(context.Background(), client.ObjectKey{
+	err := k8s.Client.Get(ctx, client.ObjectKey{
 		Namespace: s.namespace,
 		Name:      name,
 	}, t)
 	return t, err
 }
 
-func (s *CRStore[T]) List() ([]T, error) {
+func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
 	gvks, _, err := k8s.Client.Scheme().ObjectKinds(s.example)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (s *CRStore[T]) List() ([]T, error) {
 	gvk := gvks[0]
 	tList := &unstructured.UnstructuredList{}
 	tList.SetGroupVersionKind(gvk)
-	if err := k8s.Client.List(context.Background(), tList, client.InNamespace(s.namespace)); err != nil {
+	if err := k8s.Client.List(ctx, tList, client.InNamespace(s.namespace)); err != nil {
 		return nil, err
 	}
 	ts := make([]T, 0, len(tList.Items))
@@ -79,15 +79,15 @@ func (s *CRStore[T]) List() ([]T, error) {
 	return ts, nil
 }
 
-func (s *CRStore[T]) Update(name string, t T) error {
+func (s *CRStore[T]) Update(ctx context.Context, name string, t T) error {
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Update(context.Background(), t)
+	return k8s.Client.Update(ctx, t)
 }
 
-func (s *CRStore[T]) Delete(name string) error {
+func (s *CRStore[T]) Delete(ctx context.Context, name string) error {
 	t := s.example.DeepCopyObject().(T)
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Delete(context.Background(), t)
+	return k8s.Client.Delete(ctx, t)
 }

@@ -30,7 +30,7 @@ func TestCRStore(t *testing.T) {
 	crName := util.RandString(6)
 
 	// Create
-	if err := s.Create(crName, example); err != nil {
+	if err := s.Create(context.TODO(), crName, example); err != nil {
 		t.Fatalf("Failed to create: %v", err)
 	}
 
@@ -40,7 +40,7 @@ func TestCRStore(t *testing.T) {
 		}
 	}()
 	// Get
-	lc, err := s.Get(crName)
+	lc, err := s.Get(context.TODO(), crName)
 	if err != nil {
 		t.Fatalf("Failed to get: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestCRStore(t *testing.T) {
 		t.Fatalf("Failed to get: %v", err)
 	}
 	// List
-	lcs, err := s.List()
+	lcs, err := s.List(context.TODO())
 	if err != nil {
 		t.Fatalf("Failed to list: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestCRStore(t *testing.T) {
 		t.Fatalf("Expect to find %s in list, but not found", crName)
 	}
 	// Delete
-	if err := s.Delete(crName); err != nil {
+	if err := s.Delete(context.TODO(), crName); err != nil {
 		t.Fatalf("Failed to delete: %v", err)
 	}
 }

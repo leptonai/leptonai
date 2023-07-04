@@ -27,7 +27,7 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()
 
-	ld, err := h.ldDB.Get(did)
+	ld, err := h.ldDB.Get(context.Background(), did)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,7 +38,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	ph, err := h.phDB.Get(ld.Spec.PhotonID)
+	ph, err := h.phDB.Get(context.Background(), ld.Spec.PhotonID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
 		return
@@ -68,7 +69,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	ld.Namespace = h.namespace
 	ld.Name = ld.GetSpecName()
 
-	if err := h.ldDB.Create(ld.Name, ld); err != nil {
+	if err := h.ldDB.Create(context.Background(), ld.Name, ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
 	}
@@ -79,7 +80,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 }
 
 func (h *DeploymentHandler) List(c *gin.Context) {
-	lds, err := h.ldDB.List()
+	lds, err := h.ldDB.List(context.Background())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list deployments: " + err.Error()})
 		return
@@ -93,7 +94,7 @@ func (h *DeploymentHandler) List(c *gin.Context) {
 
 func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
-	ld, err := h.ldDB.Get(did)
+	ld, err := h.ldDB.Get(context.Background(), did)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
@@ -118,7 +119,7 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	ld.Patch(ldi)
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
-	if err := h.ldDB.Update(ld.Name, ld); err != nil {
+	if err := h.ldDB.Update(context.Background(), ld.Name, ld); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -128,7 +129,7 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 
 func (h *DeploymentHandler) Get(c *gin.Context) {
 	did := c.Param("did")
-	ld, err := h.ldDB.Get(did)
+	ld, err := h.ldDB.Get(context.Background(), did)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
@@ -138,8 +139,8 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	if err := h.ldDB.Delete(did); err != nil {
-		if _, err := h.ldDB.Get(did); err != nil && apierrors.IsNotFound(err) {
+	if err := h.ldDB.Delete(context.Background(), did); err != nil {
+		if _, err := h.ldDB.Get(context.Background(), did); err != nil && apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 			return
 		}
@@ -185,7 +186,7 @@ func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeplo
 		return nil
 	}
 
-	_, err := h.phDB.Get(ld.PhotonID)
+	_, err := h.phDB.Get(context.Background(), ld.PhotonID)
 	if err != nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
@@ -198,7 +199,7 @@ func (h *DeploymentHandler) validateUpdateInput(ld *leptonaiv1alpha1.LeptonDeplo
 		valid = true
 	}
 	if ld.PhotonID != "" {
-		_, err := h.phDB.Get(ld.PhotonID)
+		_, err := h.phDB.Get(context.Background(), ld.PhotonID)
 		if err != nil {
 			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 		}
