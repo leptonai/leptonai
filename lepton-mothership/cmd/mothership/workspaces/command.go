@@ -3,6 +3,7 @@ package workspaces
 
 import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/create"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/delete"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/list"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/logs"
@@ -32,6 +33,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
 	cmd.AddCommand(
 		list.NewCommand(),
+		create.NewCommand(),
 		delete.NewCommand(),
 		logs.NewCommand(),
 	)
