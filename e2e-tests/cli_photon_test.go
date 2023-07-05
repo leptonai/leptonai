@@ -18,7 +18,7 @@ var (
 	// is there a good way to handle the error?
 	homeDir, _        = os.UserHomeDir()
 	leptonCacheDir    = filepath.Join(homeDir, ".cache", "lepton")
-	workspaceInfoPath   = filepath.Join(leptonCacheDir, "workspace_info.yaml")
+	workspaceInfoPath = filepath.Join(leptonCacheDir, "workspace_info.yaml")
 	cliTestPhotonName = newName("cli-test-photon")
 )
 
@@ -53,7 +53,7 @@ func TestCLIPhotonCreatePushWithLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "Photon \"" + pName + "\" pushed"
+	expected := "Photon " + pName + " pushed to workspace."
 	if !strings.Contains(output, expected) {
 		t.Fatalf("Expected output to be '%s', got '%s'", expected, output)
 	}
@@ -133,6 +133,11 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	ph := phs[0]
 	pid := ph.ID
 
+	fullArgs = []string{"photon", "run", "-n", pName}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatal(err, output)
+	}
 	fullArgs = []string{"photon", "run", "-i", pid}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
@@ -143,8 +148,8 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(ds) < 1 {
-		t.Fatalf("Expected at least 1 deployment, got %d", len(ds))
+	if len(ds) < 2 {
+		t.Fatalf("Expected at least 2 deployment, got %d", len(ds))
 	}
 	// cleanup
 	for _, d := range ds {
