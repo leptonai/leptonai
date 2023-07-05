@@ -322,7 +322,16 @@ def run(
             sys.exit(1)
         if path is None:
             path = find_local_photon(name)
-        if path is None or not os.path.exists(path):
+
+        if path and os.path.exists(path):
+            if model:
+                metadata = api.load_metadata(path)
+                console.print(
+                    f"Photon {metadata['name']} was previously created with model"
+                    f" {metadata['model']}, newly specify model [yellow]\"{model}\"[/]"
+                    " will be ignored"
+                )
+        else:
             name_or_path = name if name is not None else path
             console.print(f'Photon "{name_or_path}" [red]does not exist[/]')
             if name and model:
