@@ -100,3 +100,13 @@ def click_group(*args, **kwargs):
             return cmd.name, cmd, args
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
+
+
+@contextmanager
+def patch(obj, attr, val):
+    old_val = getattr(obj, attr)
+    try:
+        setattr(obj, attr, val)
+        yield
+    finally:
+        setattr(obj, attr, old_val)

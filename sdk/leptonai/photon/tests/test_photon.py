@@ -629,6 +629,21 @@ from leptonai.photon import Photon
         res = requests.get(f"http://127.0.0.1:{port}/ui")
         self.assertEqual(res.status_code, 200)
 
+    def test_dynamic_global_variable_warnings(self):
+        class TestPhoton(Photon):
+            @Photon.handler("run")
+            def run(self):
+                return os.path.abspath(__file__)
+
+        ph = TestPhoton(name=random_name())
+        with self.assertWarns(UserWarning):
+            path = ph.save()
+        # still works, just warn during photon creation
+        proc, port = photon_run_server(path=path)
+        res = requests.post(f"http://127.0.0.1:{port}/run", json={})
+        self.assertEqual(res.status_code, 200)
+        proc.kill()
+
 
 if __name__ == "__main__":
     unittest.main()
