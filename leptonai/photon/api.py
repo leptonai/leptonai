@@ -166,39 +166,26 @@ def fetch(id: str, url: str, path: str, auth_token: str):
     return photon
 
 
-def remote_launch(
+def run_remote(
     id: str,
     url: str,
     cpu: float,
     memory: int,
     min_replicas: int,
     auth_token: str,
+    deployment_name: str,
     mounts: Optional[List[str]] = None,
-    deployment_name: Optional[str] = None,
     env_list: Optional[Dict[str, str]] = None,
     secret_list: Optional[Dict[str, str]] = None,
 ):
     # TODO: check if the given id is a valid photon id
-    # TODO: get the photon name from the remote and use it as the deployment
-    # name
-    dn = deployment_name
-    if dn is None:
-        dn = f"deploy-{id}"
-        # format name to be valid
-        dn = dn[:32] if len(dn) > 32 else dn
-        if not dn[-1].isalnum():
-            dn = dn[:-1] + "x"
-        dn = dn.lower()
-
-    print(f"Launching photon {id} as {dn}")
-
     envs_and_secrets = []
     for k, v in env_list.items():
         envs_and_secrets.append({"name": k, "value": v})
     for k, v in secret_list.items():
         envs_and_secrets.append({"name": k, "value_from": {"secret_name_ref": v}})
     deployment = {
-        "name": dn,
+        "name": deployment_name,
         "photon_id": id,
         "resource_requirement": {
             "cpu": cpu,
