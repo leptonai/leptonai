@@ -1,5 +1,5 @@
 locals {
-  non_lepton_managed_namespace_selector = "has(projectcalico.org/name) && projectcalico.org/name not in {\"default\", \"kube-system\", \"cert-manager\", \"calico-system\", \"calico-apiserver\", \"external-dns\", \"gpu-operator\", \"prometheus\", \"grafana\", \"lepton-system\"}"
+  non_lepton_managed_namespace_selector = "has(projectcalico.org/name) && projectcalico.org/name not in {\"default\", \"kube-system\", \"cert-manager\", \"calico-system\", \"calico-apiserver\", \"external-dns\", \"gpu-operator\", \"prometheus\", \"grafana\", \"${local.cluster_name}sys\"}"
 }
 
 resource "kubernetes_manifest" "allow_external" {
