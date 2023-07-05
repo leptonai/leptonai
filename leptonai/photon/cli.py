@@ -205,7 +205,7 @@ def parse_mount(mount_str: str):
 @click.option("--port", "-p", help="Port to run on", default=8080)
 @click.option("--id", "-i", help="ID of the Photon (only required for remote)")
 @click.option("--cpu", help="Number of CPU to require", default=1)
-@click.option("--memory", help="Number of RAM to require in MB", default=1024)
+@click.option("--memory", help="Number of RAM to require in MB", default=2048)
 @click.option("--min-replicas", help="Number of replicas", default=1)
 @click.option(
     "--mount",
