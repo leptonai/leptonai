@@ -3,7 +3,7 @@ import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { FineTuneService } from "@lepton-dashboard/routers/workspace/services/fine-tune.service";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../components/card";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useInject } from "@lepton-libs/di";
 import {

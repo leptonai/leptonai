@@ -1,10 +1,11 @@
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FC, useEffect, useRef, useState } from "react";
 import { Breadcrumb, Space, Table } from "antd";
 
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { DocumentBlank, Folder, FolderParent } from "@carbon/icons-react";
+import { Document, Folder, FolderParent } from "@carbon/icons-react";
 import { Actions } from "@lepton-dashboard/routers/workspace/routers/detail/routers/storage/components/actions";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../components/card";
 import { useInject } from "@lepton-libs/di";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -27,9 +28,10 @@ const generateNavigatePaths = (path: string): string[] => {
 };
 
 export const Storage: FC = () => {
+  const theme = useAntdTheme();
   useDocumentTitle("Storage");
   const [loading, setLoading] = useState(true);
-  const [toutchTime, setToutchTime] = useState(0);
+  const [touchTime, setTouchTime] = useState(0);
   const [path, setPath] = useState<string>("");
   const [navigatePaths, setNavigatePaths] = useState<string[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | undefined>();
@@ -123,7 +125,7 @@ export const Storage: FC = () => {
         } else {
           return (
             <Space title={record.path}>
-              <CarbonIcon icon={<DocumentBlank />} />
+              <CarbonIcon icon={<Document />} />
               <span>{name}</span>
             </Space>
           );
@@ -146,19 +148,29 @@ export const Storage: FC = () => {
         }
         title={
           <Breadcrumb
+            css={css`
+              margin-left: 8px;
+              a.ant-breadcrumb-link {
+                font-weight: normal !important;
+                color: ${theme.colorText} !important;
+              }
+              .ant-breadcrumb-link > .anticon + span {
+                margin-inline-start: 8px !important;
+              }
+            `}
             items={
               navigatePaths.length < 3
                 ? navigatePaths.map((path, i) => {
                     return {
+                      href: "#",
                       title:
                         i === 0 ? (
-                          <a href="#" title={path}>
+                          <>
                             <CarbonIcon icon={<Folder />} />
-                          </a>
+                            <span>Storage</span>
+                          </>
                         ) : (
-                          <a href="#" title={path}>
-                            {path.split("/").pop()}
-                          </a>
+                          <>{path.split("/").pop()}</>
                         ),
                       onClick: () => {
                         setPath(path);
@@ -171,16 +183,19 @@ export const Storage: FC = () => {
                   ].map((path, i) => {
                     return i === 0
                       ? {
+                          href: "#",
                           title: (
-                            <a href="#" title={path}>
+                            <>
                               <CarbonIcon icon={<Folder />} />
-                            </a>
+                              <span>Storage</span>
+                            </>
                           ),
                           onClick: () => {
                             setPath(path);
                           },
                         }
                       : {
+                          href: "#",
                           title: path.split("/").pop(),
                           onClick: () => {
                             setPath(path);
@@ -217,6 +232,7 @@ export const Storage: FC = () => {
           `}
           loading={loading}
           pagination={false}
+          showHeader={false}
           size="small"
           columns={columns}
           dataSource={files}
@@ -230,10 +246,10 @@ export const Storage: FC = () => {
           onRow={(record) => {
             return {
               onTouchStart: () => {
-                setToutchTime(new Date().getTime());
+                setTouchTime(new Date().getTime());
               },
               onTouchEnd: () => {
-                if (new Date().getTime() - toutchTime < 100) {
+                if (new Date().getTime() - touchTime < 100) {
                   if (record.type === "dir") {
                     setPath(record.path);
                   }

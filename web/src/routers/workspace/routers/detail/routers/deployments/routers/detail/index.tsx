@@ -1,4 +1,4 @@
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../components/card";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { Empty } from "antd";
 import { FC } from "react";

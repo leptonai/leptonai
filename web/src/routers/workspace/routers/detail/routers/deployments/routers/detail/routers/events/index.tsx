@@ -9,7 +9,7 @@ import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { switchMap, tap } from "rxjs";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { ConfigProvider, Empty, Table, Tag } from "antd";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../components/card";
 import dayjs from "dayjs";
 
 export const Events: FC<{ deployment: Deployment }> = ({ deployment }) => {

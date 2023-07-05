@@ -23,7 +23,7 @@ export const Root: FC = () => {
   return initialized ? (
     <Container
       css={css`
-        background: ${theme.colorBgLayout};
+        background: ${theme.colorBgContainer};
         font-family: ${theme.fontFamily};
         color: ${theme.colorText};
         font-size: ${theme.fontSize}px;

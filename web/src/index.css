@@ -16,3 +16,7 @@ html {
   height: 100%;
   overflow: hidden;
 }
+
+.ant-tooltip {
+  max-width: 50vw !important;
+}

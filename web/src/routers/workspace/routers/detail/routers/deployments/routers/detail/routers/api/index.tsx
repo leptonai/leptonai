@@ -1,7 +1,7 @@
 import { CopyFile, Launch } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FC, useMemo, useState } from "react";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";

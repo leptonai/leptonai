@@ -1,23 +1,19 @@
+import { Asleep, Light } from "@carbon/icons-react";
 import { FC } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Button, Switch } from "antd";
+import { Button } from "antd";
 import { CarbonIcon, LeptonFillIcon } from "@lepton-dashboard/components/icons";
-import {
-  GithubOutlined,
-  ReadOutlined,
-  TwitterOutlined,
-} from "@ant-design/icons";
-import { AsleepFilled, LightFilled } from "@carbon/icons-react";
+import { GithubOutlined, TwitterOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
 const Container = styled.div`
-  height: 60px;
+  height: 56px;
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 0 32px;
   justify-content: space-between;
   flex-wrap: wrap;
 `;
@@ -35,17 +31,10 @@ const Text = styled.div`
   cursor: default;
 `;
 const MenuContainer = styled.div`
-  flex: 1 1 auto;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: end;
-`;
-const ThemeContainer = styled.div`
-  display: flex;
-  align-items: center;
-  margin-left: 24px;
-  justify-content: center;
 `;
 
 export const Footer: FC = () => {
@@ -57,6 +46,8 @@ export const Footer: FC = () => {
       css={css`
         border-top: 1px solid ${theme.colorBorder};
         font-weight: normal;
+        display: flex;
+        justify-content: space-between;
         background: ${theme.colorBgContainer};
       `}
     >
@@ -64,50 +55,32 @@ export const Footer: FC = () => {
         <LeptonFillIcon />
         <Text>Lepton AI</Text>
       </Logo>
+      <Button
+        type="text"
+        onClick={() => themeService.toggleTheme()}
+        icon={
+          themeService.getValidTheme() === "dark" ? (
+            <CarbonIcon icon={<Asleep />} />
+          ) : (
+            <CarbonIcon icon={<Light />} />
+          )
+        }
+      />
       <MenuContainer>
-        <Button
-          rel="noreferrer"
-          href="https://www.lepton.ai"
-          target="_blank"
-          type="text"
-          icon={<ReadOutlined />}
-        >
-          Documents
-        </Button>
-        <Button
-          type="text"
-          rel="noreferrer"
-          href="https://github.com/leptonai"
-          target="_blank"
-          icon={<GithubOutlined />}
-        >
-          Github
-        </Button>
         <Button
           type="text"
           rel="noreferrer"
           href="https://twitter.com/leptonai"
           target="_blank"
           icon={<TwitterOutlined />}
-        >
-          Twitter
-        </Button>
-        <ThemeContainer>
-          <Switch
-            size="small"
-            css={css`
-              background: ${theme.colorTextTertiary} !important;
-              .ant-switch-inner-checked,
-              .ant-switch-inner-unchecked {
-                color: ${theme.colorBgContainer} !important;
-              }
-            `}
-            checked={themeService.getValidTheme() === "dark"}
-            onChange={() => themeService.toggleTheme()}
-            unCheckedChildren={<CarbonIcon icon={<LightFilled />} />}
-            checkedChildren={<CarbonIcon icon={<AsleepFilled />} />}
-          />
-        </ThemeContainer>
+        />
+        <Button
+          type="text"
+          rel="noreferrer"
+          href="https://github.com/leptonai"
+          target="_blank"
+          icon={<GithubOutlined />}
+        />
       </MenuContainer>
     </Container>
   );

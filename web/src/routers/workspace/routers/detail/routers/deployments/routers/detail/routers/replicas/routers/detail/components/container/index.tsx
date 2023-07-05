@@ -4,7 +4,7 @@ import { Col, Row } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/workspace/components/breadcrumb-header";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../../../../../components/card";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
   ChartLine,

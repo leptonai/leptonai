@@ -1,9 +1,9 @@
-import { Password, Settings } from "@carbon/icons-react";
+import { Asterisk, Password, Settings } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../components/card";
 import { useResponsive } from "ahooks";
 import { Menu, MenuProps } from "antd";
 import { FC, PropsWithChildren, useMemo } from "react";
@@ -11,7 +11,7 @@ import { useLocation, useNavigate, useResolvedPath } from "react-router-dom";
 
 export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const theme = useAntdTheme();
-  const resposive = useResponsive();
+  const responsive = useResponsive();
   const location = useLocation();
   const { pathname } = useResolvedPath("");
   const menuItems: MenuProps["items"] = useMemo(
@@ -25,6 +25,11 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         key: `${pathname}/api-tokens`,
         label: "API tokens",
         icon: <CarbonIcon icon={<Password />} />,
+      },
+      {
+        key: `${pathname}/secrets`,
+        label: "Secrets",
+        icon: <CarbonIcon icon={<Asterisk />} />,
       },
     ],
     [pathname]
@@ -46,7 +51,6 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
   return (
     <Card
       paddingless
-      radiusless
       css={css`
         background: ${theme.colorBgContainer};
         flex: 1 1 auto;
@@ -74,9 +78,23 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
             }}
           >
             <Menu
-              inlineCollapsed={!resposive["sm"]}
+              css={css`
+                .ant-menu-item-selected {
+                  overflow: visible;
+                }
+                .ant-menu-item-selected::before {
+                  content: "";
+                  width: 3px;
+                  height: 100%;
+                  position: absolute;
+                  left: -2px;
+                  background: ${theme.colorText};
+                }
+              `}
+              inlineIndent={12}
+              inlineCollapsed={!responsive["sm"]}
               onClick={({ key }) => navigateTo(key as string)}
-              mode="vertical"
+              mode="inline"
               selectedKeys={selectedKeys}
               items={menuItems}
             />

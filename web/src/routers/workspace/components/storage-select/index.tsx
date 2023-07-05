@@ -1,10 +1,12 @@
+import { LoadingOutlined } from "@ant-design/icons";
+import { Folder } from "@carbon/icons-react";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import {
   StorageTree,
   StorageTreeProps,
 } from "@lepton-dashboard/routers/workspace/components/storage-tree";
 import { FC, useRef, useState } from "react";
-import { Button, Dropdown, Input, InputRef } from "antd";
-import { FolderOutlined } from "@ant-design/icons";
+import { Dropdown, Input, InputRef } from "antd";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 
@@ -80,16 +82,12 @@ export const StorageSelect: FC<StorageSelectProps> = ({
           setInnerValue(e.target.value);
           onChange?.(e.target.value);
         }}
-        suffix={
-          <Button
-            disabled={disabled}
-            type="text"
-            size="small"
-            loading={open && !initialized}
-            title="Open the folder selector"
-            icon={<FolderOutlined />}
-            onClick={() => setOpen(!open)}
-          />
+        addonBefore={
+          open && !initialized ? (
+            <LoadingOutlined />
+          ) : (
+            <CarbonIcon icon={<Folder />} />
+          )
         }
       />
     </Dropdown>

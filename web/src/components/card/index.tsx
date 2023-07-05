@@ -27,7 +27,7 @@ export const Card: FC<
   radiusless = false,
   borderless = false,
   overflowShow = false,
-  shadowless = false,
+  shadowless = true,
   paddingless = false,
   className,
 }) => {

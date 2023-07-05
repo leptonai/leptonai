@@ -4,15 +4,15 @@ import { Col, Row } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/workspace/components/breadcrumb-header";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../components/card";
 import { DeploymentItem } from "@lepton-dashboard/routers/workspace/components/deployment-item";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
-  BlockStorageAlt,
   Book,
   ChartLine,
   EventSchedule,
   Play,
+  Replicate,
 } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { css } from "@emotion/react";
@@ -66,7 +66,7 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
       key: `${pathname}/replicas/list`,
       label: (
         <>
-          <CarbonIcon icon={<BlockStorageAlt />} />
+          <CarbonIcon icon={<Replicate />} />
           Replicas
         </>
       ),

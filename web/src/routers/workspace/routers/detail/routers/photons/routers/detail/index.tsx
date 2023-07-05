@@ -6,7 +6,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Col, Empty, Row } from "antd";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../components/card";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 

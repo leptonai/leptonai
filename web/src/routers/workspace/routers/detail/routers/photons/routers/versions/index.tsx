@@ -7,7 +7,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { Col, Empty, Row, Timeline, Typography } from "antd";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import dayjs from "dayjs";

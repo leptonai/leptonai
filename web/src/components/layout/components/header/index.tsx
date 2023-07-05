@@ -3,13 +3,12 @@ import { FC, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Button, Space } from "antd";
-import { GithubOutlined, ReadOutlined } from "@ant-design/icons";
+import { Space } from "antd";
 import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
   height: 50px;
-  padding: 0 24px;
+  padding: 0 32px;
   display: flex;
   flex: 0 0 50px;
   flex-wrap: wrap;
@@ -55,23 +54,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
       </div>
 
       <MenuContainer>
-        <Space>
-          <Button
-            rel="noreferrer"
-            href="https://www.lepton.ai"
-            target="_blank"
-            type="text"
-            icon={<ReadOutlined />}
-          />
-          <Button
-            type="text"
-            rel="noreferrer"
-            href="https://github.com/leptonai"
-            target="_blank"
-            icon={<GithubOutlined />}
-          />
-          {actions}
-        </Space>
+        <Space>{actions}</Space>
       </MenuContainer>
     </Container>
   );

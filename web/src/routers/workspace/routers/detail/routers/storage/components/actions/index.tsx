@@ -1,3 +1,4 @@
+import { UploadOutlined } from "@ant-design/icons";
 import { FC, useCallback, useRef, useState } from "react";
 import {
   App,
@@ -9,7 +10,7 @@ import {
   Upload as AntdUpload,
 } from "antd";
 import { useInject } from "@lepton-libs/di";
-import { DocumentAdd, FolderAdd, TrashCan } from "@carbon/icons-react";
+import { FolderAdd, TrashCan } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FileManagerService } from "@lepton-dashboard/routers/workspace/services/file-manager.service";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
@@ -183,9 +184,6 @@ export const Actions: FC<ActionsProps> = ({
           open={isNewFolderPopOpen}
           description={
             <Input
-              css={css`
-                margin-left: -13px;
-              `}
               size="small"
               value={newFolderName}
               ref={newFolderInputRef}
@@ -220,7 +218,7 @@ export const Actions: FC<ActionsProps> = ({
             icon={<CarbonIcon icon={<FolderAdd />} />}
             onClick={addNewFolderItem}
           >
-            Add Folder
+            New Folder
           </Button>
         </Popconfirm>
         <AntdUpload
@@ -233,7 +231,7 @@ export const Actions: FC<ActionsProps> = ({
             size="small"
             type="text"
             disabled={disabled}
-            icon={<CarbonIcon icon={<DocumentAdd />} />}
+            icon={<UploadOutlined />}
             loading={loading}
           >
             Upload File
@@ -252,6 +250,7 @@ export const Actions: FC<ActionsProps> = ({
           <Button
             size="small"
             type="text"
+            danger
             icon={<CarbonIcon icon={<TrashCan />} />}
             disabled={disabled || !selectedPath}
           >

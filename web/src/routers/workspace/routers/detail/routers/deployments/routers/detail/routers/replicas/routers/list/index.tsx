@@ -1,4 +1,6 @@
+import { CopyFile } from "@carbon/icons-react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FC, useState } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
@@ -6,7 +8,7 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { combineLatest, map, switchMap, tap } from "rxjs";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { Divider, Space, Table, Tag, Typography } from "antd";
 import { Terminal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/terminal";
 import { LogsViewer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/logs-viewer";
@@ -94,8 +96,12 @@ export const List: FC<{
   return (
     <Card shadowless borderless>
       <Table
+        scroll={{ y: "800px" }}
         css={css`
           .ant-table-expanded-row {
+            .ant-table {
+              margin-inline: 0 !important;
+            }
             .ant-table-cell,
             &:hover,
             &:hover > td {
@@ -114,6 +120,7 @@ export const List: FC<{
           {
             dataIndex: "id",
             title: "ID",
+            width: 300,
             ellipsis: true,
             render: (id, record) => (
               <Space>
@@ -161,20 +168,6 @@ export const List: FC<{
           },
           expandedRowRender: (record) => (
             <Table
-              css={css`
-                .ant-table {
-                  background: transparent;
-                }
-
-                .ant-table td {
-                  color: ${theme.colorWarningText};
-                }
-
-                tr:hover,
-                .ant-table-row:hover > td {
-                  background: ${theme.colorWarningBg} !important;
-                }
-              `}
               size="small"
               pagination={false}
               showHeader={false}
@@ -190,7 +183,12 @@ export const List: FC<{
                   dataIndex: "key",
                   width: 40,
                   render: (_, record) => (
-                    <Typography.Text copyable={{ text: record.message }} />
+                    <Typography.Text
+                      copyable={{
+                        text: record.message,
+                        icon: <CarbonIcon icon={<CopyFile />} />,
+                      }}
+                    />
                   ),
                 },
               ]}

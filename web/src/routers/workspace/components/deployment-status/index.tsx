@@ -23,7 +23,6 @@ export const DeploymentStatus: FC<
     <DeploymentIssuesTip status={status} deploymentId={deploymentId}>
       <Tag
         className={className}
-        bordered={false}
         css={css`
           margin-inline: 0;
           font-weight: 500;

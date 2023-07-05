@@ -4,7 +4,7 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 import { Col, Row } from "antd";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../components/card";
 import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics/components/metric-item";
 import { connect, EChartsType } from "echarts";
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";

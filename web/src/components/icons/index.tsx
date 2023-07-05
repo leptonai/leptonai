@@ -117,6 +117,11 @@ export const LeptonFillIcon = iconGenerator(
   </svg>
 );
 
+export const EqualIcon = iconGenerator(
+  <svg width="1em" height="1em" viewBox="0 0 50 50" fill="currentColor">
+    <path d="M 9 15 L 9 19 L 41 19 L 41 15 Z M 9 31 L 9 35 L 41 35 L 41 31 Z" />
+  </svg>
+);
 export const PhotonIcon = () => <CarbonIcon icon={<Cube />} />;
 
 export const DeploymentIcon = () => <CarbonIcon icon={<Rocket />} />;

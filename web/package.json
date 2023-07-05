@@ -31,7 +31,7 @@
     "@supabase/supabase-js": "^2.22.0",
     "@vercel/analytics": "^1.0.1",
     "ahooks": "^3.7.7",
-    "antd": "^5.4.6",
+    "antd": "^5.6.4",
     "axios": "^1.4.0",
     "dayjs": "^1.11.7",
     "echarts": "^5.4.2",

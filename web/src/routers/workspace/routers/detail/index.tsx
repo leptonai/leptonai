@@ -1,3 +1,8 @@
+import { Dashboard } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard";
+import { Deployments } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments";
+import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons";
+import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
+import { Storage } from "@lepton-dashboard/routers/workspace/routers/detail/routers/storage";
 import { FC, Suspense, lazy } from "react";
 import {
   Navigate,
@@ -24,54 +29,6 @@ import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { WorkspaceSwitch } from "@lepton-dashboard/routers/workspace/components/workspace-switch";
 import { ProfileMenu } from "@lepton-dashboard/routers/workspace/components/profile-menu";
-
-const Dashboard = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard"
-  ).then((e) => ({
-    default: e.Dashboard,
-  }))
-);
-
-const Photons = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/photons"
-  ).then((e) => ({
-    default: e.Photons,
-  }))
-);
-
-const Deployments = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments"
-  ).then((e) => ({
-    default: e.Deployments,
-  }))
-);
-
-const Storage = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/storage"
-  ).then((e) => ({
-    default: e.Storage,
-  }))
-);
-
-const Secrets = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets"
-  ).then((e) => ({
-    default: e.Secrets,
-  }))
-);
-
-const Settings = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/settings"
-  ).then((e) => ({
-    default: e.Settings,
-  }))
-);
 
 const FineTune = lazy(() =>
   import(
@@ -148,14 +105,6 @@ export const Detail: FC = () => {
             element={
               <LimitedLayoutWidth>
                 <Storage />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route
-            path="secrets"
-            element={
-              <LimitedLayoutWidth>
-                <Secrets />
               </LimitedLayoutWidth>
             }
           />

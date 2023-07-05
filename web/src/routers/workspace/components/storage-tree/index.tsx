@@ -10,13 +10,9 @@ import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { map } from "rxjs";
 import { Tree } from "antd";
-import { DocumentBlank } from "@carbon/icons-react";
+import { Document, Folder } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import {
-  FolderOpenOutlined,
-  FolderOutlined,
-  LoadingOutlined,
-} from "@ant-design/icons";
+import { LoadingOutlined } from "@ant-design/icons";
 
 export interface StorageTreeProps {
   nodeFilter?: (item: FileInfo) => boolean;
@@ -108,7 +104,6 @@ export const StorageTree: FC<StorageTreeProps> = ({
     const toTreeData = (files: readonly FileEntry<FileInfo>[]): TreeNode[] => {
       return files.filter(nodeFilter).map((value) => {
         const isLoading = loadings.includes(value.path);
-        const isExpanded = expansions.includes(value.path);
         return {
           disabled: nodeDisabler(value),
           title: value.name,
@@ -116,13 +111,11 @@ export const StorageTree: FC<StorageTreeProps> = ({
             value.type === "dir" ? (
               isLoading ? (
                 <LoadingOutlined />
-              ) : isExpanded ? (
-                <FolderOpenOutlined />
               ) : (
-                <FolderOutlined />
+                <CarbonIcon icon={<Folder />} />
               )
             ) : (
-              <CarbonIcon icon={<DocumentBlank />} />
+              <CarbonIcon icon={<Document />} />
             ),
           isLeaf: value.type === "file",
           children: treeControl.current.isExpandable(value)
@@ -134,7 +127,7 @@ export const StorageTree: FC<StorageTreeProps> = ({
       });
     };
     return toTreeData(data);
-  }, [data, nodeFilter, loadings, expansions, nodeDisabler]);
+  }, [data, nodeFilter, loadings, nodeDisabler]);
 
   const onExpand = useCallback((node: TreeNode) => {
     treeControl.current.toggle(node.raw);

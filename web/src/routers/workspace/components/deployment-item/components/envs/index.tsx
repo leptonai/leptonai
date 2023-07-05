@@ -22,7 +22,7 @@ const DescriptionLabel: FC<{ data: DeploymentEnv | DeploymentSecretEnv }> = ({
     ?.secret_name_ref;
   if (secretRef) {
     return (
-      <Link to={`/workspace/${workspaceTrackerService.name}/secrets`}>
+      <Link to={`/workspace/${workspaceTrackerService.name}/settings/secrets`}>
         <Tag color="default" icon={<CarbonIcon icon={<Asterisk />} />}>
           {secretRef}
         </Tag>

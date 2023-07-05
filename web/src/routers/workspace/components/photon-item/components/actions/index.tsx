@@ -1,7 +1,7 @@
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { FC, useCallback } from "react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { App, Button, Divider, Popconfirm, Space, Tooltip } from "antd";
+import { App, Button, Popconfirm, Space, Tooltip } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
@@ -43,7 +43,6 @@ export const Actions: FC<{
   const deleteButton = (
     <Button
       disabled={relatedDeployments.length > 0}
-      danger
       size="small"
       type="text"
       icon={<CarbonIcon icon={<TrashCan />} />}
@@ -52,7 +51,7 @@ export const Actions: FC<{
     </Button>
   );
   return (
-    <Space size={0} split={<Divider type="vertical" />}>
+    <Space wrap size={[12, 4]}>
       <CreateDeployment photonId={photon.id} min />
       {extraActions && (
         <>

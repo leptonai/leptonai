@@ -16,7 +16,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "../../../../../../components/deployment-item";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 
@@ -132,7 +132,6 @@ export const List: FC = () => {
           }}
           style={{
             border: `1px solid ${theme.colorBorder}`,
-            boxShadow: theme.boxShadowTertiary,
             borderRadius: `${theme.borderRadius}px`,
             background: theme.colorBgContainer,
           }}

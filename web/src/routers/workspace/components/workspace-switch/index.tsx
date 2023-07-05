@@ -50,7 +50,7 @@ export const WorkspaceSwitch: FC = () => {
         {options.length > 1 ? (
           <Select
             size="large"
-            dropdownMatchSelectWidth={false}
+            popupMatchSelectWidth={false}
             bordered={false}
             showArrow={false}
             onChange={(v) => changeWorkspace(v)}

@@ -2,6 +2,7 @@ import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { Layout } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/components/layout";
 import { ApiTokens } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/api-tokens";
 import { General } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/general";
+import { Secrets } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets";
 import { FC } from "react";
 import { Navigate, Route, Routes, useResolvedPath } from "react-router-dom";
 
@@ -15,6 +16,7 @@ export const Settings: FC = () => {
       <Routes>
         <Route path="general" element={<General />} />
         <Route path="api-tokens" element={<ApiTokens />} />
+        <Route path="secrets" element={<Secrets />} />
         <Route
           path="*"
           element={<Navigate to={`${pathname}/general`} replace />}

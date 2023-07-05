@@ -1,6 +1,6 @@
 import { css } from "@emotion/react";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
-import { Divider, Typography } from "antd";
+import { Typography } from "antd";
 import { FC } from "react";
 
 export const Policies: FC = () => {
@@ -9,12 +9,11 @@ export const Policies: FC = () => {
       css={css`
         flex: 0 0 auto;
         text-align: center;
-        margin-top: -8px;
+        margin-top: 12px;
       `}
     >
-      <Divider />
       <ThemeProvider token={{ fontSize: 12 }}>
-        <Typography.Paragraph>
+        <Typography.Text>
           By continuing, you agree to{" "}
           <Typography.Link
             target="_blank"
@@ -30,7 +29,7 @@ export const Policies: FC = () => {
             Privacy Policy
           </Typography.Link>
           .
-        </Typography.Paragraph>
+        </Typography.Text>
       </ThemeProvider>
     </div>
   );

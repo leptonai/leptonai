@@ -25,7 +25,7 @@ export const Loading: FC = () => {
         min-height: 200px;
       `}
     >
-      <svg width="60px" height="60px" x="0px" y="0px" viewBox="0 0 85 85">
+      <svg width="40px" height="40px" x="0px" y="0px" viewBox="0 0 85 85">
         <path
           css={css`
             fill-rule: evenodd;

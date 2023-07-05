@@ -21,7 +21,8 @@ export class ThemeService {
         colorBorder: "#d0d7de",
         colorLinkHover: "#555",
         colorLinkActive: "#333",
-        controlItemBgActive: "#e6f4ff",
+        controlItemBgActiveHover: "#f6f8fa",
+        controlItemBgActive: "#f6f8fa",
         boxShadowTertiary:
           "0 1px 2px 0 rgba(0, 0, 0, 0.03),0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)",
       },
@@ -34,22 +35,23 @@ export class ThemeService {
           width: 500,
           fontSize: 12,
         },
-        Table: {
-          controlItemBgActive: "#dde5ec",
-          controlItemBgActiveHover: "#d0d7de",
-        },
       },
     },
     dark: {
       token: {
         ...this.shareToken,
-        colorPrimary: "#fff",
+        colorPrimary: "rgba(255, 255, 255, 0.5)",
         colorBgLayout: "#010409",
-        colorBgElevated: "#21262d",
+        colorBgElevated: "#161b22",
         colorBgContainer: "#0d1117",
+        colorBorder: "hsla(0,0%,100%,.075)",
         colorLink: "#eee",
         colorLinkHover: "#555",
+        colorPrimaryActive: "#555",
+        colorPrimaryHover: "#555",
         colorLinkActive: "#333",
+        controlItemBgActive: "#161b22",
+        controlItemBgActiveHover: "#161b22",
       },
       components: {
         Button: {

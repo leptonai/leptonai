@@ -79,7 +79,7 @@ export const DeploymentIssuesTip: FC<
         relative="route"
         underline
       >
-        Found {message}, view details in the replicas list.
+        Found {message}, view details in the replicas list
       </Link>
     );
   }, [readiness, workspaceTrackerService.name, deploymentId]);

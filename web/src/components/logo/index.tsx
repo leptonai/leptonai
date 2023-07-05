@@ -17,14 +17,14 @@ export const Logo: FC<{ size?: "default" | "large" } & EmotionProps> = ({
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${size === "default" ? "26px" : "38px"};
+        font-size: ${size === "default" ? "26px" : "32px"};
       `}
     >
       <LeptonIcon />
       <div
         css={css`
-          font-size: ${size === "default" ? "20px" : "26px;"};
-          margin-left: 16px;
+          font-size: ${size === "default" ? "18px" : "24px;"};
+          margin-left: 12px;
           cursor: default;
           font-weight: 600;
           color: ${theme.colorTextHeading};

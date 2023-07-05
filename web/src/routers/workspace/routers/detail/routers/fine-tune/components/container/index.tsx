@@ -2,7 +2,7 @@ import { FC } from "react";
 import { Outlet, useResolvedPath } from "react-router-dom";
 import { Col, Row, TabsProps } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../components/card";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import { Network_1, Table } from "@carbon/icons-react";
 import { css } from "@emotion/react";

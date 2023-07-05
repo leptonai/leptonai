@@ -7,7 +7,7 @@ import { ChartLine } from "@carbon/icons-react";
 import { Deployment, Replica } from "@lepton-dashboard/interfaces/deployment";
 import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics/components/metric-item";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/components/full-screen-drawer";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
+import { Card } from "../../../../../../../../../../../../components/card";
 import { connect, EChartsType } from "echarts";
 import { css } from "@emotion/react";
 

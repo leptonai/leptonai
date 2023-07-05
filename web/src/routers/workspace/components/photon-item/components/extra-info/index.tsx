@@ -6,11 +6,11 @@ import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import {
-  ContainerRegistry,
   CopyLink,
   Link as CarbonLink,
   Parameter,
   PortOutput,
+  Txt,
   WorkspaceImport,
 } from "@carbon/icons-react";
 
@@ -41,7 +41,7 @@ export const ExtraInfo: FC<{ photon: Photon; versionView: boolean }> = ({
         description={photon.container_args?.join(", ") || "-"}
       />
       <Description.Item
-        icon={<CarbonIcon icon={<ContainerRegistry />} />}
+        icon={<CarbonIcon icon={<Txt />} />}
         term="Requirements"
         description={photon.requirement_dependency?.join(", ") || "-"}
       />

@@ -1,4 +1,4 @@
-import { WatsonHealth3DCursor } from "@carbon/icons-react";
+import { WatsonHealth3DSoftware } from "@carbon/icons-react";
 import { FC } from "react";
 import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Col, Empty, Row } from "antd";
@@ -67,7 +67,7 @@ export const PhotonItem: FC<{
                 `}
                 icon={
                   showDetail ? (
-                    <CarbonIcon icon={<WatsonHealth3DCursor />} />
+                    <CarbonIcon icon={<WatsonHealth3DSoftware />} />
                   ) : (
                     <PhotonIcon />
                   )
@@ -76,7 +76,13 @@ export const PhotonItem: FC<{
               />
             </Link>
           </Col>
-          <Col flex="0 0 auto">
+          <Col
+            flex="0 0 auto"
+            css={css`
+              position: relative;
+              left: -6px;
+            `}
+          >
             <Actions
               relatedDeployments={relatedDeployments}
               photon={photon}

@@ -1,12 +1,6 @@
-import {
-  Add,
-  ArrowRight,
-  Asterisk,
-  Hashtag,
-  Launch,
-  Subtract,
-} from "@carbon/icons-react";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { Asterisk, Hashtag, Launch, TrashCan } from "@carbon/icons-react";
+import { IconContainer } from "@lepton-dashboard/components/icon-container";
+import { CarbonIcon, EqualIcon } from "@lepton-dashboard/components/icons";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FormListOperation } from "antd/es/form/FormList";
@@ -17,6 +11,7 @@ import {
   Cascader,
   Checkbox,
   Col,
+  Collapse,
   Dropdown,
   Empty,
   Form,
@@ -27,7 +22,7 @@ import {
   Select,
   Space,
 } from "antd";
-import { DownOutlined, MinusOutlined, PlusOutlined } from "@ant-design/icons";
+import { DownOutlined, PlusOutlined } from "@ant-design/icons";
 
 import {
   Deployment,
@@ -82,39 +77,46 @@ export const DeploymentForm: FC<{
     return secrets.map((s) => ({ label: s.name, value: s.name }));
   }, [secrets]);
   const secretMenus: MenuProps["items"] = useMemo(() => {
+    let menus: MenuProps["items"] = [];
     if (secrets.length > 0) {
-      return secrets.map((s) => ({
-        label: s.name,
+      menus = secrets.map((s) => ({
+        label: (
+          <>
+            Add secret <strong>{s.name}</strong>
+          </>
+        ),
         key: s.name,
         icon: <Asterisk />,
-        onClick: (v) => {
+        onClick: (v: { key: string }) => {
           addSecretFnRef.current?.({ name: v.key, value: v.key });
         },
       }));
     } else {
-      return [
+      menus = [
         {
           label: "No secret found, create one",
-          icon: (
-            <div
-              css={css`
-                position: relative;
-                top: 1px;
-                margin-right: 8px;
-              `}
-            >
-              <CarbonIcon icon={<Launch />} />
-            </div>
-          ),
+          icon: <Launch />,
           key: "create_new_secret",
           onClick: () => {
-            navigate(`/workspace/${workspaceTrackerService.name}/secrets`, {
-              relative: "route",
-            });
+            navigate(
+              `/workspace/${workspaceTrackerService.name}/settings/secrets`,
+              {
+                relative: "route",
+              }
+            );
           },
         },
       ];
     }
+    menus.unshift({
+      label: "Add variable",
+      key: "Add variable",
+      icon: <Hashtag />,
+      onClick: () => {
+        addVariableFnRef.current && addVariableFnRef.current();
+      },
+    });
+    return menus;
   }, [navigate, secrets, workspaceTrackerService.name]);
   const [form] = Form.useForm();
   const [enableAccelerator, setEnableAccelerator] = useState(
@@ -235,6 +237,7 @@ export const DeploymentForm: FC<{
   return (
     <Form
       form={form}
+      layout="vertical"
       onValuesChange={() => {
         const acceleratorType = form.getFieldValue(["accelerator_type"]);
         if (acceleratorType) {
@@ -247,21 +250,12 @@ export const DeploymentForm: FC<{
         void form.validateFields(["accelerator_num"]);
       }}
       requiredMark={false}
-      labelCol={{ span: 7 }}
-      wrapperCol={{ span: 14 }}
       initialValues={initialValues}
       onFinish={(e) => submit(transformValue(e))}
       autoComplete="off"
     >
       <Form.Item
-        label="Photon"
-        name="photon"
-        rules={[{ required: true, message: "Please select photon" }]}
-      >
-        <Cascader showSearch allowClear={false} options={options} />
-      </Form.Item>
-      <Form.Item
-        label="Deployment Name"
+        label="Name"
         name="name"
         rules={[
           {
@@ -271,7 +265,7 @@ export const DeploymentForm: FC<{
           },
           {
             pattern:
-              /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z]([-a-z0-9]*[a-z0-9])?)*$/,
+              /^[a-z]([-a-z0-9]*[a-z0-9])?(\.[a-z]([-a-z0-9]*[a-z0-9])?)*$/,
             message: "Deployment name invalid",
           },
           { required: true, message: "Please input deployment name" },
@@ -290,289 +284,78 @@ export const DeploymentForm: FC<{
       >
         <Input disabled={edit} autoFocus placeholder="Deployment name" />
       </Form.Item>
-      <Form.Item
-        label="Replicas"
-        name="min_replicas"
-        rules={[
-          {
-            required: true,
-            message: "Please input replicas",
-          },
-        ]}
-      >
-        <InputNumber style={{ width: "100%" }} min={0} />
-      </Form.Item>
-      <Form.Item
-        label="CPU"
-        name="cpu"
-        rules={[
-          {
-            max: workspaceDetail.max_generic_compute_size.core,
-            type: "number",
-            message: `The maximum available core is ${workspaceDetail.max_generic_compute_size.core}`,
-          },
-          {
-            required: true,
-            message: "Please input cpu number",
-          },
-        ]}
-      >
-        <InputNumber disabled={edit} style={{ width: "100%" }} min={1} />
-      </Form.Item>
-      <Form.Item
-        label="Memory"
-        name="memory"
-        rules={[
-          {
-            max: workspaceDetail.max_generic_compute_size.memory,
-            type: "number",
-            message: `The maximum available memory is ${workspaceDetail.max_generic_compute_size.memory} MB`,
-          },
-          {
-            required: true,
-            message: "Please input memory",
-          },
-        ]}
-      >
-        <InputNumber
-          disabled={edit}
-          style={{ width: "100%" }}
-          min={1}
-          addonAfter="MB"
-        />
-      </Form.Item>
-      <Form.Item
-        css={css`
-          margin-bottom: 0;
-        `}
-        label="Environment Variables"
-      >
-        <Form.List name="envs">
-          {(fields, { add, remove }) => {
-            addVariableFnRef.current = add;
-            return (
-              <Row gutter={0}>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Col key={`${name}-${key}`} span={24}>
-                    <Space
-                      css={css`
-                        display: flex;
-                      `}
-                      align="baseline"
-                    >
-                      <Form.Item
-                        wrapperCol={{ span: 24 }}
-                        {...restField}
-                        name={[name, "name"]}
-                        rules={[
-                          { required: true, message: "Please input name" },
-                        ]}
-                      >
-                        <Input
-                          autoFocus
-                          disabled={edit}
-                          placeholder="Variable name"
-                        />
-                      </Form.Item>
-                      <Form.Item
-                        css={css`
-                          margin-bottom: 0;
-                        `}
-                        wrapperCol={{ span: 24 }}
-                      >
-                        <Space.Compact block>
-                          <Button
-                            disabled
-                            icon={<CarbonIcon icon={<Hashtag />} />}
-                          />
-                          <Form.Item
-                            {...restField}
-                            name={[name, "value"]}
-                            rules={[
-                              { required: true, message: "Please input value" },
-                            ]}
-                          >
-                            <Input
-                              disabled={edit}
-                              placeholder="Variable value"
-                            />
-                          </Form.Item>
-                        </Space.Compact>
-                      </Form.Item>
-                      <Button disabled={edit} onClick={() => remove(name)}>
-                        <MinusOutlined />
-                      </Button>
-                    </Space>
-                  </Col>
-                ))}
-              </Row>
-            );
-          }}
-        </Form.List>
-        <Form.List name="secret_envs">
-          {(fields, { add, remove }) => {
-            addSecretFnRef.current = add;
-            return (
-              <Row gutter={0}>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Col key={`${name}-${key}`} span={24}>
-                    <Space
-                      css={css`
-                        display: flex;
-                      `}
-                      align="baseline"
-                    >
-                      <Form.Item
-                        wrapperCol={{ span: 24 }}
-                        {...restField}
-                        name={[name, "name"]}
-                        rules={[
-                          { required: true, message: "Please input name" },
-                        ]}
-                      >
-                        <Input
-                          autoFocus
-                          disabled={edit}
-                          placeholder="Variable name"
-                        />
-                      </Form.Item>
-                      <Form.Item
-                        css={css`
-                          margin-bottom: 0;
-                        `}
-                        wrapperCol={{ span: 24 }}
-                      >
-                        <Space.Compact block>
-                          <Button
-                            disabled
-                            icon={<CarbonIcon icon={<Asterisk />} />}
-                          />
-                          <Form.Item
-                            {...restField}
-                            name={[name, "value"]}
-                            rules={[
-                              { required: true, message: "Please input value" },
-                            ]}
-                          >
-                            <Select
-                              disabled={edit}
-                              placeholder="Secret"
-                              style={{ width: "152px" }}
-                              options={secretOptions}
-                            />
-                          </Form.Item>
-                        </Space.Compact>
-                      </Form.Item>
-                      <Button disabled={edit} onClick={() => remove(name)}>
-                        <MinusOutlined />
-                      </Button>
-                    </Space>
-                  </Col>
-                ))}
-              </Row>
-            );
-          }}
-        </Form.List>
-        <Form.Item wrapperCol={{ span: 24 }}>
-          <Space.Compact block>
-            <Button
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Photon"
+            name="photon"
+            rules={[{ required: true, message: "Please select photon" }]}
+          >
+            <Cascader showSearch allowClear={false} options={options} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            label="Replicas"
+            name="min_replicas"
+            rules={[
+              {
+                required: true,
+                message: "Please input replicas",
+              },
+            ]}
+          >
+            <InputNumber style={{ width: "100%" }} min={0} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="CPU"
+            name="cpu"
+            rules={[
+              {
+                max: workspaceDetail.max_generic_compute_size.core,
+                type: "number",
+                message: `The maximum available core is ${workspaceDetail.max_generic_compute_size.core}`,
+              },
+              {
+                required: true,
+                message: "Please input cpu number",
+              },
+            ]}
+          >
+            <InputNumber disabled={edit} style={{ width: "100%" }} min={1} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            label="Memory"
+            name="memory"
+            rules={[
+              {
+                max: workspaceDetail.max_generic_compute_size.memory,
+                type: "number",
+                message: `The maximum available memory is ${workspaceDetail.max_generic_compute_size.memory} MB`,
+              },
+              {
+                required: true,
+                message: "Please input memory",
+              },
+            ]}
+          >
+            <InputNumber
               disabled={edit}
-              block
-              onClick={() =>
-                addVariableFnRef.current && addVariableFnRef.current()
-              }
-              icon={<PlusOutlined />}
-            >
-              Add variable
-            </Button>
-            <Dropdown
-              disabled={edit}
-              menu={{ items: secretMenus }}
-              trigger={["click"]}
-            >
-              <Button disabled={edit} block>
-                <Space>
-                  <PlusOutlined />
-                  Add secret
-                  <DownOutlined />
-                </Space>
-              </Button>
-            </Dropdown>
-          </Space.Compact>
-        </Form.Item>
-      </Form.Item>
-      <Form.Item
-        css={css`
-          margin-bottom: 0;
-        `}
-        label="Storage Mounts"
-      >
-        <Form.List name="mounts">
-          {(fields, { add, remove }) => {
-            return (
-              <>
-                {fields.map((field, index) => (
-                  <Space key={`mounts-${index}`}>
-                    <Form.Item
-                      {...field}
-                      initialValue=""
-                      name={[field.name, "path"]}
-                      key={`mounts-${index}-path`}
-                      rules={[
-                        { required: true, message: "Missing storage path" },
-                      ]}
-                    >
-                      <StorageSelect
-                        disabled={edit}
-                        placeholder="from storage"
-                      />
-                    </Form.Item>
-                    <Form.Item>
-                      <CarbonIcon icon={<ArrowRight />} />
-                    </Form.Item>
-                    <Form.Item
-                      {...field}
-                      initialValue=""
-                      name={[field.name, "mount_path"]}
-                      key={`mounts-${index}-mount_path`}
-                      rules={[
-                        { required: true, message: "Missing mount path" },
-                      ]}
-                    >
-                      <Input disabled={edit} placeholder="mount to" />
-                    </Form.Item>
-                    <Form.Item>
-                      <Button
-                        type="default"
-                        disabled={edit}
-                        icon={<CarbonIcon icon={<Subtract />} />}
-                        onClick={() => remove(index)}
-                      />
-                    </Form.Item>
-                  </Space>
-                ))}
-                <Form.Item>
-                  <Button
-                    block
-                    disabled={edit}
-                    type="dashed"
-                    icon={<CarbonIcon icon={<Add />} />}
-                    onClick={add}
-                  >
-                    Add Storage Mount
-                  </Button>
-                </Form.Item>
-              </>
-            );
-          }}
-        </Form.List>
-      </Form.Item>
-      <Form.Item
-        wrapperCol={{
-          xs: { offset: 0, span: 24 },
-          sm: { offset: 7, span: 14 },
-        }}
-      >
+              style={{ width: "100%" }}
+              min={1}
+              addonAfter="MB"
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+      <Form.Item>
         <Checkbox
           disabled={edit}
           checked={enableAccelerator}
@@ -582,53 +365,314 @@ export const DeploymentForm: FC<{
         </Checkbox>
       </Form.Item>
       {enableAccelerator && (
-        <>
-          <Form.Item
-            rules={[
-              {
-                required: true,
-                message: `Please input the accelerator type`,
-              },
-            ]}
-            label="Accelerator Type"
-            name="accelerator_type"
-          >
-            <Select
-              disabled={edit}
-              notFoundContent={
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No accelerator aviailable"
-                />
-              }
-              placeholder="Input accelerator type"
-              options={supportedAccelerators}
-              showSearch
-            />
-          </Form.Item>
-          <Form.Item
-            rules={acceleratorCountRules}
-            label="Accelerator Number"
-            name="accelerator_num"
-          >
-            <InputNumber
-              placeholder="Input accelerator number"
-              min={0}
-              disabled={edit}
-              style={{ width: "100%" }}
-            />
-          </Form.Item>
-        </>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              rules={[
+                {
+                  required: true,
+                  message: `Please input the accelerator type`,
+                },
+              ]}
+              label="Accelerator Type"
+              name="accelerator_type"
+            >
+              <Select
+                disabled={edit}
+                notFoundContent={
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No accelerator aviailable"
+                  />
+                }
+                placeholder="Input accelerator type"
+                options={supportedAccelerators}
+                showSearch
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              rules={acceleratorCountRules}
+              label="Accelerator Number"
+              name="accelerator_num"
+            >
+              <InputNumber
+                placeholder="Input accelerator number"
+                min={0}
+                disabled={edit}
+                style={{ width: "100%" }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
       )}
+      <Collapse
+        css={css`
+          margin-bottom: 24px;
+        `}
+        size="small"
+        items={[
+          {
+            label: "Advanced Settings",
+            key: "Advanced",
+            children: (
+              <div
+                css={css`
+                  padding-top: 12px;
+                `}
+              >
+                <Form.Item
+                  css={css`
+                    margin-bottom: 0;
+                  `}
+                  label="Environment Variables"
+                >
+                  <Form.List name="envs">
+                    {(fields, { add, remove }) => {
+                      addVariableFnRef.current = add;
+                      return (
+                        <Row gutter={0}>
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Col key={`${name}-${key}`} span={24}>
+                              <Row gutter={8} wrap={false}>
+                                <Col flex="1 1 auto">
+                                  <Form.Item
+                                    {...restField}
+                                    name={[name, "name"]}
+                                    rules={[
+                                      {
+                                        required: true,
+                                        message: "Please input name",
+                                      },
+                                    ]}
+                                  >
+                                    <Input
+                                      autoFocus
+                                      disabled={edit}
+                                      placeholder="Variable name"
+                                    />
+                                  </Form.Item>
+                                </Col>
+                                <Col flex={0}>
+                                  <IconContainer>
+                                    <EqualIcon />
+                                  </IconContainer>
+                                </Col>
+                                <Col flex="1 1 300px">
+                                  <Space.Compact block>
+                                    <Button
+                                      disabled
+                                      icon={<CarbonIcon icon={<Hashtag />} />}
+                                    />
+                                    <Form.Item
+                                      css={css`
+                                        flex: 1;
+                                      `}
+                                      {...restField}
+                                      name={[name, "value"]}
+                                      rules={[
+                                        {
+                                          required: true,
+                                          message: "Please input value",
+                                        },
+                                      ]}
+                                    >
+                                      <Input
+                                        disabled={edit}
+                                        placeholder="Variable value"
+                                      />
+                                    </Form.Item>
+                                  </Space.Compact>
+                                </Col>
+                                <Col flex={0}>
+                                  <Button
+                                    icon={<CarbonIcon icon={<TrashCan />} />}
+                                    disabled={edit}
+                                    onClick={() => remove(name)}
+                                  />
+                                </Col>
+                              </Row>
+                            </Col>
+                          ))}
+                        </Row>
+                      );
+                    }}
+                  </Form.List>
+                  <Form.List name="secret_envs">
+                    {(fields, { add, remove }) => {
+                      addSecretFnRef.current = add;
+                      return (
+                        <Row gutter={0}>
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Col key={`${name}-${key}`} span={24}>
+                              <Row gutter={8} wrap={false}>
+                                <Col flex="1 1 auto">
+                                  <Form.Item
+                                    {...restField}
+                                    name={[name, "name"]}
+                                    rules={[
+                                      {
+                                        required: true,
+                                        message: "Please input name",
+                                      },
+                                    ]}
+                                  >
+                                    <Input
+                                      autoFocus
+                                      disabled={edit}
+                                      placeholder="Variable name"
+                                    />
+                                  </Form.Item>
+                                </Col>
+                                <Col flex={0}>
+                                  <IconContainer>
+                                    <EqualIcon />
+                                  </IconContainer>
+                                </Col>
+                                <Col flex="1 1 300px">
+                                  <Space.Compact block>
+                                    <Button
+                                      disabled
+                                      icon={<CarbonIcon icon={<Asterisk />} />}
+                                    />
+                                    <Form.Item
+                                      css={css`
+                                        flex: 1;
+                                      `}
+                                      {...restField}
+                                      name={[name, "value"]}
+                                      rules={[
+                                        {
+                                          required: true,
+                                          message: "Please input value",
+                                        },
+                                      ]}
+                                    >
+                                      <Select
+                                        disabled={edit}
+                                        style={{ width: "100%" }}
+                                        placeholder="Secret"
+                                        showArrow={false}
+                                        options={secretOptions}
+                                      />
+                                    </Form.Item>
+                                  </Space.Compact>
+                                </Col>
+                                <Col flex={0}>
+                                  <Button
+                                    icon={<CarbonIcon icon={<TrashCan />} />}
+                                    disabled={edit}
+                                    onClick={() => remove(name)}
+                                  />
+                                </Col>
+                              </Row>
+                            </Col>
+                          ))}
+                        </Row>
+                      );
+                    }}
+                  </Form.List>
+                  <Form.Item wrapperCol={{ span: 24 }}>
+                    <Dropdown
+                      disabled={edit}
+                      menu={{ items: secretMenus }}
+                      trigger={["click"]}
+                    >
+                      <Button disabled={edit} block>
+                        <Space>
+                          <PlusOutlined />
+                          Add variable / secret
+                          <DownOutlined />
+                        </Space>
+                      </Button>
+                    </Dropdown>
+                  </Form.Item>
+                </Form.Item>
+                <Form.Item
+                  css={css`
+                    margin-bottom: 0;
+                  `}
+                  label="Storage Mounts"
+                >
+                  <Form.List name="mounts">
+                    {(fields, { add, remove }) => {
+                      return (
+                        <>
+                          {fields.map((field, index) => (
+                            <Row gutter={8} key={`mounts-${index}`}>
+                              <Col flex="1 1 auto">
+                                <Form.Item
+                                  {...field}
+                                  initialValue=""
+                                  name={[field.name, "mount_path"]}
+                                  key={`mounts-${index}-mount_path`}
+                                  rules={[
+                                    {
+                                      required: true,
+                                      message: "Missing mount path",
+                                    },
+                                  ]}
+                                >
+                                  <Input disabled={edit} placeholder="mount" />
+                                </Form.Item>
+                              </Col>
+                              <Col flex={0}>
+                                <IconContainer>
+                                  <EqualIcon />
+                                </IconContainer>
+                              </Col>
+                              <Col flex="1 1 300px">
+                                <Form.Item
+                                  {...field}
+                                  initialValue=""
+                                  name={[field.name, "path"]}
+                                  key={`mounts-${index}-path`}
+                                  rules={[
+                                    {
+                                      required: true,
+                                      message: "Missing storage path",
+                                    },
+                                  ]}
+                                >
+                                  <StorageSelect
+                                    disabled={edit}
+                                    placeholder="from storage"
+                                  />
+                                </Form.Item>
+                              </Col>
+                              <Col flex={0}>
+                                <Button
+                                  type="default"
+                                  disabled={edit}
+                                  icon={<CarbonIcon icon={<TrashCan />} />}
+                                  onClick={() => remove(index)}
+                                />
+                              </Col>
+                            </Row>
+                          ))}
+                          <Form.Item>
+                            <Button
+                              block
+                              disabled={edit}
+                              icon={<PlusOutlined />}
+                              onClick={add}
+                            >
+                              Add storage mount
+                            </Button>
+                          </Form.Item>
+                        </>
+                      );
+                    }}
+                  </Form.List>
+                </Form.Item>
+              </div>
+            ),
+          },
+        ]}
+      />
 
-      <Form.Item
-        wrapperCol={{
-          xs: { offset: 0, span: 24 },
-          sm: { offset: 7, span: 14 },
-        }}
-      >
-        {buttons}
-      </Form.Item>
+      <Form.Item>{buttons}</Form.Item>
     </Form>
   );
 };

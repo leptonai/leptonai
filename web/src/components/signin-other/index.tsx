@@ -1,51 +1,61 @@
-import {
-  GithubOutlined,
-  ReadOutlined,
-  TwitterOutlined,
-} from "@ant-design/icons";
 import { css } from "@emotion/react";
 import { CenterBox } from "@lepton-dashboard/components/center-box";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
-import { Button, Divider, Space, Typography } from "antd";
-import { FC, ReactNode } from "react";
+import { Button, Col, Row, Typography } from "antd";
+import { FC } from "react";
 import { useNavigate } from "react-router-dom";
 
-export const SignAsOther: FC<{ tips: ReactNode; waitlist?: boolean }> = ({
-  tips,
-  waitlist = false,
-}) => {
+export const SignAsOther: FC<{
+  heading?: string;
+  tips?: string;
+  waitlist?: boolean;
+}> = ({ heading, tips, waitlist = false }) => {
   const navigate = useNavigate();
   const profileService = useInject(ProfileService);
   return (
     <CenterBox>
-      {tips}
+      {heading && (
+        <Typography.Title
+          level={3}
+          css={css`
+            margin-top: 0;
+          `}
+        >
+          {heading}
+        </Typography.Title>
+      )}
+      {tips && <Typography.Paragraph>{tips}</Typography.Paragraph>}
       {profileService.profile?.oauth?.id ? (
         <>
           <Typography.Paragraph>
             You are logged in as{" "}
             <strong>{profileService.profile?.oauth?.email}</strong>
           </Typography.Paragraph>
-          <Space direction="vertical">
+          <Row gutter={[16, 16]}>
             {waitlist && (
+              <Col flex={1}>
+                <Button
+                  block
+                  size="large"
+                  type="primary"
+                  onClick={() => navigate("/waitlist", { relative: "route" })}
+                >
+                  Join waitlist
+                </Button>
+              </Col>
+            )}
+            <Col flex={1}>
               <Button
                 block
                 type="primary"
-                onClick={() => navigate("/waitlist", { relative: "route" })}
+                size="large"
+                onClick={() => navigate("/login", { relative: "route" })}
               >
-                Join waitlist
+                Switch user
               </Button>
-            )}
-            <Button
-              block
-              type="primary"
-              onClick={() => navigate("/login", { relative: "route" })}
-            >
-              Sign in as a different user
-            </Button>
-          </Space>
-
-          <Divider />
+            </Col>
+          </Row>
         </>
       ) : (
         <>
@@ -59,39 +69,8 @@ export const SignAsOther: FC<{ tips: ReactNode; waitlist?: boolean }> = ({
           >
             Try a different token
           </Button>
-          <Divider />
         </>
       )}
-
-      <div
-        css={css`
-          text-align: center;
-        `}
-      >
-        <Space split={<Divider type="vertical" />}>
-          <Button
-            rel="noreferrer"
-            href="https://www.lepton.ai"
-            target="_blank"
-            type="text"
-            icon={<ReadOutlined />}
-          />
-          <Button
-            type="text"
-            rel="noreferrer"
-            href="https://github.com/leptonai"
-            target="_blank"
-            icon={<GithubOutlined />}
-          />
-          <Button
-            type="text"
-            rel="noreferrer"
-            href="https://twitter.com/leptonai"
-            target="_blank"
-            icon={<TwitterOutlined />}
-          />
-        </Space>
-      </div>
     </CenterBox>
   );
 };

@@ -2,9 +2,9 @@ import { useInject } from "@lepton-libs/di";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { useNavigate } from "react-router-dom";
-import { Avatar, Button, Dropdown } from "antd";
+import { Button, Dropdown, Space } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Logout } from "@carbon/icons-react";
+import { ChevronDown, Logout } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { FC } from "react";
 
@@ -19,16 +19,8 @@ export const ProfileMenu: FC = () => {
           menu={{
             items: [
               {
-                icon: <CarbonIcon icon={<Logout />} />,
-                label: (
-                  <div
-                    css={css`
-                      margin-left: 8px;
-                    `}
-                  >
-                    Logout
-                  </div>
-                ),
+                icon: <Logout />,
+                label: "Logout",
                 key: "logout",
                 onClick: () =>
                   authService.logout().then(() => {
@@ -43,29 +35,11 @@ export const ProfileMenu: FC = () => {
             css={css`
               padding: 4px 6px;
             `}
-            icon={
-              <Avatar
-                css={css`
-                  position: relative;
-                  top: -1px;
-                  margin-right: 4px;
-                `}
-                size={18}
-                onError={() => true}
-                src={
-                  <img
-                    src={
-                      profileService.profile?.oauth?.user_metadata.avatar_url
-                    }
-                    alt="avatar"
-                  />
-                }
-              >
-                test
-              </Avatar>
-            }
           >
-            {profileService.profile?.identification?.email}
+            <Space>
+              {profileService.profile?.identification?.email}
+              <CarbonIcon icon={<ChevronDown />} />
+            </Space>
           </Button>
         </Dropdown>
       ) : (

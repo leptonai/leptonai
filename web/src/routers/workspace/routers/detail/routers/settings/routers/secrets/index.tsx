@@ -3,10 +3,10 @@ import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
-import { Card } from "@lepton-dashboard/routers/workspace/components/card";
-import { DeleteSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/delete-secret";
-import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/edit-secret";
-import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/secrets/components/new-secret";
+import { Card } from "../../../../../../../../components/card";
+import { DeleteSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/delete-secret";
+import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/edit-secret";
+import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/new-secret";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { useInject } from "@lepton-libs/di";
@@ -54,6 +54,8 @@ export const Secrets: FC = () => {
 
   return (
     <Card
+      borderless
+      shadowless
       icon={<CarbonIcon icon={<Asterisk />} />}
       title="Secrets"
       extra={<NewSecret afterAction={() => refreshService.refresh()} />}

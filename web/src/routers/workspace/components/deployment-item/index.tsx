@@ -122,7 +122,6 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               >
                 <Button
                   type="text"
-                  danger
                   size="small"
                   icon={<CarbonIcon icon={<TrashCan />} />}
                 >
