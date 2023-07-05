@@ -1,9 +1,11 @@
 from datetime import datetime
 import os
+import random
 import re
 import shutil
 import subprocess
 import socket
+import string
 import sys
 import tempfile
 
@@ -17,6 +19,7 @@ import leptonai.workspace as workspace
 from leptonai.util import click_group
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
+from leptonai.deployment.api import list_deployment
 
 console = Console(highlight=False)
 
@@ -95,25 +98,24 @@ def remove(name, local, id_):
             # Default behavior without id is to remove the most recent photon.
             id_ = get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
             if id_ is None:
-                console.print(f'Photon "{name}" [red]does not exist[/]')
+                console.print(f"Photon [red]{name}[/] does not exist.")
                 sys.exit(1)
 
             if (
                 console.input(
-                    f'remove photon "[green]{name}[/]" with id '
-                    f'"[green]{id_}[/]"?[y/n]: '
+                    f"remove photon [green]{name}[/] with id [green]{id_}[/]? [y/n]: "
                 )
                 != "y"
             ):
                 sys.exit(0)
 
         if api.remove_remote(workspace_url, id_, auth_token):
-            console.print(f'Photon "{id_}" [green]removed[/]')
+            console.print(f"Photon [green]{id_}[/] removed.")
         else:
             # TODO: if we do find the photon, but it's not removed, should we
             # assume that it does not exist (because it did exist), or should
             # we do something else?
-            console.print(f'Photon "{id_}" [red]does not exist[/]')
+            console.print(f"Photon [red]{id_}[/] does not exist.")
         return
     else:
         # local mode
@@ -122,10 +124,10 @@ def remove(name, local, id_):
             console.print("Must specify --name when removing local photon")
             sys.exit(1)
         if find_local_photon(name) is None:
-            console.print(f'Photon "{name}" [red]does not exist[/]')
+            console.print(f"Photon [red]{name}[/] does not exist.")
             sys.exit(1)
         remove_local_photon(name)
-        console.print(f'Photon "{name}" [green]removed[/]')
+        console.print(f"Photon [green]{name}[/] removed.")
         return
 
 
@@ -216,7 +218,14 @@ def parse_mount(mount_str: str):
     multiple=True,
 )
 @click.option(
-    "--deployment-name", "-dn", help="Optional name for the deployment", default=None
+    "--deployment-name",
+    "-dn",
+    help=(
+        "Optional name for the deployment. If not specified, we will choose the first"
+        " non-conflict name in this order: photon name (if specified), photon id (if"
+        " specified), photon id + random string."
+    ),
+    default=None,
 )
 @click.option(
     "--env",
@@ -272,12 +281,12 @@ def run(
             # look for the latest photon with the given name.
             id = get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
             if id is None:
-                console.print(f'Photon "{name}" [red]does not exist[/]')
+                console.print(f"Photon [red]{name}[/] does not exist.")
                 sys.exit(1)
             else:
                 console.print(f"Running the most recent version: [green]{id}[/]")
         else:
-            console.print("Running the specified version: [green]{id}[/]")
+            console.print(f"Running the specified version: [green]{id}[/]")
         # parse environment variables and secrets
         env_parsed = {}
         secret_parsed = {}
@@ -285,7 +294,7 @@ def run(
             try:
                 name, value = s.split("=", 1)
             except ValueError:
-                console.print(f"Invalid environment definition: {s}")
+                console.print(f"Invalid environment definition: [red]{s}[/]")
                 sys.exit(1)
             env_parsed[name] = value
         for s in secret:
@@ -300,17 +309,35 @@ def run(
             try:
                 mount_parsed.append(parse_mount(m))
             except ValueError:
-                console.print(f"Invalid mount definition: {m}")
+                console.print(f"Invalid mount definition: [red]{m}[/]")
                 sys.exit(1)
-        api.remote_launch(
+        existing_names = set(
+            d["name"] for d in list_deployment(workspace_url, auth_token)
+        )
+        if deployment_name in existing_names:
+            console.print(
+                f"Deployment name [red]{deployment_name}[/] already exists. please"
+                " choose another one."
+            )
+            sys.exit(1)
+        elif not deployment_name:
+            deployment_name = name if (name and name not in existing_names) else id
+            # Make sure that deployment name is not longer than 32 characters
+            deployment_name = deployment_name[:32]
+            while deployment_name in existing_names:
+                deployment_name = (
+                    id[:25] + "-" + "".join(random.choices(string.ascii_lowercase, k=6))
+                )
+        console.print(f"Launching photon {id} as [green]{deployment_name}[/].")
+        api.run_remote(
             id,
             workspace_url,
             cpu,
             memory,
             min_replicas,
             auth_token,
-            mount_parsed,
             deployment_name,
+            mount_parsed,
             env_parsed,
             secret_parsed,
         )
@@ -333,7 +360,7 @@ def run(
                 )
         else:
             name_or_path = name if name is not None else path
-            console.print(f'Photon "{name_or_path}" [red]does not exist[/]')
+            console.print(f"Photon [red]{name_or_path}[/] does not exist.")
             if name and model:
                 ctx.invoke(create, name=name, model=model)
                 path = find_local_photon(name)
@@ -453,14 +480,14 @@ def push(name):
         sys.exit(1)
     path = find_local_photon(name)
     if path is None or not os.path.exists(path):
-        console.print(f'Photon "{name}" [red]does not exist[/]')
+        console.print(f"Photon [red]{name}[/] does not exist.")
         sys.exit(1)
 
     auth_token = workspace.cli.get_auth_token(workspace_url)
     if not api.push(path, workspace_url, auth_token):
-        console.print(f'Photon "{name}" [red]failed to push[/]')
+        console.print(f"Photon [red]{name}[/] failed to push.")
         sys.exit(1)
-    console.print(f'Photon "{name}" [green]pushed[/]')
+    console.print(f"Photon [green]{name}[/] pushed to workspace.")
 
 
 @photon.command()
@@ -476,7 +503,7 @@ def fetch(id, path):
         )
     auth_token = workspace.cli.get_auth_token(workspace_url)
     photon = api.fetch(id, workspace_url, path, auth_token)
-    console.print(f'Photon "{photon.name}:{id}" [green]fetched[/]')
+    console.print(f"Photon [green]{photon.name}:{id}[/] fetched.")
 
 
 def add_command(cli_group):
