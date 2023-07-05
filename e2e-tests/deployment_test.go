@@ -95,9 +95,6 @@ func waitForDeploymentToRunningState(id string) error {
 		if d.Status.Endpoint.ExternalEndpoint == "" {
 			return fmt.Errorf("Expected deployment to have an external endpoint, got empty string")
 		}
-		if d.Status.Endpoint.InternalEndpoint == "" {
-			return fmt.Errorf("Expected deployment to have an internal endpoint, got empty string")
-		}
 		return nil
 	})
 }

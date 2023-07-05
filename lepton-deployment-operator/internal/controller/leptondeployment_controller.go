@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"strconv"
 	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -179,7 +178,6 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 	}
 	if !ld.DeletionTimestamp.IsZero() {
 		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateDeleting
-		ld.Status.Endpoint.InternalEndpoint = ""
 		ld.Status.Endpoint.ExternalEndpoint = ""
 	} else {
 		deployment, err := r.getDeployment(ctx, req)
@@ -192,7 +190,6 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 		} else {
 			ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
 		}
-		ld.Status.Endpoint.InternalEndpoint = "http://" + ld.GetSpecName() + "." + ld.Namespace + ".svc.cluster.local:" + strconv.Itoa(service.Port)
 		ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
 	}
 	return r.Status().Update(ctx, ld)
