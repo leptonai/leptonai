@@ -10,6 +10,7 @@ import re
 import sys
 from typing import Callable, Any, List, Optional
 from typing_extensions import Annotated
+import warnings
 import zipfile
 
 import click
@@ -25,7 +26,7 @@ import uvicorn
 from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from leptonai.photon.download import fetch_code_from_vcs
-from leptonai.util import switch_cwd
+from leptonai.util import switch_cwd, patch
 from .base import BasePhoton, schema_registry
 
 schemas = ["py"]
@@ -230,9 +231,51 @@ class Photon(BasePhoton):
     def save(self, path: str = None):
         path = super().save(path=path)
         with zipfile.ZipFile(path, "a") as photon_file:
-            photon_file.writestr(
-                self.obj_pkl_filename, cloudpickle.dumps(self, protocol=4)
-            )
+            with photon_file.open(self.obj_pkl_filename, "w") as obj_pkl_file:
+                pickler = cloudpickle.CloudPickler(obj_pkl_file, protocol=4)
+                try:
+                    from cloudpickle.cloudpickle import _extract_code_globals
+
+                    orig_function_getnewargs = pickler._function_getnewargs
+                except (ImportError, AttributeError):
+                    pickler.dump(self)
+                else:
+
+                    def _function_getnewargs(func):
+                        try:
+                            g_names = _extract_code_globals(func.__code__)
+                            for name in ["__file__", "__path__"]:
+                                if name in g_names:
+                                    warnings.warn(
+                                        f"function {func} has used global variable"
+                                        f" '{name}', its value"
+                                        f" '{func.__globals__[name]}' is resolved"
+                                        " during Photon creation instead of Deployment"
+                                        " runtime, which may cause unexpected"
+                                        " behavior."
+                                    )
+                        except Exception:
+                            pass
+                        return orig_function_getnewargs(func)
+
+                    # We normally use loguru to do logging, in order
+                    # to verify the warning message is working
+                    # properly, we use assertWarns in unittest, which
+                    # requires the warning message to be emiited by
+                    # the python warnings module. So we need to patch
+                    # the warning module to emit the warning message
+                    # by warnings module but printed by loguru
+                    showwarning_ = warnings.showwarning
+
+                    def showwarning(message, *args, **kwargs):
+                        logger.warning(message)
+                        showwarning_(message, *args, **kwargs)
+
+                    with patch(warnings, "showwarning", showwarning):
+                        with patch(
+                            pickler, "_function_getnewargs", _function_getnewargs
+                        ):
+                            pickler.dump(self)
         return path
 
     @classmethod
