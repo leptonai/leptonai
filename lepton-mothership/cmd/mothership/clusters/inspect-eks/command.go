@@ -33,7 +33,7 @@ func NewCommand() *cobra.Command {
 		Short: "Inspects EKS cluster(s)",
 		Run:   inspectFunc,
 	}
-	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "n", "", "Cluster name to inspect (leave empty to inspect all)")
+	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Cluster name to inspect (leave empty to inspect all)")
 	cmd.PersistentFlags().StringVarP(&outputType, "output", "o", "table", "Output type (either table or json)")
 	return cmd
 }
