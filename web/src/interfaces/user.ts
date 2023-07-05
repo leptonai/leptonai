@@ -7,4 +7,5 @@ export interface User {
   industry?: string;
   role?: string;
   name?: string | null;
+  workEmail?: string;
 }

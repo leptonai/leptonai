@@ -13,7 +13,7 @@ export class UnauthorizedError extends Error {
 
 export type WaitlistEntry = Pick<
   User,
-  "company" | "companySize" | "industry" | "role" | "name"
+  "company" | "companySize" | "industry" | "role" | "name" | "workEmail"
 >;
 
 @Injectable()

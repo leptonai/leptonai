@@ -181,6 +181,7 @@ export class AuthSupabaseService implements AuthService {
         industry: user.industry || "",
         role: user.role || "",
         name: user.name || "",
+        work_email: user.workEmail || "",
       })
       .abortSignal(abort.signal);
 

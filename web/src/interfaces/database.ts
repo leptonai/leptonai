@@ -144,6 +144,7 @@ export interface Database {
           industry: string;
           role: string;
           name: string;
+          work_email: string;
         };
         Returns: undefined;
       };
@@ -263,12 +264,6 @@ export interface Database {
             foreignKeyName: "objects_bucketId_fkey";
             columns: ["bucket_id"];
             referencedRelation: "buckets";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "objects_owner_fkey";
-            columns: ["owner"];
-            referencedRelation: "users";
             referencedColumns: ["id"];
           }
         ];

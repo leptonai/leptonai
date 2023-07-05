@@ -34,8 +34,8 @@ export const WaitList: FC = () => {
   };
   if (
     submitted ||
-    (profileService.profile?.identification?.enable &&
-      profileService.profile.identification?.name)
+    (profileService.profile?.identification?.enable === false &&
+      profileService.profile?.identification?.name)
   ) {
     return (
       <SignAsOther
@@ -69,6 +69,12 @@ export const WaitList: FC = () => {
           </Form.Item>
           <Form.Item name="company" rules={[{ required: true }]}>
             <Input placeholder="Company*" />
+          </Form.Item>
+          <Form.Item
+            name="workEmail"
+            rules={[{ type: "email", message: "Please enter a valid email" }]}
+          >
+            <Input placeholder="Work Email" />
           </Form.Item>
           <Form.Item name="companySize">
             <Select
