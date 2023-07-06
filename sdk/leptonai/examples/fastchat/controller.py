@@ -4,7 +4,9 @@ import fastchat.serve.controller
 
 
 class Server(Photon):
-    requirement_dependency = ["git+https://github.com/leptonai/FastChat.git@2f18851"]
+    requirement_dependency = [
+        "git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/leptonai/FastChat.git@2f18851"
+    ]
 
     def init(self):
         controller = fastchat.serve.controller.Controller("shortest_queue")

@@ -7,7 +7,9 @@ import fastchat.serve.model_worker
 
 
 class Server(Photon):
-    requirement_dependency = ["git+https://github.com/leptonai/FastChat.git@2f18851"]
+    requirement_dependency = [
+        "git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/leptonai/FastChat.git@2f18851"
+    ]
 
     def init(self):
         worker = fastchat.serve.model_worker.ModelWorker(

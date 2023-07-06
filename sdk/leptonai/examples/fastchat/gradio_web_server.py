@@ -7,7 +7,9 @@ import fastchat.serve.gradio_web_server
 
 
 class Server(Photon):
-    requirement_dependency = ["git+https://github.com/leptonai/FastChat.git@2f18851"]
+    requirement_dependency = [
+        "git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/leptonai/FastChat.git@2f18851"
+    ]
 
     def init(self):
         fastchat.serve.gradio_web_server.controller_url = os.environ.get(
