@@ -17,7 +17,7 @@ import { Description } from "@lepton-dashboard/routers/workspace/components/desc
 import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
-  Api_1,
+  Api,
   Chip,
   CopyFile,
   FlowModeler,
@@ -35,7 +35,6 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { PhotonItem } from "@lepton-dashboard/routers/workspace/components/photon-item";
-import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
 import { EditDeployment } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/edit-deployment";
 import { useNavigate } from "react-router-dom";
 import { Envs } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/envs";
@@ -182,53 +181,19 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               </Col>
               <Col span={24}>
                 <Description.Container>
-                  <Popover
-                    placement="bottomLeft"
-                    content={deployment.status.endpoint.external_endpoint}
-                  >
-                    <span>
-                      <Hoverable>
-                        <Description.Item
-                          icon={<CarbonIcon icon={<Api_1 />} />}
-                          description={
-                            <Typography.Text
-                              copyable={{
-                                text: deployment.status.endpoint
-                                  .external_endpoint,
-                                tooltips: false,
-                                icon: <CarbonIcon icon={<CopyFile />} />,
-                              }}
-                            >
-                              External Endpoint
-                            </Typography.Text>
-                          }
-                        />
-                      </Hoverable>
-                    </span>
-                  </Popover>
-                  <Popover
-                    placement="bottomLeft"
-                    content={deployment.status.endpoint.internal_endpoint}
-                  >
-                    <span>
-                      <Hoverable>
-                        <Description.Item
-                          description={
-                            <Typography.Text
-                              copyable={{
-                                text: deployment.status.endpoint
-                                  .internal_endpoint,
-                                tooltips: false,
-                                icon: <CarbonIcon icon={<CopyFile />} />,
-                              }}
-                            >
-                              Internal Endpoint
-                            </Typography.Text>
-                          }
-                        />
-                      </Hoverable>
-                    </span>
-                  </Popover>
+                  <Description.Item
+                    icon={<CarbonIcon icon={<Api />} />}
+                    description={
+                      <Typography.Text
+                        copyable={{
+                          tooltips: "External endpoint of the deployment",
+                          icon: <CarbonIcon icon={<CopyFile />} />,
+                        }}
+                      >
+                        {deployment.status.endpoint.external_endpoint}
+                      </Typography.Text>
+                    }
+                  />
                 </Description.Container>
               </Col>
             </Row>
