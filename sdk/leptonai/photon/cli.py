@@ -1,11 +1,9 @@
 from datetime import datetime
 import os
-import random
 import re
 import shutil
 import subprocess
 import socket
-import string
 import sys
 import tempfile
 
@@ -221,9 +219,9 @@ def parse_mount(mount_str: str):
     "--deployment-name",
     "-dn",
     help=(
-        "Optional name for the deployment. If not specified, we will choose the first"
-        " non-conflict name in this order: photon name (if specified), photon id (if"
-        " specified), photon id + random string."
+        "Optional name for the deployment. If not specified, we will attempt to use the"
+        " name (if specified) and id as the base name, and find the first non-conflict"
+        " name by appending a number."
     ),
     default=None,
 )
@@ -321,13 +319,16 @@ def run(
             )
             sys.exit(1)
         elif not deployment_name:
-            deployment_name = name if (name and name not in existing_names) else id
+            console.print("Attempting to find a proper deployment name.")
+            base_name = name if name else id
             # Make sure that deployment name is not longer than 32 characters
-            deployment_name = deployment_name[:32]
+            deployment_name = base_name[:32]
+            increment = 0
             while deployment_name in existing_names:
-                deployment_name = (
-                    id[:25] + "-" + "".join(random.choices(string.ascii_lowercase, k=6))
-                )
+                console.print(f"[yellow]{deployment_name}[/] already used.")
+                increment += 1
+                affix_name = f"-{increment}"
+                deployment_name = base_name[: (32 - len(affix_name))] + affix_name
         console.print(f"Launching photon {id} as [green]{deployment_name}[/].")
         api.run_remote(
             id,
