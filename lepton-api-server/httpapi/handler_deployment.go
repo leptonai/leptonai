@@ -166,7 +166,9 @@ func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeplo
 			return fmt.Errorf("cpu and memory must be unspecified when resource shape is specified")
 		}
 
-		if leptonaiv1alpha1.SupportedShapesAWS[ld.ResourceRequirement.ResourceShape] == nil {
+		shape := leptonaiv1alpha1.DisplayShapeToShape(string(ld.ResourceRequirement.ResourceShape))
+
+		if leptonaiv1alpha1.SupportedShapesAWS[shape] == nil {
 			return fmt.Errorf("unsupported resource shape %s", ld.ResourceRequirement.ResourceShape)
 		}
 	} else {

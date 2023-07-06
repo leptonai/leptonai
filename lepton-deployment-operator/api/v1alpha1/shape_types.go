@@ -14,6 +14,24 @@ const (
 	// AC1A100 = LeptonDeploymentResourceShape("ac1.a100")
 )
 
+// DisplayShapeToShape converts the display name to a resource shape.
+// If the input name is already a resource shape name, also return the corresponding shape.
+func DisplayShapeToShape(ds string) LeptonDeploymentResourceShape {
+	s, ok := displayNameToShapeName[ds]
+	if ok {
+		return s
+	}
+	return LeptonDeploymentResourceShape(ds)
+}
+
+var displayNameToShapeName = map[string]LeptonDeploymentResourceShape{
+	"cpu.small":  GP1Small,
+	"cpu.medium": GP1Medium,
+	"cpu.large":  GP1Large,
+	"gpu.t4":     AC1T4,
+	"gpu.a10":    AC1A10,
+}
+
 var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 	// General Purpose
 	GP1HiddenTest: {
