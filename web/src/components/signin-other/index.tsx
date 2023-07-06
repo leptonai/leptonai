@@ -1,5 +1,6 @@
 import { css } from "@emotion/react";
 import { CenterBox } from "@lepton-dashboard/components/center-box";
+import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Col, Row, Typography } from "antd";
@@ -13,6 +14,7 @@ export const SignAsOther: FC<{
 }> = ({ heading, tips, waitlist = false }) => {
   const navigate = useNavigate();
   const profileService = useInject(ProfileService);
+  const authService = useInject(AuthService);
   return (
     <CenterBox>
       {heading && (
@@ -50,7 +52,11 @@ export const SignAsOther: FC<{
                 block
                 type="primary"
                 size="large"
-                onClick={() => navigate("/login", { relative: "route" })}
+                onClick={() =>
+                  authService
+                    .logout()
+                    .then(() => navigate("/login", { relative: "route" }))
+                }
               >
                 Switch user
               </Button>

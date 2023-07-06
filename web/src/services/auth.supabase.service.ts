@@ -1,6 +1,10 @@
 import { Injectable } from "injection-js";
-import { createClient, Session } from "@supabase/supabase-js";
-import { BehaviorSubject, from, map, Observable } from "rxjs";
+import {
+  createClient,
+  Session,
+  User as SessionUser,
+} from "@supabase/supabase-js";
+import { BehaviorSubject, from, Observable } from "rxjs";
 import {
   AuthService,
   WaitlistEntry,
@@ -62,7 +66,7 @@ export class AuthSupabaseService implements AuthService {
     });
   }
 
-  getSessionProfile(): Observable<Session["user"] | null> {
+  private async getSessionUser(): Promise<SessionUser | null> {
     const cookies = document.cookie
       .split(/\s*;\s*/)
       .map((cookie) => cookie.split("="));
@@ -74,15 +78,23 @@ export class AuthSupabaseService implements AuthService {
       (x) => x[0] == `${SSO_CONFIG.refresh_token_key}`
     );
 
-    const setSession =
-      accessTokenCookie && refreshTokenCookie
-        ? client.auth.setSession({
-            access_token: accessTokenCookie[1],
-            refresh_token: refreshTokenCookie[1],
-          })
-        : this.client.auth.getSession();
+    const session = await this.client.auth.getSession();
+    const user = session.data.session?.user;
+    if (user) {
+      return user;
+    } else if (accessTokenCookie && refreshTokenCookie) {
+      const beforeSession = await client.auth.setSession({
+        access_token: accessTokenCookie[1],
+        refresh_token: refreshTokenCookie[1],
+      });
+      return beforeSession.data.session?.user || null;
+    } else {
+      return null;
+    }
+  }
 
-    return from(setSession).pipe(map(({ data }) => data.session?.user || null));
+  getSessionProfile(): Observable<SessionUser | null> {
+    return from(this.getSessionUser());
   }
 
   getUserProfile(): Observable<User | null> {
