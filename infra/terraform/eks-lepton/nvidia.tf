@@ -13,7 +13,10 @@ resource "helm_release" "gpu-operator" {
       # https://github.com/leptonai/lepton/issues/526
       # https://github.com/NVIDIA/gpu-operator/issues/528
       # https://catalog.ngc.nvidia.com/orgs/nvidia/teams/k8s/containers/container-toolkit/tags
-      version = "v1.13.1-centos7"
+      # Ubuntu is preferred since amzn2 driver is broken
+      # errors with Failed to pull image "nvcr.io/nvidia/driver:525.105.17-amzn2"
+      # when ami type is "al2"
+      version = var.use_ubuntu_nvidia_gpu_operator ? "v1.13.1-ubuntu20.04" : "v1.13.1-centos7"
     }
   })]
 
