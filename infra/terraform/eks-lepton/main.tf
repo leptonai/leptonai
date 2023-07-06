@@ -1,5 +1,12 @@
 provider "aws" {
   region = var.region
+
+  # ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs#default_tags-configuration-block
+  default_tags {
+    tags = {
+      LeptonClusterName = local.cluster_name
+    }
+  }
 }
 
 provider "kubernetes" {
