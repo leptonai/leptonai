@@ -14,5 +14,5 @@ do
     echo "cleaning up ${target}"
     rm -rf "${target}"/.terraform
     rm -rf "${target}"/.terraform.lock.hcl
-    rm -rf "${target}"/./charts
+    rm -rf "${target}"/charts
 done
