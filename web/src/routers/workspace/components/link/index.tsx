@@ -9,13 +9,22 @@ export const Link = forwardRef<
   PropsWithChildren<{
     underline?: boolean;
     to: To;
+    target?: string;
     relative?: RelativeRoutingType;
     icon?: ReactNode;
   }> &
     EmotionProps
 >(
   (
-    { children, to, relative = "path", icon, className, underline = true },
+    {
+      children,
+      target,
+      to,
+      relative = "path",
+      icon,
+      className,
+      underline = true,
+    },
     ref
   ) => {
     const theme = useAntdTheme();
@@ -33,6 +42,7 @@ export const Link = forwardRef<
         `}
         ref={ref}
         to={to}
+        target={target}
         relative={relative}
       >
         {icon && (

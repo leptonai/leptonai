@@ -1,12 +1,10 @@
-import { Launch } from "@carbon/icons-react";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FC, useMemo, useState } from "react";
-import { Card } from "../../../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Alert, Button, Col, Row, Segmented, Space, Typography } from "antd";
+import { Alert, Col, Row, Segmented, Space, Typography } from "antd";
 import { css } from "@emotion/react";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
@@ -23,7 +21,7 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const openApiService = useInject(OpenApiService);
   const [loading, setLoading] = useState(true);
   const [codeLanguage, setCodeLanguage] = useState<LanguageSupports>(
-    LanguageSupports.Bash
+    LanguageSupports.Python
   );
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
@@ -87,23 +85,15 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
             </Col>
             <Col>
               <Space>
-                <Button
-                  type="text"
-                  icon={<CarbonIcon icon={<Launch />} />}
-                  href={docsUrl}
-                  target="_blank"
-                >
-                  API Docs
-                </Button>
                 <Segmented
                   options={[
                     {
-                      label: "cURL",
-                      value: LanguageSupports.Bash,
-                    },
-                    {
                       label: "Python",
                       value: LanguageSupports.Python,
+                    },
+                    {
+                      label: "HTTP",
+                      value: LanguageSupports.Bash,
                     },
                   ]}
                   value={codeLanguage}
@@ -144,6 +134,21 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
               language={codeLanguage}
             />
           ))}
+          {codeLanguage === LanguageSupports.Bash && (
+            <>
+              <br />
+              You can also check{" "}
+              <Link
+                css={css`
+                  text-decoration: underline !important;
+                `}
+                to={docsUrl}
+                target="_blank"
+              >
+                API docs here.
+              </Link>
+            </>
+          )}
         </>
       ) : (
         <Alert showIcon type="warning" message="No openapi schema found" />

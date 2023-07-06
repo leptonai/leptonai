@@ -34,14 +34,14 @@ export const SyntaxHighlight: FC<{
     const setCode = async () => {
       if (!highlighter) {
         highlighter = await getHighlighter({
-          themes: ["nord", "github-light"],
+          themes: ["github-dark", "github-light"],
           langs: ["bash", "python"],
         });
       }
       if (inThisTake) {
         const output = highlighter.codeToHtml(code, {
           lang: language,
-          theme: currentTheme === "dark" ? "nord" : "github-light",
+          theme: currentTheme === "dark" ? "github-dark" : "github-light",
         });
         setHighlightedCode(output);
       }
@@ -59,7 +59,8 @@ export const SyntaxHighlight: FC<{
       css={css`
         pre {
           min-height: 35px;
-          background-color: rgba(150, 150, 150, 0.1) !important;
+          font-size: 12px;
+          padding: 12px;
         }
       `}
       dangerouslySetInnerHTML={{ __html: highlightedCode }}

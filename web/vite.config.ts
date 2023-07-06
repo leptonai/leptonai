@@ -50,7 +50,7 @@ export default defineConfig(({ mode }) => {
             dest: "shiki/dist",
           },
           {
-            src: "node_modules/shiki/themes/nord.json",
+            src: "node_modules/shiki/themes/github-dark.json",
             dest: "shiki/themes",
           },
           {
