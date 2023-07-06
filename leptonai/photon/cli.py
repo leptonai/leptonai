@@ -18,6 +18,7 @@ from leptonai.util import click_group
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.deployment.api import list_deployment
+from leptonai.storage.api import check_path_exists
 
 console = Console(highlight=False)
 
@@ -305,7 +306,12 @@ def run(
         mount_parsed = []
         for m in mount:
             try:
-                mount_parsed.append(parse_mount(m))
+                parsed = parse_mount(m)
+                if not check_path_exists(workspace_url, parsed["path"]):
+                    console.print(f"Path does not exit: [red]{m}[/]")
+                    sys.exit(1)
+
+                mount_parsed.append(parsed)
             except ValueError:
                 console.print(f"Invalid mount definition: [red]{m}[/]")
                 sys.exit(1)
