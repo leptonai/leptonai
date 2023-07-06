@@ -4,6 +4,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import typescript from "@rollup/plugin-typescript";
 import checker from "vite-plugin-checker";
 import injectionTransformer from "./libs/transformer";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -41,6 +42,30 @@ export default defineConfig(({ mode }) => {
       }),
       checker({
         typescript: true,
+      }),
+      viteStaticCopy({
+        targets: [
+          {
+            src: "node_modules/shiki/dist/onig.wasm",
+            dest: "shiki/dist",
+          },
+          {
+            src: "node_modules/shiki/themes/nord.json",
+            dest: "shiki/themes",
+          },
+          {
+            src: "node_modules/shiki/themes/github-light.json",
+            dest: "shiki/themes",
+          },
+          {
+            src: "node_modules/shiki/languages/shellscript.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/python.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+        ],
       }),
     ],
   };

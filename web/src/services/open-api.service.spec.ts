@@ -1,5 +1,8 @@
 import { describe, beforeAll, test, expect } from "vitest";
-import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
+import {
+  LeptonAPIItem,
+  OpenApiService,
+} from "@lepton-dashboard/services/open-api.service";
 import { OpenAPIV3 } from "openapi-types";
 
 const generateSpec = ({
@@ -251,6 +254,210 @@ describe("open-api.service", () => {
           test: "in-header",
         },
       });
+    });
+  });
+
+  describe("generate Python code", () => {
+    test("should generate Python code", async () => {
+      const body = {
+        texts: "string",
+      };
+      const code = service.toPythonSDKCode(
+        {
+          request: { body },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code.replace(/\t/g, "  "))
+        .toEqual(`from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example(
+  texts="string"
+)
+
+print(result)`);
+    });
+
+    test("should generate Python code with url", async () => {
+      const code = service.toPythonSDKCode(
+        {
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        "https://latest.cloud.lepton.ai"
+      );
+
+      expect(code.replace(/\t/g, "  ")).toEqual(
+        `from leptonai.client import Client
+
+client = Client("https://latest.cloud.lepton.ai", token="$YOUR_TOKEN")
+result = client.example()
+
+print(result)`
+      );
+    });
+
+    test("should generate Python code with boolean", async () => {
+      const body = {
+        boolean: true,
+      };
+      const code = service.toPythonSDKCode(
+        {
+          request: { body },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code.replace(/\t/g, "  ")).toEqual(
+        `from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example(
+  boolean=True
+)
+
+print(result)`
+      );
+    });
+
+    test("should generate Python code with null", async () => {
+      const body = {
+        use_null: null,
+      };
+      const code = service.toPythonSDKCode(
+        {
+          request: { body },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code.replace(/\t/g, "  "))
+        .toEqual(`from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example(
+  use_null=None
+)
+
+print(result)`);
+    });
+
+    test("should generate Python code with object value", async () => {
+      const body = {
+        object: {
+          test: 1,
+          object: {
+            string: "string",
+            number: 1,
+          },
+        },
+        number: 1,
+      };
+      const code = service.toPythonSDKCode(
+        {
+          request: { body },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code.replace(/\t/g, "  "))
+        .toEqual(`from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example(
+  object={
+    "test": 1,
+    "object": {
+      "string": "string",
+      "number": 1
+    }
+  },
+  number=1
+)
+
+print(result)`);
+    });
+
+    test("should generate Python code with array value", async () => {
+      const body = {
+        array: ["1", "2"],
+        arrayNumber: [1, 2],
+        arrayObject: [
+          {
+            test: 1,
+          },
+          {
+            test: 2,
+          },
+        ],
+        number: 1,
+      };
+      const code = service.toPythonSDKCode(
+        {
+          request: { body },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code.replace(/\t/g, "  ")).toEqual(
+        `from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example(
+  array=[
+    "1",
+    "2"
+  ],
+  arrayNumber=[
+    1,
+    2
+  ],
+  arrayObject=[
+    {
+      "test": 1
+    },
+    {
+      "test": 2
+    }
+  ],
+  number=1
+)
+
+print(result)`
+      );
     });
   });
 });

@@ -170,4 +170,95 @@ export class OpenApiService {
       return "";
     }
   }
+
+  toPythonSDKCode(
+    api: LeptonAPIItem,
+    scopeOrURL: { workspace: string; deployment: string } | string
+  ) {
+    const method = api.operation.path.replace(/^\//, "").split("/")[0];
+    const lines = [];
+    lines.push("from leptonai.client import Client\n");
+
+    if (typeof scopeOrURL === "string") {
+      lines.push(`client = Client("${scopeOrURL}", token="$YOUR_TOKEN")`);
+    } else {
+      lines.push(
+        `client = Client("${scopeOrURL.workspace}", "${scopeOrURL.deployment}", token="$YOUR_TOKEN")`
+      );
+    }
+
+    lines.push(
+      `result = client.${method}${
+        typeof api.request?.body === "object"
+          ? `(\n${this.objectToPythonNamedArgs(api.request.body, 1)}\n)`
+          : "()"
+      }\n`
+    );
+    lines.push("print(result)");
+    return lines.join("\n");
+  }
+
+  private objectToPythonNamedArgs(obj: SafeAny, indent = 0) {
+    const lines = [];
+    const args: string[] = [];
+    for (const key in obj) {
+      const value = obj[key];
+      const valueStr = this.valueToPythonValue(value, indent);
+      args.push(`${"  ".repeat(indent)}${key}=${valueStr}`);
+    }
+    lines.push(args.join(",\n"));
+    return lines.join("\n");
+  }
+
+  private objectToPythonDict(obj: Record<string, unknown>, indent = 0) {
+    const lines: string[] = [];
+    const values: string[] = [];
+    lines.push("{");
+    for (const key in obj) {
+      const value = obj[key];
+      const valueStr = this.valueToPythonValue(value, indent + 1);
+      values.push(`${"  ".repeat(indent + 1)}"${key}": ${valueStr}`);
+    }
+    lines.push(values.join(",\n"));
+    lines.push("  ".repeat(indent) + "}");
+    return lines.join("\n");
+  }
+
+  private arrayToPythonList(arr: unknown[], indent = 0) {
+    const lines: string[] = [];
+    const values: string[] = [];
+    lines.push("[");
+    for (const value of arr) {
+      const valueStr = this.valueToPythonValue(value, indent + 1);
+      values.push(`${"  ".repeat(indent + 1)}${valueStr}`);
+    }
+    lines.push(values.join(",\n"));
+    lines.push("  ".repeat(indent) + "]");
+    return lines.join("\n");
+  }
+
+  private valueToPythonValue(value: SafeAny, indent = 0) {
+    let result = "";
+    const jsType = typeof value;
+    switch (jsType) {
+      case "string":
+        result = `${JSON.stringify(value)}`;
+        break;
+      case "number":
+        result = `${value}`;
+        break;
+      case "boolean":
+        result = value ? "True" : "False";
+        break;
+      case "object":
+        if (value === null) {
+          result = "None";
+        } else if (Array.isArray(value)) {
+          result = this.arrayToPythonList(value, indent);
+        } else {
+          result = this.objectToPythonDict(value, indent);
+        }
+    }
+    return result;
+  }
 }
