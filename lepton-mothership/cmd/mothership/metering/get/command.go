@@ -74,7 +74,7 @@ mothership metering get --kubeconfig /tmp/gh82.kubeconfig
 	cmd.PersistentFlags().StringVar(&queryPath, "query-path", "/allocation/compute", "Query path")
 	cmd.PersistentFlags().StringVar(&queryAgg, "query-aggregate", "cluster,namespace,pod", "Query aggregate")
 	cmd.PersistentFlags().StringVar(&queryWindow, "query-window", "5m", "Query window duration")
-	cmd.PersistentFlags().BoolVar(&queryAccumulate, "query-accumulate", true, "Configure accumulate (if true, query-window=3d results in each 24-hour period)")
+	cmd.PersistentFlags().BoolVar(&queryAccumulate, "query-accumulate", true, "Configure accumulate (If false, query-window=3d results in three different 24-hour periods. If true, the results are accumulated into one entire window.)")
 
 	cmd.PersistentFlags().UintVar(&queryRounds, "query-rounds", 1, "Number of query rounds to perform, set to 0 to poll indefinitely")
 	cmd.PersistentFlags().DurationVar(&queryInterval, "query-interval", 10*time.Minute, "Query interval")
