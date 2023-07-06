@@ -6,7 +6,7 @@ import (
 
 type CliWrapper struct {
 	WorkspaceURL string
-	AuthToken string
+	AuthToken    string
 }
 
 const cmdName = "lep"
@@ -14,7 +14,7 @@ const cmdName = "lep"
 func NewCliWrapper(workspaceURL string, authToken string) *CliWrapper {
 	return &CliWrapper{
 		WorkspaceURL: workspaceURL,
-		AuthToken: authToken,
+		AuthToken:    authToken,
 	}
 }
 
@@ -58,8 +58,5 @@ func (c *CliWrapper) RunLocal(object, action string, args ...string) (string, er
 func (c *CliWrapper) Run(args ...string) (string, error) {
 	cmd := exec.Command(cmdName, args...)
 	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return string(output), nil
+	return string(output), err
 }
