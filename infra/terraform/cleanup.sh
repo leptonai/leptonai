@@ -3,6 +3,7 @@
 set -x
 
 targets=(
+    "aws-access"
     "eks-lepton"
     "eks-mothership"
     "workspace"
