@@ -68,8 +68,12 @@ echo "Creating Workspace $WORKSPACE_NAME at Cluster $CLUSTER_NAME..."
 
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
-# initialize Terraform
-terraform init --upgrade
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 # here, we assume the running script or mothership(controller)
 # copies the whole directory in the same directory tree

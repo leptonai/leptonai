@@ -29,8 +29,12 @@ export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 echo "creating terraform workspace ${TF_WORKSPACE}"
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
-# initialize Terraform
-terraform init --upgrade
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"
 
@@ -82,5 +86,4 @@ echo ""
 echo "Run this to access the cluster:"
 echo "aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
 echo ""
-echo "SUCCESS ALL"
-echo ""
+echo "APPLY SUCCESS"
