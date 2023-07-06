@@ -36,9 +36,9 @@ const (
 	labelKeyLeptonDeploymentName = "lepton_deployment_name"
 	labelKeyLeptonDeploymentID   = "lepton_deployment_id"
 
-	readinessProbeInitialDelaySeconds = 5
-	readinessProbePeriodSeconds       = 5
-	livenessProbeInitialDelaySeconds  = 15
+	readinessProbeInitialDelaySeconds = 30
+	readinessProbePeriodSeconds       = 20
+	livenessProbeInitialDelaySeconds  = 600
 	livenessProbePeriodSeconds        = 20
 )
 
