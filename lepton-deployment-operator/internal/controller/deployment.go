@@ -176,9 +176,11 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
 	env := util.ToContainerEnv(ld.Spec.Envs)
 
-	cpu := resource.NewScaledQuantity(int64(ld.Spec.ResourceRequirement.CPU*1000), -3)
-	memory := resource.NewQuantity(ld.Spec.ResourceRequirement.Memory*1024*1024, resource.BinarySI)
-	storage := resource.NewQuantity(ld.Spec.ResourceRequirement.EphemeralStorageInGB*1024*1024*1024, resource.BinarySI)
+	// we need to set request to a smaller value to account for shared node resources
+	requestFactor := 0.9
+	cpuValue := ld.Spec.ResourceRequirement.CPU
+	memValue := ld.Spec.ResourceRequirement.Memory
+	storageValue := ld.Spec.ResourceRequirement.EphemeralStorageInGB
 
 	if ld.Spec.ResourceRequirement.ResourceShape != "" {
 		replicaResourceRequirement, err := shapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
@@ -186,26 +188,32 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 			log.Fatalf("Unexpected shape to requirement error %v", err)
 		}
 
-		cpu = resource.NewScaledQuantity(int64(replicaResourceRequirement.CPU*1000), -3)
-		memory = resource.NewQuantity(replicaResourceRequirement.Memory*1024*1024, resource.BinarySI)
-		storage = resource.NewQuantity(replicaResourceRequirement.EphemeralStorageInGB*1024*1024*1024, resource.BinarySI)
+		cpuValue = replicaResourceRequirement.CPU
+		memValue = replicaResourceRequirement.Memory
+		storageValue = replicaResourceRequirement.EphemeralStorageInGB
 	}
+
+	cpuRequestQuantity := *resource.NewScaledQuantity(int64(cpuValue*requestFactor)*1000, -3)
+	cpuLimitQuantity := *resource.NewScaledQuantity(int64(cpuValue*1000), -3)
+	memRequestQuantity := *resource.NewQuantity(int64(float64(memValue)*requestFactor)*1024*1024, resource.BinarySI)
+	memLimitQuantity := *resource.NewQuantity(memValue*1024*1024, resource.BinarySI)
 
 	// Define the main container
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    *cpu,
-			corev1.ResourceMemory: *memory,
+			corev1.ResourceCPU:    cpuRequestQuantity,
+			corev1.ResourceMemory: memRequestQuantity,
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    *cpu,
-			corev1.ResourceMemory: *memory,
+			corev1.ResourceCPU:    cpuLimitQuantity,
+			corev1.ResourceMemory: memLimitQuantity,
 		},
 	}
 
-	if storage.Value() != 0 {
-		resources.Requests[corev1.ResourceEphemeralStorage] = *storage
-		resources.Limits[corev1.ResourceEphemeralStorage] = *storage
+	if storageValue != 0 {
+		storageQuantity := *resource.NewQuantity(storageValue*1024*1024*1024, resource.BinarySI)
+		resources.Requests[corev1.ResourceEphemeralStorage] = storageQuantity
+		resources.Limits[corev1.ResourceEphemeralStorage] = storageQuantity
 	}
 
 	nodeSelector := map[string]string{}
