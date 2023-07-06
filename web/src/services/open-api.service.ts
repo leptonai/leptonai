@@ -176,6 +176,10 @@ export class OpenApiService {
     scopeOrURL: { workspace: string; deployment: string } | string
   ) {
     const method = api.operation.path.replace(/^\//, "").split("/")[0];
+    const hasArgs =
+      api.request?.body &&
+      typeof api.request.body === "object" &&
+      Object.keys(api.request.body).length > 0;
     const lines = [];
     lines.push("from leptonai.client import Client\n");
 
@@ -189,8 +193,8 @@ export class OpenApiService {
 
     lines.push(
       `result = client.${method}${
-        typeof api.request?.body === "object"
-          ? `(\n${this.objectToPythonNamedArgs(api.request.body, 1)}\n)`
+        hasArgs
+          ? `(\n${this.objectToPythonNamedArgs(api.request!.body, 1)}\n)`
           : "()"
       }\n`
     );

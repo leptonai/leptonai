@@ -286,6 +286,46 @@ result = client.example(
 print(result)`);
     });
 
+    test("should generate Python code with empty body", async () => {
+      const code = service.toPythonSDKCode(
+        {
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      const code2 = service.toPythonSDKCode(
+        {
+          request: {
+            body: {},
+          },
+          operation: {
+            path: "/example",
+          },
+        } as unknown as LeptonAPIItem,
+        {
+          workspace: "workspace",
+          deployment: "test",
+        }
+      );
+
+      expect(code).toEqual(code2);
+
+      expect(code).toEqual(
+        `from leptonai.client import Client
+
+client = Client("workspace", "test", token="$YOUR_TOKEN")
+result = client.example()
+
+print(result)`
+      );
+    });
+
     test("should generate Python code with url", async () => {
       const code = service.toPythonSDKCode(
         {
