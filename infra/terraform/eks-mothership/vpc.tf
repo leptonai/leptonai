@@ -37,8 +37,13 @@ module "vpc" {
   # ref. https://developer.hashicorp.com/terraform/language/functions/cidrsubnet
   public_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 60)]
 
-  enable_nat_gateway   = true
-  single_nat_gateway   = true
+  enable_nat_gateway = true
+
+  # do not "single_nat_gateway = true"
+  # and use the default "single_nat_gateway = false"
+  # to create NAT gateway in each AZ for higher availability
+  # cross-AZ data transfer bill is not that much...
+
   enable_dns_hostnames = true
 
   public_subnet_tags = {
