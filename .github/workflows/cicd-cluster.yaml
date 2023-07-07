@@ -48,19 +48,41 @@ jobs:
           -X POST \
           -d '{"cluster_name": "${{ steps.vars.outputs.cluster_name }}", "name": "'$NAMESPACE'", "api_token": "'$API_TOKEN'", "git_ref": "${{ steps.extract_branch.outputs.branch }}", "image_tag": "'$IMAGE_TAG'"}' \
           ${{ vars.MOTHERSHIP_URL }}/workspaces
+
+        # TODO: do the wait in mothership cli
+        END=$(date -ud "10 minutes" +%s)
+        while (( $(date +%s) < $END )); do
+          sleep 10
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+            ${{ vars.MOTHERSHIP_URL }}/workspaces/"$NAMESPACE")
+          STATE=$(echo $RESPONSE | jq -r '.status.state')
+          echo $(date) "workspace state:" $STATE
+          if [ "$STATE" = "ready" ]; then
+            echo "workspace is ready."
+            exit 0
+          fi
+          if [ "$STATE" = "failed" ]; then
+            echo $(date) "workspace creation failed."
+            exit 1
+          fi
+        done
+
+        echo $(date) "workspace creation timeout after 10 minutes."
+        exit 1
     - name: Run e2e tests
       env:
           API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
           NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
       run: |
-          pip install -e ./sdk
-          e2e-tests/push-and-deploy.sh $NAMESPACE $API_TOKEN https://$NAMESPACE.cloud.lepton.ai/api/v1
+        pip install -e ./sdk
+        e2e-tests/push-and-deploy.sh $NAMESPACE $API_TOKEN https://$NAMESPACE.cloud.lepton.ai/api/v1
     - name: Delete workspace
       if: always()
       env:
           NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
       run: |
-          curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+        # TODO: check state to make sure the deletion succeeds
+        curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
           -X DELETE \
           ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE
     - name: Delete cluster
