@@ -1,6 +1,6 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
-import { catchError, from, map, Observable, of } from "rxjs";
+import { catchError, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -91,30 +91,42 @@ export class ApiServerService implements ApiService {
     name: string,
     request: OpenAPIRequest
   ): Observable<Response> {
-    const url = new URL(request.url);
-    // remove the host from the url
-    const path = `${url.pathname}${url.search}${url.hash}`;
-    const data = request.body;
-    const headers = new Headers();
-    Object.entries(request.headers).forEach(([key, value]) => {
-      headers.append(key, value);
-    });
-    headers.append("Authorization", `Bearer ${this.token}`);
-    headers.append("X-Lepton-Deployment", name);
-    return from(
+    return new Observable<Response>((subscriber) => {
+      const url = new URL(request.url);
+      // remove the host from the url
+      const path = `${url.pathname}${url.search}${url.hash}`;
+      const data = request.body;
+      const headers = new Headers();
+      Object.entries(request.headers).forEach(([key, value]) => {
+        headers.append(key, value);
+      });
+      headers.append("Authorization", `Bearer ${this.token}`);
+      headers.append("X-Lepton-Deployment", name);
+
+      const abortController = new AbortController();
       fetch(`${this.host}${path}`, {
         method: request.method,
         headers: headers,
         body: JSON.stringify(data),
+        signal: abortController.signal,
       })
-    ).pipe(
-      map((response) => {
-        if (!response.ok) {
-          throw response;
+        .then((response) => {
+          if (!response.ok) {
+            subscriber.error(response);
+          }
+          subscriber.next(response);
+          subscriber.complete();
+        })
+        .catch((err) => {
+          subscriber.error(err);
+        });
+      return () => {
+        if (subscriber.closed) {
+          return;
         }
-        return response;
-      })
-    );
+        abortController.abort();
+      };
+    });
   }
 
   getDeploymentMetrics(

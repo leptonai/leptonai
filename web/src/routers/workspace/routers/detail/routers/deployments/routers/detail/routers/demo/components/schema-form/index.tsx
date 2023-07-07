@@ -1,11 +1,11 @@
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { JSONSchema7, JSONSchema7Definition } from "json-schema";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { css } from "@emotion/react";
 import { css as classNameCss } from "@emotion/css";
 import validator from "@rjsf/validator-ajv8";
-import { Button, Checkbox, Col, Row } from "antd";
+import { Button, Checkbox, Col, Row, Space } from "antd";
 import { Form } from "@lepton-libs/rjsf";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
@@ -18,7 +18,7 @@ import {
   DEMOResult,
   SupportedContentTypes,
 } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/result";
-import { from, map, mergeMap } from "rxjs";
+import { from, map, mergeMap, Subject, takeUntil } from "rxjs";
 const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
   const optionalSchema: JSONSchema7 = {
     properties: {},
@@ -95,8 +95,9 @@ export const SchemaForm = memo<{
   api: LeptonAPIItem;
   deployment: Deployment;
   resultChange: (value: DEMOResult) => void;
+  onLoadingChange: (value: boolean) => void;
 }>(
-  ({ deployment, resultChange, api }) => {
+  ({ deployment, resultChange, api, onLoadingChange }) => {
     const theme = useAntdTheme();
     const convertedSchema = convertToOptionalSchema(api.schema!);
     const convertedInitData = convertToOptionalSchemaData(
@@ -104,12 +105,15 @@ export const SchemaForm = memo<{
       (api.request ? api.request.body : {}) as Record<string, unknown>
     );
     const deploymentService = useInject(DeploymentService);
+    const cancelRef = useRef<Subject<void>>(new Subject());
     const hasAdvanced =
       Object.keys(
         (convertedSchema.properties!.optional as JSONSchema7)!.properties!
       ).length > 0;
     const request = (value: unknown) => {
+      const startTime = Date.now();
       setLoading(true);
+      onLoadingChange(true);
       const request = {
         ...api.request!,
         body: value,
@@ -117,6 +121,7 @@ export const SchemaForm = memo<{
       deploymentService
         .request(deployment.name, request!)
         .pipe(
+          takeUntil(cancelRef.current),
           mergeMap((res) => {
             const contentType: SupportedContentTypes =
               (res.headers.get("content-type") as SupportedContentTypes) ||
@@ -141,8 +146,10 @@ export const SchemaForm = memo<{
             resultChange({
               payload: res.data,
               contentType: res.contentType,
+              executionTime: Date.now() - startTime,
             });
             setLoading(false);
+            onLoadingChange(false);
           },
           error: (err: Response | Error) => {
             if (err instanceof Response) {
@@ -164,15 +171,23 @@ export const SchemaForm = memo<{
                 errors.push(data);
                 resultChange({
                   error: errors.join("\n"),
+                  executionTime: Date.now() - startTime,
                 });
                 setLoading(false);
+                onLoadingChange(false);
               });
             } else {
               resultChange({
                 error: err.message,
+                executionTime: Date.now() - startTime,
               });
               setLoading(false);
+              onLoadingChange(false);
             }
+          },
+          complete: () => {
+            setLoading(false);
+            onLoadingChange(false);
           },
         });
     };
@@ -240,9 +255,18 @@ export const SchemaForm = memo<{
           `}
         >
           <Col flex="1 1 auto">
-            <Button loading={loading} type="primary" htmlType="submit">
-              Submit
-            </Button>
+            <Space>
+              <Button loading={loading} type="primary" htmlType="submit">
+                Submit
+              </Button>
+              <Button
+                type="default"
+                disabled={!loading}
+                onClick={() => cancelRef.current.next()}
+              >
+                Cancel
+              </Button>
+            </Space>
           </Col>
           <Col
             flex="0 0 auto"

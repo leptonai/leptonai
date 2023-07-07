@@ -4,7 +4,7 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Alert, Col, Row, Select, Typography } from "antd";
+import { Alert, Col, Row, Select, Spin, Typography } from "antd";
 import {
   DEMOResult,
   Result,
@@ -19,6 +19,7 @@ import {
 import { from, of, switchMap } from "rxjs";
 import { OpenAPI } from "openapi-types";
 import { MethodTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/method-tag";
+import { LoadingOutlined } from "@ant-design/icons";
 
 export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const theme = useAntdTheme();
@@ -27,6 +28,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const openApiService = useInject(OpenApiService);
 
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [apis, setApis] = useState<LeptonAPIItem[]>([]);
   const [resolvedSchema, setResolvedSchema] = useState<OpenAPI.Document | null>(
     null
@@ -153,12 +155,27 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                 <SchemaForm
                   deployment={deployment}
                   resultChange={setResult}
+                  onLoadingChange={setSubmitting}
                   api={currentAPI}
                 />
               ) : null}
             </Col>
             <Col span={24} md={12}>
-              <Result result={result} />
+              <Spin
+                spinning={submitting}
+                indicator={
+                  <LoadingOutlined
+                    css={css`
+                      font-size: 36px !important;
+                      margin: -18px !important;
+                    `}
+                    spin
+                  />
+                }
+                delay={500}
+              >
+                <Result result={result} />
+              </Spin>
             </Col>
           </Row>
         ) : (

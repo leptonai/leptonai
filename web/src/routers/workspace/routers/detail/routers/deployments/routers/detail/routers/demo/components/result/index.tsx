@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Typography } from "antd";
+import { Space, Typography } from "antd";
 import {
   LanguageSupports,
   SyntaxHighlight,
@@ -23,10 +23,12 @@ export type ContentDisplayMap = {
 export interface DEMOResultPayload {
   payload: string | SafeAny | Blob;
   contentType: SupportedContentTypes;
+  executionTime?: number;
 }
 
 export interface DEMOResultError {
   error: string;
+  executionTime?: number;
 }
 
 export type DEMOResult = DEMOResultPayload | DEMOResultError;
@@ -223,24 +225,39 @@ export const Result: FC<{ result: DEMOResult }> = ({ result }) => {
     }
   }, [result]);
   const theme = useAntdTheme();
+
   return (
-    <div
+    <Space
+      direction="vertical"
       css={css`
-        margin: 0;
-        height: auto;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: ${theme.colorBgLayout};
-        border: 1px solid ${theme.colorBorder};
-        border-radius: ${theme.borderRadius}px;
-        word-break: break-word;
-        white-space: pre-wrap;
-        color: ${theme.colorText};
-        padding: 32px;
+        width: 100%;
       `}
     >
-      {displayResult}
-    </div>
+      <div
+        css={css`
+          margin: 0;
+          height: auto;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: ${theme.colorBgLayout};
+          border: 1px solid ${theme.colorBorder};
+          border-radius: ${theme.borderRadius}px;
+          word-break: break-word;
+          white-space: pre-wrap;
+          color: ${theme.colorText};
+          padding: 32px;
+        `}
+      >
+        {displayResult}
+      </div>
+      <Space>
+        {result.executionTime && (
+          <Typography.Text type="secondary">
+            Output in {(result.executionTime / 1000).toFixed(2)} seconds
+          </Typography.Text>
+        )}
+      </Space>
+    </Space>
   );
 };
