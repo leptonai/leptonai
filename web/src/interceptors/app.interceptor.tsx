@@ -2,8 +2,8 @@ import { Injectable } from "injection-js";
 import {
   HttpHandler,
   HTTPInterceptor,
-  Request,
-  Response,
+  HTTPRequest,
+  HTTPResponse,
 } from "@lepton-dashboard/services/http-client.service";
 import { catchError, mergeMap, Observable, throwError } from "rxjs";
 import {
@@ -26,7 +26,7 @@ export class AppInterceptor implements HTTPInterceptor {
     private authService: AuthService
   ) {}
 
-  intercept(req: Request, next: HttpHandler): Observable<Response> {
+  intercept(req: HTTPRequest, next: HttpHandler): Observable<HTTPResponse> {
     const reqHost = new URL(req.url!).host;
     const token = this.profileService.profile?.authorized_workspaces.find(
       (workspace) => new URL(workspace.auth.url).host === reqHost

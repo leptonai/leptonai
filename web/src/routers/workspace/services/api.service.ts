@@ -62,7 +62,7 @@ export abstract class ApiService {
   abstract requestDeployment(
     name: string,
     request: OpenAPIRequest
-  ): Observable<unknown>;
+  ): Observable<Response>;
 
   abstract createSecret(secret: Secret): Observable<void>;
   abstract listSecrets(): Observable<string[]>;

@@ -14,6 +14,11 @@ import {
   SchemaObject,
 } from "@lepton-dashboard/services/open-api.service";
 import { englishStringTranslator } from "@rjsf/utils";
+import {
+  DEMOResult,
+  SupportedContentTypes,
+} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/result";
+import { from, map, mergeMap } from "rxjs";
 const convertToOptionalSchema = (schema: SchemaObject): JSONSchema7 => {
   const optionalSchema: JSONSchema7 = {
     properties: {},
@@ -89,7 +94,7 @@ const convertToSchemaFormData = (
 export const SchemaForm = memo<{
   api: LeptonAPIItem;
   deployment: Deployment;
-  resultChange: (value: unknown) => void;
+  resultChange: (value: DEMOResult) => void;
 }>(
   ({ deployment, resultChange, api }) => {
     const theme = useAntdTheme();
@@ -109,13 +114,67 @@ export const SchemaForm = memo<{
         ...api.request!,
         body: value,
       } as LeptonAPIItem["request"];
-      deploymentService.request(deployment.name, request!).subscribe({
-        next: (data) => {
-          resultChange(data);
-          setLoading(false);
-        },
-        error: () => setLoading(false),
-      });
+      deploymentService
+        .request(deployment.name, request!)
+        .pipe(
+          mergeMap((res) => {
+            const contentType: SupportedContentTypes =
+              (res.headers.get("content-type") as SupportedContentTypes) ||
+              "text/plain";
+            if (contentType.indexOf("application/json") !== -1) {
+              return from(res.json()).pipe(
+                map((data) => ({ data, contentType }))
+              );
+            } else if (contentType.indexOf("text/plain") !== -1) {
+              return from(res.text()).pipe(
+                map((data) => ({ data, contentType }))
+              );
+            } else {
+              return from(res.blob()).pipe(
+                map((data) => ({ data, contentType }))
+              );
+            }
+          })
+        )
+        .subscribe({
+          next: (res) => {
+            resultChange({
+              payload: res.data,
+              contentType: res.contentType,
+            });
+            setLoading(false);
+          },
+          error: (err: Response | Error) => {
+            if (err instanceof Response) {
+              const errors: string[] = [];
+              errors.push(`Request failed with status code ${err.status}`);
+              const contentType = err.headers.get("content-type");
+              let errorPromise: Promise<string>;
+              if (
+                contentType &&
+                contentType.indexOf("application/json") !== -1
+              ) {
+                errorPromise = err
+                  .json()
+                  .then((data) => JSON.stringify(data, null, 2));
+              } else {
+                errorPromise = err.text();
+              }
+              errorPromise.then((data) => {
+                errors.push(data);
+                resultChange({
+                  error: errors.join("\n"),
+                });
+                setLoading(false);
+              });
+            } else {
+              resultChange({
+                error: err.message,
+              });
+              setLoading(false);
+            }
+          },
+        });
     };
     const [loading, setLoading] = useState(false);
     const [advanced, setAdvanced] = useState(false);

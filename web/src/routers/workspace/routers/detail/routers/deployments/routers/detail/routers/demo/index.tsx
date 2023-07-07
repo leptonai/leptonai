@@ -5,7 +5,10 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Alert, Col, Row, Select, Typography } from "antd";
-import { Result } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/result";
+import {
+  DEMOResult,
+  Result,
+} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/result";
 import { css } from "@emotion/react";
 import { SchemaForm } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo/components/schema-form";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -74,7 +77,10 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
     }
   );
 
-  const [result, setResult] = useState<unknown>("output should appear here");
+  const [result, setResult] = useState<DEMOResult>({
+    payload: "output should appear here",
+    contentType: "text/plain",
+  });
 
   const currentAPI = useMemo(() => {
     return apis.find((i) => i.operationId === operationId);

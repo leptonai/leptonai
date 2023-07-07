@@ -11,7 +11,6 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
-import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 import { FineTuneJob } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 const mockedPhotons = [
@@ -154,8 +153,7 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  requestDeployment(url: string, request: OpenAPIRequest): Observable<void> {
-    console.log(url, request);
+  requestDeployment(): Observable<Response> {
     return EMPTY;
   }
 

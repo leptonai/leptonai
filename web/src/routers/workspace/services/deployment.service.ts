@@ -111,7 +111,7 @@ export class DeploymentService {
     return this.apiService.updateDeployment(id, deployment);
   }
 
-  request(name: string, request: OpenAPIRequest): Observable<unknown> {
+  request(name: string, request: OpenAPIRequest): Observable<Response> {
     return this.apiService.requestDeployment(name, request);
   }
 

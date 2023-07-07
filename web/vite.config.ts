@@ -65,6 +65,10 @@ export default defineConfig(({ mode }) => {
             src: "node_modules/shiki/languages/python.tmLanguage.json",
             dest: "shiki/languages",
           },
+          {
+            src: "node_modules/shiki/languages/json.tmLanguage.json",
+            dest: "shiki/languages",
+          },
         ],
       }),
     ],

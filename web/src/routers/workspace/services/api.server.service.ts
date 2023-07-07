@@ -1,6 +1,6 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
-import { catchError, Observable, of } from "rxjs";
+import { catchError, from, map, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -84,24 +84,34 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  requestDeployment<T = unknown>(
+  requestDeployment(
     name: string,
     request: OpenAPIRequest
-  ): Observable<T> {
+  ): Observable<Response> {
     const url = new URL(request.url);
     // remove the host from the url
     const path = `${url.pathname}${url.search}${url.hash}`;
-    const headers = {
-      ...request.headers,
-      "X-Lepton-Deployment": name,
-    };
     const data = request.body;
-    return this.httpClientService.request({
-      url: `${this.host}${path}`,
-      method: request.method,
-      headers,
-      data,
+    const headers = new Headers();
+    Object.entries(request.headers).forEach(([key, value]) => {
+      headers.append(key, value);
     });
+    headers.append("Authorization", `Bearer ${this.token}`);
+    headers.append("X-Lepton-Deployment", name);
+    return from(
+      fetch(`${this.host}${path}`, {
+        method: request.method,
+        headers: headers,
+        body: JSON.stringify(data),
+      })
+    ).pipe(
+      map((response) => {
+        if (!response.ok) {
+          throw response;
+        }
+        return response;
+      })
+    );
   }
 
   getDeploymentMetrics(

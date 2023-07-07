@@ -13,7 +13,7 @@ import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import {
   LanguageSupports,
   SyntaxHighlight,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/syntax-highlight";
+} from "../../components/syntax-highlight";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {

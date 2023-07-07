@@ -7,14 +7,14 @@ export const HTTPInterceptorToken = new InjectionToken<HTTPInterceptor>(
   "HTTPInterceptor"
 );
 
-export type Request<T = SafeAny> = AxiosRequestConfig<T> & {
+export type HTTPRequest<T = SafeAny> = AxiosRequestConfig<T> & {
   context?: HttpContext;
 };
 
-export type Response<T = SafeAny, D = SafeAny> = AxiosResponse<T, D>;
+export type HTTPResponse<T = SafeAny, D = SafeAny> = AxiosResponse<T, D>;
 
 export abstract class HttpHandler {
-  abstract handle<R, D>(req: Request<D>): Observable<Response<R, D>>;
+  abstract handle<R, D>(req: HTTPRequest<D>): Observable<HTTPResponse<R, D>>;
 }
 
 export interface HTTPInterceptor {
@@ -59,8 +59,8 @@ export class HttpContext {
 
 @Injectable()
 export class AxiosHandler implements HttpHandler {
-  handle(req: Request): Observable<Response> {
-    return new Observable<Response>((observer) => {
+  handle(req: HTTPRequest): Observable<HTTPResponse> {
+    return new Observable<HTTPResponse>((observer) => {
       const abort = new AbortController();
       const { context: _, ...reqWithoutContext } = req;
       axios
@@ -78,7 +78,7 @@ export class AxiosHandler implements HttpHandler {
 @Injectable()
 export class HttpClientService {
   constructor(private injector: Injector, private httpHandler: AxiosHandler) {}
-  handle(req: Request): Observable<Response> {
+  handle(req: HTTPRequest): Observable<HTTPResponse> {
     const interceptor = this.injector.get(HTTPInterceptorToken, null);
 
     // TODO(hsuanxyz): support multiple interceptors and chain them together
@@ -89,11 +89,11 @@ export class HttpClientService {
     return this.httpHandler.handle(req);
   }
 
-  request<T>(req: Request): Observable<T> {
+  request<T>(req: HTTPRequest): Observable<T> {
     return this.handle(req).pipe(map((r) => r.data));
   }
 
-  put<T>(url: string, data?: SafeAny, config?: Request): Observable<T> {
+  put<T>(url: string, data?: SafeAny, config?: HTTPRequest): Observable<T> {
     return this.request({
       method: "PUT",
       url,
@@ -102,7 +102,7 @@ export class HttpClientService {
     });
   }
 
-  post<T>(url: string, data?: SafeAny, config?: Request): Observable<T> {
+  post<T>(url: string, data?: SafeAny, config?: HTTPRequest): Observable<T> {
     return this.request({
       method: "POST",
       url,
@@ -110,7 +110,7 @@ export class HttpClientService {
       ...config,
     });
   }
-  get<T>(url: string, config?: Request): Observable<T> {
+  get<T>(url: string, config?: HTTPRequest): Observable<T> {
     return this.request({
       method: "GET",
       url,
@@ -118,7 +118,7 @@ export class HttpClientService {
     });
   }
 
-  delete<T>(url: string, config?: Request): Observable<T> {
+  delete<T>(url: string, config?: HTTPRequest): Observable<T> {
     return this.request({
       method: "DELETE",
       url,
@@ -126,7 +126,7 @@ export class HttpClientService {
     });
   }
 
-  patch<T>(url: string, data?: SafeAny, config?: Request): Observable<T> {
+  patch<T>(url: string, data?: SafeAny, config?: HTTPRequest): Observable<T> {
     return this.request({
       method: "PATCH",
       url,

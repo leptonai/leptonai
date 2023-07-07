@@ -13,7 +13,7 @@ import { CopyFile } from "@carbon/icons-react";
 import {
   LanguageSupports,
   SyntaxHighlight,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/syntax-highlight";
+} from "../../../../components/syntax-highlight";
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;

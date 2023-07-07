@@ -11,6 +11,7 @@ setCDN("/shiki/");
 export enum LanguageSupports {
   Bash = "bash",
   Python = "python",
+  JSON = "json",
 }
 
 let highlighter: Highlighter;
@@ -35,7 +36,7 @@ export const SyntaxHighlight: FC<{
       if (!highlighter) {
         highlighter = await getHighlighter({
           themes: ["github-dark", "github-light"],
-          langs: ["bash", "python"],
+          langs: ["bash", "python", "json"],
         });
       }
       if (inThisTake) {
