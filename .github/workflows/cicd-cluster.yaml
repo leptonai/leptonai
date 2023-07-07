@@ -19,12 +19,25 @@ jobs:
       shell: bash
       run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       id: extract_branch
+    - name: Gen cluster name
+      shell: bash
+      run: |
+        cluster_name=$(git rev-parse --short HEAD)
+        echo "cluster_name=$cluster_name" >> $GITHUB_OUTPUT
+      id: gen_cluster_name
     - name: Install Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    - name: Create and delete cluster
+    - name: Create cluster
       run: |
         cd infra-tests
         pip install -r requirements.txt
-        python test_cluster_creation.py ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }}
+        python test_cluster_creation.py ${{ steps.gen_cluster_name.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} create
+    # TODO: run e2e test against the created cluster
+    - name: Delete cluster
+      if: always()
+      run: |
+        cd infra-tests
+        pip install -r requirements.txt
+        python test_cluster_creation.py ${{ steps.gen_cluster_name.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} delete

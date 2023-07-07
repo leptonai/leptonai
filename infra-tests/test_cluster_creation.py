@@ -18,7 +18,7 @@ def create_cluster(cluster_name, auth_token, git_ref):
     if response.status_code >= 200 and response.status_code < 300:
         print(f"Cluster {cluster_name} creation request sent successfully")
         return True
-    print(f"Cluster {cluster_name} creation request sent failed")
+    print(f"Cluster {cluster_name} creation request sent failed: {response.status_code}")
     return False
 
 
@@ -48,46 +48,42 @@ def check_state(cluster_name, auth_token):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 test_cluster_creation.py <auth_token> <git_ref>")
+    if len(sys.argv) != 5:
+        print("Usage: python3 test_cluster_creation.py <cluster_name> <auth_token> <git_ref> <create/delete>")
         sys.exit(1)
-    auth_token = sys.argv[1]
-    git_ref = sys.argv[2]
-    cluster_name = "ci" + "".join(
-        random.choice(string.ascii_lowercase) for _ in range(8)
-    )
-    print(f"Testing cluster name: {cluster_name} with git ref: {git_ref}")
+    cluster_name = "ci" + sys.argv[1]
+    auth_token = sys.argv[2]
+    git_ref = sys.argv[3]
+    action = sys.argv[4]
+    print(f"Testing {action} cluster. Name: {cluster_name} with git ref: {git_ref}")
 
-    # do cluster creation
-    if not create_cluster(cluster_name, auth_token, git_ref):
-        time.sleep(60)
-        delete_cluster(cluster_name, auth_token)
-        sys.exit(1)
-    print("Cluster creation start time: " + time.ctime(time.time()))
-    while True:
-        time.sleep(60)
-        state = check_state(cluster_name, auth_token)
-        print("Cluster state: " + state + " at " + time.ctime(time.time()))
-        if state == "ready":
-            break
-        if state == "failed":
-            print("Cluster creation failed: " + time.ctime(time.now()))
-            delete_cluster(cluster_name, auth_token)
+    if action == "create":
+        if not create_cluster(cluster_name, auth_token, git_ref):
+            time.sleep(60)
             sys.exit(1)
-    print("Cluster creation end time: " + time.ctime(time.time()))
+        print("Cluster creation start time: " + time.ctime(time.time()))
+        while True:
+            time.sleep(60)
+            state = check_state(cluster_name, auth_token)
+            print("Cluster state: " + state + " at " + time.ctime(time.time()))
+            if state == "ready":
+                break
+            if state == "failed":
+                print("Cluster creation failed: " + time.ctime(time.now()))
+                sys.exit(1)
+        print("Cluster creation end time: " + time.ctime(time.time()))
 
-    # do cluster deletion
-    if not delete_cluster(cluster_name, auth_token):
-        sys.exit(1)
-    print("Cluster deletion start time: " + time.ctime(time.time()))
-    while True:
-        time.sleep(60)
-        state = check_state(cluster_name, auth_token)
-        print("Cluster state: " + state + " at " + time.ctime(time.time()))
-        if state == "deleted":
-            break
-        if state == "failed":
-            print("Cluster deletion failed: " + time.ctime(time.now()))
-            delete_cluster(cluster_name, auth_token)
+    if action == "delete":
+        if not delete_cluster(cluster_name, auth_token):
             sys.exit(1)
-    print("Cluster deletion end time: " + time.ctime(time.time()))
+        print("Cluster deletion start time: " + time.ctime(time.time()))
+        while True:
+            time.sleep(60)
+            state = check_state(cluster_name, auth_token)
+            print("Cluster state: " + state + " at " + time.ctime(time.time()))
+            if state == "deleted":
+                break
+            if state == "failed":
+                print("Cluster deletion failed: " + time.ctime(time.now()))
+                sys.exit(1)
+        print("Cluster deletion end time: " + time.ctime(time.time()))
