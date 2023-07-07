@@ -169,8 +169,7 @@ def fetch(id: str, url: str, path: str, auth_token: str):
 def run_remote(
     id: str,
     url: str,
-    cpu: float,
-    memory: int,
+    resource_shape: str,
     min_replicas: int,
     auth_token: str,
     deployment_name: str,
@@ -188,8 +187,7 @@ def run_remote(
         "name": deployment_name,
         "photon_id": id,
         "resource_requirement": {
-            "cpu": cpu,
-            "memory": memory,
+            "resource_shape": resource_shape,
             "min_replicas": min_replicas,
         },
         "envs": envs_and_secrets,
