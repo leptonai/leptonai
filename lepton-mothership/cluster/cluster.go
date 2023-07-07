@@ -145,6 +145,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			log.Printf("cluster %q not found -- returning delete call", clusterName)
 			return nil
 		}
 		return fmt.Errorf("failed to get cluster: %w", err)
@@ -167,12 +168,24 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 			log.Printf("successfully deleted cluster %q", clusterName)
 			return
 		}
-		log.Printf("failed to delete cluster: %v", err)
+		log.Printf("failed to delete cluster %q (%v)", clusterName, err)
 
-		// TODO: implement fallback
+		// TODO: implement fallback in case tf destroy fails
+
+		// we are NOT going to rely on thie fallback
+		// we should fix the terraform/provisioner destory
+		// this is only used as fallback to minimize the aws bill
+		//
+		// clean up logic:
 		// step 1. inspect the cluster based on provider resources
-		// step 2. manually delete resources
-		// that's it! do not try to delete everything such as mothership resources
+		// step 2. query all related cloud resources based on cluster info + tagging
+		// step 3. manually delete resources
+		//
+		// step 4 (optional):
+		// manually issue mothership delete API with force option
+		// to delete mothership(k8s) resources
+		//
+		// do not try to delete everything such as mothership resources
 		// as long as we destroy AWS-bill generating resources with best effort
 		// we should debug why the delete failed manually and actually fix the root cause
 	}()
