@@ -68,11 +68,12 @@ echo "Creating Workspace $WORKSPACE_NAME at Cluster $CLUSTER_NAME..."
 
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
-terraform init --upgrade
-
-# loads additional flags and values for the following "terraform apply" commands
-# shellcheck source=/dev/null
-source ./variables.sh
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 # here, we assume the running script or mothership(controller)
 # copies the whole directory in the same directory tree
@@ -87,11 +88,26 @@ else
 fi
 
 echo "Applying resources..."
-# shellcheck disable=SC2068
-terraform apply ${WORKSPACE_APPLY_FLAGS[@]}
-
-# shellcheck disable=SC2068
-apply_output=$(terraform apply ${WORKSPACE_APPLY_FLAGS[@]} 2>&1)
+terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
+  -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+  -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
+  -var="image_tag_web=$IMAGE_TAG" \
+  -var="image_tag_api_server=$IMAGE_TAG" \
+  -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="lepton_web_enabled=$WEB_ENABLED" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
+apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
+  -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+  -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
+  -var="image_tag_web=$IMAGE_TAG" \
+  -var="image_tag_api_server=$IMAGE_TAG" \
+  -var="image_tag_deployment_operator=$IMAGE_TAG" \
+  -var="lepton_web_enabled=$WEB_ENABLED" \
+  -var="create_efs=$CREATE_EFS" \
+  -var="vpc_id=$VPC_ID" \
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
   echo "SUCCESS: Terraform apply of all modules completed successfully"
 else

@@ -48,21 +48,23 @@ export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 echo "creating terraform workspace ${TF_WORKSPACE}"
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
-terraform init --upgrade
-
-# loads additional flags and values for the following "terraform apply" commands
-# shellcheck source=/dev/null
-source ./variables.sh
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
+fi
 
 CHECK_TERRAFORM_APPLY_OUTPUT=${CHECK_TERRAFORM_APPLY_OUTPUT:-true}
+ENABLE_AMAZON_MANAGED_PROMETHEUS=${ENABLE_AMAZON_MANAGED_PROMETHEUS:-false}
 
 # Apply modules in sequence
 for target in "${targets[@]}"
 do
-  terraform apply -target="$target" "${APPLY_FLAGS[@]}"
+  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="enable_amazon_managed_prometheus=$ENABLE_AMAZON_MANAGED_PROMETHEUS"
 
   if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-    apply_output=$(terraform apply -target="$target" "${APPLY_FLAGS[@]}" 2>&1)
+    apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="enable_amazon_managed_prometheus=$ENABLE_AMAZON_MANAGED_PROMETHEUS" 2>&1)
     if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
       echo "SUCCESS: Terraform apply of $target completed successfully"
     else
@@ -86,10 +88,10 @@ fi
 
 # Final apply to catch any remaining resources
 echo "Applying remaining resources..."
-terraform apply "${APPLY_FLAGS[@]}"
+terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="enable_amazon_managed_prometheus=$ENABLE_AMAZON_MANAGED_PROMETHEUS"
 
 if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-  apply_output=$(terraform apply "${APPLY_FLAGS[@]}" 2>&1)
+  apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="enable_amazon_managed_prometheus=$ENABLE_AMAZON_MANAGED_PROMETHEUS" 2>&1)
   if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
     echo "SUCCESS: Terraform apply of all modules completed successfully"
   else
