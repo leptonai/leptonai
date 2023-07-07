@@ -174,15 +174,27 @@ def find_local_photon(name):
         return record_or_none[0]
 
 
-def remove_local_photon(name):
+def remove_local_photon(name: str, remove_all: bool = False):
     res = DB.cursor().execute(
         "SELECT path FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
     )
-    path_or_none = res.fetchone()
-    if path_or_none is None:
-        return
-    path = path_or_none[0]
-    if os.path.exists(path):
-        os.remove(path)
-    DB.cursor().execute("DELETE FROM photon WHERE name = ? AND path = ?", (name, path))
-    DB.commit()
+    if remove_all:
+        path_or_none = res.fetchone()
+        while path_or_none:
+            path = path_or_none[0]
+            if os.path.exists(path):
+                os.remove(path)
+            path_or_none = res.fetchone()
+        DB.cursor().execute("DELETE FROM photon WHERE name = ?", (name,))
+        DB.commit()
+    else:
+        path_or_none = res.fetchone()
+        if path_or_none is None:
+            return
+        path = path_or_none[0]
+        if os.path.exists(path):
+            os.remove(path)
+        DB.cursor().execute(
+            "DELETE FROM photon WHERE name = ? AND path = ?", (name, path)
+        )
+        DB.commit()

@@ -32,17 +32,24 @@ def get_workspace_url(ctx, param, value):
     return value
 
 
-def get_most_recent_photon_id_or_none(workspace_url, auth_token, name):
-    """
-    Returns the most recent photon id for a given name. If no photon of such
-    name exists, returns None.
+def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
+    """Returns a list of photon ids for a given name, in the order newest to
+    oldest. If no photon of such name exists, returns None.
     """
     photons = api.list_remote(workspace_url, auth_token)
     target_photons = [p for p in photons if p["name"] == name]
     if len(target_photons) == 0:
         return None
-    photon_id = max(target_photons, key=lambda p: p["created_at"])["id"]
-    return photon_id
+    target_photons.sort(key=lambda p: p["created_at"], reverse=True)
+    return [p["id"] for p in target_photons]
+
+
+def get_most_recent_photon_id_or_none(workspace_url, auth_token, name):
+    """Returns the most recent photon id for a given name. If no photon of such
+    name exists, returns None.
+    """
+    photon_ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
+    return photon_ids[0] if photon_ids else None
 
 
 def is_port_occupied(port):
@@ -80,41 +87,55 @@ def create(name, model):
 @click.option(
     "--name",
     "-n",
-    help="Name of the Photon (The latest version of the Photon will be removed)",
+    help=(
+        "Name of the Photon to delete. If --all is specified, all versions of the"
+        " Photon with this name will be deleted. Otherwise, remove the latest"
+        " version of the Photon with this name."
+    ),
 )
 @click.option("--local", "-l", is_flag=True, help="Remove local photon.")
 @click.option("--id", "-i", "id_", help="ID of the Photon")
-def remove(name, local, id_):
+@click.option(
+    "--all", "-a", "all_", is_flag=True, help="Remove all versions of the Photon"
+)
+def remove(name, local, id_, all_):
     workspace_url = workspace.get_workspace_url()
+
+    if name and id_:
+        console.print("Cannot specify both --name and --id. Use one or the other.")
+        sys.exit(1)
+    if name is None and id_ is None:
+        console.print("Must specify either --name or --id.")
+        sys.exit(1)
 
     if not local and workspace_url is not None:
         # Remove remote photon.
         auth_token = workspace.cli.get_auth_token(workspace_url)
-        if id_ is None and name is None:
-            console.print("Must specify --id or --name when removing remote photon.")
-            sys.exit(1)
-        elif id_ is None:
-            # Default behavior without id is to remove the most recent photon.
-            id_ = get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
-            if id_ is None:
-                console.print(f"Photon [red]{name}[/] does not exist.")
-                sys.exit(1)
-
-            if (
-                console.input(
-                    f"remove photon [green]{name}[/] with id [green]{id_}[/]? [y/n]: "
-                )
-                != "y"
-            ):
-                sys.exit(0)
-
-        if api.remove_remote(workspace_url, id_, auth_token):
-            console.print(f"Photon [green]{id_}[/] removed.")
+        # Find ids that we need to remove
+        if name:
+            # Remove all versions of the photon.
+            ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
+            ids = [ids[0]] if not all_ else ids
         else:
-            # TODO: if we do find the photon, but it's not removed, should we
-            # assume that it does not exist (because it did exist), or should
-            # we do something else?
-            console.print(f"Photon [red]{id_}[/] does not exist.")
+            ids = [id_]
+        # Check if things actually exist.
+        if len(ids) == 0:
+            if name:
+                console.print(f"Cannot find photon with name [red]{name}[/].")
+            else:
+                console.print(f"Cannot find photon with id [red]{id_}[/].")
+            sys.exit(1)
+        # Actually remove the ids
+        for id_to_remove in ids:
+            if api.remove_remote(workspace_url, id_to_remove, auth_token):
+                console.print(f"Photon id [green]{id_to_remove}[/] removed.")
+            else:
+                console.print(f"Error when removing photon id [red]{id_to_remove}[/].")
+                console.print(
+                    "There may be a network error or race condition. You may"
+                    " want to try again."
+                )
+                sys.exit(1)
         return
     else:
         # local mode
@@ -125,8 +146,11 @@ def remove(name, local, id_):
         if find_local_photon(name) is None:
             console.print(f"Photon [red]{name}[/] does not exist.")
             sys.exit(1)
-        remove_local_photon(name)
-        console.print(f"Photon [green]{name}[/] removed.")
+        remove_local_photon(name, remove_all=all_)
+        console.print(
+            f"{'' if all_ else 'Most recent version of '}Photon [green]{name}[/]"
+            " removed."
+        )
         return
 
 
