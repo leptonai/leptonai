@@ -57,6 +57,6 @@ func (c *CliWrapper) RunLocal(object, action string, args ...string) (string, er
 
 func (c *CliWrapper) Run(args ...string) (string, error) {
 	cmd := exec.Command(cmdName, args...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	return string(output), err
 }
