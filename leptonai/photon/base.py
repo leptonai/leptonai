@@ -12,8 +12,23 @@ type_str_registry = Registry()
 
 
 class BasePhoton:
+    """Base class for all Photons."""
+
     photon_type = "base"
+    """photon_type defines the type of the photon.
+    It is used to identify the photon at building and deployment time.
+    """
+
     extra_files = {}
+    """Extra files that should be included in the photon.
+    Extra files are files that are not part of the model source file, but are
+    required to run the model. It takes two forms:
+        - a dictionary of {remote_path: local_path} pairs, where the remote_path
+          is relative to the cwd of the photon at runtime, and local_path is
+          the path pointing to the file in the local file system. If local_path
+          is relative, it is relative to the current working directory of the
+          local environment.
+    """
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -44,12 +59,13 @@ class BasePhoton:
                 )
         with zipfile.ZipFile(path, "w") as f:
             metadata = self.metadata
-            metadata["extra_files"] = list(self._extra_files.keys())
+            checked_extra_files = self._extra_files
+            metadata["extra_files"] = list(checked_extra_files.keys())
             f.writestr(
                 "metadata.json",
                 json.dumps(metadata),
             )
-            for name, path_or_content in self._extra_files.items():
+            for name, path_or_content in checked_extra_files.items():
                 if isinstance(path_or_content, bytes):
                     f.writestr(name, path_or_content)
                     continue
@@ -103,11 +119,30 @@ class BasePhoton:
 
     @property
     def _extra_files(self):
+        """
+        Returns a dict of extra files to be included in the photon.
+
+        If extra_files is a dict, it will be returned directly, with the keys being
+        the file path in the photon, and the values being the file path in the buidling
+        environment. If extra_files is a list, each list item should be a relative file
+        path in the building environment, and the file will be included in the photon with the
+        same name and path.
+        """
         res = {}
-        extra_files = self.extra_files
-        if not isinstance(extra_files, dict):
-            raise ValueError(f"extra_files should be a dict, got {extra_files}")
-        res.update(self.extra_files)
+        if isinstance(self.extra_files, list):
+            # Verify if the file exists too.
+            for path in self.extra_files:
+                if not os.path.exists(path):
+                    raise ValueError(
+                        f"Can not find extra file {path} in the building environment"
+                    )
+                res[path] = path
+        elif isinstance(self.extra_files, dict):
+            res.update(self.extra_files)
+        else:
+            raise ValueError(
+                f"extra_files should be either a dict or a list, got {self.extra_files}"
+            )
         return res
 
     def __str__(self):
