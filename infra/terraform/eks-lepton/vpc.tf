@@ -7,7 +7,7 @@ locals {
 # https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws/latest
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.0.0"
+  version = "4.0.2"
 
   name = "vpc-${local.cluster_name}"
 
