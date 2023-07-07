@@ -19,25 +19,53 @@ jobs:
       shell: bash
       run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       id: extract_branch
-    - name: Gen cluster name
-      shell: bash
+    - name: Set short git commit SHA
+      id: vars
       run: |
-        cluster_name=$(git rev-parse --short HEAD)
-        echo "cluster_name=$cluster_name" >> $GITHUB_OUTPUT
-      id: gen_cluster_name
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "cluster_name=cicluster$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
     - name: Create cluster
       run: |
         cd infra-tests
         pip install -r requirements.txt
-        python test_cluster_creation.py ${{ steps.gen_cluster_name.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} create
-    # TODO: run e2e test against the created cluster
+        python test_cluster_creation.py ${{ steps.vars.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} create
+    - name: Create workspace
+      env:
+        IMAGE_TAG: latest
+        API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
+        NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
+      run: |
+        curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+          -X POST \
+          -d '{"cluster_name": "${{ steps.vars.outputs.cluster_name }}", "name": "'$NAMESPACE'", "api_token": "'$API_TOKEN'", "git_ref": "${{ steps.extract_branch.outputs.branch }}", "image_tag": "'$IMAGE_TAG'"}' \
+          ${{ vars.MOTHERSHIP_URL }}/workspaces
+    - name: Run e2e tests
+      env:
+          API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
+          NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
+      run: |
+          pip install -e ./sdk
+          e2e-tests/push-and-deploy.sh $NAMESPACE $API_TOKEN https://$NAMESPACE.cloud.lepton.ai/api/v1
+    - name: Delete workspace
+      if: always()
+      env:
+          NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
+      run: |
+          curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+          -X DELETE \
+          ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE
     - name: Delete cluster
       if: always()
       run: |
         cd infra-tests
         pip install -r requirements.txt
-        python test_cluster_creation.py ${{ steps.gen_cluster_name.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} delete
+        python test_cluster_creation.py ${{ steps.vars.outputs.cluster_name }} ${{ secrets.MOTHERSHIP_TOKEN }} ${{ steps.extract_branch.outputs.branch }} delete

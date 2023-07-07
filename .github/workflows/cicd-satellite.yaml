@@ -170,7 +170,7 @@ jobs:
         curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
           -X POST \
           -d '{"cluster_name": "ci", "name": "'$NAMESPACE'", "api_token": "'$API_TOKEN'", "git_ref": "${{ steps.extract_branch.outputs.branch }}", "image_tag": "'$IMAGE_TAG'"}' \
-          ${{ vars.MOTHERSHIP_URL }}/workspaces || true
+          ${{ vars.MOTHERSHIP_URL }}/workspaces
     - name: Run tests
       env:
         API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
@@ -185,7 +185,7 @@ jobs:
       run: |
         curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
           -X DELETE \
-          ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE || true
+          ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE
 
   deploy-to-dev-latest:
     if: github.event_name == 'push'

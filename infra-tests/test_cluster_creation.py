@@ -51,7 +51,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 5:
         print("Usage: python3 test_cluster_creation.py <cluster_name> <auth_token> <git_ref> <create/delete>")
         sys.exit(1)
-    cluster_name = "ci" + sys.argv[1]
+    cluster_name = sys.argv[1]
     auth_token = sys.argv[2]
     git_ref = sys.argv[3]
     action = sys.argv[4]
@@ -59,7 +59,6 @@ if __name__ == "__main__":
 
     if action == "create":
         if not create_cluster(cluster_name, auth_token, git_ref):
-            time.sleep(60)
             sys.exit(1)
         print("Cluster creation start time: " + time.ctime(time.time()))
         while True:
@@ -69,7 +68,7 @@ if __name__ == "__main__":
             if state == "ready":
                 break
             if state == "failed":
-                print("Cluster creation failed: " + time.ctime(time.now()))
+                print("Cluster creation failed: " + time.ctime(time.time()))
                 sys.exit(1)
         print("Cluster creation end time: " + time.ctime(time.time()))
 
@@ -84,6 +83,6 @@ if __name__ == "__main__":
             if state == "deleted":
                 break
             if state == "failed":
-                print("Cluster deletion failed: " + time.ctime(time.now()))
+                print("Cluster deletion failed: " + time.ctime(time.time()))
                 sys.exit(1)
         print("Cluster deletion end time: " + time.ctime(time.time()))
