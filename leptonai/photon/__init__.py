@@ -8,6 +8,7 @@ from .photon import (  # noqa: F401
     HTTPException,
     PNGResponse,
     WAVResponse,
+    FileParam,
 )
 from .hf import HuggingfacePhoton  # noqa: F401
 

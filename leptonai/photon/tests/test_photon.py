@@ -39,7 +39,7 @@ import leptonai
 from leptonai import Client
 from leptonai.photon.api import create as create_photon, load_metadata
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
-from leptonai.photon import Photon, HTTPException, PNGResponse
+from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam
 from leptonai.util import switch_cwd
 
 
@@ -643,6 +643,25 @@ from leptonai.photon import Photon
         res = requests.post(f"http://127.0.0.1:{port}/run", json={})
         self.assertEqual(res.status_code, 200)
         proc.kill()
+
+    def test_client_post_file(self):
+        class FilePhoton(Photon):
+            @Photon.handler()
+            def last_line(self, inputs: FileParam) -> str:
+                return inputs.file.read().splitlines()[-1].decode()
+
+        ph = FilePhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+
+        with tempfile.NamedTemporaryFile() as f:
+            for i in range(10):
+                f.write(f"{i}\n".encode())
+            f.flush()
+            f.seek(0)
+            res = client.last_line(inputs=FileParam(f))
+        self.assertEqual(res, "9")
 
 
 if __name__ == "__main__":
