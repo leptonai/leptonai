@@ -12,15 +12,9 @@ import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 export type SupportedContentTypes =
   | "application/json"
   | "text/plain"
-  | "audio/wav"
-  | "audio/webm"
-  | "audio/mpeg"
-  | "image/png"
-  | "image/gif"
-  | "image/jpeg"
-  | "image/svg+xml"
-  | "image/webp"
-  | "image/bmp";
+  | "image/*"
+  | "audio/*"
+  | "video/*";
 
 export type ContentDisplayMap = {
   [key in SupportedContentTypes]?: ResultDisplay;
@@ -38,7 +32,7 @@ export interface DEMOResultError {
 export type DEMOResult = DEMOResultPayload | DEMOResultError;
 export type ResultDisplay = FC<{
   content: SafeAny;
-  mime: SupportedContentTypes;
+  mime?: SupportedContentTypes;
 }>;
 
 const isDEMOResultPayload = (
@@ -54,44 +48,158 @@ const normalizeContentType = (contentType?: string): SupportedContentTypes => {
   if (/^application\/json/i.test(contentType)) {
     return "application/json";
   }
-  if (/^audio\/wav/i.test(contentType)) {
-    return "audio/wav";
+  if (/^image\//i.test(contentType)) {
+    return "image/*";
   }
-  if (/^image\/png/i.test(contentType)) {
-    return "image/png";
+  if (/^audio\//i.test(contentType)) {
+    return "audio/*";
   }
+  if (/^video\//i.test(contentType)) {
+    return "video/*";
+  }
+
   return "text/plain";
 };
 
-const ResultTextDisplay: ResultDisplay = ({ content }) => {
-  return <>{content}</>;
+const canStringify = (content: SafeAny): content is string => {
+  return typeof content?.toString === "function";
 };
 
-const ResultJSONDisplay: ResultDisplay = ({ content }) => {
-  return (
-    <div
-      css={css`
-        pre {
-          margin: 0;
-          overflow: auto;
-        }
-      `}
-    >
-      <SyntaxHighlight
-        code={JSON.stringify(content, null, 2)}
-        language={LanguageSupports.JSON}
-      />
-    </div>
-  );
+const isBlob = (content: SafeAny): content is Blob => {
+  return content instanceof Blob;
 };
 
 const ErrorTextDisplay: ResultDisplay = ({ content }) => {
-  return <Typography.Text type="danger">{content}</Typography.Text>;
+  let errorText = "";
+  if (canStringify(content)) {
+    errorText = content.toString();
+  } else if (content instanceof Error) {
+    errorText = content.message;
+  } else {
+    errorText = "Unknown error";
+  }
+  return (
+    <Typography.Text
+      css={css`
+        width: 100%;
+      `}
+      type="danger"
+    >
+      {errorText}
+    </Typography.Text>
+  );
+};
+
+const PlainTextDisplay: ResultDisplay = ({ content }) => {
+  if (canStringify(content)) {
+    return (
+      <Typography.Text
+        css={css`
+          width: 100%;
+        `}
+      >
+        {content.toString()}
+      </Typography.Text>
+    );
+  } else {
+    return <ErrorTextDisplay content={content} mime="text/plain" />;
+  }
+};
+
+const JSONDisplay: ResultDisplay = ({ content }) => {
+  try {
+    const code = JSON.stringify(content, null, 2);
+    return (
+      <div
+        css={css`
+          width: 100%;
+          pre {
+            margin: 0;
+            overflow: auto;
+          }
+        `}
+      >
+        <SyntaxHighlight code={code} language={LanguageSupports.JSON} />
+      </div>
+    );
+  } catch (e) {
+    return <ErrorTextDisplay content={e} />;
+  }
+};
+
+const ImageDisplay: ResultDisplay = ({ content }) => {
+  if (isBlob(content)) {
+    try {
+      return (
+        <img
+          src={URL.createObjectURL(content)}
+          css={css`
+            max-width: 100%;
+            max-height: 100%;
+          `}
+        />
+      );
+    } catch (e) {
+      return <ErrorTextDisplay content={e} />;
+    }
+  } else {
+    return (
+      <ErrorTextDisplay
+        content="The result is not a valid binary, cannot display as an image."
+        mime="text/plain"
+      />
+    );
+  }
+};
+
+const AudioDisplay: ResultDisplay = ({ content }) => {
+  if (isBlob(content)) {
+    try {
+      return (
+        <audio controls>
+          <source src={URL.createObjectURL(content)} />
+        </audio>
+      );
+    } catch (e) {
+      return <ErrorTextDisplay content={e} />;
+    }
+  } else {
+    return (
+      <ErrorTextDisplay
+        content="The result is not a valid binary, cannot play as an audio."
+        mime="text/plain"
+      />
+    );
+  }
+};
+
+export const VideoDisplay: ResultDisplay = ({ content }) => {
+  if (isBlob(content)) {
+    try {
+      return (
+        <video controls width="100%">
+          <source src={URL.createObjectURL(content)} />
+        </video>
+      );
+    } catch (e) {
+      return <ErrorTextDisplay content={e} />;
+    }
+  } else {
+    return (
+      <ErrorTextDisplay
+        content="The result is not a valid binary, cannot play as a video."
+        mime="text/plain"
+      />
+    );
+  }
 };
 
 const DisplayMap: ContentDisplayMap = {
-  "application/json": ResultJSONDisplay,
-  "text/plain": ResultTextDisplay,
+  "application/json": JSONDisplay,
+  "text/plain": PlainTextDisplay,
+  "image/*": ImageDisplay,
+  "audio/*": AudioDisplay,
+  "video/*": VideoDisplay,
 };
 
 export const Result: FC<{ result: DEMOResult }> = ({ result }) => {
@@ -119,8 +227,11 @@ export const Result: FC<{ result: DEMOResult }> = ({ result }) => {
     <div
       css={css`
         margin: 0;
+        height: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
         background: ${theme.colorBgLayout};
-        height: 100%;
         border: 1px solid ${theme.colorBorder};
         border-radius: ${theme.borderRadius}px;
         word-break: break-word;

@@ -103,7 +103,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
       >
         {operationId && apis.length > 0 ? (
           <Row gutter={[32, 16]}>
-            <Col flex="1 0 400px">
+            <Col span={24} md={12}>
               <Row
                 css={css`
                   margin-bottom: 12px;
@@ -157,7 +157,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
                 />
               ) : null}
             </Col>
-            <Col flex="1 1 400px">
+            <Col span={24} md={12}>
               <Result result={result} />
             </Col>
           </Row>
