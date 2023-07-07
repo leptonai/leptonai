@@ -1,5 +1,6 @@
 from io import BytesIO
 import os
+import tempfile
 from typing import List, Union, Optional
 
 from backports.cached_property import cached_property
@@ -8,7 +9,7 @@ from loguru import logger
 
 from leptonai.registry import Registry
 from .base import schema_registry, type_registry
-from .photon import Photon, PNGResponse
+from .photon import Photon, PNGResponse, FileParam
 from .hf_utils import pipeline_registry
 
 task_cls_registry = Registry()
@@ -380,7 +381,13 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
             )
         },
     )
-    def run_handler(self, inputs: str) -> str:
+    def run_handler(self, inputs: Union[str, FileParam]) -> str:
+        if isinstance(inputs, FileParam):
+            file = tempfile.NamedTemporaryFile()
+            with open(file.name, "wb") as f:
+                f.write(inputs.file.read())
+            inputs = file.name
+
         res = self.run(inputs)
         return res["text"]
 

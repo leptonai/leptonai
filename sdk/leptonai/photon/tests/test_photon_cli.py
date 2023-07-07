@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import shutil
 import tempfile
 
 # Set cache dir to a temp dir before importing anything from leptonai
@@ -13,6 +14,7 @@ from loguru import logger
 import requests
 
 from leptonai import config
+from leptonai.photon import FileParam
 from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
 from utils import random_name, photon_run_server, sub_test
@@ -222,31 +224,26 @@ class TestPhotonCli(unittest.TestCase):
             logger.warning(f"Server: {proc.stderr.read().decode('utf-8')}")
         self.assertEqual(res.status_code, 200)
 
-    @unittest.skip("FIXIT: pydantic doesn't support file type")
+    @unittest.skipIf(not shutil.which("ffmpeg"), "ffmpeg not installed")
     def test_photon_run_post_file(self):
         name = random_name()
 
-        for model in [self.wav2vec2_model, self.whisper_model]:
-            proc, port = photon_run_server(name=name, model=model)
-            with tempfile.NamedTemporaryFile() as f:
-                f.write(
-                    requests.get(
-                        "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
-                    ).content
-                )
-                f.flush()
-                f.seek(0)
-                res = requests.post(
-                    f"http://127.0.0.1:{port}/run",
-                    data=f.read(),
-                )
-            proc.kill()
+        proc, port = photon_run_server(name=name, model=whisper_model)
 
-            if res.status_code != 200:
-                logger.warning(f"Client: {res.status_code} {res.text}")
-                logger.warning(f"Server: {proc.stdout.read().decode('utf-8')}")
-                logger.warning(f"Server: {proc.stderr.read().decode('utf-8')}")
-            self.assertEqual(res.status_code, 200)
+        url = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+        res_post_url = requests.post(
+            f"http://127.0.0.1:{port}/run", json={"inputs": url}
+        )
+
+        content = requests.get(url).content
+        res_post_file = requests.post(
+            f"http://127.0.0.1:{port}/run",
+            json={"inputs": {"content": FileParam.encode(content)}},
+        )
+        proc.kill()
+        self.assertEqual(res_post_url.status_code, 200)
+        self.assertEqual(res_post_file.status_code, 200)
+        self.assertEqual(res_post_url.json(), res_post_file.json())
 
 
 if __name__ == "__main__":

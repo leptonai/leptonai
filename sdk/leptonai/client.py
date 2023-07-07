@@ -2,6 +2,7 @@ from urllib.parse import urljoin, urlparse
 import warnings
 
 from backports.cached_property import cached_property
+from fastapi.encoders import jsonable_encoder
 import requests
 
 from leptonai.util import (
@@ -164,7 +165,12 @@ class Client:
         if name not in self._path_cache:
 
             def _method(**kwargs):
-                return self._post(name, json=kwargs).json()
+                res = self._post(
+                    name,
+                    json=jsonable_encoder(kwargs),
+                )
+                res.raise_for_status()
+                return res.json()
 
             _method.__name__ = name
             self._path_cache[name] = _method
