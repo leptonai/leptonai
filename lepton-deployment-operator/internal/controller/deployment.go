@@ -328,6 +328,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 }
 
 func shapeToReplicaResourceRequirement(shape leptonaiv1alpha1.LeptonDeploymentResourceShape) (*leptonaiv1alpha1.LeptonDeploymentReplicaResourceRequirement, error) {
+	shape = leptonaiv1alpha1.DisplayShapeToShape(string(shape))
 	s := leptonaiv1alpha1.SupportedShapesAWS[shape]
 	if s == nil {
 		return nil, fmt.Errorf("shape %s is not supported", shape)
