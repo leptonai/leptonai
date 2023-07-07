@@ -1,3 +1,5 @@
+import { HardwareService } from "@lepton-dashboard/services/hardware.service";
+import { useInject } from "@lepton-libs/di";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
@@ -16,7 +18,7 @@ import { css } from "@emotion/react";
 export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const { id } = useParams();
   const { pathname } = useResolvedPath("");
-
+  const hardwareService = useInject(HardwareService);
   return (
     <Routes>
       <Route element={<Container replicaId={id!} deployment={deployment} />}>
@@ -42,7 +44,9 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
           path="metrics"
           element={
             <MetricsDetail
-              gpu={!!deployment.resource_requirement.accelerator_num}
+              gpu={hardwareService.isGPUInstance(
+                deployment.resource_requirement.resource_shape
+              )}
               deploymentId={deployment.id}
               replicaId={id!}
             />

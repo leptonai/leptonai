@@ -12,15 +12,12 @@ export interface Deployment {
   photon_id: string;
   created_at: number;
   status: {
-    endpoint: { internal_endpoint: string; external_endpoint: string };
+    endpoint: { external_endpoint: string };
     state: State | string;
   };
   resource_requirement: {
-    memory: number;
-    cpu: number;
+    resource_shape?: string;
     min_replicas: number;
-    accelerator_type?: string;
-    accelerator_num?: number;
   };
   envs?: Array<DeploymentEnv | DeploymentSecretEnv>;
   mounts?: Array<DeploymentMount>;

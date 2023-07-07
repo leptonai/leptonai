@@ -1,3 +1,6 @@
+import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
+import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
+import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
@@ -14,19 +17,9 @@ import {
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import {
-  Api,
-  Chip,
-  CopyFile,
-  FlowModeler,
-  MessageQueue,
-  Replicate,
-  Time,
-  TrashCan,
-} from "@carbon/icons-react";
-import { CloseOutlined } from "@ant-design/icons";
+import { Api, CopyFile, Replicate, Time, TrashCan } from "@carbon/icons-react";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
 import { DateParser } from "../../../../components/date-parser";
 import { useInject } from "@lepton-libs/di";
@@ -34,11 +27,9 @@ import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { PhotonItem } from "@lepton-dashboard/routers/workspace/components/photon-item";
 import { EditDeployment } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/edit-deployment";
 import { useNavigate } from "react-router-dom";
 import { Envs } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/envs";
-import { VersionIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/version-indicator";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
@@ -136,40 +127,64 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
           <Col flex="0 0 400px">
             <Row gutter={[0, 4]}>
               <Col span={24}>
-                <Description.Item
-                  icon={<PhotonIcon />}
-                  description={
-                    photon?.name ? (
-                      <Space>
-                        <Popover
-                          placement="bottomLeft"
-                          content={
-                            <div
-                              css={css`
-                                width: min-content;
-                              `}
+                <Space>
+                  <PhotonIndicator photon={photon} deployment={deployment} />
+                  <HardwareIndicator
+                    shape={deployment.resource_requirement.resource_shape}
+                  />
+                </Space>
+              </Col>
+              <Col span={24}>
+                <Description.Container>
+                  <Popover
+                    placement="bottomLeft"
+                    content={deployment.status.endpoint.external_endpoint}
+                  >
+                    <span>
+                      <Hoverable>
+                        <Description.Item
+                          icon={<CarbonIcon icon={<Api />} />}
+                          description={
+                            <Typography.Text
+                              copyable={{
+                                text: deployment.status.endpoint
+                                  .external_endpoint,
+                                tooltips: false,
+                                icon: <CarbonIcon icon={<CopyFile />} />,
+                              }}
                             >
-                              <PhotonItem photon={photon} />
-                            </div>
+                              External endpoint
+                            </Typography.Text>
                           }
-                        >
-                          <span>
-                            <Link
-                              to={`/workspace/${workspaceTrackerService.name}/photons/detail/${photon?.id}`}
-                            >
-                              {photon?.name}
-                              <VersionIndicator
-                                photonId={deployment.photon_id}
-                              />
-                            </Link>
-                          </span>
-                        </Popover>
-                      </Space>
-                    ) : (
-                      "-"
-                    )
-                  }
-                />
+                        />
+                      </Hoverable>
+                    </span>
+                  </Popover>
+                  {deployment.envs && deployment.envs.length > 0 ? (
+                    <Envs envs={deployment.envs} />
+                  ) : null}
+                </Description.Container>
+              </Col>
+            </Row>
+          </Col>
+          <Col flex="0 0 auto">
+            <Row gutter={[0, 4]}>
+              <Col span={24}>
+                <Description.Container>
+                  <Description.Item
+                    icon={<CarbonIcon icon={<Replicate />} />}
+                    description={
+                      <Link
+                        to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}/replicas/list`}
+                      >
+                        {deployment.resource_requirement.min_replicas}
+                        {deployment.resource_requirement.min_replicas > 1
+                          ? " replicas"
+                          : " replica"}
+                      </Link>
+                    }
+                  />
+                </Description.Container>
               </Col>
               <Col span={24}>
                 <Description.Item
@@ -178,71 +193,6 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     <DateParser detail date={deployment.created_at} />
                   }
                 />
-              </Col>
-              <Col span={24}>
-                <Description.Container>
-                  <Description.Item
-                    icon={<CarbonIcon icon={<Api />} />}
-                    description={
-                      <Typography.Text
-                        copyable={{
-                          tooltips: "External endpoint of the deployment",
-                          icon: <CarbonIcon icon={<CopyFile />} />,
-                        }}
-                      >
-                        {deployment.status.endpoint.external_endpoint}
-                      </Typography.Text>
-                    }
-                  />
-                </Description.Container>
-              </Col>
-            </Row>
-          </Col>
-          <Col flex="0 0 auto">
-            <Row gutter={[0, 4]}>
-              <Col span={24}>
-                <Description.Item
-                  icon={<CarbonIcon icon={<FlowModeler />} />}
-                  description={
-                    deployment.resource_requirement.accelerator_num ? (
-                      <>
-                        {deployment.resource_requirement.accelerator_type}
-                        <CloseOutlined
-                          css={css`
-                            margin: 0 4px;
-                          `}
-                        />
-                        {deployment.resource_requirement.accelerator_num}
-                      </>
-                    ) : (
-                      "No Accelerator"
-                    )
-                  }
-                />
-              </Col>
-              <Col span={24}>
-                <Description.Container>
-                  <Description.Item
-                    icon={<CarbonIcon icon={<MessageQueue />} />}
-                    description={`${deployment.resource_requirement.memory} MB`}
-                  />
-                  <Description.Item
-                    icon={<CarbonIcon icon={<Chip />} />}
-                    description={`${deployment.resource_requirement.cpu} CORE`}
-                  />
-                </Description.Container>
-              </Col>
-              <Col span={24}>
-                <Description.Container>
-                  <Description.Item
-                    icon={<CarbonIcon icon={<Replicate />} />}
-                    term="Replicas"
-                    description={deployment.resource_requirement.min_replicas}
-                  />
-                  {deployment.envs && deployment.envs.length > 0 ? (
-                    <Envs envs={deployment.envs} />
-                  ) : null}
-                </Description.Container>
               </Col>
             </Row>
           </Col>

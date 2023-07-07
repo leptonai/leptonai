@@ -1,19 +1,19 @@
 import { Asterisk, Hashtag, Launch, TrashCan } from "@carbon/icons-react";
 import { IconContainer } from "@lepton-dashboard/components/icon-container";
 import { CarbonIcon, EqualIcon } from "@lepton-dashboard/components/icons";
+import { ResourceShape } from "@lepton-dashboard/routers/workspace/components/resource-shape";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
+import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FormListOperation } from "antd/es/form/FormList";
-import { FC, ReactNode, useMemo, useRef, useState } from "react";
+import { FC, ReactNode, useMemo, useRef } from "react";
 import { css } from "@emotion/react";
 import {
   Button,
   Cascader,
-  Checkbox,
   Col,
   Collapse,
   Dropdown,
-  Empty,
   Form,
   Input,
   InputNumber,
@@ -33,7 +33,6 @@ import {
 import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
-import { Rule } from "rc-field-form/lib/interface";
 import { useNavigate } from "react-router-dom";
 import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 import { StorageSelect } from "@lepton-dashboard/routers/workspace/components/storage-select";
@@ -41,10 +40,7 @@ import { StorageSelect } from "@lepton-dashboard/routers/workspace/components/st
 interface RawForm {
   name: string;
   min_replicas: number;
-  accelerator_num?: number;
-  accelerator_type?: string;
-  cpu: number;
-  memory: number;
+  shape?: string;
   photon: string[];
   envs: { name: string; value: string }[];
   secret_envs: { name: string; value: string }[];
@@ -71,7 +67,12 @@ export const DeploymentForm: FC<{
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretService = useInject(SecretService);
-  const workspaceDetail = workspaceTrackerService.workspace!.data;
+  const hardwareService = useInject(HardwareService);
+  const shapeOptions = hardwareService.shapes.map((i) => ({
+    label: <ResourceShape shape={i} />,
+    optionLabelProp: hardwareService.hardwareShapes[i].DisplayName,
+    value: i,
+  }));
   const secrets = useStateFromObservable(() => secretService.listSecrets(), []);
   const secretOptions = useMemo(() => {
     return secrets.map((s) => ({ label: s.name, value: s.name }));
@@ -119,37 +120,6 @@ export const DeploymentForm: FC<{
     return menus;
   }, [navigate, secrets, workspaceTrackerService.name]);
   const [form] = Form.useForm();
-  const [enableAccelerator, setEnableAccelerator] = useState(
-    edit
-      ? !!initialDeploymentValue.resource_requirement?.accelerator_num
-      : false
-  );
-  const supportedAccelerators = Object.keys(
-    workspaceDetail.supported_accelerators
-  ).map((i) => ({ label: i, value: i }));
-
-  const initialMax = initialDeploymentValue.resource_requirement
-    ?.accelerator_type
-    ? workspaceDetail.supported_accelerators[
-        initialDeploymentValue.resource_requirement?.accelerator_type
-      ] || 0
-    : 0;
-
-  const [maxAcceleratorCount, setMaxAcceleratorCount] = useState(initialMax);
-
-  const acceleratorCountRules: Rule[] = useMemo(() => {
-    return [
-      {
-        max: maxAcceleratorCount,
-        type: "number",
-        message: `The accelerator available is ${maxAcceleratorCount}`,
-      },
-      {
-        required: true,
-        message: `Please input the accelerator number`,
-      },
-    ];
-  }, [maxAcceleratorCount]);
   const photon = useMemo(() => {
     const latest =
       photonGroups.find((g) =>
@@ -163,15 +133,8 @@ export const DeploymentForm: FC<{
     return {
       name: initialDeploymentValue.name,
       min_replicas: initialDeploymentValue.resource_requirement?.min_replicas,
-      accelerator_num:
-        initialDeploymentValue.resource_requirement?.accelerator_num,
-      accelerator_type:
-        initialDeploymentValue.resource_requirement?.accelerator_type,
-      cpu: initialDeploymentValue.resource_requirement?.cpu,
-      memory: initialDeploymentValue.resource_requirement?.memory,
-      enable_accelerator:
-        !!initialDeploymentValue.resource_requirement?.accelerator_num,
       photon: photon,
+      shape: initialDeploymentValue.resource_requirement?.resource_shape,
       envs: initialDeploymentValue.envs?.filter(
         (e): e is DeploymentEnv => !!(e as DeploymentEnv).value
       ),
@@ -207,11 +170,8 @@ export const DeploymentForm: FC<{
       name: value.name,
       photon_id: value.photon[value.photon.length - 1],
       resource_requirement: {
-        memory: value.memory,
-        cpu: value.cpu,
         min_replicas: value.min_replicas,
-        accelerator_type: enableAccelerator ? value.accelerator_type : "",
-        accelerator_num: enableAccelerator ? value.accelerator_num : 0,
+        resource_shape: value.shape,
       },
       envs: [
         ...(value.envs || []),
@@ -238,17 +198,6 @@ export const DeploymentForm: FC<{
     <Form
       form={form}
       layout="vertical"
-      onValuesChange={() => {
-        const acceleratorType = form.getFieldValue(["accelerator_type"]);
-        if (acceleratorType) {
-          setMaxAcceleratorCount(
-            workspaceDetail.supported_accelerators[acceleratorType]
-          );
-        } else {
-          setMaxAcceleratorCount(0);
-        }
-        void form.validateFields(["accelerator_num"]);
-      }}
       requiredMark={false}
       initialValues={initialValues}
       onFinish={(e) => submit(transformValue(e))}
@@ -309,104 +258,10 @@ export const DeploymentForm: FC<{
           </Form.Item>
         </Col>
       </Row>
-
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            label="CPU"
-            name="cpu"
-            rules={[
-              {
-                max: workspaceDetail.max_generic_compute_size.core,
-                type: "number",
-                message: `The maximum available core is ${workspaceDetail.max_generic_compute_size.core}`,
-              },
-              {
-                required: true,
-                message: "Please input cpu number",
-              },
-            ]}
-          >
-            <InputNumber disabled={edit} style={{ width: "100%" }} min={1} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            label="Memory"
-            name="memory"
-            rules={[
-              {
-                max: workspaceDetail.max_generic_compute_size.memory,
-                type: "number",
-                message: `The maximum available memory is ${workspaceDetail.max_generic_compute_size.memory} MB`,
-              },
-              {
-                required: true,
-                message: "Please input memory",
-              },
-            ]}
-          >
-            <InputNumber
-              disabled={edit}
-              style={{ width: "100%" }}
-              min={1}
-              addonAfter="MB"
-            />
-          </Form.Item>
-        </Col>
-      </Row>
-      <Form.Item>
-        <Checkbox
-          disabled={edit}
-          checked={enableAccelerator}
-          onChange={(e) => setEnableAccelerator(e.target.checked)}
-        >
-          Enable Accelerator
-        </Checkbox>
+      <Form.Item label="Hardware" name="shape" rules={[{ required: true }]}>
+        <Select disabled={edit} options={shapeOptions} />
       </Form.Item>
-      {enableAccelerator && (
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              rules={[
-                {
-                  required: true,
-                  message: `Please input the accelerator type`,
-                },
-              ]}
-              label="Accelerator Type"
-              name="accelerator_type"
-            >
-              <Select
-                disabled={edit}
-                notFoundContent={
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No accelerator aviailable"
-                  />
-                }
-                placeholder="Input accelerator type"
-                options={supportedAccelerators}
-                showSearch
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              rules={acceleratorCountRules}
-              label="Accelerator Number"
-              name="accelerator_num"
-            >
-              <InputNumber
-                placeholder="Input accelerator number"
-                min={0}
-                disabled={edit}
-                style={{ width: "100%" }}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-      )}
+
       <Collapse
         css={css`
           margin-bottom: 24px;
@@ -414,7 +269,7 @@ export const DeploymentForm: FC<{
         size="small"
         items={[
           {
-            label: "Advanced Settings",
+            label: "Advanced settings",
             key: "Advanced",
             children: (
               <div
@@ -426,7 +281,7 @@ export const DeploymentForm: FC<{
                   css={css`
                     margin-bottom: 0;
                   `}
-                  label="Environment Variables"
+                  label="Environment variables"
                 >
                   <Form.List name="envs">
                     {(fields, { add, remove }) => {
@@ -593,14 +448,18 @@ export const DeploymentForm: FC<{
                   css={css`
                     margin-bottom: 0;
                   `}
-                  label="Storage Mounts"
+                  label="Storage mounts"
                 >
                   <Form.List name="mounts">
                     {(fields, { add, remove }) => {
                       return (
                         <>
                           {fields.map((field, index) => (
-                            <Row gutter={8} key={`mounts-${index}`}>
+                            <Row
+                              gutter={8}
+                              key={`mounts-${index}`}
+                              wrap={false}
+                            >
                               <Col flex="1 1 auto">
                                 <Form.Item
                                   {...field}
@@ -672,7 +531,9 @@ export const DeploymentForm: FC<{
         ]}
       />
 
-      <Form.Item>{buttons}</Form.Item>
+      <Form.Item noStyle>
+        <div>{buttons}</div>
+      </Form.Item>
     </Form>
   );
 };

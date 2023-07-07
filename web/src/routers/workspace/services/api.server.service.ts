@@ -64,7 +64,10 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.post(`${this.prefix}/deployments`, {
       name: deployment.name,
       photon_id: deployment.photon_id,
-      resource_requirement: deployment.resource_requirement,
+      resource_requirement: {
+        min_replicas: deployment.resource_requirement?.min_replicas,
+        resource_shape: deployment.resource_requirement?.resource_shape,
+      },
       envs: deployment.envs || [],
       mounts: deployment.mounts || [],
     });

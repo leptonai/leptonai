@@ -64,7 +64,7 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
           <Hoverable>
             <Description.Item
               icon={<CarbonIcon icon={<ListDropdown />} />}
-              description="Secret & Variables"
+              description="Environment variables"
             />
           </Hoverable>
         </span>

@@ -1,4 +1,3 @@
-import { css } from "@emotion/react";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { useInject } from "@lepton-libs/di";
@@ -36,9 +35,6 @@ export const SecretForm: FC<{
 
   return (
     <Form
-      css={css`
-        padding: 8px 0;
-      `}
       preserve={false}
       layout="vertical"
       requiredMark={false}

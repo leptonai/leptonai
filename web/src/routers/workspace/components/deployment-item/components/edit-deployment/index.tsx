@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { App, Button, Drawer, Empty, Space } from "antd";
+import { App, Button, Empty, Modal, Space } from "antd";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
@@ -74,10 +74,10 @@ export const EditDeployment: FC<{ deployment: Deployment }> = ({
   const [open, setOpen] = useState(false);
   const refreshService = useInject(RefreshService);
 
-  const openDrawer = () => {
+  const openLayer = () => {
     setOpen(true);
   };
-  const closeDrawer = () => {
+  const closeLayer = () => {
     setOpen(false);
     refreshService.refresh();
   };
@@ -88,20 +88,19 @@ export const EditDeployment: FC<{ deployment: Deployment }> = ({
         type="text"
         size="small"
         icon={<CarbonIcon icon={<EditIcon />} />}
-        onClick={openDrawer}
+        onClick={openLayer}
       >
         Edit
       </Button>
-      <Drawer
+      <Modal
         destroyOnClose
-        size="large"
-        contentWrapperStyle={{ maxWidth: "100%" }}
         title="Edit deployment"
+        footer={null}
         open={open}
-        onClose={closeDrawer}
+        onCancel={closeLayer}
       >
-        <EditDeploymentDetail close={closeDrawer} deployment={deployment} />
-      </Drawer>
+        <EditDeploymentDetail close={closeLayer} deployment={deployment} />
+      </Modal>
     </>
   );
 };

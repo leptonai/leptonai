@@ -1,5 +1,6 @@
+import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { FC, useState } from "react";
-import { App, Button, Drawer, Empty } from "antd";
+import { App, Button, Empty, Modal, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -9,7 +10,6 @@ import { PlusOutlined } from "@ant-design/icons";
 import { DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentForm } from "@lepton-dashboard/routers/workspace/components/deployment-form";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 
 const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
   finish,
@@ -17,9 +17,9 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
 }) => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
+  const hardwareService = useInject(HardwareService);
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
@@ -34,30 +34,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
     photon_id: photonId,
     resource_requirement: {
       min_replicas: 1,
-      cpu: workspaceTrackerService.workspace!.data?.max_generic_compute_size
-        ?.core
-        ? Math.min(
-            workspaceTrackerService.workspace!.data.max_generic_compute_size
-              .core,
-            1
-          )
-        : 1,
-      memory: workspaceTrackerService.workspace!.data?.max_generic_compute_size
-        ?.memory
-        ? Math.min(
-            workspaceTrackerService.workspace!.data.max_generic_compute_size
-              .memory,
-            2048
-          )
-        : 2048,
-      accelerator_type:
-        Object.keys(
-          workspaceTrackerService.workspace!.data.supported_accelerators
-        )[0] || undefined,
-      accelerator_num:
-        Object.values(
-          workspaceTrackerService.workspace!.data!.supported_accelerators
-        )[0] || undefined,
+      resource_shape: hardwareService.shapes[0],
     },
     envs: [],
     mounts: [],
@@ -88,9 +65,11 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
       photonGroups={photonGroups}
       deployments={deployments}
       buttons={
-        <Button loading={loading} type="primary" htmlType="submit">
-          Create
-        </Button>
+        <Space>
+          <Button loading={loading} type="primary" htmlType="submit">
+            Create
+          </Button>
+        </Space>
       }
       initialDeploymentValue={initialDeployment}
       submit={createDeployment}
@@ -106,10 +85,10 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
 }) => {
   const [open, setOpen] = useState(false);
 
-  const openDrawer = () => {
+  const openLayer = () => {
     setOpen(true);
   };
-  const closeDrawer = () => {
+  const close = () => {
     setOpen(false);
   };
 
@@ -120,7 +99,7 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
           size="small"
           type="text"
           icon={<DeploymentIcon />}
-          onClick={openDrawer}
+          onClick={openLayer}
         >
           Deploy
         </Button>
@@ -129,21 +108,20 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
           type="primary"
           block
           icon={<PlusOutlined />}
-          onClick={openDrawer}
+          onClick={openLayer}
         >
-          Create Deployment
+          Create deployment
         </Button>
       )}
-      <Drawer
+      <Modal
         destroyOnClose
-        size="large"
-        contentWrapperStyle={{ maxWidth: "100%" }}
-        title="Create Deployment"
+        title="Create deployment"
         open={open}
-        onClose={closeDrawer}
+        onCancel={close}
+        footer={null}
       >
-        <CreateDeploymentDetail photonId={photonId} finish={closeDrawer} />
-      </Drawer>
+        <CreateDeploymentDetail photonId={photonId} finish={close} />
+      </Modal>
     </>
   );
 };

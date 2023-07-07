@@ -1,4 +1,5 @@
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
+import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useInject } from "@lepton-libs/di";
 import { FC, useCallback, useMemo, useRef, useState } from "react";
 import { Button, Col, Row } from "antd";
@@ -7,7 +8,7 @@ import { ChartLine } from "@carbon/icons-react";
 import { Deployment, Replica } from "@lepton-dashboard/interfaces/deployment";
 import { MetricItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics/components/metric-item";
 import { FullScreenDrawer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/components/full-screen-drawer";
-import { Card } from "../../../../../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { connect, EChartsType } from "echarts";
 import { css } from "@emotion/react";
 
@@ -107,7 +108,7 @@ export const Metrics: FC<{
   replica: Replica;
 }> = ({ deployment, replica }) => {
   const [open, setOpen] = useState(false);
-
+  const hardwareService = useInject(HardwareService);
   return (
     <>
       <Button
@@ -126,7 +127,9 @@ export const Metrics: FC<{
           `}
         >
           <MetricsDetail
-            gpu={!!deployment.resource_requirement.accelerator_num}
+            gpu={hardwareService.isGPUInstance(
+              deployment.resource_requirement.resource_shape
+            )}
             deploymentId={deployment.id}
             replicaId={replica.id}
           />

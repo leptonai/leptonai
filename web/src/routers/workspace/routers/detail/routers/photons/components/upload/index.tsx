@@ -34,7 +34,7 @@ export const Upload: FC = () => {
       style={{ width: "100%" }}
     >
       <Button type="primary" icon={<UploadOutlined />} block loading={loading}>
-        Upload Photon
+        Upload photon
       </Button>
     </AntdUpload>
   );

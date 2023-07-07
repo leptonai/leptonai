@@ -1,5 +1,6 @@
 import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
 import { AuthSupabaseService } from "@lepton-dashboard/services/auth.supabase.service";
+import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { DIContainer } from "@lepton-libs/di";
 import {
@@ -140,6 +141,7 @@ function App() {
         AuthSupabaseService,
         NavigateService,
         NotificationService,
+        HardwareService,
         {
           provide: HTTPInterceptorToken,
           useClass: AppInterceptor,
