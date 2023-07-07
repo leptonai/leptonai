@@ -1,5 +1,20 @@
+# https://registry.terraform.io/providers/hashicorp/time/latest/docs
+resource "time_static" "activation_date" {}
+
 provider "aws" {
   region = var.region
+
+  # ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs#default_tags-configuration-block
+  default_tags {
+    tags = {
+      LeptonClusterName = local.cluster_name
+
+      # created time
+      # https://registry.terraform.io/providers/hashicorp/time/latest/docs
+      LeptonClusterCreatedUnixSecond      = time_static.activation_date.unix
+      LeptonClusterCreatedUnixTimeRFC3339 = formatdate("YYYY-MM-DD_hh-mm-ss", time_static.activation_date.rfc3339)
+    }
+  }
 }
 
 provider "kubernetes" {

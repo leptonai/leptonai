@@ -6,6 +6,8 @@ set -xe
 # setting up gp3/2 storage class before anything else
 # to set gp3 as default
 targets=(
+  "time_static.activation_date"
+
   "module.vpc"
 
   "aws_security_group.eks"

@@ -4,6 +4,7 @@ set -xe
 
 # List of Terraform modules/resources to apply in sequence
 targets=(
+  "time_static.activation_date"
   "module.vpc"
   "module.eks"
   "module.eks_blueprints_kubernetes_addons"
