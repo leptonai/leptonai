@@ -34,9 +34,6 @@ func ValidateName(name string) bool {
 func ToContainerEnv(envs []leptonaiv1alpha1.EnvVar) []corev1.EnvVar {
 	cenvs := make([]corev1.EnvVar, 0, len(envs))
 	for _, env := range envs {
-		if env.Value == "" && env.ValueFrom.SecretNameRef == "" {
-			continue
-		}
 		if env.ValueFrom.SecretNameRef != "" {
 			cenvs = append(cenvs, corev1.EnvVar{
 				Name: env.Name,
