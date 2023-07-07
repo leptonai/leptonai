@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { JSONSchema7, JSONSchema7Definition } from "json-schema";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
@@ -99,11 +99,24 @@ export const SchemaForm = memo<{
 }>(
   ({ deployment, resultChange, api, onLoadingChange }) => {
     const theme = useAntdTheme();
-    const convertedSchema = convertToOptionalSchema(api.schema!);
-    const convertedInitData = convertToOptionalSchemaData(
-      api.schema!,
-      (api.request ? api.request.body : {}) as Record<string, unknown>
-    );
+    const convertedSchema = useMemo(() => {
+      return convertToOptionalSchema(api.schema!);
+    }, [api]);
+    const convertedInitData = useMemo(() => {
+      return convertToOptionalSchemaData(
+        api.schema!,
+        (api.request ? api.request.body : {}) as Record<string, unknown>
+      );
+    }, [api]);
+    const [loading, setLoading] = useState(false);
+    const [advanced, setAdvanced] = useState(false);
+    const [data, setData] = useState(convertedInitData);
+
+    useEffect(() => {
+      setData(convertedInitData);
+      setAdvanced(false);
+    }, [convertedInitData]);
+
     const deploymentService = useInject(DeploymentService);
     const cancelRef = useRef<Subject<void>>(new Subject());
     const hasAdvanced =
@@ -191,9 +204,7 @@ export const SchemaForm = memo<{
           },
         });
     };
-    const [loading, setLoading] = useState(false);
-    const [advanced, setAdvanced] = useState(false);
-    const [data, setData] = useState(convertedInitData);
+
     return (
       <Form
         showErrorList={false}
