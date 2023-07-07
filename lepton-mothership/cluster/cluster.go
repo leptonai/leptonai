@@ -146,7 +146,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Printf("cluster %q not found -- returning delete call", clusterName)
-			return nil
+			return fmt.Errorf("cluster %q not found", clusterName)
 		}
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
