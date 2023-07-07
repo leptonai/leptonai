@@ -193,6 +193,39 @@ def parse_mount(mount_str: str):
         raise ValueError(f"Invalid mount: {mount_str}")
 
 
+def _validate_resource_shape(resource_shape: str):
+    """
+    Utility function to validate the resource shape and exit if invalid.
+
+    :param resource_shape: The resource shape to validate.
+    :return: The resource shape if valid.
+    """
+    # Valid shapes is defined as a list instead of a dict intentionally, because
+    # we want to preserve the order of the shapes when printing. Granted, this
+    # adds a bit of search time, but the list is small enough that it should not
+    # matter.
+    # TODO: move the valid shapes and the default valid shape to a common config.
+    VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
+    DEFAULT_RESOURCE_SHAPE = "cpu.small"
+    if not resource_shape:
+        # In the default case, we want to use cpu.small.
+        return DEFAULT_RESOURCE_SHAPE
+    if resource_shape.lower() not in VALID_SHAPES:
+        # We will check if the user passed in a valid shape, and if not, we will
+        # print a warning.
+        # However, we do not want to directly go to an error, because there might
+        # be cases when the CLI and the cloud service is out of sync. For example
+        # if the user environment has an older version of the CLI while the cloud
+        # service has been updated to support more shapes, we want to allow the
+        # user to use the new shapes. One can simply ignore the warning and proceed.
+        console.print(
+            "It seems that you passed in a non-standard resource shape"
+            f" [yellow]{resource_shape}[/]. Valid shapes supported by the CLI"
+            f" are:\n{VALID_SHAPES}."
+        )
+    return resource_shape.lower()
+
+
 @photon.command()
 @click.option("--name", "-n", help="Name of the Photon")
 @click.option("--model", "-m", help="Model Spec")
@@ -205,8 +238,7 @@ def parse_mount(mount_str: str):
 )
 @click.option("--port", "-p", help="Port to run on", default=8080)
 @click.option("--id", "-i", help="ID of the Photon (only required for remote)")
-@click.option("--cpu", help="Number of CPU to require", default=1)
-@click.option("--memory", help="Number of RAM to require in MB", default=2048)
+@click.option("--resource-shape", "-r", help="Resource shape required,", default=None)
 @click.option("--min-replicas", help="Number of replicas", default=1)
 @click.option(
     "--mount",
@@ -251,8 +283,7 @@ def run(
     local,
     port,
     id,
-    cpu,
-    memory,
+    resource_shape,
     min_replicas,
     mount,
     deployment_name,
@@ -335,12 +366,12 @@ def run(
                 increment += 1
                 affix_name = f"-{increment}"
                 deployment_name = base_name[: (32 - len(affix_name))] + affix_name
+        resource_shape = _validate_resource_shape(resource_shape)
         console.print(f"Launching photon {id} as [green]{deployment_name}[/].")
         api.run_remote(
             id,
             workspace_url,
-            cpu,
-            memory,
+            resource_shape,
             min_replicas,
             auth_token,
             deployment_name,
