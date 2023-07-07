@@ -5,12 +5,14 @@ from hnsqlite import Collection, Embedding
 
 from leptonai.photon import Photon, HTTPException
 
+# DB_DIR env var specifies where to store and look the sqllite db file.
+_DB_DIR_ENV = 'DB_DIR'
 
 class VecDB(Photon):
     requirement_dependency = ["git+https://github.com/bddppq/hnsqlite.git@1f63bc5"]
 
     def init(self):
-        self.db_dir = os.path.dirname(__file__)
+        self.db_dir = os.environ.get(_DB_DIR_ENV, os.path.dirname(__file__))
         os.makedirs(self.db_dir, exist_ok=True)
 
         self.collections = {}
