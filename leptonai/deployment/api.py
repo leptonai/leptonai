@@ -1,5 +1,4 @@
 import requests
-import sys
 
 from leptonai.util import create_header, check_and_print_http_error
 
@@ -10,7 +9,7 @@ def list_deployment(url: str, auth_token: str):
     """
     response = requests.get(url + "/deployments", headers=create_header(auth_token))
     if check_and_print_http_error(response):
-        sys.exit(1)
+        return None
     return response.json()
 
 
@@ -22,4 +21,5 @@ def remove_deployment(url: str, auth_token: str, name: str):
         url + "/deployments/" + name, headers=create_header(auth_token)
     )
     if check_and_print_http_error(response):
-        sys.exit(1)
+        return None
+    return True

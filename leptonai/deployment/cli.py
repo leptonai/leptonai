@@ -32,6 +32,9 @@ def list():
         sys.exit(1)
     auth_token = workspace.cli.get_auth_token(workspace_url)
     deployments = api.list_deployment(workspace_url, auth_token)
+    if deployments is None:
+        console.print("Cannot list deployments. See error message above.")
+        sys.exit(0)
     records = [
         (d["name"], d["photon_id"], d["created_at"] / 1000, d["status"])
         for d in deployments
@@ -67,8 +70,12 @@ def remove(name):
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
     auth_token = workspace.cli.get_auth_token(workspace_url)
-    api.remove_deployment(workspace_url, auth_token, name)
-    console.print(f"deployment deleted successfully: {name}.")
+    if api.remove_deployment(workspace_url, auth_token, name):
+        console.print(f"Deployment [green]{name}[/] removed successfully.")
+    else:
+        console.print(
+            f"Cannot remove deployment [red]{name}[/]. See error message above."
+        )
 
 
 def add_command(cli_group):
