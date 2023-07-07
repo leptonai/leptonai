@@ -291,18 +291,18 @@ def run(
         secret_parsed = {}
         for s in env:
             try:
-                name, value = s.split("=", 1)
+                k, v = s.split("=", 1)
             except ValueError:
                 console.print(f"Invalid environment definition: [red]{s}[/]")
                 sys.exit(1)
-            env_parsed[name] = value
+            env_parsed[k] = v
         for s in secret:
             # We provide the user a shorcut: instead of having to specify
             # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
             # if the local env name and the secret name are the same.
-            name, secret_name = s.split("=", 1) if name in s else s, s
+            k, v = s.split("=", 1) if "=" in s else s, s
             # TODO: sanity check if these secrets exist.
-            secret_parsed[name] = secret_name
+            secret_parsed[k] = v
         mount_parsed = []
         for m in mount:
             try:
@@ -377,11 +377,11 @@ def run(
         # envs: parse and set environment variables
         for s in env:
             try:
-                name, value = s.split("=", 1)
+                k, v = s.split("=", 1)
             except ValueError:
                 console.print(f"Invalid environment definition: {s}")
                 sys.exit(1)
-            os.environ[name] = value
+            os.environ[k] = v
         if mount or secret:
             console.print(
                 "Mounts, environment variables and secrets are only supported for"
