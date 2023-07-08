@@ -93,19 +93,19 @@ def guard_api(content_or_error, detail=False, msg=None):
     return content_or_error
 
 
-def explain_response(response, if_200, if_404, if_others, exit_if_404=False):
+def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
     """
     A wrapper function that prints a message based on the response status code.
-    If the response status code is 200, print if_200, and return.
-    If the response status code is 404, print if_404, and exit if exit_if_404 is true.
+    If the response status code is 2xx, print if_2xx, and return.
+    If the response status code is 4xx, print if_4xx, and exit if exit_if_4xx is true.
     If the response status code is anything else, print if_others and always exit(1).
     """
-    if response.status_code == 200:
-        console.print(if_200)
+    if response.status_code >= 200 and response.status_code <= 299:
+        console.print(if_2xx)
         return
-    elif response.status_code == 404:
-        console.print(if_404)
-        if exit_if_404:
+    elif response.status_code >= 400 and response.status_code <= 499:
+        console.print(f"{response.status_code}: {response.text}\n{if_4xx}")
+        if exit_if_4xx:
             sys.exit(1)
     else:
         console.print(if_others)
