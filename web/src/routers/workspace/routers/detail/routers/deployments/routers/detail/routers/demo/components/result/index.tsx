@@ -2,10 +2,7 @@ import { FC, useMemo } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Space, Typography } from "antd";
-import {
-  LanguageSupports,
-  SyntaxHighlight,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/syntax-highlight";
+import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
@@ -121,7 +118,7 @@ const JSONDisplay: ResultDisplay = ({ content }) => {
           }
         `}
       >
-        <SyntaxHighlight code={code} language={LanguageSupports.JSON} />
+        <CodeBlock code={code} language={LanguageSupports.JSON} copyable />
       </div>
     );
   } catch (e) {
@@ -246,7 +243,7 @@ export const Result: FC<{ result: DEMOResult }> = ({ result }) => {
           word-break: break-word;
           white-space: pre-wrap;
           color: ${theme.colorText};
-          padding: 32px;
+          padding: 16px;
         `}
       >
         {displayResult}

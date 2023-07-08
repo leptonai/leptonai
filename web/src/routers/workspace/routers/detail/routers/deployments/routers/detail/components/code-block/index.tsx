@@ -5,6 +5,9 @@ import { ThemeService } from "@lepton-dashboard/services/theme.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { map } from "rxjs";
 import { css } from "@emotion/react";
+import { Typography } from "antd";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { CopyFile } from "@carbon/icons-react";
 
 setCDN("/shiki/");
 
@@ -16,10 +19,11 @@ export enum LanguageSupports {
 
 let highlighter: Highlighter;
 
-export const SyntaxHighlight: FC<{
+export const CodeBlock: FC<{
   code: string;
   language: LanguageSupports;
-}> = ({ code, language }) => {
+  copyable?: boolean;
+}> = ({ code, language, copyable }) => {
   const [highlightedCode, setHighlightedCode] = useState(
     "<pre><code></code></pre>"
   );
@@ -58,14 +62,37 @@ export const SyntaxHighlight: FC<{
   return (
     <div
       css={css`
+        position: relative;
+        .ant-typography-copy {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          opacity: 0;
+          transition: opacity 0.12s ease-in-out;
+        }
+
+        &:hover {
+          .ant-typography-copy {
+            opacity: 1;
+          }
+        }
+
         pre {
           min-height: 35px;
           font-size: 12px;
           padding: 12px;
         }
       `}
-      dangerouslySetInnerHTML={{ __html: highlightedCode }}
-      className={`${language}`}
-    />
+    >
+      {copyable && code && (
+        <Typography.Text
+          copyable={{
+            text: code,
+            icon: <CarbonIcon icon={<CopyFile />} />,
+          }}
+        />
+      )}
+      <div dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+    </div>
   );
 };

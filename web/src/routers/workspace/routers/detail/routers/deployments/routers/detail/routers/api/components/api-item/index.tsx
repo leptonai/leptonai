@@ -7,13 +7,7 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { Typography } from "antd";
-import { css } from "@emotion/react";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { CopyFile } from "@carbon/icons-react";
-import {
-  LanguageSupports,
-  SyntaxHighlight,
-} from "../../../../components/syntax-highlight";
+import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;
@@ -61,22 +55,9 @@ export const ApiItem: FC<{
   return (
     <>
       <Typography.Paragraph strong>{api.operation.path}</Typography.Paragraph>
-      <div
-        css={css`
-          position: relative;
-          .ant-typography-copy {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-          }
-        `}
-      >
-        <Typography.Paragraph
-          copyable={{ text: code, icon: <CarbonIcon icon={<CopyFile />} /> }}
-        >
-          <SyntaxHighlight code={code} language={language} />
-        </Typography.Paragraph>
-      </div>
+      <Typography.Paragraph>
+        <CodeBlock code={code} language={language} copyable />
+      </Typography.Paragraph>
     </>
   );
 };

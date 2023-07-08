@@ -10,10 +10,7 @@ import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import {
-  LanguageSupports,
-  SyntaxHighlight,
-} from "../../components/syntax-highlight";
+import { LanguageSupports, CodeBlock } from "../../components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
@@ -103,15 +100,18 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
             </Col>
           </Row>
           {codeLanguage === LanguageSupports.Python && (
-            <Typography>
+            <>
               <Typography.Paragraph>
                 Install the Python client:
               </Typography.Paragraph>
-              <SyntaxHighlight
-                code="pip install leptonai"
-                language={LanguageSupports.Bash}
-              />
-            </Typography>
+              <Typography.Paragraph>
+                <CodeBlock
+                  code="pip install leptonai"
+                  language={LanguageSupports.Bash}
+                  copyable
+                />
+              </Typography.Paragraph>
+            </>
           )}
           <Typography.Paragraph>
             Replace the <Typography.Text code>$YOUR_TOKEN</Typography.Text> in
