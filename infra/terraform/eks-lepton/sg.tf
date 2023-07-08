@@ -6,6 +6,10 @@ resource "aws_security_group" "eks" {
   tags = {
     "Name" = "${local.cluster_name}-sg-cluster"
   }
+
+  depends_on = [
+    module.vpc
+  ]
 }
 
 # required for managed node groups with "custom" AMIs to connect to EKS cluster
