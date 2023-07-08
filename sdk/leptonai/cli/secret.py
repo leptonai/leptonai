@@ -19,6 +19,17 @@ from leptonai.api import secret as api
 
 @click_group()
 def secret():
+    """
+    Manage secrets on the Lepton AI cloud.
+
+    Secrets are like environmental variables, but the actual value never leaves
+    the cloud environment. Secrets can be used to store sensitive information
+    like API keys and passwords, which one does not want to accidentally leak
+    into display output.
+
+    The secret commands allow you to create, list, and remove secrets on the
+    Lepton AI cloud.
+    """
     pass
 
 
@@ -27,8 +38,9 @@ def secret():
 @click.option("--value", "-v", help="Secret value", multiple=True)
 def create(name, value):
     """
-    Creates secrets with the given name and value. The name and value can be specified multiple
-    times to create multiple secrets at once.
+    Creates secrets with the given name and value. The name and value can be
+    specified multiple times to create multiple secrets, e.g.:
+        lep secret create -n SECRET1 -v VALUE1 -n SECRET2 -v VALUE2
     """
     check(len(name), "No secret name given.")
     check(len(name) == len(value), "Number of names and values must be the same.")
@@ -56,7 +68,8 @@ def create(name, value):
 @secret.command()
 def list():
     """
-    Lists all secrets in the current workspace.
+    Lists all secrets in the current workspace. Note that the secret values are
+    always hidden.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     secrets = guard_api(api.list_secret(workspace_url, auth_token))
