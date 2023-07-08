@@ -1,6 +1,7 @@
 import { Asterisk, Hashtag, Launch, TrashCan } from "@carbon/icons-react";
 import { IconContainer } from "@lepton-dashboard/components/icon-container";
 import { CarbonIcon, EqualIcon } from "@lepton-dashboard/components/icons";
+import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
 import { ResourceShape } from "@lepton-dashboard/routers/workspace/components/resource-shape";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
@@ -30,7 +31,6 @@ import {
   DeploymentMount,
   DeploymentSecretEnv,
 } from "@lepton-dashboard/interfaces/deployment";
-import dayjs from "dayjs";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
 import { useNavigate } from "react-router-dom";
@@ -160,7 +160,15 @@ export const DeploymentForm: FC<{
       children: g.versions.map((i) => {
         return {
           value: i.id,
-          label: dayjs(i.created_at).format("lll"),
+          label: (
+            <PhotonLabel
+              showTime
+              showName={false}
+              name={g.name}
+              id={i.id}
+              created_at={i.created_at}
+            />
+          ),
         };
       }),
     };
@@ -265,7 +273,7 @@ export const DeploymentForm: FC<{
         </Col>
       </Row>
       <Form.Item
-        label="Resource Type"
+        label="Resource type"
         name="shape"
         rules={[{ required: true }]}
       >

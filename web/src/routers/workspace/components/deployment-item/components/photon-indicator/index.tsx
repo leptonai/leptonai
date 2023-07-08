@@ -2,10 +2,10 @@ import { css } from "@emotion/react";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { VersionIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/version-indicator";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { PhotonItem } from "@lepton-dashboard/routers/workspace/components/photon-item";
+import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
 import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Popover, Space } from "antd";
@@ -38,8 +38,13 @@ export const PhotonIndicator: FC<{
                 <Link
                   to={`/workspace/${workspaceTrackerService.name}/photons/detail/${photon?.id}`}
                 >
-                  {photon?.name}
-                  <VersionIndicator photonId={deployment.photon_id} />
+                  <PhotonLabel
+                    name={photon.name}
+                    created_at={photon.created_at}
+                    id={deployment.photon_id}
+                    showTime={false}
+                    showName
+                  />
                 </Link>
               </span>
             </Popover>

@@ -32,7 +32,7 @@ export const List: FC = () => {
     <Row gutter={[8, 24]}>
       <Col flex={1}>
         <Row gutter={[8, 24]}>
-          <Col flex="auto">
+          <Col flex="1 1 auto">
             <Input
               autoFocus
               value={search}
@@ -69,7 +69,7 @@ export const List: FC = () => {
               placeholder="Search"
             />
           </Col>
-          <Col flex="0">
+          <Col flex="0 0 auto">
             <Upload />
           </Col>
         </Row>

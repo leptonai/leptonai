@@ -61,7 +61,7 @@ export class HardwareService {
   };
   isGPUInstance(shape?: string): boolean {
     return this.hardwareShapes && shape
-      ? !!this.hardwareShapes[shape].Resource.AcceleratorType
+      ? !!this.hardwareShapes[shape]?.Resource?.AcceleratorType
       : false;
   }
 

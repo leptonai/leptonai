@@ -1,3 +1,4 @@
+import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
 import { FC, useMemo, useState } from "react";
 import {
   Col,
@@ -14,7 +15,6 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useParams } from "react-router-dom";
-import dayjs from "dayjs";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "../../../../../../components/deployment-item";
@@ -45,7 +45,15 @@ export const List: FC = () => {
       children: g.versions.map((i) => {
         return {
           value: i.id,
-          label: dayjs(i.created_at).format("lll"),
+          label: (
+            <PhotonLabel
+              showTime
+              showName={false}
+              name={g.name}
+              id={i.id}
+              created_at={i.created_at}
+            />
+          ),
         };
       }),
     };
@@ -66,7 +74,7 @@ export const List: FC = () => {
   }, [deployments, search, status, photonFilters, photonGroups]);
   return (
     <Row gutter={[8, 24]}>
-      <Col flex={1}>
+      <Col flex="1 1 auto">
         <Input
           autoFocus
           value={search}
@@ -75,7 +83,7 @@ export const List: FC = () => {
           placeholder="Search"
         />
       </Col>
-      <Col flex="200px">
+      <Col flex="1 1 200px">
         <Cascader
           showSearch
           value={photonFilters}
@@ -87,7 +95,7 @@ export const List: FC = () => {
           onChange={(d) => setPhotonFilters((d as string[]) || [])}
         />
       </Col>
-      <Col flex="300px">
+      <Col flex="1 1 300px">
         <Select
           style={{ width: "100%" }}
           mode="multiple"
@@ -115,7 +123,7 @@ export const List: FC = () => {
           ]}
         />
       </Col>
-      <Col flex="180px">
+      <Col flex="1 1 180px">
         <CreateDeployment />
       </Col>
       <Col span={24}>
