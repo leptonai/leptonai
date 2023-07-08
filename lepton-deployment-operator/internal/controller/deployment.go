@@ -176,6 +176,16 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
 	env := util.ToContainerEnv(ld.Spec.Envs)
 
+	// Add lepton runtime envs to the container envs
+	runtime_envs := []corev1.EnvVar{
+		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
+		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
+		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
+		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
+		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.LeptonDeploymentReplicaResourceRequirement.AcceleratorType},
+	}
+	env = append(env, runtime_envs...)
+
 	// we need to set request to a smaller value to account for shared node resources
 	requestFactor := 0.9
 	cpuValue := ld.Spec.ResourceRequirement.CPU
