@@ -86,7 +86,7 @@ def _find_available_port(port):
 @click_group()
 def photon():
     """
-    Creates, runs and manages photons in the local environment and on the Lepton AI cloud.
+    Manages photons in the local environment and on the Lepton AI cloud.
 
     Photon is at the core of Lepton AI's abstraction: it is a Python centric
     abstraction of an AI model or application, and provides a simple interface
