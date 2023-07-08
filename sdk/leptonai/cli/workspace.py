@@ -22,6 +22,15 @@ WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 
 @click_group()
 def workspace():
+    """
+    Manage workspace access on the Lepton AI cloud.
+
+    Workspace is the place you perform daily operation with photons, deployments,
+    storage, and other resources.
+
+    The workspace commands allow you to log in and out of multiple workspaces,
+    and keeps track of the workspace credentials you are currently working on.
+    """
     pass
 
 
@@ -70,7 +79,12 @@ def _register_and_set(workspace_name, workspace_url, auth_token=None):
 )
 def login(workspace_name, workspace_url, auth_token, dry_run):
     """
-    Login to a workspace.
+    Logs in to a workspace. This also verifies that the workspace is accessible.
+
+    There are multiple ways to log in to a workspace, but the easiest way is to
+    log in via `--workspace-name`. If you are running an enterprise version of
+    Lepton AI cloud, you can log in by explicitly passing in the API server url
+    via `--workspace-url`, and give it a local display name for future ease.
     """
     if not workspace_name and not workspace_url:
         console.print("Must specify --workspace-name or --workspace-url")
@@ -169,7 +183,9 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
 @workspace.command()
 def logout():
     """
-    Log out of the current workspace.
+    Log out of the current workspace. After logout, all lep commands that can
+    operate both locally and remotely, such as `lep photon run`, will be carried
+    out locally in default.
     """
     api.set_current_workspace(None)
     console.print("[green]Logged out[/]")
@@ -178,7 +194,8 @@ def logout():
 @workspace.command()
 def list():
     """
-    List currently recorded workspacees.
+    List current workspaces and their urls on record. For any workspace displayed
+    in the list, you can log in to it by `lep workspace login -n <Name>`.
     """
     workspace_info = api.load_workspace_info()
     workspaces = workspace_info["workspaces"]
@@ -207,7 +224,9 @@ def list():
 @click.option("--workspace-name", "-n", help="Name of the workspace", required=True)
 def remove(workspace_name):
     """
-    Remove a workspace from the list.
+    Remove a workspace from the record. After removal, the locally stored
+    url and auth token will be deleted. If the workspace is currently logged in,
+    you will be logged out.
     """
     if workspace_name is None:
         console.print("Must specify --workspace-name")
