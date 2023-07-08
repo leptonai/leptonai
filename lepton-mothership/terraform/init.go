@@ -11,7 +11,7 @@ import (
 var (
 	orgName = "lepton"
 	// TODO: update me
-	TempToken = "GkqbTdrOGe945A.atlasv1.GIhfprQqv3UJevUvB98zJrOVAPOzUbHyHVkyeTJPy9RhFBF1rV2TPvYFfUuV3pi5pK4"
+	TempToken = "cna5nv2diSDDNA.atlasv1.ft1ccF2wpsvvFtT6fMSl7UEUQExeLhnxZneSQkyBUU7pCIVcYJqgGLTbdywX3OUlweE"
 	client    *tfe.Client
 )
 
