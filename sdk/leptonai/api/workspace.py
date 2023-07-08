@@ -69,6 +69,14 @@ def get_auth_token(workspace_url):
         return None
 
 
+def get_workspace():
+    """
+    Gets the current workspace.
+    """
+    workspace_info = load_workspace_info()
+    return workspace_info["current_workspace"]
+
+
 def get_workspace_url():
     """
     Gets the current workspace url.
