@@ -117,5 +117,5 @@ def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
         if exit_if_4xx:
             sys.exit(1)
     else:
-        console.print(if_others)
+        console.print(f"{response.status_code}: {response.text}\n{if_others}")
         sys.exit(1)

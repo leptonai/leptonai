@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import json
 import os
 import re
 
@@ -22,20 +21,6 @@ def get_full_workspace_api_url(workspace_name):
     Get the full URL for the API of a workspace.
     """
     return get_full_workspace_url(workspace_name) + WORKSPACE_API_PATH
-
-
-def check_and_print_http_error(response):
-    if response.status_code >= 200 and response.status_code <= 299:
-        return False
-    try:
-        error_data = response.json()
-        error_message = error_data.get("message")
-        console.print(f"Error: {error_message}")
-    except json.JSONDecodeError:
-        console.print(f"Error Code: {response.status_code}")
-        console.print(f"Error: {response.text}")
-
-    return True
 
 
 @contextmanager
