@@ -216,6 +216,22 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		resources.Limits[corev1.ResourceEphemeralStorage] = storageQuantity
 	}
 
+	// We do not want non-GPU workloads to waste our GPU resources.
+	// Use taint to not schedule those on GPU.
+	// All pods without matching tolerations to these taints won't be scheduled.
+	//
+	// Assumption.
+	// GPU nodes must be tainted with the matching value.
+	//
+	// ref. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	// ref. https://docs.aws.amazon.com/eks/latest/userguide/node-taints-managed-node-groups.html
+	// ref. https://www.eksworkshop.com/docs/fundamentals/managed-node-groups/taints/implementing-tolerations
+	//
+	// NOTE: gpu operator automatically adds tolerations to GPU pods
+	// we just need GPU node taints
+	// ref. https://github.com/leptonai/lepton/issues/1220
+	// tolerations := []corev1.Toleration{}
+
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
 		// if gpu is enabled, set gpu resource limit and node selector
@@ -226,6 +242,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		// even without this, execution uses the "resources.Limits" as defaults
 		resources.Requests[corev1.ResourceName(k.gpuResourceKey)] = rv
 
+		// only schedule the pod with exact matching node labels
 		nodeSelector[k.gpuProductLableKey] = ld.Spec.ResourceRequirement.AcceleratorType
 	}
 

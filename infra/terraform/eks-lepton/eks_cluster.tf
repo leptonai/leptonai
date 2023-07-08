@@ -50,6 +50,16 @@ module "eks" {
       max_size     = 10
       desired_size = 0
 
+      # not allow new pods to schedule onto the node unless they tolerate the taint
+      # only the pods with matching toleration will be scheduled
+      # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group#taint-configuration-block
+      taints = [
+        {
+          key    = "nvidia.com/gpu"
+          effect = "NO_SCHEDULE"
+        }
+      ]
+
       # prevents unnecessary scale-outs by cluster autoscaler (see FilterOutNodesWithUnreadyResources, GPULabel)
       # the cluster autoscaler only checks the existence of the label
       # the label value can be anything, and here we label by the device name for internal use
