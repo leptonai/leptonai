@@ -14,7 +14,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click_group(context_settings=CONTEXT_SETTINGS)
 def lep():
     """
-    The main entry point for the Lepton AI SDK CLI.
+    The main entry point for the Lepton AI commandline interface.
     """
     pass
 

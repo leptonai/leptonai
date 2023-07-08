@@ -16,13 +16,25 @@ from leptonai.api import deployment as api
 
 @click_group()
 def deployment():
+    """
+    Manage deployments on the Lepton AI cloud.
+
+    Deployment is a running instance of a photon. Deployments are created using
+    the `lep photon run` command. Usually, a deployment exposes one or more HTTP
+    endpoints that the users call, either via a RESTful API, or a python client
+    defined in `leptonai.client`.
+
+    The deployment commands allow you to list and remove deployments on the
+    Lepton AI cloud.
+    """
     pass
 
 
 @deployment.command()
 def create():
     """
-    A wrapper function to simply notify the user that they should use `lep photon run` instead.
+    Use `lep photon run` instead. This is only a placeholder and does not do
+    anything.
     """
     console.print("Please use `lep photon run` instead.")
     sys.exit(1)
