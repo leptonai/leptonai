@@ -19,7 +19,12 @@ export const ExtraInfo: FC<{
         paddingXS: 6,
       }}
     >
-      <Descriptions bordered size="small" column={1}>
+      <Descriptions
+        labelStyle={{ whiteSpace: "nowrap" }}
+        bordered
+        size="small"
+        column={1}
+      >
         <Descriptions.Item label="Created at">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
