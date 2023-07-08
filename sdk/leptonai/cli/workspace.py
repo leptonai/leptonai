@@ -23,7 +23,7 @@ WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 @click_group()
 def workspace():
     """
-    Manage workspace access on the Lepton AI cloud.
+    Manage workspace access to the Lepton AI cloud.
 
     Workspace is the place you perform daily operation with photons, deployments,
     storage, and other resources.
