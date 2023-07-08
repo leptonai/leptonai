@@ -21,6 +21,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	output string
+)
+
 func init() {
 	cobra.EnablePrefixMatching = true
 }
@@ -32,12 +36,17 @@ func NewCommand() *cobra.Command {
 		Short: "List all the clusters (either EKS/*), use 'inspect' to get individual clusters",
 		Run:   listFunc,
 	}
+	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
+
 	return cmd
 }
 
 func listFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	if output != "rawjson" && output != "table" {
+		log.Fatalf("invalid output format %q, only 'rawjson' and 'table' are supported", output)
+	}
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 	b, err := cli.RequestURL(http.MethodGet, mothershipURL, nil, nil)
@@ -49,6 +58,11 @@ func listFunc(cmd *cobra.Command, args []string) {
 	if err = json.Unmarshal(b, &rs); err != nil {
 		log.Fatalf("failed to decode %v", err)
 	}
+	if output == "rawjson" {
+		fmt.Println(string(b))
+		return
+	}
+
 	log.Printf("fetched %d clusters", len(rs))
 
 	eksAPIs := make(map[string]*aws_eks_v2.Client)
