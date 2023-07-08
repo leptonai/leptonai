@@ -8,6 +8,7 @@ export interface Photon {
   created_at: number;
   exposed_ports?: number[];
   requirement_dependency?: string[];
+  system_dependency?: string[];
   container_args?: string[];
   entrypoint?: string;
   openapi_schema?: SafeAny;

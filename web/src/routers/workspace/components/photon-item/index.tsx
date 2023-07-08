@@ -1,9 +1,9 @@
-import { WatsonHealth3DSoftware } from "@carbon/icons-react";
+import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
 import { FC } from "react";
 import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Col, Empty, Row } from "antd";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
+import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
@@ -20,16 +20,8 @@ import { WorkspaceTrackerService } from "../../services/workspace-tracker.servic
 export const PhotonItem: FC<{
   photon?: Photon;
   versions?: PhotonVersion[];
-  versionView?: boolean;
   showDetail?: boolean;
-  extraActions?: boolean;
-}> = ({
-  photon,
-  versions,
-  versionView = false,
-  showDetail = false,
-  extraActions = false,
-}) => {
+}> = ({ photon, versions, showDetail = false }) => {
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
@@ -65,14 +57,19 @@ export const PhotonItem: FC<{
                   font-weight: 600;
                   font-size: 16px;
                 `}
-                icon={
+                icon={showDetail ? null : <PhotonIcon />}
+                term={
                   showDetail ? (
-                    <CarbonIcon icon={<WatsonHealth3DSoftware />} />
+                    <PhotonLabel
+                      showName
+                      id={photon.id}
+                      name={photon.name}
+                      created_at={photon.created_at}
+                    />
                   ) : (
-                    <PhotonIcon />
+                    photon.name
                   )
                 }
-                term={showDetail ? photon.id : photon.name}
               />
             </Link>
           </Col>
@@ -86,43 +83,46 @@ export const PhotonItem: FC<{
             <Actions
               relatedDeployments={relatedDeployments}
               photon={photon}
-              extraActions={extraActions}
+              extraActions={showDetail}
             />
           </Col>
         </Row>
       </Col>
-      {!versionView && (
+      {showDetail ? (
         <Col span={24}>
-          <Description.Item description={photon.model} />
+          <ExtraInfo deployments={relatedDeployments} photon={photon} />
         </Col>
-      )}
-      <Col span={24}>
-        <Row>
-          <Col flex="1 1 auto">
-            <Description.Container
-              css={css`
-                font-size: 12px;
-              `}
-            >
-              <PopoverDeploymentTable
-                photon={photon}
-                deployments={relatedDeployments}
-              />
-              {!versionView && (
-                <TimeDescription
-                  detail={showDetail}
-                  photon={photon}
-                  versions={versions}
-                />
-              )}
-              {versions && !showDetail && (
-                <VersionDescription photon={photon} versions={versions} />
-              )}
-            </Description.Container>
+      ) : (
+        <>
+          <Col span={24}>
+            <Description.Item description={photon.model} />
           </Col>
-        </Row>
-      </Col>
-      {showDetail && <ExtraInfo versionView={versionView} photon={photon} />}
+          <Col span={24}>
+            <Row>
+              <Col flex="1 1 auto">
+                <Description.Container
+                  css={css`
+                    font-size: 12px;
+                  `}
+                >
+                  <PopoverDeploymentTable
+                    photon={photon}
+                    deployments={relatedDeployments}
+                  />
+                  <TimeDescription
+                    detail={showDetail}
+                    photon={photon}
+                    versions={versions}
+                  />
+                  {versions && (
+                    <VersionDescription photon={photon} versions={versions} />
+                  )}
+                </Description.Container>
+              </Col>
+            </Row>
+          </Col>
+        </>
+      )}
     </Row>
   ) : (
     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No photon found" />

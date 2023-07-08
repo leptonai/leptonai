@@ -1,17 +1,16 @@
-import { Time } from "@carbon/icons-react";
+import { WatsonHealth3DSoftware } from "@carbon/icons-react";
 import { FC, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Col, Empty, Row, Timeline, Typography } from "antd";
+import { Col, Empty, Row, Timeline } from "antd";
 import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import dayjs from "dayjs";
-import { CarbonIcon, PhotonIcon } from "@lepton-dashboard/components/icons";
+import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 
@@ -63,24 +62,19 @@ export const Versions: FC = () => {
                 return {
                   key: m.id,
                   color: theme.colorTextSecondary,
-                  dot: <CarbonIcon icon={<Time />} />,
+                  dot: <WatsonHealth3DSoftware />,
                   children: (
-                    <Col key={m.id} span={24}>
-                      <Typography.Paragraph
-                        style={{ paddingTop: "1px" }}
-                        type="secondary"
-                      >
-                        Created at {dayjs(m.created_at).format("lll")}
-                      </Typography.Paragraph>
-                      <Card shadowless>
-                        <PhotonItem
-                          versionView
-                          extraActions
-                          photon={m}
-                          showDetail
-                        />
-                      </Card>
-                    </Col>
+                    <Card
+                      css={css`
+                        position: relative;
+                        top: -1px;
+                      `}
+                      shadowless
+                      paddingless
+                      borderless
+                    >
+                      <PhotonItem photon={m} showDetail />
+                    </Card>
                   ),
                 };
               })}

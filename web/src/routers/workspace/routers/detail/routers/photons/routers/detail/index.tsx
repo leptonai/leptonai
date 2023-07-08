@@ -42,7 +42,7 @@ export const Detail: FC = () => {
       </Col>
       <Col span={24}>
         <Card>
-          <PhotonItem photon={photon} showDetail extraActions />
+          <PhotonItem photon={photon} showDetail />
         </Card>
       </Col>
     </Row>

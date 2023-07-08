@@ -1,65 +1,94 @@
+import { CopyFile } from "@carbon/icons-react";
+import { DateParser } from "@lepton-dashboard/components/date-parser";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
+import { Deployment } from "@lepton-dashboard/interfaces/deployment";
+import { PopoverDeploymentTable } from "@lepton-dashboard/routers/workspace/components/photon-item/components/popover-deployment-table";
 import { FC } from "react";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Col } from "antd";
-import { css } from "@emotion/react";
-import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import {
-  CopyLink,
-  Link as CarbonLink,
-  Parameter,
-  PortOutput,
-  Txt,
-  WorkspaceImport,
-} from "@carbon/icons-react";
+import { Descriptions, Typography } from "antd";
 
-export const ExtraInfo: FC<{ photon: Photon; versionView: boolean }> = ({
-  photon,
-  versionView,
-}) => {
-  const theme = useAntdTheme();
-
+export const ExtraInfo: FC<{
+  photon: Photon;
+  deployments: Deployment[];
+}> = ({ photon, deployments }) => {
   return (
-    <Col
-      span={24}
-      css={css`
-        color: ${theme.colorTextDescription};
-        font-size: 12px;
-      `}
+    <ThemeProvider
+      token={{
+        fontSize: 12,
+        paddingXS: 6,
+      }}
     >
-      {versionView && (
-        <Description.Item
-          icon={<CarbonIcon icon={<CopyLink />} />}
-          term="Model"
-          description={photon.model}
-        />
-      )}
-      <Description.Item
-        icon={<CarbonIcon icon={<Parameter />} />}
-        term="Arguments"
-        description={photon.container_args?.join(", ") || "-"}
-      />
-      <Description.Item
-        icon={<CarbonIcon icon={<Txt />} />}
-        term="Requirements"
-        description={photon.requirement_dependency?.join(", ") || "-"}
-      />
-      <Description.Item
-        icon={<CarbonIcon icon={<WorkspaceImport />} />}
-        term="Entrypoint"
-        description={photon.entrypoint || "-"}
-      />
-      <Description.Item
-        term="Exposed Ports"
-        icon={<CarbonIcon icon={<PortOutput />} />}
-        description={photon.exposed_ports?.join(", ") || "-"}
-      />
-      <Description.Item
-        term="Image URL"
-        icon={<CarbonIcon icon={<CarbonLink />} />}
-        description={photon.image || "-"}
-      />
-    </Col>
+      <Descriptions bordered size="small" column={1}>
+        <Descriptions.Item label="Created at">
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            <DateParser detail date={photon.created_at} />
+          </Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Model">
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            {photon.model}
+          </Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Deployments">
+          <PopoverDeploymentTable photon={photon} deployments={deployments} />
+        </Descriptions.Item>
+        {photon.container_args && photon.container_args.length && (
+          <Descriptions.Item label="Arguments">
+            <Typography.Text
+              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+            >
+              {photon.container_args?.join(", ")}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
+        {photon.requirement_dependency &&
+          photon.requirement_dependency.length && (
+            <Descriptions.Item label="Requirements depedency">
+              {photon.requirement_dependency?.map((d) => (
+                <div key={d}>{d}</div>
+              ))}
+            </Descriptions.Item>
+          )}
+        {photon.system_dependency && photon.system_dependency.length && (
+          <Descriptions.Item label="System dendency">
+            {photon.system_dependency?.map((d) => (
+              <div key={d}>{d}</div>
+            ))}
+          </Descriptions.Item>
+        )}
+        {photon.entrypoint && (
+          <Descriptions.Item label="Entrypoint">
+            <Typography.Text
+              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+            >
+              {photon.entrypoint}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
+        {photon.exposed_ports && photon.exposed_ports.length && (
+          <Descriptions.Item label="Exposed ports">
+            <Typography.Text
+              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+            >
+              {photon.exposed_ports?.join(", ")}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
+        {photon.image && (
+          <Descriptions.Item label="Image URL">
+            <Typography.Text
+              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+            >
+              {photon.image}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
+      </Descriptions>
+    </ThemeProvider>
   );
 };
