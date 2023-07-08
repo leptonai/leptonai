@@ -27,15 +27,6 @@ from leptonai.api.storage import check_path_exists
 console = Console(highlight=False)
 
 
-def get_workspace_url(ctx, param, value):
-    value = workspace.get_workspace_url(value)
-    if value is not None:
-        console.print(f"Using workspace: [green]{value}[/green]")
-    else:
-        console.print("Using [green]local server[/green]")
-    return value
-
-
 def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
     """Returns a list of photon ids for a given name, in the order newest to
     oldest. If no photon of such name exists, returns None.

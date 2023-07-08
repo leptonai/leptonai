@@ -1,15 +1,19 @@
 import click
-import requests
 import sys
 
 from rich.console import Console
 from rich.table import Table
-from urllib.parse import urlparse
 
 from leptonai.api import workspace as api
 from leptonai.config import CACHE_DIR
-from leptonai.util import create_header, get_full_workspace_api_url
-from .util import click_group
+from leptonai.util import get_full_workspace_api_url
+from .util import (
+    click_group,
+    is_valid_url,
+    get_workspace_and_token_or_die,
+    check,
+    guard_api,
+)
 
 console = Console(highlight=False)
 
@@ -19,11 +23,6 @@ WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 @click_group()
 def workspace():
     pass
-
-
-def _is_valid_url(candidate_str):
-    parsed = urlparse(candidate_str)
-    return parsed.scheme != "" and parsed.netloc != ""
 
 
 def _register_and_set(workspace_name, workspace_url, auth_token=None):
@@ -114,7 +113,7 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             workspace_url = get_full_workspace_api_url(workspace_name)
             _register_and_set(workspace_name, workspace_url, auth_token=auth_token)
     elif workspace_url:
-        if not _is_valid_url(workspace_url):
+        if not is_valid_url(workspace_url):
             console.print(
                 f"[red]{workspace_url}[/] does not seem to be a valid URL. Please"
                 " check."
@@ -144,22 +143,27 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
     # at this point that we can use to log in.
     if not dry_run:
         # do sanity checks.
-        try:
-            auth_token = api.get_auth_token(workspace_url)
-            # TODO: change the url from /cluster to /workspace once platform has also renamed it.
-            response = requests.get(
-                workspace_url + "/cluster", headers=create_header(auth_token)
-            )
-        except Exception as e:
-            console.print("[red]Cannot connect to the workspace url.[/]")
-            console.print("Include the following exception message when you seek help:")
-            console.print(str(e))
-            sys.exit(1)
-        console.print(
-            f"Workspace info: build_time={response.json()['build_time']},"
-            f" git_commit={response.json()['git_commit']}"
+        url, auth_token = get_workspace_and_token_or_die()
+        check(
+            workspace_url == url,
+            (
+                "You have encountered a programming error: workspace url mismatch."
+                " Please report an issue."
+            ),
         )
-    console.print(f"Workspace {workspace_name} ({workspace_url}) [green]logged in[/]")
+        cluster_info = guard_api(
+            api.get_cluster_info(workspace_url, auth_token),
+            detail=True,
+            msg=(
+                f"Cannot properly log into workspace [red]{workspace_name}. See error"
+                " message above."
+            ),
+        )
+        console.print(
+            f"Workspace info: build_time={cluster_info['build_time']},"
+            f" git_commit={cluster_info['git_commit']}"
+        )
+    console.print(f"Workspace [green]{workspace_name}[/] ({workspace_url}) logged in.")
 
 
 @workspace.command()
