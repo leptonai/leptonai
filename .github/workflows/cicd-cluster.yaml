@@ -81,10 +81,25 @@ jobs:
       env:
           NAMESPACE: clusterci${{ steps.vars.outputs.short_sha }}
       run: |
-        # TODO: check state to make sure the deletion succeeds
         curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
           -X DELETE \
           ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE
+
+        # TODO: do the wait in mothership cli
+        END=$(date -ud "10 minutes" +%s)
+        while (( $(date +%s) < $END )); do
+          sleep 10
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+            ${{ vars.MOTHERSHIP_URL }}/workspaces/"$NAMESPACE")
+          echo $(date) "workspace get response code:" $RESPONSE
+          if [ "$RESPONSE" = "404" ] || [ "$RESPONSE" = "500" ]; then
+            echo "Workspace deleted."
+            exit 0
+          fi
+        done
+
+        echo $(date) "workspace deletion timeout after 10 minutes."
+        exit 1
     - name: Delete cluster
       if: always()
       run: |
