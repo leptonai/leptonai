@@ -1,11 +1,16 @@
+import requests
 import yaml
 
 from leptonai.config import CACHE_DIR
+from .util import create_header, json_or_error
 
 WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 
 
 def load_workspace_info():
+    """
+    Loads the workspace info file.
+    """
     workspace_info = {"workspaces": {}, "current_workspace": None}
     if WORKSPACE_FILE.exists():
         with open(WORKSPACE_FILE) as f:
@@ -14,6 +19,9 @@ def load_workspace_info():
 
 
 def save_workspace(name, url, terraform_dir=None, auth_token=None):
+    """
+    Saves a workspace by adding it to the workspace info file.
+    """
     workspace_info = load_workspace_info()
     workspace_info["workspaces"][name] = {}
     workspace_info["workspaces"][name]["url"] = url
@@ -25,6 +33,9 @@ def save_workspace(name, url, terraform_dir=None, auth_token=None):
 
 
 def remove_workspace(name):
+    """
+    Removes the workspace with the given name.
+    """
     workspace_info = load_workspace_info()
     workspace_info["workspaces"].pop(name)
     if workspace_info["current_workspace"] == name:
@@ -34,22 +45,34 @@ def remove_workspace(name):
 
 
 def set_current_workspace(name):
+    """
+    Sets the current workspace to the given name.
+    """
     workspace_info = load_workspace_info()
+    if name and name not in workspace_info["workspaces"]:
+        raise ValueError(f"Workspace {name} does not exist.")
     workspace_info["current_workspace"] = name
     with open(WORKSPACE_FILE, "w") as f:
         yaml.safe_dump(workspace_info, f)
 
 
 def get_auth_token(workspace_url):
+    """
+    Gets the current workspace auth token.
+    """
     #  TODO: Store current auth token in yaml for constant time access
     workspace_info = load_workspace_info()
     for _, vals in workspace_info["workspaces"].items():
         if vals["url"] == workspace_url:
             return vals["auth_token"]
-    return None
+    else:
+        return None
 
 
-def get_current_workspace_url():
+def get_workspace_url():
+    """
+    Gets the current workspace url.
+    """
     workspace_info = load_workspace_info()
     current_workspace = workspace_info["current_workspace"]
     if current_workspace is None:
@@ -58,7 +81,9 @@ def get_current_workspace_url():
     return workspaces[current_workspace]["url"]
 
 
-def get_workspace_url(workspace_url=None):
-    if workspace_url is not None:
-        return workspace_url
-    return get_current_workspace_url()
+def get_cluster_info(url: str, auth_token: str):
+    """
+    List all secrets on a workspace.
+    """
+    response = requests.get(url + "/cluster", headers=create_header(auth_token))
+    return json_or_error(response)

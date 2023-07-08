@@ -24,7 +24,7 @@ class TestDeploymentCliLocal(unittest.TestCase):
         # missing required --name option
         result = runner.invoke(cli, ["deployment", "list"])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("No workspace found", result.output)
+        self.assertIn("It seems that you are not logged in", result.output)
 
     def test_deployment_create(self):
         runner = CliRunner()

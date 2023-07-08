@@ -2,29 +2,26 @@ from contextlib import contextmanager
 import json
 import os
 import re
-from typing import Dict
 
 from rich.console import Console
+
+from leptonai.config import WORKSPACE_URL_TEMPLATE, WORKSPACE_API_PATH
 
 console = Console(highlight=False)
 
 
 def get_full_workspace_url(workspace_name):
-    return f"https://{workspace_name}.cloud.lepton.ai"
+    """
+    Get the full URL for a workspace.
+    """
+    return WORKSPACE_URL_TEMPLATE.format(workspace_name=workspace_name)
 
 
 def get_full_workspace_api_url(workspace_name):
-    return get_full_workspace_url(workspace_name) + "/api/v1"
-
-
-def create_header(auth_token: str) -> Dict[str, str]:
     """
-    Generate HTTP header for a request given an auth token.
-    :param str auth_token: auth token to use in the header
-    :return: the generated HTTP header
-    :rtype: dict[str, str]
+    Get the full URL for the API of a workspace.
     """
-    return {"Authorization": "Bearer " + auth_token} if auth_token else {}
+    return get_full_workspace_url(workspace_name) + WORKSPACE_API_PATH
 
 
 def check_and_print_http_error(response):

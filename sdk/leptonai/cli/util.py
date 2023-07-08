@@ -3,6 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
+from urllib.parse import urlparse
 
 import click
 
@@ -44,6 +45,11 @@ def click_group(*args, **kwargs):
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
 
 
+def is_valid_url(candidate_str):
+    parsed = urlparse(candidate_str)
+    return parsed.scheme != "" and parsed.netloc != ""
+
+
 def get_workspace_and_token_or_die():
     """
     Gets the workspace URL and auth token or exits if they are not found.
@@ -52,12 +58,15 @@ def get_workspace_and_token_or_die():
     """
     workspace_url = workspace.get_workspace_url()
     if workspace_url is None:
-        console.print("No workspace found. Please run `lep workspace login` first.")
+        console.print(
+            "It seems that you are not logged in. Please run `lep workspace login`"
+            " first."
+        )
         sys.exit(1)
     auth_token = workspace.get_auth_token(workspace_url)
     if auth_token is None:
-        console.print("No auth token found. Please run `lep workspace login` first.")
-        sys.exit(1)
+        # TODO: should this actually be a programming error?
+        console.print("Warning: you don't seem to have a valid authentication token.")
     return workspace_url, auth_token
 
 

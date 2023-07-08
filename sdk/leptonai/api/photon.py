@@ -8,7 +8,8 @@ from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add
 from leptonai import photon as _photon  # noqa: F401
 from leptonai.photon import hf as _hf  # noqa: F401
 from leptonai.config import CACHE_DIR
-from leptonai.util import create_header, check_and_print_http_error, check_photon_name
+from leptonai.util import check_and_print_http_error, check_photon_name
+from .util import create_header
 
 
 def create(name: str, model: Any) -> BasePhoton:
