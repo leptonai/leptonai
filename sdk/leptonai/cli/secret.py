@@ -3,17 +3,18 @@ Secret is a module that provides a way to manage secrets on a workspace.
 """
 
 import click
-import sys
 
-from rich.console import Console
 from rich.table import Table
 
-import leptonai.api.workspace as workspace
-from .util import click_group
+from .util import (
+    console,
+    check,
+    click_group,
+    guard_api,
+    get_workspace_and_token_or_die,
+    explain_response,
+)
 from leptonai.api import secret as api
-
-
-console = Console(highlight=False)
 
 
 @click_group()
@@ -25,38 +26,40 @@ def secret():
 @click.option("--name", "-n", help="Secret name", multiple=True)
 @click.option("--value", "-v", help="Secret value", multiple=True)
 def create(name, value):
-    if len(name) == 0:
-        console.print("No secret name given.")
-        sys.exit(1)
-    if len(name) != len(value):
-        console.print("Number of names and values must be the same.")
-        sys.exit(1)
-
-    workspace_url = workspace.get_workspace_url()
-    if workspace_url is None:
-        console.print("No workspace found. Please run `lep workspace login` first.")
-        sys.exit(1)
-    auth_token = workspace.get_auth_token(workspace_url)
+    """
+    Creates secrets with the given name and value. The name and value can be specified multiple
+    times to create multiple secrets at once.
+    """
+    check(len(name), "No secret name given.")
+    check(len(name) == len(value), "Number of names and values must be the same.")
+    workspace_url, auth_token = get_workspace_and_token_or_die()
     existing_secrets = api.list_secret(workspace_url, auth_token)
-    for n in name:
-        if existing_secrets and n in existing_secrets:
-            console.print(
-                f"Secret with name {n} already exists. Please use a different name or"
-                " remove the existing secret with `lep secret remove` first."
+    if existing_secrets:
+        for n in name:
+            check(
+                n not in existing_secrets,
+                (
+                    f"Secret with name [red]{n}[/] already exists. Please use a"
+                    " different name or remove the existing secret with `lep secret"
+                    " remove` first."
+                ),
             )
-            sys.exit(1)
-    api.create_secret(workspace_url, auth_token, name, value)
-    console.print(f"Secret created successfully: {', '.join(name)}.")
+    response = api.create_secret(workspace_url, auth_token, name, value)
+    explain_response(
+        response,
+        f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/].",
+        f"{response.text}\nCannot create secrets. See error message above.",
+        f"{response.text}\nInternal error. See error message above.",
+    )
 
 
 @secret.command()
 def list():
-    workspace_url = workspace.get_workspace_url()
-    if workspace_url is None:
-        console.print("No workspace found. Please run `lep workspace login` first.")
-        sys.exit(1)
-    auth_token = workspace.get_auth_token(workspace_url)
-    secrets = api.list_secret(workspace_url, auth_token)
+    """
+    Lists all secrets in the current workspace.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    secrets = guard_api(api.list_secret(workspace_url, auth_token))
     secrets.sort()
     table = Table(title="Secrets", show_lines=True)
     table.add_column("ID")
@@ -69,13 +72,17 @@ def list():
 @secret.command()
 @click.option("--name", "-n", help="Secret name")
 def remove(name):
-    workspace_url = workspace.get_workspace_url()
-    if workspace_url is None:
-        console.print("No workspace found. Please run `lep workspace login` first.")
-        sys.exit(1)
-    auth_token = workspace.get_auth_token(workspace_url)
-    api.remove_secret(workspace_url, auth_token, name)
-    console.print(f"Secret deleted successfully: {name}.")
+    """
+    Removes the secret with the given name.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    response = api.remove_secret(workspace_url, auth_token, name)
+    explain_response(
+        response,
+        f"Secret [green]{name}[/] deleted successfully.",
+        f"Secret [yellow]{name}[/] does not exist.",
+        f"{response.text}\nInternal error. See error message above.",
+    )
 
 
 def add_command(cli_group):

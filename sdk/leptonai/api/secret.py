@@ -1,8 +1,7 @@
 import requests
-import sys
 from typing import List
 
-from leptonai.util import create_header, check_and_print_http_error
+from .util import create_header, json_or_error
 
 
 def create_secret(url: str, auth_token: str, names: List[str], values: List[str]):
@@ -12,7 +11,7 @@ def create_secret(url: str, auth_token: str, names: List[str], values: List[str]
     :param str name: name of the secret
     :param str value: the value of the secret
 
-    :return: None
+    :return: the response from the server
     """
     request_body = [
         {"name": name, "value": value} for name, value in zip(names, values)
@@ -20,8 +19,7 @@ def create_secret(url: str, auth_token: str, names: List[str], values: List[str]
     response = requests.post(
         url + "/secrets", json=request_body, headers=create_header(auth_token)
     )
-    if check_and_print_http_error(response):
-        sys.exit(1)
+    return response
 
 
 def list_secret(url: str, auth_token: str):
@@ -29,20 +27,14 @@ def list_secret(url: str, auth_token: str):
     List all secrets on a workspace.
     """
     response = requests.get(url + "/secrets", headers=create_header(auth_token))
-    if check_and_print_http_error(response):
-        sys.exit(1)
-    return response.json()
+    return json_or_error(response)
 
 
 def remove_secret(url: str, auth_token: str, name: str):
     """
-    Remove a photon from a workspace.
-    :param str url: url of the workspace including the schema
-    (e.g. http://localhost:8000)
-    :param str id: id of the photon to remove
+    Remove a secret from a workspace.
     """
     response = requests.delete(
         url + "/secrets/" + name, headers=create_header(auth_token)
     )
-    if check_and_print_http_error(response):
-        sys.exit(1)
+    return response
