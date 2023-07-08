@@ -12,7 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var clusterName string
+var (
+	clusterName string
+	failure     bool
+)
 
 func init() {
 	cobra.EnablePrefixMatching = true
@@ -26,6 +29,7 @@ func NewCommand() *cobra.Command {
 		Run:   logsFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to fetch logs for")
+	cmd.PersistentFlags().BoolVarP(&failure, "failure", "f", false, "Fetch logs for failed clusters")
 	return cmd
 }
 
@@ -33,10 +37,17 @@ func logsFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
+	url := mothershipURL + "/" + clusterName
+	if failure {
+		url += "/failure"
+	} else {
+		url += "/logs"
+	}
+
 	req, err := http.NewRequestWithContext(
 		context.Background(),
 		"GET",
-		mothershipURL+"/"+clusterName+"/logs",
+		url,
 		nil,
 	)
 	if err != nil {

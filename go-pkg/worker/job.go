@@ -18,6 +18,7 @@ type Job struct {
 
 	wg           *sync.WaitGroup
 	failureCount int
+	failed       bool
 
 	logs  []string
 	logMu sync.Mutex
@@ -76,12 +77,14 @@ func (j *Job) run() {
 		case <-time.After(time.Duration(util.MinInt(j.failureCount*j.failureCount, 12)) * 10 * time.Second):
 			err := j.f(j.logCh)
 			if err == nil {
+				j.failed = false
 				close(j.logCh)
 				j.wg.Done()
 				return
 			}
 			log.Printf("job %s failed: %v", j.name, err)
 			j.failureCount++
+			j.failed = true
 		}
 	}
 }

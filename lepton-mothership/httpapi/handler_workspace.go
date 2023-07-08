@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -27,6 +28,16 @@ func HandleWorkspaceGetLogs(c *gin.Context) {
 	job := workspace.Worker.GetJob(wname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the workspace is not running"})
+		return
+	}
+	c.String(http.StatusOK, job.GetLog())
+}
+
+func HandleWorkspaceGetFailureLog(c *gin.Context) {
+	wname := c.Param("wsname")
+	job := workspace.Worker.GetLastFailedJob(wname)
+	if job == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("workspace %s has no failure", wname)})
 		return
 	}
 	c.String(http.StatusOK, job.GetLog())

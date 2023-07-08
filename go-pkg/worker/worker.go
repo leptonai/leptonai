@@ -8,8 +8,9 @@ import (
 )
 
 type Worker struct {
-	jobs map[string]*Job
-	mu   sync.Mutex
+	jobs       map[string]*Job
+	lastFailed map[string]*Job
+	mu         sync.Mutex
 }
 
 func New() *Worker {
@@ -34,6 +35,9 @@ func (w *Worker) CreateJob(timeout time.Duration, name string, f func(chan<- str
 		cencel()
 		w.mu.Lock()
 		defer w.mu.Unlock()
+		if job.failed {
+			w.lastFailed[name] = job
+		}
 		// TODO: do not delete, allowing people to see the log
 		delete(w.jobs, name)
 	}()
@@ -44,4 +48,10 @@ func (w *Worker) GetJob(name string) *Job {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.jobs[name]
+}
+
+func (w *Worker) GetLastFailedJob(name string) *Job {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.lastFailed[name]
 }

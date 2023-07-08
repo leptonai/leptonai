@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -34,6 +35,16 @@ func HandleClusterGetLogs(c *gin.Context) {
 	job := cluster.Worker.GetJob(cname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the cluster is not running"})
+		return
+	}
+	c.String(http.StatusOK, job.GetLog())
+}
+
+func HandleClusterGetFailureLog(c *gin.Context) {
+	cname := c.Param("clname")
+	job := cluster.Worker.GetLastFailedJob(cname)
+	if job == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("job %s has no failure", cname)})
 		return
 	}
 	c.String(http.StatusOK, job.GetLog())
