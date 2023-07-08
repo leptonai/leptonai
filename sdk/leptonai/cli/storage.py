@@ -56,6 +56,18 @@ def print_dir_contents(dir_path, dir_content_json):
 
 @click_group()
 def storage():
+    """
+    Manage storage on the Lepton AI cloud.
+
+    Lepton AI provides a storage service that allows you to store files and
+    directories on the cloud. The storage is persistent and is associated with
+    your workspace. You can mount the storage when you launch a photon and
+    access the files and directories from your photon code as if they were on
+    a standaord POSIX filesystem.
+
+    The storage commands allow you to list, upload, download, and delete files
+    and directories in your workspace.
+    """
     pass
 
 
@@ -83,8 +95,8 @@ def ls(path):
 @click.argument("path", type=str)
 def rm(path):
     """
-    Delete a file stored in a PV on the currently logged in remote server.
-    :param str path: relative path of the file or directory to delete
+    Delete a file in the storage of the current workspace. Note that wildcard is
+    not supported yet.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     check(
@@ -113,6 +125,10 @@ def rm(path):
 @storage.command()
 @click.argument("path", type=str)
 def rmdir(path):
+    """
+    Delete a directory in the storage of the current workspace. The directory
+    must be empty. Note that wildcard is not supported yet.
+    """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     check(
         api.check_path_exists(workspace_url, auth_token, path),
@@ -138,8 +154,7 @@ def rmdir(path):
 @click.argument("path", type=str)
 def mkdir(path):
     """
-    Create a directory on the currently logged in remote server.
-    :param str path: relative path of the directory to create
+    Create a directory in the storage of the current workspace.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     explain_response(
@@ -155,9 +170,7 @@ def mkdir(path):
 @click.argument("remote_path", type=str, default="/")
 def upload(local_path, remote_path):
     """
-    Upload a file to the currently logged in remote server.
-    :param str localpath: file path of the local file to upload
-    :param str remotepath: absolute path of the remote file to create
+    Upload a local file to the storage of the current workspace.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     # if the remote path is a directory, upload the file with its local name to that directory
@@ -177,9 +190,9 @@ def upload(local_path, remote_path):
 @click.argument("local_path", type=str, default="")
 def download(remote_path, local_path):
     """
-    Download a file from the currently logged in remote server.
-    :param str remotepath: absolute path of the remote file to download
-    :param str localpath: file path of the local file to create
+    Download a remote file from the storage of the current workspace to a local
+    file. If no local path is specified, the file will be downloaded to the
+    current working directory with the same name as the remote file.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
 
@@ -221,10 +234,3 @@ def download(remote_path, local_path):
 
 def add_command(click_group):
     click_group.add_command(storage)
-
-
-ALIASES = {
-    "up": upload,
-    "down": download,
-    "dl": download,
-}
