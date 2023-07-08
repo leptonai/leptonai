@@ -8,16 +8,16 @@ import { Button, Divider, Space } from "antd";
 import { FC, PropsWithChildren } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-export const CenterBox: FC<PropsWithChildren<{ width?: string }>> = ({
-  children,
-  width = `360px`,
-}) => {
+export const CenterBox: FC<
+  PropsWithChildren<{ width?: string; borderless?: boolean }>
+> = ({ children, width = `380px`, borderless = false }) => {
   const theme = useAntdTheme();
 
   return (
     <div
       css={css`
         height: 100%;
+        overflow: auto;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -35,9 +35,10 @@ export const CenterBox: FC<PropsWithChildren<{ width?: string }>> = ({
       <div
         css={css`
           flex: 0 1 auto;
-          width: ${width};
+          width: 100%;
+          max-width: ${width};
           padding: 32px;
-          margin: 24px 0;
+          margin: ${borderless ? 0 : "24px 0"};
           * {
             transition: none !important;
           }
@@ -46,7 +47,7 @@ export const CenterBox: FC<PropsWithChildren<{ width?: string }>> = ({
           text-align: center;
           border-style: solid;
           border-color: ${theme.colorTextHeading};
-          border-width: 1px 0;
+          border-width: ${borderless ? 0 : "1px 0"};
           background: ${theme.colorBgContainer};
         `}
       >

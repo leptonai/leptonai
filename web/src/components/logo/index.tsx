@@ -17,13 +17,13 @@ export const Logo: FC<{ size?: "default" | "large" } & EmotionProps> = ({
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${size === "default" ? "26px" : "32px"};
+        font-size: ${size === "default" ? "26px" : "38px"};
       `}
     >
       <LeptonIcon />
       <div
         css={css`
-          font-size: ${size === "default" ? "18px" : "24px;"};
+          font-size: ${size === "default" ? "18px" : "26px;"};
           margin-left: 12px;
           cursor: default;
           font-weight: 600;

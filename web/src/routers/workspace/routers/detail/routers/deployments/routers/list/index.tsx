@@ -74,7 +74,7 @@ export const List: FC = () => {
   }, [deployments, search, status, photonFilters, photonGroups]);
   return (
     <Row gutter={[8, 24]}>
-      <Col flex="1 1 auto">
+      <Col flex="1 0 auto">
         <Input
           autoFocus
           value={search}
@@ -95,7 +95,7 @@ export const List: FC = () => {
           onChange={(d) => setPhotonFilters((d as string[]) || [])}
         />
       </Col>
-      <Col flex="1 1 300px">
+      <Col flex="1 1 200px">
         <Select
           style={{ width: "100%" }}
           mode="multiple"
@@ -123,7 +123,7 @@ export const List: FC = () => {
           ]}
         />
       </Col>
-      <Col flex="1 1 180px">
+      <Col flex="0 1 180px">
         <CreateDeployment />
       </Col>
       <Col span={24}>

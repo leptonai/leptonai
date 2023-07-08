@@ -4,14 +4,14 @@ import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Col, Row, Typography } from "antd";
-import { FC } from "react";
+import { FC, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const SignAsOther: FC<{
   heading?: string;
   tips?: string;
-  waitlist?: boolean;
-}> = ({ heading, tips, waitlist = false }) => {
+  buttons?: ReactNode;
+}> = ({ heading, tips, buttons }) => {
   const navigate = useNavigate();
   const profileService = useInject(ProfileService);
   const authService = useInject(AuthService);
@@ -19,7 +19,7 @@ export const SignAsOther: FC<{
     <CenterBox>
       {heading && (
         <Typography.Title
-          level={3}
+          level={2}
           css={css`
             margin-top: 0;
           `}
@@ -35,23 +35,11 @@ export const SignAsOther: FC<{
             <strong>{profileService.profile?.oauth?.email}</strong>
           </Typography.Paragraph>
           <Row gutter={[16, 16]}>
-            {waitlist && (
-              <Col flex={1}>
-                <Button
-                  block
-                  size="large"
-                  type="primary"
-                  onClick={() => navigate("/waitlist", { relative: "route" })}
-                >
-                  Join waitlist
-                </Button>
-              </Col>
-            )}
+            {buttons}
             <Col flex={1}>
               <Button
                 block
                 type="primary"
-                size="large"
                 onClick={() =>
                   authService
                     .logout()
@@ -69,7 +57,6 @@ export const SignAsOther: FC<{
             Or the token is invalid or expired
           </Typography.Paragraph>
           <Button
-            size="large"
             type="primary"
             onClick={() => navigate("/login", { relative: "route" })}
           >

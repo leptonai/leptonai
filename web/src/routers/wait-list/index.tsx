@@ -9,16 +9,17 @@ import {
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 
-import { Button, Col, Form, Input, Row, Select } from "antd";
+import { Button, Col, Form, Input, Select } from "antd";
 import { FC, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const WaitList: FC = () => {
   useDocumentTitle("Join wait list");
   const profileService = useInject(ProfileService);
   const authService = useInject(AuthService);
+  const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const onFinish = (values: WaitlistEntry) => {
     setLoading(true);
     authService.joinWaitlist(values).subscribe({
@@ -32,7 +33,22 @@ export const WaitList: FC = () => {
     });
   };
   if (profileService.profile?.identification?.enable) {
-    return <SignAsOther heading="Your account is now available" />;
+    return (
+      <SignAsOther
+        buttons={
+          <Col flex={1}>
+            <Button
+              block
+              type="primary"
+              onClick={() => navigate("/", { relative: "route" })}
+            >
+              Go to workspace
+            </Button>
+          </Col>
+        }
+        heading="Your account is now available"
+      />
+    );
   } else if (submitted || profileService.profile?.identification?.name) {
     return (
       <SignAsOther
@@ -42,8 +58,9 @@ export const WaitList: FC = () => {
     );
   } else {
     return (
-      <CenterBox>
+      <CenterBox borderless width="500px">
         <Form
+          size="large"
           css={css`
             text-align: initial;
           `}
@@ -53,38 +70,26 @@ export const WaitList: FC = () => {
           <Form.Item name="name" rules={[{ required: true }]}>
             <Input autoFocus placeholder="Name*" />
           </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="company" rules={[{ required: true }]}>
-                <Input placeholder="Company*" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="role" rules={[{ required: true }]}>
-                <Input placeholder="Role*" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="companySize">
-                <Select
-                  options={[
-                    { label: "Micro (1-9)", value: "Micro (1-9)" },
-                    { label: "Small (10-49)", value: "Small (10-49)" },
-                    { label: "Medium (50-249)", value: "Medium (50-249)" },
-                    { label: "Large (>249)", value: "Large (>249)" },
-                  ]}
-                  placeholder="Company Size"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="industry">
-                <Input placeholder="Industry" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="company" rules={[{ required: true }]}>
+            <Input placeholder="Company*" />
+          </Form.Item>
+          <Form.Item name="role" rules={[{ required: true }]}>
+            <Input placeholder="Role*" />
+          </Form.Item>
+          <Form.Item name="companySize">
+            <Select
+              options={[
+                { label: "Micro (1-9)", value: "Micro (1-9)" },
+                { label: "Small (10-49)", value: "Small (10-49)" },
+                { label: "Medium (50-249)", value: "Medium (50-249)" },
+                { label: "Large (>249)", value: "Large (>249)" },
+              ]}
+              placeholder="Company Size"
+            />
+          </Form.Item>
+          <Form.Item name="industry">
+            <Input placeholder="Industry" />
+          </Form.Item>
           <Form.Item
             name="workEmail"
             rules={[{ type: "email", message: "Please enter a valid email" }]}
@@ -93,13 +98,7 @@ export const WaitList: FC = () => {
           </Form.Item>
 
           <Form.Item noStyle>
-            <Button
-              size="large"
-              loading={loading}
-              block
-              type="primary"
-              htmlType="submit"
-            >
+            <Button loading={loading} block type="primary" htmlType="submit">
               Join waitlist
             </Button>
           </Form.Item>
