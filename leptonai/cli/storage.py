@@ -1,13 +1,19 @@
+import os
+
 from rich.console import Console
 from rich.theme import Theme
-from leptonai.api import storage as api
 from .constants import STORAGE_DISPLAY_PREFIX_LAST, STORAGE_DISPLAY_PREFIX_MIDDLE
-import os
-import sys
 import click
 
-from leptonai.api import workspace
-from .util import click_group
+from leptonai.api import storage as api
+
+from .util import (
+    check,
+    click_group,
+    guard_api,
+    get_workspace_and_token_or_die,
+    explain_response,
+)
 
 custom_theme = Theme(
     {
@@ -16,16 +22,6 @@ custom_theme = Theme(
 )
 
 console = Console(highlight=False, theme=custom_theme)
-
-
-def must_get_remote_url():
-    url = workspace.get_current_workspace_url()
-    if url is not None:
-        return url
-    console.print(
-        "Not logged in to a remote server. Please log in using lep remote login"
-    )
-    sys.exit(1)
 
 
 def print_dir_contents(dir_path, dir_content_json):
@@ -67,20 +63,20 @@ def storage():
 @click.argument("path", type=str, default="/")
 def ls(path):
     """
-    List the contents of a directory of a PV on .
-    :param str path:
-    (e.g. http://localhost:8000)
+    List the contents of a directory of the current storage.
     """
-    url = must_get_remote_url()
-    if not api.check_path_exists(url, path):
-        console.print(f"[bold red]{path} not found[/]")
-        sys.exit(1)
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    check(
+        api.check_path_exists(workspace_url, auth_token, path),
+        f"[red]{path}[/] not found",
+    )
 
-    response = api.get_dir(url, path)
-    if not response:
-        console.print(f"ls [red]{path}[/] failed")
-        sys.exit(1)
-    print_dir_contents(path, response.json())
+    path_content = guard_api(
+        api.get_dir(workspace_url, auth_token, path),
+        detail=True,
+        msg=f"ls [red]{path}[/] failed. See error message above.",
+    )
+    print_dir_contents(path, path_content)
 
 
 @storage.command()
@@ -90,47 +86,52 @@ def rm(path):
     Delete a file stored in a PV on the currently logged in remote server.
     :param str path: relative path of the file or directory to delete
     """
-    url = must_get_remote_url()
-    if not api.check_path_exists(url, path):
-        console.print(f"[bold red]{path} not found[/]")
-        sys.exit(1)
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    check(
+        api.check_path_exists(workspace_url, auth_token, path),
+        f"[red]{path}[/] not found.",
+    )
 
-    file_type = api.check_file_type(url, path)
-    if file_type is None:
-        console.print(f"[bold red]{path} not found[/]")
-        sys.exit(1)
-    if file_type == "dir":
-        console.print(f"[bold red]{path} is a directory[/]")
-        console.print(f"Use [bold red]rmdir {path}[/] to delete directories")
-        sys.exit(1)
+    file_type = api.check_file_type(workspace_url, auth_token, path)
+    check(file_type is not None, f"[red]{path}[/] not found")
+    check(
+        file_type != "dir",
+        (
+            f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
+            " directories."
+        ),
+    )
 
-    if not api.remove_file_or_dir(url, path):
-        console.print(f"[bold red]rm {path} failed[/]")
-        sys.exit(1)
-    console.print(f"Deleted {path}")
+    explain_response(
+        api.remove_file_or_dir(workspace_url, auth_token, path),
+        f"Deleted [green]{path}[/].",
+        f"[red]rm {path}[/] failed. See error above",
+        f"[red]rm {path}[/] failed. Internal service error.",
+    )
 
 
 @storage.command()
 @click.argument("path", type=str)
 def rmdir(path):
-    url = must_get_remote_url()
-    if not api.check_path_exists(url, path):
-        console.print(f"[bold red]{path} not found[/]")
-        sys.exit(1)
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    check(
+        api.check_path_exists(workspace_url, auth_token, path),
+        f"[red]{path}[/] not found",
+    )
 
-    file_type = api.check_file_type(url, path)
-    if file_type is None:
-        console.print(f"[bold red]{path} not found[/]")
-        sys.exit(1)
-    if file_type == "file":
-        console.print(f"[bold red]{path} is a file[/]")
-        console.print(f"Use [bold red]rm {path}[/] to delete files")
-        sys.exit(1)
+    file_type = api.check_file_type(workspace_url, auth_token, path)
+    check(file_type is not None, f"[red]{path}[/] not found")
+    check(
+        file_type == "dir",
+        f"[red]{path}[/] is a file. Use [red]rm {path}[/] to delete files.",
+    )
 
-    if not api.remove_file_or_dir(url, path):
-        console.print(f"[bold red]rmdir {path} failed[/]")
-        sys.exit(1)
-    console.print(f"Deleted {path}")
+    explain_response(
+        api.remove_file_or_dir(workspace_url, auth_token, path),
+        f"Deleted [green]{path}[/].",
+        f"[red]rmdir {path}[/] failed. See error above.",
+        f"[red]rmdir {path}[/] failed. Internal service error.",
+    )
 
 
 @storage.command()
@@ -140,11 +141,13 @@ def mkdir(path):
     Create a directory on the currently logged in remote server.
     :param str path: relative path of the directory to create
     """
-    url = must_get_remote_url()
-    if not api.create_dir(url, path):
-        console.print(f"[bold red]mkdir {path} failed[/]")
-        sys.exit(1)
-    console.print(f"Created directory [green]{path}[/]")
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    explain_response(
+        api.create_dir(workspace_url, auth_token, path),
+        f"Created directory [green]{path}[/].",
+        f"[red]mkdir {path}[/] failed. See error above.",
+        f"[red]mkdir {path}[/] failed. Internal service error.",
+    )
 
 
 @storage.command()
@@ -156,15 +159,17 @@ def upload(local_path, remote_path):
     :param str localpath: file path of the local file to upload
     :param str remotepath: absolute path of the remote file to create
     """
-    url = must_get_remote_url()
+    workspace_url, auth_token = get_workspace_and_token_or_die()
     # if the remote path is a directory, upload the file with its local name to that directory
     if remote_path[-1] == "/":
         remote_path = remote_path + local_path.split("/")[-1]
 
-    if not api.upload_file(url, local_path, remote_path):
-        console.print(f"[bold red]upload {local_path} to {remote_path} failed[/]")
-        sys.exit(1)
-    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
+    explain_response(
+        api.upload_file(workspace_url, auth_token, local_path, remote_path),
+        f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]",
+        f"[red]upload {local_path} to {remote_path}[/] failed. See error above.",
+        f"[red]upload {local_path} to {remote_path}[/] failed. Internal service error.",
+    )
 
 
 @storage.command()
@@ -176,14 +181,16 @@ def download(remote_path, local_path):
     :param str remotepath: absolute path of the remote file to download
     :param str localpath: file path of the local file to create
     """
-    url = must_get_remote_url()
+    workspace_url, auth_token = get_workspace_and_token_or_die()
 
-    if not api.check_path_exists(url, remote_path):
-        console.print(f"[bold red]{remote_path} not found[/]")
-        sys.exit(1)
-    if not api.check_file_type(url, remote_path) == "file":
-        console.print(f"[bold red]{remote_path} is not a file[/]")
-        sys.exit(1)
+    check(
+        api.check_path_exists(workspace_url, auth_token, remote_path),
+        f"[red]{remote_path}[/] not found",
+    )
+    check(
+        api.check_file_type(workspace_url, auth_token, remote_path) == "file",
+        f"[red]{remote_path}[/] is not a file",
+    )
 
     remote_file_name = remote_path.split("/")[-1]
     # handle no local path specified by using cwd
@@ -196,13 +203,19 @@ def download(remote_path, local_path):
     if os.path.isdir(local_path):
         local_path = os.path.join(local_path, remote_file_name)
     # check if local path's parent directory exists
-    if not os.path.exists(os.path.dirname(local_path)):
-        console.print(f"[bold red]local path {local_path} does not exist[/]")
-        sys.exit(1)
+    check(
+        os.path.exists(os.path.dirname(local_path)),
+        f"[red]local path {local_path} does not exist[/]",
+    )
 
-    if not api.download_file(url, remote_path, local_path):
-        console.print(f"[bold red]download {remote_path} to {local_path} failed[/]")
-        sys.exit(1)
+    guard_api(
+        api.download_file(workspace_url, auth_token, remote_path, local_path),
+        detail=True,
+        msg=(
+            f"[red]download {remote_path} to {local_path} failed[/]. See error message"
+            " above."
+        ),
+    )
     console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 

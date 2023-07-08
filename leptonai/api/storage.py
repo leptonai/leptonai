@@ -1,30 +1,31 @@
-from leptonai.util import create_header, check_and_print_http_error
-from leptonai.api import workspace
-import requests
 import os
+import requests
+
+from .util import create_header, json_or_error, APIError
 
 
-def get_dir(remote_url, file_path):
+def _prepend_separator(file_path):
+    """
+    Utility function to add leading slash to relative paths if needed
+    """
+    return file_path if file_path.startswith("/") else "/" + file_path
+
+
+def get_dir(url: str, auth_token: str, file_path: str):
     """
     Get the contents of a directory on the currently logged in remote server.
-    :param str url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
     :param str file_path: path to the directory on the remote server
     """
-    req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
-    response = requests.get(req_url, headers=create_header(auth_token))
-    if check_and_print_http_error(response):
-        return None
-    return response
+    response = requests.get(
+        f"{url}/storage/default{_prepend_separator(file_path)}",
+        headers=create_header(auth_token),
+    )
+    return json_or_error(response)
 
 
-def check_file_type(remote_url, file_path):
+def check_file_type(url: str, auth_token: str, file_path: str):
     """
     Check if the contents at file_path stored on the remote server are a file or a directory.
-
-    :param str remote_url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
 
     :param str file_path: path to the file or directory on the remote server
 
@@ -32,14 +33,13 @@ def check_file_type(remote_url, file_path):
     """
     # json output of get_dir does not include trailing separators
     file_path = file_path.rstrip(os.sep)
-    file_path = prepend_separator(file_path)
+    file_path = _prepend_separator(file_path)
     parent_dir = "/" if os.path.dirname(file_path) == "" else os.path.dirname(file_path)
 
-    response = get_dir(remote_url, parent_dir)
-    if not response:
+    parent_contents = get_dir(url, auth_token, parent_dir)
+    if isinstance(parent_contents, APIError):
         return None
 
-    parent_contents = response.json()
     base = os.path.basename(file_path)
     for item in parent_contents:
         if item["name"] == base:
@@ -47,74 +47,55 @@ def check_file_type(remote_url, file_path):
     return None
 
 
-def check_path_exists(remote_url, file_path):
+def check_path_exists(url: str, auth_token: str, file_path: str):
     """
     Check if the contents at file_path exist on the remote server.
-
-    :param str remote_url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
 
     :param str file_path: path to the file or directory on the remote server
     """
 
-    req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
+    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
     response = requests.head(req_url, headers=create_header(auth_token))
     return response.status_code == 200
 
 
-def remove_file_or_dir(remote_url, file_path):
+def remove_file_or_dir(url: str, auth_token: str, file_path: str):
     """
     Remove a file or directory on the currently logged in remote server.
-    :param str remote_url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
+
     :param str file_path: path to the file or directory on the remote server
     """
-    req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
+    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
     response = requests.delete(req_url, headers=create_header(auth_token))
-    if response.status_code == 404:
-        return False
-    if check_and_print_http_error(response):
-        return False
-    return True
+    return response
 
 
-def create_dir(remote_url, file_path):
+def create_dir(url: str, auth_token: str, file_path: str):
     """
     Create a directory on the currently logged in remote server.
-    :param str url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
     :param str file_path: path to the directory on the remote server
     """
-    req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
+    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
     response = requests.put(req_url, headers=create_header(auth_token))
-    if check_and_print_http_error(response):
-        return False
-    return True
+    return response
 
 
-def upload_file(remote_url, local_path, remote_path):
+def upload_file(url: str, auth_token: str, local_path: str, remote_path: str):
     """
     Upload a file to the currently logged in remote server.
-    :param str url: url of the remote server including the schema
-    (e.g. http://localhost:8000/api/v1)
+
     :param str local_path: path to the file on the local machine
     :param str remote_path: path to the file on the remote server
     """
-    req_url = f"{remote_url}/storage/default{prepend_separator(remote_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
+    req_url = f"{url}/storage/default{_prepend_separator(remote_path)}"
     with open(local_path, "rb") as file:
         response = requests.post(
             req_url, files={"file": file}, headers=create_header(auth_token)
         )
-        if check_and_print_http_error(response):
-            return False
-        return True
+        return response
 
 
-def download_file(remote_url, remote_path, local_path):
+def download_file(url: str, auth_token: str, remote_path: str, local_path: str):
     """
     Download a file from the currently logged in remote server.
     :param str url: url of the remote server including the schema
@@ -122,25 +103,27 @@ def download_file(remote_url, remote_path, local_path):
     :param str remote_path: path to the file on the remote server
     :param str local_path: absolute path to the file on the local machine
     """
-    req_url = f"{remote_url}/storage/default{prepend_separator(remote_path)}"
-    auth_token = workspace.get_auth_token(remote_url)
+    req_url = f"{url}/storage/default{_prepend_separator(remote_path)}"
     response = requests.get(req_url, headers=create_header(auth_token), stream=True)
-    if check_and_print_http_error(response):
-        return False
-    try:
-        with open(local_path, "wb") as file:
-            for chunk in response.iter_content(chunk_size=4096):
-                if chunk:
-                    file.write(chunk)
-    except Exception as e:
-        print(f"Could not download file to {local_path}")
-        (print(f"Error: {e}"))
-        return False
-    return True
-
-
-def prepend_separator(file_path):
-    # add leading slash to relative paths
-    if not file_path.startswith("/"):
-        file_path = "/" + file_path
-    return file_path
+    if response.status_code >= 200 and response.status_code <= 299:
+        # download file
+        try:
+            with open(local_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=4096):
+                    if chunk:
+                        file.write(chunk)
+        except Exception as e:
+            print(f"Could not download file to {local_path}")
+            (print(f"Error: {e}"))
+            # We will return an APIError with the response status code 200,
+            # but append the error message to the APIError message.
+            err = APIError(response)
+            err.message += (
+                f"Could not download file to {local_path}. Encountered error: {e}"
+            )
+            return err
+        # If success, we will return a json dict with key being name and value being
+        # the local path to the file.
+        return {"name": local_path}
+    else:
+        return APIError(response)
