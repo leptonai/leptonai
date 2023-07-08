@@ -10,6 +10,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   height: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 #root {
