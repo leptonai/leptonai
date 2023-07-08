@@ -11,14 +11,18 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 import click
-from .base import find_all_local_photons, find_local_photon, remove_local_photon
-from . import api
-import leptonai.workspace as workspace
-from leptonai.util import click_group
+from leptonai.photon.base import (
+    find_all_local_photons,
+    find_local_photon,
+    remove_local_photon,
+)
+from leptonai.api import photon as api
+from leptonai.api import workspace
+from .util import click_group
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
-from leptonai.deployment.api import list_deployment
-from leptonai.storage.api import check_path_exists
+from leptonai.api.deployment import list_deployment
+from leptonai.api.storage import check_path_exists
 
 console = Console(highlight=False)
 
@@ -110,7 +114,7 @@ def remove(name, local, id_, all_):
 
     if not local and workspace_url is not None:
         # Remove remote photon.
-        auth_token = workspace.cli.get_auth_token(workspace_url)
+        auth_token = workspace.get_auth_token(workspace_url)
         # Find ids that we need to remove
         if name:
             # Remove all versions of the photon.
@@ -164,7 +168,7 @@ def list(local, pattern):
 
     if workspace_url is not None and not local:
         console.print(f"Using workspace: [green]{workspace_url}[/green]")
-        auth_token = workspace.cli.get_auth_token(workspace_url)
+        auth_token = workspace.get_auth_token(workspace_url)
         photons = api.list_remote(workspace_url, auth_token)
         # Note: created_at returned by the server is in milliseconds, and as a
         # result we need to divide by 1000 to get seconds that is understandable
@@ -325,7 +329,7 @@ def run(
 
     if not local and workspace_url is not None:
         # remote execution.
-        auth_token = workspace.cli.get_auth_token(workspace_url)
+        auth_token = workspace.get_auth_token(workspace_url)
         # We first check if id is specified - this is the most specific way to
         # refer to a photon. If not, we will check if name is specified - this
         # might lead to multiple photons, so we will pick the latest one to run
@@ -545,7 +549,7 @@ def push(name):
         console.print(f"Photon [red]{name}[/] does not exist.")
         sys.exit(1)
 
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     if not api.push(path, workspace_url, auth_token):
         console.print(f"Photon [red]{name}[/] failed to push.")
         sys.exit(1)
@@ -563,7 +567,7 @@ def fetch(id, path):
             "To fetch a photon, you must first log in ($lepton workspace login) "
             "to specify a workspace"
         )
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     photon = api.fetch(id, workspace_url, path, auth_token)
     console.print(f"Photon [green]{photon.name}:{id}[/] fetched.")
 
