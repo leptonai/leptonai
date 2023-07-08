@@ -1,15 +1,15 @@
 import click
 import requests
 import sys
-import yaml
 
 from rich.console import Console
 from rich.table import Table
 from urllib.parse import urlparse
 
+from leptonai.api import workspace as api
 from leptonai.config import CACHE_DIR
-from leptonai.util import click_group, create_header, get_full_workspace_api_url
-
+from leptonai.util import create_header, get_full_workspace_api_url
+from .util import click_group
 
 console = Console(highlight=False)
 
@@ -46,8 +46,8 @@ def _register_and_set(workspace_name, workspace_url, auth_token=None):
             )
             or ""
         )
-    save_workspace(workspace_name, workspace_url, auth_token=auth_token)
-    set_current_workspace(workspace_name)
+    api.save_workspace(workspace_name, workspace_url, auth_token=auth_token)
+    api.set_current_workspace(workspace_name)
     console.print(f'Workspace "{workspace_url}" [green]registered[/].')
     console.print(
         f"Next time, you can just use `lep workspace login -n {workspace_name}` to"
@@ -78,7 +78,7 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
         sys.exit(1)
     elif workspace_name and workspace_url:
         # Check if workspace url exists. If it doesn't, we register it.
-        workspaces = load_workspace_info()["workspaces"]
+        workspaces = api.load_workspace_info()["workspaces"]
         if (
             workspace_name in workspaces
             and workspaces[workspace_name]["url"] != workspace_url
@@ -96,7 +96,7 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
                 registered_name = name
                 break
         if registered_name == workspace_name:
-            set_current_workspace(workspace_name)
+            api.set_current_workspace(workspace_name)
         else:
             # This implies that, we can possibly register multiple names to the
             # same url. This is not a problem, but it won't create any conflicts
@@ -104,10 +104,10 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             _register_and_set(workspace_name, workspace_url, auth_token=auth_token)
     elif workspace_name:
         # Check if workspace name exists.
-        workspaces = load_workspace_info()["workspaces"]
+        workspaces = api.load_workspace_info()["workspaces"]
         if workspace_name in workspaces:
             workspace_url = workspaces[workspace_name]["url"]
-            set_current_workspace(workspace_name)
+            api.set_current_workspace(workspace_name)
         else:
             # New supported feature: if no workspace url is given and workspace name
             # does not exist, we register it with the automatically generated url.
@@ -121,14 +121,14 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             )
             sys.exit(1)
         # Check if workspace url exists.
-        workspaces = load_workspace_info()["workspaces"]
+        workspaces = api.load_workspace_info()["workspaces"]
         for name, workspace in workspaces.items():
             if workspace["url"] == workspace_url:
                 workspace_name = name
                 break
         if workspace_name:
             # if it does, log in.
-            set_current_workspace(workspace_name)
+            api.set_current_workspace(workspace_name)
             console.print(
                 f'"{workspace_url}" already registered with display name'
                 f" [green]{workspace_name}[/]."
@@ -145,7 +145,7 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
     if not dry_run:
         # do sanity checks.
         try:
-            auth_token = get_auth_token(workspace_url)
+            auth_token = api.get_auth_token(workspace_url)
             # TODO: change the url from /cluster to /workspace once platform has also renamed it.
             response = requests.get(
                 workspace_url + "/cluster", headers=create_header(auth_token)
@@ -167,7 +167,7 @@ def logout():
     """
     Log out of the current workspace.
     """
-    set_current_workspace(None)
+    api.set_current_workspace(None)
     console.print("[green]Logged out[/]")
 
 
@@ -176,7 +176,7 @@ def list():
     """
     List currently recorded workspacees.
     """
-    workspace_info = load_workspace_info()
+    workspace_info = api.load_workspace_info()
     workspaces = workspace_info["workspaces"]
     current_workspace = workspace_info["current_workspace"]
     table = Table()
@@ -209,7 +209,7 @@ def remove(workspace_name):
         console.print("Must specify --workspace-name")
         sys.exit(1)
     try:
-        remove_workspace(workspace_name)
+        api.remove_workspace(workspace_name)
         console.print(f'Workspace "{workspace_name}" [green]removed[/]')
     except KeyError:
         console.print(f'Workspace "{workspace_name}" [red]does not exist[/]')
@@ -221,62 +221,3 @@ def remove(workspace_name):
 
 def add_command(cli_group):
     cli_group.add_command(workspace)
-
-
-def load_workspace_info():
-    workspace_info = {"workspaces": {}, "current_workspace": None}
-    if WORKSPACE_FILE.exists():
-        with open(WORKSPACE_FILE) as f:
-            workspace_info = yaml.safe_load(f)
-    return workspace_info
-
-
-def save_workspace(name, url, terraform_dir=None, auth_token=None):
-    workspace_info = load_workspace_info()
-    workspace_info["workspaces"][name] = {}
-    workspace_info["workspaces"][name]["url"] = url
-    workspace_info["workspaces"][name]["terraform_dir"] = terraform_dir
-    workspace_info["workspaces"][name]["auth_token"] = auth_token
-
-    with open(WORKSPACE_FILE, "w") as f:
-        yaml.safe_dump(workspace_info, f)
-
-
-def remove_workspace(name):
-    workspace_info = load_workspace_info()
-    workspace_info["workspaces"].pop(name)
-    if workspace_info["current_workspace"] == name:
-        workspace_info["current_workspace"] = None
-    with open(WORKSPACE_FILE, "w") as f:
-        yaml.safe_dump(workspace_info, f)
-
-
-def set_current_workspace(name):
-    workspace_info = load_workspace_info()
-    workspace_info["current_workspace"] = name
-    with open(WORKSPACE_FILE, "w") as f:
-        yaml.safe_dump(workspace_info, f)
-
-
-def get_auth_token(workspace_url):
-    #  TODO: Store current auth token in yaml for constant time access
-    workspace_info = load_workspace_info()
-    for _, vals in workspace_info["workspaces"].items():
-        if vals["url"] == workspace_url:
-            return vals["auth_token"]
-    return None
-
-
-def get_current_workspace_url():
-    workspace_info = load_workspace_info()
-    current_workspace = workspace_info["current_workspace"]
-    if current_workspace is None:
-        return None
-    workspaces = workspace_info["workspaces"]
-    return workspaces[current_workspace]["url"]
-
-
-def get_workspace_url(workspace_url=None):
-    if workspace_url is not None:
-        return workspace_url
-    return get_current_workspace_url()

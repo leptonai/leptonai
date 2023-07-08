@@ -5,9 +5,9 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-import leptonai.workspace as workspace
-from leptonai.util import click_group
-from . import api
+import leptonai.api.workspace as workspace
+from .util import click_group
+from leptonai.api import deployment as api
 
 
 console = Console(highlight=False)
@@ -30,7 +30,7 @@ def list():
     if workspace_url is None:
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     deployments = api.list_deployment(workspace_url, auth_token)
     if deployments is None:
         console.print("Cannot list deployments. See error message above.")
@@ -69,7 +69,7 @@ def remove(name):
     if workspace_url is None:
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     if api.remove_deployment(workspace_url, auth_token, name):
         console.print(f"Deployment [green]{name}[/] removed successfully.")
     else:

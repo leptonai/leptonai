@@ -1,5 +1,5 @@
 from leptonai.util import create_header, check_and_print_http_error
-import leptonai.workspace as workspace
+from leptonai.api import workspace
 import requests
 import os
 
@@ -12,7 +12,7 @@ def get_dir(remote_url, file_path):
     :param str file_path: path to the directory on the remote server
     """
     req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     response = requests.get(req_url, headers=create_header(auth_token))
     if check_and_print_http_error(response):
         return None
@@ -58,7 +58,7 @@ def check_path_exists(remote_url, file_path):
     """
 
     req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     response = requests.head(req_url, headers=create_header(auth_token))
     return response.status_code == 200
 
@@ -71,7 +71,7 @@ def remove_file_or_dir(remote_url, file_path):
     :param str file_path: path to the file or directory on the remote server
     """
     req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     response = requests.delete(req_url, headers=create_header(auth_token))
     if response.status_code == 404:
         return False
@@ -88,7 +88,7 @@ def create_dir(remote_url, file_path):
     :param str file_path: path to the directory on the remote server
     """
     req_url = f"{remote_url}/storage/default{prepend_separator(file_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     response = requests.put(req_url, headers=create_header(auth_token))
     if check_and_print_http_error(response):
         return False
@@ -104,7 +104,7 @@ def upload_file(remote_url, local_path, remote_path):
     :param str remote_path: path to the file on the remote server
     """
     req_url = f"{remote_url}/storage/default{prepend_separator(remote_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     with open(local_path, "rb") as file:
         response = requests.post(
             req_url, files={"file": file}, headers=create_header(auth_token)
@@ -123,7 +123,7 @@ def download_file(remote_url, remote_path, local_path):
     :param str local_path: absolute path to the file on the local machine
     """
     req_url = f"{remote_url}/storage/default{prepend_separator(remote_path)}"
-    auth_token = workspace.cli.get_auth_token(remote_url)
+    auth_token = workspace.get_auth_token(remote_url)
     response = requests.get(req_url, headers=create_header(auth_token), stream=True)
     if check_and_print_http_error(response):
         return False

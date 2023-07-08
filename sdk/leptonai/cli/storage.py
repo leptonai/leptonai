@@ -1,11 +1,13 @@
 from rich.console import Console
 from rich.theme import Theme
-from . import api
-from .constants import DISPLAY_PREFIX_LAST, DISPLAY_PREFIX_MIDDLE
+from leptonai.api import storage as api
+from .constants import STORAGE_DISPLAY_PREFIX_LAST, STORAGE_DISPLAY_PREFIX_MIDDLE
 import os
 import sys
 import click
-import leptonai.workspace as workspace
+
+from leptonai.api import workspace
+from .util import click_group
 
 custom_theme = Theme(
     {
@@ -17,7 +19,7 @@ console = Console(highlight=False, theme=custom_theme)
 
 
 def must_get_remote_url():
-    url = workspace.cli.get_current_workspace_url()
+    url = workspace.get_current_workspace_url()
     if url is not None:
         return url
     console.print(
@@ -39,9 +41,9 @@ def print_dir_contents(dir_path, dir_content_json):
     for i, item in enumerate(dir_content_json):
         console.print(f"[directory]{dir_path}[/directory]") if i == 0 else None
         prefix = (
-            DISPLAY_PREFIX_LAST
+            STORAGE_DISPLAY_PREFIX_LAST
             if i == len(dir_content_json) - 1
-            else DISPLAY_PREFIX_MIDDLE
+            else STORAGE_DISPLAY_PREFIX_MIDDLE
         )
         if item["type"] == "dir":
             num_directories += 1
@@ -56,16 +58,7 @@ def print_dir_contents(dir_path, dir_content_json):
     console.print(f"{num_directories} {dir_tense}, {num_files} {file_tense}")
 
 
-class AliasedGroup(click.Group):
-    def get_command(self, ctx, cmd_name):
-        try:
-            cmd_name = ALIASES[cmd_name].name
-        except KeyError:
-            pass
-        return super().get_command(ctx, cmd_name)
-
-
-@click.group(cls=AliasedGroup)
+@click_group()
 def storage():
     pass
 

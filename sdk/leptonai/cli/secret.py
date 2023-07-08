@@ -1,12 +1,16 @@
+"""
+Secret is a module that provides a way to manage secrets on a workspace.
+"""
+
 import click
 import sys
 
 from rich.console import Console
 from rich.table import Table
 
-import leptonai.workspace as workspace
-from leptonai.util import click_group
-from . import api
+import leptonai.api.workspace as workspace
+from .util import click_group
+from leptonai.api import secret as api
 
 
 console = Console(highlight=False)
@@ -32,7 +36,7 @@ def create(name, value):
     if workspace_url is None:
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     existing_secrets = api.list_secret(workspace_url, auth_token)
     for n in name:
         if existing_secrets and n in existing_secrets:
@@ -51,7 +55,7 @@ def list():
     if workspace_url is None:
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     secrets = api.list_secret(workspace_url, auth_token)
     secrets.sort()
     table = Table(title="Secrets", show_lines=True)
@@ -69,7 +73,7 @@ def remove(name):
     if workspace_url is None:
         console.print("No workspace found. Please run `lep workspace login` first.")
         sys.exit(1)
-    auth_token = workspace.cli.get_auth_token(workspace_url)
+    auth_token = workspace.get_auth_token(workspace_url)
     api.remove_secret(workspace_url, auth_token, name)
     console.print(f"Secret deleted successfully: {name}.")
 

@@ -9,7 +9,7 @@ from leptonai.util import (
     get_full_workspace_url,
     get_full_workspace_api_url,
 )
-from leptonai import deployment
+from .api.deployment import list_deployment
 
 
 def _is_valid_url(candidate_str):
@@ -44,7 +44,7 @@ class Workspace:
 
     @cached_property
     def _workspace_deployments(self):
-        return deployment.list_deployment(
+        return list_deployment(
             get_full_workspace_api_url(self.workspace_name), self.token
         )
 
