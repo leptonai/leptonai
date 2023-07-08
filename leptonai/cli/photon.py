@@ -85,22 +85,41 @@ def _find_available_port(port):
 
 @click_group()
 def photon():
+    """
+    Creates, runs and manages photons in the local environment and on the Lepton AI cloud.
+
+    Photon is at the core of Lepton AI's abstraction: it is a Python centric
+    abstraction of an AI model or application, and provides a simple interface
+    to specify dependencies, extra files, and environment variables. For more
+    details, see `leptonai.photon.Photon`.
+
+    The photon command is used to create photons locally, push and fetch photons
+    between local and remote, and run, list and delete photons either locally or
+    remotely.
+    """
     pass
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon", required=True)
+@click.option("--name", "-n", help="Name of the photon", required=True)
 @click.option("--model", "-m", help="Model spec", required=True)
 def create(name, model):
+    """
+    Creates a new photon of the given name and model spec in the local environment.
+    For specifics on the model spec, see `leptonai.photon.Photon`. To push a photon
+    to the workspace, use `lep photon push`.
+
+    Developer note: insert a link to the photon documentation here.
+    """
     try:
         photon = api.create(name=name, model=model)
     except Exception as e:
-        console.print(f"Failed to create Photon: [red]{e}[/]")
+        console.print(f"Failed to create photon: [red]{e}[/]")
         sys.exit(1)
     try:
         api.save(photon)
     except Exception as e:
-        console.print(f"Failed to save Photon: [red]{e}[/]")
+        console.print(f"Failed to save photon: [red]{e}[/]")
         sys.exit(1)
     console.print(f"Photon [green]{name}[/green] created.")
 
@@ -110,19 +129,28 @@ def create(name, model):
     "--name",
     "-n",
     help=(
-        "Name of the Photon to delete. If --all is specified, all versions of the"
-        " Photon with this name will be deleted. Otherwise, remove the latest"
-        " version of the Photon with this name."
+        "Name of the photon to delete. If --all is specified, all versions of the"
+        " photon with this name will be deleted. Otherwise, remove the latest"
+        " version of the photon with this name."
     ),
 )
 @click.option(
     "--local", "-l", is_flag=True, help="Remove local photons instead of remote."
 )
-@click.option("--id", "-i", "id_", help="ID of the Photon.")
 @click.option(
-    "--all", "-a", "all_", is_flag=True, help="Remove all versions (ids) of the Photon."
+    "--id", "-i", "id_", help="The specific version id of the photon to remove."
+)
+@click.option(
+    "--all", "-a", "all_", is_flag=True, help="Remove all versions of the photon."
 )
 def remove(name, local, id_, all_):
+    """
+    Removes a photon from the local environment or the Lepton AI cloud. The behavior
+    of this command depends on whether one has logged in to the Lepton AI cloud via
+    `lep login`. If one has logged in, this command will remove the photon from the
+    workspace. Otherwise, or of `--local` is explicitly specified, it will
+    remove the photon from the local environment.
+    """
     workspace_url = workspace.get_workspace_url()
 
     check(
@@ -174,9 +202,15 @@ def remove(name, local, id_, all_):
 @photon.command()
 @click.option("--local", "-l", help="If specified, list local photons", is_flag=True)
 @click.option(
-    "--pattern", help="Regular expression pattern to filter Photon names", default=None
+    "--pattern", help="Regular expression pattern to filter photon names", default=None
 )
 def list(local, pattern):
+    """
+    Lists all photons. If one has logged in to the Lepton AI cloud via `lep login`,
+    this command will list all photons in the Lepton AI cloud. Otherwise, or if
+    `--local` is explicitly specified, it will list all photons in the local
+    environment.
+    """
     workspace_url = workspace.get_workspace_url()
 
     if workspace_url is not None and not local:
@@ -221,7 +255,7 @@ def list(local, pattern):
         for model, id_, creation_time in sub_records:
             model_table.add_row(model)
             id_table.add_row(id_)
-            # Photon database stores creation time as a timestamp in
+            # photon database stores creation time as a timestamp in
             # milliseconds, so we need to convert.
             creation_table.add_row(
                 datetime.fromtimestamp(creation_time).strftime("%Y-%m-%d %H:%M:%S")
@@ -333,23 +367,26 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon")
-@click.option("--model", "-m", help="Model Spec")
-@click.option("--file", "-f", "path", help="Path to .photon file")
+@click.option("--name", "-n", help="Name of the photon to run.")
+@click.option("--model", "-m", help="Model spec of the photon.")
+@click.option("--file", "-f", "path", help="Path to the specific .photon file to run.")
 @click.option(
     "--local",
     "-l",
-    help="If specified, run photon on local (can only run locally stored photons)",
+    help=(
+        "If specified, run photon locally (note that this can only run locally stored"
+        " photons)"
+    ),
     is_flag=True,
 )
-@click.option("--port", "-p", help="Port to run on", default=8080)
-@click.option("--id", "-i", help="ID of the Photon (only required for remote)")
-@click.option("--resource-shape", "-r", help="Resource shape required,", default=None)
-@click.option("--min-replicas", help="Number of replicas", default=1)
+@click.option("--port", "-p", help="Port to run on.", default=8080)
+@click.option("--id", "-i", help="ID of the photon (only required for remote).")
+@click.option("--resource-shape", "-r", help="Resource shape required.", default=None)
+@click.option("--min-replicas", help="Number of replicas.", default=1)
 @click.option(
     "--mount",
     help=(
-        "Storage to be mounted to the deployment, in the format"
+        "Persistent storage to be mounted to the deployment, in the format"
         " STORAGE_PATH:MOUNT_PATH."
     ),
     multiple=True,
@@ -359,7 +396,7 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     "-dn",
     help=(
         "Optional name for the deployment. If not specified, we will attempt to use the"
-        " name (if specified) and id as the base name, and find the first non-conflict"
+        " name (if specified) or id as the base name, and find the first non-conflict"
         " name by appending a number."
     ),
     default=None,
@@ -396,6 +433,14 @@ def run(
     env,
     secret,
 ):
+    """
+    Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
+    the photon will be run on the cloud. Otherwise, or if `--local` is specified,
+    the photon will be run locally.
+
+    Refer to the documentation for a more detailed description on the choices
+    among `--name`, `--model`, `--path` and `--id`.
+    """
     workspace_url = workspace.get_workspace_url()
 
     check(not (name and id), "Must specify either --id or --name, not both.")
@@ -407,7 +452,7 @@ def run(
         # refer to a photon. If not, we will check if name is specified - this
         # might lead to multiple photons, so we will pick the latest one to run
         # as the default behavior.
-        # TODO: Support push and run if the Photon does not exist on remote
+        # TODO: Support push and run if the photon does not exist on remote
         if id is None:
             # look for the latest photon with the given name.
             id = _get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
@@ -494,12 +539,15 @@ def run(
         return
 
 
-# Only used by platform to prepare the environment inside the container and not
-# meant to be used by users
 @photon.command(hidden=True)
 @click.option("--file", "-f", "path", help="Path to .photon file")
 @click.pass_context
 def prepare(ctx, path):
+    """
+    Prepare the environment for running a photon. This is only used by the
+    platform to prepare the environment inside the container and not meant to
+    be used by users.
+    """
     metadata = api.load_metadata(path, unpack_extra_files=True)
 
     if metadata.get(METADATA_VCS_URL_KEY, None):
@@ -553,8 +601,11 @@ def prepare(ctx, path):
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the Photon", required=True)
+@click.option("--name", "-n", help="Name of the photon", required=True)
 def push(name):
+    """
+    Push a photon to the workspace.
+    """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     path = find_local_photon(name)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
@@ -568,9 +619,12 @@ def push(name):
 
 
 @photon.command()
-@click.option("--id", "-i", help="ID of the Photon", required=True)
-@click.option("--file", "-f", "path", help="Path to .photon file")
+@click.option("--id", "-i", help="ID of the photon", required=True)
+@click.option("--file", "-f", "path", help="Path to the local .photon file")
 def fetch(id, path):
+    """
+    Fetch a photon from the workspace.
+    """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     photon_or_err = api.fetch(workspace_url, auth_token, id, path)
     if isinstance(photon_or_err, APIError):
