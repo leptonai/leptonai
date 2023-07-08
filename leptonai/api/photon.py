@@ -1,6 +1,5 @@
 import os
 import requests
-import sys
 from typing import Any, Dict, List, Optional
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
@@ -8,8 +7,8 @@ from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add
 from leptonai import photon as _photon  # noqa: F401
 from leptonai.photon import hf as _hf  # noqa: F401
 from leptonai.config import CACHE_DIR
-from leptonai.util import check_and_print_http_error, check_photon_name
-from .util import create_header
+from leptonai.util import check_photon_name
+from .util import APIError, create_header, json_or_error
 
 
 def create(name: str, model: Any) -> BasePhoton:
@@ -87,20 +86,18 @@ def load_metadata(path: str, unpack_extra_files: bool = False) -> Dict[Any, Any]
     return BasePhoton.load_metadata(path, unpack_extra_files)
 
 
-def push(path, url: str, auth_token: str):
+def push(url: str, auth_token: str, path: str):
     """
     Push a photon to a workspace.
-    :param str path: path to the photon file
     :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
+    :param str path: path to the photon file
     """
     with open(path, "rb") as file:
         response = requests.post(
             url + "/photons", files={"file": file}, headers=create_header(auth_token)
         )
-        if check_and_print_http_error(response):
-            sys.exit(1)
-        return True
+        return response
 
 
 def list_remote(url: str, auth_token: str):
@@ -110,12 +107,10 @@ def list_remote(url: str, auth_token: str):
     (e.g. http://localhost:8000)
     """
     response = requests.get(url + "/photons", headers=create_header(auth_token))
-    if check_and_print_http_error(response):
-        sys.exit(1)
-    return response.json()
+    return json_or_error(response)
 
 
-def remove_remote(url: str, id: str, auth_token: str):
+def remove_remote(url: str, auth_token: str, id: str):
     """
     Remove a photon from a workspace.
     :param str url: url of the workspace including the schema
@@ -125,19 +120,15 @@ def remove_remote(url: str, id: str, auth_token: str):
     response = requests.delete(
         url + "/photons/" + id, headers=create_header(auth_token)
     )
-    if response.status_code == 404:
-        return False
-    if check_and_print_http_error(response):
-        sys.exit(1)
-    return True
+    return response
 
 
-def fetch(id: str, url: str, path: str, auth_token: str):
+def fetch(url: str, auth_token: str, id: str, path: str):
     """
     Fetch a photon from a workspace.
-    :param str id: id of the photon to fetch
     :param str url: url of the workspace including the schema
     (e.g. http://localhost:8000)
+    :param str id: id of the photon to fetch
     :param str path: path to save the photon to
     """
     if path is None:
@@ -149,8 +140,9 @@ def fetch(id: str, url: str, path: str, auth_token: str):
         stream=True,
         headers=create_header(auth_token),
     )
-    if check_and_print_http_error(response):
-        sys.exit(1)
+
+    if response.status_code > 299:
+        return APIError(response)
 
     with open(path, "wb") as f:
         f.write(response.content)
@@ -168,12 +160,12 @@ def fetch(id: str, url: str, path: str, auth_token: str):
 
 
 def run_remote(
-    id: str,
     url: str,
+    auth_token: str,
+    id: str,
+    deployment_name: str,
     resource_shape: str,
     min_replicas: int,
-    auth_token: str,
-    deployment_name: str,
     mounts: Optional[List[str]] = None,
     env_list: Optional[Dict[str, str]] = None,
     secret_list: Optional[Dict[str, str]] = None,
@@ -198,5 +190,4 @@ def run_remote(
     response = requests.post(
         url + "/deployments", json=deployment, headers=create_header(auth_token)
     )
-    if check_and_print_http_error(response):
-        sys.exit(1)
+    return response
