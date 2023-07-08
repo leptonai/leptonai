@@ -9,7 +9,7 @@ export const ResourceShape: FC<{ shape: string }> = ({ shape }) => {
   const hardwareService = useInject(HardwareService);
   const resourceShape = hardwareService.hardwareShapes[shape];
   const theme = useAntdTheme();
-  return (
+  return resourceShape ? (
     <div>
       <div
         css={css`
@@ -45,5 +45,7 @@ export const ResourceShape: FC<{ shape: string }> = ({ shape }) => {
         {resourceShape.Resource.EphemeralStorageInGB} GB
       </div>
     </div>
+  ) : (
+    <>{shape}</>
   );
 };

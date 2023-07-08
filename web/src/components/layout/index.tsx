@@ -28,7 +28,7 @@ export const FullLayoutWidth = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  padding: 24px;
+  padding: 32px;
 `;
 
 export const LimitedLayoutWidth = styled(FullLayoutWidth)`

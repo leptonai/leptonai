@@ -54,6 +54,9 @@ export class ThemeService {
         controlItemBgActiveHover: "#161b22",
       },
       components: {
+        Tabs: {
+          colorPrimaryHover: "#fff",
+        },
         Button: {
           colorPrimary: "#21262d",
           colorPrimaryHover: "#30363d",

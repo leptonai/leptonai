@@ -7,7 +7,7 @@ export type Hardware = {
       Memory: number;
       CPU: number;
       AcceleratorType?: string;
-      AcceleratorNum?: string;
+      AcceleratorNum?: number;
     };
   };
 };

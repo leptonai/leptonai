@@ -77,7 +77,6 @@ export const DeleteSecret: FC<{
       <Button
         type="text"
         size="small"
-        danger
         icon={<CarbonIcon icon={<TrashCan />} />}
       >
         Delete

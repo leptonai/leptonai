@@ -3,7 +3,7 @@ import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { Secret } from "@lepton-dashboard/interfaces/secret";
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { DeleteSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/delete-secret";
 import { EditSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/edit-secret";
 import { NewSecret } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets/components/new-secret";

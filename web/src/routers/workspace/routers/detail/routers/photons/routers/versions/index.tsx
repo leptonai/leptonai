@@ -53,7 +53,7 @@ export const Versions: FC = () => {
         </Card>
       </Col>
       <Col span={24}>
-        <Card title="History Versions">
+        <Card title="Versions">
           {photons.length > 0 ? (
             <Timeline
               css={css`

@@ -215,7 +215,8 @@ export const DeploymentForm: FC<{
           {
             pattern:
               /^[a-z]([-a-z0-9]*[a-z0-9])?(\.[a-z]([-a-z0-9]*[a-z0-9])?)*$/,
-            message: "Deployment name invalid",
+            message:
+              "Only alphanumeric characters (a-z, 0-9) and '-' allowed here",
           },
           { required: true, message: "Please input deployment name" },
           () => ({
@@ -234,7 +235,7 @@ export const DeploymentForm: FC<{
         <Input disabled={edit} autoFocus placeholder="Deployment name" />
       </Form.Item>
       <Row gutter={16}>
-        <Col span={12}>
+        <Col span={16}>
           <Form.Item
             label="Photon"
             name="photon"
@@ -243,7 +244,7 @@ export const DeploymentForm: FC<{
             <Cascader showSearch allowClear={false} options={options} />
           </Form.Item>
         </Col>
-        <Col span={12}>
+        <Col span={8}>
           <Form.Item
             label="Replicas"
             name="min_replicas"
@@ -254,11 +255,20 @@ export const DeploymentForm: FC<{
               },
             ]}
           >
-            <InputNumber style={{ width: "100%" }} min={0} />
+            <InputNumber
+              style={{ width: "100%" }}
+              min={1}
+              precision={0}
+              step={1}
+            />
           </Form.Item>
         </Col>
       </Row>
-      <Form.Item label="Hardware" name="shape" rules={[{ required: true }]}>
+      <Form.Item
+        label="Resource Type"
+        name="shape"
+        rules={[{ required: true }]}
+      >
         <Select disabled={edit} options={shapeOptions} />
       </Form.Item>
 
@@ -291,7 +301,7 @@ export const DeploymentForm: FC<{
                           {fields.map(({ key, name, ...restField }) => (
                             <Col key={`${name}-${key}`} span={24}>
                               <Row gutter={8} wrap={false}>
-                                <Col flex="1 1 auto">
+                                <Col flex="1 1 180px">
                                   <Form.Item
                                     {...restField}
                                     name={[name, "name"]}
@@ -314,7 +324,7 @@ export const DeploymentForm: FC<{
                                     <EqualIcon />
                                   </IconContainer>
                                 </Col>
-                                <Col flex="1 1 300px">
+                                <Col flex="1 1 280px">
                                   <Space.Compact block>
                                     <Button
                                       disabled
@@ -362,7 +372,7 @@ export const DeploymentForm: FC<{
                           {fields.map(({ key, name, ...restField }) => (
                             <Col key={`${name}-${key}`} span={24}>
                               <Row gutter={8} wrap={false}>
-                                <Col flex="1 1 auto">
+                                <Col flex="1 1 180px">
                                   <Form.Item
                                     {...restField}
                                     name={[name, "name"]}
@@ -385,7 +395,7 @@ export const DeploymentForm: FC<{
                                     <EqualIcon />
                                   </IconContainer>
                                 </Col>
-                                <Col flex="1 1 300px">
+                                <Col flex="1 1 280px">
                                   <Space.Compact block>
                                     <Button
                                       disabled
@@ -448,7 +458,7 @@ export const DeploymentForm: FC<{
                   css={css`
                     margin-bottom: 0;
                   `}
-                  label="Storage mounts"
+                  label="Mount files from storage to the deployment"
                 >
                   <Form.List name="mounts">
                     {(fields, { add, remove }) => {
@@ -460,28 +470,7 @@ export const DeploymentForm: FC<{
                               key={`mounts-${index}`}
                               wrap={false}
                             >
-                              <Col flex="1 1 auto">
-                                <Form.Item
-                                  {...field}
-                                  initialValue=""
-                                  name={[field.name, "mount_path"]}
-                                  key={`mounts-${index}-mount_path`}
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: "Missing mount path",
-                                    },
-                                  ]}
-                                >
-                                  <Input disabled={edit} placeholder="mount" />
-                                </Form.Item>
-                              </Col>
-                              <Col flex={0}>
-                                <IconContainer>
-                                  <EqualIcon />
-                                </IconContainer>
-                              </Col>
-                              <Col flex="1 1 300px">
+                              <Col flex="1 1 180px">
                                 <Form.Item
                                   {...field}
                                   initialValue=""
@@ -496,8 +485,29 @@ export const DeploymentForm: FC<{
                                 >
                                   <StorageSelect
                                     disabled={edit}
-                                    placeholder="from storage"
+                                    placeholder="storage"
                                   />
+                                </Form.Item>
+                              </Col>
+                              <Col flex={0}>
+                                <IconContainer>
+                                  <EqualIcon />
+                                </IconContainer>
+                              </Col>
+                              <Col flex="1 1 280px">
+                                <Form.Item
+                                  {...field}
+                                  initialValue=""
+                                  name={[field.name, "mount_path"]}
+                                  key={`mounts-${index}-mount_path`}
+                                  rules={[
+                                    {
+                                      required: true,
+                                      message: "Missing mount path",
+                                    },
+                                  ]}
+                                >
+                                  <Input disabled={edit} placeholder="mount" />
                                 </Form.Item>
                               </Col>
                               <Col flex={0}>
