@@ -170,7 +170,10 @@ def mkdir(path):
 @click.argument("remote_path", type=str, default="/")
 def upload(local_path, remote_path):
     """
-    Upload a local file to the storage of the current workspace.
+    Upload a local file to the storage of the current workspace. If remote_path
+    is not specified, the file will be uploaded to the root directory of the
+    storage. If remote_path is a directory, you need to append a "/", and the
+    file will be uploaded to that directory with its local name.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     # if the remote path is a directory, upload the file with its local name to that directory
@@ -190,9 +193,9 @@ def upload(local_path, remote_path):
 @click.argument("local_path", type=str, default="")
 def download(remote_path, local_path):
     """
-    Download a remote file from the storage of the current workspace to a local
-    file. If no local path is specified, the file will be downloaded to the
-    current working directory with the same name as the remote file.
+    Download a remote file. If no local path is specified, the file will be
+    downloaded to the current working directory with the same name as the remote
+    file.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
 

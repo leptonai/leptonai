@@ -86,7 +86,7 @@ def _find_available_port(port):
 @click_group()
 def photon():
     """
-    Manages photons in the local environment and on the Lepton AI cloud.
+    Manages photons locally and on the Lepton AI cloud.
 
     Photon is at the core of Lepton AI's abstraction: it is a Python centric
     abstraction of an AI model or application, and provides a simple interface
@@ -105,7 +105,7 @@ def photon():
 @click.option("--model", "-m", help="Model spec", required=True)
 def create(name, model):
     """
-    Creates a new photon of the given name and model spec in the local environment.
+    Creates a new photon in the local environment.
     For specifics on the model spec, see `leptonai.photon.Photon`. To push a photon
     to the workspace, use `lep photon push`.
 
@@ -129,7 +129,7 @@ def create(name, model):
     "--name",
     "-n",
     help=(
-        "Name of the photon to delete. If --all is specified, all versions of the"
+        "Name of the photon to delete. If `--all` is specified, all versions of the"
         " photon with this name will be deleted. Otherwise, remove the latest"
         " version of the photon with this name."
     ),
@@ -145,11 +145,10 @@ def create(name, model):
 )
 def remove(name, local, id_, all_):
     """
-    Removes a photon from the local environment or the Lepton AI cloud. The behavior
-    of this command depends on whether one has logged in to the Lepton AI cloud via
-    `lep login`. If one has logged in, this command will remove the photon from the
-    workspace. Otherwise, or of `--local` is explicitly specified, it will
-    remove the photon from the local environment.
+    Removes a photon. The behavior of this command depends on whether one has
+    logged in to the Lepton AI cloud via `lep login`. If one has logged in, this
+    command will remove the photon from the workspace. Otherwise, or of `--local`
+    is explicitly specified, it will remove the photon from the local environment.
     """
     workspace_url = workspace.get_workspace_url()
 
@@ -369,7 +368,9 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon to run.")
 @click.option("--model", "-m", help="Model spec of the photon.")
-@click.option("--file", "-f", "path", help="Path to the specific .photon file to run.")
+@click.option(
+    "--file", "-f", "path", help="Path to the specific `.photon` file to run."
+)
 @click.option(
     "--local",
     "-l",
@@ -387,7 +388,7 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     "--mount",
     help=(
         "Persistent storage to be mounted to the deployment, in the format"
-        " STORAGE_PATH:MOUNT_PATH."
+        " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -404,16 +405,16 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
 @click.option(
     "--env",
     "-e",
-    help="Environment variables to pass to the deployment, in the format NAME=VALUE.",
+    help="Environment variables to pass to the deployment, in the format `NAME=VALUE`.",
     multiple=True,
 )
 @click.option(
     "--secret",
     "-s",
     help=(
-        "Secrets to pass to the deployment, in the format NAME=SECRET_NAME. If"
-        " SECRET_NAME is also going to be the name of the environment variable, you can"
-        " omit it and simply pass SECRET_NAME."
+        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
