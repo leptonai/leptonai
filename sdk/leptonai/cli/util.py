@@ -86,7 +86,7 @@ def guard_api(content_or_error, detail=False, msg=None):
     """
     A wrapper around API calls that exits if the call  prints an error message and exits if the call was unsuccessful.
 
-    This is useful for CLI commands that call the API and need to handle errors.
+    This is useful for apis that return either a JSON response or an APIError.
 
     :param json_or_error: The json returned by the API call, or an APIError or NotJsonError.
     :param detail: If True, print the error message from the API call.
@@ -104,10 +104,12 @@ def guard_api(content_or_error, detail=False, msg=None):
 
 def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
     """
-    A wrapper function that prints a message based on the response status code.
+    A wrapper function that prints a message based on the response status code
     If the response status code is 2xx, print if_2xx, and return.
     If the response status code is 4xx, print if_4xx, and exit if exit_if_4xx is true.
     If the response status code is anything else, print if_others and always exit(1).
+
+    This is useful for apis that directly return a response object.
     """
     if response.status_code >= 200 and response.status_code <= 299:
         console.print(if_2xx)
