@@ -40,7 +40,7 @@ def create(name, value):
     """
     Creates secrets with the given name and value. The name and value can be
     specified multiple times to create multiple secrets, e.g.:
-        lep secret create -n SECRET1 -v VALUE1 -n SECRET2 -v VALUE2
+    `lep secret create -n SECRET1 -v VALUE1 -n SECRET2 -v VALUE2`
     """
     check(len(name), "No secret name given.")
     check(len(name) == len(value), "Number of names and values must be the same.")

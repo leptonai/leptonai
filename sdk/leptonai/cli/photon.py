@@ -311,9 +311,9 @@ def _validate_resource_shape(resource_shape: str):
         # user to use the new shapes. One can simply ignore the warning and proceed.
         console.print(
             "It seems that you passed in a non-standard resource shape"
-            f" [yellow]{resource_shape}[/]. Valid shapes supported by the CLI"
-            f" are:\n{VALID_SHAPES}."
+            f" [yellow]{resource_shape}[/]."
         )
+        console.print(f"Valid shapes supported by the CLI are:\n{VALID_SHAPES}.")
     return resource_shape.lower()
 
 
@@ -481,7 +481,10 @@ def run(
         )
         explain_response(
             response,
-            f"Photon launched as [green]{deployment_name}[/].",
+            (
+                f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment`"
+                " to check the status."
+            ),
             (
                 f"Failed to launch photon as [red]{deployment_name}[/]. See error"
                 " message above."
