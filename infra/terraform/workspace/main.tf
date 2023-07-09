@@ -8,6 +8,7 @@ provider "aws" {
   default_tags {
     tags = {
       LeptonClusterName = var.cluster_name
+      LeptonWorkspaceName = var.workspace_name
 
       # created time
       # https://registry.terraform.io/providers/hashicorp/time/latest/docs
