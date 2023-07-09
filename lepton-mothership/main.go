@@ -32,7 +32,7 @@ func main() {
 	v1.POST("/workspaces", httpapi.HandleWorkspaceCreate)
 	v1.GET("/workspaces/:wsname", httpapi.HandleWorkspaceGet)
 	v1.GET("/workspaces/:wsname/logs", httpapi.HandleWorkspaceGetLogs)
-	v1.GET("/clusters/:clname/failure", httpapi.HandleWorkspaceGetFailureLog)
+	v1.GET("//workspaces/:wsname/failure", httpapi.HandleWorkspaceGetFailureLog)
 	v1.PATCH("/workspaces", httpapi.HandleWorkspaceUpdate)
 	v1.DELETE("/workspaces/:wsname", httpapi.HandleWorkspaceDelete)
 
