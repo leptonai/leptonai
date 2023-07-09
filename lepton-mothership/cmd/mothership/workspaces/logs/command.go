@@ -35,9 +35,9 @@ func NewCommand() *cobra.Command {
 
 func logsFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mothershipWorkspacesURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
 
-	url := mothershipURL + "/" + workspaceName
+	url := mothershipWorkspacesURL + "/" + workspaceName
 	if failure {
 		url += "/failure"
 	} else {
