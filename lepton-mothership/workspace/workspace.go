@@ -103,6 +103,9 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	if ws.Spec.ImageTag == "" {
 		ws.Spec.ImageTag = "latest"
 	}
+	if ws.Spec.QuotaGroup == "" {
+		ws.Spec.QuotaGroup = "small"
+	}
 
 	// TODO: data race: if another call concurrently creates a ws with the same name under
 	// a different cluster, then the cluster will be updated with the new ws name while the
@@ -368,6 +371,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"CREATE_EFS=true",
 		"VPC_ID="+cl.Status.Properties.VPCID,
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
+		"QUOTA_GROUP="+ws.Spec.QuotaGroup,
 	)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw

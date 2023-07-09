@@ -30,6 +30,8 @@ type LeptonWorkspaceSpec struct {
 	EnableWeb   bool   `json:"enable_web,omitempty"`
 	// Terraform module git ref
 	GitRef string `json:"git_ref"`
+	// +optional
+	QuotaGroup string `json:"quota_group"`
 
 	Description string `json:"description"`
 }

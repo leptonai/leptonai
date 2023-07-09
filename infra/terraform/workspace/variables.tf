@@ -101,3 +101,9 @@ variable "vpc_id" {
   type        = string
   default     = "vpc-0a0b0c0d0e0f0g0h0"
 }
+
+variable "quota_group" {
+  description = "Quota Group (only support small for now)"
+  type        = string
+  default     = "small"
+}

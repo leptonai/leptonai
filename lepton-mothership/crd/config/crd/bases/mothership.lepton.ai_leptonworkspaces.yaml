@@ -54,6 +54,8 @@ spec:
                 description: Name is a globally unique name of a workspace within
                   mothership.
                 type: string
+              quota_group:
+                type: string
             required:
             - cluster_name
             - description

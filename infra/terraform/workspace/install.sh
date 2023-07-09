@@ -97,7 +97,8 @@ terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
   -var="vpc_id=$VPC_ID" \
-  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS" \
+  -var="quota_group=$QUOTA_GROUP"
 apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="oidc_id=$OIDC_ID" -var="api_token=$API_TOKEN" \
@@ -107,7 +108,8 @@ apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" \
   -var="lepton_web_enabled=$WEB_ENABLED" \
   -var="create_efs=$CREATE_EFS" \
   -var="vpc_id=$VPC_ID" \
-  -var="efs_mount_targets=$EFS_MOUNT_TARGETS" 2>&1)
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS" \
+  -var="quota_group=$QUOTA_GROUP" 2>&1)
 if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
   echo "SUCCESS: Terraform apply of all modules completed successfully"
 else
