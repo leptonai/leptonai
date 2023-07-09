@@ -122,7 +122,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
         </Row>
       </Col>
       <Col span={24}>
-        <Row gutter={[0, 4]}>
+        <Row gutter={[16, 4]}>
           <Col flex="0 0 400px">
             <Row gutter={[0, 4]}>
               <Col span={24}>
@@ -140,6 +140,8 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     term="Endpoint"
                     description={
                       <Typography.Text
+                        style={{ maxWidth: "280px" }}
+                        ellipsis={{ tooltip: true }}
                         copyable={{
                           icon: <CarbonIcon icon={<CopyFile />} />,
                         }}
