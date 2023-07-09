@@ -1,5 +1,4 @@
 from datetime import datetime
-import sys
 
 import click
 from rich.table import Table
@@ -13,7 +12,6 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
-from leptonai.api.util import APIError
 
 
 @click_group()
@@ -30,15 +28,6 @@ def deployment():
     Lepton AI cloud.
     """
     pass
-
-
-@deployment.command()
-def create():
-    """
-    No effect, use `lep photon run` instead. This is only a placeholder.
-    """
-    console.print("Please use `lep photon run` instead.")
-    sys.exit(1)
 
 
 @deployment.command()
@@ -102,33 +91,36 @@ def remove(name):
 
 @deployment.command()
 @click.option("--name", "-n", help="deployment name")
-def readiness(name):
+def status(name):
     """
-    Gets the readiness information of a deployment.
+    Gets the status of a deployment.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     info = guard_api(
         api.get_readiness(workspace_url, auth_token, name),
         detail=True,
-        msg=f"Cannot obtain readiness info for [red]{name}[/]. See error above.",
+        msg=f"Cannot obtain status info for [red]{name}[/]. See error above.",
     )
     # Print a table of readiness information.
-    table = Table(title=f"Deployment [green]{name}[/] readiness", show_lines=True)
+    table = Table(title=f"Deployment [green]{name}[/] status", show_lines=True)
     table.add_column("replica id")
     table.add_column("status")
     table.add_column("message")
+    ready_count = 0
     for id, value in info.items():
         reason = value[0]["reason"]
         message = value[0]["message"]
         # Do we need to display red?
         if reason == "Ready":
             reason = f"[green]{reason}[/]"
+            ready_count += 1
         else:
             reason = f"[yellow]{reason}[/]"
         if message == "":
             message = "(empty)"
         table.add_row(id, reason, message)
     console.print(table)
+    console.print(f"[green]{ready_count}[/] out of {len(info)} replicas ready.")
 
 
 @deployment.command()
@@ -138,6 +130,7 @@ def log(name, replica):
     """
     Gets the log of a deployment.
     """
+    check(name, "Deployment name not specified.")
     workspace_url, auth_token = get_workspace_and_token_or_die()
     if not replica:
         # obtain replica information, and then select the first one.
@@ -153,13 +146,19 @@ def log(name, replica):
         check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
         replica = replicas[0]["id"]
         console.print(f"Selected replica [green]{replica}[/].")
-    stream_or_err = api.get_log(workspace_url, auth_token, name, replica)
-    if isinstance(stream_or_err, APIError):
-        console.print(f"{stream_or_err}")
-        console.print(f"Cannot obtain log for [red]{name}[/]. See error above.")
+    else:
+        console.print(f"Showing log for replica [green]{replica}[/].")
+    stream_or_err = guard_api(
+        api.get_log(workspace_url, auth_token, name, replica),
+        detail=False,
+        msg="Cannot obtain log for [red]{replica}[/]. See error above.",
+    )
+    # Print the log as a continuous stream until the user presses Ctrl-C.
     try:
         for chunk in stream_or_err:
             console.print(chunk, end="")
+    except KeyboardInterrupt:
+        console.print("Disconnected.")
     except Exception:
         console.print("Connection stopped.")
         return

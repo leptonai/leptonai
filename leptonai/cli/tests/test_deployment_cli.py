@@ -26,12 +26,6 @@ class TestDeploymentCliLocal(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("It seems that you are not logged in", result.output)
 
-    def test_deployment_create(self):
-        runner = CliRunner()
-        result = runner.invoke(cli, ["deployment", "create"])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Please use `lep photon run` instead.", result.output)
-
 
 if __name__ == "__main__":
     unittest.main()
