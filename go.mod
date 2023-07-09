@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.2.12
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
+	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14
 	github.com/go-git/go-git/v5 v5.7.0
 	github.com/hashicorp/go-tfe v1.26.0
 	github.com/lib/pq v1.10.7
