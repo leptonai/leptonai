@@ -95,6 +95,7 @@ def status(name):
     """
     Gets the status of a deployment.
     """
+    check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
     workspace_url, auth_token = get_workspace_and_token_or_die()
     info = guard_api(
         api.get_readiness(workspace_url, auth_token, name),
