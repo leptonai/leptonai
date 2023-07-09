@@ -18,6 +18,7 @@ set -x
 # TODO: Can we remove those hacks with custom terraform provider?
 targets=(
   "null_resource.delete_all_lepton_deployments_and_ingresses"
+  "helm_release.lepton_crd"
   "helm_release.lepton"
   "null_resource.delete_prometheus"
   "null_resource.delete_grafana"
@@ -25,8 +26,6 @@ targets=(
   "null_resource.delete_calico_installation"
 
   "module.eks_blueprints_kubernetes_addons"
-  "helm_release.aws_load_balancer_controller"
-  "module.ebs_csi_driver_irsa"
 )
 
 if [ -z "$CLUSTER_NAME" ]; then

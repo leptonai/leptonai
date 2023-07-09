@@ -14,6 +14,7 @@ targets=(
   "aws_security_group.nodes"
   "aws_security_group_rule.nodes"
   "aws_security_group_rule.ingress_from_node_to_cluster"
+  "aws_security_group.alb_shared_backend"
 
   "module.eks"
   "kubernetes_storage_class_v1.gp3_sc_default"
