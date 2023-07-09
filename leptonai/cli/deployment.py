@@ -6,12 +6,14 @@ from rich.table import Table
 
 from .util import (
     console,
+    check,
     click_group,
     guard_api,
     get_workspace_and_token_or_die,
     explain_response,
 )
 from leptonai.api import deployment as api
+from leptonai.api.util import APIError
 
 
 @click_group()
@@ -33,8 +35,7 @@ def deployment():
 @deployment.command()
 def create():
     """
-    Use `lep photon run` instead. This is only a placeholder and does not do
-    anything.
+    No effect, use `lep photon run` instead. This is only a placeholder.
     """
     console.print("Please use `lep photon run` instead.")
     sys.exit(1)
@@ -83,7 +84,7 @@ def list():
 @click.option("--name", "-n", help="deployment name")
 def remove(name):
     """
-    Removes a deployment of the given name.
+    Removes a deployment.
     """
     workspace_url, auth_token = get_workspace_and_token_or_die()
     response = api.remove_deployment(workspace_url, auth_token, name)
@@ -97,6 +98,95 @@ def remove(name):
         ),
     )
     return 0
+
+
+@deployment.command()
+@click.option("--name", "-n", help="deployment name")
+def readiness(name):
+    """
+    Gets the readiness information of a deployment.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    info = guard_api(
+        api.get_readiness(workspace_url, auth_token, name),
+        detail=True,
+        msg=f"Cannot obtain readiness info for [red]{name}[/]. See error above.",
+    )
+    # Print a table of readiness information.
+    table = Table(title=f"Deployment [green]{name}[/] readiness", show_lines=True)
+    table.add_column("replica id")
+    table.add_column("status")
+    table.add_column("message")
+    for id, value in info.items():
+        reason = value[0]["reason"]
+        message = value[0]["message"]
+        # Do we need to display red?
+        if reason == "Ready":
+            reason = f"[green]{reason}[/]"
+        else:
+            reason = f"[yellow]{reason}[/]"
+        if message == "":
+            message = "(empty)"
+        table.add_row(id, reason, message)
+    console.print(table)
+
+
+@deployment.command()
+@click.option("--name", "-n", help="deployment name")
+@click.option("--replica", "-r", help="replica name", default=None)
+def log(name, replica):
+    """
+    Gets the log of a deployment.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    if not replica:
+        # obtain replica information, and then select the first one.
+        console.print(
+            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
+            " replica."
+        )
+        replicas = guard_api(
+            api.get_replicas(workspace_url, auth_token, name),
+            detail=True,
+            msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
+        )
+        check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
+        replica = replicas[0]["id"]
+        console.print(f"Selected replica [green]{replica}[/].")
+    stream_or_err = api.get_log(workspace_url, auth_token, name, replica)
+    if isinstance(stream_or_err, APIError):
+        console.print(f"{stream_or_err}")
+        console.print(f"Cannot obtain log for [red]{name}[/]. See error above.")
+    try:
+        for chunk in stream_or_err:
+            console.print(chunk, end="")
+    except Exception:
+        console.print("Connection stopped.")
+        return
+
+
+@deployment.command()
+@click.option("--name", "-n", help="deployment name")
+@click.option("--replica", "-r", help="number of replicas", type=int, default=None)
+def update(name, replica):
+    """
+    Updates a deployment. Currently, only adjustment of the
+    number of replicas is supported.
+    """
+    check(replica is not None, "Number of replicas not specified.")
+    check(replica > 0, f"Invalid number of replicas: {replica}")
+    # Just to avoid stupid errors right now, we will limit the number of replicas
+    # to 100 for now.
+    check(replica <= 100, f"Invalid number of replicas: {replica}")
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    guard_api(
+        api.update_deployment(workspace_url, auth_token, name, replica),
+        detail=True,
+        msg=f"Cannot update deployment [red]{name}[/]. See error above.",
+    )
+    console.print(
+        f"Deployment [green]{name}[/] updated to replica=[green]{replica}[/]."
+    )
 
 
 def add_command(cli_group):
