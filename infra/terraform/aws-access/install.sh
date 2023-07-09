@@ -21,6 +21,9 @@ terraform init --upgrade
 # shellcheck source=/dev/null
 source ./variables.sh
 
+export TF_LOG="DEBUG"
+export TF_LOG_PATH="tf.log"
+
 ARGS=("apply" "$APPLY_FLAGS")
 # shellcheck disable=SC2068
 terraform ${ARGS[@]}
