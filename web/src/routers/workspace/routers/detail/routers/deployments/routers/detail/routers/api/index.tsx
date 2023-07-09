@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useState } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
@@ -51,11 +51,6 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
       error: () => setLoading(false),
     }
   );
-
-  const docsUrl = useMemo(() => {
-    const url = deployment.status.endpoint.external_endpoint;
-    return `${url}/docs`;
-  }, [deployment]);
 
   return (
     <Card
@@ -134,21 +129,6 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
               language={codeLanguage}
             />
           ))}
-          {codeLanguage === LanguageSupports.Bash && (
-            <>
-              <br />
-              You can also check{" "}
-              <Link
-                css={css`
-                  text-decoration: underline !important;
-                `}
-                to={docsUrl}
-                target="_blank"
-              >
-                API docs here.
-              </Link>
-            </>
-          )}
         </>
       ) : (
         <Alert showIcon type="warning" message="No openapi schema found" />
