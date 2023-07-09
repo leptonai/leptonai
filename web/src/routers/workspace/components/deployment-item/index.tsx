@@ -1,6 +1,6 @@
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
-import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
+import { Storage } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/storage";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
@@ -9,7 +9,6 @@ import {
   Col,
   Divider,
   Popconfirm,
-  Popover,
   Row,
   Space,
   Typography,
@@ -136,33 +135,19 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               </Col>
               <Col span={24}>
                 <Description.Container>
-                  <Popover
-                    placement="bottomLeft"
-                    content={deployment.status.endpoint.external_endpoint}
-                  >
-                    <span>
-                      <Hoverable>
-                        <Description.Item
-                          icon={<CarbonIcon icon={<Api />} />}
-                          description={
-                            <Typography.Text
-                              copyable={{
-                                text: deployment.status.endpoint
-                                  .external_endpoint,
-                                tooltips: false,
-                                icon: <CarbonIcon icon={<CopyFile />} />,
-                              }}
-                            >
-                              External endpoint
-                            </Typography.Text>
-                          }
-                        />
-                      </Hoverable>
-                    </span>
-                  </Popover>
-                  {deployment.envs && deployment.envs.length > 0 ? (
-                    <Envs envs={deployment.envs} />
-                  ) : null}
+                  <Description.Item
+                    icon={<CarbonIcon icon={<Api />} />}
+                    term="Endpoint"
+                    description={
+                      <Typography.Text
+                        copyable={{
+                          icon: <CarbonIcon icon={<CopyFile />} />,
+                        }}
+                      >
+                        {deployment.status.endpoint.external_endpoint}
+                      </Typography.Text>
+                    }
+                  />
                 </Description.Container>
               </Col>
             </Row>
@@ -184,6 +169,12 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                       </Link>
                     }
                   />
+                  {deployment.mounts && deployment.mounts.length > 0 ? (
+                    <Storage mounts={deployment.mounts} />
+                  ) : null}
+                  {deployment.envs && deployment.envs.length > 0 ? (
+                    <Envs envs={deployment.envs} />
+                  ) : null}
                 </Description.Container>
               </Col>
               <Col span={24}>
