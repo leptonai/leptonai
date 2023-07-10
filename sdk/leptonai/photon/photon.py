@@ -203,9 +203,22 @@ class Photon(BasePhoton):
         if model is None:
             model = self.__class__.__qualname__
         super().__init__(name=name, model=model)
-        self.routes = get_routes(self.__class__)
+        self._routes = self._gather_routes()
         self._init_called = False
         self._init_res = None
+
+    @classmethod
+    def _gather_routes(cls):
+        res = {}
+
+        for base in cls.__bases__:
+            if base == BasePhoton:
+                # BasePhoton should not have any routes
+                continue
+            res.update(base._gather_routes())
+
+        res.update(get_routes(cls))
+        return res
 
     @staticmethod
     def _infer_requirement_dependency():
@@ -591,7 +604,7 @@ class Photon(BasePhoton):
 
     def _register_routes(self, app, load_mount):
         api_router = APIRouter()
-        for path, (func, kwargs) in self.routes.items():
+        for path, (func, kwargs) in self._routes.items():
             if kwargs.get("mount"):
                 if load_mount:
                     self._mount_route(app, path, func)
