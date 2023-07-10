@@ -628,7 +628,14 @@ class Photon(BasePhoton):
             routes[path_] = (func, kwargs)
             return wrapped_func
 
-        return decorator
+        if callable(path) and not kwargs:
+            # the decorator has been used without parenthesis, `path` is a
+            # function here
+            func_ = path
+            path = func_.__name__
+            return decorator(func_)
+        else:
+            return decorator
 
     @classmethod
     def create_from_model_str(cls, name, model_str):
