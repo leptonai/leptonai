@@ -68,7 +68,7 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKS_CNI_
 # curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/master/docs/iam-policy-example.json
 resource "aws_iam_policy" "policy_efs" {
   name        = "${local.cluster_name}-efs-iam-policy"
-  policy      = file("efs-policy.json")
+  policy      = file("storage-efs-policy.json")
   description = "EFS IAM policy"
 }
 

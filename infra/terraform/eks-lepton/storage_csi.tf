@@ -69,3 +69,28 @@ module "ebs_csi_driver_irsa" {
     }
   }
 }
+
+# https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon
+resource "aws_eks_addon" "aws-ebs-csi-driver" {
+  cluster_name = module.eks.cluster_name
+
+  # ref. "aws eks describe-addon-versions --kubernetes-version 1.26"
+  addon_name    = "aws-ebs-csi-driver"
+  addon_version = "v1.20.0-eksbuild.1"
+
+  # TODO: define resolve_conflicts
+  # resolve_conflicts_on_create = "OVERWRITE"
+  # resolve_conflicts_on_update = "OVERWRITE"
+
+  # whether to preserve the created resources when deleting the EKS add-on
+  preserve = false
+
+  service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+
+  depends_on = [
+    module.eks,
+    module.ebs_csi_driver_irsa
+  ]
+}
+

@@ -8,12 +8,6 @@ module "eks_blueprints_kubernetes_addons" {
   oidc_provider     = module.eks.cluster_oidc_issuer_url
   oidc_provider_arn = module.eks.oidc_provider_arn
 
-  eks_addons = {
-    aws-ebs-csi-driver = {
-      service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
-    }
-  }
-
   # https://github.com/kubernetes-sigs/external-dns/releases
   enable_external_dns = true
   external_dns = {

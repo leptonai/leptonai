@@ -20,6 +20,7 @@ targets=(
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"
   "module.ebs_csi_driver_irsa"
+  "aws_eks_addon.aws-ebs-csi-driver"
   "helm_release.gpu-operator"
 
   # bug https://github.com/hashicorp/terraform-provider-kubernetes/issues/1917
