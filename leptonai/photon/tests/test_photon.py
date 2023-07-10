@@ -663,6 +663,44 @@ from leptonai.photon import Photon
             res = client.last_line(inputs=FileParam(f))
         self.assertEqual(res, "9")
 
+    def test_subclass_photon(self):
+        class ParentPhoton(Photon):
+            _common_name = "common"
+            _override_name = "parent"
+
+            @Photon.handler()
+            def common_name(self) -> str:
+                return self._common_name
+
+            @Photon.handler()
+            def override_name(self) -> str:
+                return self._override_name
+
+        class ChildPhoton(ParentPhoton):
+            _override_name = "child"
+            _specific_name = "parent-child"
+
+            @Photon.handler()
+            def specific_name(self) -> str:
+                return self._specific_name
+
+        ph = ParentPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.common_name(), ParentPhoton._common_name)
+        self.assertEqual(client.override_name(), ParentPhoton._override_name)
+        proc.kill()
+
+        ph = ChildPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.common_name(), ChildPhoton._common_name)
+        self.assertEqual(client.override_name(), ChildPhoton._override_name)
+        self.assertEqual(client.specific_name(), ChildPhoton._specific_name)
+        proc.kill()
+
 
 if __name__ == "__main__":
     unittest.main()
