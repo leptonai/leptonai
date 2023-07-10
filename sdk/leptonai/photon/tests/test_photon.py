@@ -701,6 +701,19 @@ from leptonai.photon import Photon
         self.assertEqual(client.specific_name(), ChildPhoton._specific_name)
         proc.kill()
 
+    def test_handler_decorator_no_parenthesis(self):
+        class NoParenthesisPhoton(Photon):
+            @Photon.handler
+            def hello(self) -> str:
+                return "world"
+
+        ph = NoParenthesisPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        res = client.hello()
+        self.assertEqual(res, "world")
+
 
 if __name__ == "__main__":
     unittest.main()
