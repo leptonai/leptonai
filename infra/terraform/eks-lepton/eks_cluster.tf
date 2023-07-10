@@ -13,76 +13,8 @@ module "eks" {
   subnet_ids                     = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
-  eks_managed_node_group_defaults = {
-    # required for managed node groups with "custom" AMIs to connect to EKS cluster
-    # not required for default EKS-provided AMIs
-    vpc_security_group_ids = [aws_security_group.nodes.id]
-  }
-
-  # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
-  eks_managed_node_groups = {
-    one = {
-      use_custom_launch_template = false
-      name                       = "t3xlarge"
-      ami_type                   = "AL2_x86_64"
-
-      capacity_type = "ON_DEMAND" # ON_DEMAND, SPOT
-
-      instance_types = ["t3.xlarge"]
-      disk_size      = 100
-
-      min_size     = 1
-      max_size     = 10
-      desired_size = 4
-    }
-
-    two = {
-      use_custom_launch_template = false
-      name                       = "g4dnxlarge"
-      ami_type                   = "AL2_x86_64_GPU"
-
-      capacity_type = "ON_DEMAND" # ON_DEMAND, SPOT
-
-      instance_types = ["g4dn.xlarge"]
-      disk_size      = 120
-
-      min_size     = 0
-      max_size     = 10
-      desired_size = 0
-
-      # not allow new pods to schedule onto the node unless they tolerate the taint
-      # only the pods with matching toleration will be scheduled
-      # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group#taint-configuration-block
-      taints = [
-        {
-          key    = "nvidia.com/gpu"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-
-      # prevents unnecessary scale-outs by cluster autoscaler (see FilterOutNodesWithUnreadyResources, GPULabel)
-      # the cluster autoscaler only checks the existence of the label
-      # the label value can be anything, and here we label by the device name for internal use
-      # https://aws.github.io/aws-eks-best-practices/cluster-autoscaling/
-      # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#special-note-on-gpu-instances
-      labels = {
-        "k8s.amazonaws.com/accelerator" = "nvidia-t4"
-      }
-    }
-  }
-
   create_cluster_security_group = false
   cluster_security_group_id     = aws_security_group.eks.id
-
-  manage_aws_auth_configmap = true
-
-  aws_auth_users = [
-    for user in data.aws_iam_group.dev_members.users : {
-      userarn  = "${user.arn}"
-      username = "${user.user_name}"
-      groups   = ["system:masters"]
-    }
-  ]
 
   depends_on = [
     module.vpc,
@@ -119,4 +51,53 @@ provider "helm" {
       args = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
     }
   }
+}
+
+locals {
+  aws_auth_users = [
+    for user in data.aws_iam_group.dev_members.users : {
+      userarn  = "${user.arn}"
+      username = "${user.user_name}"
+      groups   = ["system:masters"]
+    }
+  ]
+  aws_auth_configmap_data = {
+    mapUsers = yamlencode(local.aws_auth_users)
+  }
+}
+
+# NEED SEPARATE resource
+# "eks" module with "manage_aws_auth_configmap=true"
+# does not work if we separate out the node groups
+# ref. https://github.com/terraform-aws-modules/terraform-aws-eks/tree/master/modules/eks-managed-node-group
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = local.aws_auth_configmap_data
+
+  lifecycle {
+    # We are ignoring the data here since we will manage it with the resource below
+    # This is only intended to be used in scenarios where the configmap does not exist
+    ignore_changes = [data, metadata[0].labels, metadata[0].annotations]
+  }
+}
+
+# ref. https://github.com/terraform-aws-modules/terraform-aws-eks/tree/master/modules/eks-managed-node-group
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  force = true
+
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = local.aws_auth_configmap_data
+
+  depends_on = [
+    module.eks,
+    kubernetes_config_map.aws_auth
+  ]
 }

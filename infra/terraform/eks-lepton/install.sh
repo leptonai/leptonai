@@ -19,6 +19,13 @@ targets=(
   "module.eks"
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"
+
+  "kubernetes_config_map.aws_auth"
+  "kubernetes_config_map_v1_data.aws_auth"
+
+  "aws_eks_node_group.al2_x86_64_cpu_t3xlarge"
+  "aws_eks_node_group.al2_x86_64_ac_g4dnxlarge"
+
   "module.ebs_csi_driver_irsa"
   "aws_eks_addon.aws-ebs-csi-driver"
   "helm_release.gpu-operator"
