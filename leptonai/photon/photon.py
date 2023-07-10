@@ -395,18 +395,18 @@ class Photon(BasePhoton):
             config["fmt"] = "%(asctime)s - " + config["fmt"]
         return log_config
 
-    def launch(self, host="0.0.0.0", port=8080, log_level="info"):
-        self.call_init()
-        app = self._create_app(load_mount=True)
-
+    @staticmethod
+    def _print_launch_info(host, port, log_level):
         logger = logging.getLogger("Lepton Photon Launcher")
         logger.setLevel(log_level.upper())
-        formatter = logging.Formatter(
-            "%(asctime)s - \x1b[32m%(levelname)s\x1b[0m:  %(message)s\t"
-        )
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+
+        if not logger.hasHandlers():
+            formatter = logging.Formatter(
+                "%(asctime)s - \x1b[32m%(levelname)s\x1b[0m:  %(message)s\t"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
         logger.propagate = False
         # Send the welcome message, especially to make sure that users will know
         # whicl URL to visit in order to not get a "not found" error.
@@ -432,12 +432,45 @@ class Photon(BasePhoton):
             + " Prometheus metrics"
         )
 
+    def _uvicorn_run(self, host, port, log_level, log_config):
+        def run_server():
+            app = self._create_app(load_mount=True)
+
+            @app.post("/lepton-restart", include_in_schema=False)
+            def lepton_restart_handler():
+                global lepton_uvicorn_restart
+                global lepton_uvicorn_server
+
+                lepton_uvicorn_restart = True
+                # to hint uvicorn server to shutdown
+                lepton_uvicorn_server.should_exit = True
+
+            # make sure restart handler takes precedence over other
+            # handlers (e.g. apps mounted at root path)
+            app.routes.insert(0, app.routes.pop())
+
+            global lepton_uvicorn_restart
+            global lepton_uvicorn_server
+
+            lepton_uvicorn_restart = False
+            config = uvicorn.Config(app, host=host, port=port, log_config=log_config)
+            lepton_uvicorn_server = uvicorn.Server(config=config)
+            self._print_launch_info(host, port, log_level)
+            lepton_uvicorn_server.run()
+
+        while True:
+            run_server()
+            if lepton_uvicorn_restart:
+                logger.info(f"Restarting server on {host}:{port}")
+            else:
+                break
+
+    def launch(self, host="0.0.0.0", port=8080, log_level="info"):
+        self.call_init()
         log_config = self._uvicorn_log_config()
-        ret = uvicorn.run(
-            app, host=host, port=port, log_level=log_level, log_config=log_config
+        self._uvicorn_run(
+            host=host, port=port, log_level=log_level, log_config=log_config
         )
-        logger.info("Photon exited with code: " + str(ret))
-        return ret
 
     @staticmethod
     def _collect_metrics(app):
