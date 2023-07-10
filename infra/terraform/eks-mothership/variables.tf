@@ -1,3 +1,17 @@
+# TEST: may be destroyed within hours of creation
+# DEV: may be destroyed within 10 days of creation (with notice)
+# PROD: destroy should never be automated
+variable "deployment_environment" {
+  description = "Deployment environment; TEST, DEV, or PROD"
+  type        = string
+  default     = "TEST"
+
+  validation {
+    condition     = contains(["TEST", "DEV", "PROD"], var.deployment_environment)
+    error_message = "Valid 'deployment_environment' values are TEST, DEV, or PROD,"
+  }
+}
+
 variable "region" {
   description = "AWS region"
   type        = string

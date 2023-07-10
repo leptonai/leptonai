@@ -7,7 +7,13 @@ provider "aws" {
   # ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs#default_tags-configuration-block
   default_tags {
     tags = {
-      LeptonClusterName = var.cluster_name
+      # used for garbage collection routines
+      # TEST: may be destroyed within hours of creation
+      # DEV: may be destroyed within 10 days of creation (with notice)
+      # PROD: destroy should never be automated
+      LeptonDeploymentEnvironment = var.deployment_environment
+
+      LeptonClusterName   = var.cluster_name
       LeptonWorkspaceName = var.workspace_name
 
       # created time
@@ -59,13 +65,13 @@ resource "kubernetes_resource_quota" "lepton_small_quota" {
     namespace = var.namespace
   }
 
-  count = var.quota_group == "small" ? 1 : 0  # Enable only when quota_group variable is "small"
+  count = var.quota_group == "small" ? 1 : 0 # Enable only when quota_group variable is "small"
 
   spec {
     hard = {
-      "requests.cpu"              = "5"
-      "requests.memory"           = "17Gi"
-      "requests.nvidia.com/gpu"   = 1
+      "requests.cpu"            = "5"
+      "requests.memory"         = "17Gi"
+      "requests.nvidia.com/gpu" = 1
     }
   }
 

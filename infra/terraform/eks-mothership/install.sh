@@ -37,17 +37,19 @@ else
   exit 1
 fi
 
-CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"
+# loads additional flags and values for the following "terraform apply" commands
+# shellcheck source=/dev/null
+source ./variables.sh
 
-AURORA_MASTER_USERNAME=${AURORA_MASTER_USERNAME:-root}
+CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"
 
 # Apply modules in sequence
 for target in "${targets[@]}"
 do
-  terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="aurora_master_username=$AURORA_MASTER_USERNAME"
+  terraform apply -target="$target" "${APPLY_FLAGS[@]}"
 
   if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-    apply_output=$(terraform apply -target="$target" -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="aurora_master_username=$AURORA_MASTER_USERNAME" 2>&1)
+    apply_output=$(terraform apply -target="$target" "${APPLY_FLAGS[@]}" 2>&1)
     if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
       echo "SUCCESS: Terraform apply of $target completed successfully"
     else
@@ -71,10 +73,10 @@ fi
 
 # Final apply to catch any remaining resources
 echo "Applying remaining resources..."
-terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME"
+terraform apply "${APPLY_FLAGS[@]}"
 
 if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-  apply_output=$(terraform apply -auto-approve -var="cluster_name=$CLUSTER_NAME" 2>&1)
+  apply_output=$(terraform apply "${APPLY_FLAGS[@]}" 2>&1)
   if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
     echo "SUCCESS: Terraform apply of all modules completed successfully"
   else
