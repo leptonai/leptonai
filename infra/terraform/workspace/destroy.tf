@@ -10,6 +10,7 @@ resource "null_resource" "delete_all_lepton_deployments" {
     command = <<-EOD
 aws eks update-kubeconfig --region ${self.triggers.region} --name ${self.triggers.cluster_name} --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig
 kubectl --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig -n ${self.triggers.namespace} delete leptondeployments --all
+sleep 5
 EOD
   }
 
