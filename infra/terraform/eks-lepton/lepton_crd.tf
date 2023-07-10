@@ -29,7 +29,12 @@ resource "helm_release" "lepton_crd" {
 
   depends_on = [
     module.eks,
-    module.vpc,
+
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth,
+
     helm_release.aws_load_balancer_controller,
   ]
 }

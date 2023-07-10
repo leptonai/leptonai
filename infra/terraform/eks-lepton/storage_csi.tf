@@ -24,6 +24,13 @@ resource "kubernetes_storage_class_v1" "gp3_sc_default" {
     fsType    = "ext4"
     encrypted = "true"
   }
+
+  depends_on = [
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
+  ]
 }
 
 resource "kubernetes_storage_class_v1" "efs_sc" {
@@ -32,6 +39,13 @@ resource "kubernetes_storage_class_v1" "efs_sc" {
   }
 
   storage_provisioner = "efs.csi.aws.com"
+
+  depends_on = [
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
+  ]
 }
 
 # make it non-default
@@ -55,6 +69,13 @@ resource "kubernetes_annotations" "gp2_sc_non_default" {
   annotations = {
     "storageclass.kubernetes.io/is-default-class" = "false"
   }
+
+  depends_on = [
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
+  ]
 }
 
 module "ebs_csi_driver_irsa" {

@@ -67,7 +67,12 @@ resource "kubernetes_service_account" "cluster_autoscaler_sa" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.cluster_autoscaler_iam_role_policy_attach
+    aws_iam_role_policy_attachment.cluster_autoscaler_iam_role_policy_attach,
+
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
   ]
 }
 
@@ -112,7 +117,12 @@ resource "kubernetes_role_binding" "cluster_autoscaler_role_binding" {
 
   depends_on = [
     kubernetes_service_account.cluster_autoscaler_sa,
-    kubernetes_role.cluster_autoscaler_role
+    kubernetes_role.cluster_autoscaler_role,
+
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
   ]
 }
 
@@ -201,6 +211,13 @@ resource "kubernetes_cluster_role" "cluster_autoscaler_cluster_role" {
     resources      = ["leases"]
     verbs          = ["get", "update"]
   }
+
+  depends_on = [
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
+  ]
 }
 
 resource "kubernetes_cluster_role_binding" "cluster_autoscaler_cluster_role_binding" {
@@ -222,7 +239,12 @@ resource "kubernetes_cluster_role_binding" "cluster_autoscaler_cluster_role_bind
 
   depends_on = [
     kubernetes_service_account.cluster_autoscaler_sa,
-    kubernetes_cluster_role.cluster_autoscaler_cluster_role
+    kubernetes_cluster_role.cluster_autoscaler_cluster_role,
+
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth
   ]
 }
 
@@ -323,7 +345,12 @@ resource "helm_release" "cluster_autoscaler" {
 
   depends_on = [
     module.eks,
-    module.vpc,
+
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth,
+
     kubernetes_service_account.cluster_autoscaler_sa,
     kubernetes_role_binding.cluster_autoscaler_role_binding,
     kubernetes_cluster_role_binding.cluster_autoscaler_cluster_role_binding

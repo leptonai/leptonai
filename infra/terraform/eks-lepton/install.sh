@@ -17,11 +17,11 @@ targets=(
   "aws_security_group.alb_shared_backend"
 
   "module.eks"
-  "kubernetes_storage_class_v1.gp3_sc_default"
-  "kubernetes_annotations.gp2_sc_non_default"
-
   "kubernetes_config_map.aws_auth"
   "kubernetes_config_map_v1_data.aws_auth"
+
+  "kubernetes_storage_class_v1.gp3_sc_default"
+  "kubernetes_annotations.gp2_sc_non_default"
 
   "aws_eks_node_group.al2_x86_64_cpu_t3xlarge"
   "aws_eks_node_group.al2_x86_64_ac_g4dnxlarge"
