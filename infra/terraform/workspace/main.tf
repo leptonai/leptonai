@@ -68,4 +68,8 @@ resource "kubernetes_resource_quota" "lepton_small_quota" {
       "requests.nvidia.com/gpu"   = 1
     }
   }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
