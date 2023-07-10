@@ -37,7 +37,7 @@ func (h *MonitorningHandler) ReplicaMemoryUtil(c *gin.Context) {
 
 func (h *MonitorningHandler) ReplicaMemoryUsage(c *gin.Context) {
 	// get the memory usage bytes for the past 1 hour
-	query := "container_memory_usage_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h]"
+	query := "container_memory_usage_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h:1m]"
 	result, err := h.queryAndScaleMetrics(query, "memory_usage_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
@@ -48,7 +48,7 @@ func (h *MonitorningHandler) ReplicaMemoryUsage(c *gin.Context) {
 
 func (h *MonitorningHandler) ReplicaMemoryTotal(c *gin.Context) {
 	// get the memory limit bytes for the past 1 hour
-	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h]"
+	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h:1m]"
 	result, err := h.queryAndScaleMetrics(query, "memory_total_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
@@ -194,7 +194,7 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 
 func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 	// get the GPU memory util for the past 1 hour
-	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("rid") + "\"}[1h]"
+	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
@@ -205,7 +205,7 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 
 func (h *MonitorningHandler) ReplicaGPUUtil(c *gin.Context) {
 	// get the GPU util for the past 1 hour
-	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("rid") + "\"}[1h]"
+	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
@@ -216,7 +216,7 @@ func (h *MonitorningHandler) ReplicaGPUUtil(c *gin.Context) {
 
 func (h *MonitorningHandler) ReplicaGPUMemoryUsage(c *gin.Context) {
 	// get the GPU memory usage in MB for the past 1 hour
-	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"}[1h]"
+	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_memory_usage_in_MiB", "gpu")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
