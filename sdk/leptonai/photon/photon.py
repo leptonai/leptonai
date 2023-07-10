@@ -486,7 +486,7 @@ class Photon(BasePhoton):
 
         @app.on_event("startup")
         async def _startup():
-            instrumentator.expose(app, endpoint="/metrics")
+            instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
 
     # helper function of _register_routes
     def _mount_route(self, app, path, func):
