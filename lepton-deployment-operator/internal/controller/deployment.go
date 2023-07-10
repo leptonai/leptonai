@@ -169,7 +169,9 @@ func (k *deployment) newMainContainerArgs() []string {
 
 func (k *deployment) gpuEnabled() bool {
 	ld := k.leptonDeployment
-	return ld.Spec.ResourceRequirement.AcceleratorType != "" && ld.Spec.ResourceRequirement.AcceleratorNum > 0
+	an, at := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
+
+	return at != "" && an > 0
 }
 
 func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
@@ -193,7 +195,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	storageValue := ld.Spec.ResourceRequirement.EphemeralStorageInGB
 
 	if ld.Spec.ResourceRequirement.ResourceShape != "" {
-		replicaResourceRequirement, err := shapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
+		replicaResourceRequirement, err := leptonaiv1alpha1.ShapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
 		if err != nil {
 			log.Fatalf("Unexpected shape to requirement error %v", err)
 		}
@@ -244,8 +246,10 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
+		accnum, acctype := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
+
 		// if gpu is enabled, set gpu resource limit and node selector
-		rv := *resource.NewQuantity(int64(ld.Spec.ResourceRequirement.AcceleratorNum), resource.DecimalSI)
+		rv := *resource.NewQuantity(int64(accnum), resource.DecimalSI)
 		resources.Limits[corev1.ResourceName(k.gpuResourceKey)] = rv
 
 		// cluster-autoscaler uses this key to prevent early scale-down on new/upcoming pods
@@ -253,7 +257,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		resources.Requests[corev1.ResourceName(k.gpuResourceKey)] = rv
 
 		// only schedule the pod with exact matching node labels
-		nodeSelector[k.gpuProductLableKey] = ld.Spec.ResourceRequirement.AcceleratorType
+		nodeSelector[k.gpuProductLableKey] = acctype
 	}
 
 	container := corev1.Container{
@@ -352,14 +356,4 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	}
 
 	return spec
-}
-
-func shapeToReplicaResourceRequirement(shape leptonaiv1alpha1.LeptonDeploymentResourceShape) (*leptonaiv1alpha1.LeptonDeploymentReplicaResourceRequirement, error) {
-	shape = leptonaiv1alpha1.DisplayShapeToShape(string(shape))
-	s := leptonaiv1alpha1.SupportedShapesAWS[shape]
-	if s == nil {
-		return nil, fmt.Errorf("shape %s is not supported", shape)
-	}
-
-	return &s.Resource, nil
 }

@@ -94,6 +94,19 @@ type LeptonDeploymentResourceRequirement struct {
 	MinReplicas   int32                         `json:"min_replicas"`
 }
 
+// GetAcceleratorRequirement returns the required number and type of the accelerator for the deployment.
+func (lr *LeptonDeploymentResourceRequirement) GetAcceleratorRequirement() (float64, string) {
+	if lr.ResourceShape != "" {
+		r, err := ShapeToReplicaResourceRequirement(lr.ResourceShape)
+		if err != nil {
+			return 0, ""
+		}
+		return r.AcceleratorNum, r.AcceleratorType
+	}
+
+	return lr.AcceleratorNum, lr.AcceleratorType
+}
+
 type LeptonDeploymentReplicaResourceRequirement struct {
 	CPU    float64 `json:"cpu"`
 	Memory int64   `json:"memory"`
@@ -181,4 +194,14 @@ type LeptonDeploymentList struct {
 
 func init() {
 	SchemeBuilder.Register(&LeptonDeployment{}, &LeptonDeploymentList{})
+}
+
+func ShapeToReplicaResourceRequirement(shape LeptonDeploymentResourceShape) (*LeptonDeploymentReplicaResourceRequirement, error) {
+	shape = DisplayShapeToShape(string(shape))
+	s := SupportedShapesAWS[shape]
+	if s == nil {
+		return nil, fmt.Errorf("shape %s is not supported", shape)
+	}
+
+	return &s.Resource, nil
 }
