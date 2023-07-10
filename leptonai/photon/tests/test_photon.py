@@ -714,6 +714,47 @@ from leptonai.photon import Photon
         res = client.hello()
         self.assertEqual(res, "world")
 
+    def test_infer_photon_cls_name(self):
+        unique_answer = random_name()
+        custom_py = tempfile.NamedTemporaryFile(suffix=".py")
+        custom_py.write(f"""
+from leptonai.photon import Photon
+
+class CustomPhoton(Photon):
+    @Photon.handler()
+    def hello(self) -> str:
+        return '{unique_answer}'
+""".encode())
+        custom_py.flush()
+
+        proc, port = photon_run_server(name=random_name(), model=custom_py.name)
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.hello(), unique_answer)
+
+        custom_py.seek(0)
+        custom_py.write(f"""
+from leptonai.photon import Photon
+
+class CustomPhoton1(Photon):
+    @Photon.handler()
+    def hello(self) -> str:
+        return '{unique_answer}'
+
+class CustomPhoton2(Photon):
+    @Photon.handler()
+    def hello(self) -> str:
+        return '{unique_answer}'
+""".encode())
+        custom_py.flush()
+
+        self.assertRaisesRegex(
+            Exception,
+            r"multiple.*Photon",
+            photon_run_server,
+            name=random_name(),
+            model=custom_py.name,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

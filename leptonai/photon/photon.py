@@ -638,11 +638,27 @@ class Photon(BasePhoton):
             return decorator
 
     @classmethod
+    def _find_photon_subcls_names(cls, module):
+        valid_cls_names = []
+        for name, obj in inspect.getmembers(module):
+            if obj is cls:
+                continue
+            if inspect.isclass(obj) and issubclass(obj, cls):
+                valid_cls_names.append(name)
+        return valid_cls_names
+
+    @classmethod
     def create_from_model_str(cls, name, model_str):
         schema, s = model_str.split(":", maxsplit=1)
         if schema not in schemas:
             raise ValueError(f"Schema should be one of ({schemas}): but got {schema}")
-        url_and_path, cls_name = s.rsplit(":", maxsplit=1)
+
+        if ":" in s:
+            url_and_path, cls_name = s.rsplit(":", maxsplit=1)
+            if not cls_name.isidentifier():
+                url_and_path, cls_name = s, None
+        else:
+            url_and_path, cls_name = s, None
 
         url_and_path_parts = url_and_path.rsplit(":", maxsplit=1)
         if len(url_and_path_parts) > 1:
@@ -669,6 +685,22 @@ class Photon(BasePhoton):
             if spec.loader is None:
                 raise ValueError(f"Could not import Python module from path: {path}")
             spec.loader.exec_module(module)
+
+            if cls_name is None:
+                valid_cls_names = cls._find_photon_subcls_names(module)
+                if len(valid_cls_names) == 0:
+                    raise ValueError(
+                        f"Can not find any sub classes of {cls.__name__} in {path}"
+                    )
+                elif len(valid_cls_names) > 1:
+                    raise ValueError(
+                        f"Found multiple sub classes of {cls.__name__} in {path}:"
+                        f" {valid_cls_names}"
+                    )
+                else:
+                    cls_name = valid_cls_names[0]
+                    model_str = f"{model_str}:{cls_name}"
+
             ph_cls = getattr(module, cls_name)
             if not inspect.isclass(ph_cls) or not issubclass(ph_cls, cls):
                 raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
