@@ -15,7 +15,8 @@ type Worker struct {
 
 func New() *Worker {
 	return &Worker{
-		jobs: make(map[string]*Job),
+		jobs:       make(map[string]*Job),
+		lastFailed: make(map[string]*Job),
 	}
 }
 
