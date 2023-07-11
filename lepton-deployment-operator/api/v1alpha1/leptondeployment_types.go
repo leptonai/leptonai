@@ -79,7 +79,7 @@ func (ld LeptonDeployment) GetVersion() int64 {
 // Get Shape returns the resource shape of the deployment as a string.
 func (ld *LeptonDeployment) GetShape() string {
 	if ld.Spec.ResourceRequirement.ResourceShape == "" {
-		return "customized"
+		return string(Customized)
 	}
 	return string(ld.Spec.ResourceRequirement.ResourceShape)
 }

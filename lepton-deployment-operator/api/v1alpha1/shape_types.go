@@ -12,6 +12,9 @@ const (
 	AC1A10 = LeptonDeploymentResourceShape("ac1.a10")
 	// Not supported yet
 	// AC1A100 = LeptonDeploymentResourceShape("ac1.a100")
+
+	// Other
+	Customized = LeptonDeploymentResourceShape("customized")
 )
 
 // DisplayShapeToShape converts the display name to a resource shape.
