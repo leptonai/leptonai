@@ -27,13 +27,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -U pip setuptools
-    - name: Lint
-      run: |
-        cd sdk
-        pip install .[lint]
-        ruff .
-        black --check .
-        cd -
     - name: Test with pytest
       run: |
         cd sdk
