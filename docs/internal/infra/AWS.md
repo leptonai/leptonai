@@ -2,6 +2,48 @@
 
 Everything listed below is per region.
 
+1 customer translates to the following:
+
+```text
+EKS: 1/10
+VPC: 1
+NAT GATEWAY: 3 (1 per AZ)
+ALB: 1
+EIP: 4
+
+CPUs: 10 vCPUs
+MEMORY: 100 GB
+== 1/6 m6a.16xlarge
+
+GPUs: 10 vCPUs
+MEMORY: 20 GB
+== 1 g4dn.xlarge + 1 g5.2xlarge
+```
+
+100 customers translate to the following quota:
+
+```text
+EKS (L-1194D53C): 10
+VPC (L-F678F1CE): 20
+NAT GATEWAY (L-FE5A380F): 60 (20 per AZ)
+ALB (L-53DA6B97): 100
+EIP (L-0263D0A3): 500
+
+Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances (L-1216C47A):
+1024 (# of vCPUs)
+
+Running On-Demand G and VT instances (L-DB2E81BA):
+1024 (# of vCPUs)
+# OR
+g4dn.xlarge (L-CAE24619): 100 (# of hosts)
+g5.2xlarge  (L-A6E7FE5E): 100 (# of hosts)
+
+# for whitelisted customers
+p4de.24xlarge (L-86A789C3): 5 (# of hosts)
+```
+
+See below for more details.
+
 ### Compute
 
 #### EKS
