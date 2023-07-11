@@ -6,7 +6,6 @@ import { Route, Routes } from "react-router-dom";
 import { Loading } from "@lepton-dashboard/components/loading";
 import { Validate } from "./components/validate";
 import { DIContainer } from "@lepton-libs/di";
-import { WorkspaceTrackerService } from "./services/workspace-tracker.service";
 import { PhotonService } from "./services/photon.service";
 import { DeploymentService } from "./services/deployment.service";
 import { ApiService } from "./services/api.service";
@@ -20,7 +19,6 @@ export const Workspace: FC = () => {
   return (
     <DIContainer
       providers={[
-        WorkspaceTrackerService,
         IndicatorService,
         PhotonService,
         MetricUtilService,

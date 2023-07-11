@@ -3,7 +3,7 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Card } from "@lepton-dashboard/components/card";
 
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Descriptions, Typography } from "antd";
 import { FC } from "react";

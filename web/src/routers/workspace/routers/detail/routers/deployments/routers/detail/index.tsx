@@ -1,14 +1,8 @@
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { Empty } from "antd";
 import { FC } from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useParams,
-  useResolvedPath,
-} from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { Container } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/container";
 import { Demo } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo";
 import { useInject } from "@lepton-libs/di";
@@ -18,6 +12,7 @@ import { Api } from "@lepton-dashboard/routers/workspace/routers/detail/routers/
 import { List as ReplicaList } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list";
 import { Detail as ReplicaDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/detail";
 import { Events } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/events";
+import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -26,7 +21,6 @@ export const Detail: FC = () => {
     () => deploymentService.id(id!),
     undefined
   );
-  const { pathname } = useResolvedPath("");
   return deployment ? (
     <Routes>
       <Route element={<Container deployment={deployment} />}>
@@ -43,7 +37,18 @@ export const Detail: FC = () => {
         path="replicas/detail/:id/*"
         element={<ReplicaDetail deployment={deployment} />}
       />
-      <Route path="*" element={<Navigate to={`${pathname}/demo`} replace />} />
+      <Route
+        path="*"
+        element={
+          <NavigateTo
+            name="deploymentDetailDemo"
+            params={{
+              deploymentId: id!,
+            }}
+            replace
+          />
+        }
+      />
     </Routes>
   ) : (
     <Card>

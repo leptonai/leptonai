@@ -3,8 +3,7 @@ import { Outlet, useResolvedPath } from "react-router-dom";
 import { Col, Row } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/workspace/components/breadcrumb-header";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "../../../../../../../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
   ChartLine,
@@ -13,14 +12,12 @@ import {
 } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { css } from "@emotion/react";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
-import { useInject } from "@lepton-libs/di";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const Container: FC<
   PropsWithChildren<{ deployment: Deployment; replicaId: string }>
 > = ({ deployment, replicaId }) => {
   const { pathname } = useResolvedPath("");
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
   const items = [
     {
@@ -60,33 +57,32 @@ export const Container: FC<
               title: (
                 <>
                   <DeploymentIcon />
-                  <Link
-                    to={`/workspace/${workspaceTrackerService.name}/deployments/list`}
-                    relative="route"
-                  >
+                  <LinkTo name="deploymentsList" relative="route">
                     <span>Deployments</span>
-                  </Link>
+                  </LinkTo>
                 </>
               ),
             },
             {
               title: (
-                <Link
-                  to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}`}
+                <LinkTo
+                  name="deploymentDetail"
+                  params={{ deploymentId: deployment.id }}
                   relative="route"
                 >
                   <span>{deployment.name}</span>
-                </Link>
+                </LinkTo>
               ),
             },
             {
               title: (
-                <Link
-                  to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}/replicas/list`}
+                <LinkTo
+                  name="deploymentDetailReplicasList"
+                  params={{ deploymentId: deployment.id }}
                   relative="route"
                 >
                   Replicas
-                </Link>
+                </LinkTo>
               ),
             },
             {

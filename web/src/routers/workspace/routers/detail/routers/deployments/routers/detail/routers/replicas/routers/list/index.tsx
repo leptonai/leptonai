@@ -13,9 +13,9 @@ import { Divider, Space, Table, Tag, Typography } from "antd";
 import { Terminal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/terminal";
 import { LogsViewer } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/logs-viewer";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const List: FC<{
   deployment: Deployment;
@@ -124,9 +124,16 @@ export const List: FC<{
             ellipsis: true,
             render: (id, record) => (
               <Space>
-                <Link to={`../detail/${id}`} relative="path">
+                <LinkTo
+                  name="deploymentDetailReplicasDetail"
+                  params={{
+                    deploymentId: deployment.id,
+                    replicaId: id,
+                  }}
+                  relative="path"
+                >
                   {id}
-                </Link>
+                </LinkTo>
                 {record?.issues.length > 0 && (
                   <Tag
                     css={css`

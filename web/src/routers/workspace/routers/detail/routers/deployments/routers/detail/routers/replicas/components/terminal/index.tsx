@@ -1,4 +1,4 @@
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";

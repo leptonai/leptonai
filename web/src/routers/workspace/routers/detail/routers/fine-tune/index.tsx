@@ -1,8 +1,9 @@
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { FC, lazy } from "react";
-import { Navigate, Route, Routes, useResolvedPath } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { Container as ContainerWithNav } from "./components/container";
 import styled from "@emotion/styled";
+import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 const Jobs = lazy(() =>
   import(
@@ -25,8 +26,6 @@ const Container = styled.div`
 `;
 
 export const FineTune: FC = () => {
-  const { pathname } = useResolvedPath("");
-
   useDocumentTitle("Fine Tuning");
   return (
     <Container>
@@ -36,7 +35,7 @@ export const FineTune: FC = () => {
           <Route path="create" element={<Create />} />
           <Route
             path="*"
-            element={<Navigate to={`${pathname}/create`} replace />}
+            element={<NavigateTo name="fineTuneCreate" replace />}
           />
         </Route>
       </Routes>

@@ -11,13 +11,13 @@ import { useInject } from "@lepton-libs/di";
 
 import { Button, Col, Form, Input, Select } from "antd";
 import { FC, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 export const WaitList: FC = () => {
   useDocumentTitle("Join wait list");
   const profileService = useInject(ProfileService);
   const authService = useInject(AuthService);
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const onFinish = (values: WaitlistEntry) => {
@@ -40,7 +40,9 @@ export const WaitList: FC = () => {
             <Button
               block
               type="primary"
-              onClick={() => navigate("/", { relative: "route" })}
+              onClick={() =>
+                navigateService.navigateTo("root", { relative: "route" })
+              }
             >
               Go to workspace
             </Button>

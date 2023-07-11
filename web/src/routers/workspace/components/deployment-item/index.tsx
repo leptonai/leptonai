@@ -13,7 +13,6 @@ import {
   Space,
   Typography,
 } from "antd";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
@@ -27,19 +26,18 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { EditDeployment } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/edit-deployment";
-import { useNavigate } from "react-router-dom";
 import { Envs } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/envs";
-import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
 }) => {
   const theme = useAntdTheme();
   const { message } = App.useApp();
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const photonService = useInject(PhotonService);
   const photon = useStateFromObservable(
     () => photonService.id(deployment.photon_id),
@@ -57,7 +55,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
           `}
         >
           <Col flex="1 1 auto">
-            <Link
+            <LinkTo
               css={css`
                 color: ${theme.colorTextHeading};
               `}
@@ -67,7 +65,8 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   status={deployment.status.state}
                 />
               }
-              to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}`}
+              name="deploymentDetail"
+              params={{ deploymentId: deployment.id }}
               relative="route"
             >
               <Description.Item
@@ -77,7 +76,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 `}
                 term={deployment.name}
               />
-            </Link>
+            </LinkTo>
           </Col>
           <Col flex="0 0 auto">
             <Space size={0} split={<Divider type="vertical" />}>
@@ -98,10 +97,9 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                         `Successfully deleted deployment ${deployment.name}`
                       );
                       refreshService.refresh();
-                      navigate(
-                        `/workspace/${workspaceTrackerService.name}/deployments/list`,
-                        { relative: "route" }
-                      );
+                      navigateService.navigateTo("deploymentsList", null, {
+                        relative: "route",
+                      });
                     },
                     error: () => {
                       message.destroy("delete-deployment");
@@ -161,14 +159,15 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   <Description.Item
                     icon={<CarbonIcon icon={<Replicate />} />}
                     description={
-                      <Link
-                        to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deployment.id}/replicas/list`}
+                      <LinkTo
+                        name="deploymentDetailReplicasList"
+                        params={{ deploymentId: deployment.id }}
                       >
                         {deployment.resource_requirement.min_replicas}
                         {deployment.resource_requirement.min_replicas > 1
                           ? " replicas"
                           : " replica"}
-                      </Link>
+                      </LinkTo>
                     }
                   />
                   {deployment.mounts && deployment.mounts.length > 0 ? (

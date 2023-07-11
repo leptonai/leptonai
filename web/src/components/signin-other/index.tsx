@@ -5,14 +5,14 @@ import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Col, Row, Typography } from "antd";
 import { FC, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 export const SignAsOther: FC<{
   heading?: string;
   tips?: string;
   buttons?: ReactNode;
 }> = ({ heading, tips, buttons }) => {
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
   const profileService = useInject(ProfileService);
   const authService = useInject(AuthService);
   return (
@@ -41,9 +41,11 @@ export const SignAsOther: FC<{
                 block
                 type="primary"
                 onClick={() =>
-                  authService
-                    .logout()
-                    .then(() => navigate("/login", { relative: "route" }))
+                  authService.logout().then(() =>
+                    navigateService.navigateTo("login", {
+                      relative: "route",
+                    })
+                  )
                 }
               >
                 Switch user
@@ -58,7 +60,11 @@ export const SignAsOther: FC<{
           </Typography.Paragraph>
           <Button
             type="primary"
-            onClick={() => navigate("/login", { relative: "route" })}
+            onClick={() =>
+              navigateService.navigateTo("login", {
+                relative: "route",
+              })
+            }
           >
             Try a different token
           </Button>

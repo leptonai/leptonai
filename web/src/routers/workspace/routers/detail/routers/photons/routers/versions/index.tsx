@@ -5,7 +5,6 @@ import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Col, Empty, Row, Timeline } from "antd";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
 import { Card } from "@lepton-dashboard/components/card";
 import { css } from "@emotion/react";
@@ -13,6 +12,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { PhotonVersion } from "@lepton-dashboard/interfaces/photon";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const Versions: FC = () => {
   const { name } = useParams();
@@ -34,9 +34,9 @@ export const Versions: FC = () => {
               title: (
                 <>
                   <PhotonIcon />
-                  <Link to="../../photons">
+                  <LinkTo name="photonsList">
                     <span>Photons</span>
-                  </Link>
+                  </LinkTo>
                 </>
               ),
             },

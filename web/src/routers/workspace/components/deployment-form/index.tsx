@@ -33,9 +33,8 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
-import { useNavigate } from "react-router-dom";
-import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
 import { StorageSelect } from "@lepton-dashboard/routers/workspace/components/storage-select";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 interface RawForm {
   name: string;
@@ -62,10 +61,9 @@ export const DeploymentForm: FC<{
   photonGroups,
   edit = false,
 }) => {
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
   const addSecretFnRef = useRef<FormListOperation["add"] | null>(null);
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretService = useInject(SecretService);
   const hardwareService = useInject(HardwareService);
   const shapeOptions = hardwareService.shapes.map((i) => ({
@@ -99,12 +97,9 @@ export const DeploymentForm: FC<{
           icon: <Launch />,
           key: "create_new_secret",
           onClick: () => {
-            navigate(
-              `/workspace/${workspaceTrackerService.name}/settings/secrets`,
-              {
-                relative: "route",
-              }
-            );
+            navigateService.navigateTo("settingsSecrets", null, {
+              relative: "route",
+            });
           },
         },
       ];
@@ -118,7 +113,7 @@ export const DeploymentForm: FC<{
       },
     });
     return menus;
-  }, [navigate, secrets, workspaceTrackerService.name]);
+  }, [navigateService, secrets]);
   const [form] = Form.useForm();
   const photon = useMemo(() => {
     const latest =

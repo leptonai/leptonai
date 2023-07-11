@@ -3,8 +3,7 @@ import { Outlet, useResolvedPath } from "react-router-dom";
 import { Col, Row } from "antd";
 import { BreadcrumbHeader } from "@lepton-dashboard/routers/workspace/components/breadcrumb-header";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "../../../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { DeploymentItem } from "@lepton-dashboard/routers/workspace/components/deployment-item";
 import { TabsNav } from "@lepton-dashboard/components/tabs-nav";
 import {
@@ -16,14 +15,12 @@ import {
 } from "@carbon/icons-react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { css } from "@emotion/react";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
-import { useInject } from "@lepton-libs/di";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
   deployment,
 }) => {
   const { pathname } = useResolvedPath("");
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
   const items = [
     {
@@ -81,12 +78,9 @@ export const Container: FC<PropsWithChildren<{ deployment?: Deployment }>> = ({
               title: (
                 <>
                   <DeploymentIcon />
-                  <Link
-                    to={`/workspace/${workspaceTrackerService.name}/deployments/list`}
-                    relative="route"
-                  >
+                  <LinkTo name="deploymentsList" relative="route">
                     <span>Deployments</span>
-                  </Link>
+                  </LinkTo>
                 </>
               ),
             },

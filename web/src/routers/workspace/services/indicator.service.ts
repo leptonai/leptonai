@@ -4,7 +4,7 @@ import { PhotonService } from "@lepton-dashboard/routers/workspace/services/phot
 import { map, mergeMap, take, tap } from "rxjs";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
-import { WorkspaceTrackerService } from "./workspace-tracker.service";
+import { WorkspaceTrackerService } from "../../../services/workspace-tracker.service";
 
 @Injectable()
 export class IndicatorService {

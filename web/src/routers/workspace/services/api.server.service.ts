@@ -16,7 +16,7 @@ import {
 } from "@lepton-dashboard/services/http-client.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
-import { WorkspaceTrackerService } from "./workspace-tracker.service";
+import { WorkspaceTrackerService } from "../../../services/workspace-tracker.service";
 import {
   FineTuneJob,
   FineTuneJobStatus,

@@ -4,12 +4,13 @@ import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Col } from "antd";
 import { FC } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 export const CloseBeta: FC = () => {
   useDocumentTitle("Close Beta");
   const profileService = useInject(ProfileService);
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
+
   if (profileService.profile?.identification?.enable) {
     return (
       <SignAsOther
@@ -18,7 +19,11 @@ export const CloseBeta: FC = () => {
             <Button
               block
               type="primary"
-              onClick={() => navigate("/", { relative: "route" })}
+              onClick={() =>
+                navigateService.navigateTo("root", {
+                  relative: "route",
+                })
+              }
             >
               Go to workspace
             </Button>
@@ -35,7 +40,11 @@ export const CloseBeta: FC = () => {
             <Button
               block
               type="primary"
-              onClick={() => navigate("/waitlist", { relative: "route" })}
+              onClick={() =>
+                navigateService.navigateTo("waitlist", {
+                  relative: "route",
+                })
+              }
             >
               Join waitlist
             </Button>

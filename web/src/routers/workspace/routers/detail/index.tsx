@@ -4,13 +4,7 @@ import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/rout
 import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
 import { Storage } from "@lepton-dashboard/routers/workspace/routers/detail/routers/storage";
 import { FC, Suspense, lazy } from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useParams,
-  useResolvedPath,
-} from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useInject } from "@lepton-libs/di";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
@@ -29,6 +23,7 @@ import { Footer } from "@lepton-dashboard/components/layout/components/footer";
 import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { WorkspaceSwitch } from "@lepton-dashboard/routers/workspace/components/workspace-switch";
 import { ProfileMenu } from "@lepton-dashboard/routers/workspace/components/profile-menu";
+import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 const FineTune = lazy(() =>
   import(
@@ -42,7 +37,6 @@ export const Detail: FC = () => {
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
   const photonService = useInject(PhotonService);
-  const { pathname } = useResolvedPath("");
   const { workspaceName } = useParams();
   const workspaceName$ = useObservableFromState(workspaceName);
 
@@ -124,10 +118,7 @@ export const Detail: FC = () => {
               </LimitedLayoutWidth>
             }
           />
-          <Route
-            path="*"
-            element={<Navigate to={`${pathname}/dashboard`} replace />}
-          />
+          <Route path="*" element={<NavigateTo name="dashboard" replace />} />
         </Routes>
       </Suspense>
     </Layout>

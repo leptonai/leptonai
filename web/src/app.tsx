@@ -33,6 +33,7 @@ import {
 import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 
 const Login = lazy(() =>
   import("@lepton-dashboard/routers/login").then((e) => ({
@@ -140,6 +141,7 @@ function App() {
         AuthTokenService,
         AuthSupabaseService,
         NavigateService,
+        WorkspaceTrackerService,
         NotificationService,
         HardwareService,
         {

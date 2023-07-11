@@ -2,7 +2,6 @@ import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/phot
 import { FC } from "react";
 import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { Col, Empty, Row } from "antd";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -15,7 +14,7 @@ import { VersionDescription } from "@lepton-dashboard/routers/workspace/componen
 import { Actions } from "@lepton-dashboard/routers/workspace/components/photon-item/components/actions";
 import { TimeDescription } from "@lepton-dashboard/routers/workspace/components/photon-item/components/time-description";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { WorkspaceTrackerService } from "../../services/workspace-tracker.service";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const PhotonItem: FC<{
   photon?: Photon;
@@ -24,7 +23,6 @@ export const PhotonItem: FC<{
 }> = ({ photon, versions, showDetail = false }) => {
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
     []
@@ -41,14 +39,19 @@ export const PhotonItem: FC<{
       <Col span={24}>
         <Row gutter={[0, 12]}>
           <Col flex="1 1 auto">
-            <Link
+            <LinkTo
               css={css`
                 color: ${theme.colorTextHeading};
               `}
-              to={
+              name={showDetail ? "photonDetail" : "photonVersions"}
+              params={
                 showDetail
-                  ? `/workspace/${workspaceTrackerService.name}/photons/detail/${photon.id}`
-                  : `/workspace/${workspaceTrackerService.name}/photons/versions/${photon.name}`
+                  ? {
+                      photonId: photon.id,
+                    }
+                  : {
+                      photonId: photon.name,
+                    }
               }
               relative="route"
             >
@@ -71,7 +74,7 @@ export const PhotonItem: FC<{
                   )
                 }
               />
-            </Link>
+            </LinkTo>
           </Col>
           <Col
             flex="0 0 auto"

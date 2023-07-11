@@ -6,14 +6,12 @@ import { combineLatest, filter, switchMap, takeUntil } from "rxjs";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const DeploymentIssuesTip: FC<
   { status: string; deploymentId: string } & PropsWithChildren
 > = ({ status, deploymentId, children }) => {
   const deploymentService = useInject(DeploymentService);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const status$ = useObservableFromState(status);
@@ -74,15 +72,16 @@ export const DeploymentIssuesTip: FC<
     }
 
     return (
-      <Link
-        to={`/workspace/${workspaceTrackerService.name}/deployments/detail/${deploymentId}/replicas/list`}
+      <LinkTo
+        name="deploymentDetailReplicasList"
+        params={{ deploymentId }}
         relative="route"
         underline
       >
         Found {message}, view details in the replicas list
-      </Link>
+      </LinkTo>
     );
-  }, [readiness, workspaceTrackerService.name, deploymentId]);
+  }, [readiness, deploymentId]);
 
   if (status !== State.Running) {
     return (

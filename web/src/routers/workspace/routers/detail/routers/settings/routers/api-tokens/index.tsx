@@ -2,7 +2,7 @@ import { CopyFile, Password, View, ViewOff } from "@carbon/icons-react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Card } from "../../../../../../../../components/card";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Table, Typography } from "antd";
 import { ColumnsType } from "antd/es/table";

@@ -8,7 +8,7 @@ import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Download, TrashCan } from "@carbon/icons-react";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 
 export const Actions: FC<{
   photon: Photon;

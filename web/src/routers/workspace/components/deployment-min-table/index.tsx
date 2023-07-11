@@ -2,17 +2,15 @@ import { css as classNameCss } from "@emotion/css";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Table } from "antd";
 import { FC } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 export const DeploymentMinTable: FC<{ deployments: Deployment[] }> = ({
   deployments,
 }) => {
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
 
   return (
     <Table
@@ -25,9 +23,9 @@ export const DeploymentMinTable: FC<{ deployments: Deployment[] }> = ({
       onRow={(record) => {
         return {
           onClick: () =>
-            navigate(
-              `/workspace/${workspaceTrackerService.name}/deployments/detail/${record.id}`
-            ),
+            navigateService.navigateTo("deploymentDetail", {
+              deploymentId: record.id,
+            }),
         };
       }}
       columns={[

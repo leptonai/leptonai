@@ -4,11 +4,10 @@ import { ApiTokens } from "@lepton-dashboard/routers/workspace/routers/detail/ro
 import { General } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/general";
 import { Secrets } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets";
 import { FC } from "react";
-import { Navigate, Route, Routes, useResolvedPath } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
+import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 export const Settings: FC = () => {
-  const { pathname } = useResolvedPath("");
-
   useDocumentTitle("Settings");
 
   return (
@@ -19,7 +18,7 @@ export const Settings: FC = () => {
         <Route path="secrets" element={<Secrets />} />
         <Route
           path="*"
-          element={<Navigate to={`${pathname}/general`} replace />}
+          element={<NavigateTo name="settingsGeneral" replace />}
         />
       </Routes>
     </Layout>

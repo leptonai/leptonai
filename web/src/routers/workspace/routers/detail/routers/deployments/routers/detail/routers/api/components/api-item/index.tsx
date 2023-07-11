@@ -5,7 +5,7 @@ import {
 } from "@lepton-dashboard/services/open-api.service";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { Typography } from "antd";
 import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
 

@@ -2,22 +2,16 @@ import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useInject } from "@lepton-libs/di";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useParams,
-  useResolvedPath,
-} from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { TerminalDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/terminal";
 import { LogDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/logs-viewer";
 import { MetricsDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/components/metrics";
 import { Container } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/detail/components/container";
 import { css } from "@emotion/react";
+import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const { id } = useParams();
-  const { pathname } = useResolvedPath("");
   const hardwareService = useInject(HardwareService);
   return (
     <Routes>
@@ -54,7 +48,16 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
         />
         <Route
           path="*"
-          element={<Navigate to={`${pathname}/terminal`} replace />}
+          element={
+            <NavigateTo
+              name="deploymentDetailReplicasTerminal"
+              params={{
+                deploymentId: deployment.id,
+                replicaId: id!,
+              }}
+              replace
+            />
+          }
         />
       </Route>
     </Routes>

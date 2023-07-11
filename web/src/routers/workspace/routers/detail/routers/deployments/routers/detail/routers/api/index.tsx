@@ -8,10 +8,9 @@ import { Alert, Col, Row, Segmented, Space, Typography } from "antd";
 import { css } from "@emotion/react";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { LanguageSupports, CodeBlock } from "../../components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
@@ -20,8 +19,6 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const [codeLanguage, setCodeLanguage] = useState<LanguageSupports>(
     LanguageSupports.Python
   );
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
-
   const apis = useStateFromObservable(
     () =>
       photonService.id(deployment.photon_id).pipe(
@@ -111,14 +108,14 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
           <Typography.Paragraph>
             Replace the <Typography.Text code>$YOUR_TOKEN</Typography.Text> in
             the following code segment with{" "}
-            <Link
+            <LinkTo
               css={css`
                 text-decoration: underline !important;
               `}
-              to={`/workspace/${workspaceTrackerService.name}/settings/api-tokens`}
+              name="settingsAPITokens"
             >
               your API token
-            </Link>
+            </LinkTo>
             .
           </Typography.Paragraph>
           {apis.map((api) => (

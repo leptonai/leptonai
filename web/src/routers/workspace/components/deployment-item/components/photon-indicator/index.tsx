@@ -3,19 +3,16 @@ import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
 import { PhotonItem } from "@lepton-dashboard/routers/workspace/components/photon-item";
 import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
-import { useInject } from "@lepton-libs/di";
 import { Popover, Space } from "antd";
 import { FC } from "react";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const PhotonIndicator: FC<{
   photon?: Photon;
   deployment: Deployment;
 }> = ({ photon, deployment }) => {
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   return (
     <Description.Item
       icon={<PhotonIcon />}
@@ -35,8 +32,11 @@ export const PhotonIndicator: FC<{
               }
             >
               <span>
-                <Link
-                  to={`/workspace/${workspaceTrackerService.name}/photons/detail/${photon?.id}`}
+                <LinkTo
+                  name="photonDetail"
+                  params={{
+                    photonId: photon?.id,
+                  }}
                 >
                   <PhotonLabel
                     name={photon.name}
@@ -45,7 +45,7 @@ export const PhotonIndicator: FC<{
                     showTime={false}
                     showName
                   />
-                </Link>
+                </LinkTo>
               </span>
             </Popover>
           </Space>

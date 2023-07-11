@@ -5,10 +5,10 @@ import { PhotonService } from "@lepton-dashboard/routers/workspace/services/phot
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Col, Empty, Row } from "antd";
 import { BreadcrumbHeader } from "../../../../../../components/breadcrumb-header";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const Detail: FC = () => {
   const { id } = useParams();
@@ -23,15 +23,20 @@ export const Detail: FC = () => {
               title: (
                 <>
                   <PhotonIcon />
-                  <Link to="../../photons">
+                  <LinkTo name="photonsList">
                     <span>Photons</span>
-                  </Link>
+                  </LinkTo>
                 </>
               ),
             },
             {
               title: (
-                <Link to={`../../versions/${photon.name}`}>{photon.name}</Link>
+                <LinkTo
+                  name="photonVersions"
+                  params={{ photonId: photon.name }}
+                >
+                  {photon.name}
+                </LinkTo>
               ),
             },
             {

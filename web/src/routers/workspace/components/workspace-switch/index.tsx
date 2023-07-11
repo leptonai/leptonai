@@ -1,16 +1,16 @@
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { useInject } from "@lepton-libs/di";
 import { Select } from "antd";
 import { FC } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
 export const WorkspaceSwitch: FC = () => {
   const profileService = useInject(ProfileService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const navigate = useNavigate();
+  const navigateService = useInject(NavigateService);
   const theme = useAntdTheme();
   const options =
     profileService.profile?.authorized_workspaces?.map((c) => {
@@ -22,7 +22,9 @@ export const WorkspaceSwitch: FC = () => {
 
   const changeWorkspace = (workspace: string) => {
     if (workspace !== workspaceTrackerService.name) {
-      navigate(`/workspace/${workspace}`);
+      navigateService.navigateTo("workspace", {
+        workspaceId: workspace,
+      });
     }
   };
   return (

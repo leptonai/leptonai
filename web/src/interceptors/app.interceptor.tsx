@@ -52,7 +52,7 @@ export class AppInterceptor implements HTTPInterceptor {
           if (error.status === 401 || error.response?.status === 401) {
             return fromPromise(
               this.authService.logout().then(() => {
-                this.navigateService.navigateTo("/login");
+                this.navigateService.navigateTo("login");
               })
             ).pipe(
               mergeMap(() =>

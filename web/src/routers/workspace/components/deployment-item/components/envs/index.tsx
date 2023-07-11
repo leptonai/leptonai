@@ -1,7 +1,4 @@
 import { css } from "@emotion/react";
-import { Link } from "@lepton-dashboard/routers/workspace/components/link";
-import { WorkspaceTrackerService } from "@lepton-dashboard/routers/workspace/services/workspace-tracker.service";
-import { useInject } from "@lepton-libs/di";
 import { FC } from "react";
 import {
   Deployment,
@@ -13,20 +10,20 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Asterisk, Hashtag, ListDropdown } from "@carbon/icons-react";
 import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
 import { Descriptions, Popover, Tag } from "antd";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 const DescriptionLabel: FC<{ data: DeploymentEnv | DeploymentSecretEnv }> = ({
   data,
 }) => {
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const secretRef = (data as unknown as DeploymentSecretEnv)?.value_from
     ?.secret_name_ref;
   if (secretRef) {
     return (
-      <Link to={`/workspace/${workspaceTrackerService.name}/settings/secrets`}>
+      <LinkTo name="settingsSecrets">
         <Tag color="default" icon={<CarbonIcon icon={<Asterisk />} />}>
           {secretRef}
         </Tag>
-      </Link>
+      </LinkTo>
     );
   } else {
     return (
