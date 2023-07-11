@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 
 import click
 from rich.table import Table
@@ -24,14 +25,20 @@ def deployment():
     endpoints that the users call, either via a RESTful API, or a python client
     defined in `leptonai.client`.
 
-    The deployment commands allow you to list and remove deployments on the
-    Lepton AI cloud.
+    The deployment commands allow you to list, manage, and remove deployments on
+    the Lepton AI cloud.
     """
     pass
 
 
 @deployment.command()
-def list():
+@click.option(
+    "--pattern",
+    "-p",
+    help="Regular expression pattern to filter deployment names.",
+    default=None,
+)
+def list(pattern):
     """
     Lists all deployments in the current workspace.
     """
@@ -58,6 +65,8 @@ def list():
     table.add_column("status")
     table.add_column("endpoint", overflow="fold")
     for name, photon_id, created_at, status in records:
+        if pattern is not None and not re.search(pattern, name):
+            continue
         table.add_row(
             name,
             photon_id,
@@ -70,7 +79,7 @@ def list():
 
 
 @deployment.command()
-@click.option("--name", "-n", help="deployment name")
+@click.option("--name", "-n", help="The deployment name to remove.", required=True)
 def remove(name):
     """
     Removes a deployment.
@@ -88,25 +97,46 @@ def remove(name):
 
 
 @deployment.command()
-@click.option("--name", "-n", help="deployment name")
+@click.option("--name", "-n", help="The deployment name to get status.", required=True)
 def status(name):
     """
     Gets the status of a deployment.
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
     workspace_url, auth_token = get_workspace_and_token_or_die()
-    info = guard_api(
+
+    dep_info = guard_api(
+        api.get_deployment(workspace_url, auth_token, name),
+        detail=True,
+        msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
+    )
+    # todo: print a cleaner dep info.
+    creation_time = datetime.fromtimestamp(dep_info["created_at"] / 1000).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    state = dep_info["status"]["state"]
+    if state == "Running":
+        state = f"[green]{state}[/]"
+    else:
+        state = f"[yellow]{state}[/]"
+    console.print(f"Created at: {creation_time}")
+    console.print(f"Photon ID:  {dep_info['photon_id']}")
+    console.print(f"State:      {state}")
+    console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
+    console.print("Replicas:")
+
+    rep_info = guard_api(
         api.get_readiness(workspace_url, auth_token, name),
         detail=True,
-        msg=f"Cannot obtain status info for [red]{name}[/]. See error above.",
+        msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
     )
     # Print a table of readiness information.
-    table = Table(title=f"Deployment [green]{name}[/] status", show_lines=True)
+    table = Table(show_lines=False)
     table.add_column("replica id")
     table.add_column("status")
     table.add_column("message")
     ready_count = 0
-    for id, value in info.items():
+    for id, value in rep_info.items():
         reason = value[0]["reason"]
         message = value[0]["message"]
         # Do we need to display red?
@@ -119,17 +149,18 @@ def status(name):
             message = "(empty)"
         table.add_row(id, reason, message)
     console.print(table)
-    console.print(f"[green]{ready_count}[/] out of {len(info)} replicas ready.")
+    console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
 
 
 @deployment.command()
-@click.option("--name", "-n", help="deployment name")
-@click.option("--replica", "-r", help="replica name", default=None)
+@click.option("--name", "-n", help="The deployment name to get log.", required=True)
+@click.option("--replica", "-r", help="The replica name to get log.", default=None)
 def log(name, replica):
     """
-    Gets the log of a deployment.
+    Gets the log of a deployment. If `replica` is not specified, the first replica
+    is selected. Otherwise, the log of the specified replica is shown. To get the
+    list of replicas, use `lep deployment status`.
     """
-    check(name, "Deployment name not specified.")
     workspace_url, auth_token = get_workspace_and_token_or_die()
     if not replica:
         # obtain replica information, and then select the first one.
@@ -164,12 +195,18 @@ def log(name, replica):
 
 
 @deployment.command()
-@click.option("--name", "-n", help="deployment name")
-@click.option("--replica", "-r", help="number of replicas", type=int, default=None)
+@click.option("--name", "-n", help="The deployment name to update.", required=True)
+@click.option(
+    "--replica",
+    "-r",
+    help="The number of replicas to update to.",
+    type=int,
+    default=None,
+)
 def update(name, replica):
     """
-    Updates a deployment. Currently, only adjustment of the
-    number of replicas is supported.
+    Updates a deployment. Currently, only adjustment of the number of replicas is
+    supported.
     """
     check(replica is not None, "Number of replicas not specified.")
     check(replica > 0, f"Invalid number of replicas: {replica}")

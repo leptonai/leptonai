@@ -44,9 +44,9 @@ def remove_workspace(name):
         yaml.safe_dump(workspace_info, f)
 
 
-def set_current_workspace(name):
+def set_current_workspace(name=None):
     """
-    Sets the current workspace to the given name.
+    Sets the current workspace to the given name, or None if no name is given.
     """
     workspace_info = load_workspace_info()
     if name and name not in workspace_info["workspaces"]:
