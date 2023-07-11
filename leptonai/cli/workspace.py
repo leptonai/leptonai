@@ -160,10 +160,8 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
         url, auth_token = get_workspace_and_token_or_die()
         check(
             workspace_url == url,
-            (
-                "You have encountered a programming error: workspace url mismatch."
-                " Please report an issue."
-            ),
+            "You have encountered a programming error: workspace url mismatch."
+            " Please report an issue.",
         )
         cluster_info = guard_api(
             api.get_cluster_info(workspace_url, auth_token),

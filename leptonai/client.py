@@ -121,10 +121,8 @@ class Client:
         if _is_valid_url(workspace_or_url):
             if not _is_local_url(workspace_or_url):
                 warnings.warn(
-                    (
-                        "Explicitly passing in a remote URL is deprecated, and may be"
-                        " removed in the future."
-                    ),
+                    "Explicitly passing in a remote URL is deprecated, and may be"
+                    " removed in the future.",
                     DeprecationWarning,
                 )
             self.url = workspace_or_url
@@ -135,10 +133,8 @@ class Client:
         if deployment is None:
             if not _is_local_url(workspace_or_url):
                 warnings.warn(
-                    (
-                        "Remote execution without an explicit deployment is deprecated,"
-                        " and may be removed in the future."
-                    ),
+                    "Remote execution without an explicit deployment is deprecated,"
+                    " and may be removed in the future.",
                     DeprecationWarning,
                 )
         else:

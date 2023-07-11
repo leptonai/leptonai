@@ -81,10 +81,8 @@ def remove(name):
         response,
         f"Deployment [green]{name}[/] removed.",
         f"Deployment [yellow]{name}[/] does not exist.",
-        (
-            f"{response.text}\nFailed to remove deployment [red]{name}[/]. See error"
-            " message above."
-        ),
+        f"{response.text}\nFailed to remove deployment [red]{name}[/]. See error"
+        " message above.",
     )
     return 0
 
