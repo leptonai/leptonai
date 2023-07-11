@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 from dotenv import load_dotenv
+import pydantic.version
 
 load_dotenv()
 
@@ -18,3 +19,9 @@ BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
 WORKSPACE_URL_TEMPLATE = "https://{workspace_name}.cloud.lepton.ai"
 WORKSPACE_API_PATH = "/api/v1"
+
+
+if pydantic.version.VERSION < "2.0.0":
+    PYDANTIC_MAJOR_VERSION = 1
+else:
+    PYDANTIC_MAJOR_VERSION = 2

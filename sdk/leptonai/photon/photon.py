@@ -22,11 +22,12 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
+import pydantic.decorator
 from pydantic import BaseModel, validator
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 import uvicorn
 
-from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS
+from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS, PYDANTIC_MAJOR_VERSION
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd, patch
@@ -81,8 +82,17 @@ class FileParam(BaseModel):
     def encode(content: bytes) -> str:
         return _BASE64FILE_ENCODED_PREFIX + base64.b64encode(content).decode("utf-8")
 
-    class Config:
-        json_encoders = {bytes: lambda v: FileParam.encode(v)}
+    if PYDANTIC_MAJOR_VERSION <= 1:
+
+        class Config:
+            json_encoders = {bytes: lambda v: FileParam.encode(v)}
+
+    else:
+        from pydantic import field_serializer
+
+        @field_serializer("content")
+        def _encode_content(self, content: bytes, _) -> str:
+            return self.encode(content)
 
 
 class PNGResponse(StreamingResponse):
@@ -119,10 +129,13 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     }
 
     if varkw:
+        if PYDANTIC_MAJOR_VERSION <= 1:
 
-        class config:
-            extra = "allow"
+            class config:
+                extra = "allow"
 
+        else:
+            config = pydantic.ConfigDict(extra="allow")
     else:
         config = None
 
@@ -143,14 +156,18 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
         if return_type is inspect.Signature.empty:
             return_type = Any
 
-        class Config:
-            arbitrary_types_allowed = True
+        if PYDANTIC_MAJOR_VERSION <= 1:
+
+            class config:
+                arbitrary_types_allowed = True
+
+        else:
+            config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
         response_model = pydantic.create_model(
             f"{func_name.capitalize()}Output",
-            input=request_model,
             output=(return_type, None),
-            __config__=Config,
+            __config__=config,
         )
         response_class = JSONResponse
     return request_model, response_model, response_class
@@ -567,7 +584,7 @@ class Photon(BasePhoton):
             request_model = Annotated[request_model, Body(example=kwargs["example"])]
         if "examples" in kwargs:
             request_model = Annotated[request_model, Body(examples=kwargs["examples"])]
-        vd = pydantic.decorator.ValidatedFunction(method, None)
+        vd = pydantic.decorator.validate_arguments(method).vd
 
         async def typed_handler(request: request_model):
             logger.info(request)
