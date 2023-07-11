@@ -1,11 +1,11 @@
-module "eks_blueprints_kubernetes_addons" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints-addons?ref=ac7fd74d9df282ce6f8d068c4fd17ccd5638ae3a"
+module "eks_blueprints_addons" {
+  source  = "aws-ia/eks-blueprints-addons/aws"
+  version = "~> 1.0" #ensure to update this to the latest/desired version
 
   cluster_name     = module.eks.cluster_name
   cluster_endpoint = module.eks.cluster_endpoint
   cluster_version  = module.eks.cluster_version
 
-  oidc_provider     = module.eks.cluster_oidc_issuer_url
   oidc_provider_arn = module.eks.oidc_provider_arn
 
   # https://github.com/kubernetes-sigs/external-dns/releases
@@ -58,79 +58,9 @@ module "eks_blueprints_kubernetes_addons" {
     "arn:aws:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
   ]
 
-  #---------------------------------------------------------------
-  # Prometheus Add-on
-  #---------------------------------------------------------------
-  # TODO: this has been removed in https://github.com/aws-ia/terraform-aws-eks-blueprints-addons/blob/main/variables.tf
-  enable_prometheus = true
-  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/
-  # https://prometheus.io/docs/prometheus/latest/storage/
-  # https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
-  prometheus_helm_config = {
-    values = [yamlencode({
-      server : {
-        global : {
-          scrape_interval : "5s"
-          scrape_timeout : "4s"
-        }
+  # TODO: add back lepton specific configuration
+  # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+  enable_kube_prometheus_stack = true
 
-        # flags to override default parameters
-        defaultFlagsOverride : [
-          "--config.file=/etc/config/prometheus.yml",
-          "--storage.tsdb.path=/data",
-          "--web.console.libraries=/etc/prometheus/console_libraries",
-          "--web.console.templates=/etc/prometheus/consoles",
-          "--storage.tsdb.retention.time=30m",
-          "--storage.tsdb.wal-compression"
-        ]
-
-        persistentVolume : {
-          enabled : true
-          mountPath : "/data"
-          size : "12Gi"
-          storageClass : "gp3"
-        }
-      }
-      extraScrapeConfigs = <<EOT
-- job_name: lepton-deployment-pods
-  kubernetes_sd_configs:
-  - role: pod
-  relabel_configs:
-  - source_labels: [__meta_kubernetes_pod_label_photon_id]
-    action: keep
-    regex: .+
-  - source_labels: [__meta_kubernetes_pod_label_lepton_deployment_id]
-    action: keep
-    regex: .+
-  - action: replace
-    source_labels: [__meta_kubernetes_pod_label_photon_id]
-    target_label: kubernetes_pod_label_photon_id
-  - action: replace
-    source_labels: [__meta_kubernetes_pod_label_lepton_deployment_id]
-    target_label: kubernetes_pod_label_lepton_deployment_id
-  - action: replace
-    source_labels: [__meta_kubernetes_pod_name]
-    target_label: kubernetes_pod_name
-  - action: replace
-    source_labels: [__meta_kubernetes_namespace]
-    target_label: kubernetes_namespace
-EOT
-    })]
-  }
-
-  enable_amazon_prometheus             = var.enable_amazon_managed_prometheus
-  amazon_prometheus_workspace_endpoint = var.enable_amazon_managed_prometheus ? aws_prometheus_workspace.amp.prometheus_endpoint : ""
-
-  enable_grafana = true
-  grafana_helm_config = {
-    create_irsa = true # Creates IAM Role with trust policy, default IAM policy and adds service account annotation
-    set_sensitive = [
-      {
-        name  = "adminPassword"
-        value = "admin888"
-      }
-    ]
-  }
-
-  enable_efs_csi_driver = true
+  enable_aws_efs_csi_driver = true
 }

@@ -15,36 +15,6 @@ EOD
   }
 }
 
-resource "null_resource" "delete_prometheus" {
-  triggers = {
-    region       = var.region
-    cluster_name = local.cluster_name
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOD
-aws eks update-kubeconfig --region ${self.triggers.region} --name ${self.triggers.cluster_name} --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig
-kubectl --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig delete ns prometheus --grace-period=0 --force
-EOD
-  }
-}
-
-resource "null_resource" "delete_grafana" {
-  triggers = {
-    region       = var.region
-    cluster_name = local.cluster_name
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOD
-aws eks update-kubeconfig --region ${self.triggers.region} --name ${self.triggers.cluster_name} --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig
-kubectl --kubeconfig /tmp/${self.triggers.cluster_name}.kubeconfig delete ns grafana --grace-period=0 --force
-EOD
-  }
-}
-
 # https://github.com/tigera/operator/issues/2031
 resource "null_resource" "delete_calico_installation" {
   triggers = {

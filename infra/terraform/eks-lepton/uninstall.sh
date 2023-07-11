@@ -13,19 +13,18 @@ set -x
 # so we need to delete the EKS cluster first
 #
 # NOTE
-# destroying "module.eks_blueprints_kubernetes_addons" may not work, some pods stuck in Terminating
+# destroying "module.eks_blueprints_addons" may not work, some pods stuck in Terminating
 # workarounds can be found here https://github.com/leptonai/lepton/issues/546 and implemented using local-exec
 # TODO: Can we remove those hacks with custom terraform provider?
 targets=(
   "null_resource.delete_all_lepton_deployments_and_ingresses"
   "helm_release.lepton_crd"
   "helm_release.lepton"
-  "null_resource.delete_prometheus"
-  "null_resource.delete_grafana"
+
   # bug https://github.com/tigera/operator/issues/2031
   "null_resource.delete_calico_installation"
 
-  "module.eks_blueprints_kubernetes_addons"
+  "module.eks_blueprints_addons"
 )
 
 if [ -z "$CLUSTER_NAME" ]; then

@@ -34,7 +34,7 @@ targets=(
   # need to apply this first to avoid network policy CRD creation error, [depend on] does not work
   "helm_release.calico"
 
-  "module.eks_blueprints_kubernetes_addons"
+  "module.eks_blueprints_addons"
 )
 
 if [[ -z $CLUSTER_NAME ]]; then
