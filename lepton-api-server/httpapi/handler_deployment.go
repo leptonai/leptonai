@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
@@ -70,11 +71,22 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	ld.Name = ld.GetSpecName()
 
 	if err := h.ldDB.Create(context.Background(), ld.Name, ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
+		goutil.Logger.Errorw("failed to create deployment",
+			"deployment", ld.Name,
+			"operation", "create",
+			"error", err,
+		)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return
 	}
 
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
+
+	goutil.Logger.Infow("created deployment",
+		"deployment", ld.Name,
+		"operation", "create",
+	)
 
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
 }
@@ -82,13 +94,19 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 func (h *DeploymentHandler) List(c *gin.Context) {
 	lds, err := h.ldDB.List(context.Background())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list deployments: " + err.Error()})
+		goutil.Logger.Errorw("failed to list deployments",
+			"operation", "list",
+			"error", err,
+		)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list deployments: " + err.Error()})
 		return
 	}
 	ret := make([]*LeptonDeployment, 0, len(lds))
 	for _, ld := range lds {
 		ret = append(ret, NewLeptonDeployment(ld).Output())
 	}
+
 	c.JSON(http.StatusOK, ret)
 }
 
@@ -120,9 +138,20 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	if err := h.ldDB.Update(context.Background(), ld.Name, ld); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update deployment " + ld.GetSpecName() + ": " + err.Error()})
+		goutil.Logger.Errorw("failed to update deployment",
+			"deployment", ld.GetSpecName(),
+			"operation", "update",
+			"error", err,
+		)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
+
+	goutil.Logger.Infow("updated deployment",
+		"deployment", ld.GetSpecName(),
+		"operation", "update",
+	)
 
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
 }
@@ -147,6 +176,12 @@ func (h *DeploymentHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + ": " + err.Error()})
 		return
 	}
+
+	goutil.Logger.Infow("deleted deployment",
+		"deployment", did,
+		"operation", "delete",
+	)
+
 	c.Status(http.StatusOK)
 }
 

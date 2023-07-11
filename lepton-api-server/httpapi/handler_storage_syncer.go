@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 )
 
 type StorageSyncerHandler struct {
@@ -24,9 +25,21 @@ func (h *StorageSyncerHandler) Create(c *gin.Context) {
 
 	err = gcssyncer.CreateSyncerForDefaultEFS(h.namespace, s.Metadata.Name, s.Spec.GCSURL, s.Spec.DestPath, s.Spec.CredJSON)
 	if err != nil {
+		goutil.Logger.Errorw("failed to create storage syncer",
+			"operation", "createStorageSyncer",
+			"storageSyncer", s.Metadata.Name,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create storage syncer: " + err.Error()})
 		return
 	}
+
+	goutil.Logger.Infow("created storage syncer",
+		"operation", "createStorageSyncer",
+		"storageSyncer", s.Metadata.Name,
+	)
+
 	c.Status(http.StatusCreated)
 }
 
@@ -35,9 +48,21 @@ func (h *StorageSyncerHandler) Delete(c *gin.Context) {
 	name := c.Param("name")
 	err := gcssyncer.DeleteSyncerForDefaultEFS(h.namespace, name)
 	if err != nil {
+		goutil.Logger.Errorw("failed to delete storage syncer",
+			"operation", "deleteStorageSyncer",
+			"storageSyncer", name,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete storage syncer: " + err.Error()})
 		return
 	}
+
+	goutil.Logger.Infow("deleted storage syncer",
+		"operation", "deleteStorageSyncer",
+		"storageSyncer", name,
+	)
+
 	c.Status(http.StatusOK)
 }
 

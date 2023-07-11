@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +29,12 @@ func (h *MonitorningHandler) ReplicaMemoryUtil(c *gin.Context) {
 		"container_spec_memory_limit_bytes{pod=\"%[1]s\", container=\"main-container\"})[1h:1m]", c.Param("rid"))
 	result, err := h.queryMetrics(query, "memory_util", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get memory util",
+			"operation", "getReplicaMemoryUtil",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -40,6 +46,12 @@ func (h *MonitorningHandler) ReplicaMemoryUsage(c *gin.Context) {
 	query := "container_memory_usage_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h:1m]"
 	result, err := h.queryAndScaleMetrics(query, "memory_usage_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
+		goutil.Logger.Errorw("failed to get memory usage",
+			"operation", "getReplicaMemoryUsage",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -51,6 +63,12 @@ func (h *MonitorningHandler) ReplicaMemoryTotal(c *gin.Context) {
 	query := "container_spec_memory_limit_bytes{pod=\"" + c.Param("rid") + "\", container=\"main-container\"}[1h:1m]"
 	result, err := h.queryAndScaleMetrics(query, "memory_total_in_MiB", "", 1.0/1024/1024)
 	if err != nil {
+		goutil.Logger.Errorw("failed to get memory total",
+			"operation", "getReplicaMemoryTotal",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -66,6 +84,12 @@ func (h *MonitorningHandler) ReplicaCPUUtil(c *gin.Context) {
 	)
 	result, err := h.queryMetrics(query, "cpu_util", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get cpu util",
+			"operation", "getReplicaCPUUtil",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -81,6 +105,12 @@ func (h *MonitorningHandler) ReplicaFastAPIQPS(c *gin.Context) {
 	query := "sum(rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(query, "all", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getReplicaFastAPIQPS",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -96,6 +126,12 @@ func (h *MonitorningHandler) ReplicaFastAPILatency(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := h.queryMetrics(query, "all", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getReplicaFastAPILatency",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -111,6 +147,12 @@ func (h *MonitorningHandler) ReplicaFastAPIQPSByPath(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(query, "qps", "handler")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getReplicaFastAPIQPSByPath",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -126,6 +168,12 @@ func (h *MonitorningHandler) ReplicaFastAPILatencyByPath(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := h.queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getReplicaFastAPILatencyByPath",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -141,6 +189,12 @@ func (h *MonitorningHandler) DeploymentFastAPIQPS(c *gin.Context) {
 	query := "sum(rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(query, "all", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getDeploymentFastAPIQPS",
+			"deployment", c.Param("did"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -156,6 +210,12 @@ func (h *MonitorningHandler) DeploymentFastAPILatency(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := h.queryMetrics(query, "all", "")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getDeploymentFastAPILatency",
+			"deployment", c.Param("did"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -171,6 +231,12 @@ func (h *MonitorningHandler) DeploymentFastAPIQPSByPath(c *gin.Context) {
 	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(query, "qps", "handler")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getDeploymentFastAPIQPSByPath",
+			"deployment", c.Param("did"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -186,6 +252,12 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := h.queryMetrics(query, "latency_p90", "handler")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getDeploymentFastAPILatencyByPath",
+			"deployment", c.Param("did"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -197,6 +269,12 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_memory_util", "gpu")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get GPU memory util",
+			"operation", "getReplicaGPUMemoryUtil",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -208,6 +286,12 @@ func (h *MonitorningHandler) ReplicaGPUUtil(c *gin.Context) {
 	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_util", "gpu")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get GPU util",
+			"operation", "getReplicaGPUUtil",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -219,6 +303,12 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUsage(c *gin.Context) {
 	query := "DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_memory_usage_in_MiB", "gpu")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get GPU memory usage",
+			"operation", "getReplicaGPUMemoryUsage",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -230,6 +320,12 @@ func (h *MonitorningHandler) ReplicaGPUMemoryTotal(c *gin.Context) {
 	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("rid") + "\"})[1h:1m]"
 	result, err := h.queryMetrics(query, "gpu_memory_total_in_MiB", "gpu")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get GPU total memory",
+			"operation", "getReplicaGPUMemoryTotal",
+			"replica", c.Param("rid"),
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -297,7 +393,6 @@ func (h *MonitorningHandler) queryPodMetrics(query string) (model.Value, error) 
 		Client:  &http.Client{Timeout: 10 * time.Second},
 	})
 	if err != nil {
-		log.Println("Error creating client:", err)
 		return nil, err
 	}
 
@@ -305,7 +400,10 @@ func (h *MonitorningHandler) queryPodMetrics(query string) (model.Value, error) 
 	promAPI := prometheusv1.NewAPI(client)
 	result, warnings, err := promAPI.Query(context.Background(), query, time.Now())
 	if len(warnings) > 0 {
-		log.Println("Warnings received:", warnings)
+		goutil.Logger.Warnw("Warnings received from Prometheus",
+			"operation", "queryPodMetrics",
+			"warnings", warnings,
+		)
 	}
 
 	return result, err

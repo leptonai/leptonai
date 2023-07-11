@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/util"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 )
 
 type StorageHandler struct {
@@ -35,7 +35,10 @@ func NewStorageHandler(h Handler, mountPath string) *StorageHandler {
 	// Using 0777 as umask 022 is applied, resulting in 755 permissions
 	// If path is already a directory, MkdirAll does nothing and returns nil.
 	if mkdirErr != nil {
-		log.Fatal(mkdirErr, "failed to create mount path", mountPath)
+		goutil.Logger.Fatalw("failed to create mount path",
+			"mountPath", mountPath,
+			"error", mkdirErr,
+		)
 	}
 	return &StorageHandler{
 		Handler:   h,
@@ -47,25 +50,45 @@ func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 	relPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relPath)
 
-	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	validPath, err := goutil.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is subpath",
+			"operation", "getStorageFileOrDir",
+			"mountPath", sh.mountPath,
+			"path", absPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
+
 	if !validPath {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "Provided path is not a valid subpath"})
 		return
 	}
 
 	// check if the path exists, handle dir or file
-	isDir, err := util.CheckPathIsExistingDir(absPath)
+	isDir, err := goutil.CheckPathIsExistingDir(absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is existing dir",
+			"operation", "getStorageFileOrDir",
+			"path", absPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
 	if isDir {
 		dirData, err := GetDirContents(absPath)
 		if err != nil {
+			goutil.Logger.Errorw("failed to get dir contents",
+				"operation", "getStorageFileOrDir",
+				"path", absPath,
+				"error", err,
+			)
+
 			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 			return
 		}
@@ -87,6 +110,12 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 
 	validPath, err := util.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is subpath",
+			"operation", "createDir",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -97,9 +126,21 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 
 	err = os.MkdirAll(absPath, 0777)
 	if err != nil {
+		goutil.Logger.Errorw("failed to create directory",
+			"operation", "createDir",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
+
+	goutil.Logger.Infow("directory created",
+		"operation", "createDir",
+		"path", relPath,
+	)
+
 	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("Directory '%s' created successfully", relPath)})
 }
 
@@ -109,6 +150,12 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 
 	validPath, err := util.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is subpath",
+			"operation", "createFile",
+			"path", relUploadPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "error": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -120,6 +167,12 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	dirPath := filepath.Dir(absPath)
 	exists, err := util.CheckPathExists(dirPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path exists",
+			"operation", "createFile",
+			"path", relUploadPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -131,12 +184,19 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	// TODO: validate the request file type, size, etc.
 	err = c.Request.ParseMultipartForm(32 << 20) // 32 MB of request body stored in memory, the rest temporarily on disk
 	if err != nil {
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
 
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
+		goutil.Logger.Errorw("failed to get file from request",
+			"operation", "createFile",
+			"path", relUploadPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -144,9 +204,21 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	filepath.Join(sh.mountPath, relUploadPath)
 	err = util.CreateAndCopy(filepath.Join(sh.mountPath, relUploadPath), file)
 	if err != nil {
+		goutil.Logger.Errorw("failed to create and copy file",
+			"operation", "createFile",
+			"path", relUploadPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
+
+	goutil.Logger.Infow("file uploaded",
+		"operation", "createFile",
+		"path", relUploadPath,
+	)
+
 	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("File '%s' uploaded successfully", relUploadPath)})
 }
 
@@ -160,6 +232,12 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 
 	validPath, err := util.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is subpath",
+			"operation", "deleteFileOrDir",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "error": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -171,12 +249,24 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 	// check if path is a directory, if so check if it is empty
 	isDir, err := util.CheckPathIsExistingDir(absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is directory",
+			"operation", "deleteFileOrDir",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
 	if isDir {
 		IsEmptyDir, err := util.IsEmptyDir(absPath)
 		if err != nil {
+			goutil.Logger.Errorw("failed to check if directory is empty",
+				"operation", "deleteFileOrDir",
+				"path", relPath,
+				"error", err,
+			)
+
 			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 			return
 		}
@@ -188,12 +278,29 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 	// delete file or directory
 	err = os.Remove(absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to delete file or directory",
+			"operation", "deleteFileOrDir",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
+
 	if isDir {
+		goutil.Logger.Infow("directory deleted",
+			"operation", "deleteFileOrDir",
+			"path", relPath,
+		)
+
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Directory '%s' deleted successfully", relPath)})
 	} else {
+		goutil.Logger.Infow("file deleted",
+			"operation", "deleteFileOrDir",
+			"path", relPath,
+		)
+
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("File '%s' deleted successfully", relPath)})
 	}
 }
@@ -204,6 +311,12 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 
 	validPath, err := util.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path is subpath",
+			"operation", "checkExists",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -214,6 +327,12 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 
 	exists, err := util.CheckPathExists(absPath)
 	if err != nil {
+		goutil.Logger.Errorw("failed to check if path exists",
+			"operation", "checkExists",
+			"path", relPath,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}

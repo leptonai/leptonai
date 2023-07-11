@@ -10,6 +10,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +36,12 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 
 	deployment, err := clientset.AppsV1().Deployments(h.namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
 	if err != nil {
+		goutil.Logger.Errorw("failed to get deployment",
+			"operation", "getReplicas",
+			"deployment", did,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -50,6 +57,12 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 
 	podList, err := clientset.CoreV1().Pods(h.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
+		goutil.Logger.Errorw("failed to get replicas for deployment",
+			"operation", "getReplicas",
+			"deployment", did,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get replicas for deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -66,12 +79,25 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 	rid := c.Param("rid")
 	httpClient, err := restclient.HTTPClientFor(k8s.Config)
 	if err != nil {
+		goutil.Logger.Errorw("failed to create client for shell",
+			"operation", "shell",
+			"replica", rid,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create client for shell"})
 		return
 	}
 
 	targetURL, err := url.Parse(k8s.Config.Host)
 	if err != nil {
+		goutil.Logger.Errorw("failed to parse host for shell",
+			"operation", "shell",
+			"replica", rid,
+			"url", k8s.Config.Host,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create connection for shell"})
 		return
 	}
@@ -118,6 +144,12 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 	podLogs, err := req.Stream(context.Background())
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
+		goutil.Logger.Errorw("failed to get logs for replica",
+			"operation", "getLogs",
+			"replica", rid,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get logs for replica " + rid + ": " + err.Error()})
 		return
 	}
@@ -138,6 +170,12 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF {
+		goutil.Logger.Errorw("failed to stream logs for replica",
+			"operation", "getLogs",
+			"replica", rid,
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream logs for replica " + rid + ": " + err.Error()})
 		return
 	}

@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/lepton-api-server/version"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ClusterInfo struct {

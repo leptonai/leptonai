@@ -3,7 +3,6 @@ package httpapi
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/kv"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -66,10 +66,19 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 
 	err = jh.kv.Put(strconv.Itoa(j.ID), name)
 	if err != nil {
-		log.Println("failed to add job id in DB:", err)
+		goutil.Logger.Errorw("failed to create job in DB",
+			"operation", "AddJob",
+			"job", j.ID,
+			"error", err,
+		)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+
+	goutil.Logger.Infow("created job",
+		"operation", "AddJob",
+		"job", j.ID,
+	)
 
 	c.JSON(response.StatusCode, j)
 }
@@ -83,8 +92,21 @@ func (jh *JobHandler) CancelJob(c *gin.Context) {
 
 	err := jh.kv.Delete(id)
 	if err != nil {
-		log.Println("failed to delete job id in DB:", err)
+		goutil.Logger.Errorw("failed to delete job in DB",
+			"operation", "CancelJob",
+			"job", id,
+			"error", err,
+		)
+
+		c.Status(http.StatusInternalServerError)
+		return
 	}
+
+	goutil.Logger.Infow("canceled job",
+		"operation", "CancelJob",
+		"job", id,
+	)
+	c.Status(http.StatusOK)
 }
 
 func (jh *JobHandler) ListJobs(c *gin.Context) {
@@ -99,10 +121,15 @@ func (jh *JobHandler) checkIDAndForward(c *gin.Context) string {
 	jobID := (c.Param("id"))
 	_, err := jh.kv.Get(jobID)
 	if err != nil {
-		log.Println("failed to get job id in DB:", err)
 		if err == kv.ErrNotExist {
 			c.Status(http.StatusNotFound)
 		} else {
+			goutil.Logger.Errorw("failed to get job id in DB",
+				"operation", "checkIDAndForward",
+				"job", jobID,
+				"error", err,
+			)
+
 			c.Status(http.StatusInternalServerError)
 		}
 		return jobID
@@ -153,7 +180,11 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 				mu.Unlock()
 			}
 			if err != nil && err != kv.ErrNotExist {
-				log.Println("failed to get job id in DB:", err)
+				goutil.Logger.Errorw("failed to get job id in DB",
+					"operation", "filterByMyJob",
+					"job", j.ID,
+					"error", err,
+				)
 			}
 			wg.Done()
 		}(j)
