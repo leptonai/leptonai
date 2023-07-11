@@ -20,6 +20,7 @@ var (
 	gitRef        string
 	apiToken      string
 	imageTag      string
+	quotaGroup    string
 	enableWeb     bool
 	description   string
 )
@@ -40,6 +41,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the workspace")
 	cmd.PersistentFlags().StringVarP(&apiToken, "api-token", "a", "", "API token to use for the workspace")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace")
+	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "q", "small", "Quota group for the workspace")
 	cmd.PersistentFlags().BoolVarP(&enableWeb, "enable-web", "e", false, "Enable web for the workspace")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the workspace")
 	return cmd
@@ -65,6 +67,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		GitRef:      gitRef,
 		APIToken:    apiToken,
 		ImageTag:    imageTag,
+		QuotaGroup:  quotaGroup,
 		EnableWeb:   enableWeb,
 
 		Description: description,
