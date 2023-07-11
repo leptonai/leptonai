@@ -27,12 +27,12 @@ func (w *Worker) CreateJob(timeout time.Duration, name string, f func(chan<- str
 	if _, ok := w.jobs[name]; ok {
 		return fmt.Errorf("job %s exists and is running", name)
 	}
-	ctx, cencel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	job := NewJob(ctx, name, f, cancelFunc)
 	w.jobs[name] = job
 	go func() {
 		job.Wait()
-		cencel()
+		cancel()
 		w.mu.Lock()
 		defer w.mu.Unlock()
 		if job.failed {
