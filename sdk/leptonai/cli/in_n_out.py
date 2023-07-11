@@ -58,9 +58,14 @@ def cloud_login():
         console.print("Logged in to your workspace [green]{workspace_name}[/].")
 
 
-def cloud_logout():
+def cloud_logout(forget=False):
     """
     Logs out of the serverless cloud.
     """
+    if forget:
+        name = workspace.get_workspace()
+        workspace.remove_workspace(name)
+        if name:
+            console.print(f"Forgot credentials for workspace [green]{name}[/].")
     workspace.set_current_workspace(None)
     console.print("Logged out of Lepton AI cloud.")

@@ -25,6 +25,16 @@ def remove_deployment(url: str, auth_token: str, name: str):
     return response
 
 
+def get_deployment(url: str, auth_token: str, name: str):
+    """
+    Get a deployment from a workspace.
+    """
+    response = requests.get(
+        url + "/deployments/" + name, headers=create_header(auth_token)
+    )
+    return json_or_error(response)
+
+
 def get_readiness(url: str, auth_token: str, name: str):
     """
     Get a deployment readiness info from a workspace.
@@ -40,7 +50,7 @@ def get_readiness(url: str, auth_token: str, name: str):
 
 def get_replicas(url: str, auth_token: str, name: str):
     """
-    Get a deployment from a workspace.
+    Get a deployment's replicas from a workspace.
 
     Returns the deployment info if successful, and APIError if the deployment
     does not exist.
