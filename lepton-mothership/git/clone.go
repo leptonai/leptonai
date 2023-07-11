@@ -1,7 +1,6 @@
 package git
 
 import (
-	"log"
 	"os"
 
 	git "github.com/go-git/go-git/v5"
@@ -35,6 +34,6 @@ func Clone(dir, url, version string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Git Cloned: %s\n", url)
+
 	return nil
 }

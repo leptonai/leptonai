@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/lepton-mothership/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/gin-gonic/gin"
@@ -28,10 +28,16 @@ func HandleClusterGet(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + clname + " doesn't exist"})
 			return
 		}
-		log.Println("failed to get cluster:", err)
+
+		util.Logger.Errorw("failed to get cluster",
+			"cluster", clname,
+			"operation", "get",
+			"error", err)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get cluster: " + err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, cl)
 }
 
@@ -62,7 +68,11 @@ func HandleClusterList(c *gin.Context) {
 	cls, err := cluster.List(ctx)
 	cancel()
 	if err != nil {
-		log.Println("failed to list clusters:", err)
+		util.Logger.Errorw("failed to list clusters",
+			"operation", "list",
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list clusters: " + err.Error()})
 		return
 	}
@@ -82,7 +92,11 @@ func HandleClusterCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		log.Println("failed to bind json:", err)
+		util.Logger.Debugw("failed to parse json input",
+			"operation", "create",
+			"error", err,
+		)
+
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
@@ -101,10 +115,18 @@ func HandleClusterCreate(c *gin.Context) {
 	cl, err := cluster.Create(ctx, spec)
 	cancel()
 	if err != nil {
-		log.Println("failed to create cluster:", err)
+		util.Logger.Errorw("failed to create cluster",
+			"cluster", spec.Name,
+			"operation", "create",
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create cluster: " + err.Error()})
 		return
 	}
+	util.Logger.Infow("started to create the cluster",
+		"cluster", spec.Name,
+	)
 
 	c.JSON(http.StatusCreated, cl)
 }
@@ -112,10 +134,19 @@ func HandleClusterCreate(c *gin.Context) {
 func HandleClusterDelete(c *gin.Context) {
 	err := cluster.Delete(c.Param("clname"), true)
 	if err != nil {
-		log.Println("failed to delete cluster:", err)
+		util.Logger.Errorw("failed to delete cluster",
+			"cluster", c.Param("clname"),
+			"operation", "delete",
+			"error", err,
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cluster: " + err.Error()})
 		return
 	}
+	util.Logger.Infow("started to delete the cluster",
+		"cluster", c.Param("clname"),
+	)
+
 	c.Status(http.StatusOK)
 }
 
@@ -126,7 +157,10 @@ func HandleClusterUpdate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		log.Println("failed to bind json:", err)
+		util.Logger.Debugw("failed to parse json input",
+			"operation", "update",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
@@ -145,10 +179,18 @@ func HandleClusterUpdate(c *gin.Context) {
 	cl, err := cluster.Update(ctx, spec)
 	cancel()
 	if err != nil {
-		log.Println("failed to update cluster:", err)
+		util.Logger.Errorw("failed to update cluster",
+			"cluster", spec.Name,
+			"operation", "update",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update cluster: " + err.Error()})
 		return
 	}
+
+	util.Logger.Infow("started to update the cluster",
+		"cluster", spec.Name,
+	)
 
 	c.JSON(http.StatusOK, cl)
 }

@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,7 +35,11 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to clone the git repo: %s", err)
 	}
-	log.Println("cloned the git repo:", leptonRepoURL)
+
+	Logger.Infow("Git Cloned",
+		"url", leptonRepoURL,
+		"version", version,
+	)
 
 	src := gitDir + "/charts"
 	dest := gitDir + "/infra/terraform/" + moduleName + "/charts"
@@ -44,7 +47,11 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to copy charts to terraform directory: %s", err)
 	}
-	log.Println("copied charts to terraform directory")
+
+	Logger.Infow("Copied charts to terraform directory",
+		"src", src,
+		"dest", dest,
+	)
 
 	return gitDir + "/infra/terraform/" + moduleName, nil
 }

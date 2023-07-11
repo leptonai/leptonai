@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,10 +31,13 @@ var (
 	Worker = worker.New()
 )
 
+// Init initializes the cluster and retore any ongoing operations
 func Init() {
 	clusters, err := DataStore.List(context.Background())
 	if err != nil {
-		log.Println("failed to list clusters:", err)
+		util.Logger.Fatalw("failed to list clusters",
+			"error", err,
+		)
 		return
 	}
 
@@ -45,27 +47,47 @@ func Init() {
 		switch cl.Status.State {
 		case crdv1alpha1.ClusterStateCreating, crdv1alpha1.ClusterStateUnknown:
 			go func() {
-				log.Println("restart creating cluster:", cl.Spec.Name)
+				util.Logger.Infow("restart creating cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "create",
+				)
 				// call the idempotent create function
 				_, err := idempotentCreate(cl)
 				if err != nil {
-					log.Printf("init: failed to create cluster %s: %v", cl.Spec.Name, err)
+					util.Logger.Errorw("failed to create cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "create",
+						"error", err,
+					)
 				}
 			}()
 		case crdv1alpha1.ClusterStateUpdating:
 			go func() {
-				log.Println("restart updating cluster:", cl.Spec.Name)
+				util.Logger.Infow("restart updating cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "update",
+				)
 				_, err := Update(context.Background(), cl.Spec)
 				if err != nil {
-					log.Printf("init: failed to update cluster %s: %v", cl.Spec.Name, err)
+					util.Logger.Errorw("failed to update cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "update",
+						"error", err)
 				}
 			}()
 		case crdv1alpha1.ClusterStateDeleting:
 			go func() {
-				log.Println("restart deleting cluster:", cl.Spec.Name)
+				util.Logger.Infow("restart deleting cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "delete",
+				)
 				err := Delete(cl.Spec.Name, true)
 				if err != nil {
-					log.Printf("init: failed to delete cluster %s: %v", cl.Spec.Name, err)
+					util.Logger.Errorw("failed to delete cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "delete",
+						"error", err,
+					)
 				}
 			}()
 		}
@@ -108,9 +130,14 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
+
 	if cl.Status.State != crdv1alpha1.ClusterStateReady {
-		log.Println("Updating a non-ready cluster...")
+		util.Logger.Warnw("updating a non-ready cluster",
+			"cluster", clusterName,
+			"operation", "update",
+		)
 	}
+
 	cl.Spec = spec
 	if err := DataStore.Update(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
@@ -122,7 +149,15 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		return createOrUpdateCluster(context.Background(), cl, logCh)
+		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
+		if cerr != nil {
+			util.Logger.Errorw("failed to update cluster",
+				"cluster", clusterName,
+				"operation", "update",
+				"error", cerr,
+			)
+		}
+		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
 	})
@@ -145,9 +180,14 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Printf("cluster %q not found -- returning delete call", clusterName)
+			util.Logger.Infow("cluster not found",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
+
 			return fmt.Errorf("cluster %q not found", clusterName)
 		}
+
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
 
@@ -160,15 +200,27 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		success := err == nil
 		if err == nil {
 			if err = DataStore.Delete(context.Background(), clusterName); err != nil {
-				log.Println("failed to delete cluster from the data store:", err)
+				util.Logger.Errorw("failed to delete cluster from the data store",
+					"cluster", clusterName,
+					"operation", "delete",
+					"error", err,
+				)
+
 				success = false
 			}
 		}
 		if success {
-			log.Printf("successfully deleted cluster %q", clusterName)
+			util.Logger.Infow("successfully deleted cluster",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
 			return
 		}
-		log.Printf("failed to delete cluster %q (%v)", clusterName, err)
+		util.Logger.Errorw("failed to delete cluster",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
 
 		// TODO: implement fallback in case tf destroy fails
 
@@ -206,8 +258,15 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
 		}
-		// If the branch was deleted, we should still be able to delete the cluster. This is especially true when we were testing
-		log.Printf("failed to prepare working dir with GitRef %s, using main", cl.Spec.GitRef)
+
+		// If the branch was deleted, we should still be able to delete the cluster.
+		// This is especially true when we were testing
+		util.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
+
 		dir, err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", "")
 		if err != nil {
 			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
@@ -237,7 +296,10 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}
-		log.Println("deleted terraform workspace:", clusterName)
+		util.Logger.Infow("deleted terraform workspace",
+			"cluster", clusterName,
+			"operation", "delete",
+		)
 	}
 	return nil
 }
@@ -263,10 +325,18 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
 		} else {
-			log.Println("skip terraform workspace creation: already exists")
+			util.Logger.Infow("skip terraform workspace creation: already exists",
+				"cluster", clusterName,
+				"TerraformWorkspace", clusterName,
+				"operation", "create",
+			)
 		}
 	} else {
-		log.Println("created terraform workspace:", clusterName)
+		util.Logger.Infow("created terraform workspace",
+			"cluster", clusterName,
+			"TerraformWorkspace", clusterName,
+			"operation", "create",
+		)
 	}
 
 	err = terraform.ForceUnlockWorkspace(clusterName)
@@ -275,7 +345,15 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		return createOrUpdateCluster(context.Background(), cl, logCh)
+		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
+		if cerr != nil {
+			util.Logger.Errorw("failed to create cluster",
+				"cluster", clusterName,
+				"operation", "create",
+				"error", cerr,
+			)
+		}
+		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
 	})
@@ -297,7 +375,6 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(ctx, clusterName, cl)
 		if err == nil && derr != nil {
-			log.Println("failed to update cluster state in the data store:", err)
 			err = derr
 		}
 	}()
@@ -333,7 +410,6 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 	var output []byte
 	output, err = cmd.CombinedOutput()
-	log.Println(string(output))
 	if err != nil {
 		return fmt.Errorf("failed to check json output: %s", err)
 	}
@@ -357,11 +433,19 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
-		log.Printf("failed to get cluster %s: %s", clusterName, err)
+		util.Logger.Errorw("failed to get cluster",
+			"cluster", clusterName,
+			"operation", "update cluster state",
+			"error", err,
+		)
 		return
 	}
 	if err := updateState(ctx, cl, crdv1alpha1.ClusterStateFailed); err != nil {
-		log.Printf("failed to update cluster %s state to failed: %s", clusterName, err)
+		util.Logger.Errorw("failed to update the cluster",
+			"cluster", clusterName,
+			"operation", "update cluster state",
+			"error", err,
+		)
 	}
 }
 
