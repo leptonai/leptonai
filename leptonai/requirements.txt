@@ -2,7 +2,7 @@ accelerate
 backports.cached-property # Python3.8 adds functools.cached_property
 click
 cloudpickle
-fastapi<0.100.0
+fastapi
 prometheus-fastapi-instrumentator
 python-multipart
 python-dotenv
