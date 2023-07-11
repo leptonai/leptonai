@@ -31,10 +31,11 @@ const (
 	nvidiaGPUProductLabelKey = "nvidia.com/gpu.product"
 	nvidiaGPUResourceKey     = "nvidia.com/gpu"
 
-	labelKeyPhotonName           = "photon_name"
-	labelKeyPhotonID             = "photon_id"
-	labelKeyLeptonDeploymentName = "lepton_deployment_name"
-	labelKeyLeptonDeploymentID   = "lepton_deployment_id"
+	labelKeyPhotonName            = "photon_name"
+	labelKeyPhotonID              = "photon_id"
+	labelKeyLeptonDeploymentName  = "lepton_deployment_name"
+	labelKeyLeptonDeploymentID    = "lepton_deployment_id"
+	labelKeyLeptonDeploymentShape = "lepton_deployment_shape"
 
 	readinessProbeInitialDelaySeconds = 30
 	readinessProbePeriodSeconds       = 20
@@ -81,8 +82,9 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				labelKeyPhotonID:           ld.Spec.PhotonID,
-				labelKeyLeptonDeploymentID: ld.GetSpecID(),
+				labelKeyPhotonID:              ld.Spec.PhotonID,
+				labelKeyLeptonDeploymentID:    ld.GetSpecID(),
+				labelKeyLeptonDeploymentShape: ld.GetShape(),
 			},
 		},
 		Spec: *podSpec,

@@ -76,6 +76,14 @@ func (ld LeptonDeployment) GetVersion() int64 {
 	return 0
 }
 
+// Get Shape returns the resource shape of the deployment as a string.
+func (ld *LeptonDeployment) GetShape() string {
+	if ld.Spec.ResourceRequirement.ResourceShape == "" {
+		return "customized"
+	}
+	return string(ld.Spec.ResourceRequirement.ResourceShape)
+}
+
 // Patch modifies the deployment with the given user spec. It only supports PhotonID and MinReplicas for now.
 func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
 	if p.PhotonID != "" {
