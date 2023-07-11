@@ -31,6 +31,9 @@ func TestReplicaShell(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if len(replicas) != 1 {
+			return fmt.Errorf("expected 1 replica, got %d", len(replicas))
+		}
 		rid := replicas[0].ID
 		_, err = lepton.Replica().Shell(mainTestDeploymentID, rid)
 		if err != nil {
