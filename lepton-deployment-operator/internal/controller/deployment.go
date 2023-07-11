@@ -144,8 +144,9 @@ func (k *deployment) newInitContainer() corev1.Container {
 				Value: "/",
 			},
 		},
-		Command: k.newInitContainerCommand(),
-		Args:    k.newInitContainerArgs(),
+		Resources: *k.createCPUMemStorageResourceRequirements(),
+		Command:   k.newInitContainerCommand(),
+		Args:      k.newInitContainerArgs(),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      photonVolumeName,
@@ -176,20 +177,8 @@ func (k *deployment) gpuEnabled() bool {
 	return at != "" && an > 0
 }
 
-func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
+func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceRequirements {
 	ld := k.leptonDeployment
-	env := util.ToContainerEnv(ld.Spec.Envs)
-
-	// Add lepton runtime envs to the container envs
-	runtime_envs := []corev1.EnvVar{
-		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
-		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
-		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
-		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
-		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.LeptonDeploymentReplicaResourceRequirement.AcceleratorType},
-	}
-	env = append(env, runtime_envs...)
-
 	// we need to set request to a smaller value to account for shared node resources
 	requestFactor := 0.9
 	cpuValue := ld.Spec.ResourceRequirement.CPU
@@ -213,7 +202,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	memLimitQuantity := *resource.NewQuantity(memValue*1024*1024, resource.BinarySI)
 
 	// Define the main container
-	resources := corev1.ResourceRequirements{
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    cpuRequestQuantity,
 			corev1.ResourceMemory: memRequestQuantity,
@@ -229,6 +218,24 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		resources.Requests[corev1.ResourceEphemeralStorage] = storageQuantity
 		resources.Limits[corev1.ResourceEphemeralStorage] = storageQuantity
 	}
+	return resources
+}
+
+func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
+	ld := k.leptonDeployment
+	env := util.ToContainerEnv(ld.Spec.Envs)
+
+	// Add lepton runtime envs to the container envs
+	runtime_envs := []corev1.EnvVar{
+		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
+		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
+		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
+		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
+		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.LeptonDeploymentReplicaResourceRequirement.AcceleratorType},
+	}
+	env = append(env, runtime_envs...)
+
+	resources := k.createCPUMemStorageResourceRequirements()
 
 	// We do not want non-GPU workloads to waste our GPU resources.
 	// Use taint to not schedule those on GPU.
@@ -245,7 +252,6 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	// we just need GPU node taints
 	// ref. https://github.com/leptonai/lepton/issues/1220
 	// tolerations := []corev1.Toleration{}
-
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
 		accnum, acctype := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
@@ -268,7 +274,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         k.newMainContainerCommand(),
 		Args:            k.newMainContainerArgs(),
-		Resources:       resources,
+		Resources:       *resources,
 		Env:             env,
 
 		Ports: []corev1.ContainerPort{
