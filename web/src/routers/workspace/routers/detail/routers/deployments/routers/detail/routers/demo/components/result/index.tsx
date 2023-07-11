@@ -107,6 +107,12 @@ const PlainTextDisplay: ResultDisplay = ({ content }) => {
 
 const JSONDisplay: ResultDisplay = ({ content }) => {
   try {
+    // If the json value is a `string`, we just display it as plain text.
+    if (typeof content === "string") {
+      return <PlainTextDisplay content={content} />;
+    }
+    // Other valid json values(`number`, `boolean`, `object`, `array`, `null`)
+    // will be stringified with format to display.
     const code = JSON.stringify(content, null, 2);
     return (
       <div
