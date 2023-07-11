@@ -36,7 +36,7 @@ var (
 func Init() {
 	wss, err := DataStore.List(context.Background())
 	if err != nil {
-		util.Logger.Errorw("failed to list workspaces",
+		goutil.Logger.Errorw("failed to list workspaces",
 			"operation", "init",
 			"error", err,
 		)
@@ -45,7 +45,7 @@ func Init() {
 
 	ctow := make(map[string][]string)
 
-	util.Logger.Infow("start to init all workspaces")
+	goutil.Logger.Infow("start to init all workspaces")
 
 	for _, item := range wss {
 		ws := item
@@ -54,14 +54,14 @@ func Init() {
 		switch ws.Status.State {
 		case crdv1alpha1.WorkspaceStateCreating, crdv1alpha1.WorkspaceStateUnknown:
 			go func() {
-				util.Logger.Infow("restart creating workspace",
+				goutil.Logger.Infow("restart creating workspace",
 					"workspace", ws.Spec.Name,
 					"operation", "create",
 				)
 
 				_, err := idempotentCreate(ws)
 				if err != nil {
-					util.Logger.Errorw("failed to create workspace",
+					goutil.Logger.Errorw("failed to create workspace",
 						"workspace", ws.Spec.Name,
 						"operation", "create",
 						"error", err,
@@ -70,14 +70,14 @@ func Init() {
 			}()
 		case crdv1alpha1.WorkspaceStateUpdating:
 			go func() {
-				util.Logger.Infow("restart updating workspace",
+				goutil.Logger.Infow("restart updating workspace",
 					"workspace", ws.Spec.Name,
 					"operation", "update",
 				)
 
 				_, err := Update(ws.Spec)
 				if err != nil {
-					util.Logger.Errorw("failed to update workspace",
+					goutil.Logger.Errorw("failed to update workspace",
 						"workspace", ws.Spec.Name,
 						"operation", "update",
 						"error", err,
@@ -86,14 +86,14 @@ func Init() {
 			}()
 		case crdv1alpha1.WorkspaceStateDeleting:
 			go func() {
-				util.Logger.Infow("restart deleting workspace",
+				goutil.Logger.Infow("restart deleting workspace",
 					"workspace", ws.Spec.Name,
 					"operation", "delete",
 				)
 
 				err := Delete(ws.Spec.Name, true)
 				if err != nil {
-					util.Logger.Errorw("failed to delete workspace",
+					goutil.Logger.Errorw("failed to delete workspace",
 						"workspace", ws.Spec.Name,
 						"operation", "delete",
 						"error", err,
@@ -108,7 +108,7 @@ func Init() {
 		cl, err := cluster.DataStore.Get(ctx, clusterName)
 		cancel()
 		if err != nil {
-			util.Logger.Errorw("failed to get cluster",
+			goutil.Logger.Errorw("failed to get cluster",
 				"cluster", clusterName,
 				"operation", "init",
 				"error", err,
@@ -117,7 +117,7 @@ func Init() {
 		}
 		cl.Status.Workspaces = wss
 		if err := cluster.DataStore.UpdateStatus(context.Background(), cl.Name, cl); err != nil {
-			util.Logger.Errorw("failed to update cluster",
+			goutil.Logger.Errorw("failed to update cluster",
 				"cluster", clusterName,
 				"operation", "init",
 				"error", err,
@@ -125,7 +125,7 @@ func Init() {
 		}
 	}
 
-	util.Logger.Infow("finished init all workspaces")
+	goutil.Logger.Infow("finished init all workspaces")
 }
 
 func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
@@ -177,7 +177,7 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 }
 
 func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
-	util.Logger.Infow("updating workspace",
+	goutil.Logger.Infow("updating workspace",
 		"workspace", spec.Name,
 		"operation", "update",
 	)
@@ -192,7 +192,7 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
 	if ws.Status.State != crdv1alpha1.WorkspaceStateReady {
-		util.Logger.Warnw("updating a non-ready workspace",
+		goutil.Logger.Warnw("updating a non-ready workspace",
 			"workspace", workspaceName,
 			"operation", "update",
 		)
@@ -213,7 +213,7 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
 		cerr := createOrUpdateWorkspace(ws, logCh)
 		if cerr != nil {
-			util.Logger.Errorw("failed to create or update workspace",
+			goutil.Logger.Errorw("failed to create or update workspace",
 				"workspace", ws.Spec.Name,
 				"operation", "update",
 				"error", cerr,
@@ -239,7 +239,7 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 }
 
 func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) error {
-	util.Logger.Infow("deleting workspace",
+	goutil.Logger.Infow("deleting workspace",
 		"workspace", workspaceName,
 		"operation", "delete",
 	)
@@ -265,7 +265,7 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 
 	defer func() {
 		if err == nil {
-			util.Logger.Infow("deleted workspace",
+			goutil.Logger.Infow("deleted workspace",
 				"workspace", workspaceName,
 				"operation", "delete",
 			)
@@ -288,7 +288,7 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		}
 
 		// If the branch was deleted, we should still be able to delete the workspace. This is especially true for CI workloads.
-		util.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
+		goutil.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
 			"workspace", workspaceName,
 			"operation", "delete",
 			"error", err,
@@ -337,13 +337,13 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}
-		util.Logger.Infow("deleted terraform workspace",
+		goutil.Logger.Infow("deleted terraform workspace",
 			"TerraformWorkspace", workspaceName,
 			"operation", "delete",
 		)
 	}
 
-	util.Logger.Infow("deleted workspace",
+	goutil.Logger.Infow("deleted workspace",
 		"workspace", workspaceName,
 		"operation", "delete",
 	)
@@ -364,7 +364,7 @@ func Get(workspaceName string) (*crdv1alpha1.LeptonWorkspace, error) {
 }
 
 func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorkspace, error) {
-	util.Logger.Infow("creating workspace",
+	goutil.Logger.Infow("creating workspace",
 		"workspace", ws.Spec.Name,
 		"operation", "create",
 	)
@@ -377,13 +377,13 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
 		} else {
-			util.Logger.Infow("terraform workspace already exists",
+			goutil.Logger.Infow("terraform workspace already exists",
 				"TerraformWorkspace", workspaceName,
 				"operation", "create",
 			)
 		}
 	} else {
-		util.Logger.Infow("created terraform workspace",
+		goutil.Logger.Infow("created terraform workspace",
 			"TerraformWorkspace", workspaceName,
 			"operation", "create",
 		)
@@ -392,13 +392,13 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
 		cerr := createOrUpdateWorkspace(ws, logCh)
 		if cerr != nil {
-			util.Logger.Errorw("failed to create or update workspace",
+			goutil.Logger.Errorw("failed to create or update workspace",
 				"workspace", workspaceName,
 				"operation", "create",
 				"error", cerr,
 			)
 		} else {
-			util.Logger.Infow("created workspace",
+			goutil.Logger.Infow("created workspace",
 				"workspace", workspaceName,
 				"operation", "create",
 			)
@@ -499,14 +499,14 @@ func efsMountTargets(privateSubnets []string) string {
 func tryUpdatingStateToFailed(workspaceName string) {
 	ws, err := DataStore.Get(context.Background(), workspaceName)
 	if err != nil {
-		util.Logger.Errorw("failed to get workspace",
+		goutil.Logger.Errorw("failed to get workspace",
 			"workspace", workspaceName,
 			"error", err,
 		)
 		return
 	}
 	if err := updateState(ws, crdv1alpha1.WorkspaceStateFailed); err != nil {
-		util.Logger.Errorw("failed to update workspace state to failed",
+		goutil.Logger.Errorw("failed to update workspace state to failed",
 			"workspace", workspaceName,
 			"error", err,
 		)

@@ -11,6 +11,7 @@ import (
 
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/worker"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
@@ -35,7 +36,7 @@ var (
 func Init() {
 	clusters, err := DataStore.List(context.Background())
 	if err != nil {
-		util.Logger.Fatalw("failed to list clusters",
+		goutil.Logger.Fatalw("failed to list clusters",
 			"error", err,
 		)
 		return
@@ -47,14 +48,14 @@ func Init() {
 		switch cl.Status.State {
 		case crdv1alpha1.ClusterStateCreating, crdv1alpha1.ClusterStateUnknown:
 			go func() {
-				util.Logger.Infow("restart creating cluster",
+				goutil.Logger.Infow("restart creating cluster",
 					"cluster", cl.Spec.Name,
 					"operation", "create",
 				)
 				// call the idempotent create function
 				_, err := idempotentCreate(cl)
 				if err != nil {
-					util.Logger.Errorw("failed to create cluster",
+					goutil.Logger.Errorw("failed to create cluster",
 						"cluster", cl.Spec.Name,
 						"operation", "create",
 						"error", err,
@@ -63,13 +64,13 @@ func Init() {
 			}()
 		case crdv1alpha1.ClusterStateUpdating:
 			go func() {
-				util.Logger.Infow("restart updating cluster",
+				goutil.Logger.Infow("restart updating cluster",
 					"cluster", cl.Spec.Name,
 					"operation", "update",
 				)
 				_, err := Update(context.Background(), cl.Spec)
 				if err != nil {
-					util.Logger.Errorw("failed to update cluster",
+					goutil.Logger.Errorw("failed to update cluster",
 						"cluster", cl.Spec.Name,
 						"operation", "update",
 						"error", err)
@@ -77,13 +78,13 @@ func Init() {
 			}()
 		case crdv1alpha1.ClusterStateDeleting:
 			go func() {
-				util.Logger.Infow("restart deleting cluster",
+				goutil.Logger.Infow("restart deleting cluster",
 					"cluster", cl.Spec.Name,
 					"operation", "delete",
 				)
 				err := Delete(cl.Spec.Name, true)
 				if err != nil {
-					util.Logger.Errorw("failed to delete cluster",
+					goutil.Logger.Errorw("failed to delete cluster",
 						"cluster", cl.Spec.Name,
 						"operation", "delete",
 						"error", err,
@@ -132,7 +133,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	}
 
 	if cl.Status.State != crdv1alpha1.ClusterStateReady {
-		util.Logger.Warnw("updating a non-ready cluster",
+		goutil.Logger.Warnw("updating a non-ready cluster",
 			"cluster", clusterName,
 			"operation", "update",
 		)
@@ -151,7 +152,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
 		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
 		if cerr != nil {
-			util.Logger.Errorw("failed to update cluster",
+			goutil.Logger.Errorw("failed to update cluster",
 				"cluster", clusterName,
 				"operation", "update",
 				"error", cerr,
@@ -180,7 +181,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			util.Logger.Infow("cluster not found",
+			goutil.Logger.Infow("cluster not found",
 				"cluster", clusterName,
 				"operation", "delete",
 			)
@@ -200,7 +201,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		success := err == nil
 		if err == nil {
 			if err = DataStore.Delete(context.Background(), clusterName); err != nil {
-				util.Logger.Errorw("failed to delete cluster from the data store",
+				goutil.Logger.Errorw("failed to delete cluster from the data store",
 					"cluster", clusterName,
 					"operation", "delete",
 					"error", err,
@@ -210,13 +211,13 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 			}
 		}
 		if success {
-			util.Logger.Infow("successfully deleted cluster",
+			goutil.Logger.Infow("successfully deleted cluster",
 				"cluster", clusterName,
 				"operation", "delete",
 			)
 			return
 		}
-		util.Logger.Errorw("failed to delete cluster",
+		goutil.Logger.Errorw("failed to delete cluster",
 			"cluster", clusterName,
 			"operation", "delete",
 			"error", err,
@@ -261,7 +262,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 
 		// If the branch was deleted, we should still be able to delete the cluster.
 		// This is especially true when we were testing
-		util.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
+		goutil.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
 			"cluster", clusterName,
 			"operation", "delete",
 			"error", err,
@@ -296,7 +297,7 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		if err != nil {
 			return fmt.Errorf("failed to delete terraform workspace: %w", err)
 		}
-		util.Logger.Infow("deleted terraform workspace",
+		goutil.Logger.Infow("deleted terraform workspace",
 			"cluster", clusterName,
 			"operation", "delete",
 		)
@@ -325,14 +326,14 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
 		} else {
-			util.Logger.Infow("skip terraform workspace creation: already exists",
+			goutil.Logger.Infow("skip terraform workspace creation: already exists",
 				"cluster", clusterName,
 				"TerraformWorkspace", clusterName,
 				"operation", "create",
 			)
 		}
 	} else {
-		util.Logger.Infow("created terraform workspace",
+		goutil.Logger.Infow("created terraform workspace",
 			"cluster", clusterName,
 			"TerraformWorkspace", clusterName,
 			"operation", "create",
@@ -347,7 +348,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
 		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
 		if cerr != nil {
-			util.Logger.Errorw("failed to create cluster",
+			goutil.Logger.Errorw("failed to create cluster",
 				"cluster", clusterName,
 				"operation", "create",
 				"error", cerr,
@@ -433,7 +434,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
-		util.Logger.Errorw("failed to get cluster",
+		goutil.Logger.Errorw("failed to get cluster",
 			"cluster", clusterName,
 			"operation", "update cluster state",
 			"error", err,
@@ -441,7 +442,7 @@ func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 		return
 	}
 	if err := updateState(ctx, cl, crdv1alpha1.ClusterStateFailed); err != nil {
-		util.Logger.Errorw("failed to update the cluster",
+		goutil.Logger.Errorw("failed to update the cluster",
 			"cluster", clusterName,
 			"operation", "update cluster state",
 			"error", err,

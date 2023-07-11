@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
-	"github.com/leptonai/lepton/lepton-mothership/util"
 	"github.com/leptonai/lepton/lepton-mothership/workspace"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,7 @@ func HandleWorkspaceGet(c *gin.Context) {
 			return
 		}
 
-		util.Logger.Errorw("failed to get workspace",
+		goutil.Logger.Errorw("failed to get workspace",
 			"workspace", wsname,
 			"operation", "get",
 			"error", err,
@@ -58,7 +58,7 @@ func HandleWorkspaceGetFailureLog(c *gin.Context) {
 func HandleWorkspaceList(c *gin.Context) {
 	lws, err := workspace.List()
 	if err != nil {
-		util.Logger.Errorw("failed to list workspaces",
+		goutil.Logger.Errorw("failed to list workspaces",
 			"operation", "list",
 			"error", err,
 		)
@@ -73,7 +73,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonWorkspaceSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		util.Logger.Debugw("failed to parse json input",
+		goutil.Logger.Debugw("failed to parse json input",
 			"operation", "create",
 			"error", err,
 		)
@@ -84,7 +84,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 
 	lw, err := workspace.Create(spec)
 	if err != nil {
-		util.Logger.Errorw("failed to create workspace",
+		goutil.Logger.Errorw("failed to create workspace",
 			"workspace", spec.Name,
 			"operation", "create",
 			"error", err,
@@ -94,7 +94,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 		return
 	}
 
-	util.Logger.Infow("started to create the workspace",
+	goutil.Logger.Infow("started to create the workspace",
 		"workspace", spec.Name,
 	)
 
@@ -104,7 +104,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 func HandleWorkspaceDelete(c *gin.Context) {
 	err := workspace.Delete(c.Param("wsname"), true)
 	if err != nil {
-		util.Logger.Errorw("failed to delete workspace",
+		goutil.Logger.Errorw("failed to delete workspace",
 			"workspace", c.Param("wsname"),
 			"operation", "delete",
 			"error", err,
@@ -114,7 +114,7 @@ func HandleWorkspaceDelete(c *gin.Context) {
 		return
 	}
 
-	util.Logger.Infow("started to delete the workspace",
+	goutil.Logger.Infow("started to delete the workspace",
 		"workspace", c.Param("wsname"),
 	)
 
@@ -125,7 +125,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonWorkspaceSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		util.Logger.Debugw("failed to parse json input",
+		goutil.Logger.Debugw("failed to parse json input",
 			"operation", "update",
 			"error", err,
 		)
@@ -135,7 +135,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 
 	lw, err := workspace.Update(spec)
 	if err != nil {
-		util.Logger.Errorw("failed to update workspace",
+		goutil.Logger.Errorw("failed to update workspace",
 			"workspace", spec.Name,
 			"operation", "update",
 			"error", err,
@@ -145,7 +145,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 		return
 	}
 
-	util.Logger.Infow("started to update the workspace",
+	goutil.Logger.Infow("started to update the workspace",
 		"workspace", spec.Name,
 	)
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-tfe"
-	"github.com/leptonai/lepton/lepton-mothership/util"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 )
 
 var (
@@ -23,7 +23,7 @@ func MustInit() {
 	var err error
 	client, err = tfe.NewClient(config)
 	if err != nil {
-		util.Logger.Fatalw("failed to initialize Terraform client",
+		goutil.Logger.Fatalw("failed to initialize Terraform client",
 			"error", err,
 		)
 	}
@@ -55,7 +55,7 @@ func CreateWorkspace(name string) error {
 		return fmt.Errorf("failed to create workspace: %s", err)
 	}
 
-	util.Logger.Infow("Workspace created",
+	goutil.Logger.Infow("Workspace created",
 		"terraformWorkspace", workspace.Name,
 		"terraformWorkspaceID", workspace.ID,
 	)

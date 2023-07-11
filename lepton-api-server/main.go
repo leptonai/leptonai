@@ -8,13 +8,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
-	"github.com/gin-contrib/requestid"
-	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/kv"
+	"github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 	"github.com/leptonai/lepton/lepton-api-server/version"
+
+	"github.com/gin-contrib/requestid"
+	ginzap "github.com/gin-contrib/zap"
+	"github.com/gin-gonic/gin"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/s3blob"
 )
@@ -129,6 +133,18 @@ func main() {
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 	router.Use(requestid.New())
+
+	logger := util.Logger.Desugar()
+	// Add a ginzap middleware, which:
+	//   - Logs all requests, like a combined access and error log.
+	//   - Logs to stdout.
+	//   - RFC3339 with UTC time format.
+	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+
+	// Logs all panic to error log
+	//   - stack means whether output the stack info.
+	router.Use(ginzap.RecoveryWithZap(logger, true))
+
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})

@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
-	"github.com/leptonai/lepton/lepton-mothership/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +29,7 @@ func HandleClusterGet(c *gin.Context) {
 			return
 		}
 
-		util.Logger.Errorw("failed to get cluster",
+		goutil.Logger.Errorw("failed to get cluster",
 			"cluster", clname,
 			"operation", "get",
 			"error", err)
@@ -68,7 +68,7 @@ func HandleClusterList(c *gin.Context) {
 	cls, err := cluster.List(ctx)
 	cancel()
 	if err != nil {
-		util.Logger.Errorw("failed to list clusters",
+		goutil.Logger.Errorw("failed to list clusters",
 			"operation", "list",
 			"error", err,
 		)
@@ -92,7 +92,7 @@ func HandleClusterCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		util.Logger.Debugw("failed to parse json input",
+		goutil.Logger.Debugw("failed to parse json input",
 			"operation", "create",
 			"error", err,
 		)
@@ -115,7 +115,7 @@ func HandleClusterCreate(c *gin.Context) {
 	cl, err := cluster.Create(ctx, spec)
 	cancel()
 	if err != nil {
-		util.Logger.Errorw("failed to create cluster",
+		goutil.Logger.Errorw("failed to create cluster",
 			"cluster", spec.Name,
 			"operation", "create",
 			"error", err,
@@ -124,7 +124,7 @@ func HandleClusterCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create cluster: " + err.Error()})
 		return
 	}
-	util.Logger.Infow("started to create the cluster",
+	goutil.Logger.Infow("started to create the cluster",
 		"cluster", spec.Name,
 	)
 
@@ -134,7 +134,7 @@ func HandleClusterCreate(c *gin.Context) {
 func HandleClusterDelete(c *gin.Context) {
 	err := cluster.Delete(c.Param("clname"), true)
 	if err != nil {
-		util.Logger.Errorw("failed to delete cluster",
+		goutil.Logger.Errorw("failed to delete cluster",
 			"cluster", c.Param("clname"),
 			"operation", "delete",
 			"error", err,
@@ -143,7 +143,7 @@ func HandleClusterDelete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cluster: " + err.Error()})
 		return
 	}
-	util.Logger.Infow("started to delete the cluster",
+	goutil.Logger.Infow("started to delete the cluster",
 		"cluster", c.Param("clname"),
 	)
 
@@ -157,7 +157,7 @@ func HandleClusterUpdate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
 	if err != nil {
-		util.Logger.Debugw("failed to parse json input",
+		goutil.Logger.Debugw("failed to parse json input",
 			"operation", "update",
 			"error", err,
 		)
@@ -179,7 +179,7 @@ func HandleClusterUpdate(c *gin.Context) {
 	cl, err := cluster.Update(ctx, spec)
 	cancel()
 	if err != nil {
-		util.Logger.Errorw("failed to update cluster",
+		goutil.Logger.Errorw("failed to update cluster",
 			"cluster", spec.Name,
 			"operation", "update",
 			"error", err,
@@ -188,7 +188,7 @@ func HandleClusterUpdate(c *gin.Context) {
 		return
 	}
 
-	util.Logger.Infow("started to update the cluster",
+	goutil.Logger.Infow("started to update the cluster",
 		"cluster", spec.Name,
 	)
 

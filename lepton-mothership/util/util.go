@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/git"
 )
 
@@ -36,7 +37,7 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 		return "", fmt.Errorf("failed to clone the git repo: %s", err)
 	}
 
-	Logger.Infow("Git Cloned",
+	goutil.Logger.Infow("Git Cloned",
 		"url", leptonRepoURL,
 		"version", version,
 	)
@@ -48,7 +49,7 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 		return "", fmt.Errorf("failed to copy charts to terraform directory: %s", err)
 	}
 
-	Logger.Infow("Copied charts to terraform directory",
+	goutil.Logger.Infow("Copied charts to terraform directory",
 		"src", src,
 		"dest", dest,
 	)
