@@ -11,6 +11,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,12 +19,16 @@ import (
 const defaultGetTimeout = time.Minute
 
 func HandleClusterGet(c *gin.Context) {
+	clname := c.Param("clname")
 	ctx, cancel := context.WithTimeout(context.Background(), defaultGetTimeout)
-	cl, err := cluster.Get(ctx, c.Param("clname"))
+	cl, err := cluster.Get(ctx, clname)
 	cancel()
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + clname + " doesn't exist"})
+			return
+		}
 		log.Println("failed to get cluster:", err)
-		// TODO: check if cluster not found and return user error if not found
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get cluster: " + err.Error()})
 		return
 	}

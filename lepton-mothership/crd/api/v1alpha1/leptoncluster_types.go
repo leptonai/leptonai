@@ -56,6 +56,7 @@ const (
 	ClusterStateReady    LeptonClusterState = "ready"
 	ClusterStateFailed   LeptonClusterState = "failed"
 	ClusterStateDeleting LeptonClusterState = "deleting"
+	ClusterStateDeleted  LeptonClusterState = "deleted"
 	ClusterStateUnknown  LeptonClusterState = ""
 )
 

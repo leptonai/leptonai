@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	goclient "github.com/leptonai/lepton/go-client"
@@ -59,6 +60,12 @@ func waitFunc(cmd *cobra.Command, args []string) {
 
 		b, err := cli.RequestURL(http.MethodGet, mothershipURL+"/"+clusterName, nil, nil)
 		if err != nil {
+			// if expects deleted and server returns 404, we are done
+			if crdv1alpha1.LeptonClusterState(expectedState) == crdv1alpha1.ClusterStateDeleted &&
+				// TODO: use status code rather than error message
+				strings.Contains(err.Error(), "unexpected HTTP status code 404 with body") {
+				return
+			}
 			log.Println("error sending cluster get request: ", err)
 			continue
 		}

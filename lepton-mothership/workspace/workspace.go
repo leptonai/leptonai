@@ -288,11 +288,7 @@ func List() ([]*crdv1alpha1.LeptonWorkspace, error) {
 }
 
 func Get(workspaceName string) (*crdv1alpha1.LeptonWorkspace, error) {
-	ws, err := DataStore.Get(context.Background(), workspaceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workspace: %w", err)
-	}
-	return ws, nil
+	return DataStore.Get(context.Background(), workspaceName)
 }
 
 func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorkspace, error) {

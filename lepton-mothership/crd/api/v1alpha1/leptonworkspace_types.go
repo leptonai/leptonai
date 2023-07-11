@@ -49,6 +49,7 @@ const (
 	WorkspaceStateReady    LeptonWorkspaceState = "ready"
 	WorkspaceStateFailed   LeptonWorkspaceState = "failed"
 	WorkspaceStateDeleting LeptonWorkspaceState = "deleting"
+	WorkspaceStateDeleted  LeptonWorkspaceState = "deleted"
 	WorkspaceStateUnknown  LeptonWorkspaceState = ""
 )
 

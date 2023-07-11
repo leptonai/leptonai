@@ -251,11 +251,7 @@ func List(ctx context.Context) ([]*crdv1alpha1.LeptonCluster, error) {
 }
 
 func Get(ctx context.Context, clusterName string) (*crdv1alpha1.LeptonCluster, error) {
-	cl, err := DataStore.Get(ctx, clusterName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster: %w", err)
-	}
-	return cl, nil
+	return DataStore.Get(ctx, clusterName)
 }
 
 func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster, error) {

@@ -10,13 +10,19 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/workspace"
 
 	"github.com/gin-gonic/gin"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func HandleWorkspaceGet(c *gin.Context) {
-	lw, err := workspace.Get(c.Param("wsname"))
+	wsname := c.Param("wsname")
+	// TODO: add context, similar to those in handler_cluster.go
+	lw, err := workspace.Get(wsname)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "workspace " + wsname + " doesn't exist"})
+			return
+		}
 		log.Println("failed to get workspace:", err)
-		// TODO: check if workspace not found and return user error if not found
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get workspace: " + err.Error()})
 		return
 	}
