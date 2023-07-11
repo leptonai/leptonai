@@ -50,11 +50,9 @@ def create(name, value):
         for n in name:
             check(
                 n not in existing_secrets,
-                (
-                    f"Secret with name [red]{n}[/] already exists. Please use a"
-                    " different name or remove the existing secret with `lep secret"
-                    " remove` first."
-                ),
+                f"Secret with name [red]{n}[/] already exists. Please use a"
+                " different name or remove the existing secret with `lep secret"
+                " remove` first.",
             )
     response = api.create_secret(workspace_url, auth_token, name, value)
     explain_response(

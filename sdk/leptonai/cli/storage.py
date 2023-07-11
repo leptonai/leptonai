@@ -108,10 +108,8 @@ def rm(path):
     check(file_type is not None, f"[red]{path}[/] not found")
     check(
         file_type != "dir",
-        (
-            f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
-            " directories."
-        ),
+        f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
+        " directories.",
     )
 
     explain_response(

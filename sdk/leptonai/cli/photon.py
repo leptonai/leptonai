@@ -179,10 +179,8 @@ def remove(name, local, id_, all_):
             explain_response(
                 api.remove_remote(workspace_url, auth_token, id_to_remove),
                 f"Photon id [green]{id_to_remove}[/] removed.",
-                (
-                    f"Photon id [red]{id_to_remove}[/] not removed. See error message"
-                    " above."
-                ),
+                f"Photon id [red]{id_to_remove}[/] not removed. See error message"
+                " above.",
                 f"Photon id [red]{id_to_remove}[/] not removed. Internal server error.",
                 exit_if_4xx=True,
             )
@@ -346,10 +344,8 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     existing_names = set(d["name"] for d in deployments)
     check(
         deployment_name not in existing_names,
-        (
-            f"Deployment [red]{deployment_name}[/] already exists. please"
-            " choose another name."
-        ),
+        f"Deployment [red]{deployment_name}[/] already exists. please"
+        " choose another name.",
     )
     if not deployment_name:
         console.print("Attempting to find a proper deployment name.")
@@ -481,18 +477,12 @@ def run(
         )
         explain_response(
             response,
-            (
-                f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment`"
-                " to check the status."
-            ),
-            (
-                f"Failed to launch photon as [red]{deployment_name}[/]. See error"
-                " message above."
-            ),
-            (
-                f"Failed to launch photon as [red]{deployment_name}[/]. Internal server"
-                " error."
-            ),
+            f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment`"
+            " to check the status.",
+            f"Failed to launch photon as [red]{deployment_name}[/]. See error"
+            " message above.",
+            f"Failed to launch photon as [red]{deployment_name}[/]. Internal server"
+            " error.",
         )
     else:
         # local execution
