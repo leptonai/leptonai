@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"fmt"
 
+	"github.com/leptonai/lepton/go-pkg/util"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,13 +38,13 @@ type LeptonDeploymentSystemSpec struct {
 	// +optional
 	EFSID string `json:"efs_id"`
 	// +optional
-	EFSAccessPointID   string   `json:"efs_access_point_id"`
-	PhotonPrefix       string   `json:"photon_prefix"`
-	ServiceAccountName string   `json:"service_account_name"`
-	RootDomain         string   `json:"root_domain,omitempty"`
-	WorkspaceName      string   `json:"workspace_name,omitempty"`
-	CertificateARN     string   `json:"certificate_arn,omitempty"`
-	APITokens          []string `json:"api_tokens,omitempty"`
+	EFSAccessPointID   string `json:"efs_access_point_id"`
+	PhotonPrefix       string `json:"photon_prefix"`
+	ServiceAccountName string `json:"service_account_name"`
+	RootDomain         string `json:"root_domain,omitempty"`
+	WorkspaceName      string `json:"workspace_name,omitempty"`
+	WorkspaceToken     string `json:"workspace_token,omitempty"`
+	CertificateARN     string `json:"certificate_arn,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.
@@ -50,6 +52,8 @@ type LeptonDeploymentUserSpec struct {
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
+	// +optional
+	APITokens []TokenVar `json:"api_tokens"`
 	// +optional
 	Envs []EnvVar `json:"envs"`
 	// +optional
@@ -84,6 +88,20 @@ func (ld *LeptonDeployment) GetShape() string {
 	return string(ld.Spec.ResourceRequirement.ResourceShape)
 }
 
+func (ld *LeptonDeployment) GetTokens() []string {
+	tokens := make([]string, 0)
+	for _, tokenVar := range ld.Spec.APITokens {
+		if tokenVar.Value != "" {
+			tokens = append(tokens, tokenVar.Value)
+		} else if tokenVar.ValueFrom.TokenNameRef == TokenNameRefWorkspaceToken {
+			if ld.Spec.WorkspaceToken != "" {
+				tokens = append(tokens, ld.Spec.WorkspaceToken)
+			}
+		}
+	}
+	return util.UniqStringSlice(tokens)
+}
+
 // Patch modifies the deployment with the given user spec. It only supports PhotonID and MinReplicas for now.
 func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
 	if p.PhotonID != "" {
@@ -115,6 +133,7 @@ func (lr *LeptonDeploymentResourceRequirement) GetAcceleratorRequirement() (floa
 	return lr.AcceleratorNum, lr.AcceleratorType
 }
 
+// LeptonDeploymentReplicaResourceRequirement defines the resource requirement of the deployment.
 type LeptonDeploymentReplicaResourceRequirement struct {
 	CPU    float64 `json:"cpu"`
 	Memory int64   `json:"memory"`
@@ -126,6 +145,7 @@ type LeptonDeploymentReplicaResourceRequirement struct {
 	EphemeralStorageInGB int64 `json:"ephemeral_storage_in_gb"`
 }
 
+// ResourceShape defines the resource shape of the deployment.
 type ResourceShape struct {
 	// Name of the shape. E.g. "Large"
 	Name string `json:"name"`
@@ -134,6 +154,25 @@ type ResourceShape struct {
 	Resource    LeptonDeploymentReplicaResourceRequirement `json:"resource"`
 }
 
+// TokenVar defines the token variable of the deployment.
+type TokenVar struct {
+	Value     string     `json:"value,omitempty"`
+	ValueFrom TokenValue `json:"value_from,omitempty"`
+}
+
+// TokenValue defines the token value of the deployment.
+type TokenValue struct {
+	TokenNameRef string `json:"token_name_ref,omitempty"`
+	// TODO: we can add SecretNameRef if we want to support reading token from secret.
+}
+
+const (
+	// TokenNameRefWorkspaceToken is the token name ref for workspace token.
+	// It refers to the current workspace token. Updating the workspace token
+	// will not refresh the deployment token.
+	TokenNameRefWorkspaceToken = "WORKSPACE_TOKEN"
+)
+
 // EnvVar defines the environment variable of the deployment.
 type EnvVar struct {
 	Name      string   `json:"name"`
@@ -141,10 +180,12 @@ type EnvVar struct {
 	ValueFrom EnvValue `json:"value_from,omitempty"`
 }
 
+// EnvValue defines the environment variable value of the deployment.
 type EnvValue struct {
 	SecretNameRef string `json:"secret_name_ref,omitempty"`
 }
 
+// Mount defines the volumes of the deployment.
 type Mount struct {
 	Path      string `json:"path"`
 	MountPath string `json:"mount_path"`
@@ -156,6 +197,7 @@ type LeptonDeploymentStatus struct {
 	Endpoint LeptonDeploymentEndpoint `json:"endpoint"`
 }
 
+// LeptonDeploymentResourceShape defines the resource shape of the deployment.
 type LeptonDeploymentResourceShape string
 
 // LeptonDeploymentState defines the state of the deployment.
@@ -170,6 +212,9 @@ const (
 	LeptonDeploymentStateUnknown  LeptonDeploymentState = ""
 )
 
+// DeletionFinalizerName is the name of the finalizer for deletion. It is used to
+// prevent the deletion of the LeptonDeployment before cooresponding resources are
+// deleted, including deployment, service, and ingress.
 const DeletionFinalizerName = "lepton.ai/deletion"
 
 // LeptonDeploymentEndpoint defines the endpoint of the deployment.
@@ -204,6 +249,7 @@ func init() {
 	SchemeBuilder.Register(&LeptonDeployment{}, &LeptonDeploymentList{})
 }
 
+// ShapeToReplicaResourceRequirement converts a shape to a replica resource requirement.
 func ShapeToReplicaResourceRequirement(shape LeptonDeploymentResourceShape) (*LeptonDeploymentReplicaResourceRequirement, error) {
 	shape = DisplayShapeToShape(string(shape))
 	s := SupportedShapesAWS[shape]

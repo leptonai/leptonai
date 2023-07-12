@@ -39,7 +39,15 @@ spec:
             properties:
               api_tokens:
                 items:
-                  type: string
+                  properties:
+                    value:
+                      type: string
+                    value_from:
+                      properties:
+                        token_name_ref:
+                          type: string
+                      type: object
+                  type: object
                 type: array
               bucket_name:
                 type: string
@@ -119,6 +127,8 @@ spec:
               service_account_name:
                 type: string
               workspace_name:
+                type: string
+              workspace_token:
                 type: string
             required:
             - bucket_name

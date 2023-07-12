@@ -50,6 +50,19 @@ func RemoveString(slice []string, s string) (result []string) {
 	return
 }
 
+func UniqStringSlice(slice []string) []string {
+	seen := make(map[string]bool)
+	uniq := make([]string, 0)
+	for _, item := range slice {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = true
+		uniq = append(uniq, item)
+	}
+	return uniq
+}
+
 func RemovePrefix(msg string, prefix string) string {
 	// remove the prefix from all words in the message
 	// return the new message

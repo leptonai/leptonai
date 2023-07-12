@@ -19,7 +19,7 @@ import (
 
 var (
 	workspaceURL = flag.String("workspace-url", "", "URL for the Lepton API server")
-	authToken = flag.String("auth-token", "", "Auth token for the Lepton API server")
+	authToken    = flag.String("auth-token", "", "Auth token for the Lepton API server")
 
 	mainTestPhotonName     string
 	mainTestPhotonID       string
@@ -88,6 +88,13 @@ func mustPrepareTest() {
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
 			MinReplicas:   1,
+		},
+		APITokens: []leptonaiv1alpha1.TokenVar{
+			{
+				ValueFrom: leptonaiv1alpha1.TokenValue{
+					TokenNameRef: leptonaiv1alpha1.TokenNameRefWorkspaceToken,
+				},
+			},
 		},
 	}
 	ld, err := lepton.Deployment().Create(d)

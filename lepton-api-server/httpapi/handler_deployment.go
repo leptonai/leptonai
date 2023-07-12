@@ -64,9 +64,7 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		WorkspaceName:      h.workspaceName,
 		CertificateARN:     h.certARN,
 	}
-	if len(h.apiToken) > 0 {
-		ld.Spec.APITokens = []string{h.apiToken}
-	}
+	ld.Spec.WorkspaceToken = h.apiToken
 	ld.Namespace = h.namespace
 	ld.Name = ld.GetSpecName()
 

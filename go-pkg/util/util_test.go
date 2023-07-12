@@ -36,6 +36,14 @@ func TestRemoveString(t *testing.T) {
 	}
 }
 
+func TestUniqStringSlice(t *testing.T) {
+	slice := []string{"a", "b", "c", "a", "b", "c"}
+	result := UniqStringSlice(slice)
+	if len(result) != 3 {
+		t.Errorf("UniqStringSlice(slice) = %v; want length 3", result)
+	}
+}
+
 func TestRemovePrefix(t *testing.T) {
 	pre := "l33t"
 	msg := ""

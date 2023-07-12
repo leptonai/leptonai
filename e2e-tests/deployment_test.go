@@ -22,6 +22,13 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 				ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
 				MinReplicas:   1,
 			},
+			APITokens: []leptonaiv1alpha1.TokenVar{
+				{
+					ValueFrom: leptonaiv1alpha1.TokenValue{
+						TokenNameRef: leptonaiv1alpha1.TokenNameRefWorkspaceToken,
+					},
+				},
+			},
 		}
 		ld, err := lepton.Deployment().Create(d)
 		if err != nil {
@@ -61,6 +68,13 @@ func TestDeployWithDuplicateName(t *testing.T) {
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
 			MinReplicas:   1,
+		},
+		APITokens: []leptonaiv1alpha1.TokenVar{
+			{
+				ValueFrom: leptonaiv1alpha1.TokenValue{
+					TokenNameRef: leptonaiv1alpha1.TokenNameRefWorkspaceToken,
+				},
+			},
 		},
 	}
 	ld, err := lepton.Deployment().Create(d)
