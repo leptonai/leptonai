@@ -11,6 +11,7 @@ import (
 
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "gocloud.dev/blob/s3blob"
 )
 
@@ -32,6 +33,8 @@ func main() {
 	// Logs all panic to error log
 	//   - stack means whether output the stack info.
 	router.Use(ginzap.RecoveryWithZap(logger, true))
+
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	api := router.Group("/api")
 	v1 := api.Group("/v1")

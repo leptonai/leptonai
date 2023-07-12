@@ -17,6 +17,7 @@ import (
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 	"github.com/leptonai/lepton/lepton-mothership/util"
+	"github.com/prometheus/client_golang/prometheus"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -31,9 +32,23 @@ var (
 	)
 
 	Worker = worker.New()
+
+	failedAPIs = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace",
+			Name:      "failed_apis",
+			Help:      "Tracks failed mothership workspace operations",
+		},
+		[]string{"api"},
+	)
 )
 
 func Init() {
+	prometheus.MustRegister(
+		failedAPIs,
+	)
+
 	wss, err := DataStore.List(context.Background())
 	if err != nil {
 		goutil.Logger.Errorw("failed to list workspaces",
@@ -222,6 +237,7 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
+		failedAPIs.WithLabelValues("update").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -235,6 +251,7 @@ func Delete(workspaceName string, deleteWorkspace bool) error {
 		return delete(workspaceName, deleteWorkspace, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
+		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
@@ -406,6 +423,7 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
+		failedAPIs.WithLabelValues("create").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)

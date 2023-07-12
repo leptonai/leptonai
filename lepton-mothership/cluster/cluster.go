@@ -17,6 +17,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 	"github.com/leptonai/lepton/lepton-mothership/util"
 
+	"github.com/prometheus/client_golang/prometheus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -30,10 +31,24 @@ var (
 	)
 
 	Worker = worker.New()
+
+	failedAPIs = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "cluster",
+			Name:      "failed_apis",
+			Help:      "Tracks failed mothership cluster operations",
+		},
+		[]string{"api"},
+	)
 )
 
 // Init initializes the cluster and retore any ongoing operations
 func Init() {
+	prometheus.MustRegister(
+		failedAPIs,
+	)
+
 	clusters, err := DataStore.List(context.Background())
 	if err != nil {
 		goutil.Logger.Fatalw("failed to list clusters",
@@ -161,6 +176,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
+		failedAPIs.WithLabelValues("create").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -174,6 +190,7 @@ func Delete(clusterName string, deleteWorkspace bool) error {
 		return delete(clusterName, deleteWorkspace, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
+		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
@@ -357,6 +374,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
+		failedAPIs.WithLabelValues("update").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
