@@ -30,8 +30,9 @@ import uvicorn
 from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS, PYDANTIC_MAJOR_VERSION
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from leptonai.photon.download import fetch_code_from_vcs
-from leptonai.util import switch_cwd, patch
+from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
+from .batcher import batch
 
 schemas = ["py"]
 
@@ -584,12 +585,20 @@ class Photon(BasePhoton):
             request_model = Annotated[request_model, Body(example=kwargs["example"])]
         if "examples" in kwargs:
             request_model = Annotated[request_model, Body(examples=kwargs["examples"])]
+
+        if kwargs.get("max_batch_size") is not None:
+            method = batch(
+                max_batch_size=kwargs["max_batch_size"],
+                max_wait_time=kwargs["max_wait_time"],
+            )(method)
+        else:
+            method = asyncfy(method)
         vd = pydantic.decorator.validate_arguments(method).vd
 
         async def typed_handler(request: request_model):
             logger.info(request)
             try:
-                res = vd.execute(request)
+                res = await vd.execute(request)
             except Exception as e:
                 logger.error(e)
                 if isinstance(e, HTTPException):
@@ -630,7 +639,22 @@ class Photon(BasePhoton):
         app.include_router(api_router)
 
     @staticmethod
+    def _santity_check_handler_kwargs(kwargs):
+        mbs, mwt = kwargs.get("max_batch_size"), kwargs.get("max_wait_time")
+        if (mbs is None) != (mwt is None):
+            raise ValueError(
+                "max_batch_size and max_wait_time should be both specified or not, got"
+                f" max_batch_size={mbs}, max_wait_time={mwt}"
+            )
+
+        if kwargs.get("mount") and (mbs is not None):
+            raise ValueError("mount and batching cannot be used together")
+        return
+
+    @staticmethod
     def handler(path=None, **kwargs):
+        Photon._santity_check_handler_kwargs(kwargs)
+
         def decorator(func):
             path_ = path if path is not None else func.__name__
             routes = get_routes(func)

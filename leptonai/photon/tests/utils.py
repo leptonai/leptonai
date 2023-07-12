@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 from contextlib import closing
 import functools
@@ -8,6 +9,8 @@ import string
 import time
 
 from loguru import logger
+
+from leptonai.util import asyncfy
 
 
 def find_free_port():
@@ -82,3 +85,13 @@ def sub_test(params_list):
         return wrapped
 
     return decorator
+
+
+def async_test(f):
+    """decorator to run a test asynchronously"""
+
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        return asyncio.run(asyncfy(f)(*args, **kwargs))
+
+    return wrapped

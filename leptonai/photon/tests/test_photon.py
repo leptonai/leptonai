@@ -19,6 +19,7 @@ except ImportError:
 else:
     has_gradio = True
 
+import concurrent.futures
 from io import BytesIO
 import inspect
 import json
@@ -43,7 +44,7 @@ from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam
 from leptonai.util import switch_cwd
 
 
-from utils import random_name, photon_run_server
+from utils import random_name, photon_run_server, async_test
 
 
 class CustomPhoton(Photon):
@@ -754,6 +755,26 @@ class CustomPhoton2(Photon):
             name=random_name(),
             model=custom_py.name,
         )
+
+    @async_test
+    def test_batch_handler(self):
+        class BatchPhoton(Photon):
+            @Photon.handler(max_batch_size=2, max_wait_time=5)
+            def run(self, x: int) -> int:
+                if isinstance(x, list):
+                    return [2 * v + len(x) for v in x]
+                else:
+                    return 2 * x
+
+        ph = BatchPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futs = [executor.submit(client.run, x=i) for i in [1, 2]]
+            res = [fut.result() for fut in concurrent.futures.as_completed(futs)]
+            self.assertEqual(res, [2 * 1 + 2, 2 * 2 + 2])
 
 
 if __name__ == "__main__":
