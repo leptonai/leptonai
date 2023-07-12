@@ -2,11 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"log"
 	"path"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
@@ -188,7 +188,10 @@ func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceR
 	if ld.Spec.ResourceRequirement.ResourceShape != "" {
 		replicaResourceRequirement, err := leptonaiv1alpha1.ShapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
 		if err != nil {
-			log.Fatalf("Unexpected shape to requirement error %v", err)
+			// TODO: fail the deployment creation instead of panic.
+			goutil.Logger.Fatalw("Unexpected shape to requirement error",
+				"error", err,
+			)
 		}
 
 		cpuValue = replicaResourceRequirement.CPU

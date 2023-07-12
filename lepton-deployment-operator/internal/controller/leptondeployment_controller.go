@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
@@ -38,6 +38,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/util"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
@@ -65,7 +66,10 @@ type LeptonDeploymentReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *LeptonDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Log.Info("Reconciling LeptonDeployment:" + req.NamespacedName.String())
+	goutil.Logger.Infow("reconciling leptonDeployment...",
+		"namespace", req.Namespace,
+		"name", req.Name,
+	)
 
 	r.chMapLock.Lock()
 	defer r.chMapLock.Unlock()
@@ -84,22 +88,42 @@ func (r *LeptonDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 // watch watches for changes to LeptonDeployment resources
 func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request, ch chan struct{}) {
+	goutil.Logger.Infow("starting watch for leptonDeployment...",
+		"namespace", req.Namespace,
+		"name", req.Name,
+	)
+
 	// Listen to the chan for LeptonDeployment updates
 	for range ch {
-		log.Log.Info("Being poked for LeptonDeployment " + req.NamespacedName.String())
+		goutil.Logger.Infow("received watch for leptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
 		drainChan(ch) // Drain chan to avoid unnecessary reconciles
 		ld, err := r.getLeptonDeployment(ctx, req)
 		if err != nil {
-			log.Log.Info("Failed to get LeptonDeployment " + req.NamespacedName.String() + ": " + err.Error())
+			goutil.Logger.Errorw("failed to get leptonDeployment ",
+				"namespace", req.Namespace,
+				"name", req.Name,
+				"error", err,
+			)
+
 			r.wg.Add(1)
 			go backoffAndRetry(&r.wg, ch)
 			continue
 		}
+
 		// Add our finalizer if it does not exist
 		if ld != nil && !util.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
 			ld.SetFinalizers(append(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
 			if err := r.Update(ctx, ld); err != nil {
-				log.Log.Error(err, "Failed to update add finalizer to LeptonDeployment: "+req.NamespacedName.String()+": "+err.Error())
+				goutil.Logger.Errorw("failed to add finalizer to leptonDeployment",
+					"namespace", req.Namespace,
+					"name", req.Name,
+					"error", err,
+				)
+
 				r.wg.Add(1)
 				go backoffAndRetry(&r.wg, ch)
 				continue
@@ -107,21 +131,46 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		}
 		// Check the deployment status
 		if err := r.updateDeploymentStatus(ctx, req, ld); err != nil {
-			log.Log.Error(err, "Failed to update LeptonDeployment status: "+req.NamespacedName.String()+": "+err.Error())
+			goutil.Logger.Errorw("failed to update leptonDeployment status",
+				"namespace", req.Namespace,
+				"name", req.Name,
+				"error", err,
+			)
+
 			r.wg.Add(1)
 			go backoffAndRetry(&r.wg, ch)
 			continue
 		}
 		// LeptonDeployment has been deleted or marked for deletion
 		if ld == nil || !ld.DeletionTimestamp.IsZero() {
-			log.Log.Info("LeptonDeployment " + req.NamespacedName.String() + " marked for deletion, destroying resources")
+			goutil.Logger.Infow("leptonDeployment marked for deletion",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+
 			if r.destroy(ctx, req, ld) {
+				goutil.Logger.Infow("leptonDeployment deleted",
+					"namespace", req.Namespace,
+					"name", req.Name,
+				)
 				return
+			} else {
+				goutil.Logger.Errorw("failed to delete leptonDeployment, retrying...",
+					"namespace", req.Namespace,
+					"name", req.Name,
+				)
 			}
+
 			continue
 		}
 		// Reconcile resources
 		if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
+			goutil.Logger.Errorw("failed to create or update resources, retrying...",
+				"namespace", req.Namespace,
+				"name", req.Name,
+				"error", err,
+			)
+
 			r.wg.Add(1)
 			go backoffAndRetry(&r.wg, ch)
 			continue
@@ -156,19 +205,17 @@ func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context
 	// which has to be deleted separately.
 	service, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
-		log.Log.Error(err, "Failed to create or update Service: "+req.NamespacedName.String())
-		return err
+		return errors.New("failed to create or update Service: " + err.Error())
 	}
 	svcOr := getOwnerRefFromService(service)
 	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr})
 	if err != nil {
-		log.Log.Error(err, "Failed to create or update Deployment: "+req.NamespacedName.String())
-		return err
+		return errors.New("failed to create or update Deployment: " + err.Error())
 	}
 	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr}); err != nil {
-		log.Log.Error(err, "Failed to create or update Ingress: "+req.NamespacedName.String())
-		return err
+		return errors.New("failed to create or update Ingress: " + err.Error())
 	}
+
 	return nil
 }
 
@@ -219,20 +266,40 @@ func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.Lepto
 
 func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
 	if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-		log.Log.Error(err, "Failed to delete service: "+req.NamespacedName.String())
+		goutil.Logger.Errorw("failed to delete service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+
 		r.wg.Add(1)
 		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
+	} else {
+		goutil.Logger.Infow("service deleted",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	}
 	if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-		log.Log.Error(err, "Failed to delete pv: "+req.NamespacedName.String())
+		goutil.Logger.Errorw("failed to delete pv",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+
 		r.wg.Add(1)
 		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
 	}
 	ld.SetFinalizers(util.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
 	if err := r.Update(ctx, ld); err != nil {
-		log.Log.Error(err, "Failed to remove finalizer from LeptonDeployment: "+req.NamespacedName.String())
+		goutil.Logger.Errorw("failed to remove the finalizer",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+
 		r.wg.Add(1)
 		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
@@ -269,18 +336,37 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 		if !apierrors.IsNotFound(err) {
 			return nil, err
 		}
-		log.Log.Info("Deployment not found, creating a new one: " + req.NamespacedName.String())
+		goutil.Logger.Infow("creating a new leptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
 		deployment, err = r.createDeployment(ctx, ld, or)
 		if err != nil {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("created a new leptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	} else {
-		log.Log.Info("Deployment found, patching it: " + req.NamespacedName.String())
+		goutil.Logger.Infow("updating an existing leptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
 		newDeploymentNvidia(ld).patchDeployment(deployment)
 		if err := r.Client.Update(ctx, deployment); err != nil {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("updated an existing leptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	}
+
 	return deployment, nil
 }
 
@@ -295,17 +381,36 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 		if !apierrors.IsNotFound(err) {
 			return nil, err
 		}
-		log.Log.Info("Service not found, creating a new one: " + req.NamespacedName.String())
+
+		goutil.Logger.Infow("creating a new service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
 		service = newService(ld).createService(or)
 		if err := r.Client.Create(ctx, service); err != nil {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("created a new service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	} else {
-		log.Log.Info("Service found, patching it: " + req.NamespacedName.String())
+		goutil.Logger.Infow("updating an existing service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
 		service = newService(ld).createService(or)
 		if err := r.Client.Update(ctx, service); err != nil {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("updated an existing service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	}
 	return service, nil
 }
@@ -333,18 +438,36 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 		}
 		ingress = newIngress(ld).createHeaderBasedDeploymentIngress(or)
 		if ingress != nil {
-			log.Log.Info("Header based Ingress not found, creating a new one: " + req.NamespacedName.String())
+			goutil.Logger.Infow("creating a new header based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+
 			if err := r.Client.Create(ctx, ingress); err != nil {
 				return err
 			}
+
+			goutil.Logger.Infow("created a new header based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
 		}
 	} else {
 		ingress = newIngress(ld).createHeaderBasedDeploymentIngress(or)
 		if ingress != nil {
-			log.Log.Info("Header based Ingress found, patching it: " + req.NamespacedName.String())
+			goutil.Logger.Infow("updating an existing header based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
 			}
+
+			goutil.Logger.Infow("updated an existing header based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
 		}
 	}
 	return nil
@@ -361,20 +484,39 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		log.Log.Info("Host based Ingress not found, creating a new one: " + req.NamespacedName.String())
+
 		ingress = newIngress(ld).createHostBasedDeploymentIngress(or)
 		if ingress != nil {
+			goutil.Logger.Infow("creating a new host based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+
 			if err := r.Client.Create(ctx, ingress); err != nil {
 				return err
 			}
+
+			goutil.Logger.Infow("created a new host based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
 		}
 	} else {
 		ingress = newIngress(ld).createHostBasedDeploymentIngress(or)
 		if ingress != nil {
-			log.Log.Info("Host based Ingress found, patching it: " + req.NamespacedName.String())
+			goutil.Logger.Infow("updating an existing host based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
 			}
+
+			goutil.Logger.Infow("updated an existing host based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
 		}
 	}
 	return nil
@@ -410,16 +552,30 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("created a new pv",
+			"namespace", ld.Namespace,
+			"name", ld.Name,
+			"pvname", pvname,
+		)
+
 		err = k8s.CreatePVC(ld.Namespace, pvcname, pvname, or)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
+
+		goutil.Logger.Infow("created a new pvc",
+			"namespace", ld.Namespace,
+			"name", ld.Name,
+			"pvcname", pvcname,
+		)
 	}
 
 	err := r.Client.Create(ctx, deployment)
 	if err != nil {
 		return nil, err
 	}
+
 	return deployment, nil
 }
 
@@ -427,10 +583,22 @@ func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv
 	for i := range ld.Spec.Mounts {
 		pvname := getPVName(ld.Namespace, ld.GetSpecName(), i)
 
+		goutil.Logger.Infow("deleting a pv",
+			"namespace", ld.Namespace,
+			"name", ld.Name,
+			"pvname", pvname,
+		)
+
 		err := k8s.DeletePV(pvname)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
+
+		goutil.Logger.Infow("deleted a pv",
+			"namespace", ld.Namespace,
+			"name", ld.Name,
+			"pvname", pvname,
+		)
 	}
 	return nil
 }
