@@ -37,6 +37,9 @@ spec:
           spec:
             description: LeptonClusterSpec defines the desired state of LeptonCluster
             properties:
+              deployment_environment:
+                description: DeploymentEnvironment defines the deployment environment.
+                type: string
               description:
                 type: string
               git_ref:

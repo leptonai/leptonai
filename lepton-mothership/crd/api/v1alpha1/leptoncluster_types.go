@@ -22,6 +22,11 @@ import (
 
 // LeptonClusterSpec defines the desired state of LeptonCluster
 type LeptonClusterSpec struct {
+	// DeploymentEnvironment defines the deployment environment.
+	// Make this "omitempty" to not include in "required" field.
+	// Otherwise, the old CRDs without this field will be rejected.
+	DeploymentEnvironment string `json:"deployment_environment,omitempty"`
+
 	// Name is a globally unique name of a cluster within mothership.
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
