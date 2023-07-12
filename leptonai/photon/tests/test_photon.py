@@ -772,9 +772,10 @@ class CustomPhoton2(Photon):
         client = Client(f"http://127.0.0.1:{port}")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            futs = [executor.submit(client.run, x=i) for i in [1, 2]]
-            res = [fut.result() for fut in concurrent.futures.as_completed(futs)]
-            self.assertEqual(res, [2 * 1 + 2, 2 * 2 + 2])
+            xs = [1, 2]
+            res = list(executor.map(lambda v: client.run(x=v), xs))
+            # assert it triggers the batch execution route
+            self.assertEqual(res, [2 * v + len(xs) for v in xs])
 
 
 if __name__ == "__main__":
