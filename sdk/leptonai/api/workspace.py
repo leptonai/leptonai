@@ -89,9 +89,9 @@ def get_workspace_url():
     return workspaces[current_workspace]["url"]
 
 
-def get_cluster_info(url: str, auth_token: str):
+def get_workspace_info(url: str, auth_token: str):
     """
     List all secrets on a workspace.
     """
-    response = requests.get(url + "/cluster", headers=create_header(auth_token))
+    response = requests.get(url + "/workspace", headers=create_header(auth_token))
     return json_or_error(response)
