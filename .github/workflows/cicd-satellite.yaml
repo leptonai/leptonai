@@ -163,12 +163,23 @@ jobs:
     - name: Build mothership cli
       run: |
         (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+    - name: Find the latest CI cluster to run tests
+      id: find_ci_cluster
+      run: |
+        latest_ready_cluster=$(./mothership cluster list -o rawjson -t ${{ secrets.MOTHERSHIP_TOKEN }} 2>/dev/null | \
+        jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
+        echo "latest ready cluster: $latest_ready_cluster"
+        if [ -z "$latest_ready_cluster" ]; then
+          echo "no ready cluster found"
+          exit 1
+        fi
+        echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
     - name: Create ci workspace
       run: |
         ./mothership workspace create \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --api-token "${{ steps.vars.outputs.api_token }}" \
-          --cluster-name "${{ vars.K8S_CI }}" \
+          --cluster-name "${{ steps.find_ci_cluster.outputs.cluster }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --git-ref "${{ steps.vars.outputs.branch }}" \
           --image-tag "${{ steps.vars.outputs.image_tag }}"
