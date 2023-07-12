@@ -63,7 +63,7 @@ class TestDocker(unittest.TestCase):
             random_name(),
             os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                "examples/counter.py:Counter",
+                "examples/counter/counter.py:Counter",
             ),
         )
         path = photon.save(ph)
