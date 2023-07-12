@@ -53,7 +53,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 		t := time.Unix(int64(c.Status.UpdatedAt), 0)
 		// Format the time as a string using the desired layout
 		timeString := t.Format("2006-01-02 15:04:05")
-		rows = append(rows, []string{c.GetName(), c.Spec.ClusterName, c.Spec.ImageTag, c.Spec.GitRef, string(c.Status.State), timeString})
+		rows = append(rows, []string{c.Spec.Name, c.Spec.ClusterName, c.Spec.ImageTag, c.Spec.GitRef, string(c.Status.State), timeString})
 	}
 
 	buf := bytes.NewBuffer(nil)

@@ -112,7 +112,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 			version, status, health = eks.GetClusterStatus(eksOut)
 		}
 
-		rows = append(rows, []string{c.GetName(), c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
+		rows = append(rows, []string{c.Spec.Name, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
 	}
 
 	buf := bytes.NewBuffer(nil)
