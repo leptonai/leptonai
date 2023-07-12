@@ -22,7 +22,7 @@ const client = createClient<Database>(
 );
 
 const SSO_CONFIG = {
-  domain: "lepton.ai",
+  domain: window.location.hostname === "localhost" ? "localhost" : "lepton.ai",
   access_token_key: "lepton-access-token",
   refresh_token_key: "lepton-refresh-token",
 };

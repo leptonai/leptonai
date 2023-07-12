@@ -40,6 +40,11 @@ const Login = lazy(() =>
     default: e.Login,
   }))
 );
+const Redirect = lazy(() =>
+  import("@lepton-dashboard/routers/redirect").then((e) => ({
+    default: e.Redirect,
+  }))
+);
 const CloseBeta = lazy(() =>
   import("@lepton-dashboard/routers/close-beta").then((e) => ({
     default: e.CloseBeta,
@@ -78,6 +83,14 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <Login />,
+      },
+      {
+        path: "redirect",
+        element: (
+          <OAuthGuard>
+            <Redirect />
+          </OAuthGuard>
+        ),
       },
       {
         path: "closebeta",
