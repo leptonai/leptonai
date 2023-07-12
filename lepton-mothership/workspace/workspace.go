@@ -212,7 +212,12 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 			"operation", "update",
 		)
 	}
-	ws.Spec = spec
+	// only allow updating certain fields
+	ws.Spec.ImageTag = spec.ImageTag
+	ws.Spec.APIToken = spec.APIToken
+	ws.Spec.EnableWeb = spec.EnableWeb
+	ws.Spec.GitRef = spec.GitRef
+
 	if ws.Spec.ImageTag == "" {
 		ws.Spec.ImageTag = "latest"
 	}
