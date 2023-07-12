@@ -21,21 +21,18 @@ export class ProfileService {
           authWorkspaces.length > 0
             ? forkJoin([
                 ...authWorkspaces.map(({ url, token }) => {
-                  return (
-                    this.httpClientService
-                      // TODO(hsuanxyz): need change to /api/v1/workspace
-                      .get<WorkspaceDetail>(`${url}/api/v1/cluster`, {
-                        headers: {
-                          // The interceptor will set the token from the profile to the header,
-                          // but the token is not set to profile now, so we need to set it manually.
-                          Authorization: `Bearer ${token}`,
-                        },
-                        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
-                          ignoreErrors: true,
-                        }),
-                      })
-                      .pipe(catchError(() => of(null)))
-                  );
+                  return this.httpClientService
+                    .get<WorkspaceDetail>(`${url}/api/v1/workspace`, {
+                      headers: {
+                        // The interceptor will set the token from the profile to the header,
+                        // but the token is not set to profile now, so we need to set it manually.
+                        Authorization: `Bearer ${token}`,
+                      },
+                      context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+                        ignoreErrors: true,
+                      }),
+                    })
+                    .pipe(catchError(() => of(null)));
                 }),
               ]).pipe(
                 map((detailWorkspaces) => {

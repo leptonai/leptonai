@@ -5,7 +5,7 @@ describe("workspace", () => {
     intercept();
     cy.visit("http://localhost:3001");
 
-    cy.wait(`@${alias.getCluster}`);
+    cy.wait(`@${alias.getWorkspace}`);
     cy.wait(`@${alias.getDeployments}`);
     cy.wait(`@${alias.getPhotons}`);
     cy.wait(1000);

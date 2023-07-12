@@ -12,7 +12,7 @@ export class WorkspaceTrackerService {
     this.name = name;
     this.workspace =
       this.profileService.profile?.authorized_workspaces?.find(
-        (c) => c.data.cluster_name === name
+        (c) => c.data.workspace_name === name
       ) || null;
   }
 

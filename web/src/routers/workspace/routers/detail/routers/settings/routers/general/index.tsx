@@ -28,7 +28,7 @@ export const General: FC = () => {
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.workspace?.data.cluster_name}
+            {workspaceTrackerService.workspace?.data.workspace_name}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Release date">

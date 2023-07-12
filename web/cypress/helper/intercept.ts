@@ -1,5 +1,5 @@
 export enum alias {
-  getCluster = "getCluster",
+  getWorkspace = "getWorkspace",
   getDeployments = "getDeployments",
   getPhotons = "getPhotons",
   getFastAPIQPS = "getFastAPIQPS",
@@ -9,10 +9,10 @@ export enum alias {
 }
 
 export const intercept = () => {
-  // intercept the cluster request
-  cy.intercept("GET", "/api/v1/cluster", {
-    fixture: "api/v1/cluster.json",
-  }).as(alias.getCluster);
+  // intercept the workspace request
+  cy.intercept("GET", "/api/v1/workspace", {
+    fixture: "api/v1/workspace.json",
+  }).as(alias.getWorkspace);
 
   // intercept the deployments request
   cy.intercept("GET", "/api/v1/deployments", {

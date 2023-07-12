@@ -15,8 +15,8 @@ export const WorkspaceSwitch: FC = () => {
   const options =
     profileService.profile?.authorized_workspaces?.map((c) => {
       return {
-        label: c.data.cluster_name,
-        value: c.data.cluster_name,
+        label: c.data.workspace_name,
+        value: c.data.workspace_name,
       };
     }) || [];
 
