@@ -163,8 +163,8 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             "You have encountered a programming error: workspace url mismatch."
             " Please report an issue.",
         )
-        cluster_info = guard_api(
-            api.get_cluster_info(workspace_url, auth_token),
+        workspace_info = guard_api(
+            api.get_workspace_info(workspace_url, auth_token),
             detail=True,
             msg=(
                 f"Cannot properly log into workspace [red]{workspace_name}. See error"
@@ -172,8 +172,8 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
             ),
         )
         console.print(
-            f"Workspace info: build_time={cluster_info['build_time']},"
-            f" git_commit={cluster_info['git_commit']}"
+            f"Workspace info: build_time={workspace_info['build_time']},"
+            f" git_commit={workspace_info['git_commit']}"
         )
     console.print(f"Workspace [green]{workspace_name}[/] ({workspace_url}) logged in.")
 
