@@ -2,7 +2,7 @@ import sys
 
 import openai
 
-openai.api_base = "http://0.0.0.0:8080/v1"
+openai.api_base = "http://0.0.0.0:8080/api/v1"
 openai.api_key = "api-key"
 
 # List available models

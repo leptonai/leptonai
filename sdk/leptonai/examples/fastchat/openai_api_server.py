@@ -16,6 +16,6 @@ class Server(Photon):
         )
         fastchat.serve.openai_api_server.app_settings.api_keys = None
 
-    @Photon.handler(path="", mount=True)
+    @Photon.handler(path="api", mount=True)
     def subapp(self):
         return fastchat.serve.openai_api_server.app
