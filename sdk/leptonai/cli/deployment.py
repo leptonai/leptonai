@@ -171,7 +171,6 @@ def status(name, show_tokens):
         table.add_row(id, reason, message)
     console.print(table)
     console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
-    console.print(f"{dep_info}")
 
 
 @deployment.command()
