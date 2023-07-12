@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 import re
 
@@ -222,6 +223,108 @@ def update(name, replica):
     console.print(
         f"Deployment [green]{name}[/] updated to replica=[green]{replica}[/]."
     )
+
+
+@deployment.command()
+@click.option("--name", "-n", help="The deployment name.", required=True)
+@click.option("--by-path", "-p", is_flag=True, help="Show detailed QPS info by path.")
+def qps(name, by_path):
+    """
+    Gets the QPS of a deployment.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    qps_info = guard_api(
+        api.get_qps(workspace_url, auth_token, name, by_path=by_path),
+        detail=True,
+        msg=f"Cannot obtain QPS info for [red]{name}[/]. See error above.",
+    )
+    if len(qps_info) == 0:
+        console.print(f"No QPS info found for [yellow]{name}[/].")
+        return
+    if by_path:
+        all_paths = [p["metric"]["handler"] for p in qps_info]
+        all_paths = sorted(all_paths)
+        table = Table(title=f"QPS of [green]{name}[/] per path", show_lines=False)
+        table.add_column("time")
+        for path in all_paths:
+            table.add_column(path)
+        value_path_speed_map = defaultdict(defaultdict)
+        for path_info in qps_info:
+            handler = path_info["metric"]["handler"]
+            values = path_info["values"]
+            for time, value in values:
+                value_path_speed_map[time][handler] = value
+        ordered_time = value_path_speed_map.keys()
+        ordered_time = sorted(ordered_time)
+        for time in ordered_time:
+            row = [datetime.fromtimestamp(time).strftime("%H:%M:%S")]
+            for path in all_paths:
+                row.append(f"{value_path_speed_map[time][path]:.4f}")
+            table.add_row(*row)
+        console.print(table)
+    else:
+        # Print a table of QPS information.
+        table = Table(title=f"QPS of [green]{name}[/]", show_lines=False)
+        table.add_column("time")
+        table.add_column("qps")
+        content = qps_info[0]["values"]
+        for time, qps in content:
+            table.add_row(
+                datetime.fromtimestamp(time).strftime("%H:%M:%S"), f"{qps:.4f}"
+            )
+        console.print(table)
+
+
+@deployment.command()
+@click.option("--name", "-n", help="The deployment name.", required=True)
+@click.option("--by-path", "-p", is_flag=True, help="Show detailed QPS info by path.")
+def latency(name, by_path):
+    """
+    Gets the latency of a deployment.
+    """
+    workspace_url, auth_token = get_workspace_and_token_or_die()
+    latency_info = guard_api(
+        api.get_latency(workspace_url, auth_token, name, by_path=by_path),
+        detail=True,
+        msg=f"Cannot obtain latency info for [red]{name}[/]. See error above.",
+    )
+    if len(latency_info) == 0:
+        console.print(f"No latency info found for [yellow]{name}[/].")
+        return
+    if by_path:
+        all_paths = [p["metric"]["handler"] for p in latency_info]
+        all_paths = sorted(all_paths)
+        table = Table(show_lines=False)
+        table.add_column("time")
+        for path in all_paths:
+            table.add_column(path)
+        value_path_speed_map = defaultdict(defaultdict)
+        for path_info in latency_info:
+            handler = path_info["metric"]["handler"]
+            values = path_info["values"]
+            for time, value in values:
+                value_path_speed_map[time][handler] = value
+        ordered_time = value_path_speed_map.keys()
+        ordered_time = sorted(ordered_time)
+        for time in ordered_time:
+            row = [datetime.fromtimestamp(time).strftime("%H:%M:%S")]
+            for path in all_paths:
+                row.append(f"{value_path_speed_map[time][path]*1000:.2f}")
+            table.add_row(*row)
+        console.print(f"Latency (ms) of [green]{name}[/] per path")
+        console.print(table)
+    else:
+        # Print a table of latency information.
+        table = Table(show_lines=False)
+        table.add_column("time")
+        table.add_column("latency")
+        content = latency_info[0]["values"]
+        for time, latency in content:
+            table.add_row(
+                datetime.fromtimestamp(time).strftime("%H:%M:%S"), f"{latency*1000:.4f}"
+            )
+        console.print(f"Latency (ms) of [green]{name}[/]")
+        console.print(table)
 
 
 def add_command(cli_group):

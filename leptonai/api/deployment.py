@@ -99,3 +99,43 @@ def update_deployment(url: str, auth_token: str, name: str, replicas: int):
         json=deployment_body,
     )
     return json_or_error(response)
+
+
+def get_qps(url: str, auth_token: str, name: str, by_path: bool = False):
+    """
+    Get a deployment's QPS from a workspace.
+
+    Returns the deployment info if successful, and APIError if the deployment
+    does not exist.
+    """
+    if by_path:
+        response = requests.get(
+            url + "/deployments/" + name + "/monitoring/FastAPIQPSByPath",
+            headers=create_header(auth_token),
+        )
+    else:
+        response = requests.get(
+            url + "/deployments/" + name + "/monitoring/FastAPIQPS",
+            headers=create_header(auth_token),
+        )
+    return json_or_error(response)
+
+
+def get_latency(url: str, auth_token: str, name: str, by_path: bool = False):
+    """
+    Get a deployment's latency from a workspace.
+
+    Returns the deployment info if successful, and APIError if the deployment
+    does not exist.
+    """
+    if by_path:
+        response = requests.get(
+            url + "/deployments/" + name + "/monitoring/FastAPILatencyByPath",
+            headers=create_header(auth_token),
+        )
+    else:
+        response = requests.get(
+            url + "/deployments/" + name + "/monitoring/FastAPILatency",
+            headers=create_header(auth_token),
+        )
+    return json_or_error(response)
