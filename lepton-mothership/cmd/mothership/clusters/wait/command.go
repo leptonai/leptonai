@@ -76,10 +76,10 @@ func waitFunc(cmd *cobra.Command, args []string) {
 			log.Printf("failed to decode %v", err)
 		} else {
 			if c.Status.State == crdv1alpha1.LeptonClusterState(expectedState) {
-				log.Printf("workspace %q is already in state %q", clusterName, expectedState)
+				log.Printf("cluster %q is already in state %q", clusterName, expectedState)
 				return
 			} else {
-				log.Printf("workspace %q is not in state %q (current %q) yet", clusterName, expectedState, c.Status.State)
+				log.Printf("cluster %q is not in state %q (current %q) yet", clusterName, expectedState, c.Status.State)
 			}
 		}
 	}
