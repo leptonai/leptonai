@@ -206,6 +206,13 @@ jobs:
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
         echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
+    - name: Build mothership cli
+      run: |
+        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
     - name: Update the latest workspace
       env:
         WORKSPACE_NAME: latest
