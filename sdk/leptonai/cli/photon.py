@@ -164,16 +164,10 @@ def remove(name, local, id_, all_):
         if name:
             # Remove all versions of the photon.
             ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
-            ids = [ids[0]] if not all_ else ids
+            check(ids, f"Cannot find photon with name [yellow]{name}[/].")
+            ids = [ids[0]] if (not all_) else ids
         else:
             ids = [id_]
-        # Check if things actually exist.
-        if len(ids) == 0:
-            if name:
-                console.print(f"Cannot find photon with name [red]{name}[/].")
-            else:
-                console.print(f"Cannot find photon with id [red]{id_}[/].")
-            sys.exit(1)
         # Actually remove the ids
         for id_to_remove in ids:
             explain_response(
@@ -181,7 +175,8 @@ def remove(name, local, id_, all_):
                 f"Photon id [green]{id_to_remove}[/] removed.",
                 f"Photon id [red]{id_to_remove}[/] not removed. See error message"
                 " above.",
-                f"Photon id [red]{id_to_remove}[/] not removed. Internal server error.",
+                f"Photon id [red]{id_to_remove}[/] not removed. See error message"
+                " above.",
                 exit_if_4xx=True,
             )
         return
@@ -361,6 +356,26 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     return deployment_name
 
 
+def _parse_deployment_tokens_or_die(public, tokens):
+    """
+    Utility function to parse deployment tokens.
+    """
+    check(
+        not (public and tokens),
+        "If you specify a deployment to be public, it cannot have deployment"
+        " tokens at the same time.",
+    )
+    if public:
+        return []
+    else:
+        # We will always include the workspace token as acceptable tokens
+        # for the deployment.
+        final_tokens = [{"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}}]
+        if tokens:
+            final_tokens.extend([{"value": token} for token in tokens])
+        return final_tokens
+
+
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon to run.")
 @click.option("--model", "-m", help="Model spec of the photon.")
@@ -414,6 +429,22 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     ),
     multiple=True,
 )
+@click.option(
+    "--public",
+    is_flag=True,
+    help=(
+        "If specified, the photon will be publicly accessible. See docs for details "
+        "on access control."
+    ),
+)
+@click.option(
+    "--tokens",
+    help=(
+        "Additional tokens that can be used to access the photon. See docs for details "
+        "on access control."
+    ),
+    multiple=True,
+)
 @click.pass_context
 def run(
     ctx,
@@ -429,6 +460,8 @@ def run(
     deployment_name,
     env,
     secret,
+    public,
+    tokens,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -464,6 +497,7 @@ def run(
             workspace_url, auth_token, name, id, deployment_name
         )
         resource_shape = _validate_resource_shape(resource_shape)
+        final_tokens = _parse_deployment_tokens_or_die(public, tokens)
         response = api.run_remote(
             workspace_url,
             auth_token,
@@ -474,6 +508,7 @@ def run(
             mount_parsed,
             env_parsed,
             secret_parsed,
+            final_tokens,
         )
         explain_response(
             response,
@@ -514,9 +549,9 @@ def run(
         envs, _ = _parse_env_and_secret_or_die(env, {})
         for k, v in envs.items():
             os.environ[k] = v
-        if mount or secret:
+        if mount or secret or tokens:
             console.print(
-                "Mounts, environment variables and secrets are only supported for"
+                "Mounts, secrets and access tokens are only supported for"
                 " remote execution. They will be ignored for local execution."
             )
 

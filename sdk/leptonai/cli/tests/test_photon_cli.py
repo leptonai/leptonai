@@ -17,6 +17,7 @@ from leptonai import config
 from leptonai.photon import FileParam
 from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
+from leptonai.cli import photon as photon_cli
 from leptonai.photon.tests.utils import random_name, photon_run_server, sub_test
 
 
@@ -244,6 +245,26 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(res_post_url.status_code, 200)
         self.assertEqual(res_post_file.status_code, 200)
         self.assertEqual(res_post_url.json(), res_post_file.json())
+
+    def test_parse_photon_token_config(self):
+        # public token
+        tokens = photon_cli._parse_deployment_tokens_or_die(True, None)
+        self.assertEqual(tokens, [])
+        tokens = photon_cli._parse_deployment_tokens_or_die(True, [])
+        self.assertEqual(tokens, [])
+        tokens = photon_cli._parse_deployment_tokens_or_die(False, None)
+        self.assertEqual(
+            tokens, [{"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}}]
+        )
+        tokens = photon_cli._parse_deployment_tokens_or_die(False, ["abc", "def"])
+        self.assertEqual(
+            tokens,
+            [
+                {"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}},
+                {"value": "abc"},
+                {"value": "def"},
+            ],
+        )
 
 
 if __name__ == "__main__":
