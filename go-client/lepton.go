@@ -10,8 +10,8 @@ func New(remoteURL string, authToken string) *Lepton {
 	}
 }
 
-func (l *Lepton) Cluster() *Cluster {
-	return &Cluster{
+func (l *Lepton) Workspace() *Workspace {
+	return &Workspace{
 		Lepton: *l,
 	}
 }

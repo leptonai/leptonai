@@ -126,7 +126,7 @@ func main() {
 		photonBucket,
 	)
 
-	cih := httpapi.NewClusterInfoHandler(*clusterNameFlag)
+	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag)
 
 	log.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
 
@@ -153,7 +153,7 @@ func main() {
 
 	v1 := api.Group("/v1")
 
-	v1.GET("/cluster", cih.Handle)
+	v1.GET("/workspace", wih.HandleGet)
 
 	v1.GET("/photons", handler.PhotonHanlder().List)
 	v1.POST("/photons", handler.PhotonHanlder().Create)

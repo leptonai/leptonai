@@ -7,18 +7,18 @@ import (
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
 )
 
-const clusterPath = "/cluster"
+const workspacePath = "/workspace"
 
-type Cluster struct {
+type Workspace struct {
 	Lepton
 }
 
-func (l *Cluster) Info() (*httpapi.ClusterInfo, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, clusterPath, nil, nil)
+func (l *Workspace) Info() (*httpapi.WorkspaceInfo, error) {
+	output, err := l.HTTP.RequestPath(http.MethodGet, workspacePath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	ret := &httpapi.ClusterInfo{}
+	ret := &httpapi.WorkspaceInfo{}
 	if err := json.Unmarshal(output, ret); err != nil {
 		return nil, err
 	}
