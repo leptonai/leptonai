@@ -53,7 +53,7 @@ spec:
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
             - "--cluster-name"
-            - "{{ .Values.clusterName }}"
+            - "{{ .Values.workspaceName }}"
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--service-account-name"
@@ -71,7 +71,7 @@ spec:
             - "--photon-prefix"
             - "{{ .Values.apiServer.photonPrefix }}"
             - "--workspace-name"
-            - "{{ .Values.apiServer.workspaceName }}"
+            - "{{ .Values.workspaceName }}"
             - "--dynamodb-name"
             - "{{ .Values.apiServer.dynamodbName }}"
             - "--enable-tuna={{ .Values.apiServer.enableTuna }}"

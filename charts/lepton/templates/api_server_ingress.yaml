@@ -21,7 +21,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
 {{ if ne .Values.apiServer.rootDomain "" }}
-    external-dns.alpha.kubernetes.io/hostname: {{ .Release.Namespace }}.{{ .Values.apiServer.rootDomain }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.workspaceName }}.{{ .Values.apiServer.rootDomain }}
 {{ end }}
   name: {{ .Values.apiServer.name }}-ingress
   namespace: {{ .Release.Namespace }}

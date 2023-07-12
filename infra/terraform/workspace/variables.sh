@@ -3,7 +3,7 @@
 APPLY_FLAGS=(
     "-auto-approve"
     "-var=cluster_name=$CLUSTER_NAME"
-    "-var=namespace=$WORKSPACE_NAME"
+    "-var=namespace=ws-$WORKSPACE_NAME"
     "-var=workspace_name=$WORKSPACE_NAME"
     "-var=oidc_id=$OIDC_ID"
     "-var=api_token=$API_TOKEN"

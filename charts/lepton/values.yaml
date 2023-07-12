@@ -1,4 +1,4 @@
-clusterName: "testing"
+workspaceName: "default"
 
 apiServer:
   enabled: true
@@ -26,7 +26,6 @@ apiServer:
   certificateArn: ""
   apiToken: ""
   photonPrefix: "photons"
-  workspaceName: "default"
   dynamodbName: ""
   enableTuna: false
   enableStorage: true
