@@ -136,19 +136,42 @@ func HandleClusterCreate(c *gin.Context) {
 }
 
 func HandleClusterDelete(c *gin.Context) {
-	err := cluster.Delete(c.Param("clname"), true)
+	force := c.DefaultQuery("force", "false")
+	clName := c.Param("clname")
+	lc, err := cluster.Get(context.TODO(), clName)
 	if err != nil {
-		goutil.Logger.Errorw("failed to delete cluster",
-			"cluster", c.Param("clname"),
+		if apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + c.Param("clname") + " doesn't exist"})
+			return
+		}
+		goutil.Logger.Errorw("failed to get cluster",
+			"cluster", clName,
 			"operation", "delete",
 			"error", err,
 		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get cluster: " + err.Error()})
+		return
+	}
 
+	if force == "true" && len(lc.Status.Workspaces) != 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    httperrors.ErrorCodeInvalidRequest,
+			"message": fmt.Sprintf("cluster %s has workspaces %v, please delete them first", clName, lc.Status.Workspaces),
+		})
+		return
+	}
+
+	if err := cluster.Delete(c.Param("clname")); err != nil {
+		goutil.Logger.Errorw("failed to delete cluster",
+			"cluster", clName,
+			"operation", "delete",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete cluster: " + err.Error()})
 		return
 	}
 	goutil.Logger.Infow("started to delete the cluster",
-		"cluster", c.Param("clname"),
+		"cluster", clName,
 	)
 
 	c.Status(http.StatusOK)

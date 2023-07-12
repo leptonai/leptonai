@@ -21,6 +21,7 @@ var (
 	clusterName string
 	strategy    string
 	dry         bool
+	force       bool
 )
 
 func init() {
@@ -35,6 +36,7 @@ func NewCommand() *cobra.Command {
 		Run:   deleteFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to delete")
+	cmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force delete the cluster with its workspaces. Only valid when strategy=mothership")
 	cmd.PersistentFlags().StringVar(&strategy, "strategy", "mothership", "'mothership' to schedule a delete, 'provider' to call provider API directly")
 	cmd.PersistentFlags().BoolVar(&dry, "dry", true, "Set to false to disable dry mode (only used for 'provider' based deletion)")
 	return cmd
@@ -49,8 +51,11 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 	switch strategy {
 	case "mothership":
 		log.Printf("mothership-based delete on %q", clusterName)
-
-		b, err := cli.RequestURL(http.MethodDelete, mothershipURL+"/"+clusterName, nil, nil)
+		url := mothershipURL + "/" + clusterName
+		if force {
+			url += "?force=true"
+		}
+		b, err := cli.RequestURL(http.MethodDelete, url, nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}

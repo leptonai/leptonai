@@ -97,7 +97,7 @@ func Init() {
 					"cluster", cl.Spec.Name,
 					"operation", "delete",
 				)
-				err := Delete(cl.Spec.Name, true)
+				err := Delete(cl.Spec.Name)
 				if err != nil {
 					goutil.Logger.Errorw("failed to delete cluster",
 						"cluster", cl.Spec.Name,
@@ -185,16 +185,16 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	return cl, nil
 }
 
-func Delete(clusterName string, deleteWorkspace bool) error {
+func Delete(clusterName string) error {
 	return Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		return delete(clusterName, deleteWorkspace, logCh)
+		return delete(clusterName, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
 		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
-func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error {
+func delete(clusterName string, logCh chan<- string) error {
 	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -309,16 +309,14 @@ func delete(clusterName string, deleteWorkspace bool, logCh chan<- string) error
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
 
-	if deleteWorkspace {
-		err := terraform.DeleteEmptyWorkspace(clusterName)
-		if err != nil {
-			return fmt.Errorf("failed to delete terraform workspace: %w", err)
-		}
-		goutil.Logger.Infow("deleted terraform workspace",
-			"cluster", clusterName,
-			"operation", "delete",
-		)
+	err = terraform.DeleteEmptyWorkspace(clusterName)
+	if err != nil {
+		return fmt.Errorf("failed to delete terraform workspace: %w", err)
 	}
+	goutil.Logger.Infow("deleted terraform workspace",
+		"cluster", clusterName,
+		"operation", "delete",
+	)
 	return nil
 }
 
