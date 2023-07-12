@@ -5,6 +5,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/create"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/delete"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/get"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/list"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/logs"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces/update"
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
 	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
 	cmd.AddCommand(
+		get.NewCommand(),
 		list.NewCommand(),
 		create.NewCommand(),
 		update.NewCommand(),

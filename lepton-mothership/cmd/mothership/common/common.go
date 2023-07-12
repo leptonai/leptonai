@@ -34,7 +34,6 @@ func ReadTokenFromFlag(cmd *cobra.Command) string {
 		}
 
 		tokenPath := tokenPathFlag.Value.String()
-		log.Printf("empty --token, fallback to token-path %q", tokenPath)
 		b, err := os.ReadFile(tokenPath)
 		if err != nil {
 			log.Fatalf("failed to read token file %v", err)
