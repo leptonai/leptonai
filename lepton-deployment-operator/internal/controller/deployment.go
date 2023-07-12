@@ -188,10 +188,10 @@ func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceR
 	if ld.Spec.ResourceRequirement.ResourceShape != "" {
 		replicaResourceRequirement, err := leptonaiv1alpha1.ShapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
 		if err != nil {
-			// TODO: fail the deployment creation instead of panic.
-			goutil.Logger.Fatalw("Unexpected shape to requirement error",
+			goutil.Logger.Errorw("Unexpected shape to requirement error, using small shape resource requirement",
 				"error", err,
 			)
+			replicaResourceRequirement, _ = leptonaiv1alpha1.ShapeToReplicaResourceRequirement(leptonaiv1alpha1.GP1Small)
 		}
 
 		cpuValue = replicaResourceRequirement.CPU
