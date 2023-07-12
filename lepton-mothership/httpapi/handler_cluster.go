@@ -38,7 +38,7 @@ func HandleClusterGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, cl)
+	c.JSON(http.StatusOK, formatClusterOutput(cl))
 }
 
 func HandleClusterGetLogs(c *gin.Context) {
@@ -76,7 +76,11 @@ func HandleClusterList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list clusters: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, cls)
+	ret := make([]*crdv1alpha1.LeptonCluster, len(cls))
+	for i, cl := range cls {
+		ret[i] = formatClusterOutput(cl)
+	}
+	c.JSON(http.StatusOK, ret)
 }
 
 // TODO: make this configurable, or derive
@@ -193,4 +197,11 @@ func HandleClusterUpdate(c *gin.Context) {
 	)
 
 	c.JSON(http.StatusOK, cl)
+}
+
+func formatClusterOutput(lc *crdv1alpha1.LeptonCluster) *crdv1alpha1.LeptonCluster {
+	return &crdv1alpha1.LeptonCluster{
+		Spec:   lc.Spec,
+		Status: lc.Status,
+	}
 }

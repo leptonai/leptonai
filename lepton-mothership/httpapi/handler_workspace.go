@@ -32,7 +32,7 @@ func HandleWorkspaceGet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get workspace: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, lw)
+	c.JSON(http.StatusOK, formatWorkspaceOutput(lw))
 }
 
 func HandleWorkspaceGetLogs(c *gin.Context) {
@@ -66,7 +66,11 @@ func HandleWorkspaceList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list workspaces: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, lws)
+	ret := make([]*crdv1alpha1.LeptonWorkspace, len(lws))
+	for i, lw := range lws {
+		ret[i] = formatWorkspaceOutput(lw)
+	}
+	c.JSON(http.StatusOK, ret)
 }
 
 func HandleWorkspaceCreate(c *gin.Context) {
@@ -150,4 +154,11 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 	)
 
 	c.JSON(http.StatusOK, lw)
+}
+
+func formatWorkspaceOutput(lw *crdv1alpha1.LeptonWorkspace) *crdv1alpha1.LeptonWorkspace {
+	return &crdv1alpha1.LeptonWorkspace{
+		Spec:   lw.Spec,
+		Status: lw.Status,
+	}
 }
