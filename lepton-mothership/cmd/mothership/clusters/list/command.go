@@ -94,7 +94,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
-			Name: &c.Name,
+			Name: &c.Spec.Name,
 		})
 		cancel()
 
