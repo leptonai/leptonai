@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+from functools import wraps
+import inspect
 import os
 import re
 
@@ -60,3 +62,20 @@ def patch(obj, attr, val):
         yield
     finally:
         setattr(obj, attr, old_val)
+
+
+def asyncfy(func):
+    """Decorator that makes a function async
+
+    Args:
+        func (function): Function to make async
+    """
+
+    if inspect.iscoroutinefunction(func):
+        return func
+
+    @wraps(func)
+    async def async_func(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return async_func
