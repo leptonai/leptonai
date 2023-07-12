@@ -97,7 +97,7 @@ func TestStorageMakeDir(t *testing.T) {
 		t.Errorf("Error creating test path: %s", err)
 	}
 	relTestDir := filepath.Base(testDir)
-	createNewDir := "testdir-" + util.RandString(5)
+	createNewDir := "test-dir-" + util.RandString(5)
 	url := filepath.Join(apiPath, relTestDir, createNewDir)
 
 	req, _ := http.NewRequest("PUT", url, nil)
@@ -125,7 +125,7 @@ func TestStorageUploadFile(t *testing.T) {
 	}
 	relTestDir := filepath.Base(testDir)
 
-	localTestFile := "testfile-" + util.RandString(5)
+	localTestFile := "test-file-" + util.RandString(5)
 	remoteTestFile := filepath.Join(testDir, localTestFile)
 
 	// create testfile with random data
@@ -203,7 +203,7 @@ func TestStorageDownloadFile(t *testing.T) {
 		t.Errorf("Response code is %v", w.Code)
 	}
 
-	downloadedFile := "downloaded-file-" + util.RandString(5)
+	downloadedFile := "test-downloaded-file-" + util.RandString(5)
 	defer os.Remove(downloadedFile)
 
 	out, err := os.Create(downloadedFile)

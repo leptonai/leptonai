@@ -6,7 +6,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/util"
-	mothershipv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 
 func TestCRStore(t *testing.T) {
 	// TODO split the test and work on more test cases
-	namespace := util.RandString(8)
+	namespace := "test-cr-" + util.RandString(8)
 	nsObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -24,10 +24,10 @@ func TestCRStore(t *testing.T) {
 		t.Fatalf("Failed to create namespace %s: %v", namespace, err)
 	}
 
-	example := &mothershipv1alpha1.LeptonCluster{}
-	s := NewCRStore[*mothershipv1alpha1.LeptonCluster](namespace, example)
+	example := &leptonaiv1alpha1.Photon{}
+	s := NewCRStore[*leptonaiv1alpha1.Photon](namespace, example)
 
-	crName := util.RandString(6)
+	crName := "test-cr-" + util.RandString(6)
 
 	// Create
 	if err := s.Create(context.TODO(), crName, example); err != nil {
