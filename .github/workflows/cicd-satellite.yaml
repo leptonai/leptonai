@@ -23,7 +23,7 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install awscli
       run: |
         python -m pip install --upgrade pip
@@ -41,7 +41,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
         docker build . --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
@@ -52,7 +52,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -65,7 +65,7 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install awscli
       run: |
         python -m pip install --upgrade pip
@@ -83,7 +83,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-deployment-operator
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker build . --file lepton-deployment-operator/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
@@ -93,7 +93,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-deployment-operator
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -107,7 +107,7 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install awscli
       run: |
         python -m pip install --upgrade pip
@@ -125,7 +125,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker build web --file web/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
@@ -134,7 +134,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -148,11 +148,10 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
-    - name: Extract branch name
-      shell: bash
-      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-      id: extract_branch
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "workspace_name=testws$calculatedSha" >> $GITHUB_OUTPUT
+        echo "api_token=token-$calculatedSha" >> $GITHUB_OUTPUT
+        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
@@ -161,67 +160,40 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    - name: Create ci workspace
-      env:
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
-        API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
-        NAMESPACE: ci${{ steps.vars.outputs.short_sha }}
+    - name: Build mothership cli
       run: |
-        curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-          -X POST \
-          -d '{"cluster_name": "ci", "name": "'$NAMESPACE'", "api_token": "'$API_TOKEN'", "git_ref": "${{ steps.extract_branch.outputs.branch }}", "image_tag": "'$IMAGE_TAG'", "quota_group": "small"}' \
-          ${{ vars.MOTHERSHIP_URL }}/workspaces
-        echo ""
-
-        # TODO: do the wait in mothership cli
-        END=$(date -ud "10 minutes" +%s)
-        while (( $(date +%s) < $END )); do
-          sleep 10
-          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-            ${{ vars.MOTHERSHIP_URL }}/workspaces/"$NAMESPACE")
-          STATE=$(echo $RESPONSE | jq -r '.status.state')
-          echo $(date) "workspace state:" $STATE
-          if [ "$STATE" = "ready" ]; then
-            echo "workspace is ready."
-            exit 0
-          fi
-          if [ "$STATE" = "failed" ]; then
-            echo $(date) "workspace creation failed."
-            exit 1
-          fi
-        done
-
-        echo $(date) "workspace creation timeout after 10 minutes."
-        exit 1
+        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+    - name: Create ci workspace
+      run: |
+        ./mothership workspace create \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --api-token "${{ steps.vars.outputs.api_token }}" \
+          --cluster-name "${{ vars.K8S_CI }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --git-ref "${{ steps.vars.outputs.branch }}" \
+          --image-tag "${{ steps.vars.outputs.image_tag }}"
+        ./mothership workspace wait \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "ready"
     - name: Run tests
-      env:
-        API_TOKEN: token-${{ steps.vars.outputs.short_sha }}
-        NAMESPACE: ci${{ steps.vars.outputs.short_sha }}
       run: |
         pip install -e ./sdk
-        e2e-tests/push-and-deploy.sh $NAMESPACE $API_TOKEN https://$NAMESPACE.cloud.lepton.ai/api/v1
+        e2e-tests/push-and-deploy.sh \
+          ${{ steps.vars.outputs.api_token }} \
+          https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1
     - name: Delete ci workspace
       if: always()
-      env:
-        NAMESPACE: ci${{ steps.vars.outputs.short_sha }}
       run: |
-        curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-          -X DELETE \
-          ${{ vars.MOTHERSHIP_URL }}/workspaces/$NAMESPACE
-
-        # TODO: do the wait in mothership cli
-        END=$(date -ud "10 minutes" +%s)
-        while (( $(date +%s) < $END )); do
-          sleep 10
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-            ${{ vars.MOTHERSHIP_URL }}/workspaces/"$NAMESPACE")
-          if [ "$RESPONSE" = "404" ] || [ "$RESPONSE" = "500" ]; then
-            echo "Workspace deleted."
-            exit 0
-          fi
-        done
-        echo $(date) "workspace deletion timeout after 10 minutes."
-        exit 1
+        ./mothership workspace delete \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}"
+        ./mothership workspace wait \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "deleted"
 
   deploy-to-dev-latest:
     if: github.event_name == 'push'
@@ -233,18 +205,17 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Update the latest workspace
       env:
-        NAMESPACE: latest
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        WORKSPACE_NAME: latest
       run: |
-        curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X PATCH \
-          -d '{
-                "cluster_name": "${{ vars.K8S_DEV }}",
-                "name":"'$NAMESPACE'",
-                "api_token": "${{ secrets.WORKSPACE_LATEST_API_TOKEN }}",
-                "image_tag": "'$IMAGE_TAG'",
-                "enable_web": true
-              }' \
-          https://mothership.cloud.lepton.ai/api/v1/workspaces
+        ./mothership workspace update \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "$WORKSPACE_NAME" \
+          --image-tag "${{ steps.vars.outputs.image_tag }}"
+        ./mothership workspace wait \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "$WORKSPACE_NAME" \
+          --timeout 10 \
+          --expected-state "ready"

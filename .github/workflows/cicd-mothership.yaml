@@ -26,7 +26,7 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "short_sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install awscli
       run: |
         python -m pip install --upgrade pip
@@ -44,7 +44,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-mothership
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
         docker build . --file lepton-mothership/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
@@ -55,7 +55,7 @@ jobs:
       env:
         ECR_REPOSITORY: lepton-mothership
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

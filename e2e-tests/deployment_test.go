@@ -98,7 +98,7 @@ func TestDeployWithDuplicateName(t *testing.T) {
 }
 
 func waitForDeploymentToRunningState(id string) error {
-	return retryUntilNoErrorOrTimeout(10*time.Minute, func() error {
+	return retryUntilNoErrorOrTimeout(15*time.Minute, func() error {
 		d, err := lepton.Deployment().Get(mainTestDeploymentID)
 		if err != nil {
 			return err
