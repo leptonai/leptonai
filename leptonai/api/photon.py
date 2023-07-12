@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
 # import .photon and .hf modules to register the schemas and types
@@ -169,6 +169,7 @@ def run_remote(
     mounts: Optional[List[str]] = None,
     env_list: Optional[Dict[str, str]] = None,
     secret_list: Optional[Dict[str, str]] = None,
+    tokens: Optional[List[Dict[str, Union[str, Dict[str, str]]]]] = None,
 ):
     # TODO: check if the given id is a valid photon id
     envs_and_secrets = []
@@ -185,6 +186,7 @@ def run_remote(
         },
         "envs": envs_and_secrets,
         "mounts": mounts,
+        "api_tokens": tokens,
     }
 
     response = requests.post(

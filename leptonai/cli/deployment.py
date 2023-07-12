@@ -99,7 +99,16 @@ def remove(name):
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to get status.", required=True)
-def status(name):
+@click.option(
+    "--show-tokens",
+    "-t",
+    is_flag=True,
+    help=(
+        "Show tokens for the deployment. Use with caution as this displays the tokens"
+        " in plain text, and may be visible to others if you log the output."
+    ),
+)
+def status(name, show_tokens):
     """
     Gets the status of a deployment.
     """
@@ -124,7 +133,18 @@ def status(name):
     console.print(f"Photon ID:  {dep_info['photon_id']}")
     console.print(f"State:      {state}")
     console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
-    console.print("Replicas:")
+    console.print(f"Is Public:  {'No' if len(dep_info['api_tokens']) else 'Yes'}")
+    if show_tokens and len(dep_info["api_tokens"]):
+
+        def stringfy_token(x):
+            return (
+                x["value"] if "value" in x else f"[{x['value_from']['token_name_ref']}]"
+            )
+
+        console.print(f"Tokens:     {stringfy_token(dep_info['api_tokens'][0])}")
+        for token in dep_info["api_tokens"][1:]:
+            console.print(f"            {stringfy_token(token)}")
+    console.print("Replicas List:")
 
     rep_info = guard_api(
         api.get_readiness(workspace_url, auth_token, name),
@@ -151,6 +171,7 @@ def status(name):
         table.add_row(id, reason, message)
     console.print(table)
     console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
+    console.print(f"{dep_info}")
 
 
 @deployment.command()
