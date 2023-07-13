@@ -56,3 +56,17 @@ func (w *Worker) GetLastFailedJob(name string) *Job {
 	defer w.mu.Unlock()
 	return w.lastFailed[name]
 }
+
+func (w *Worker) Lock() {
+	w.mu.Lock()
+}
+
+func (w *Worker) Unlock() {
+	w.mu.Unlock()
+}
+
+// CountJobs returns the number of jobs currently running.
+// Caller must acquire the lock before calling this function.
+func (w *Worker) CountJobs() int {
+	return len(w.jobs)
+}

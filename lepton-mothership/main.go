@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"time"
 
-	"github.com/leptonai/lepton/go-pkg/util"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	"github.com/leptonai/lepton/lepton-mothership/httpapi"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
@@ -23,7 +25,7 @@ func main() {
 
 	router := gin.Default()
 
-	logger := util.Logger.Desugar()
+	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:
 	//   - Logs all requests, like a combined access and error log.
 	//   - Logs to stdout.
@@ -60,5 +62,39 @@ func main() {
 	v1.GET("/users/:uname", httpapi.HandleUserGet)
 	v1.DELETE("/users/:uname", httpapi.HandleUserDelete)
 
-	router.Run(":15213")
+	server := &http.Server{
+		Addr:    ":15213",
+		Handler: router,
+	}
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			goutil.Logger.Fatalw("failed to listen and serve",
+				"error", err,
+			)
+		}
+	}()
+
+	// quit every 24 hours to pull new image
+	time.Sleep(time.Hour * 24)
+	for { // wait until no jobs are running
+		cluster.Worker.Lock()
+		workspace.Worker.Lock()
+		if workspace.Worker.CountJobs() == 0 && cluster.Worker.CountJobs() == 0 {
+			// Do not release locks to prevent new jobs from being created
+			break
+		}
+		workspace.Worker.Unlock()
+		cluster.Worker.Unlock()
+		time.Sleep(time.Minute)
+	}
+	// gracefully shutdown server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		goutil.Logger.Fatalw("failed to shutting down server",
+			"error", err,
+		)
+	}
+
+	goutil.Logger.Infow("server exiting")
 }
