@@ -56,24 +56,6 @@ func getDeploymentReadinessIssue(deployment *appsv1.Deployment) (DeploymentReadi
 }
 
 func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
-	switch pod.Status.Phase {
-	case corev1.PodPending:
-		events, err := k8s.ListPodEvents(pod.Namespace, pod.Name)
-		if err != nil {
-			return ReplicaReadinessIssue{Reason: ReadinessReasonSystemError, Message: err.Error()}
-		}
-		for _, event := range events.Items {
-			if event.Reason == "TriggeredScaleUp" {
-				return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: "Waiting to assign the replica to a machine"}
-			}
-		}
-		return ReplicaReadinessIssue{Reason: ReadinessReasonNoCapacity, Message: "Need more capacity"}
-	case corev1.PodRunning:
-		// continue
-	default:
-		return ReplicaReadinessIssue{Reason: ReadinessReasonUnknown, Message: fmt.Sprintf("Replica phase: %s, reason %s, message %s", pod.Status.Phase, pod.Status.Reason, pod.Status.Message)}
-	}
-
 	for _, containerStatus := range pod.Status.InitContainerStatuses {
 		waiting := containerStatus.State.Waiting
 		if waiting == nil {
@@ -120,16 +102,21 @@ func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
 		}
 	}
 
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		terminated := containerStatus.State.Terminated
-		if terminated == nil {
-			continue
+	switch pod.Status.Phase {
+	case corev1.PodPending:
+		events, err := k8s.ListPodEvents(pod.Namespace, pod.Name)
+		if err != nil {
+			return ReplicaReadinessIssue{Reason: ReadinessReasonSystemError, Message: err.Error()}
 		}
-		switch terminated.Reason {
-		case "OOMKilled", "Error", "ContainerCannotRun", "DeadlineExceeded":
-			return ReplicaReadinessIssue{Reason: ReadinessReasonUserCodeError, Message: terminated.Message}
+		for _, event := range events.Items {
+			if event.Reason == "TriggeredScaleUp" {
+				return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: "Waiting to assign the replica to a machine"}
+			}
 		}
+		return ReplicaReadinessIssue{Reason: ReadinessReasonNoCapacity, Message: "Waiting for more capacity"}
+	case corev1.PodRunning:
+		return ReplicaReadinessIssue{Reason: ReadinessReasonReady}
+	default:
+		return ReplicaReadinessIssue{Reason: ReadinessReasonUnknown, Message: fmt.Sprintf("Replica phase: %s, reason %s, message %s", pod.Status.Phase, pod.Status.Reason, pod.Status.Message)}
 	}
-
-	return ReplicaReadinessIssue{Reason: ReadinessReasonReady}
 }
