@@ -17,6 +17,7 @@ import (
 	"github.com/leptonai/lepton/lepton-api-server/version"
 
 	"github.com/gin-contrib/requestid"
+	"github.com/gin-contrib/timeout"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"gocloud.dev/blob"
@@ -48,6 +49,8 @@ var (
 
 	storageMountPathFlag *string
 	enableStorageFlag    *bool
+
+	requestTimeoutSeconds *int64
 )
 
 const (
@@ -86,6 +89,8 @@ func main() {
 
 	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
 	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
+
+	requestTimeoutSeconds = flag.Int64("request-timeout-seconds", 10, "Number of seconds for each request handler call (after timeout, the handler aborts)")
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -130,9 +135,12 @@ func main() {
 
 	log.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
 
+	requestTimeout := time.Duration(*requestTimeoutSeconds) * time.Second
+
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 	router.Use(requestid.New())
+	router.Use(timeout.New(timeout.WithTimeout(requestTimeout)))
 
 	logger := util.Logger.Desugar()
 	// Add a ginzap middleware, which:
