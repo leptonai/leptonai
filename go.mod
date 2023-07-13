@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14
-	github.com/gin-contrib/timeout v0.0.3
 	github.com/gin-contrib/zap v0.1.0
 	github.com/go-git/go-git/v5 v5.7.0
 	github.com/hashicorp/go-tfe v1.26.0
