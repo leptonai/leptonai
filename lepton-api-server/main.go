@@ -84,7 +84,7 @@ func main() {
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
 
 	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
-	prometheusURLFlag = flag.String("prometheus-url", "http://prometheus-server.prometheus.svc.cluster.local", "prometheus URL")
+	prometheusURLFlag = flag.String("prometheus-url", "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090", "prometheus URL")
 	enableTunaFlag = flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
 
 	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")

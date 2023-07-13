@@ -35,6 +35,7 @@ targets=(
   "helm_release.calico"
 
   "module.eks_blueprints_addons"
+  "helm_release.kube_prometheus_stack"
 )
 
 if [[ -z $CLUSTER_NAME ]]; then

@@ -24,6 +24,7 @@ targets=(
   # bug https://github.com/tigera/operator/issues/2031
   "null_resource.delete_calico_installation"
 
+  "helm_release.kube_prometheus_stack"
   "module.eks_blueprints_addons"
 )
 

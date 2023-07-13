@@ -58,9 +58,5 @@ module "eks_blueprints_addons" {
     "arn:aws:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
   ]
 
-  # TODO: add back lepton specific configuration
-  # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
-  enable_kube_prometheus_stack = true
-
   enable_aws_efs_csi_driver = true
 }
