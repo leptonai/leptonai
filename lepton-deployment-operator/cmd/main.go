@@ -92,10 +92,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.LeptonDeploymentReconciler{
+	ldr := &controller.LeptonDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	go ldr.CleanupBadPodsPeriodically(namespace)
+
+	if err = (ldr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LeptonDeployment")
 		os.Exit(1)
 	}

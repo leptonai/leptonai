@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +41,15 @@ func getDeploymentReadinessIssue(deployment *appsv1.Deployment) (DeploymentReadi
 
 	issue := make(DeploymentReadinessIssue)
 	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			goutil.Logger.Warnw("pod is not running, skipping",
+				"operation", "getDeploymentReadinessIssue",
+				"pod", pod.Name,
+				"phase", pod.Status.Phase,
+				"reason", pod.Status.Reason,
+			)
+			continue
+		}
 		issue[ReplicaID(pod.Name)] = []ReplicaReadinessIssue{getReplicaReadinessIssue(&pod)}
 	}
 	return issue, nil

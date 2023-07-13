@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: [""]
-  resources: ["services", "persistentvolumeclaims"]
+  resources: ["services", "persistentvolumeclaims", "pods"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"]
   resources: ["deployments"]

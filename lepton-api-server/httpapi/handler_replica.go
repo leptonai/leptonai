@@ -69,6 +69,16 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 
 	is := make([]Replica, 0, len(podList.Items))
 	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			goutil.Logger.Warnw("pod is not running, skipping",
+				"operation", "getReplicas",
+				"deployment", did,
+				"pod", pod.Name,
+				"phase", pod.Status.Phase,
+				"reason", pod.Status.Reason,
+			)
+			continue
+		}
 		is = append(is, Replica{ID: pod.Name})
 	}
 
