@@ -26,5 +26,5 @@ jobs:
         while read cluster; do
           echo "deleting cluster $cluster"
           curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X DELETE \
-          https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster
+          https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster?force=true
         done
