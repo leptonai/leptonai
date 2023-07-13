@@ -53,7 +53,16 @@ export class PhotonService {
   }
 
   delete(id: string): Observable<void> {
-    return this.apiService.deletePhoton(id);
+    return this.apiService.deletePhoton(id).pipe(
+      tap(() => {
+        const list = this.list$.value;
+        const index = list.findIndex((item) => item.id === id);
+        if (index !== -1) {
+          list.splice(index, 1);
+          this.list$.next(list);
+        }
+      })
+    );
   }
 
   create(body: FormData): Observable<void> {

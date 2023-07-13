@@ -14,7 +14,13 @@ export const Actions: FC<{
   photon: Photon;
   extraActions: boolean;
   relatedDeployments?: Deployment[];
-}> = ({ photon, extraActions = false, relatedDeployments = [] }) => {
+  onDeleted?: (name: string) => void;
+}> = ({
+  photon,
+  extraActions = false,
+  relatedDeployments = [],
+  onDeleted = () => void 0,
+}) => {
   const { message } = App.useApp();
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const photonService = useInject(PhotonService);
@@ -81,6 +87,7 @@ export const Actions: FC<{
                     `Successfully deleted photon ${photon.id}`
                   );
                   refreshService.refresh();
+                  onDeleted(photon.name);
                 },
                 error: () => {
                   message.destroy("delete-photon");

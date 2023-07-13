@@ -9,11 +9,30 @@ import { Card } from "@lepton-dashboard/components/card";
 import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { take } from "rxjs";
 
 export const Detail: FC = () => {
   const { id } = useParams();
   const photonService = useInject(PhotonService);
+  const navigateService = useInject(NavigateService);
   const photon = useStateFromObservable(() => photonService.id(id!), undefined);
+
+  const onDeleted = (name: string) => {
+    photonService
+      .listByName(name)
+      .pipe(take(1))
+      .subscribe((photons) => {
+        if (photons.length === 0) {
+          navigateService.navigateTo("photonsList");
+        } else {
+          navigateService.navigateTo("photonVersions", {
+            name: name,
+          });
+        }
+      });
+  };
+
   return photon ? (
     <Row gutter={[0, 24]}>
       <Col span={24}>
@@ -31,10 +50,7 @@ export const Detail: FC = () => {
             },
             {
               title: (
-                <LinkTo
-                  name="photonVersions"
-                  params={{ photonId: photon.name }}
-                >
+                <LinkTo name="photonVersions" params={{ name: photon.name }}>
                   {photon.name}
                 </LinkTo>
               ),
@@ -47,7 +63,7 @@ export const Detail: FC = () => {
       </Col>
       <Col span={24}>
         <Card>
-          <PhotonItem photon={photon} showDetail />
+          <PhotonItem onDeleted={onDeleted} photon={photon} showDetail />
         </Card>
       </Col>
     </Row>

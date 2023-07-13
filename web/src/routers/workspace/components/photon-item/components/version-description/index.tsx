@@ -15,7 +15,7 @@ export const VersionDescription: FC<{
         <LinkTo
           name="photonVersions"
           params={{
-            photonId: photon.name,
+            name: photon.name,
           }}
           relative="route"
         >

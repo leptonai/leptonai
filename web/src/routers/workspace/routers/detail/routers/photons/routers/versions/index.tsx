@@ -13,10 +13,13 @@ import { PhotonIcon } from "@lepton-dashboard/components/icons";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
+import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { take } from "rxjs";
 
 export const Versions: FC = () => {
   const { name } = useParams();
   const photonService = useInject(PhotonService);
+  const navigateService = useInject(NavigateService);
   const photons = useStateFromObservable(
     () => photonService.listByName(name!),
     []
@@ -25,6 +28,17 @@ export const Versions: FC = () => {
     return photons.map(({ id, created_at }) => ({ id, created_at }));
   }, [photons]);
   const theme = useAntdTheme();
+
+  const onDeleted = () => {
+    photonService
+      .listByName(name!)
+      .pipe(take(1))
+      .subscribe((photons) => {
+        if (photons.length === 0) {
+          navigateService.navigateTo("photonsList");
+        }
+      });
+  };
   return (
     <Row gutter={[0, 24]}>
       <Col span={24}>
@@ -73,7 +87,7 @@ export const Versions: FC = () => {
                       paddingless
                       borderless
                     >
-                      <PhotonItem photon={m} showDetail />
+                      <PhotonItem photon={m} onDeleted={onDeleted} showDetail />
                     </Card>
                   ),
                 };

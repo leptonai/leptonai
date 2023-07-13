@@ -20,7 +20,8 @@ export const PhotonItem: FC<{
   photon?: Photon;
   versions?: PhotonVersion[];
   showDetail?: boolean;
-}> = ({ photon, versions, showDetail = false }) => {
+  onDeleted?: (name: string) => void;
+}> = ({ photon, versions, showDetail = false, onDeleted = () => void 0 }) => {
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromObservable(
@@ -44,15 +45,10 @@ export const PhotonItem: FC<{
                 color: ${theme.colorTextHeading};
               `}
               name={showDetail ? "photonDetail" : "photonVersions"}
-              params={
-                showDetail
-                  ? {
-                      photonId: photon.id,
-                    }
-                  : {
-                      photonId: photon.name,
-                    }
-              }
+              params={{
+                photonId: photon.id,
+                name: photon.name,
+              }}
               relative="route"
             >
               <Description.Item
@@ -87,6 +83,7 @@ export const PhotonItem: FC<{
               relatedDeployments={relatedDeployments}
               photon={photon}
               extraActions={showDetail}
+              onDeleted={onDeleted}
             />
           </Col>
         </Row>
