@@ -197,6 +197,7 @@ func main() {
 
 	v1.GET("/deployments/:did/events", handler.DeploymentEventHandler().Get)
 	v1.GET("/deployments/:did/readiness", handler.DeploymentReadinessHandler().Get)
+	v1.GET("/deployments/:did/termination", handler.DeploymentTerminationHandler().Get)
 
 	u, err := url.Parse(tunaURL)
 	if err != nil {

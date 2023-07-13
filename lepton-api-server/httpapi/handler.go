@@ -103,3 +103,9 @@ func (h *Handler) DeploymentReadinessHandler() *DeploymentReadinessHandler {
 		Handler: *h,
 	}
 }
+
+func (h *Handler) DeploymentTerminationHandler() *DeploymentTerminationHandler {
+	return &DeploymentTerminationHandler{
+		Handler: *h,
+	}
+}
