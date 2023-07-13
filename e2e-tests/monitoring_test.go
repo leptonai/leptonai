@@ -29,7 +29,6 @@ var (
 )
 
 func TestReplicaMonitoring(t *testing.T) {
-	t.Skip("Skipping Prometheus related tests until we merge https://github.com/leptonai/lepton/pull/1410")
 	for _, name := range replicaMonitoringInterfaces {
 		replicas, err := lepton.Replica().List(mainTestDeploymentID)
 		if err != nil {
@@ -52,7 +51,6 @@ func TestReplicaMonitoring(t *testing.T) {
 }
 
 func TestDeploymentMonitoring(t *testing.T) {
-	t.Skip("Skipping Prometheus related tests until we merge https://github.com/leptonai/lepton/pull/1410")
 	for _, name := range deploymentMonitoringInterfaces {
 		raw, err := lepton.Monitoring().GetDeploymentRaw(name, mainTestDeploymentID)
 		if err != nil {

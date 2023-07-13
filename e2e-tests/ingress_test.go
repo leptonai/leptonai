@@ -96,7 +96,7 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 	}()
 	err = waitForDeploymentToRunningState(dName)
 	if err != nil {
-		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentID, err)
+		t.Fatalf("Expected deployment %s to be in running state, got %v", dName, err)
 	}
 	// access public deployment without an auth token
 	h := goclient.NewHTTP(*workspaceURL, "")
@@ -117,7 +117,7 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 		if err := waitForDNSPropagation(u.Hostname()); err != nil {
 			t.Fatalf("Expected DNS to propagate for %s, got %v", u.Hostname(), err)
 		}
-		err = retryUntilNoErrorOrTimeout(time.Minute, func() error {
+		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
 			out, err := h.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
 			if err != nil {
 				return err
@@ -206,7 +206,7 @@ func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
 		if err := waitForDNSPropagation(u.Hostname()); err != nil {
 			t.Fatalf("Expected DNS to propagate for %s, got %v", u.Hostname(), err)
 		}
-		err = retryUntilNoErrorOrTimeout(time.Minute, func() error {
+		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
 			out, err := h.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
 			if err != nil {
 				return err

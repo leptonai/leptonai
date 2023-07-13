@@ -133,6 +133,7 @@ func newName(testName string) string {
 func waitForDNSPropagation(hostname string) error {
 	return retryUntilNoErrorOrTimeout(10*time.Minute, func() error {
 		ips, err := net.LookupIP(hostname)
+		log.Printf("hostname: %v, ips: %v, err %v", hostname, ips, err)
 		if err != nil {
 			return fmt.Errorf("failed to lookup IP for %s: %v", hostname, err)
 		}
@@ -155,6 +156,7 @@ func retryUntilNoErrorOrTimeout(timeout time.Duration, f func() error) error {
 			if err == nil {
 				return nil
 			}
+			log.Printf("retrying after error: %v", err)
 		case <-t:
 			return fmt.Errorf("timeout with last error: %v", err)
 		}
