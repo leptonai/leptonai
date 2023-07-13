@@ -524,6 +524,13 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "status.phase", func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.Pod)
+		return []string{string(pod.Status.Phase)}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&leptonaiv1alpha1.LeptonDeployment{}).
 		Watches(
