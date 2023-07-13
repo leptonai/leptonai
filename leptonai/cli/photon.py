@@ -206,7 +206,6 @@ def list(local, pattern):
     workspace_url = workspace.get_workspace_url()
 
     if workspace_url is not None and not local:
-        console.print(f"Using workspace: [green]{workspace_url}[/green]")
         auth_token = workspace.get_auth_token(workspace_url)
         photons = guard_api(
             api.list_remote(workspace_url, auth_token),
