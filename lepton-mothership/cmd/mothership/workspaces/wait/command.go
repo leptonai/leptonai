@@ -40,10 +40,14 @@ func NewCommand() *cobra.Command {
 }
 
 func waitFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipWorkspaceURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
+	if workspaceName == "" {
+		log.Fatal("workspace name is required")
+	}
 
-	cli := goclient.NewHTTP(mothershipWorkspaceURL, token)
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
+	cli := goclient.NewHTTP(mothershipURL, token)
 	start := time.Now()
 	for i := 0; ; i++ {
 		if time.Since(start).Minutes() > float64(timeoutInMinute) {
@@ -55,7 +59,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 			time.Sleep(30 * time.Second)
 		}
 
-		b, err := cli.RequestPath(http.MethodGet, "/"+workspaceName, nil, nil)
+		b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)
 		if err != nil {
 			// if expects deleted and server returns 404, we are done
 			if crdv1alpha1.LeptonWorkspaceState(expectedState) == crdv1alpha1.WorkspaceStateDeleted &&

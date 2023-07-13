@@ -34,10 +34,14 @@ func NewCommand() *cobra.Command {
 }
 
 func logsFunc(cmd *cobra.Command, args []string) {
+	if clusterName == "" {
+		log.Fatal("cluster name is required")
+	}
+
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
-	url := mothershipURL + "/" + clusterName
+	url := mothershipURL + "/clusters/" + clusterName
 	if failure {
 		url += "/failure"
 	} else {

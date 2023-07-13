@@ -38,16 +38,16 @@ func NewCommand() *cobra.Command {
 }
 
 func updateFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipWorkspacesURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
-
 	if workspaceName == "" {
 		log.Fatal("workspace name is required")
 	}
 
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
 	// get the existing workspace
-	cli := goclient.NewHTTP(mothershipWorkspacesURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/"+workspaceName, nil, nil)
+	cli := goclient.NewHTTP(mothershipURL, token)
+	b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)
 	if err != nil {
 		log.Fatal("error sending workspace get request: ", err)
 	}

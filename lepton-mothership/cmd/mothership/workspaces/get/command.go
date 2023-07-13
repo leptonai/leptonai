@@ -34,12 +34,12 @@ func NewCommand() *cobra.Command {
 }
 
 func getFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
-
 	if workspaceName == "" {
 		log.Fatal("cluster name is required")
 	}
+
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 	b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)

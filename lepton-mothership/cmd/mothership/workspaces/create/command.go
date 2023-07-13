@@ -48,9 +48,6 @@ func NewCommand() *cobra.Command {
 }
 
 func createFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipWorkspaceURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
-
 	if clusterName == "" {
 		log.Fatal("cluster name is required")
 	}
@@ -60,6 +57,9 @@ func createFunc(cmd *cobra.Command, args []string) {
 	if apiToken == "" {
 		log.Println("[UNSAFE] api token is not provided")
 	}
+
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	workspace := crdv1alpha1.LeptonWorkspaceSpec{
 		Name:        workspaceName,
@@ -78,8 +78,8 @@ func createFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("failed to marshal workspace spec: ", err)
 	}
 
-	cli := goclient.NewHTTP(mothershipWorkspaceURL, token)
-	b, err = cli.RequestPath(http.MethodPost, "", nil, b)
+	cli := goclient.NewHTTP(mothershipURL, token)
+	b, err = cli.RequestPath(http.MethodPost, "/workspaces", nil, b)
 	if err != nil {
 		log.Fatal("error sending request: ", err)
 	}

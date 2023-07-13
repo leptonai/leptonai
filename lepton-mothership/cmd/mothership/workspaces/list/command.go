@@ -33,10 +33,10 @@ func NewCommand() *cobra.Command {
 
 func listFunc(cmd *cobra.Command, args []string) {
 	token := common.ReadTokenFromFlag(cmd)
-	mothershipWorkspacesURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
-	cli := goclient.NewHTTP(mothershipWorkspacesURL, token)
-	b, err := cli.RequestURL(http.MethodGet, mothershipWorkspacesURL, nil, nil)
+	cli := goclient.NewHTTP(mothershipURL, token)
+	b, err := cli.RequestPath(http.MethodGet, "/workspaces", nil, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

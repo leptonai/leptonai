@@ -39,12 +39,12 @@ func NewCommand() *cobra.Command {
 }
 
 func waitFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
-
 	if clusterName == "" {
 		log.Fatal("cluster name is required")
 	}
+
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 
@@ -58,7 +58,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 			time.Sleep(30 * time.Second)
 		}
 
-		b, err := cli.RequestURL(http.MethodGet, mothershipURL+"/"+clusterName, nil, nil)
+		b, err := cli.RequestPath(http.MethodGet, "/clusters/"+clusterName, nil, nil)
 		if err != nil {
 			// if expects deleted and server returns 404, we are done
 			if crdv1alpha1.LeptonClusterState(expectedState) == crdv1alpha1.ClusterStateDeleted &&

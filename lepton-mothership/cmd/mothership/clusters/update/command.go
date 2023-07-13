@@ -36,16 +36,16 @@ func NewCommand() *cobra.Command {
 }
 
 func updateFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
-
 	if clusterName == "" {
 		log.Fatal("cluster name is required")
 	}
 
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
 	// get the existing cluster
 	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestURL(http.MethodGet, mothershipURL+"/"+clusterName, nil, nil)
+	b, err := cli.RequestPath(http.MethodGet, "/clusters/"+clusterName, nil, nil)
 	if err != nil {
 		log.Fatal("error sending cluster get request: ", err)
 	}

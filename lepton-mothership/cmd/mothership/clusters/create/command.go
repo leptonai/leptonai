@@ -38,12 +38,12 @@ func NewCommand() *cobra.Command {
 }
 
 func createFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
-
 	if clusterName == "" {
 		log.Fatal("cluster name is required")
 	}
+
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	cluster := crdv1alpha1.LeptonClusterSpec{
 		Name:        clusterName,
@@ -56,8 +56,8 @@ func createFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("failed to marshal cluster spec: ", err)
 	}
 
-	cli := goclient.NewHTTP(mothershipURL+"/"+clusterName, token)
-	b, err = cli.RequestURL(http.MethodPost, mothershipURL, nil, b)
+	cli := goclient.NewHTTP(mothershipURL, token)
+	b, err = cli.RequestPath(http.MethodPost, "/clusters", nil, b)
 	if err != nil {
 		log.Fatal("error sending request: ", err)
 	}

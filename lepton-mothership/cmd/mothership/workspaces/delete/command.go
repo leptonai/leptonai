@@ -30,11 +30,15 @@ func NewCommand() *cobra.Command {
 }
 
 func deleteFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipWorkspaceURL := common.ReadMothershipURLFromFlag(cmd) + "/workspaces"
+	if workspaceName == "" {
+		log.Fatal("workspace name is required")
+	}
 
-	cli := goclient.NewHTTP(mothershipWorkspaceURL, token)
-	b, err := cli.RequestPath(http.MethodDelete, "/"+workspaceName, nil, nil)
+	token := common.ReadTokenFromFlag(cmd)
+	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
+	cli := goclient.NewHTTP(mothershipURL, token)
+	b, err := cli.RequestPath(http.MethodDelete, "/workspaces/"+workspaceName, nil, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

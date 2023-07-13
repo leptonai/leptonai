@@ -43,19 +43,23 @@ func NewCommand() *cobra.Command {
 }
 
 func deleteFunc(cmd *cobra.Command, args []string) {
+	if clusterName == "" {
+		log.Fatal("cluster name is required")
+	}
+
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
-	cli := goclient.NewHTTP(mothershipURL+"/"+clusterName, token)
+	cli := goclient.NewHTTP(mothershipURL, token)
 
 	switch strategy {
 	case "mothership":
 		log.Printf("mothership-based delete on %q", clusterName)
-		url := mothershipURL + "/" + clusterName
+		path := "/clusters/" + clusterName
 		if force {
-			url += "?force=true"
+			path += "?force=true"
 		}
-		b, err := cli.RequestURL(http.MethodDelete, url, nil, nil)
+		b, err := cli.RequestPath(http.MethodDelete, path, nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -64,7 +68,7 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 	case "provider":
 		log.Printf("provider-based delete on %q", clusterName)
 
-		b, err := cli.RequestURL(http.MethodGet, mothershipURL+"/"+clusterName, nil, nil)
+		b, err := cli.RequestPath(http.MethodGet, "/clusters/"+clusterName, nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
