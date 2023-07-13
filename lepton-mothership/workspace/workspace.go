@@ -356,7 +356,25 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
 
-	cl.Status.Workspaces = goutil.RemoveString(cl.Status.Workspaces, workspaceName)
+	cl, err = cluster.DataStore.Get(context.Background(), ws.Spec.ClusterName)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get cluster",
+			"cluster", ws.Spec.ClusterName,
+			"operation", "delete",
+			"error", err,
+		)
+	} else {
+		cl.Status.Workspaces = goutil.RemoveString(cl.Status.Workspaces, workspaceName)
+		// TODO: data race: if two goroutines are concurrently updating the cluster, this will fail.
+		if err := cluster.DataStore.UpdateStatus(context.Background(), cl.Name, cl); err != nil {
+			goutil.Logger.Errorw("failed to remove the deleted workspace from cluster",
+				"workspace", workspaceName,
+				"cluster", cl.Name,
+				"operation", "delete",
+				"error", err,
+			)
+		}
+	}
 
 	if deleteWorkspace {
 		err := terraform.DeleteEmptyWorkspace(tfws)
