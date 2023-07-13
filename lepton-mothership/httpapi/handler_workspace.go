@@ -106,7 +106,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 }
 
 func HandleWorkspaceDelete(c *gin.Context) {
-	err := workspace.Delete(c.Param("wsname"), true)
+	err := workspace.Delete(c.Param("wsname"))
 	if err != nil {
 		goutil.Logger.Errorw("failed to delete workspace",
 			"workspace", c.Param("wsname"),

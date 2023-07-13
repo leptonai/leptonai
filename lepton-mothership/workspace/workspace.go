@@ -106,7 +106,7 @@ func Init() {
 					"operation", "delete",
 				)
 
-				err := Delete(ws.Spec.Name, true)
+				err := Delete(ws.Spec.Name)
 				if err != nil {
 					goutil.Logger.Errorw("failed to delete workspace",
 						"workspace", ws.Spec.Name,
@@ -253,16 +253,16 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	return ws, nil
 }
 
-func Delete(workspaceName string, deleteWorkspace bool) error {
+func Delete(workspaceName string) error {
 	return Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
-		return delete(workspaceName, deleteWorkspace, logCh)
+		return delete(workspaceName, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
 		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
-func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) error {
+func delete(workspaceName string, logCh chan<- string) error {
 	goutil.Logger.Infow("deleting workspace",
 		"workspace", workspaceName,
 		"operation", "delete",
@@ -376,16 +376,14 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		}
 	}
 
-	if deleteWorkspace {
-		err := terraform.DeleteEmptyWorkspace(tfws)
-		if err != nil {
-			return fmt.Errorf("failed to delete terraform workspace: %w", err)
-		}
-		goutil.Logger.Infow("deleted terraform workspace",
-			"TerraformWorkspace", workspaceName,
-			"operation", "delete",
-		)
+	err = terraform.DeleteEmptyWorkspace(tfws)
+	if err != nil {
+		return fmt.Errorf("failed to delete terraform workspace: %w", err)
 	}
+	goutil.Logger.Infow("deleted terraform workspace",
+		"TerraformWorkspace", workspaceName,
+		"operation", "delete",
+	)
 
 	goutil.Logger.Infow("deleted workspace",
 		"workspace", workspaceName,
