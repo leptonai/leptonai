@@ -55,6 +55,10 @@ func getReplicaTerminations(pod *corev1.Pod) []ReplicaTermination {
 
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.State.Terminated != nil {
+			if containerStatus.State.Terminated.Reason == "Completed" {
+				// ignore containers that completed successfully
+				continue
+			}
 			rt := ReplicaTermination{
 				StartedAt:   pod.Status.StartTime.Unix(),
 				FinisheddAt: containerStatus.State.Terminated.FinishedAt.Unix(),
