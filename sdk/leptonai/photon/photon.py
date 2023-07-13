@@ -114,7 +114,7 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
         kwonlydefaults,
         annotations,
     ) = inspect.getfullargspec(func)
-    if len(args) > 0 and args[0] == "self" or args[0] == "cls":
+    if len(args) > 0 and (args[0] == "self" or args[0] == "cls"):
         args = args[1:]  # remove self or cls
     if defaults is None:
         defaults = ()
