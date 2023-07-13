@@ -307,6 +307,7 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", ws.Spec.GitRef, err)
@@ -465,6 +466,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 
 	tfws := terraformWorkspaceName(ws.Spec.ClusterName, workspaceName)
 	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}

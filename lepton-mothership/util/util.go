@@ -16,14 +16,9 @@ const (
 )
 
 func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, error) {
-	wd, err := os.Getwd()
+	gitDir, err := DeleteTerraformWorkingDir(dirName)
 	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %s", err)
-	}
-	gitDir := filepath.Join(wd, dirName, "git")
-	err = os.RemoveAll(gitDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to remove git directory: %s", err)
+		return "", err
 	}
 	err = os.MkdirAll(gitDir, 0750)
 	if err != nil {
@@ -55,6 +50,29 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 	)
 
 	return gitDir + "/infra/terraform/" + moduleName, nil
+}
+
+func TryDeletingTerraformWorkingDir(dirName string) {
+	_, err := DeleteTerraformWorkingDir(dirName)
+	if err != nil {
+		goutil.Logger.Errorw("Failed to delete terraform working directory",
+			"dirName", dirName,
+			"err", err,
+		)
+	}
+}
+
+func DeleteTerraformWorkingDir(dirName string) (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %s", err)
+	}
+	gitDir := filepath.Join(wd, dirName, "git")
+	err = os.RemoveAll(gitDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to remove git directory: %s", err)
+	}
+	return gitDir, nil
 }
 
 const (

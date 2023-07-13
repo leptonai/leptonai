@@ -277,6 +277,7 @@ func delete(clusterName string, logCh chan<- string) error {
 	}
 
 	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(clusterName) // delete even if there are errors preparing the working dir
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
@@ -404,6 +405,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	}()
 
 	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(clusterName) // delete even if there are errors preparing the working dir
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
