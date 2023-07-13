@@ -1,6 +1,7 @@
 from collections import namedtuple
 import os
 
+from leptonai.config import BASE_IMAGE_REPO, BASE_IMAGE_VERSION
 from leptonai.photon import Photon
 
 import fastchat.serve.gradio_web_server
@@ -8,9 +9,7 @@ import fastchat.serve.openai_api_server
 
 
 class Server(Photon):
-    requirement_dependency = [
-        "git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/leptonai/FastChat.git@2f18851"
-    ]
+    image: f"{BASE_IMAGE_REPO}:tuna-runner-{BASE_IMAGE_VERSION}"
 
     def _init_gradio_web_server(self):
         fastchat.serve.gradio_web_server.controller_url = os.environ.get(
