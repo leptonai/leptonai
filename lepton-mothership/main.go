@@ -41,6 +41,8 @@ func main() {
 	api := router.Group("/api")
 	v1 := api.Group("/v1")
 
+	v1.GET("/info", httpapi.NewInfoHandler().HandleGet)
+
 	v1.GET("/clusters", httpapi.HandleClusterList)
 	v1.POST("/clusters", httpapi.HandleClusterCreate)
 	v1.GET("/clusters/:clname", httpapi.HandleClusterGet)

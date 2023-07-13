@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/leptonai/lepton/lepton-api-server/version"
+	"github.com/leptonai/lepton/go-pkg/version"
 
 	"github.com/gin-gonic/gin"
 )

@@ -9,8 +9,8 @@ WORKDIR /go/src/github.com/leptonai/lepton/lepton-api-server/
 
 # Build the Go app
 RUN GIT_COMMIT=$(git rev-parse --short HEAD) && BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
-    "-X github.com/leptonai/lepton/lepton-api-server/version.GitCommit=${GIT_COMMIT} \
-    -X github.com/leptonai/lepton/lepton-api-server/version.BuildTime=${BUILD_TIME} \
+    "-X github.com/leptonai/lepton/go-pkg/version.GitCommit=${GIT_COMMIT} \
+    -X github.com/leptonai/lepton/go-pkg/version.BuildTime=${BUILD_TIME} \
     -extldflags \"-static\"" \
     -o lepton-api-server .
 

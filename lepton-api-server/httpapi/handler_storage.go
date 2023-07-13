@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/go-pkg/util"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 )
 
@@ -108,7 +107,7 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 	relPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relPath)
 
-	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	validPath, err := goutil.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path is subpath",
 			"operation", "createDir",
@@ -148,7 +147,7 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	relUploadPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relUploadPath)
 
-	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	validPath, err := goutil.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path is subpath",
 			"operation", "createFile",
@@ -165,7 +164,7 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	}
 
 	dirPath := filepath.Dir(absPath)
-	exists, err := util.CheckPathExists(dirPath)
+	exists, err := goutil.CheckPathExists(dirPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path exists",
 			"operation", "createFile",
@@ -202,7 +201,7 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	}
 	defer file.Close()
 	filepath.Join(sh.mountPath, relUploadPath)
-	err = util.CreateAndCopy(filepath.Join(sh.mountPath, relUploadPath), file)
+	err = goutil.CreateAndCopy(filepath.Join(sh.mountPath, relUploadPath), file)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create and copy file",
 			"operation", "createFile",
@@ -230,7 +229,7 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 		return
 	}
 
-	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	validPath, err := goutil.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path is subpath",
 			"operation", "deleteFileOrDir",
@@ -247,7 +246,7 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 	}
 
 	// check if path is a directory, if so check if it is empty
-	isDir, err := util.CheckPathIsExistingDir(absPath)
+	isDir, err := goutil.CheckPathIsExistingDir(absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path is directory",
 			"operation", "deleteFileOrDir",
@@ -259,7 +258,7 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 		return
 	}
 	if isDir {
-		IsEmptyDir, err := util.IsEmptyDir(absPath)
+		IsEmptyDir, err := goutil.IsEmptyDir(absPath)
 		if err != nil {
 			goutil.Logger.Errorw("failed to check if directory is empty",
 				"operation", "deleteFileOrDir",
@@ -309,7 +308,7 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 	relPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relPath)
 
-	validPath, err := util.IsSubPath(sh.mountPath, absPath)
+	validPath, err := goutil.IsSubPath(sh.mountPath, absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path is subpath",
 			"operation", "checkExists",
@@ -325,7 +324,7 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 		return
 	}
 
-	exists, err := util.CheckPathExists(absPath)
+	exists, err := goutil.CheckPathExists(absPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to check if path exists",
 			"operation", "checkExists",
@@ -344,7 +343,7 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 }
 
 func (sh *StorageHandler) removeMountPathFromError(e error) string {
-	return util.RemovePrefix(e.Error(), sh.mountPath)
+	return goutil.RemovePrefix(e.Error(), sh.mountPath)
 }
 
 func GetDirContents(absPath string) ([]FileInfo, error) {

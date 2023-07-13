@@ -4,7 +4,8 @@ package version
 import (
 	"fmt"
 
-	"github.com/leptonai/lepton/lepton-api-server/version"
+	"github.com/leptonai/lepton/go-pkg/version"
+
 	"github.com/spf13/cobra"
 )
 

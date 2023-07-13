@@ -13,8 +13,8 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/kv"
 	"github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/go-pkg/version"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-	"github.com/leptonai/lepton/lepton-api-server/version"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/timeout"
