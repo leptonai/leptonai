@@ -126,6 +126,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
 	cl.Status = crdv1alpha1.LeptonClusterStatus{
+		LastState: crdv1alpha1.ClusterStateUnknown,
 		State:     crdv1alpha1.ClusterStateCreating,
 		UpdatedAt: uint64(time.Now().Unix()),
 	}
@@ -160,6 +161,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	if err := DataStore.Update(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
+	cl.Status.LastState = cl.Status.State
 	cl.Status.State = crdv1alpha1.ClusterStateUpdating
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
@@ -211,6 +213,7 @@ func delete(clusterName string, logCh chan<- string) error {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
 
+	cl.Status.LastState = cl.Status.State
 	cl.Status.State = crdv1alpha1.ClusterStateDeleting
 	if err := DataStore.UpdateStatus(context.Background(), clusterName, cl); err != nil {
 		return fmt.Errorf("failed to update cluster status: %w", err)
@@ -389,6 +392,8 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 
 	defer func() {
 		if err == nil {
+			// if err != nil, the state will be updated in the failure handler
+			cl.Status.LastState = cl.Status.State
 			cl.Status.State = crdv1alpha1.ClusterStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
@@ -459,6 +464,7 @@ func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 		)
 		return
 	}
+
 	if err := updateState(ctx, cl, crdv1alpha1.ClusterStateFailed); err != nil {
 		goutil.Logger.Errorw("failed to update the cluster",
 			"cluster", clusterName,
@@ -469,6 +475,7 @@ func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 }
 
 func updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterState) error {
+	cl.Status.LastState = cl.Status.State
 	cl.Status.State = state
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	return DataStore.UpdateStatus(ctx, cl.Spec.Name, cl)

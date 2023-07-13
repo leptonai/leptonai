@@ -224,6 +224,8 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	if err := DataStore.Update(context.Background(), workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace: %w", err)
 	}
+
+	ws.Status.LastState = ws.Status.State
 	ws.Status.State = crdv1alpha1.WorkspaceStateUpdating
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(context.Background(), workspaceName, ws); err != nil {
@@ -274,6 +276,7 @@ func delete(workspaceName string, deleteWorkspace bool, logCh chan<- string) err
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
+	ws.Status.LastState = ws.Status.State
 	ws.Status.State = crdv1alpha1.WorkspaceStateDeleting
 	if err := DataStore.UpdateStatus(context.Background(), workspaceName, ws); err != nil {
 		return fmt.Errorf("failed to update workspace status: %w", err)
@@ -443,6 +446,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 
 	defer func() {
 		if err == nil {
+			ws.Status.LastState = ws.Status.State
 			ws.Status.State = crdv1alpha1.WorkspaceStateReady
 		}
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
@@ -537,6 +541,7 @@ func tryUpdatingStateToFailed(workspaceName string) {
 }
 
 func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceState) error {
+	ws.Status.LastState = ws.Status.State
 	ws.Status.State = state
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
 	return DataStore.UpdateStatus(context.Background(), ws.Spec.Name, ws)

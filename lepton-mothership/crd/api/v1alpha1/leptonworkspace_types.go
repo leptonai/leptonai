@@ -43,6 +43,9 @@ type LeptonWorkspaceSpec struct {
 
 // LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
 type LeptonWorkspaceStatus struct {
+	// Previously known workspace state.
+	LastState LeptonWorkspaceState `json:"last_state,omitempty"`
+	// Current workspace state.
 	State LeptonWorkspaceState `json:"state"`
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`

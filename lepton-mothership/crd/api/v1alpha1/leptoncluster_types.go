@@ -39,7 +39,11 @@ type LeptonClusterSpec struct {
 
 // LeptonClusterStatus defines the observed state of LeptonCluster
 type LeptonClusterStatus struct {
+	// Previously known cluster state.
+	LastState LeptonClusterState `json:"last_state,omitempty"`
+	// Current cluster state.
 	State LeptonClusterState `json:"state"`
+
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
 	// Workspaces are mutable and can be added/removed from cluster.

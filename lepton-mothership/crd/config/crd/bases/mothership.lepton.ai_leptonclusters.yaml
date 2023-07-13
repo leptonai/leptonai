@@ -39,6 +39,8 @@ spec:
             properties:
               deployment_environment:
                 description: DeploymentEnvironment defines the deployment environment.
+                  Make this "omitempty" to not include in "required" field. Otherwise,
+                  the old CRDs without this field will be rejected.
                 type: string
               description:
                 type: string
@@ -62,6 +64,9 @@ spec:
           status:
             description: LeptonClusterStatus defines the observed state of LeptonCluster
             properties:
+              last_state:
+                description: Previously known cluster state.
+                type: string
               properties:
                 description: Properties are immutable and are set once cluster is
                   created.
@@ -80,6 +85,7 @@ spec:
                     type: array
                 type: object
               state:
+                description: Current cluster state.
                 type: string
               updated_at:
                 description: unix timestamp

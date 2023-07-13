@@ -43,6 +43,8 @@ spec:
                 type: string
               deployment_environment:
                 description: DeploymentEnvironment defines the deployment environment.
+                  Make this "omitempty" to not include in "required" field. Otherwise,
+                  the old CRDs without this field will be rejected.
                 type: string
               description:
                 type: string
@@ -68,7 +70,11 @@ spec:
           status:
             description: LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
             properties:
+              last_state:
+                description: Previously known workspace state.
+                type: string
               state:
+                description: Current workspace state.
                 type: string
               updated_at:
                 description: unix timestamp
