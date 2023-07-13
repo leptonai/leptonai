@@ -80,6 +80,7 @@ export interface Database {
           industry: string | null;
           name: string | null;
           role: string | null;
+          work_email: string | null;
         };
         Insert: {
           auth_user_id?: string | null;
@@ -92,6 +93,7 @@ export interface Database {
           industry?: string | null;
           name?: string | null;
           role?: string | null;
+          work_email?: string | null;
         };
         Update: {
           auth_user_id?: string | null;
@@ -104,6 +106,7 @@ export interface Database {
           industry?: string | null;
           name?: string | null;
           role?: string | null;
+          work_email?: string | null;
         };
         Relationships: [
           {
@@ -116,19 +119,22 @@ export interface Database {
       };
       workspaces: {
         Row: {
+          consumer_id: string | null;
           created_at: string | null;
           id: string;
-          url: string;
+          subscription_id: string | null;
         };
         Insert: {
+          consumer_id?: string | null;
           created_at?: string | null;
-          id?: string;
-          url: string;
+          id: string;
+          subscription_id?: string | null;
         };
         Update: {
+          consumer_id?: string | null;
           created_at?: string | null;
           id?: string;
-          url?: string;
+          subscription_id?: string | null;
         };
         Relationships: [];
       };

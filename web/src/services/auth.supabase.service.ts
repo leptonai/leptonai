@@ -27,6 +27,8 @@ const SSO_CONFIG = {
   refresh_token_key: "lepton-refresh-token",
 };
 
+const workspaceUrl = (id: string): string => `https://${id}.cloud.lepton.ai`;
+
 @Injectable()
 export class AuthSupabaseService implements AuthService {
   private session$ = new BehaviorSubject<Session | null>(null);
@@ -164,7 +166,7 @@ export class AuthSupabaseService implements AuthService {
       .select(
         `
       token,
-      workspaces(workspace_id: id, url)
+      workspaces(workspace_id: id)
     `
       )
       .abortSignal(abort.signal);
@@ -175,10 +177,11 @@ export class AuthSupabaseService implements AuthService {
 
     return (workspaces || [])
       .map((workspace) => {
+        const id = Array.isArray(workspace.workspaces)
+          ? workspace.workspaces[0].workspace_id
+          : workspace.workspaces?.workspace_id;
         return {
-          url: Array.isArray(workspace.workspaces)
-            ? workspace.workspaces[0].url
-            : workspace.workspaces?.url,
+          url: id ? workspaceUrl(id) : undefined,
           token: workspace.token,
         };
       })
