@@ -52,8 +52,6 @@ spec:
           {{ end }}
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
-            - "--cluster-name"
-            - "{{ .Values.workspaceName }}"
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--service-account-name"

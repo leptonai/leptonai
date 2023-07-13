@@ -27,7 +27,6 @@ var photonBucket *blob.Bucket
 
 var (
 	certificateARNFlag *string
-	clusterNameFlag    *string
 	rootDomainFlag     *string
 	workspaceNameFlag  *string
 	apiTokenFlag       *string
@@ -59,8 +58,7 @@ const (
 )
 
 func main() {
-	clusterNameFlag = flag.String("cluster-name", "testing", "cluster name")
-	workspaceNameFlag = flag.String("workspace-name", "", "workspace name")
+	workspaceNameFlag = flag.String("workspace-name", "default", "workspace name")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
