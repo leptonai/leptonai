@@ -79,7 +79,7 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("updating workspace spec: %s", b)
 
-	b, err = cli.RequestPath(http.MethodPatch, "", nil, b)
+	b, err = cli.RequestPath(http.MethodPatch, "/workspaces", nil, b)
 	if err != nil {
 		log.Fatal("error sending HTTP Patch request: ", err)
 	}

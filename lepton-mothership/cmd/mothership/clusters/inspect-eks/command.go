@@ -63,7 +63,7 @@ func inspectFunc(cmd *cobra.Command, args []string) {
 		css[clusterName] = cluster
 	} else {
 		log.Printf("fetching all clusters via mothership API")
-		b, err := cli.RequestURL(http.MethodGet, mothershipURL, nil, nil)
+		b, err := cli.RequestPath(http.MethodGet, "/clusters", nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
