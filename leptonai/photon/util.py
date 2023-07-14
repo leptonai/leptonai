@@ -1,10 +1,6 @@
 from typing import Any, Dict
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton
 
-# import .photon and .hf modules to register the schemas and types
-from leptonai import photon as _photon  # noqa: F401
-from leptonai.photon import hf as _hf  # noqa: F401
-
 from leptonai.util import check_photon_name
 
 

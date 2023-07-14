@@ -3,9 +3,8 @@ import requests
 from typing import Any, Dict, List, Optional, Union
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
-# import .photon and .hf modules to register the schemas and types
-from leptonai import photon as _photon  # noqa: F401
-from leptonai.photon import hf as _hf  # noqa: F401
+# import leptonai.photon to register the schemas and types
+import leptonai.photon  # noqa: F401
 from leptonai.config import CACHE_DIR
 from leptonai.util import check_photon_name
 from .util import APIError, create_header, json_or_error

@@ -196,4 +196,4 @@ class Client:
     def __dir__(self):
         # Note: self.paths() returns the paths with the '/' prefix, so we will
         # remove that part.
-        return super().__dir__() + list(p[1:] for p in self.paths())
+        return super().__dir__() + list(p.strip("/") for p in self.paths())
