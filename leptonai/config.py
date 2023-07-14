@@ -18,6 +18,8 @@ BASE_IMAGE_REPO = "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
+DEFAULT_PORT = 8080
+
 WORKSPACE_URL_TEMPLATE = "https://{workspace_name}.cloud.lepton.ai"
 WORKSPACE_API_PATH = "/api/v1"
 

@@ -27,7 +27,12 @@ from pydantic import BaseModel, validator
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 import uvicorn
 
-from leptonai.config import BASE_IMAGE, BASE_IMAGE_ARGS, PYDANTIC_MAJOR_VERSION
+from leptonai.config import (
+    BASE_IMAGE,
+    BASE_IMAGE_ARGS,
+    DEFAULT_PORT,
+    PYDANTIC_MAJOR_VERSION,
+)
 from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd, patch, asyncfy
@@ -496,7 +501,7 @@ class Photon(BasePhoton):
             else:
                 break
 
-    def launch(self, host="0.0.0.0", port=8080, log_level="info"):
+    def launch(self, host="0.0.0.0", port=DEFAULT_PORT, log_level="info"):
         self.call_init()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(
