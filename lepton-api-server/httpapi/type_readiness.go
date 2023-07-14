@@ -62,8 +62,18 @@ func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
 			continue
 		}
 		switch waiting.Reason {
-		case "ContainerCreating", "PodInitializing":
-			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: fmt.Sprintf("initialization: %s", waiting.Message)}
+		case "ContainerCreating":
+			message := waiting.Message
+			if message == "" {
+				message = "creating container"
+			}
+			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: fmt.Sprintf("initialization: %s", message)}
+		case "PodInitializing":
+			message := waiting.Message
+			if message == "" {
+				message = "pulling image"
+			}
+			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: fmt.Sprintf("initialization: %s", message)}
 		case "CrashLoopBackOff", "Error":
 			return ReplicaReadinessIssue{Reason: ReadinessReasonSystemError, Message: fmt.Sprintf("initialization: %s", waiting.Message)}
 		case "ErrImagePull", "ImagePullBackOff", "InvalidImageName":
@@ -91,8 +101,18 @@ func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
 			continue
 		}
 		switch waiting.Reason {
-		case "ContainerCreating", "PodInitializing":
-			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: waiting.Message}
+		case "ContainerCreating":
+			message := waiting.Message
+			if message == "" {
+				message = "creating container"
+			}
+			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: message}
+		case "PodInitializing":
+			message := waiting.Message
+			if message == "" {
+				message = "pulling image"
+			}
+			return ReplicaReadinessIssue{Reason: ReadinessReasonInProgress, Message: message}
 		case "CrashLoopBackOff", "Error":
 			return ReplicaReadinessIssue{Reason: ReadinessReasonUserCodeError, Message: waiting.Message}
 		case "ErrImagePull", "ImagePullBackOff", "InvalidImageName":
