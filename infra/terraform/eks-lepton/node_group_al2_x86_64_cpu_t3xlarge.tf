@@ -59,3 +59,15 @@ resource "aws_eks_node_group" "al2_x86_64_cpu_t3xlarge" {
     module.eks
   ]
 }
+
+resource "aws_autoscaling_group_tag" "al2_x86_64_cpu_t3xlarge" {
+  autoscaling_group_name = aws_eks_node_group.al2_x86_64_cpu_t3xlarge.resources[0].autoscaling_groups[0].name
+
+  # add extra label in case we run cluster-autoscaler in parallel with others
+  # e.g., karpenter
+  tag {
+    key                 = "autoscaler-kind"
+    value               = "cluster-autoscaler"
+    propagate_at_launch = true
+  }
+}

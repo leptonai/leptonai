@@ -3,8 +3,51 @@
 # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#iam-policy
 resource "aws_iam_policy" "cluster_autoscaler_iam_policy" {
   name        = "${var.cluster_name}-cluster-autoscaler-iam-policy"
-  policy      = file("cluster-autoscaler-policy.json")
   description = "Cluster autoscaler IAM Policy"
+
+  # make sure the cluster-autoscaler only has access
+  # to this specific cluster
+  # ref. https://aws.github.io/aws-eks-best-practices/cluster-autoscaling/#employ-least-privileged-access-to-the-iam-role
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "autoscaling:SetDesiredCapacity",
+          "autoscaling:TerminateInstanceInAutoScalingGroup",
+        ],
+        "Resource" : [
+          "*"
+        ],
+        "Condition" : {
+          "StringEquals" : {
+            "aws:ResourceTag/autoscaler-kind" : "cluster-autoscaler",
+            "aws:ResourceTag/k8s.io/cluster-autoscaler/enabled" : "true",
+            "aws:ResourceTag/k8s.io/cluster-autoscaler/${local.cluster_name}" : "owned"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeScalingActivities",
+          "autoscaling:DescribeTags",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeLaunchTemplateVersions",
+          "ec2:DescribeImages",
+          "ec2:GetInstanceTypesFromInstanceRequirements",
+          "eks:DescribeNodegroup"
+        ],
+        "Resource" : [
+          "*"
+        ]
+      }
+    ]
+  })
 
   depends_on = [
     module.eks,
@@ -257,13 +300,15 @@ resource "helm_release" "cluster_autoscaler" {
   # https://github.com/kubernetes/autoscaler/releases
   version = "9.29.1"
 
+  # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md
   # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/main.go
   # https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/values.yaml
   # https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/templates/deployment.yaml
   values = [yamlencode({
+    # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#auto-discovery-setup
     autoDiscovery = {
       clusterName = var.cluster_name
-      tags        = format("k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/%s", var.cluster_name)
+      tags        = "autoscaler-kind=cluster-autoscaler,k8s.io/cluster-autoscaler/enabled=true,k8s.io/cluster-autoscaler/${var.cluster_name}=owned"
     }
 
     awsRegion     = var.region
