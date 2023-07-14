@@ -2,24 +2,19 @@
 package get
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"sort"
 	"syscall"
 	"time"
 
-	"github.com/olekukonko/tablewriter"
-	"github.com/opencost/opencost/pkg/kubecost"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
+	"github.com/leptonai/lepton/go-pkg/metering"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 )
 
 var (
@@ -32,6 +27,7 @@ var (
 	queryPath       string
 	queryAgg        string
 	queryWindow     string
+	queryResolution string
 	queryAccumulate bool
 
 	queryRounds   uint
@@ -44,7 +40,7 @@ func init() {
 	cobra.EnablePrefixMatching = true
 }
 
-// NewCommand implements "mothership clusters get" command.
+// NewCommand implements "mothership metering get" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
@@ -74,13 +70,14 @@ mothership metering get --kubeconfig /tmp/gh82.kubeconfig
 	cmd.PersistentFlags().StringVar(&queryPath, "query-path", "/allocation/compute", "Query path")
 	cmd.PersistentFlags().StringVar(&queryAgg, "query-aggregate", "cluster,namespace,pod", "Query aggregate")
 	cmd.PersistentFlags().StringVar(&queryWindow, "query-window", "5m", "Query window duration")
+	cmd.PersistentFlags().StringVar(&queryResolution, "query-resolution", "1m", "Query resolution")
 	cmd.PersistentFlags().BoolVar(&queryAccumulate, "query-accumulate", true, "Configure accumulate (If false, query-window=3d results in three different 24-hour periods. If true, the results are accumulated into one entire window.)")
 
 	cmd.PersistentFlags().UintVar(&queryRounds, "query-rounds", 1, "Number of query rounds to perform, set to 0 to poll indefinitely")
 	cmd.PersistentFlags().DurationVar(&queryInterval, "query-interval", 10*time.Minute, "Query interval")
 
+	// aurora db related flags
 	cmd.PersistentFlags().BoolVar(&syncToDB, "sync-to-db", false, "Must be set true to enable sync to backend database")
-
 	return cmd
 }
 
@@ -89,22 +86,21 @@ func getFunc(cmd *cobra.Command, args []string) {
 	if kubeconfigPath != "" {
 		kubeconfig = kubeconfigPath
 	}
-	log.Printf("loading kubeconfig %q", kubeconfig)
-
-	kcfg, err := clientcmd.LoadFromFile(kubeconfig)
+	restConfig, clusterARN, err := common.BuildRestConfig(kubeconfig)
 	if err != nil {
-		log.Fatalf("failed to load kubeconfig %v", err)
-	}
-	clusterARN := ""
-	for k := range kcfg.Clusters {
-		clusterARN = k
-		break
+		log.Fatalf("error building config from kubeconfig %v", err)
 	}
 
-	// Load Kubernetes configuration from default location or specified kubeconfig file
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Fatalf("failed to build config from kubeconfig %v", err)
+	qp := metering.OcQueryParams{
+		ClusterARN:         clusterARN,
+		QueryPath:          queryPath,
+		QueryAgg:           queryAgg,
+		QueryAcc:           queryAccumulate,
+		QueryResolution:    queryResolution,
+		QueryWindow:        queryWindow,
+		QueryRounds:        queryRounds,
+		QueryInterval:      queryInterval,
+		ExcludedNamespaces: metering.ExcludedNamespaces,
 	}
 
 	// Create a Kubernetes client
@@ -132,7 +128,7 @@ func getFunc(cmd *cobra.Command, args []string) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
 
-	log.Printf("starting get for %d rounds with %v interval", queryRounds, queryInterval)
+	log.Printf("starting get for %d rounds with %v interval", qp.QueryRounds, qp.QueryInterval)
 	for i := uint(0); i < queryRounds; i++ {
 		if i > 0 {
 			select {
@@ -143,142 +139,33 @@ func getFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		queryRs, err := fwd.QueryGet(
-			ctx,
-			queryPath,
-			map[string]string{
-				"window":           queryWindow,
-				"aggregate":        queryAgg,
-				"accumulate":       fmt.Sprintf("%v", queryAccumulate),
-				"filterNamespaces": "",
-			},
-		)
-		cancel()
+		data, err := metering.GetFineGrainData(clientset, fwd, qp)
 		if err != nil {
-			log.Fatalf("failed to proxy get kubecost %v", err)
-		}
-
-		var ar allocationResponse
-		if err = json.Unmarshal(queryRs, &ar); err != nil {
-			log.Fatalf("failed to parse allocation response %v", err)
-		}
-
-		data := make([]rawData, 0, len(ar.Data))
-		for _, a := range ar.Data {
-			for _, v := range a {
-				// v.Name is same as key in the map
-				// v.Name is [cluster name]/[namespace]/[pod id]
-				// v.Properties.ProviderID is the instance ID in AWS
-				// v.Properties.Cluster is hard-coded as "cluster-one", do not use this
-
-				// ignore the resource usage by "kubecost" itself
-				if v.Properties.Namespace == "kubecost" {
-					continue
-				}
-
-				d := rawData{
-					Cluster:   clusterARN,
-					Namespace: v.Properties.Namespace,
-					PodID:     v.Properties.Pod,
-
-					Start:          v.Start.Unix(),
-					End:            v.End.Unix(),
-					RunningMinutes: v.Minutes(),
-					Window:         v.Window.Duration().String(),
-
-					CPUCoreHours: v.CPUCoreHours,
-					GPUHours:     v.GPUHours,
-				}
-				data = append(data, d)
-			}
+			log.Fatalf("failed to get data %v", err)
 		}
 		log.Printf("total %d data", len(data))
+		metering.PrettyPrint(data)
 
-		sort.SliceStable(data, func(i, j int) bool {
-			if data[i].Namespace == data[j].Namespace {
-				return data[i].PodID < data[j].PodID
-			}
-			return data[i].Namespace < data[j].Namespace
-		})
-		rows := make([][]string, 0, len(data))
+		var podData []metering.PodInfo
 		for _, d := range data {
-			rows = append(rows, d.toTableRow())
+			podInfo := metering.PodInfo{
+				Namespace:            d.Namespace,
+				LeptonDeploymentName: d.LeptonDeploymentName,
+				Shape:                d.PodShape,
+				PodName:              d.PodName,
+			}
+			podData = append(podData, podInfo)
 		}
-
-		buf := bytes.NewBuffer(nil)
-		tb := tablewriter.NewWriter(buf)
-		tb.SetAutoWrapText(false)
-		tb.SetAlignment(tablewriter.ALIGN_LEFT)
-		tb.SetCenterSeparator("*")
-		tb.SetHeader(tableColumns)
-		tb.AppendBulk(rows)
-		tb.Render()
-		fmt.Println(buf.String())
-
+		log.Printf("total %d pod data", len(podData))
 		if !syncToDB {
 			log.Print("skipping sync")
 			return
 		}
 
-		log.Printf("syncing %d rows to database", len(data))
-		// TODO: implement sync to database
-	}
-}
-
-type allocationResponse struct {
-	Code int                              `json:"code"`
-	Data []map[string]kubecost.Allocation `json:"data"`
-}
-
-var tableColumns = []string{
-	"cluster",
-	"namespace",
-	"pod id",
-
-	"start",
-	"end",
-	"running minutes",
-	"window",
-
-	"cpu core hours",
-	"gpu hours",
-}
-
-type rawData struct {
-	Cluster   string
-	Namespace string
-	PodID     string
-
-	Start          int64
-	End            int64
-	RunningMinutes float64
-	Window         string
-
-	// Cumulative CPU core-hours allocated.
-	// Number of cores multipled by the number of hours.
-	// Under the hood, it uses "container_cpu_allocation",
-	// the average number of CPUs requested/used over last 1m,
-	// to aggregate in hours.
-	CPUCoreHours float64
-	// Cumulative GPU-hours allocated.
-	// Number of GPU counts multipled by the number of hours.
-	// Under the hood, it uses "container_gpu_allocation".
-	GPUHours float64
-}
-
-func (d rawData) toTableRow() []string {
-	return []string{
-		d.Cluster,
-		d.Namespace,
-		d.PodID,
-
-		fmt.Sprintf("%d", d.Start),
-		fmt.Sprintf("%d", d.End),
-		fmt.Sprintf("%.5f", d.RunningMinutes),
-		d.Window,
-
-		fmt.Sprintf("%.5f", d.CPUCoreHours),
-		fmt.Sprintf("%.5f", d.GPUHours),
+		auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
+		err = metering.SyncToDB(auroraCfg, "fine_grain", data, "pods", podData)
+		if err != nil {
+			log.Fatalf("failed to sync to db %v", err)
+		}
 	}
 }

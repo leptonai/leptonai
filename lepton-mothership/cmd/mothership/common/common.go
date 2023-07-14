@@ -1,19 +1,60 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"github.com/leptonai/lepton/go-pkg/aws/aurora"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
 	homeDir, _       = os.UserHomeDir()
 	DefaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
 )
+
+func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
+	auroraCfgFlag := cmd.Flag("aurora-config").Value.String()
+	useCfg, _ := strconv.ParseBool(auroraCfgFlag)
+	if !useCfg {
+		log.Println("reading aurora config from provided flags")
+		dbHost := cmd.Flag("db-host").Value.String()
+		dbPort, _ := strconv.Atoi(cmd.Flag("db-port").Value.String())
+
+		s := cmd.Flag("auth-with-token").Value.String()
+		authWithToken, _ := strconv.ParseBool(s)
+
+		return aurora.AuroraConfig{
+			Region:        cmd.Flag("region").Value.String(),
+			DBDriverName:  cmd.Flag("db-driver-name").Value.String(),
+			DBName:        cmd.Flag("db-name").Value.String(),
+			DBHost:        dbHost,
+			DBPort:        dbPort,
+			DBEndpoint:    fmt.Sprintf("%s:%d", dbHost, dbPort),
+			DBUser:        cmd.Flag("db-user").Value.String(),
+			DBPassword:    cmd.Flag("db-password").Value.String(),
+			AuthWithToken: authWithToken,
+		}
+	}
+
+	useConfigPath := aurora.DefaultAuroraPath
+	b, err := os.ReadFile(useConfigPath)
+	if err != nil {
+		log.Fatalf("failed to read config file %v", err)
+	}
+	config := aurora.AuroraConfig{}
+	err = json.Unmarshal(b, &config)
+	if err != nil {
+		log.Fatalf("failed to unmarshal config data %v", err)
+	}
+	return config
+}
 
 func ReadTokenFromFlag(cmd *cobra.Command) string {
 	tokenFlag := cmd.Flag("token")
@@ -53,46 +94,23 @@ func ReadMothershipURLFromFlag(cmd *cobra.Command) string {
 	return cmd.Flag("mothership-url").Value.String()
 }
 
-type AuroraConfig struct {
-	Region        string
-	DBDriverName  string
-	DBName        string
-	DBHost        string
-	DBPort        int
-	DBEndpoint    string
-	DBUser        string
-	DBPassword    string
-	AuthWithToken bool
-}
+func BuildRestConfig(configPath string) (*rest.Config, string, error) {
+	log.Printf("Loading kubeconfig %q", configPath)
 
-func ReadAuroraConfigFromFlag(cmd *cobra.Command) AuroraConfig {
-	dbHost := cmd.Flag("db-host").Value.String()
-	dbPort, _ := strconv.Atoi(cmd.Flag("db-port").Value.String())
-
-	s := cmd.Flag("auth-with-token").Value.String()
-	authWithToken, _ := strconv.ParseBool(s)
-
-	return AuroraConfig{
-		Region:        cmd.Flag("region").Value.String(),
-		DBDriverName:  cmd.Flag("db-driver-name").Value.String(),
-		DBName:        cmd.Flag("db-name").Value.String(),
-		DBHost:        dbHost,
-		DBPort:        dbPort,
-		DBEndpoint:    fmt.Sprintf("%s:%d", dbHost, dbPort),
-		DBUser:        cmd.Flag("db-user").Value.String(),
-		DBPassword:    cmd.Flag("db-password").Value.String(),
-		AuthWithToken: authWithToken,
+	kcfg, err := clientcmd.LoadFromFile(configPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to load kubeconfig %v", err)
 	}
-}
+	clusterARN := ""
+	for k := range kcfg.Clusters {
+		clusterARN = k
+		break
+	}
 
-func (c AuroraConfig) DSN() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
-		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName,
-	)
-}
+	restConfig, err := clientcmd.BuildConfigFromFlags("", configPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build config from kubconfig %v", err)
+	}
 
-func (c AuroraConfig) DSNWithAuthToken(authToken string) string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
-		c.DBHost, c.DBPort, c.DBUser, authToken, c.DBName,
-	)
+	return restConfig, clusterARN, nil
 }

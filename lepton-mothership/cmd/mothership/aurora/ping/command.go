@@ -7,10 +7,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
-
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	_ "github.com/lib/pq"
 	"github.com/spf13/cobra"
 )
