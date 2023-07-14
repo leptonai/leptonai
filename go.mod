@@ -6,11 +6,14 @@ require (
 	github.com/aws/aws-sdk-go v1.44.200
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
 	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.2.12
+	github.com/aws/aws-sdk-go-v2/service/efs v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14
+	github.com/dustin/go-humanize v1.0.1
 	github.com/gin-contrib/zap v0.1.0
 	github.com/go-git/go-git/v5 v5.7.0
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-tfe v1.26.0
 	github.com/lib/pq v1.10.7
 	github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5
@@ -61,7 +64,6 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20230111200839-76d1ae5aea2b // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/google/wire v0.5.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -126,12 +128,12 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.18.1
+	github.com/aws/aws-sdk-go-v2 v1.19.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.21 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.34 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.28 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.35 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.29 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.11 // indirect
@@ -154,7 +156,6 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/pflag v1.0.5 // indirect
 	gocloud.dev v0.29.0
 	golang.org/x/net v0.10.0
