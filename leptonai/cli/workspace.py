@@ -120,6 +120,11 @@ def login(workspace_name, workspace_url, auth_token, dry_run):
         workspaces = api.load_workspace_info()["workspaces"]
         if workspace_name in workspaces:
             workspace_url = workspaces[workspace_name]["url"]
+            if auth_token:
+                console.print(
+                    "Updating auth token for workspace [green]{workspace_name}[/]"
+                )
+                _register_and_set(workspace_name, workspace_url, auth_token=auth_token)
             api.set_current_workspace(workspace_name)
         else:
             # New supported feature: if no workspace url is given and workspace name
