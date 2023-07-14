@@ -58,9 +58,9 @@ jobs:
     - name: Run e2e tests
       run: |
         pip install -e ./sdk
-        e2e-tests/push-and-deploy.sh \
-          ${{ steps.vars.outputs.api_token }} \
-          https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1
+        go test -timeout 3600s -v ./e2e-tests/... \
+          --workspace-url https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1 \
+          --auth-token ${{ steps.vars.outputs.api_token }}
     - name: Delete workspace
       if: always()
       run: |
