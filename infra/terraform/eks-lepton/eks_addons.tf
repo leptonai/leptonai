@@ -57,6 +57,4 @@ module "eks_blueprints_addons" {
   external_dns_route53_zone_arns = [
     "arn:aws:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
   ]
-
-  enable_aws_efs_csi_driver = true
 }

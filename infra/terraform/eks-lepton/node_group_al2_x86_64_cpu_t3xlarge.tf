@@ -4,7 +4,7 @@
 resource "aws_eks_node_group" "al2_x86_64_cpu_t3xlarge" {
   cluster_name    = module.eks.cluster_name
   node_group_name = "${var.cluster_name}-al2-x86_64-t3xlarge"
-  node_role_arn   = aws_iam_role.role_mng.arn
+  node_role_arn   = aws_iam_role.mng_iam_role.arn
 
   # no need to be in public subnets
   # when all services are exposed via ingress/LB
@@ -55,7 +55,7 @@ resource "aws_eks_node_group" "al2_x86_64_cpu_t3xlarge" {
     aws_iam_role_policy_attachment.role_policy_attachment_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.role_policy_attachment_AmazonEC2ContainerRegistryReadOnly,
     aws_iam_role_policy_attachment.role_policy_attachment_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.role_policy_attachment_efs,
+    aws_iam_role_policy_attachment.efs_iam_role_policy_attachment_node,
     module.eks
   ]
 }

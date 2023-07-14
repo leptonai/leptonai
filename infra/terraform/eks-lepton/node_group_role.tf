@@ -25,7 +25,7 @@ data "aws_iam_policy_document" "assume_role_policy_mng" {
 }
 
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-resource "aws_iam_role" "role_mng" {
+resource "aws_iam_role" "mng_iam_role" {
   name = "${var.cluster_name}-role-mng"
 
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy_mng.json
@@ -44,7 +44,7 @@ locals {
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKSWorkerNodePolicy" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.role_mng.name
+  role       = aws_iam_role.mng_iam_role.name
 }
 
 # DO NOT USE "for_each" nor "dynamic"
@@ -52,7 +52,7 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKSWorke
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEC2ContainerRegistryReadOnly" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.role_mng.name
+  role       = aws_iam_role.mng_iam_role.name
 }
 
 # DO NOT USE "for_each" nor "dynamic"
@@ -62,26 +62,5 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEC2Conta
 # "AmazonEKS_CNI_IPv6_Policy" is only required when cluster IP family is set to "ipv6"
 resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKS_CNI_Policy" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.role_mng.name
-}
-
-# curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/master/docs/iam-policy-example.json
-resource "aws_iam_policy" "policy_efs" {
-  name        = "${local.cluster_name}-efs-iam-policy"
-  policy      = file("storage-efs-policy.json")
-  description = "EFS IAM policy"
-}
-
-# DO NOT USE "for_each" nor "dynamic"
-# see https://github.com/leptonai/lepton/issues/1117
-# ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-# ref. https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html
-resource "aws_iam_role_policy_attachment" "role_policy_attachment_efs" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.policy_efs.name}"
-  role       = aws_iam_role.role_mng.name
-
-  depends_on = [
-    aws_iam_policy.policy_efs,
-    aws_iam_role.role_mng
-  ]
+  role       = aws_iam_role.mng_iam_role.name
 }

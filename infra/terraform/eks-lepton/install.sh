@@ -28,6 +28,8 @@ targets=(
 
   "module.ebs_csi_driver_irsa"
   "aws_eks_addon.aws-ebs-csi-driver"
+  "helm_release.aws_efs_csi_driver"
+
   "helm_release.gpu-operator"
 
   # bug https://github.com/hashicorp/terraform-provider-kubernetes/issues/1917
