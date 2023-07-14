@@ -46,7 +46,16 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
     - name: Switch to the proper k8s context
-      run: aws eks update-kubeconfig --name ${{ vars.K8S_CI }} --region ${{ vars.AWS_REGION }}
+      run: |
+        latest_ready_cluster=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+        https://mothership.cloud.lepton.ai/api/v1/clusters | \
+        jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
+        echo "latest ready cluster: $latest_ready_cluster"
+        if [ -z "$latest_ready_cluster" ]; then
+          echo "no ready cluster found"
+          exit 1
+        fi
+        aws eks update-kubeconfig --name "$latest_ready_cluster" --region ${{ vars.AWS_REGION }}
     - name: Test
       run: |
         (cd lepton-api-server && go test -v ./...)
