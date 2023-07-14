@@ -8,8 +8,8 @@ from huggingface_hub import model_info
 from loguru import logger
 
 from leptonai.registry import Registry
-from .base import schema_registry, type_registry
-from .photon import Photon, PNGResponse, FileParam
+from leptonai.photon.base import schema_registry, type_registry
+from leptonai.photon import Photon, PNGResponse, FileParam
 from .hf_utils import pipeline_registry
 
 task_cls_registry = Registry()
@@ -188,10 +188,6 @@ class HuggingfacePhoton(Photon):
         name = metadata["name"]
         model = metadata["model"]
         return cls.create_from_model_str(name, model)
-
-
-schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
-type_registry.register(is_transformers_model, HuggingfacePhoton.create_from_model_obj)
 
 
 def _get_generated_text(res):
@@ -541,3 +537,10 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
         if res.dim() != 2 or res.size(0) != 1:
             logger.error(f"Unexpected result shape: {res.shape}")
         return res[0].tolist()
+
+
+def register_hf_photon():
+    schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
+    type_registry.register(
+        is_transformers_model, HuggingfacePhoton.create_from_model_obj
+    )

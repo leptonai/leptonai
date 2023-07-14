@@ -34,7 +34,7 @@ class TestPhotonSdk(unittest.TestCase):
             min_len = min(len(revision), len(ph.hf_revision))
             self.assertEqual(ph.hf_revision[:min_len], revision[:min_len])
         self.assertEqual(ph.model, f"{model_id}@{ph.hf_revision}")
-        self.assertTrue(isinstance(ph, photon.HuggingfacePhoton))
+        self.assertEqual(ph.photon_type, "hf")
 
     def test_create(self):
         self._test_create(self.test_hf_model_id)
