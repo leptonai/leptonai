@@ -62,8 +62,8 @@ export interface DeploymentEvent {
 }
 
 export enum ReadinessReason {
-  ReadinessReasonInProgress = "Ready",
-  ConfigurationError = "InProgress",
+  ReadinessReasonReady = "Ready",
+  ReadinessReasonInProgress = "InProgress",
   ReadinessReasonNoCapacity = "NoCapacity",
   ReadinessReasonUserCodeError = "UserCodeError",
   ReadinessReasonSystemError = "SystemError",

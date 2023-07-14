@@ -1,6 +1,9 @@
 import { FC, PropsWithChildren, useMemo, useState } from "react";
 import { Popover } from "antd";
-import { State } from "@lepton-dashboard/interfaces/deployment";
+import {
+  ReadinessReason,
+  State,
+} from "@lepton-dashboard/interfaces/deployment";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { combineLatest, filter, switchMap, takeUntil } from "rxjs";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -32,7 +35,7 @@ export const DeploymentIssuesTip: FC<
     {
       next: (data) => {
         const hasIssues = Object.entries(data).some(([_, value]) =>
-          value.some((e) => !!e.message)
+          value.some((e) => e.reason !== ReadinessReason.ReadinessReasonReady)
         );
         setOpen(hasIssues);
         setHovered(hasIssues);
@@ -48,7 +51,9 @@ export const DeploymentIssuesTip: FC<
     let issuesCount = 0;
     let replicasCount = 0;
     Object.entries(readiness).forEach(([_, value]) => {
-      const issues = value.filter((e) => !!e.message);
+      const issues = value.filter(
+        (e) => e.reason !== ReadinessReason.ReadinessReasonReady
+      );
       if (issues.length > 0) {
         replicasCount++;
         issuesCount += issues.length;
