@@ -14,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/quotas"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/volumes"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces"
 )
 
@@ -38,6 +39,7 @@ func init() {
 		version.NewCommand(),
 		workspaces.NewCommand(),
 		quotas.NewCommand(),
+		volumes.NewCommand(),
 	)
 }
 

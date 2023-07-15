@@ -1,4 +1,4 @@
-// Package versquotasion implements quotas command.
+// Package quotas implements quotas command.
 package quotas
 
 import (
