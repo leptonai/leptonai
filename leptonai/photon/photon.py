@@ -232,15 +232,20 @@ class Photon(BasePhoton):
 
     @classmethod
     def _gather_routes(cls):
+        def update_routes(old_, new_):
+            for path, routes in new_.items():
+                for method, route in routes.items():
+                    old_.setdefault(path, {})[method] = route
+
         res = {}
 
         for base in cls.__bases__:
             if base == BasePhoton:
                 # BasePhoton should not have any routes
                 continue
-            res.update(base._gather_routes())
+            update_routes(res, get_routes(base))
 
-        res.update(get_routes(cls))
+        update_routes(res, get_routes(cls))
         return res
 
     @staticmethod
@@ -621,26 +626,37 @@ class Photon(BasePhoton):
         return typed_handler, typed_handler_kwargs
 
     # helper function of _register_routes
-    def _add_route(self, api_router, path, func, kwargs):
-        typed_handler, typed_handler_kwargs = self._create_typed_handler(
-            path, func, kwargs
-        )
-        api_router.add_api_route(
-            f"/{path}",
-            typed_handler,
-            name=path,
-            methods=["POST"],
-            **typed_handler_kwargs,
-        )
+    def _add_route(self, api_router, path, method, func, kwargs):
+        if method.lower() == "post":
+            typed_handler, typed_handler_kwargs = self._create_typed_handler(
+                path, func, kwargs
+            )
+            api_router.add_api_route(
+                f"/{path}",
+                typed_handler,
+                name=path,
+                methods=[method],
+                **typed_handler_kwargs,
+            )
+        elif method.lower() == "get":
+            api_router.add_api_route(
+                f"/{path}",
+                func.__get__(self, self.__class__),
+                name=path,
+                methods=[method],
+            )
+        else:
+            raise ValueError(f"Unsupported method {method}")
 
     def _register_routes(self, app, load_mount):
         api_router = APIRouter()
-        for path, (func, kwargs) in self._routes.items():
-            if kwargs.get("mount"):
-                if load_mount:
-                    self._mount_route(app, path, func)
-            else:
-                self._add_route(api_router, path, func, kwargs)
+        for path, routes in self._routes.items():
+            for method, (func, kwargs) in routes.items():
+                if kwargs.get("mount"):
+                    if load_mount:
+                        self._mount_route(app, path, func)
+                else:
+                    self._add_route(api_router, path, method, func, kwargs)
         app.include_router(api_router)
 
     @staticmethod
@@ -657,21 +673,25 @@ class Photon(BasePhoton):
         return
 
     @staticmethod
-    def handler(path=None, **kwargs):
+    def handler(path=None, method="POST", **kwargs):
         Photon._santity_check_handler_kwargs(kwargs)
 
         def decorator(func):
             path_ = path if path is not None else func.__name__
+            path_ = path_.strip("/")
             routes = get_routes(func)
-            if path_ in routes:
-                raise ValueError(f"Path {path_} already exists: {routes[path_]}")
+            if path_ in routes and method in routes[path_]:
+                raise ValueError(
+                    f"Handler (path={path_}, method={method}) already exists:"
+                    f" {routes[path_][method]}"
+                )
 
             @functools.wraps(func)
             def wrapped_func(self, *args, **kwargs):
                 self.call_init()
                 return func(self, *args, **kwargs)
 
-            routes[path_] = (func, kwargs)
+            routes.setdefault(path_, {})[method] = (func, kwargs)
             return wrapped_func
 
         if callable(path) and not kwargs:

@@ -27,6 +27,7 @@ from textwrap import dedent
 import shutil
 import subprocess
 import sys
+from typing import Dict
 import unittest
 import zipfile
 
@@ -776,6 +777,47 @@ class CustomPhoton2(Photon):
             res = list(executor.map(lambda v: client.run(x=v), xs))
             # assert it triggers the batch execution route
             self.assertEqual(res, [2 * v + len(xs) for v in xs])
+
+    def test_get_method(self):
+        class GetPhoton(Photon):
+            @Photon.handler(method="GET")
+            def greet(self) -> Dict[str, str]:
+                return {"hello": "world"}
+
+        ph = GetPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/greet")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json(), {"hello": "world"})
+
+    def test_get_method_with_query_params(self):
+        class GetPhotonWithQueryParams(Photon):
+            @Photon.handler(method="GET")
+            def greet(self, name: str) -> Dict[str, str]:
+                return {"hello": name}
+
+        ph = GetPhotonWithQueryParams(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        ans = random_name()
+        res = requests.get(f"http://127.0.0.1:{port}/greet", params={"name": ans})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json(), {"hello": ans})
+
+    def test_get_method_with_url_params(self):
+        class GetPhotonWithUrlParams(Photon):
+            @Photon.handler("/greet/{name}", method="GET")
+            def greet(self, name: str) -> Dict[str, str]:
+                return {"hello": name}
+
+        ph = GetPhotonWithUrlParams(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        ans = random_name()
+        res = requests.get(f"http://127.0.0.1:{port}/greet/{ans}")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json(), {"hello": ans})
 
 
 if __name__ == "__main__":
