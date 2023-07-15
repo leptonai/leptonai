@@ -39,10 +39,10 @@ var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 	// General Purpose
 	GP1HiddenTest: {
 		Name:        "gp1.hidden_test",
-		Description: "Hidden test shape with 0.3 CPUs and 128MB of RAM",
+		Description: "Hidden test shape with 0.3 CPUs and 256MB of RAM",
 		Resource: LeptonDeploymentReplicaResourceRequirement{
 			CPU:                  0.3,
-			Memory:               128,
+			Memory:               256,
 			EphemeralStorageInGB: 16,
 		},
 	},
