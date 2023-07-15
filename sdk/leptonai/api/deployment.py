@@ -48,6 +48,18 @@ def get_readiness(url: str, auth_token: str, name: str):
     return json_or_error(response)
 
 
+def get_termination(url: str, auth_token: str, name: str):
+    """
+    Get a deployment termination info from a workspace.
+
+    Returns the deployment's information about earlier terminations, if exist.
+    """
+    response = requests.get(
+        url + "/deployments/" + name + "/termination", headers=create_header(auth_token)
+    )
+    return json_or_error(response)
+
+
 def get_replicas(url: str, auth_token: str, name: str):
     """
     Get a deployment's replicas from a workspace.

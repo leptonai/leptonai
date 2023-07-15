@@ -172,6 +172,37 @@ def status(name, show_tokens):
     console.print(table)
     console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
 
+    term_info = guard_api(
+        api.get_termination(workspace_url, auth_token, name),
+        detail=True,
+        msg=f"Cannot obtain termination info for [red]{name}[/]. See error above.",
+    )
+    if len(term_info):
+        console.print("There are earlier terminations. Detailed Info:")
+        table = Table(show_lines=False)
+        table.add_column("replica id")
+        table.add_column("start/end time")
+        table.add_column("reason (code)")
+        table.add_column("message")
+        for id, event_list in term_info.items():
+            for event in event_list:
+                start_time = datetime.fromtimestamp(event["started_at"]).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                end_time = datetime.fromtimestamp(event["finished_at"]).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                code = event["exit_code"]
+                reason = event["reason"]
+                message = event["message"] if event["message"] else "(empty)"
+                table.add_row(
+                    id,
+                    f"{start_time}\n{end_time}",
+                    f"[yellow]{reason} ({code})[/]",
+                    message,
+                )
+        console.print(table)
+
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to get log.", required=True)
