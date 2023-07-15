@@ -7,6 +7,8 @@ provider "aws" {
   # ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs#default_tags-configuration-block
   default_tags {
     tags = {
+      LeptonResourceKind = "eks-mothership"
+
       # used for garbage collection routines
       # TEST: may be destroyed within hours of creation
       # DEV: may be destroyed within 10 days of creation (with notice)
