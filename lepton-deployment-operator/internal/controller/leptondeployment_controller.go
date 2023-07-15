@@ -37,7 +37,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	"github.com/leptonai/lepton/go-pkg/util"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
@@ -115,7 +114,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		}
 
 		// Add our finalizer if it does not exist
-		if ld != nil && !util.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
+		if ld != nil && !goutil.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
 			ld.SetFinalizers(append(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
 			if err := r.Update(ctx, ld); err != nil {
 				goutil.Logger.Errorw("failed to add finalizer to leptonDeployment",
@@ -292,7 +291,7 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
 	}
-	ld.SetFinalizers(util.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
+	ld.SetFinalizers(goutil.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
 	if err := r.Update(ctx, ld); err != nil {
 		goutil.Logger.Errorw("failed to remove the finalizer",
 			"namespace", req.Namespace,
