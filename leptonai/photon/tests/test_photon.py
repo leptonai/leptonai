@@ -314,24 +314,28 @@ class Counter(Photon):
             self.assertEqual(res.status_code, 200)
         res = requests.get(f"http://127.0.0.1:{port}/metrics")
         self.assertEqual(res.status_code, 200)
+
+        # prometheus-fastapi-instrumentator>=6.1.0 added
+        # "method" label to "http_request_duration_seconds" metrics
         self.assertRegex(
-            res.text, r'http_request_duration_seconds_count{handler="/some_path"}'
+            res.text,
+            r'http_request_duration_seconds_count{handler="/some_path"(,method="POST")?}',
         )
         self.assertRegex(
             res.text,
-            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.01"}',
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.01"(,method="POST")?}',
         )
         self.assertRegex(
             res.text,
-            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.78"}',
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="0.78"(,method="POST")?}',
         )
         self.assertRegex(
             res.text,
-            r'http_request_duration_seconds_bucket{handler="/some_path",le="1.1"}',
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="1.1"(,method="POST")?}',
         )
         self.assertRegex(
             res.text,
-            r'http_request_duration_seconds_bucket{handler="/some_path",le="2.3"}',
+            r'http_request_duration_seconds_bucket{handler="/some_path",le="2.3"(,method="POST")?}',
         )
         proc.kill()
 
