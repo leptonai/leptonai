@@ -20,8 +20,8 @@ logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
 class TestPhotonSdk(unittest.TestCase):
-    test_hf_model_id = "hf:runwayml/stable-diffusion-v1-5"
-    test_hf_model_id_revision = "39593d5"
+    test_hf_model_id = "hf:sshleifer/tiny-gpt2"
+    test_hf_model_id_revision = "5f91d94"
 
     def _test_create(self, model_id, revision=None):
         name = random_name()
@@ -46,7 +46,7 @@ class TestPhotonSdk(unittest.TestCase):
 
     def test_run(self):
         ph = photon.create(name="abcde", model=self.test_hf_model_id)
-        ph.run(prompt="a cat", num_inference_steps=2)
+        ph.run("a cat")
 
     def test_save_and_load(self):
         ph = photon.create(name="abcdef", model=self.test_hf_model_id)
@@ -56,25 +56,23 @@ class TestPhotonSdk(unittest.TestCase):
         self.assertTrue(ph.name == "abcdef")
         self.assertTrue(ph.model == f"{self.test_hf_model_id}@{ph.hf_revision}")
         self.assertEqual(ph.hf_revision, revision)
-        ph.run(prompt="a cat", num_inference_steps=2)
+        ph.run("a cat")
 
     def test_create_from_transformers_model(self):
-        model_id = "gpt2"
+        model_id = "sshleifer/tiny-gpt2"
         model = AutoModel.from_pretrained(model_id)
 
-        ph = photon.create(name=model_id, model=model)
+        ph = photon.create(name=random_name(), model=model)
 
-        self.assertTrue(ph.name == model_id)
         self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
     def test_create_from_transformers_pipeline(self):
-        model_id = "gpt2"
+        model_id = "sshleifer/tiny-gpt2"
         pipe = pipeline(model=model_id)
 
-        ph = photon.create(name=model_id, model=pipe)
+        ph = photon.create(name=random_name(), model=pipe)
 
-        self.assertTrue(ph.name == model_id)
         self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
