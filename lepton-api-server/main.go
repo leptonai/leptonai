@@ -12,9 +12,10 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/kv"
-	"github.com/leptonai/lepton/go-pkg/util"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
 	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-contrib/requestid"
 	ginzap "github.com/gin-contrib/zap"
@@ -47,6 +48,8 @@ var (
 
 	storageMountPathFlag *string
 	enableStorageFlag    *bool
+
+	requestTimeoutInternal *string
 )
 
 const (
@@ -84,6 +87,8 @@ func main() {
 
 	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
 	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
+
+	requestTimeoutInternal = flag.String(util.RequestTimeoutInternalCtxKey, "1m", "Default request timeout for internal calls")
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -91,8 +96,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	requestTimeoutInternalDur, err := time.ParseDuration(*requestTimeoutInternal)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	// Create and verify the bucket.
-	var err error
 	photonBucket, err = blob.OpenBucket(context.TODO(),
 		fmt.Sprintf("%s://%s?region=%s&prefix=%s/",
 			*bucketTypeFlag,
@@ -126,13 +135,14 @@ func main() {
 
 	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag)
 
-	log.Printf("Starting the Lepton Server on :%d...\n", apiServerPort)
+	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 	router.Use(requestid.New())
+	router.Use(setRequestTimeoutInternal(requestTimeoutInternalDur))
 
-	logger := util.Logger.Desugar()
+	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:
 	//   - Logs all requests, like a combined access and error log.
 	//   - Logs to stdout.
@@ -251,6 +261,13 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+func setRequestTimeoutInternal(d time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(util.RequestTimeoutInternalCtxKey, d)
 		c.Next()
 	}
 }

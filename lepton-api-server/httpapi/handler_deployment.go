@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,12 +33,14 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
-	if err := h.validateCreateInput(&ld.Spec.LeptonDeploymentUserSpec); err != nil {
+	if err := h.validateCreateInput(c, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
 
-	ph, err := h.phDB.Get(context.Background(), ld.Spec.PhotonID)
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	ph, err := h.phDB.Get(ctx, ld.Spec.PhotonID)
+	cancel()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
 		return
@@ -68,7 +69,10 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	ld.Namespace = h.namespace
 	ld.Name = ld.GetSpecName()
 
-	if err := h.ldDB.Create(context.Background(), ld.Name, ld); err != nil {
+	ctx, cancel = util.CreateCtxFromGinCtx(c)
+	err = h.ldDB.Create(ctx, ld.Name, ld)
+	cancel()
+	if err != nil {
 		goutil.Logger.Errorw("failed to create deployment",
 			"deployment", ld.Name,
 			"operation", "create",
@@ -90,7 +94,9 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 }
 
 func (h *DeploymentHandler) List(c *gin.Context) {
-	lds, err := h.ldDB.List(context.Background())
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	lds, err := h.ldDB.List(ctx)
+	cancel()
 	if err != nil {
 		goutil.Logger.Errorw("failed to list deployments",
 			"operation", "list",
@@ -110,7 +116,9 @@ func (h *DeploymentHandler) List(c *gin.Context) {
 
 func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
-	ld, err := h.ldDB.Get(context.Background(), did)
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	ld, err := h.ldDB.Get(ctx, did)
+	cancel()
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
@@ -127,7 +135,7 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
-	if err := h.validateUpdateInput(ldi); err != nil {
+	if err := h.validateUpdateInput(c, ldi); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
@@ -135,7 +143,10 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	ld.Patch(ldi)
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
-	if err := h.ldDB.Update(context.Background(), ld.Name, ld); err != nil {
+	ctx, cancel = util.CreateCtxFromGinCtx(c)
+	err = h.ldDB.Update(ctx, ld.Name, ld)
+	cancel()
+	if err != nil {
 		goutil.Logger.Errorw("failed to update deployment",
 			"deployment", ld.GetSpecName(),
 			"operation", "update",
@@ -156,7 +167,9 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 
 func (h *DeploymentHandler) Get(c *gin.Context) {
 	did := c.Param("did")
-	ld, err := h.ldDB.Get(context.Background(), did)
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	ld, err := h.ldDB.Get(ctx, did)
+	cancel()
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
@@ -166,8 +179,13 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	if err := h.ldDB.Delete(context.Background(), did); err != nil {
-		if _, err := h.ldDB.Get(context.Background(), did); err != nil && apierrors.IsNotFound(err) {
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	err := h.ldDB.Delete(ctx, did)
+	cancel()
+	if err != nil {
+		ctx, cancel = util.CreateCtxFromGinCtx(c)
+		defer cancel()
+		if _, err := h.ldDB.Get(ctx, did); err != nil && apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 			return
 		}
@@ -183,7 +201,7 @@ func (h *DeploymentHandler) Delete(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
+func (h *DeploymentHandler) validateCreateInput(c *gin.Context, ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	if !util.ValidateName(ld.Name) {
 		return fmt.Errorf("invalid name %s: %s", ld.Name, util.NameInvalidMessage)
 	}
@@ -221,20 +239,24 @@ func (h *DeploymentHandler) validateCreateInput(ld *leptonaiv1alpha1.LeptonDeplo
 		return nil
 	}
 
-	_, err := h.phDB.Get(context.Background(), ld.PhotonID)
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	_, err := h.phDB.Get(ctx, ld.PhotonID)
+	cancel()
 	if err != nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
 	return nil
 }
 
-func (h *DeploymentHandler) validateUpdateInput(ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
+func (h *DeploymentHandler) validateUpdateInput(c *gin.Context, ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	valid := false
 	if ld.ResourceRequirement.MinReplicas > 0 {
 		valid = true
 	}
 	if ld.PhotonID != "" {
-		_, err := h.phDB.Get(context.Background(), ld.PhotonID)
+		ctx, cancel := util.CreateCtxFromGinCtx(c)
+		_, err := h.phDB.Get(ctx, ld.PhotonID)
+		cancel()
 		if err != nil {
 			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 		}

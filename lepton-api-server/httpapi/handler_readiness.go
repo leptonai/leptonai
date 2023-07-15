@@ -1,12 +1,12 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-gonic/gin"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,10 +21,13 @@ type DeploymentReadinessHandler struct {
 func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 	deployment := &appsv1.Deployment{}
-	err := k8s.Client.Get(context.Background(), types.NamespacedName{
+
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	err := k8s.Client.Get(ctx, types.NamespacedName{
 		Namespace: h.namespace,
 		Name:      name,
 	}, deployment)
+	cancel()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})

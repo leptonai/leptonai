@@ -3,6 +3,7 @@ package httpapi
 import (
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
@@ -90,7 +91,7 @@ func TestValidateCreateInput_ResourceRequirement(t *testing.T) {
 			ResourceRequirement: tt.r,
 		}
 		r.ResourceRequirement.MinReplicas = 1
-		err := h.validateCreateInput(r)
+		err := h.validateCreateInput(&gin.Context{}, r)
 		if tt.e && err == nil {
 			t.Errorf("Test %d: Expected error, but got none", i)
 		}
