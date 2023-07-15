@@ -22,11 +22,19 @@ export class FileManagerServerService implements FileManagerService<FileInfo> {
   list(file?: FileInfo): Observable<FileInfo[]> {
     return this.apiService.listStorageEntries(this.getStoragePath(file)).pipe(
       map((entries) =>
-        entries.map((entry) => ({
-          ...entry,
-          // FIXME(hsuanxyz): don't hardcode this, should remove it by backend or config from API
-          path: entry.path.replace("/mnt/efs/default", ""),
-        }))
+        entries
+          .map((entry) => ({
+            ...entry,
+            // FIXME(hsuanxyz): don't hardcode this, should remove it by backend or config from API
+            path: entry.path.replace("/mnt/efs/default", ""),
+          }))
+          .sort((a, b) => {
+            if (a.type === b.type) {
+              return a.name.localeCompare(b.name);
+            } else {
+              return a.type === "dir" ? -1 : 1;
+            }
+          })
       )
     );
   }
