@@ -14,7 +14,7 @@ func TestPhotonCreateAndRemove(t *testing.T) {
 		pName := newName(t.Name())
 		pNames = append(pNames, pName)
 
-		out, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
+		out, err := client.RunLocal("photon", "create", "-n", pName, "-m", modelName)
 		if err != nil {
 			log.Fatalf("Failed to create photon %s: %s: %s", pName, err, out)
 		}
@@ -52,7 +52,7 @@ func TestPhotonCreateAndRemove(t *testing.T) {
 
 func TestPhotonPushTwice(t *testing.T) {
 	pName := newName(t.Name())
-	out, err := client.RunLocal("photon", "create", "-n", pName, "-m", "hf:gpt2")
+	out, err := client.RunLocal("photon", "create", "-n", pName, "-m", modelName)
 	if err != nil {
 		log.Fatalf("Failed to create photon %s: %s: %s", pName, err, out)
 	}

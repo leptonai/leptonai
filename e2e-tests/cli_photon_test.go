@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-const (
-	model = "hf:gpt2"
-)
-
 var (
 	// is there a good way to handle the error?
 	homeDir, _        = os.UserHomeDir()
@@ -23,7 +19,7 @@ var (
 )
 
 func TestCLIPhotonCreateNoName(t *testing.T) {
-	fullArgs := []string{"photon", "create", "-m", model}
+	fullArgs := []string{"photon", "create", "-m", modelName}
 	output, err := client.Run(fullArgs...)
 	if err == nil {
 		t.Fatal("Expected error since no name was provided, got none", output)
@@ -44,7 +40,7 @@ func TestCLIPhotonCreatePushWithLogin(t *testing.T) {
 		t.Fatal("Login failed", err, output)
 	}
 	pName := newName(cliTestPhotonName)
-	output, err = createAndCheckPhoton(pName, model)
+	output, err = createAndCheckPhoton(pName, modelName)
 	if err != nil {
 		t.Fatalf("Failed to check photon %s with err '%s' and output '%s'", pName, err, output)
 	}
@@ -83,7 +79,7 @@ func TestCLIPhotonPushWithoutLogin(t *testing.T) {
 		t.Fatal("Logout failed", err, output)
 	}
 	pName := newName(cliTestPhotonName)
-	output, err = createAndCheckPhoton(pName, model)
+	output, err = createAndCheckPhoton(pName, modelName)
 	if err != nil {
 		t.Fatalf("Failed to check photon %s with err '%s' and output '%s'", pName, err, output)
 	}
@@ -113,7 +109,7 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 		t.Fatal("Login failed", err, output)
 	}
 	pName := newName(cliTestPhotonName)
-	output, err = createAndCheckPhoton(pName, model)
+	output, err = createAndCheckPhoton(pName, modelName)
 	if err != nil {
 		t.Fatalf("Failed to check photon %s with err '%s' and output '%s'", pName, err, output)
 	}
@@ -133,12 +129,12 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	ph := phs[0]
 	pid := ph.ID
 
-	fullArgs = []string{"photon", "run", "-n", pName}
+	fullArgs = []string{"photon", "run", "-n", pName, "-r", "gp1.hidden_test"}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatal(err, output)
 	}
-	fullArgs = []string{"photon", "run", "-i", pid}
+	fullArgs = []string{"photon", "run", "-i", pid, "-r", "gp1.hidden_test"}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatal(err, output)
@@ -173,7 +169,7 @@ func TestCLIPhotonList(t *testing.T) {
 		// using lt to prevent truncated names from being identical
 		pName := newName("lt")
 		pNames = append(pNames, pName)
-		fullArgs := []string{"photon", "create", "-n", pName, "-m", model}
+		fullArgs := []string{"photon", "create", "-n", pName, "-m", modelName}
 		output, err = client.Run(fullArgs...)
 		if err != nil {
 			t.Fatalf("Create photon %s failed: %s %s", pName, err, output)

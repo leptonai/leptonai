@@ -37,6 +37,10 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+const (
+	modelName = "../sdk/leptonai/examples/elements/main.py"
+)
+
 func prepare() {
 	flag.Parse()
 	// Wait for DNS propagation
@@ -63,7 +67,7 @@ func teardown() {
 
 func mustPrepareTest() {
 	// create a photon
-	out, err := client.RunLocal("photon", "create", "-n", mainTestPhotonName, "-m", "hf:gpt2")
+	out, err := client.RunLocal("photon", "create", "-n", mainTestPhotonName, "-m", modelName)
 	if err != nil {
 		log.Fatalf("Failed to create photon %s: %s: %s", mainTestPhotonName, err, out)
 	}
