@@ -41,7 +41,7 @@ func getDeploymentTerminations(deployment *appsv1.Deployment) (DeploymentTermina
 	for _, pod := range podList.Items {
 		// explictly not ignoring pods in Pending/Failed state
 		ts := getReplicaTerminations(&pod)
-		if ts != nil {
+		if len(ts) != 0 {
 			terminations[ReplicaID(pod.Name)] = ts
 		}
 	}
@@ -54,7 +54,7 @@ func getReplicaTerminations(pod *corev1.Pod) []ReplicaTermination {
 	terminations := make([]ReplicaTermination, 0)
 
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.State.Terminated != nil {
+		if containerStatus.LastTerminationState.Terminated != nil {
 			if containerStatus.State.Terminated.Reason == "Completed" {
 				// ignore containers that completed successfully
 				continue
