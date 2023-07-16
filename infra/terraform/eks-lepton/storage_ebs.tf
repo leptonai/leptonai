@@ -1,14 +1,179 @@
-module "ebs_csi_driver_irsa" {
-  source                = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version               = "~> 5.14"
-  role_name             = format("%s-%s", local.cluster_name, "ebs-csi-driver")
-  attach_ebs_csi_policy = true
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
-    }
-  }
+# https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/4bd6454fd606d9b422702ac4c614e4039fd14156/docs/example-iam-policy.json#L4
+resource "aws_iam_policy" "csi_ebs" {
+  name        = "${local.cluster_name}-csi-ebs-policy"
+  description = "CSI EBS driver IAM policy"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateSnapshot",
+          "ec2:AttachVolume",
+          "ec2:DetachVolume",
+          "ec2:ModifyVolume",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeInstances",
+          "ec2:DescribeSnapshots",
+          "ec2:DescribeTags",
+          "ec2:DescribeVolumes",
+          "ec2:DescribeVolumesModifications"
+        ],
+        "Resource" : "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateTags"
+        ],
+        "Resource" : [
+          "arn:aws:ec2:*:*:volume/*",
+          "arn:aws:ec2:*:*:snapshot/*"
+        ],
+        "Condition" : {
+          "StringEquals" : {
+            "ec2:CreateAction" : [
+              "CreateVolume",
+              "CreateSnapshot"
+            ]
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteTags"
+        ],
+        "Resource" : [
+          "arn:aws:ec2:*:*:volume/*",
+          "arn:aws:ec2:*:*:snapshot/*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateVolume"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "aws:RequestTag/ebs.csi.aws.com/cluster" : "true"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateVolume"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "aws:RequestTag/CSIVolumeName" : "*"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteVolume"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "ec2:ResourceTag/ebs.csi.aws.com/cluster" : "true"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteVolume"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "ec2:ResourceTag/CSIVolumeName" : "*"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteVolume"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "ec2:ResourceTag/kubernetes.io/created-for/pvc/name" : "*"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteSnapshot"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "ec2:ResourceTag/CSIVolumeSnapshotName" : "*"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:DeleteSnapshot"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "ec2:ResourceTag/ebs.csi.aws.com/cluster" : "true"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "csi_ebs" {
+  name = "${local.cluster_name}-csi-ebs-role"
+
+  assume_role_policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Principal : {
+          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+        },
+        Action : "sts:AssumeRoleWithWebIdentity",
+        Condition : {
+          StringEquals : {
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          }
+        }
+      }
+    ]
+  })
+
+  depends_on = [
+    module.eks,
+    module.vpc
+  ]
+}
+
+resource "aws_iam_role_policy_attachment" "csi_ebs" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_ebs.name}"
+  role       = aws_iam_role.csi_ebs.name
+
+  depends_on = [
+    aws_iam_policy.csi_ebs,
+    aws_iam_role.csi_ebs
+  ]
 }
 
 # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
@@ -27,10 +192,10 @@ resource "aws_eks_addon" "csi_ebs" {
   # whether to preserve the created resources when deleting the EKS add-on
   preserve = false
 
-  service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+  service_account_role_arn = aws_iam_role.csi_ebs.arn
 
   depends_on = [
     module.eks,
-    module.ebs_csi_driver_irsa
+    aws_iam_role_policy_attachment.csi_ebs
   ]
 }
