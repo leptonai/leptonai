@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 	mothershipv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -27,7 +28,9 @@ func init() {
 	var err error
 	Config, err = config.GetConfig()
 	if err != nil {
-		panic(err)
+		goutil.Logger.Errorw("failed to get k8s config",
+			"error", err,
+		)
 	}
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
