@@ -1,9 +1,8 @@
 [project]
 name = "leptonai"
-version = "0.1"
 description = "Lepton AI Platform"
 authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "version"]
 
 [project.urls]
 Homepage = "https://lepton.ai"
@@ -23,8 +22,18 @@ test = [
 ]
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<=7.1.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = ".."
+write_to = "sdk/leptonai/_version.py"
+
+# add .post1.devN to last tagged version (N is the number of commits
+# since the tagged commit)
+version_scheme="no-guess-dev"
+# add git commit (and date if working dir is dirty) to the version tag
+local_scheme="node-and-date"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["leptonai/requirements.txt"]}

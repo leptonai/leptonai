@@ -1,5 +1,6 @@
 import click
 
+import leptonai
 from . import deployment
 from . import in_n_out
 from . import photon
@@ -11,6 +12,7 @@ from .util import click_group
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
+@click.version_option(leptonai.__version__, "-v", "--version")
 @click_group(context_settings=CONTEXT_SETTINGS)
 def lep():
     """
