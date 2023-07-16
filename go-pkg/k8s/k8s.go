@@ -31,6 +31,7 @@ func init() {
 		goutil.Logger.Errorw("failed to get k8s config",
 			"error", err,
 		)
+		return
 	}
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -38,7 +39,9 @@ func init() {
 	utilruntime.Must(mothershipv1alpha1.AddToScheme(scheme))
 	Client, err = client.NewWithWatch(Config, client.Options{Scheme: scheme})
 	if err != nil {
-		panic(err)
+		goutil.Logger.Errorw("failed to create k8s client",
+			"error", err,
+		)
 	}
 }
 
