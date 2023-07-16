@@ -38,8 +38,8 @@ var (
 	efsIDFlag                      *string
 	dynamodbNameFlag               *string
 
-	photonPrefixFlag *string
 	namespaceFlag    *string
+	photonPrefixFlag *string
 
 	serviceAccountNameFlag *string
 	prometheusURLFlag      *string
@@ -100,24 +100,21 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	// Create and verify the bucket.
-	photonBucket, err = blob.OpenBucket(context.TODO(),
-		fmt.Sprintf("%s://%s?region=%s&prefix=%s/",
-			*bucketTypeFlag,
-			*bucketNameFlag,
-			*regionFlag,
-			*photonPrefixFlag))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	accessible, err := photonBucket.IsAccessible(context.Background())
-	if err != nil {
-		log.Fatalln(err)
-	}
-	if !accessible {
-		log.Fatalln("bucket is not accessible")
-	}
+	pbu := goutil.MustOpenAndAccessBucket(
+		context.Background(),
+		*bucketTypeFlag,
+		*bucketNameFlag,
+		*regionFlag,
+		*photonPrefixFlag,
+	)
+	backupPrefix := "workspace-backups"
+	bbu := goutil.MustOpenAndAccessBucket(
+		context.Background(),
+		*bucketTypeFlag,
+		*bucketNameFlag,
+		*regionFlag,
+		backupPrefix,
+	)
 
 	handler := httpapi.New(
 		*namespaceFlag,
@@ -130,7 +127,8 @@ func main() {
 		*workspaceNameFlag,
 		*certificateARNFlag,
 		*apiTokenFlag,
-		photonBucket,
+		pbu,
+		bbu,
 	)
 
 	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag)

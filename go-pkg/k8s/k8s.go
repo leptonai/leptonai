@@ -24,12 +24,19 @@ var (
 
 func init() {
 	// TODO: handle the errors
-	Config, _ = config.GetConfig()
+	var err error
+	Config, err = config.GetConfig()
+	if err != nil {
+		panic(err)
+	}
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(leptonaiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(mothershipv1alpha1.AddToScheme(scheme))
-	Client, _ = client.NewWithWatch(Config, client.Options{Scheme: scheme})
+	Client, err = client.NewWithWatch(Config, client.Options{Scheme: scheme})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func MustInitK8sClientSetWithConfig() (*kubernetes.Clientset, *rest.Config) {

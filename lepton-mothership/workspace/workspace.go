@@ -25,10 +25,12 @@ import (
 const storeNamespace = "default"
 
 // Make workspace a struct and do not use global variables
+// TODO: do we want to backup the workspaces?
 var (
 	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonWorkspace](
 		storeNamespace,
 		&crdv1alpha1.LeptonWorkspace{},
+		nil,
 	)
 
 	Worker = worker.New()

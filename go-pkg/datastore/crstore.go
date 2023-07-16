@@ -3,12 +3,20 @@ package datastore
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
+	archiver "github.com/mholt/archiver/v3"
+	"gocloud.dev/blob"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,12 +24,15 @@ import (
 type CRStore[T client.Object] struct {
 	namespace string
 	example   T
+
+	backupBucket *blob.Bucket
 }
 
-func NewCRStore[T client.Object](namespace string, example T) *CRStore[T] {
+func NewCRStore[T client.Object](namespace string, example T, backupBucket *blob.Bucket) *CRStore[T] {
 	return &CRStore[T]{
-		namespace: namespace,
-		example:   example,
+		namespace:    namespace,
+		example:      example,
+		backupBucket: backupBucket,
 	}
 }
 
@@ -90,4 +101,82 @@ func (s *CRStore[T]) Delete(ctx context.Context, name string) error {
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.Client.Delete(ctx, t)
+}
+
+// Backup creates a tarball of all CRs in the store and uploads it to the backup bucket.
+func (s *CRStore[T]) Backup(ctx context.Context) error {
+	if s.backupBucket == nil {
+		return fmt.Errorf("backupBucket is not set")
+	}
+
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "crstore")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	crdDir := path.Join(tmpDir, "crds")
+	err = os.Mkdir(crdDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	ts, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	js := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme,
+		scheme.Scheme, json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
+
+	for _, t := range ts {
+		f, err := os.Create(path.Join(crdDir, t.GetName()))
+		if err != nil {
+			return err
+		}
+
+		err = js.Encode(t, f)
+		if err != nil {
+			return err
+		}
+		err = f.Close()
+		if err != nil {
+			goutil.Logger.Errorw("failed to close file",
+				"operation", "backup",
+				"filename", f.Name(),
+				"err", err,
+			)
+		}
+	}
+
+	destFile := path.Join(tmpDir, "backup.tar.gz")
+	err = archiver.NewTarGz().Archive([]string{crdDir}, destFile)
+	if err != nil {
+		return err
+	}
+
+	uploadFilename := fmt.Sprintf("backup-%s.tar.gz", time.Now().Format("2006-01-02T15:04:05"))
+
+	bw, err := s.backupBucket.NewWriter(ctx, uploadFilename, nil)
+	if err != nil {
+		return err
+	}
+	defer bw.Close()
+
+	r, err := os.Open(destFile)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	n, err := bw.ReadFrom(r)
+	if err != nil {
+		return err
+	}
+
+	goutil.Logger.Infow("uploaded backup",
+		"filename", uploadFilename,
+		"size", n)
+
+	return nil
 }

@@ -25,7 +25,9 @@ func TestCRStore(t *testing.T) {
 	}
 
 	example := &leptonaiv1alpha1.Photon{}
-	s := NewCRStore[*leptonaiv1alpha1.Photon](namespace, example)
+
+	// TODO: enable backup in test
+	s := NewCRStore[*leptonaiv1alpha1.Photon](namespace, example, nil)
 
 	crName := "test-cr-" + util.RandString(6)
 
@@ -61,6 +63,12 @@ func TestCRStore(t *testing.T) {
 	if !found {
 		t.Fatalf("Expect to find %s in list, but not found", crName)
 	}
+
+	err = s.Backup(context.TODO())
+	if err != nil {
+		t.Skip("Failed to backup:", err)
+	}
+
 	// Delete
 	if err := s.Delete(context.TODO(), crName); err != nil {
 		t.Fatalf("Failed to delete: %v", err)

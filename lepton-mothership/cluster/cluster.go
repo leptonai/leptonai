@@ -24,10 +24,12 @@ import (
 const storeNamespace = "default"
 
 // Make cluster a struct and do not use global variables
+// TODO: do we want to backup the cluster state?
 var (
 	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
 		storeNamespace,
 		&crdv1alpha1.LeptonCluster{},
+		nil,
 	)
 
 	Worker = worker.New()
