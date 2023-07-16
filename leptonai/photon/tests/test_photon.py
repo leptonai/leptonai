@@ -19,6 +19,13 @@ except ImportError:
 else:
     has_gradio = True
 
+try:
+    import hnsqlite  # noqa: F401
+except ImportError:
+    has_hnsqlite = False
+else:
+    has_hnsqlite = True
+
 import concurrent.futures
 from io import BytesIO
 import inspect
@@ -339,6 +346,7 @@ class Counter(Photon):
         )
         proc.kill()
 
+    @unittest.skipIf(not has_hnsqlite, "hnsqlite not installed")
     def test_vec_db_examples(self):
         name = random_name()
 

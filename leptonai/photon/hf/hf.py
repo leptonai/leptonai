@@ -48,6 +48,13 @@ SUPPORTED_TASKS = [
     "sentence-similarity",
 ]
 
+# This is a manually maintained list of mappings from model name to
+# tasks. Somehow these models are not properly annotated in the Huggingface
+# Hub.
+_MANUALLY_ANNOTATED_MODEL_TO_TASK = {
+    "hf-internal-testing/tiny-stable-diffusion-torch": "text-to-image",
+}
+
 schemas = ["hf", "huggingface"]
 
 
@@ -90,13 +97,17 @@ class HuggingfacePhoton(Photon):
             revision = None
         mi = model_info(hf_model_id, revision=revision)
 
-        try:
-            hf_task = mi.pipeline_tag
-        except AttributeError:
-            raise ValueError(
-                f'Unsupported Huggingface model: "{model_str}" (can not find'
-                " corresponding task)"
-            )
+        if hf_model_id in _MANUALLY_ANNOTATED_MODEL_TO_TASK:
+            hf_task = _MANUALLY_ANNOTATED_MODEL_TO_TASK[hf_model_id]
+        else:
+            try:
+                hf_task = mi.pipeline_tag
+            except AttributeError:
+                raise ValueError(
+                    f'Unsupported Huggingface model: "{model_str}" (can not find'
+                    " corresponding task)"
+                )
+
         if hf_task not in SUPPORTED_TASKS:
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (task: "{hf_task}")'
