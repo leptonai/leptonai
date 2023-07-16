@@ -5,9 +5,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"time"
+
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/dustin/go-humanize"
@@ -17,8 +18,6 @@ import (
 const describeInterval = 5 * time.Second
 
 func ListFileSystems(ctx context.Context, cli *aws_efs_v2.Client) ([]FileSystem, error) {
-	log.Println("listing EFS volumes")
-
 	fss := make([]FileSystem, 0)
 	var nextMarker *string = nil
 	for i := 0; i < 10; i++ {
@@ -80,7 +79,9 @@ func ListFileSystems(ctx context.Context, cli *aws_efs_v2.Client) ([]FileSystem,
 		time.Sleep(describeInterval)
 	}
 
-	log.Printf("listed %d EFS filesystems", len(fss))
+	goutil.Logger.Debugw("listed EFS filesystems",
+		"filesystems", len(fss),
+	)
 	return fss, nil
 }
 

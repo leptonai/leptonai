@@ -28,7 +28,7 @@ func init() {
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all quotas",
+		Short: "List all volumes",
 		Run:   listFunc,
 	}
 	cmd.PersistentFlags().StringSliceVar(&volumeKinds, "volume-kinds", []string{"efs"}, "Volume kinds to list")
