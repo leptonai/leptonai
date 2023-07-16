@@ -11,11 +11,6 @@ set -x
 # NOTE
 # "aws_acm_certificate" depends on the EKS cluster load balancer
 # so we need to delete the EKS cluster first
-#
-# NOTE
-# destroying "module.eks_blueprints_addons" may not work, some pods stuck in Terminating
-# workarounds can be found here https://github.com/leptonai/lepton/issues/546 and implemented using local-exec
-# TODO: Can we remove those hacks with custom terraform provider?
 targets=(
   "null_resource.delete_all_lepton_deployments_and_ingresses"
   "helm_release.lepton_crd"
@@ -25,7 +20,6 @@ targets=(
   "null_resource.delete_calico_installation"
 
   "helm_release.kube_prometheus_stack"
-  "module.eks_blueprints_addons"
 )
 
 if [ -z "$CLUSTER_NAME" ]; then

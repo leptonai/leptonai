@@ -1,10 +1,10 @@
 resource "aws_security_group" "eks" {
-  name_prefix = "${local.cluster_name}-sg-cluster"
+  name_prefix = "${local.cluster_name}-cluster-sg"
   description = "Secondary EKS cluster security group to allow traffic from/to nodes"
   vpc_id      = module.vpc.vpc_id
 
   tags = {
-    "Name" = "${local.cluster_name}-sg-cluster"
+    "Name" = "${local.cluster_name}-cluster-sg"
   }
 
   depends_on = [
@@ -16,7 +16,7 @@ resource "aws_security_group" "eks" {
 # not required for default EKS-provided AMIs
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/node_groups.tf
 resource "aws_security_group" "nodes" {
-  name        = "${local.cluster_name}-sg-nodes"
+  name        = "${local.cluster_name}-nodes-sg"
   description = "Additional security group to attach to EKS managed node groups with custom AMIs"
   vpc_id      = module.vpc.vpc_id
 
@@ -28,7 +28,7 @@ resource "aws_security_group" "nodes" {
   }
 
   tags = {
-    "Name" = "${local.cluster_name}-sg-nodes"
+    "Name" = "${local.cluster_name}-nodes-sg"
   }
 
   depends_on = [

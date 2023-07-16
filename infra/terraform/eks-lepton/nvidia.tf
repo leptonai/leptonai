@@ -1,4 +1,5 @@
-resource "helm_release" "gpu-operator" {
+# https://github.com/NVIDIA/gpu-operator/tree/master/deployments/gpu-operator
+resource "helm_release" "nvidia_gpu_operator" {
   name             = "gpu-operator"
   repository       = "https://helm.ngc.nvidia.com/nvidia"
   chart            = "gpu-operator"

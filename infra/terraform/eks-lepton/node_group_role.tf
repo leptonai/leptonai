@@ -12,7 +12,7 @@ data "aws_partition" "current" {}
 # which is same as the previous behavior
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/variables.tf
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-data "aws_iam_policy_document" "assume_role_policy_mng" {
+data "aws_iam_policy_document" "mng" {
   statement {
     sid     = "EKSNodeAssumeRole"
     actions = ["sts:AssumeRole"]
@@ -25,10 +25,10 @@ data "aws_iam_policy_document" "assume_role_policy_mng" {
 }
 
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-resource "aws_iam_role" "mng_iam_role" {
-  name = "${var.cluster_name}-role-mng"
+resource "aws_iam_role" "mng" {
+  name = "${var.cluster_name}-mng-role"
 
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy_mng.json
+  assume_role_policy = data.aws_iam_policy_document.mng.json
 
   # force detaching policies from this role
   # to speed up uninstall process
@@ -42,17 +42,17 @@ locals {
 # DO NOT USE "for_each" nor "dynamic"
 # see https://github.com/leptonai/lepton/issues/1117
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKSWorkerNodePolicy" {
+resource "aws_iam_role_policy_attachment" "mng_AmazonEKSWorkerNodePolicy" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.mng_iam_role.name
+  role       = aws_iam_role.mng.name
 }
 
 # DO NOT USE "for_each" nor "dynamic"
 # see https://github.com/leptonai/lepton/issues/1117
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEC2ContainerRegistryReadOnly" {
+resource "aws_iam_role_policy_attachment" "mng_AmazonEC2ContainerRegistryReadOnly" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.mng_iam_role.name
+  role       = aws_iam_role.mng.name
 }
 
 # DO NOT USE "for_each" nor "dynamic"
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEC2Conta
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 #
 # "AmazonEKS_CNI_IPv6_Policy" is only required when cluster IP family is set to "ipv6"
-resource "aws_iam_role_policy_attachment" "role_policy_attachment_AmazonEKS_CNI_Policy" {
+resource "aws_iam_role_policy_attachment" "mng_AmazonEKS_CNI_Policy" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.mng_iam_role.name
+  role       = aws_iam_role.mng.name
 }

@@ -14,7 +14,7 @@ targets=(
   "aws_security_group.nodes"
   "aws_security_group_rule.nodes"
   "aws_security_group_rule.ingress_from_node_to_cluster"
-  "aws_security_group.alb_shared_backend"
+  "aws_security_group.alb_controller"
 
   "module.eks"
   "kubernetes_config_map.aws_auth"
@@ -27,16 +27,17 @@ targets=(
   "aws_eks_node_group.al2_x86_64_ac_g4dnxlarge"
 
   "module.ebs_csi_driver_irsa"
-  "aws_eks_addon.aws-ebs-csi-driver"
-  "helm_release.aws_efs_csi_driver"
+  "aws_eks_addon.csi_ebs"
+  "helm_release.csi_efs"
 
-  "helm_release.gpu-operator"
+  "helm_release.nvidia_gpu_operator"
+  "helm_release.external_dns"
 
   # bug https://github.com/hashicorp/terraform-provider-kubernetes/issues/1917
   # need to apply this first to avoid network policy CRD creation error, [depend on] does not work
   "helm_release.calico"
 
-  "module.eks_blueprints_addons"
+  "aws_eks_addon.kubecost"
   "helm_release.kube_prometheus_stack"
 )
 
@@ -65,6 +66,9 @@ terraform init --upgrade
 # loads additional flags and values for the following "terraform apply" commands
 # shellcheck source=/dev/null
 source ./variables.sh
+
+export TF_LOG="DEBUG"
+export TF_LOG_PATH="tf.install.log"
 
 CHECK_TERRAFORM_APPLY_OUTPUT=${CHECK_TERRAFORM_APPLY_OUTPUT:-true}
 

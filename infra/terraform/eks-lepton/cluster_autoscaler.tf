@@ -1,8 +1,8 @@
 # https://github.com/kubernetes/autoscaler/issues/3216
 # https://github.com/kubernetes/autoscaler/pull/4701
 # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#iam-policy
-resource "aws_iam_policy" "cluster_autoscaler_iam_policy" {
-  name        = "${var.cluster_name}-cluster-autoscaler-iam-policy"
+resource "aws_iam_policy" "cluster_autoscaler" {
+  name        = "${var.cluster_name}-cluster-autoscaler-policy"
   description = "Cluster autoscaler IAM Policy"
 
   # make sure the cluster-autoscaler only has access
@@ -55,8 +55,8 @@ resource "aws_iam_policy" "cluster_autoscaler_iam_policy" {
   ]
 }
 
-resource "aws_iam_role" "cluster_autoscaler_iam_role" {
-  name = "${var.cluster_name}-cluster-autoscaler-iam-role"
+resource "aws_iam_role" "cluster_autoscaler" {
+  name = "${var.cluster_name}-cluster-autoscaler-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -84,17 +84,17 @@ resource "aws_iam_role" "cluster_autoscaler_iam_role" {
   ]
 }
 
-resource "aws_iam_role_policy_attachment" "cluster_autoscaler_iam_role_policy_attach" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.cluster_autoscaler_iam_policy.name}"
-  role       = aws_iam_role.cluster_autoscaler_iam_role.name
+resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.cluster_autoscaler.name}"
+  role       = aws_iam_role.cluster_autoscaler.name
 
   depends_on = [
-    aws_iam_policy.cluster_autoscaler_iam_policy,
-    aws_iam_role.cluster_autoscaler_iam_role
+    aws_iam_policy.cluster_autoscaler,
+    aws_iam_role.cluster_autoscaler
   ]
 }
 
-resource "kubernetes_service_account" "cluster_autoscaler_sa" {
+resource "kubernetes_service_account" "cluster_autoscaler" {
   metadata {
     name      = "cluster-autoscaler-sa"
     namespace = "kube-system"
@@ -105,12 +105,12 @@ resource "kubernetes_service_account" "cluster_autoscaler_sa" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.cluster_autoscaler_iam_role.name}"
+      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.cluster_autoscaler.name}"
     }
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.cluster_autoscaler_iam_role_policy_attach,
+    aws_iam_role_policy_attachment.cluster_autoscaler,
 
     # k8s object requires access to EKS cluster via aws-auth
     # also required for deletion
@@ -120,7 +120,7 @@ resource "kubernetes_service_account" "cluster_autoscaler_sa" {
 }
 
 # ref. https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
-resource "kubernetes_role" "cluster_autoscaler_role" {
+resource "kubernetes_role" "cluster_autoscaler" {
   metadata {
     name      = "cluster-autoscale-role"
     namespace = "kube-system"
@@ -140,7 +140,7 @@ resource "kubernetes_role" "cluster_autoscaler_role" {
   }
 }
 
-resource "kubernetes_role_binding" "cluster_autoscaler_role_binding" {
+resource "kubernetes_role_binding" "cluster_autoscaler" {
   metadata {
     name      = "cluster-autoscale-role-binding"
     namespace = "kube-system"
@@ -149,18 +149,18 @@ resource "kubernetes_role_binding" "cluster_autoscaler_role_binding" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
-    name      = kubernetes_role.cluster_autoscaler_role.metadata[0].name
+    name      = kubernetes_role.cluster_autoscaler.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.cluster_autoscaler_sa.metadata[0].name
+    name      = kubernetes_service_account.cluster_autoscaler.metadata[0].name
     namespace = "kube-system"
   }
 
   depends_on = [
-    kubernetes_service_account.cluster_autoscaler_sa,
-    kubernetes_role.cluster_autoscaler_role,
+    kubernetes_service_account.cluster_autoscaler,
+    kubernetes_role.cluster_autoscaler,
 
     # k8s object requires access to EKS cluster via aws-auth
     # also required for deletion
@@ -170,7 +170,7 @@ resource "kubernetes_role_binding" "cluster_autoscaler_role_binding" {
 }
 
 # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
-resource "kubernetes_cluster_role" "cluster_autoscaler_cluster_role" {
+resource "kubernetes_cluster_role" "cluster_autoscaler" {
   metadata {
     name = "cluster-autoscaler-cluster-role"
   }
@@ -263,7 +263,7 @@ resource "kubernetes_cluster_role" "cluster_autoscaler_cluster_role" {
   ]
 }
 
-resource "kubernetes_cluster_role_binding" "cluster_autoscaler_cluster_role_binding" {
+resource "kubernetes_cluster_role_binding" "cluster_autoscaler" {
   metadata {
     name = "cluster-autoscaler-cluster-role-binding"
   }
@@ -271,18 +271,18 @@ resource "kubernetes_cluster_role_binding" "cluster_autoscaler_cluster_role_bind
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.cluster_autoscaler_cluster_role.metadata[0].name
+    name      = kubernetes_cluster_role.cluster_autoscaler.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.cluster_autoscaler_sa.metadata[0].name
+    name      = kubernetes_service_account.cluster_autoscaler.metadata[0].name
     namespace = "kube-system"
   }
 
   depends_on = [
-    kubernetes_service_account.cluster_autoscaler_sa,
-    kubernetes_cluster_role.cluster_autoscaler_cluster_role,
+    kubernetes_service_account.cluster_autoscaler,
+    kubernetes_cluster_role.cluster_autoscaler,
 
     # k8s object requires access to EKS cluster via aws-auth
     # also required for deletion
@@ -292,8 +292,9 @@ resource "kubernetes_cluster_role_binding" "cluster_autoscaler_cluster_role_bind
 }
 
 resource "helm_release" "cluster_autoscaler" {
-  name       = "cluster-autoscaler"
-  namespace  = "kube-system"
+  name      = "cluster-autoscaler"
+  namespace = "kube-system"
+
   chart      = "cluster-autoscaler"
   repository = "https://kubernetes.github.io/autoscaler"
 
@@ -380,7 +381,7 @@ resource "helm_release" "cluster_autoscaler" {
       create = false
       serviceAccount = {
         annotations = {
-          "eks.amazonaws.com/role-arn" = aws_iam_role.cluster_autoscaler_iam_role.arn
+          "eks.amazonaws.com/role-arn" = aws_iam_role.cluster_autoscaler.arn
         },
         create = false
         name   = "cluster-autoscaler-sa"
@@ -396,8 +397,8 @@ resource "helm_release" "cluster_autoscaler" {
     # this ensures deleting this object happens before aws-auth
     kubernetes_config_map_v1_data.aws_auth,
 
-    kubernetes_service_account.cluster_autoscaler_sa,
-    kubernetes_role_binding.cluster_autoscaler_role_binding,
-    kubernetes_cluster_role_binding.cluster_autoscaler_cluster_role_binding
+    kubernetes_service_account.cluster_autoscaler,
+    kubernetes_role_binding.cluster_autoscaler,
+    kubernetes_cluster_role_binding.cluster_autoscaler
   ]
 }

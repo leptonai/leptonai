@@ -91,6 +91,9 @@ fi
 # shellcheck source=/dev/null
 source ./variables.sh
 
+export TF_LOG="DEBUG"
+export TF_LOG_PATH="tf.install.log"
+
 echo "Applying resources..."
 terraform apply "${APPLY_FLAGS[@]}"
 apply_output=$(terraform apply "${APPLY_FLAGS[@]}" 2>&1)

@@ -1,7 +1,7 @@
 # curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/master/docs/iam-policy-example.json
-resource "aws_iam_policy" "efs_iam_role_policy" {
-  name        = "${local.cluster_name}-efs-iam-policy"
-  description = "EFS IAM policy"
+resource "aws_iam_policy" "csi_efs" {
+  name        = "${local.cluster_name}-csi-efs-policy"
+  description = "CSI EFS driver IAM policy"
 
   policy = jsonencode({
     "Version" : "2012-10-17",
@@ -68,8 +68,8 @@ resource "aws_iam_policy" "efs_iam_role_policy" {
   })
 }
 
-resource "aws_iam_role" "efs_iam_role" {
-  name = "${local.cluster_name}-efs-iam-role"
+resource "aws_iam_role" "csi_efs" {
+  name = "${local.cluster_name}-csi-efs-role"
 
   assume_role_policy = jsonencode({
     Version : "2012-10-17",
@@ -100,27 +100,27 @@ resource "aws_iam_role" "efs_iam_role" {
 # see https://github.com/leptonai/lepton/issues/1117
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 # ref. https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html
-resource "aws_iam_role_policy_attachment" "efs_iam_role_policy_attachment_node" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.efs_iam_role_policy.name}"
-  role       = aws_iam_role.mng_iam_role.name
+resource "aws_iam_role_policy_attachment" "csi_efs_node" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
+  role       = aws_iam_role.mng.name
 
   depends_on = [
-    aws_iam_policy.efs_iam_role_policy,
-    aws_iam_role.mng_iam_role
+    aws_iam_policy.csi_efs,
+    aws_iam_role.mng
   ]
 }
 
-resource "aws_iam_role_policy_attachment" "efs_iam_role_policy_attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.efs_iam_role_policy.name}"
-  role       = aws_iam_role.efs_iam_role.name
+resource "aws_iam_role_policy_attachment" "csi_efs" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
+  role       = aws_iam_role.csi_efs.name
 
   depends_on = [
-    aws_iam_policy.efs_iam_role_policy,
-    aws_iam_role.efs_iam_role
+    aws_iam_policy.csi_efs,
+    aws_iam_role.csi_efs
   ]
 }
 
-resource "kubernetes_service_account" "efs_csi_controller_sa" {
+resource "kubernetes_service_account" "csi_efs" {
   metadata {
     name      = "efs-csi-controller-sa"
     namespace = "kube-system"
@@ -130,19 +130,20 @@ resource "kubernetes_service_account" "efs_csi_controller_sa" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.efs_iam_role.name}"
+      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.csi_efs.name}"
     }
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.efs_iam_role_policy_attachment
+    aws_iam_role_policy_attachment.csi_efs
   ]
 }
 
 # https://github.com/kubernetes-sigs/aws-efs-csi-driver/tree/master/charts/aws-efs-csi-driver
-resource "helm_release" "aws_efs_csi_driver" {
-  name       = "aws-efs-csi-driver"
-  namespace  = "kube-system"
+resource "helm_release" "csi_efs" {
+  name      = "aws-efs-csi-driver"
+  namespace = "kube-system"
+
   chart      = "aws-efs-csi-driver"
   repository = "https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
 
@@ -176,7 +177,7 @@ resource "helm_release" "aws_efs_csi_driver" {
     # this ensures deleting this object happens before aws-auth
     kubernetes_config_map_v1_data.aws_auth,
 
-    kubernetes_service_account.efs_csi_controller_sa,
+    kubernetes_service_account.csi_efs,
 
     # no need to create rbac
     # https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/templates/controller-serviceaccount.yaml

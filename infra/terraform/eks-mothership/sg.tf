@@ -4,6 +4,6 @@ resource "aws_security_group" "eks" {
   vpc_id      = module.vpc.vpc_id
 
   tags = {
-    "Name" = "${local.cluster_name}-eks_cluster_sg"
+    "Name" = "${local.cluster_name}-cluster-sg"
   }
 }

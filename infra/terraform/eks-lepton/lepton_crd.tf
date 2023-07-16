@@ -35,6 +35,6 @@ resource "helm_release" "lepton_crd" {
     # this ensures deleting this object happens before aws-auth
     kubernetes_config_map_v1_data.aws_auth,
 
-    helm_release.aws_load_balancer_controller,
+    helm_release.alb_controller,
   ]
 }

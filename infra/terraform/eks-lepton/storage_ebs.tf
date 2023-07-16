@@ -13,7 +13,7 @@ module "ebs_csi_driver_irsa" {
 
 # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon
-resource "aws_eks_addon" "aws-ebs-csi-driver" {
+resource "aws_eks_addon" "csi_ebs" {
   cluster_name = module.eks.cluster_name
 
   # ref. "aws eks describe-addon-versions --kubernetes-version 1.26"

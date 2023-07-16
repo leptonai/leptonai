@@ -41,6 +41,9 @@ fi
 # shellcheck source=/dev/null
 source ./variables.sh
 
+export TF_LOG="DEBUG"
+export TF_LOG_PATH="tf.install.log"
+
 CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"
 
 # Apply modules in sequence

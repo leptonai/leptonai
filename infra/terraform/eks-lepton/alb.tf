@@ -1,7 +1,7 @@
 # https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/installation/
 # https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/docs/install/iam_policy.json
-resource "aws_iam_policy" "alb_iam_policy" {
-  name        = "${local.cluster_name}-alb-iam-policy"
+resource "aws_iam_policy" "alb_controller" {
+  name        = "${local.cluster_name}-alb-controller-policy"
   description = "ALB IAM policy"
 
   policy = jsonencode({
@@ -264,8 +264,8 @@ resource "aws_iam_policy" "alb_iam_policy" {
   ]
 }
 
-resource "aws_iam_role" "alb_iam_role" {
-  name = "${local.cluster_name}-alb-iam-role"
+resource "aws_iam_role" "alb_controller" {
+  name = "${local.cluster_name}-alb-controller-role"
 
   assume_role_policy = jsonencode({
     Version : "2012-10-17",
@@ -292,17 +292,17 @@ resource "aws_iam_role" "alb_iam_role" {
   ]
 }
 
-resource "aws_iam_role_policy_attachment" "alb_iam_role_policy_attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb_iam_policy.name}"
-  role       = aws_iam_role.alb_iam_role.name
+resource "aws_iam_role_policy_attachment" "alb_controller" {
+  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb_controller.name}"
+  role       = aws_iam_role.alb_controller.name
 
   depends_on = [
-    aws_iam_policy.alb_iam_policy,
-    aws_iam_role.alb_iam_role
+    aws_iam_policy.alb_controller,
+    aws_iam_role.alb_controller
   ]
 }
 
-resource "kubernetes_service_account" "aws_load_balancer_controller" {
+resource "kubernetes_service_account" "alb_controller" {
   metadata {
     name      = "aws-load-balancer-controller"
     namespace = "kube-system"
@@ -313,12 +313,12 @@ resource "kubernetes_service_account" "aws_load_balancer_controller" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb_iam_role.name}"
+      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb_controller.name}"
     }
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.alb_iam_role_policy_attachment
+    aws_iam_role_policy_attachment.alb_controller
   ]
 }
 
@@ -330,8 +330,8 @@ resource "kubernetes_service_account" "aws_load_balancer_controller" {
 # that is not tracked by this terraform state
 # ref. https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/1876
 # ref. https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/helm/aws-load-balancer-controller/values.yaml
-resource "aws_security_group" "alb_shared_backend" {
-  name        = "${local.cluster_name}-sg-alb-shared-backend"
+resource "aws_security_group" "alb_controller" {
+  name        = "${local.cluster_name}-alb-controller-sg-shared-backend"
   description = "[k8s] Shared Backend SecurityGroup for LoadBalancer"
   vpc_id      = module.vpc.vpc_id
 
@@ -343,7 +343,7 @@ resource "aws_security_group" "alb_shared_backend" {
   }
 
   tags = {
-    "Name" = "${local.cluster_name}-sg-alb-shared-backend"
+    "Name" = "${local.cluster_name}-alb-controller-sg-shared-backend"
   }
 
   depends_on = [
@@ -357,11 +357,12 @@ resource "aws_security_group" "alb_shared_backend" {
 # SINCE ALB INGRESS CONTROLLER RELIES ON THE EXISTENCE OF NAMESPACE
 # FOR SECURITY GROUP DELETION
 # https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/1629
-resource "helm_release" "aws_load_balancer_controller" {
-  name       = "aws-load-balancer-controller"
+resource "helm_release" "alb_controller" {
+  name      = "aws-load-balancer-controller"
+  namespace = "kube-system"
+
   chart      = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
-  namespace  = "kube-system"
 
   # https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/helm/aws-load-balancer-controller/values.yaml
   values = [yamlencode({
@@ -374,10 +375,10 @@ resource "helm_release" "aws_load_balancer_controller" {
     }
 
     enableBackendSecurityGroup = true
-    backendSecurityGroup       = aws_security_group.alb_shared_backend.id
+    backendSecurityGroup       = aws_security_group.alb_controller.id
   })]
 
   depends_on = [
-    kubernetes_service_account.aws_load_balancer_controller
+    kubernetes_service_account.alb_controller
   ]
 }

@@ -1,9 +1,11 @@
+# https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
 resource "helm_release" "kube_prometheus_stack" {
   name             = "kube-prometheus-stack"
   namespace        = "kube-prometheus-stack"
   create_namespace = true
-  chart            = "kube-prometheus-stack"
-  repository       = "https://prometheus-community.github.io/helm-charts"
+
+  chart      = "kube-prometheus-stack"
+  repository = "https://prometheus-community.github.io/helm-charts"
 
   # TODO: set managed prometheus remote writer?
   # https://prometheus.io/docs/prometheus/latest/configuration/configuration/
