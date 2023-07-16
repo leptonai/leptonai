@@ -24,13 +24,14 @@ from leptonai.photon.tests.utils import random_name, photon_run_server, sub_test
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
-diffusers_model = "hf:runwayml/stable-diffusion-v1-5"
-transformers_model = "hf:gpt2"
+diffusers_model = "hf:hf-internal-testing/tiny-stable-diffusion-torch@a88cdfb"
+transformers_model = "hf:sshleifer/tiny-gpt2@5f91d94"
 whisper_model = "hf:openai/whisper-tiny.en"
-wav2vec2_model = "hf:jonatasgrosman/wav2vec2-large-xlsr-53-english"
-wikihow_t5_model = "hf:facebook/bart-large-cnn"
-sentence_similarity_model = "hf:sentence-transformers/all-mpnet-base-v2"
-flan_t5_model = "hf:google/flan-t5-small"
+summarization_model = "hf:facebook/bart-large-cnn"
+sentence_similarity_model = (
+    "hf:sentence-transformers/paraphrase-albert-small-v2@b8a76dc"
+)
+text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -131,9 +132,9 @@ class TestPhotonCli(unittest.TestCase):
             # FIXME: this model needs ffmpeg, but Github CI currently fails to
             # install it
             # (whisper_model,),
-            (wikihow_t5_model,),
+            (summarization_model,),
             (sentence_similarity_model,),
-            (flan_t5_model,),
+            (text2text_generation_model,),
         ]
     )
     def test_photon_run(self, model):
