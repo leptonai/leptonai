@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
@@ -56,23 +54,23 @@ func (c AuroraConfig) DSNWithAuthToken(authToken string) string {
 // NewHandler returns a new database handler to the aurora database specified in the config
 
 // ref: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.IAMDBAuth.Connecting.Go.html
-func NewHandler(auroraCfg AuroraConfig) (*sql.DB, error) {
-	dsn := auroraCfg.DSN()
-	if auroraCfg.AuthWithToken {
+func (c AuroraConfig) NewHandler() (*sql.DB, error) {
+	dsn := c.DSN()
+	if c.AuthWithToken {
 		awsCfg, err := config.LoadDefaultConfig(context.TODO())
 		if err != nil {
 			return nil, fmt.Errorf("NewHandler: configuration error: " + err.Error())
 		}
 
 		authTkn, err := auth.BuildAuthToken(
-			context.TODO(), auroraCfg.DBEndpoint, auroraCfg.Region, auroraCfg.DBUser, awsCfg.Credentials)
+			context.TODO(), c.DBEndpoint, c.Region, c.DBUser, awsCfg.Credentials)
 		if err != nil {
 			return nil, fmt.Errorf("NewHandler: failed to BuildAuthToken %v", err)
 		}
-		dsn = auroraCfg.DSNWithAuthToken(authTkn)
+		dsn = c.DSNWithAuthToken(authTkn)
 	}
 
-	db, err := sql.Open(auroraCfg.DBDriverName, dsn)
+	db, err := sql.Open(c.DBDriverName, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("NewHandler: failed to open database %v", err)
 	}
@@ -80,13 +78,4 @@ func NewHandler(auroraCfg AuroraConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("NewHandler: failed to ping database %v", err)
 	}
 	return db, nil
-}
-
-// ReplaceSQL replaces the instance occurrence of any string pattern with an increasing $n based sequence
-func ReplaceSQL(old, pattern string) string {
-	tmpCount := strings.Count(old, pattern)
-	for m := 1; m <= tmpCount; m++ {
-		old = strings.Replace(old, pattern, "$"+strconv.Itoa(m), 1)
-	}
-	return old
 }

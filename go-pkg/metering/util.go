@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -69,4 +70,13 @@ func genRowStr(rowLen int) string {
 	}
 	valueStr += ")"
 	return valueStr
+}
+
+// replaces the instance occurrence of any string pattern with an increasing $n based sequence
+func replaceSQL(old, pattern string) string {
+	tmpCount := strings.Count(old, pattern)
+	for m := 1; m <= tmpCount; m++ {
+		old = strings.Replace(old, pattern, "$"+strconv.Itoa(m), 1)
+	}
+	return old
 }

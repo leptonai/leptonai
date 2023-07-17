@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/leptonai/lepton/go-pkg/aws/aurora"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/metering"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
@@ -61,26 +60,25 @@ func syncFunc(cmd *cobra.Command, args []string) {
 	if 60%syncInterval != 0 {
 		log.Fatalf("Invalid sync interval (must be a factor of 60, eg. 5, 10, etc): %d", syncInterval)
 	}
-	// check db online
+	// create aurora db connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
-	db, err := aurora.NewHandler(auroraCfg)
+	db, err := auroraCfg.NewHandler()
 	if err != nil {
 		log.Fatalf("failed to connect to db %v", err)
 	}
-	db.Close()
+	aurora := metering.AuroraDB{DB: db}
+	defer aurora.DB.Close()
 	log.Printf("Database connection established")
 
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfigPath != "" {
 		kubeconfig = kubeconfigPath
 	}
-
 	// build rest config
 	restConfig, clusterARN, err := common.BuildRestConfig(kubeconfig)
 	if err != nil {
 		log.Fatalf("failed to build rest config %v", err)
 	}
-
 	// build k8s clientset
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -111,7 +109,7 @@ func syncFunc(cmd *cobra.Command, args []string) {
 			return
 		default:
 			now := time.Now()
-			_, lastRunTime, err := metering.GetMostRecentQuery(auroraCfg, "fine_grain")
+			_, lastRunTime, err := metering.GetMostRecentFineGrainEntry(aurora)
 			if err != nil {
 				log.Fatalf("failed to get most recent query time %v", err)
 			}
@@ -123,7 +121,7 @@ func syncFunc(cmd *cobra.Command, args []string) {
 				queryEnd := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), currMinute, 0, 0, now.Location())
 				queryStart := queryEnd.Add(-1 * syncDuration)
 				log.Printf("Syncing with window query start: %s, query end: %s", queryStart, queryEnd)
-				syncOnce(queryStart, queryEnd, auroraCfg, clientset, fwd, clusterARN, cmd)
+				syncOnce(queryStart, queryEnd, aurora, clientset, fwd, clusterARN, cmd)
 			} else {
 				if !lastRunExists {
 					log.Print("Skipping sync: syncing on % minute intervals, no previous sync found")
@@ -135,7 +133,7 @@ func syncFunc(cmd *cobra.Command, args []string) {
 	}
 }
 
-func syncOnce(start time.Time, end time.Time, auroraCfg aurora.AuroraConfig, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
+func syncOnce(start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
 	qp := metering.OcQueryParams{
 		ClusterARN:         clusterARN,
 		QueryPath:          queryPath,
@@ -152,20 +150,8 @@ func syncOnce(start time.Time, end time.Time, auroraCfg aurora.AuroraConfig, cli
 		log.Fatalf("failed to get data %v", err)
 	}
 
-	var podData []metering.PodInfo
-	for _, d := range data {
-		podInfo := metering.PodInfo{
-			Namespace:            d.Namespace,
-			LeptonDeploymentName: d.LeptonDeploymentName,
-			Shape:                d.PodShape,
-			PodName:              d.PodName,
-		}
-		podData = append(podData, podInfo)
-	}
-	log.Printf("total %d pod data", len(podData))
-
 	// create a new connection each time (in case token/connections expire between syncs)
-	err = metering.SyncToDB(auroraCfg, "fine_grain", data, "pods", podData)
+	err = metering.SyncToDB(aurora, data)
 	if err != nil {
 		log.Printf("Data sync failed for window %s, %s: %v", start.Format(time.ANSIC), end.Format(time.ANSIC), err)
 	}

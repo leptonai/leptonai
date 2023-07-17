@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/leptonai/lepton/go-pkg/aws/aurora"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering/aggregate"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering/get"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering/sync"
 )
@@ -45,5 +46,6 @@ func NewCommand() *cobra.Command {
 
 	cmd.AddCommand(get.NewCommand())
 	cmd.AddCommand(sync.NewCommand())
+	cmd.AddCommand(aggregate.NewCommand())
 	return cmd
 }

@@ -6,16 +6,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/leptonai/lepton/go-pkg/aws/aurora"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/opencost/opencost/pkg/kubecost"
 	"k8s.io/client-go/kubernetes"
 )
+
+type AuroraDB struct {
+	DB *sql.DB
+}
+
+type SupabaseDB struct {
+	DB *sql.DB
+}
 
 var (
 	// set of namespaces to exclude from the query
@@ -44,6 +51,17 @@ var (
 		"running minutes",
 		"window",
 	}
+)
+
+type MeteringTable string
+
+const (
+	MeteringTableFineGrain      MeteringTable = "fine_grain"
+	MeteringTablePods           MeteringTable = "pods"
+	MeteringTableAuroraHourly   MeteringTable = "hourly_metering"
+	MeteringTableSupabaseHourly MeteringTable = "hourly_metering"
+	MeteringTableDaily          MeteringTable = "daily_metering"
+	MeteringTableWeekly         MeteringTable = "weekly_metering"
 )
 
 type AllocationResponse struct {
@@ -79,18 +97,20 @@ type FineGrainData struct {
 	RunningMinutes float64
 }
 
-type PodInfo struct {
-	Namespace            string
-	LeptonDeploymentName string
-	Shape                string
-	PodName              string
+type UsageAggregateRow struct {
+	StartTime      time.Time
+	EndTime        time.Time
+	DeploymentName string
+	Workspace      string
+	Shape          string
+	Usage          int
 }
 
+// GetFineGrainData queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
 func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, qp OcQueryParams) ([]FineGrainData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	if qp.QueryWindow == "" {
 		qp.QueryWindow = fmt.Sprintf("%d", qp.QueryStart.Unix()) + "," + fmt.Sprintf("%d", qp.QueryEnd.Unix())
-		log.Printf("query window: %s", qp.QueryWindow)
 	}
 
 	filterString := CreateExludeFilterStringForNamespaces(qp.ExcludedNamespaces)
@@ -157,82 +177,7 @@ func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQ
 	return data, nil
 }
 
-func InsertOneRowIntoPods(tx *sql.Tx, tableName string, row PodInfo) (int64, error) {
-	podInsert := fmt.Sprintf(`INSERT INTO %s (
-		namespace,
-		shape,
-		deployment_name,
-		pod_name
-	)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT DO NOTHING`, tableName)
-	res, err := tx.Exec(podInsert, row.Namespace, row.Shape, row.LeptonDeploymentName, row.PodName)
-	if err != nil {
-		log.Printf("failed to insert pod %v", err)
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		log.Printf("failed to get rows affected %v", err)
-		return 0, err
-	}
-	if rowsAffected > 1 {
-		log.Printf("More than 1 row affected")
-	}
-	return res.RowsAffected()
-}
-
-func InsertAllRowsIntoPods(tx *sql.Tx, tableName string, rows []PodInfo) (int64, error) {
-	rowsAffected := int64(0)
-	for _, r := range rows {
-		res, err := InsertOneRowIntoPods(tx, tableName, r)
-		if err != nil {
-			log.Print(err.Error())
-			continue
-		}
-		rowsAffected += res
-	}
-	return rowsAffected, nil
-}
-
-// If there is a SQL error, batch insert only returns a segFault.
-// So keeping the old row by row insert function above for debugging sql syntax errors.
-func BatchInsertIntoPods(tx *sql.Tx, tableName string, rows []PodInfo) (int64, error) {
-	podInsert := fmt.Sprintf(`INSERT INTO %s (
-		namespace,
-		shape,
-		deployment_name,
-		pod_name
-	)
-	VALUES `, tableName)
-	onConflict := " ON CONFLICT DO NOTHING"
-
-	rowStr := genRowStr(4)
-	var toInsert []string
-	var vals []interface{}
-	for _, r := range rows {
-		if r.PodName == "" {
-			continue
-		}
-		toInsert = append(toInsert, rowStr)
-		vals = append(vals, r.Namespace, r.Shape, r.LeptonDeploymentName, r.PodName)
-	}
-
-	sqlStr := podInsert + strings.Join(toInsert, ",") + onConflict
-	sqlStr = aurora.ReplaceSQL(sqlStr, "?")
-	stmt, _ := tx.Prepare(sqlStr)
-	defer stmt.Close()
-	res, err := stmt.Exec(vals...)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return affected, nil
-}
-
-func BatchInsertIntoFineGrain(tx *sql.Tx, tableName string, rows []FineGrainData) (int64, error) {
+func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainData) (int64, error) {
 	FineGrainInsert := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
 		namespace,
@@ -244,7 +189,7 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, tableName string, rows []FineGrainData
 		query_window,
 		minutes
 	)
-	VALUES `, tableName)
+	VALUES `, MeteringTableFineGrain)
 
 	// Generate a batch query ID
 	id, err := uuid.NewRandom()
@@ -259,7 +204,7 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, tableName string, rows []FineGrainData
 		vals = append(vals, id, r.Namespace, r.LeptonDeploymentName, r.PodName, r.PodShape, time.Unix(r.Start, 0), time.Unix(r.End, 0), r.Window, r.RunningMinutes)
 	}
 	sqlStr := FineGrainInsert + strings.Join(toInsert, ",")
-	sqlStr = aurora.ReplaceSQL(sqlStr, "?")
+	sqlStr = replaceSQL(sqlStr, "?")
 	stmt, _ := tx.Prepare(sqlStr)
 	defer stmt.Close()
 	res, err := stmt.Exec(vals...)
@@ -277,54 +222,34 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, tableName string, rows []FineGrainData
 	return affected, nil
 }
 
-func SyncToDB(auroraCfg aurora.AuroraConfig, fineGrainTableName string, data []FineGrainData, podsTableName string, pods []PodInfo) error {
-	ctx := context.Background()
-	db, err := aurora.NewHandler(auroraCfg)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func SyncToDB(aurora AuroraDB, data []FineGrainData) error {
+	db := aurora.DB
 	// todo: check if tables exist
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = fmt.Errorf("%s \n %s", err.Error(), tx.Rollback())
+		err = fmt.Errorf("%v \n %s", err, tx.Rollback())
 	}()
 	// Insert into fine_grain
 	if len(data) > 0 {
-		affected, err := BatchInsertIntoFineGrain(tx, fineGrainTableName, data)
+		affected, err := BatchInsertIntoFineGrain(tx, data)
 		if err != nil {
 			return err
 		}
-		log.Printf("Inserted %d rows into %s", affected, fineGrainTableName)
-	}
-	// insert into pods
-	if len(pods) > 0 {
-		affected, err := BatchInsertIntoPods(tx, podsTableName, pods)
-		if err != nil {
-			return err
-		}
-		log.Printf("Inserted %d rows into %s", affected, podsTableName)
+		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableFineGrain)
 	}
 	return tx.Commit()
 }
 
-// returns the most recent query's start and end time
-// returns zero time if table is empty
-func GetMostRecentQuery(auroraCfg aurora.AuroraConfig, tableName string) (time.Time, time.Time, error) {
-	db, err := aurora.NewHandler(auroraCfg)
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-	defer db.Close()
-
+// returns the most recent query's start and end time, or zero time if table is empty
+func GetMostRecentFineGrainEntry(aurora AuroraDB) (time.Time, time.Time, error) {
+	db := aurora.DB
 	// check if table is empty
 	var count int
-	err = db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s LIMIT 1) AS t", tableName)).Scan(&count)
+	err := db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s LIMIT 1) AS t", MeteringTableFineGrain)).Scan(&count)
 	if err != nil {
-		log.Printf("Failed to get count for %s %v", tableName, err)
 		return time.Time{}, time.Time{}, err
 	}
 	if count == 0 {
@@ -333,9 +258,114 @@ func GetMostRecentQuery(auroraCfg aurora.AuroraConfig, tableName string) (time.T
 
 	var start, end time.Time
 	err = db.QueryRow(
-		fmt.Sprintf("SELECT query_start, query_end FROM %s ORDER BY query_end DESC LIMIT 1", tableName)).Scan(&start, &end)
+		fmt.Sprintf("SELECT query_start, query_end FROM %s ORDER BY query_end DESC LIMIT 1", MeteringTableFineGrain)).Scan(&start, &end)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
 	return start, end, nil
+}
+
+// GetUsageAggregate aggregates fine grain usage data for the specified time window
+func GetUsageAggregate(aurora AuroraDB, start, end time.Time) ([]UsageAggregateRow, error) {
+	// check start and end times valid
+	if start.IsZero() || end.IsZero() || start.Equal(end) || start.After(end) {
+		return nil, fmt.Errorf("start time, end time invalid: %s | %s", start.Format(time.ANSIC), end.Format(time.ANSIC))
+	}
+	db := aurora.DB
+	rows, err := db.Query(fmt.Sprintf(`SELECT 
+		namespace,
+		shape,
+		deployment_name,
+		ROUND(SUM(minutes)) as usage
+		from %s
+		where query_start >= '%s' and query_end <= '%s'
+		GROUP BY namespace, deployment_name, shape`,
+		MeteringTableFineGrain,
+		start.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+	))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []UsageAggregateRow
+	for rows.Next() {
+		var agg UsageAggregateRow
+		agg.StartTime = start
+		agg.EndTime = end
+		err := rows.Scan(&agg.Workspace, &agg.Shape, &agg.DeploymentName, &agg.Usage)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, agg)
+	}
+	return res, nil
+}
+
+func InsertRowsIntoHourly(tx *sql.Tx, tableName MeteringTable, aggregateData []UsageAggregateRow, batch_id string) (int64, error) {
+	cmd := fmt.Sprintf(`INSERT INTO %s (
+		batch_id,
+		end_time,
+		workspace_id,
+		deployment_name,
+		shape,
+		usage
+	)
+	VALUES `, tableName)
+	onConflict := ` ON CONFLICT (workspace_id, deployment_name, shape, end_time) DO UPDATE SET usage = excluded.usage`
+	rowStr := genRowStr(6)
+	var toInsert []string
+	var vals []interface{}
+	for _, r := range aggregateData {
+		toInsert = append(toInsert, rowStr)
+		vals = append(vals, batch_id, r.EndTime, r.Workspace, r.DeploymentName, r.Shape, r.Usage)
+	}
+	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
+	sqlStr = replaceSQL(sqlStr, "?")
+
+	stmt, _ := tx.Prepare(sqlStr)
+	defer stmt.Close()
+	res, err := stmt.Exec(vals...)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
+}
+
+func InsertRowsIntoDailyWeekly(tx *sql.Tx, table MeteringTable, aggregateData []UsageAggregateRow, id uuid.UUID) (int64, error) {
+	cmd := fmt.Sprintf(`INSERT INTO %s (
+		batch_id,
+		end_time,
+		workspace_id,
+		shape,
+		usage
+	)
+	VALUES `, table)
+	onConflict := ` ON CONFLICT (workspace_id, shape, end_time) DO UPDATE SET usage = excluded.usage`
+	rowStr := genRowStr(5)
+	var toInsert []string
+	var vals []interface{}
+	for _, r := range aggregateData {
+		toInsert = append(toInsert, rowStr)
+		vals = append(vals, id, r.EndTime, r.Workspace, r.Shape, r.Usage)
+	}
+	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
+	sqlStr = replaceSQL(sqlStr, "?")
+
+	stmt, _ := tx.Prepare(sqlStr)
+	defer stmt.Close()
+	res, err := stmt.Exec(vals...)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
 }

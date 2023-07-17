@@ -146,24 +146,19 @@ func getFunc(cmd *cobra.Command, args []string) {
 		log.Printf("total %d data", len(data))
 		metering.PrettyPrint(data)
 
-		var podData []metering.PodInfo
-		for _, d := range data {
-			podInfo := metering.PodInfo{
-				Namespace:            d.Namespace,
-				LeptonDeploymentName: d.LeptonDeploymentName,
-				Shape:                d.PodShape,
-				PodName:              d.PodName,
-			}
-			podData = append(podData, podInfo)
+		auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
+		db, err := auroraCfg.NewHandler()
+		if err != nil {
+			log.Fatalf("failed to create aurora db handler %v", err)
 		}
-		log.Printf("total %d pod data", len(podData))
+		aurora := metering.AuroraDB{DB: db}
+		defer aurora.DB.Close()
+
 		if !syncToDB {
-			log.Print("skipping sync")
+			log.Printf("skipping sync")
 			return
 		}
-
-		auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
-		err = metering.SyncToDB(auroraCfg, "fine_grain", data, "pods", podData)
+		err = metering.SyncToDB(aurora, data)
 		if err != nil {
 			log.Fatalf("failed to sync to db %v", err)
 		}
