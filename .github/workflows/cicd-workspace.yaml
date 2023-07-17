@@ -1,4 +1,4 @@
-name: CI/CD - satellite
+name: CI/CD - workspace
 
 env:
   # override in-cluster config
