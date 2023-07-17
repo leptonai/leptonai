@@ -66,7 +66,7 @@ func TestCRStore(t *testing.T) {
 
 	err = s.Backup(context.TODO())
 	if err != nil {
-		t.Skip("Failed to backup:", err)
+		t.Log("Failed to backup:", err)
 	}
 
 	// Delete

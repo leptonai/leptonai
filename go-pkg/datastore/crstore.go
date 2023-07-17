@@ -15,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,16 +66,13 @@ func (s *CRStore[T]) Get(ctx context.Context, name string) (T, error) {
 }
 
 func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
-	gvks, _, err := k8s.Client.Scheme().ObjectKinds(s.example)
+	gvk, err := s.getGVK()
 	if err != nil {
 		return nil, err
 	}
-	if len(gvks) != 1 {
-		return nil, fmt.Errorf("expected exactly one GVK, got %d", len(gvks))
-	}
-	gvk := gvks[0]
+
 	tList := &unstructured.UnstructuredList{}
-	tList.SetGroupVersionKind(gvk)
+	tList.SetGroupVersionKind(*gvk)
 	if err := k8s.Client.List(ctx, tList, client.InNamespace(s.namespace)); err != nil {
 		return nil, err
 	}
@@ -108,6 +106,12 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 	if s.backupBucket == nil {
 		return fmt.Errorf("backupBucket is not set")
 	}
+
+	gvk, err := s.getGVK()
+	if err != nil {
+		return err
+	}
+	kind := gvk.Kind
 
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "crstore")
 	if err != nil {
@@ -143,6 +147,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 		if err != nil {
 			goutil.Logger.Errorw("failed to close file",
 				"operation", "backup",
+				"kind", kind,
 				"filename", f.Name(),
 				"err", err,
 			)
@@ -155,7 +160,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 		return err
 	}
 
-	uploadFilename := fmt.Sprintf("backup-%s.tar.gz", time.Now().Format("2006-01-02T15:04:05"))
+	uploadFilename := fmt.Sprintf("backup-%s-%s.tar.gz", kind, time.Now().Format("2006-01-02T15:04:05"))
 
 	bw, err := s.backupBucket.NewWriter(ctx, uploadFilename, nil)
 	if err != nil {
@@ -175,8 +180,22 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 	}
 
 	goutil.Logger.Infow("uploaded backup",
+		"operation", "backup",
+		"kind", kind,
 		"filename", uploadFilename,
 		"size", n)
 
 	return nil
+}
+
+func (s *CRStore[T]) getGVK() (*schema.GroupVersionKind, error) {
+	gvks, _, err := k8s.Client.Scheme().ObjectKinds(s.example)
+	if err != nil {
+		return nil, err
+	}
+	if len(gvks) != 1 {
+		return nil, fmt.Errorf("expected exactly one GVK, got %d", len(gvks))
+	}
+	gvk := gvks[0]
+	return &gvk, nil
 }
