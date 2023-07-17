@@ -30,12 +30,6 @@ variable "lepton_cloud_route53_zone_id" {
   default     = "Z007822916VK7B4DFVMP7"
 }
 
-variable "enable_amazon_managed_prometheus" {
-  description = "Determines whether to enable Amazon managed Prometheus"
-  type        = bool
-  default     = false
-}
-
 # this is required for Amazon Linux based AMIs
 # https://github.com/leptonai/lepton/issues/225
 # https://github.com/leptonai/lepton/issues/526
