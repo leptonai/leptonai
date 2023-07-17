@@ -22,6 +22,7 @@ var (
 	strategy    string
 	dry         bool
 	force       bool
+	autoApprove bool
 )
 
 func init() {
@@ -39,6 +40,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force delete the cluster with its workspaces. Only valid when strategy=mothership")
 	cmd.PersistentFlags().StringVar(&strategy, "strategy", "mothership", "'mothership' to schedule a delete, 'provider' to call provider API directly")
 	cmd.PersistentFlags().BoolVar(&dry, "dry", true, "Set to false to disable dry mode (only used for 'provider' based deletion)")
+	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
 }
 
@@ -49,6 +51,16 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
+	if !autoApprove {
+		fmt.Printf("Confirm deleting workspace %q via %q\n", clusterName, mothershipURL)
+		fmt.Printf("Type 'yes' to continue, other to skip: ")
+		var confirm string
+		fmt.Scanln(&confirm)
+		if confirm != "yes" && confirm != "y" {
+			return
+		}
+	}
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 

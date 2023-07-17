@@ -198,6 +198,7 @@ jobs:
       if: always()
       run: |
         ./mothership workspace delete \
+          --auto-approve \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}"
         ./mothership workspace wait \

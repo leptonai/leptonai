@@ -20,6 +20,7 @@ var (
 	workspaceName   string
 	workspacePrefix string
 	age             uint64
+	autoApprove     bool
 )
 
 func init() {
@@ -36,7 +37,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to delete")
 	cmd.PersistentFlags().StringVarP(&workspacePrefix, "workspace-prefix", "x", "", "Prefix of the workspaces to delete")
 	cmd.PersistentFlags().Uint64VarP(&age, "age", "a", 24, "Minimal age in hours of the workspaces to delete. Only applies when using --workspace-prefix")
-
+	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
 }
 
@@ -50,9 +51,20 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
 	cli := goclient.NewHTTP(mothershipURL, token)
 
 	if workspaceName != "" {
+		if !autoApprove {
+			fmt.Printf("Confirm to delete a single workspace %q via %q\n", workspaceName, mothershipURL)
+			fmt.Printf("Type 'yes' to continue, other to skip: ")
+			var confirm string
+			fmt.Scanln(&confirm)
+			if confirm != "yes" && confirm != "y" {
+				return
+			}
+		}
+
 		b, err := cli.RequestPath(http.MethodDelete, "/workspaces/"+workspaceName, nil, nil)
 		if err != nil {
 			log.Fatal(err)
@@ -85,12 +97,14 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 				continue
 			}
 
-			fmt.Printf("Confirm deleting workspace %s, state: %s, age: %d hours \n", r.Spec.Name, r.Status.State, wage)
-			fmt.Printf("Type 'yes' to continue, other to skip: ")
-			var confirm string
-			fmt.Scanln(&confirm)
-			if confirm != "yes" && confirm != "y" {
-				continue
+			if !autoApprove {
+				fmt.Printf("Confirm to delete a workspace %s (by prefix), state: %s, age: %d hours\n", r.Spec.Name, r.Status.State, wage)
+				fmt.Printf("Type 'yes' to continue, other to skip: ")
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" && confirm != "y" {
+					continue
+				}
 			}
 
 			fmt.Printf("Deleting workspace %s\n", r.Spec.Name)
