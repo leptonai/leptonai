@@ -151,6 +151,18 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 	}
 	kind := gvk.Kind
 
+	ts, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	if len(ts) == 0 {
+		goutil.Logger.Infow("no CRs found, skipping backup",
+			"operation", "backup",
+			"kind", kind,
+		)
+		return nil
+	}
+
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "crstore")
 	if err != nil {
 		return err
@@ -159,11 +171,6 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 
 	crdDir := path.Join(tmpDir, "crds")
 	err = os.Mkdir(crdDir, 0755)
-	if err != nil {
-		return err
-	}
-
-	ts, err := s.List(ctx)
 	if err != nil {
 		return err
 	}
