@@ -13,48 +13,60 @@ export default async function handler(
     return res.status(401).send("You are not authorized to call this API");
   }
 
-  const body = req.body;
+  try {
+    const body = req.body;
 
-  const consumer = await stripeClient.customers.create({
-    name: body.record.id,
-  });
+    const workspace_id = body.record.id;
 
-  const subscription = await stripeClient.subscriptions.create({
-    customer: consumer.id,
-    items: [
-      {
-        price: "price_1NTKPTBcUfXYxWWVOfMFn9DA",
-        metadata: { shape: "gpu.a10" },
-      },
-      {
-        price: "price_1NTKOIBcUfXYxWWVJnXsjccc",
-        metadata: { shape: "gpu.t4" },
-      },
-      {
-        price: "price_1NTKNHBcUfXYxWWVVmx8QMSI",
-        metadata: { shape: "cpu.large" },
-      },
-      {
-        price: "price_1NSdc4BcUfXYxWWVmuu2ODKM",
-        metadata: { shape: "cpu.medium" },
-      },
-      {
-        price: "price_1NSdayBcUfXYxWWVGEjTuBEF",
-        metadata: { shape: "cpu.small" },
-      },
-    ],
-    coupon: "NolzLBLL",
-  });
+    const consumer = await stripeClient.customers.create({
+      name: workspace_id,
+    });
 
-  const updated = {
-    consumer_id: consumer.id,
-    subscription_id: subscription.id,
-  };
+    const subscription = await stripeClient.subscriptions.create({
+      customer: consumer.id,
+      metadata: {
+        workspace_id,
+      },
+      // TODO: set billing_thresholds here
+      items: [
+        {
+          price: "price_1NTKPTBcUfXYxWWVOfMFn9DA",
+          metadata: { shape: "gpu.a10" },
+        },
+        {
+          price: "price_1NTKOIBcUfXYxWWVJnXsjccc",
+          metadata: { shape: "gpu.t4" },
+        },
+        {
+          price: "price_1NTKNHBcUfXYxWWVVmx8QMSI",
+          metadata: { shape: "cpu.large" },
+        },
+        {
+          price: "price_1NSdc4BcUfXYxWWVmuu2ODKM",
+          metadata: { shape: "cpu.medium" },
+        },
+        {
+          price: "price_1NSdayBcUfXYxWWVGEjTuBEF",
+          metadata: { shape: "cpu.small" },
+        },
+      ],
+      coupon: "NolzLBLL",
+    });
 
-  await supabase
-    .from("workspaces")
-    .update({ consumer_id: consumer.id, subscription_id: subscription.id })
-    .eq("id", body.record.id);
+    const updated = {
+      consumer_id: consumer.id,
+      subscription_id: subscription.id,
+    };
 
-  res.status(200).json(updated);
+    await supabase
+      .from("workspaces")
+      .update({ consumer_id: consumer.id, subscription_id: subscription.id })
+      .eq("id", workspace_id);
+
+    res.status(200).json(updated);
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : "Internal server error";
+    res.status(500).send(`Error: ${errorMessage}`);
+  }
 }
