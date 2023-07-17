@@ -119,12 +119,12 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 
 func (k *deployment) photonDestPath() string {
 	ld := k.leptonDeployment
-	return photonVolumeMountPath + "/" + ld.GetUniqPhotonName()
+	return photonVolumeMountPath + "/" + ld.Spec.PhotonID
 }
 
 func (k *deployment) newInitContainerCommand() []string {
 	ld := k.leptonDeployment
-	s3URL := fmt.Sprintf("s3://%s", path.Join(ld.Spec.BucketName, ld.Spec.PhotonPrefix, ld.GetUniqPhotonName()))
+	s3URL := fmt.Sprintf("s3://%s", path.Join(ld.Spec.BucketName, ld.Spec.PhotonPrefix, ld.Spec.PhotonID))
 	// TODO support other clouds
 	// aws s3 cp s3://my-bucket/example.txt ./example.txt
 	return []string{"aws", "s3", "cp", s3URL, k.photonDestPath()}

@@ -7,7 +7,6 @@ import (
 type Photon struct {
 	PhotonMetadata                  `json:",inline"`
 	leptonaiv1alpha1.PhotonUserSpec `json:",inline"`
-	Status                          leptonaiv1alpha1.PhotonStatus `json:"status,omitempty"`
 }
 
 type PhotonMetadata struct {
@@ -26,7 +25,6 @@ func NewPhoton(p *leptonaiv1alpha1.Photon) *Photon {
 	return &Photon{
 		PhotonUserSpec: p.Spec.PhotonUserSpec,
 		PhotonMetadata: *NewPhotonMetadata(p),
-		Status:         p.Status,
 	}
 }
 

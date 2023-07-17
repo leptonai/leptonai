@@ -65,11 +65,6 @@ func (ld LeptonDeployment) GetSpecName() string {
 	return ld.Spec.Name
 }
 
-// GetUniqPhotonName returns the unique name of the photon.
-func (ld LeptonDeployment) GetUniqPhotonName() string {
-	return fmt.Sprintf("%s-%s", ld.Spec.PhotonName, ld.Spec.PhotonID)
-}
-
 // GetSpecID returns the ID of the deployment. It equals to the Name.
 func (ld LeptonDeployment) GetSpecID() string {
 	return ld.GetSpecName()

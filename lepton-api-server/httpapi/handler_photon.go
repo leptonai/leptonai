@@ -28,7 +28,7 @@ func (h *PhotonHandler) Download(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 		return
 	}
-	body, err := h.photonBucket.ReadAll(context.Background(), ph.GetSpecUniqName())
+	body, err := h.photonBucket.ReadAll(context.Background(), ph.GetSpecID())
 	if err != nil {
 		goutil.Logger.Errorw("failed to get photon from object storage",
 			"operation", "downloadPhoton",
@@ -149,7 +149,7 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	err = h.photonBucket.WriteAll(context.Background(), ph.GetSpecUniqName(), body, nil)
+	err = h.photonBucket.WriteAll(context.Background(), ph.GetSpecID(), body, nil)
 	if err != nil {
 		goutil.Logger.Errorw("failed to upload photon to object storage",
 			"operation", "createPhoton",
@@ -232,9 +232,7 @@ func (h *PhotonHandler) getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Ph
 	if !util.ValidateName(ph.Spec.Name) {
 		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
-	ph.SetID(ph.GetSpecName() + "-" + util.HexHash(body))
-	ph.Name = ph.GetSpecUniqName()
-	ph.Namespace = h.namespace
+	ph.SetSpecID(ph.GetSpecName() + "-" + util.HexHash(body))
 
 	return ph, nil
 }

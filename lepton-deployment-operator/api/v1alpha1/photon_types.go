@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -57,18 +55,13 @@ func (p Photon) GetSpecName() string {
 	return p.Spec.Name
 }
 
-// GetSpecUniqName returns the unique name of the photon.
-func (p Photon) GetSpecUniqName() string {
-	return fmt.Sprintf("%s-%s", p.GetSpecName(), p.GetSpecID())
-}
-
 // GetSpecID returns the id of the photon.
 func (p Photon) GetSpecID() string {
 	return p.Spec.ID
 }
 
-// SetID sets the id of the photon.
-func (p *Photon) SetID(id string) {
+// SetSpecID sets the id of the photon.
+func (p *Photon) SetSpecID(id string) {
 	p.Spec.ID = id
 }
 
