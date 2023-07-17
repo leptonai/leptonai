@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/kv"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
@@ -20,11 +21,8 @@ import (
 	"github.com/gin-contrib/requestid"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
-	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/s3blob"
 )
-
-var photonBucket *blob.Bucket
 
 var (
 	certificateARNFlag *string
@@ -49,6 +47,8 @@ var (
 	storageMountPathFlag *string
 	enableStorageFlag    *bool
 
+	stateFlag *string
+
 	requestTimeoutInternal *string
 )
 
@@ -63,6 +63,7 @@ const (
 func main() {
 	workspaceNameFlag = flag.String("workspace-name", "default", "workspace name")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
+	stateFlag = flag.String("state", "ready", "workspace state after starting the server (allowed values: ready, paused, terminated)")
 
 	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
 
@@ -100,6 +101,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	pbu := goutil.MustOpenAndAccessBucket(
 		context.Background(),
 		*bucketTypeFlag,
@@ -116,6 +118,8 @@ func main() {
 		backupPrefix,
 	)
 
+	workspaceState := httpapi.WorkspaceState(*stateFlag)
+
 	handler := httpapi.New(
 		*namespaceFlag,
 		*prometheusURLFlag,
@@ -129,15 +133,17 @@ func main() {
 		*apiTokenFlag,
 		pbu,
 		bbu,
+		workspaceState,
 	)
 
-	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag)
+	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag, workspaceState)
 
 	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 	router.Use(requestid.New())
+	router.Use(PauseMiddleware(workspaceState))
 	router.Use(setRequestTimeoutInternal(requestTimeoutInternalDur))
 
 	logger := goutil.Logger.Desugar()
@@ -259,6 +265,22 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+func PauseMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if workspaceState != httpapi.WorkspaceStateReady {
+			switch c.Request.Method {
+			case http.MethodPut, http.MethodPost, http.MethodPatch:
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":    httperrors.ErrorCodeInvalidRequest,
+					"message": "workspace is paused or terminated",
+				})
+				return
+			}
+		}
 		c.Next()
 	}
 }

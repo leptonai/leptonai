@@ -38,7 +38,8 @@ type Handler struct {
 }
 
 func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, serviceAccountName,
-	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket) *Handler {
+	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
+	workspaceState WorkspaceState) *Handler {
 	k8s.Client.Scheme()
 	h := &Handler{
 		namespace:          namespace,
@@ -68,10 +69,43 @@ func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, serviceAccou
 	}
 	h.migratePhotonFilenamePrefixInS3()
 
+	switch workspaceState {
+	case WorkspaceStateReady:
+	case WorkspaceStatePaused:
+	case WorkspaceStateTerminated:
+		go h.deleteAllDeployments()
+	default:
+		goutil.Logger.Fatalw("invalid workspace state",
+			"state", workspaceState,
+		)
+	}
+	goutil.Logger.Infow("workspace state",
+		"state", workspaceState,
+	)
+
 	go runBackupsPeriodically(h.phDB)
 	go runBackupsPeriodically(h.ldDB)
 
 	return h
+}
+
+const (
+	deleteAllDeploymentInterval = 5 * time.Minute
+)
+
+func (h *Handler) deleteAllDeployments() {
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		err := h.ldDB.BackupAndDeleteAll(ctx)
+		cancel()
+		if err != nil {
+			goutil.Logger.Errorw("failed to delete all deployments",
+				"operation", "deleteAllDeployments",
+				"error", err,
+			)
+		}
+		time.Sleep(deleteAllDeploymentInterval)
+	}
 }
 
 // TODO: this function is to fix the compatibility issue introduced

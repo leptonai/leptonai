@@ -76,6 +76,8 @@ spec:
             - "--storage-mount-path"
             - "{{ .Values.apiServer.storageMountPath }}"
             - "--enable-storage={{ .Values.apiServer.enableStorage }}"
+            - "--state"
+            - "{{ .Values.apiServer.state }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
           readinessProbe:

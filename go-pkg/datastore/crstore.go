@@ -101,6 +101,44 @@ func (s *CRStore[T]) Delete(ctx context.Context, name string) error {
 	return k8s.Client.Delete(ctx, t)
 }
 
+func (s *CRStore[T]) BackupAndDeleteAll(ctx context.Context) error {
+	ts, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	if len(ts) == 0 {
+		return nil
+	}
+	if err := s.Backup(ctx); err != nil {
+		return err
+	}
+	gvk, err := s.getGVK()
+	if err != nil {
+		return err
+	}
+	kind := gvk.Kind
+	var lastErr error
+	for _, t := range ts {
+		err := s.Delete(ctx, t.GetName())
+		if err != nil {
+			goutil.Logger.Errorw("failed to delete CR",
+				"operation", "BackupAndDeleteAll",
+				"kind", kind,
+				"name", t.GetName(),
+				"err", err,
+			)
+			lastErr = err
+		} else {
+			goutil.Logger.Infow("deleted CR",
+				"operation", "BackupAndDeleteAll",
+				"kind", kind,
+				"name", t.GetName(),
+			)
+		}
+	}
+	return lastErr
+}
+
 // Backup creates a tarball of all CRs in the store and uploads it to the backup bucket.
 func (s *CRStore[T]) Backup(ctx context.Context) error {
 	if s.backupBucket == nil {
