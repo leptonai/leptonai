@@ -4,15 +4,15 @@ import { Injectable } from "injection-js";
 
 @Injectable()
 export class WorkspaceTrackerService {
-  name: string | null = null;
+  id: string | null = null;
 
   workspace: Workspace | null = null;
 
-  trackWorkspace(name: string) {
-    this.name = name;
+  trackWorkspace(id: string) {
+    this.id = id;
     this.workspace =
       this.profileService.profile?.authorized_workspaces?.find(
-        (c) => c.data.workspace_name === name
+        (c) => c.auth.id === id
       ) || null;
   }
 

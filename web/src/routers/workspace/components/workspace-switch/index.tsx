@@ -15,13 +15,13 @@ export const WorkspaceSwitch: FC = () => {
   const options =
     profileService.profile?.authorized_workspaces?.map((c) => {
       return {
-        label: c.data.workspace_name,
-        value: c.data.workspace_name,
+        label: c.auth.displayName || c.auth.id,
+        value: c.auth.id,
       };
     }) || [];
 
   const changeWorkspace = (workspace: string) => {
-    if (workspace !== workspaceTrackerService.name) {
+    if (workspace !== workspaceTrackerService.id) {
       navigateService.navigateTo("workspace", {
         workspaceId: workspace,
       });
@@ -56,7 +56,7 @@ export const WorkspaceSwitch: FC = () => {
             bordered={false}
             showArrow={false}
             onChange={(v) => changeWorkspace(v)}
-            value={workspaceTrackerService.name}
+            value={workspaceTrackerService.id}
             options={options}
           />
         ) : (
@@ -68,7 +68,7 @@ export const WorkspaceSwitch: FC = () => {
               color: ${theme.colorText};
             `}
           >
-            {workspaceTrackerService.name}
+            {workspaceTrackerService.id}
           </div>
         )}
       </div>

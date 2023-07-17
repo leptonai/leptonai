@@ -12,7 +12,7 @@ export class IndicatorService {
     mergeMap(() => this.deploymentService.list()),
     map(([latest]) => {
       const cache = this.storageService.get(
-        this.workspaceTrackerService.name!,
+        this.workspaceTrackerService.id!,
         "DEPLOYMENT_TIME"
       );
       if (!cache) {
@@ -27,7 +27,7 @@ export class IndicatorService {
     mergeMap(() => this.photonService.list()),
     map(([latest]) => {
       const cache = this.storageService.get(
-        this.workspaceTrackerService.name!,
+        this.workspaceTrackerService.id!,
         "PHOTON_TIME"
       );
       if (!cache) {
@@ -45,7 +45,7 @@ export class IndicatorService {
         take(1),
         tap(([latest]) => {
           this.storageService.set(
-            this.workspaceTrackerService.name!,
+            this.workspaceTrackerService.id!,
             "DEPLOYMENT_TIME",
             `${latest?.created_at}`
           );
@@ -61,7 +61,7 @@ export class IndicatorService {
         take(1),
         tap(([latest]) => {
           this.storageService.set(
-            this.workspaceTrackerService.name!,
+            this.workspaceTrackerService.id!,
             "PHOTON_TIME",
             `${latest?.created_at}`
           );

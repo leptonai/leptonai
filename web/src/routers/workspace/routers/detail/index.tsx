@@ -37,8 +37,8 @@ export const Detail: FC = () => {
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
   const photonService = useInject(PhotonService);
-  const { workspaceName } = useParams();
-  const workspaceName$ = useObservableFromState(workspaceName);
+  const { workspaceId } = useParams();
+  const workspaceId$ = useObservableFromState(workspaceId);
 
   const initialized = useStateFromObservable(
     () =>
@@ -52,7 +52,7 @@ export const Detail: FC = () => {
           }),
           map(() => true)
         ),
-        workspaceName$.pipe(map(() => false))
+        workspaceId$.pipe(map(() => false))
       ),
     false
   );

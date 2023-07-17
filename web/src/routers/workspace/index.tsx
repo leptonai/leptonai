@@ -32,7 +32,7 @@ export const Workspace: FC = () => {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route
-            path=":workspaceName/*"
+            path=":workspaceId/*"
             element={
               <Validate>
                 <Detail />

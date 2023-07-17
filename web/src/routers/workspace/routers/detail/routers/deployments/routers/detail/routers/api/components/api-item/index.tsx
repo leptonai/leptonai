@@ -25,7 +25,7 @@ export const ApiItem: FC<{
           if (import.meta.env.VITE_ENABLE_OAUTH === "enable") {
             return openApiService.toPythonSDKCode(api, {
               deployment: deployment.name,
-              workspace: workspaceTrackerService.name || "",
+              workspace: workspaceTrackerService.id || "",
             });
           } else {
             return openApiService.toPythonSDKCode(

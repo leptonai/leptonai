@@ -121,20 +121,29 @@ export interface Database {
         Row: {
           consumer_id: string | null;
           created_at: string | null;
+          display_name: string | null;
           id: string;
+          status: string | null;
           subscription_id: string | null;
+          type: string | null;
         };
         Insert: {
           consumer_id?: string | null;
           created_at?: string | null;
+          display_name?: string | null;
           id: string;
+          status?: string | null;
           subscription_id?: string | null;
+          type?: string | null;
         };
         Update: {
           consumer_id?: string | null;
           created_at?: string | null;
+          display_name?: string | null;
           id?: string;
+          status?: string | null;
           subscription_id?: string | null;
+          type?: string | null;
         };
         Relationships: [];
       };

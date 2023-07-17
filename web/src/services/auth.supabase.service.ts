@@ -166,7 +166,7 @@ export class AuthSupabaseService implements AuthService {
       .select(
         `
       token,
-      workspaces(workspace_id: id)
+      workspaces(id, display_name, status)
     `
       )
       .abortSignal(abort.signal);
@@ -177,11 +177,23 @@ export class AuthSupabaseService implements AuthService {
 
     return (workspaces || [])
       .map((workspace) => {
-        const id = Array.isArray(workspace.workspaces)
-          ? workspace.workspaces[0].workspace_id
-          : workspace.workspaces?.workspace_id;
+        const getFieldValue = <T extends "id" | "display_name" | "status">(
+          field: T
+        ) => {
+          const value = Array.isArray(workspace.workspaces)
+            ? workspace.workspaces[0][field]
+            : workspace.workspaces?.[field];
+          return value ? value : "";
+        };
+
+        const id = getFieldValue("id");
+        const displayName = getFieldValue("display_name");
+        const status = getFieldValue("status");
         return {
-          url: id ? workspaceUrl(id) : undefined,
+          id,
+          displayName,
+          status,
+          url: id ? workspaceUrl(id) : "",
           token: workspace.token,
         };
       })

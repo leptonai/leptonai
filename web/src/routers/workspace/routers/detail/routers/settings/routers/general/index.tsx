@@ -24,11 +24,18 @@ export const General: FC = () => {
         column={1}
         labelStyle={{ fontWeight: 500, color: theme.colorTextHeading }}
       >
+        <Descriptions.Item label="ID">
+          <Typography.Text
+            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+          >
+            {workspaceTrackerService.workspace?.auth.id}
+          </Typography.Text>
+        </Descriptions.Item>
         <Descriptions.Item label="Name">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.workspace?.data.workspace_name}
+            {workspaceTrackerService.workspace?.auth.displayName}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Release date">

@@ -8,25 +8,24 @@ import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 export const Validate: FC<PropsWithChildren> = ({ children }) => {
   const profileService = useInject(ProfileService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const { workspaceName } = useParams();
+  const { workspaceId } = useParams();
 
   if (
     profileService.profile &&
     profileService.profile.authorized_workspaces.some(
-      (e) => e.data.workspace_name === workspaceName
+      (e) => e.auth.id === workspaceId
     )
   ) {
-    workspaceTrackerService.trackWorkspace(workspaceName!);
+    workspaceTrackerService.trackWorkspace(workspaceId!);
     return <>{children}</>;
   } else {
-    const firstWorkspaceName =
-      profileService.profile!.authorized_workspaces[0].data.workspace_name;
-    workspaceTrackerService.trackWorkspace(firstWorkspaceName);
+    const firstId = profileService.profile!.authorized_workspaces[0].auth.id;
+    workspaceTrackerService.trackWorkspace(firstId);
     return (
       <NavigateTo
         name="workspace"
         params={{
-          workspaceId: firstWorkspaceName,
+          workspaceId: firstId,
         }}
         replace
       />

@@ -34,9 +34,14 @@ export class AuthTokenService implements AuthService {
   }
 
   listAuthorizedWorkspaces(): Observable<AuthorizedWorkspace[]> {
-    const url = import.meta.env.VITE_WORKSPACE_URL || window.location.origin;
+    const url = new URL(
+      import.meta.env.VITE_WORKSPACE_URL || window.location.origin
+    );
     const token = this.getTokenMapFromStorage();
-    return of([{ url, token }]);
+    const id = url.hostname.split(".")[0];
+    return of([
+      { url: url.toString(), token, id, displayName: id, status: "" },
+    ]);
   }
 
   logout(): Promise<void> {

@@ -216,7 +216,7 @@ export class NavigateService {
               key === "workspaceId" &&
               !forceParams[key as keyof PathParams<T>]
             ) {
-              return this.workspaceTrackerService.name ?? "";
+              return this.workspaceTrackerService.id ?? "";
             }
             return forceParams[key as keyof PathParams<T>] ?? "";
           }
