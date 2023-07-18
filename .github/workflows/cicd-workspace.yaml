@@ -230,6 +230,7 @@ jobs:
         WORKSPACE_NAME: latest
       run: |
         ./mothership workspace update \
+          --auto-approve \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "$WORKSPACE_NAME" \
           --image-tag "${{ steps.vars.outputs.image_tag }}"

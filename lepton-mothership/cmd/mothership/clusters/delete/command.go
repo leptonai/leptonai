@@ -11,6 +11,7 @@ import (
 
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
+	"github.com/leptonai/lepton/go-pkg/prompt"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -53,11 +54,7 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	if !autoApprove {
-		fmt.Printf("Confirm deleting workspace %q via %q\n", clusterName, mothershipURL)
-		fmt.Printf("Type 'yes' to continue, other to skip: ")
-		var confirm string
-		fmt.Scanln(&confirm)
-		if confirm != "yes" && confirm != "y" {
+		if !prompt.IsInputYes(fmt.Sprintf("Confirm to delete cluster %q via %q\n", clusterName, mothershipURL)) {
 			return
 		}
 	}

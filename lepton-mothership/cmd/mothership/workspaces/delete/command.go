@@ -10,6 +10,7 @@ import (
 	"time"
 
 	goclient "github.com/leptonai/lepton/go-client"
+	"github.com/leptonai/lepton/go-pkg/prompt"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -56,11 +57,7 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 
 	if workspaceName != "" {
 		if !autoApprove {
-			fmt.Printf("Confirm to delete a single workspace %q via %q\n", workspaceName, mothershipURL)
-			fmt.Printf("Type 'yes' to continue, other to skip: ")
-			var confirm string
-			fmt.Scanln(&confirm)
-			if confirm != "yes" && confirm != "y" {
+			if !prompt.IsInputYes(fmt.Sprintf("Confirm to delete a single workspace %q via %q\n", workspaceName, mothershipURL)) {
 				return
 			}
 		}
@@ -98,11 +95,7 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 			}
 
 			if !autoApprove {
-				fmt.Printf("Confirm to delete a workspace %s (by prefix), state: %s, age: %d hours\n", r.Spec.Name, r.Status.State, wage)
-				fmt.Printf("Type 'yes' to continue, other to skip: ")
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" && confirm != "y" {
+				if !prompt.IsInputYes(fmt.Sprintf("Confirm to delete a workspace %s (by prefix), state: %s, age: %d hours\n", r.Spec.Name, r.Status.State, wage)) {
 					continue
 				}
 			}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	goclient "github.com/leptonai/lepton/go-client"
+	"github.com/leptonai/lepton/go-pkg/prompt"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
@@ -17,6 +18,7 @@ import (
 var (
 	clusterName string
 	gitRef      string
+	autoApprove bool
 )
 
 func init() {
@@ -32,6 +34,7 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to update")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the cluster")
+	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
 }
 
@@ -42,6 +45,12 @@ func updateFunc(cmd *cobra.Command, args []string) {
 
 	token := common.ReadTokenFromFlag(cmd)
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+
+	if !autoApprove {
+		if !prompt.IsInputYes(fmt.Sprintf("Confirm to update cluster %q via %q\n", clusterName, mothershipURL)) {
+			return
+		}
+	}
 
 	// get the existing cluster
 	cli := goclient.NewHTTP(mothershipURL, token)
