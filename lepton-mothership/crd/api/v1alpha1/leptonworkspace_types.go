@@ -20,13 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// LeptonWorkspaceSpec defines the desired state of LeptonWorkspace
+// LeptonWorkspaceSpec defines the desired state of LeptonWorkspace.
+// The deployment environment inherits the one from cluster spec.
 type LeptonWorkspaceSpec struct {
-	// DeploymentEnvironment defines the deployment environment.
-	// Make this "omitempty" to not include in "required" field.
-	// Otherwise, the old CRDs without this field will be rejected.
-	DeploymentEnvironment string `json:"deployment_environment,omitempty"`
-
 	// Name is a globally unique name of a workspace within mothership.
 	Name        string `json:"name"`
 	ClusterName string `json:"cluster_name"`

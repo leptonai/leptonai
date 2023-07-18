@@ -8,7 +8,7 @@ variable "deployment_environment" {
 
   validation {
     condition     = contains(["TEST", "DEV", "PROD"], var.deployment_environment)
-    error_message = "Valid 'deployment_environment' values are TEST, DEV, or PROD,"
+    error_message = "Valid 'deployment_environment' values are TEST, DEV, or PROD"
   }
 }
 
@@ -24,10 +24,27 @@ variable "cluster_name" {
   default     = null
 }
 
+variable "default_capacity_type" {
+  description = "Capacity type for nodes; ON_DEMAND or SPOT"
+  type        = string
+  default     = "ON_DEMAND"
+
+  validation {
+    condition     = contains(["ON_DEMAND", "SPOT"], var.default_capacity_type)
+    error_message = "Valid 'default_capacity_type' values are ON_DEMAND or SPOT"
+  }
+}
+
 variable "lepton_cloud_route53_zone_id" {
   description = "cloud.lepton.ai Route53 zone ID"
   type        = string
   default     = "Z007822916VK7B4DFVMP7"
+}
+
+variable "single_nat_gateway" {
+  description = "Determines whether to use a single-AZ NAT gateway, MUST set true for PROD"
+  type        = bool
+  default     = true
 }
 
 # this is required for Amazon Linux based AMIs

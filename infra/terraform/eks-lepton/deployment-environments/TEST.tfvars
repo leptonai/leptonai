@@ -1,4 +1,15 @@
-# See https://developer.hashicorp.com/terraform/language/values/variables#variable-definition-precedence for ordering
+# later sources taking precedence over earlier ones
+# so the variables in this file may be overwritten by -var flags
+# see https://developer.hashicorp.com/terraform/language/values/variables#variable-definition-precedence for ordering
+#
+# default values are defined in "tfvars" files
+# optionally, overwrite those in the following flags/env vars
+
+deployment_environment = "TEST"
+
+default_capacity_type = "SPOT"
+
+single_nat_gateway = true
 
 # default AMI from https://cloud-images.ubuntu.com/docs/aws/eks also works
 # but it does not come with necessary add-ons such as GPU driver

@@ -389,6 +389,13 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	return cl, nil
 }
 
+const (
+	DeploymentEnvironmentKey       = "DEPLOYMENT_ENVIRONMENT"
+	DeploymentEnvironmentValueTest = "TEST"
+	DeploymentEnvironmentValueDev  = "DEV"
+	DeploymentEnvironmentValueProd = "PROD"
+)
+
 func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
 	clusterName := cl.Spec.Name
 	var err error
@@ -412,11 +419,16 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
+	dpEnv := cl.Spec.DeploymentEnvironment
+	if dpEnv == "" {
+		dpEnv = DeploymentEnvironmentValueTest
+	}
+
 	command := "sh"
 	args := []string{"-c", "cd " + dir + " && ./install.sh"}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	cmd.Env = append(os.Environ(), DeploymentEnvironmentKey+"="+dpEnv, "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
 	cmd.Stderr = cw

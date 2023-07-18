@@ -459,6 +459,8 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 	return ws, nil
 }
 
+const DeploymentEnvironmentKey = "DEPLOYMENT_ENVIRONMENT"
+
 func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- string) error {
 	workspaceName := ws.Spec.Name
 	var err error
@@ -494,11 +496,18 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
+	// derive deployment environment from the cluster
+	dpEnv := cl.Spec.DeploymentEnvironment
+	if dpEnv == "" {
+		dpEnv = cluster.DeploymentEnvironmentValueTest
+	}
+
 	command := "sh"
 	args := []string{"-c", "cd " + dir + " && ./install.sh"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(),
+		DeploymentEnvironmentKey+"="+dpEnv,
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,
 		"WORKSPACE_NAME="+workspaceName,

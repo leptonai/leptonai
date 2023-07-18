@@ -23,6 +23,12 @@ module "eks" {
       use_custom_launch_template = false
       name                       = "t3xlarge"
 
+      # for mothership, do not use "SPOT"
+      # we do not need a ton of instances
+      # and we want the most possible uptime
+      # as it handles all cluster control plane operations
+      capacity_type = "ON_DEMAND"
+
       instance_types = ["t3.xlarge"]
       disk_size      = 100
 

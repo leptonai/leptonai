@@ -8,7 +8,7 @@ variable "deployment_environment" {
 
   validation {
     condition     = contains(["TEST", "DEV", "PROD"], var.deployment_environment)
-    error_message = "Valid 'deployment_environment' values are TEST, DEV, or PROD,"
+    error_message = "Valid 'deployment_environment' values are TEST, DEV, or PROD"
   }
 }
 

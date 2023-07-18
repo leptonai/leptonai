@@ -35,16 +35,12 @@ spec:
           metadata:
             type: object
           spec:
-            description: LeptonWorkspaceSpec defines the desired state of LeptonWorkspace
+            description: LeptonWorkspaceSpec defines the desired state of LeptonWorkspace.
+              The deployment environment inherits the one from cluster spec.
             properties:
               api_token:
                 type: string
               cluster_name:
-                type: string
-              deployment_environment:
-                description: DeploymentEnvironment defines the deployment environment.
-                  Make this "omitempty" to not include in "required" field. Otherwise,
-                  the old CRDs without this field will be rejected.
                 type: string
               description:
                 type: string

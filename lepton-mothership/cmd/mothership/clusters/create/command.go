@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	clusterName string
-	gitRef      string
-	description string
+	deploymentEnvironment string
+	clusterName           string
+	gitRef                string
+	description           string
 )
 
 func init() {
@@ -31,6 +32,7 @@ func NewCommand() *cobra.Command {
 		Short: "Create a cluster",
 		Run:   createFunc,
 	}
+	cmd.PersistentFlags().StringVar(&deploymentEnvironment, "deployment-environment", "TEST", "Deployment environment")
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to create")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the cluster")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the cluster")
@@ -46,6 +48,8 @@ func createFunc(cmd *cobra.Command, args []string) {
 	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
 
 	cluster := crdv1alpha1.LeptonClusterSpec{
+		DeploymentEnvironment: deploymentEnvironment,
+
 		Name:        clusterName,
 		GitRef:      gitRef,
 		Description: description,

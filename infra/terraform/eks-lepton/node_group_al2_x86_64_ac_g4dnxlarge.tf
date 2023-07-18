@@ -26,7 +26,7 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
   # Force version update if existing pods are unable to be drained due to a pod disruption budget issue.
   force_update_version = false
 
-  capacity_type  = "ON_DEMAND"
+  capacity_type  = var.default_capacity_type
   instance_types = ["g4dn.xlarge"]
 
   # NOTE: EKS uses non-NVME based AMIs for root volume

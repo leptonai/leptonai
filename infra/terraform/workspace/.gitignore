@@ -16,6 +16,10 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
+!deployment-environments/DEV.tfvars
+!deployment-environments/PROD.tfvars
+!deployment-environments/TEST.tfvars
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf

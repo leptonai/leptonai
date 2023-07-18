@@ -39,10 +39,16 @@ module "vpc" {
 
   enable_nat_gateway = true
 
-  # do not "single_nat_gateway = true"
-  # and use the default "single_nat_gateway = false"
-  # to create NAT gateway in each AZ for higher availability
-  # cross-AZ data transfer bill is not that much...
+  # for mothership, do not use "single_nat_gateway = true"
+  # mothership needs most possible uptime
+  # and we do not create mothership that often
+  # so the resource overhead is minimum
+  #
+  # "single_nat_gateway = false" creates NAT gateway
+  # in each AZ for higher availability
+  # internal cross-AZ data transfer are not that much
+  # we may use single NAT gateway for TEST/DEV
+  single_nat_gateway = false
 
   enable_dns_hostnames = true
 

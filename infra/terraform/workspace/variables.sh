@@ -17,6 +17,8 @@ APPLY_FLAGS=(
     "-var=quota_group=$QUOTA_GROUP"
 )
 
+# default values are defined in "tfvars" files
+# optionally, overwrite those in the following flags/env vars
 if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then
-    APPLY_FLAGS+=("-var=deployment_environment=$DEPLOYMENT_ENVIRONMENT")
+    APPLY_FLAGS+=("-var-file=deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars")
 fi
