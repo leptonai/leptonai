@@ -5,9 +5,9 @@ import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
   DeploymentEvent,
-  Replica,
-  Metric,
   DeploymentReadiness,
+  Metric,
+  Replica,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import {
@@ -37,7 +37,9 @@ export class ApiServerService implements ApiService {
   }
 
   get prefix() {
-    return `${this.host}${this.apiVersionPrefix}`;
+    return this.host
+      ? new URL(this.apiVersionPrefix, this.host).href
+      : this.apiVersionPrefix;
   }
 
   listPhotons(): Observable<Photon[]> {
