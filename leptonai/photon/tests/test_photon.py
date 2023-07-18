@@ -858,6 +858,33 @@ class CustomPhoton2(Photon):
             # assert it triggers the batch execution route
             self.assertEqual(res, [2 * x + len(xs) for x in xs])
 
+    def test_healthz(self):
+        customized = "customized"
+
+        class CustomHealthzPhoton(Photon):
+            @Photon.handler(method="GET")
+            def healthz(self) -> Dict[str, str]:
+                return {"status": customized}
+
+        ph = CustomHealthzPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/healthz")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json(), {"status": customized})
+
+        class FallbackHealthzPhoton(Photon):
+            @Photon.handler(method="GET")
+            def greet(self) -> str:
+                return "hello"
+
+        ph = FallbackHealthzPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/healthz")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json(), {"status": "ok"})
+
 
 if __name__ == "__main__":
     unittest.main()

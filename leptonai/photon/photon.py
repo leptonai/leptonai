@@ -490,6 +490,12 @@ class Photon(BasePhoton):
             # handlers (e.g. apps mounted at root path)
             app.routes.insert(0, app.routes.pop())
 
+            # /healthz added at this point will be at the end of `app.routes`,
+            # so it will act as a fallback
+            @app.get("/healthz", include_in_schema=False)
+            def healthz():
+                return {"status": "ok"}
+
             global lepton_uvicorn_restart
             global lepton_uvicorn_server
 
