@@ -136,7 +136,12 @@ export class ApiServerService implements ApiService {
     metricName: string
   ): Observable<Metric[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/monitoring/${metricName}`
+      `${this.prefix}/deployments/${deploymentId}/monitoring/${metricName}`,
+      {
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: [500],
+        }),
+      }
     );
   }
 
@@ -157,13 +162,7 @@ export class ApiServerService implements ApiService {
   ): Observable<DeploymentReadiness> {
     return this.httpClientService
       .get<DeploymentReadiness>(
-        `${this.prefix}/deployments/${deploymentId}/readiness`,
-        // FIXME(hsuanxyz): this is a hotfix to ignore errors
-        {
-          context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
-            ignoreErrors: true,
-          }),
-        }
+        `${this.prefix}/deployments/${deploymentId}/readiness`
       )
       .pipe(
         catchError((err) => {
@@ -229,7 +228,12 @@ export class ApiServerService implements ApiService {
     metricName: string
   ): Observable<Metric[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/monitoring/${metricName}`
+      `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/monitoring/${metricName}`,
+      {
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: [500],
+        }),
+      }
     );
   }
 

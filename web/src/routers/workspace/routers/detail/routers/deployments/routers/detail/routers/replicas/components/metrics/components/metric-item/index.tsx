@@ -23,6 +23,7 @@ export const MetricItem: FC<{
   description,
 }) => {
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [data, setData] = useState<
     {
       name: string;
@@ -49,7 +50,8 @@ export const MetricItem: FC<{
         );
         setLoading(false);
       },
-      error: () => {
+      error: (err) => {
+        setUnavailable(err.response?.status === 500);
         setLoading(false);
       },
     }
@@ -63,6 +65,7 @@ export const MetricItem: FC<{
       description={description}
       data={data}
       format={format}
+      unavailable={unavailable}
     />
   );
 };

@@ -13,9 +13,10 @@ export const Metric: FC<{
   title: string;
   description: string[];
   data: { name: string; data: [number, number | null][] }[];
+  unavailable?: boolean;
   format: (value: number) => string;
   onInit?: (chart: EChartsType) => void;
-}> = ({ title, loading, format, data, onInit, description }) => {
+}> = ({ title, loading, format, data, onInit, description, unavailable }) => {
   const divRef = useRef<HTMLDivElement | null>(null);
   const onInitRef = useRef(onInit);
   const echartRef = useRef<EChartsType | null>(null);
@@ -24,11 +25,13 @@ export const Metric: FC<{
   const options = useMemo(
     () => ({
       title: {
-        show: data.length === 0,
+        show: data.length === 0 || unavailable,
         textStyle: {
-          fontSize: 16,
+          fontSize: unavailable ? 12 : 16,
         },
-        text: `No data for ${title}`,
+        text: unavailable
+          ? `No data for ${title}\n\nPrometheus is temporarily unavailable, stay tuned.`
+          : `No data for ${title}`,
         left: "center",
         top: "center",
       },
@@ -69,7 +72,7 @@ export const Metric: FC<{
         bottom: data.length > 1 ? 50 : 20,
       },
     }),
-    [format, data, title]
+    [data, unavailable, title, format]
   );
 
   useStateFromObservable(

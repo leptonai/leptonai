@@ -44,12 +44,17 @@ export class AppInterceptor implements HTTPInterceptor {
       .pipe(
         catchError((error) => {
           console.error(error);
-
-          if (req.context?.get(INTERCEPTOR_CONTEXT).ignoreErrors) {
+          const status = error.status || error.response?.status;
+          const ignoreErrors =
+            req.context?.get(INTERCEPTOR_CONTEXT).ignoreErrors;
+          if (
+            ignoreErrors === true ||
+            (Array.isArray(ignoreErrors) && ignoreErrors.includes(status))
+          ) {
             return throwError(error);
           }
 
-          if (error.status === 401 || error.response?.status === 401) {
+          if (status === 401) {
             return fromPromise(
               this.authService.logout().then(() => {
                 this.navigateService.navigateTo("login");
