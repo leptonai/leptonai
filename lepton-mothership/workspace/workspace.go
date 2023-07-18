@@ -200,10 +200,6 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	)
 
 	workspaceName := spec.Name
-	if !util.ValidateName(workspaceName) {
-		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.NameInvalidMessage)
-	}
-
 	ws, err := DataStore.Get(context.Background(), workspaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
@@ -213,6 +209,16 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 			"workspace", workspaceName,
 			"operation", "update",
 		)
+	}
+	// temporarily allow updating cluster name for testing
+	if spec.ClusterName != "" {
+		if _, err := cluster.DataStore.Get(context.Background(), spec.ClusterName); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
+			}
+			return nil, fmt.Errorf("failed to get cluster: %w", err)
+		}
+		ws.Spec.ClusterName = spec.ClusterName
 	}
 	// only allow updating certain fields
 	ws.Spec.ImageTag = spec.ImageTag
