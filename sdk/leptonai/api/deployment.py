@@ -86,7 +86,7 @@ def get_log(url: str, auth_token: str, name: str, replica: str):
         stream=True,  # stream the response
     )
     if response.ok:
-        for chunk in response.iter_content(chunk_size=1):
+        for chunk in response.iter_content(chunk_size=None):
             if chunk:
                 yield chunk.decode("utf8")
     else:
