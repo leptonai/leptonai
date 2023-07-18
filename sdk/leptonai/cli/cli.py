@@ -33,25 +33,31 @@ workspace.add_command(lep)
 
 
 @lep.command()
-def login():
+@click.option(
+    "--credentials",
+    "-c",
+    help="The credentials of the lepton login info.",
+    default=None,
+)
+def login(credentials):
     """
     Login to the Lepton AI cloud. This will open a browser window to the Lepton AI
     login page. After logging in, you will be redirected to a page with an access
     code. Copy the access code and paste it into the terminal, and you will be
     logged in.
     """
-    in_n_out.cloud_login()
+    in_n_out.cloud_login(credentials=credentials)
 
 
 @lep.command()
 @click.option(
-    "--forget", is_flag=True, help="Forget the credentials of the lepton login info."
+    "--purge", is_flag=True, help="Purge the credentials of the lepton login info."
 )
-def logout(forget):
+def logout(purge):
     """
     Logout of the Lepton AI cloud.
     """
-    in_n_out.cloud_logout(forget=forget)
+    in_n_out.cloud_logout(purge=purge)
 
 
 if __name__ == "__main__":
