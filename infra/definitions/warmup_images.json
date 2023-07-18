@@ -1,0 +1,17 @@
+{
+  "gp1.small": [
+    "nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu22.04"
+  ],
+  "gp1.medium": [
+    "nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu22.04"
+  ],
+  "gp1.large": [
+    "nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu22.04"
+  ],
+  "ac1.t4": [
+    "nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu22.04"
+  ],
+  "ac1.a10": [
+    "nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu22.04"
+  ]
+}
