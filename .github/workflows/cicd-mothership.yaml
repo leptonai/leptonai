@@ -7,14 +7,18 @@ env:
 
 on:
   push:
+    paths:
+      - ".github/workflow/cicd-mothership.yaml"
+      - "lepton-mothership/**"
+      - "!lepton-mothership/cmd/**"
+      - "go-pkg/**"
     branches: [ "main" ]
   pull_request:
     paths:
-      - ".github/**"
-      - "infra/**"
+      - ".github/workflow/cicd-mothership.yaml"
       - "lepton-mothership/**"
+      - "!lepton-mothership/cmd/**"
       - "go-pkg/**"
-      - "charts/**"
     branches: [ "**" ]
 
 jobs:
