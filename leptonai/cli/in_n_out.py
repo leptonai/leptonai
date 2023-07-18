@@ -3,7 +3,7 @@ Login is the main module that allows a serverless login.
 """
 import webbrowser
 
-from .util import console
+from .util import console, guard_api
 from leptonai.api import workspace
 from leptonai.util import get_full_workspace_api_url
 
@@ -15,57 +15,72 @@ LOGIN_LOGO = """\
 [blue]   | |___| |___|  __/ | || |_| | |\\  |   / ___ \\ | |     [/]
 [blue]   |_____|_____|_|    |_| \\___/|_| \\_|  /_/   \\_\\___|    [/]
                                                          
-========================================================
-"""
+========================================================"""
 
 
-def cloud_login():
+def cloud_login(credentials=None):
     """
     Logs in to the serverless cloud.
     """
     console.print(LOGIN_LOGO)
     current_workspace = workspace.get_workspace()
-    if current_workspace:
+    if current_workspace and not credentials:
+        # Already logged in. Notify the user the login status.
         console.print(f"Logged in to your workspace [green]{current_workspace}[/].")
+        console.print(
+            "If you have multiple workspaces, use `lep workspace login -n \[name]` to"
+            " pick the one you want to log in to."
+        )
     else:
         # Need to login.
-        # TODO: I expect this function to be something like "open a browser asking
-        # the user to log in. After log in, we display the connection string, and
-        # then ask the user to paste it back here, and we parse the string to get
-        # the workspace name and auth token.
-        # For now, this page is not implemented yet.
-        raise RuntimeError("This is not implemented yet. Stay tuned.")
-        console.print("Welcome to Lepton AI cloud. Let's log you in.")
-        console.print(
-            "We will open a browser for you to obtain your workspace "
-            "and auth token for your commandline interface."
-        )
-        console.print("In the browser, please log in to your Lepton AI account.")
-        console.print(
-            "After logging in, you will be redirected to a page with "
-            "your workspace connection string."
-        )
-        console.print("Please copy the connection string and paste it here.")
-        input("Whenever you are ready, press Enter to continue...")
-        webbrowser.open("https://login.lepton.ai/?redirect=credentials")
-        console.print("[green]Connection string:[/] ")
+        if not credentials:
+            # obtain credentials first.
+            console.print(
+                "Welcome to Lepton AI. We will open a browser for you to obtain your"
+                " login credentials. Please log in with your registered account."
+            )
+            console.print(
+                "You'll then be presented with your CLI credentials. If you have"
+                " multiple workspaces, there will be multiple credentials - select the"
+                " one you want to log in to. Copy the credential and paste it here."
+            )
+            input("Whenever you are ready, press Enter to continue...")
 
-        connection_string = input("")
-        workspace_name, auth_token = connection_string.split(":", 1)
-        # TODO: sanity check the workspace name and auth token.
+            success = webbrowser.open("https://dashboard.lepton.ai/credentials")
+            if not success:
+                console.print(
+                    "It seems that you are running in a non-GUI environment. You can"
+                    " manually obtain credentials from"
+                    " https://dashboard.lepton.ai/credentials and copy it over, or use"
+                    " `lep login -c \[credentials]` to log in."
+                )
+            while not credentials:
+                credentials = input("Credential: ")
+
+        workspace_name, auth_token = credentials.split(":", 1)
         url = get_full_workspace_api_url(workspace_name)
         workspace.save_workspace(workspace_name, url, auth_token=auth_token)
-        console.print("Logged in to your workspace [green]{workspace_name}[/].")
+        workspace.set_current_workspace(workspace_name)
+        guard_api(
+            workspace.get_workspace_info(url, auth_token),
+            detail=True,
+            msg=(
+                f"Cannot properly log into workspace [red]{workspace_name}. This should"
+                " usually not happen - it might be a transient network issue. Please"
+                " contact us by sharing the error message above."
+            ),
+        )
+        console.print(f"Logged in to your workspace [green]{workspace_name}[/].")
 
 
-def cloud_logout(forget=False):
+def cloud_logout(purge=False):
     """
     Logs out of the serverless cloud.
     """
-    if forget:
+    if purge:
         name = workspace.get_workspace()
         workspace.remove_workspace(name)
         if name:
-            console.print(f"Forgot credentials for workspace [green]{name}[/].")
+            console.print(f"OK, purging credentials for workspace [green]{name}[/].")
     workspace.set_current_workspace(None)
-    console.print("Logged out of Lepton AI cloud.")
+    console.print("Logged out of Lepton AI.")
