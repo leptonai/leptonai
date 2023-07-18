@@ -45,28 +45,29 @@ export default async function handler(
   }
   try {
     switch (event.type) {
+      case "customer.subscription.created":
       case "customer.subscription.updated":
-        const customerSubscriptionUpdated = event.data
-          .object as Stripe.Subscription;
-        if (
-          customerSubscriptionUpdated.metadata &&
-          customerSubscriptionUpdated.metadata.workspace_id
-        ) {
-          if (customerSubscriptionUpdated.status === "past_due") {
+        const subscription = event.data.object as Stripe.Subscription;
+        if (subscription.metadata.workspace_id) {
+          if (subscription.status === "past_due") {
             // TODO: mothership terminate workspace if active
           }
-          if (customerSubscriptionUpdated.status === "active") {
+          if (subscription.status === "active") {
             // TODO: mothership resume workspace if terminate
           }
           await supabase
             .from("workspaces")
-            .update({ status: customerSubscriptionUpdated.status })
-            .eq("id", customerSubscriptionUpdated.metadata.workspace_id);
+            .update({ status: subscription.status })
+            .eq("id", subscription.metadata.workspace_id);
           res
             .status(200)
             .send(
-              `Update workspace ${customerSubscriptionUpdated.metadata.workspace_id} to ${customerSubscriptionUpdated.status}`,
+              `Update workspace ${subscription.metadata.workspace_id} to ${subscription.status}`,
             );
+        } else {
+          res
+            .status(500)
+            .send(`No workspace id found for subscription ${subscription.id}`);
         }
         break;
       case "payment_method.attached":
