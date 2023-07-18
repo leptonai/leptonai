@@ -586,15 +586,22 @@ class Photon(BasePhoton):
             )
         return
 
-    def _create_typed_handler(self, path, func, kwargs):
+    def _create_typed_handler(self, path, http_method, func, kwargs):
         method = func.__get__(self, self.__class__)
+
         request_model, response_model, response_class = create_model_for_func(
             method, func_name=path
         )
-        if "example" in kwargs:
-            request_model = Annotated[request_model, Body(example=kwargs["example"])]
-        if "examples" in kwargs:
-            request_model = Annotated[request_model, Body(examples=kwargs["examples"])]
+
+        if http_method.lower() == "post":
+            if "example" in kwargs:
+                request_model = Annotated[
+                    request_model, Body(example=kwargs["example"])
+                ]
+            if "examples" in kwargs:
+                request_model = Annotated[
+                    request_model, Body(examples=kwargs["examples"])
+                ]
 
         if kwargs.get("max_batch_size") is not None:
             method = batch(
@@ -603,21 +610,47 @@ class Photon(BasePhoton):
             )(method)
         else:
             method = asyncfy(method)
-        vd = pydantic.decorator.validate_arguments(method).vd
 
-        async def typed_handler(request: request_model):
-            logger.info(request)
-            try:
-                res = await vd.execute(request)
-            except Exception as e:
-                logger.error(e)
-                if isinstance(e, HTTPException):
-                    return JSONResponse({"error": e.detail}, status_code=e.status_code)
-                return JSONResponse({"error": str(e)}, status_code=500)
-            else:
-                if not isinstance(res, response_class):
-                    res = response_class(res)
-                return res
+        if http_method.lower() == "post":
+            vd = pydantic.decorator.validate_arguments(method).vd
+
+            async def typed_handler(request: request_model):
+                logger.info(request)
+                try:
+                    res = await vd.execute(request)
+                except Exception as e:
+                    logger.error(e)
+                    if isinstance(e, HTTPException):
+                        return JSONResponse(
+                            {"error": e.detail}, status_code=e.status_code
+                        )
+                    return JSONResponse({"error": str(e)}, status_code=500)
+                else:
+                    if not isinstance(res, response_class):
+                        res = response_class(res)
+                    return res
+
+        elif http_method.lower() == "get":
+
+            @functools.wraps(method)
+            async def typed_handler(*args, **kwargs):
+                logger.info(f"args: {args}, kwargs: {kwargs}")
+                try:
+                    res = await method(*args, **kwargs)
+                except Exception as e:
+                    logger.error(e)
+                    if isinstance(e, HTTPException):
+                        return JSONResponse(
+                            {"error": e.detail}, status_code=e.status_code
+                        )
+                    return JSONResponse({"error": str(e)}, status_code=500)
+                else:
+                    if not isinstance(res, response_class):
+                        res = response_class(res)
+                    return res
+
+        else:
+            raise ValueError(f"Unsupported http method {http_method}")
 
         typed_handler_kwargs = {
             "response_model": response_model,
@@ -627,26 +660,16 @@ class Photon(BasePhoton):
 
     # helper function of _register_routes
     def _add_route(self, api_router, path, method, func, kwargs):
-        if method.lower() == "post":
-            typed_handler, typed_handler_kwargs = self._create_typed_handler(
-                path, func, kwargs
-            )
-            api_router.add_api_route(
-                f"/{path}",
-                typed_handler,
-                name=path,
-                methods=[method],
-                **typed_handler_kwargs,
-            )
-        elif method.lower() == "get":
-            api_router.add_api_route(
-                f"/{path}",
-                func.__get__(self, self.__class__),
-                name=path,
-                methods=[method],
-            )
-        else:
-            raise ValueError(f"Unsupported method {method}")
+        typed_handler, typed_handler_kwargs = self._create_typed_handler(
+            path, method, func, kwargs
+        )
+        api_router.add_api_route(
+            f"/{path}",
+            typed_handler,
+            name=path,
+            methods=[method],
+            **typed_handler_kwargs,
+        )
 
     def _register_routes(self, app, load_mount):
         api_router = APIRouter()

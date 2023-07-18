@@ -831,6 +831,33 @@ class CustomPhoton2(Photon):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"hello": ans})
 
+    @async_test
+    def test_batch_with_get(self):
+        class BatchGetPhoton(Photon):
+            @Photon.handler(max_batch_size=2, max_wait_time=5, method="GET")
+            def run(self, x: int) -> int:
+                if isinstance(x, list):
+                    return [2 * v + len(x) for v in x]
+                else:
+                    return 2 * x
+
+        ph = BatchGetPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            xs = [1, 2]
+            res = list(
+                executor.map(
+                    lambda x: requests.get(
+                        f"http://127.0.0.1:{port}/run", params={"x": x}
+                    ).json(),
+                    xs,
+                )
+            )
+            # assert it triggers the batch execution route
+            self.assertEqual(res, [2 * x + len(xs) for x in xs])
+
 
 if __name__ == "__main__":
     unittest.main()
