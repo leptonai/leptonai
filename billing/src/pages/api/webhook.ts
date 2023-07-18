@@ -5,6 +5,23 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 export const config = { api: { bodyParser: false } };
 
+async function updateSubscriptions(consumerId: string, amountGTE: number) {
+  const { data: subscriptions } = await stripeClient.subscriptions.search({
+    query: `status:'active' AND metadata['consumer_id']:'${consumerId}'`,
+  });
+  await Promise.all(
+    subscriptions.map(async ({ id }) => {
+      await stripeClient.subscriptions.update(id, {
+        billing_thresholds: {
+          amount_gte: amountGTE,
+          reset_billing_cycle_anchor: false,
+        },
+      });
+    }),
+  );
+  return subscriptions.map(({ id }) => id);
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -18,44 +35,66 @@ export default async function handler(
     event = stripeClient.webhooks.constructEvent(
       reqBuffer,
       sig,
-      process.env.STRIPE_ENDPOINT_SECRET!,
+      process.env.STRIPE_SIGNING_SECRET!,
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     if (err! instanceof Error) console.log(err);
-    console.log(`❌ Error: ${errorMessage}`);
     res.status(400).send(`Error: ${errorMessage}`);
     return;
   }
-
-  switch (event.type) {
-    case "customer.subscription.updated":
-      const subscription = event.data.object as Stripe.Subscription;
-      if (subscription.metadata && subscription.metadata.workspace_id) {
-        try {
-          if (subscription.status === "past_due") {
+  try {
+    switch (event.type) {
+      case "customer.subscription.updated":
+        const customerSubscriptionUpdated = event.data
+          .object as Stripe.Subscription;
+        if (
+          customerSubscriptionUpdated.metadata &&
+          customerSubscriptionUpdated.metadata.workspace_id
+        ) {
+          if (customerSubscriptionUpdated.status === "past_due") {
             // TODO: mothership terminate workspace if active
           }
-          if (subscription.status === "active") {
+          if (customerSubscriptionUpdated.status === "active") {
             // TODO: mothership resume workspace if terminate
           }
           await supabase
             .from("workspaces")
-            .update({ status: subscription.status })
-            .eq("id", subscription.metadata.workspace_id);
-          console.log(
-            `Update workspace ${subscription.metadata.workspace_id} to ${subscription.status}`,
-          );
-          res.status(200).json(subscription);
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : "Internal server error";
-          res.status(500).send(`Error: ${errorMessage}`);
+            .update({ status: customerSubscriptionUpdated.status })
+            .eq("id", customerSubscriptionUpdated.metadata.workspace_id);
+          res
+            .status(200)
+            .send(
+              `Update workspace ${customerSubscriptionUpdated.metadata.workspace_id} to ${customerSubscriptionUpdated.status}`,
+            );
         }
-      }
-      break;
-    // TODO: set billing_thresholds to minimal when payment deleted, and resume when paid
-    default:
-      res.status(200).json(event);
+        break;
+      case "payment_method.attached":
+        const paymentMethodAttached = event.data.object as Stripe.PaymentMethod;
+        const incrementIds = await updateSubscriptions(
+          paymentMethodAttached.customer as string,
+          5000,
+        );
+        res
+          .status(200)
+          .send(`Update subscriptions ${incrementIds.join(",")} to gte 5000`);
+        break;
+      case "payment_method.detached":
+        const paymentMethodDetached = event.data.object as Stripe.PaymentMethod;
+        const decrementIds = await updateSubscriptions(
+          paymentMethodDetached.customer as string,
+          50,
+        );
+        res
+          .status(200)
+          .send(`Update subscriptions ${decrementIds.join(",")} to gte 50`);
+        break;
+      default:
+        res.status(200).json(event);
+    }
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : "Internal server error";
+    res.status(500).send(`Error: ${errorMessage}`);
   }
 }

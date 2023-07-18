@@ -8,7 +8,7 @@ export default async function handler(
 ) {
   if (
     req.method !== "POST" ||
-    req.query.API_ROUTE_SECRET !== process.env.API_ROUTE_SECRET
+    req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
   ) {
     return res.status(401).send("You are not authorized to call this API");
   }
@@ -26,8 +26,12 @@ export default async function handler(
       customer: consumer.id,
       metadata: {
         workspace_id,
+        consumer_id: consumer.id,
       },
-      // TODO: set billing_thresholds here
+      billing_thresholds: {
+        amount_gte: 50,
+        reset_billing_cycle_anchor: false,
+      },
       items: [
         {
           price: "price_1NTKPTBcUfXYxWWVOfMFn9DA",

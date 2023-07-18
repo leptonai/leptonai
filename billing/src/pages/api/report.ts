@@ -8,7 +8,7 @@ export default async function handler(
 ) {
   if (
     req.method !== "POST" ||
-    req.query.API_ROUTE_SECRET !== process.env.API_ROUTE_SECRET
+    req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
   ) {
     return res.status(401).send("You are not authorized to call this API");
   }
