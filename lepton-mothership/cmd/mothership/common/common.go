@@ -24,12 +24,22 @@ func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
 	useCfg, _ := strconv.ParseBool(auroraCfgFlag)
 	if !useCfg {
 		log.Println("reading aurora config from provided flags")
+		if cmd.Flag("db-host").Value.String() == "" {
+			log.Fatal("db-host flag is empty")
+		}
+		if cmd.Flag("db-user").Value.String() == "" {
+			log.Fatal("db-user flag is empty")
+		}
+
 		dbHost := cmd.Flag("db-host").Value.String()
 		dbPort, _ := strconv.Atoi(cmd.Flag("db-port").Value.String())
 
 		s := cmd.Flag("auth-with-token").Value.String()
 		authWithToken, _ := strconv.ParseBool(s)
 
+		if !authWithToken && cmd.Flag("db-password").Value.String() == "" {
+			log.Fatal("token auth is not enabled but db-password flag is empty")
+		}
 		return aurora.AuroraConfig{
 			Region:        cmd.Flag("region").Value.String(),
 			DBDriverName:  cmd.Flag("db-driver-name").Value.String(),
