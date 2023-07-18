@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { Card } from "../../../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";

@@ -37,6 +37,7 @@
     "echarts": "^5.4.2",
     "injection-js": "^2.4.0",
     "lodash": "^4.17.21",
+    "mime2ext": "^2.0.0",
     "monaco-editor": ">= 0.25.0 < 1",
     "observable-hooks": "^4.2.1",
     "pretty-bytes": "^6.1.0",

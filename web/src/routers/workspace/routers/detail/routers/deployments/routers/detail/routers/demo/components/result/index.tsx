@@ -1,9 +1,12 @@
 import { FC, useMemo } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Space, Typography } from "antd";
+import { Button, Col, Row, Space, Typography } from "antd";
 import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
+import mime2ext from "mime2ext";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { Download } from "@carbon/icons-react";
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
 export type SupportedContentTypes =
@@ -66,6 +69,45 @@ const canStringify = (content: SafeAny): content is string => {
 
 const isBlob = (content: SafeAny): content is Blob => {
   return content instanceof Blob;
+};
+
+const ResultDownload: FC<{ result: DEMOResult }> = ({ result }) => {
+  const theme = useAntdTheme();
+  const downloadable = useMemo(() => {
+    return isDEMOResultPayload(result) && isBlob(result.payload);
+  }, [result]);
+  const downloadUrl = useMemo(() => {
+    if (downloadable) {
+      return URL.createObjectURL(
+        (result as DEMOResultPayload).payload as unknown as Blob
+      );
+    }
+  }, [downloadable, result]);
+  const filename = useMemo(() => {
+    if (downloadable) {
+      const ext = mime2ext((result as DEMOResultPayload).contentType);
+      if (!ext) {
+        return "result";
+      }
+      return `result.${ext}`;
+    }
+  }, [downloadable, result]);
+
+  return downloadable ? (
+    <Button
+      css={css`
+        color: ${theme.colorTextTertiary};
+      `}
+      icon={<CarbonIcon icon={<Download />} />}
+      size="small"
+      type="link"
+      href={downloadUrl}
+      download={filename}
+      target="_blank"
+    >
+      Download
+    </Button>
+  ) : null;
 };
 
 const ErrorTextDisplay: ResultDisplay = ({ content }) => {
@@ -254,13 +296,18 @@ export const Result: FC<{ result: DEMOResult }> = ({ result }) => {
       >
         {displayResult}
       </div>
-      <Space>
-        {result.executionTime && (
-          <Typography.Text type="secondary">
-            Output in {(result.executionTime / 1000).toFixed(2)} seconds
-          </Typography.Text>
-        )}
-      </Space>
+      {result.executionTime && (
+        <Row gutter={[16, 16]} justify="space-between">
+          <Col>
+            <Typography.Text type="secondary">
+              Output in {(result.executionTime / 1000).toFixed(2)} seconds
+            </Typography.Text>
+          </Col>
+          <Col>
+            <ResultDownload result={result} />
+          </Col>
+        </Row>
+      )}
     </Space>
   );
 };
