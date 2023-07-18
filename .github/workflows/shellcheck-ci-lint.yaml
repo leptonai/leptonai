@@ -19,5 +19,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           path: "."
           pattern: "*.sh"
-          exclude: "./.git/*"
+          exclude: |
+            ./.git/*
+            ./tuna/*
           check_all_files_with_shebangs: "false"

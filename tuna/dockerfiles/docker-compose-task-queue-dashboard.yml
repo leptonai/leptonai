@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+    task-queue-dashboard:
+        build:
+            context: ..
+            dockerfile: dockerfiles/task-queue-dashboard.Dockerfile
+        command: celery -A tuna flower --persistent=True --db=flower.db
+        volumes:
+            - ..:/workspace
+        working_dir: /workspace
+        env_file:
+            - ../.env.flower
+        ports:
+            - "5555:5555"
