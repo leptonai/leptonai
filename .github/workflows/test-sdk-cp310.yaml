@@ -1,11 +1,9 @@
 name: sdk-test-cp310
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     paths:
-      - .github/**
+      - .github/workflows/test-sdk-cp310.yaml
       - sdk/**
       - vectordb/**
     branches: [ "**" ]
