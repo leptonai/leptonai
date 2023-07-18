@@ -10,7 +10,7 @@ const Container = styled.div`
   padding: 32px;
 `;
 
-export const Tokens = () => {
+export const Credentials = () => {
   const authService = useInject(AuthService);
   const workspaces = useStateFromObservable(
     () => authService.listAuthorizedWorkspaces(),
@@ -18,7 +18,7 @@ export const Tokens = () => {
   );
   return (
     <Container>
-      <Typography.Title level={2}>Tokens</Typography.Title>
+      <Typography.Title level={2}>Credentials</Typography.Title>
       <Table
         pagination={false}
         size="small"
@@ -26,21 +26,17 @@ export const Tokens = () => {
         dataSource={workspaces}
         columns={[
           {
-            title: "Workspace ID",
-            dataIndex: "id",
-          },
-          {
             title: "Workspace Name",
             dataIndex: "displayName",
           },
           {
-            title: "Token",
+            title: "Credentials",
             dataIndex: "token",
-            render: (v) => (
+            render: (v, record) => (
               <Typography.Text
                 copyable={{
                   icon: <CarbonIcon icon={<CopyFile />} />,
-                  text: v,
+                  text: `${record.id}:${v}`,
                 }}
               >
                 ••••••••••••
