@@ -29,7 +29,7 @@ func NewCommand() *cobra.Command {
 		Long: `
 # Aggregate data from start-time to end-time, into the specified aggregate table.
 --start-time value must be provided
---end-time is optional and will default a single unit of aggregation after the start-time.
+--end-time is optional, defaults a single unit of aggregation after the start-time.
 --table value must be provided, and one of 'hourly', 'daily', or 'weekly'.
 
 Both start and end times will be truncated down to the nearest whole unit of aggregation.
@@ -73,11 +73,6 @@ mothership metering aggregate --start-time 1689033600 --end-time 1689206400 --ta
 }
 
 func aggregateFunc(cmd *cobra.Command, args []string) {
-	// TODO: add daily and weekly tables.
-	if tableFlag != "hourly" {
-		log.Fatal("only --table 'hourly' supported for now", tableFlag)
-	}
-
 	// create aurora connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 	db, err := auroraCfg.NewHandler()
@@ -95,13 +90,17 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	defer supabaseDB.Close()
 
 	var queryInterval time.Duration
+	var table metering.MeteringTable
 	switch tableFlag {
 	case "hourly":
 		queryInterval = time.Hour
+		table = metering.MeteringTableHourly
 	case "daily":
 		queryInterval = 24 * time.Hour
+		table = metering.MeteringTableDaily
 	case "weekly":
 		queryInterval = 168 * time.Hour
+		table = metering.MeteringTableWeekly
 	default:
 		log.Fatalf(`invalid table %s, must be one of ("hourly", "daily", "weekly")`, tableFlag)
 	}
@@ -145,7 +144,6 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 			endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
 	}
 	// get all intermediate query windows, aggregate each one and write to DB
-	// TODO: execute in one query
 	startTimes, endTimes := getIntermediateQueryWindows(startTime, endTime, queryInterval)
 	for i := 0; i < len(startTimes); i++ {
 		var aggregate []metering.UsageAggregateRow
@@ -154,43 +152,43 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
 				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
 		}
+		if len(aggregate) == 0 {
+			log.Printf("no %s aggregate data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		log.Printf("processing %d %s aggregate rows for window %s - %s", len(aggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
 		// create a 128 bit md5 batch_id for this aggregation
 		hash := md5.New()
 		hash.Write([]byte(fmt.Sprintf("%d%d%d", startTimes[i].Unix(), endTimes[i].Unix()*10, len(aggregate)*100)))
 		hashSum := hash.Sum(nil)
 		batchID := fmt.Sprintf("%x", hashSum)
 
-		// TODO: add daily and weekly tables
-		switch tableFlag {
-		case "hourly":
-			maxRetries := 10
-			_, err = retryInsertIntoHourly(aurora.DB, metering.MeteringTableAuroraHourly, maxRetries, aggregate, batchID)
+		maxRetries := 10
+		_, err = retryInsertIntoAggregate(aurora.DB, table, maxRetries, aggregate, batchID)
+		if err != nil {
+			log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
+		}
+
+		if table == metering.MeteringTableHourly {
+			// insert into supabase table
+			_, err = retryInsertIntoAggregate(supabaseDB, table, maxRetries, aggregate, batchID)
 			if err != nil {
-				log.Fatalf("couldn't insert into aurora hourly table: %v", err)
+				log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
 			}
-			_, err = retryInsertIntoHourly(supabaseDB, metering.MeteringTableSupabaseHourly, maxRetries, aggregate, batchID)
-			if err != nil {
-				log.Fatalf("couldn't insert into supabase hourly table: %v", err)
-			}
-		case "daily":
-			log.Fatal("daily table not yet supported")
-		case "weekly":
-			log.Fatal("weekly table not yet supported")
-		default:
-			log.Fatalf(`invalid table %s, must be one of ("hourly", "daily", "weekly")`, tableFlag)
 		}
 	}
 	log.Printf("successfully processed %s aggregate data for window (%s,%s)", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 }
 
-func retryInsertIntoHourly(db *sql.DB, table metering.MeteringTable, maxRetries int, aggregate []metering.UsageAggregateRow, batch_id string) (int64, error) {
+func retryInsertIntoAggregate(db *sql.DB, table metering.MeteringTable, maxRetries int, aggregate []metering.UsageAggregateRow, batch_id string) (int64, error) {
 	for retries := 0; retries < maxRetries; retries++ {
 		tx, err := db.Begin()
 		if err != nil {
 			log.Printf("couldn't begin transaction: %v", err)
 			continue
 		}
-		rows, err := metering.InsertRowsIntoHourly(tx, table, aggregate, batch_id)
+		rows, err := metering.InsertRowsIntoAggregate(tx, table, aggregate, batch_id)
 		if err != nil {
 			log.Printf("failed to execute query, trying again %v", err)
 			err = tx.Rollback()
@@ -203,7 +201,7 @@ func retryInsertIntoHourly(db *sql.DB, table metering.MeteringTable, maxRetries 
 
 		err = tx.Commit()
 		if err != nil {
-			log.Printf("failed to commit transaction, trying again %v", err)
+			log.Printf("failed to commit transaction, trying again: %v", err)
 			err = tx.Rollback()
 			if err != nil {
 				log.Printf("failed to rollback transaction: %v", err)
@@ -213,7 +211,7 @@ func retryInsertIntoHourly(db *sql.DB, table metering.MeteringTable, maxRetries 
 		}
 		return rows, nil
 	}
-	return 0, fmt.Errorf("failed to insert rows into hourly table after %d retries", maxRetries)
+	return 0, fmt.Errorf("failed to insert rows into aggregate table %s after %d retries", table, maxRetries)
 }
 
 // get intermediate start and end times, interval time apart, between queryStart and queryEnd

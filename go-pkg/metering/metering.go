@@ -57,9 +57,9 @@ type MeteringTable string
 
 const (
 	MeteringTableFineGrain      MeteringTable = "fine_grain"
-	MeteringTablePods           MeteringTable = "pods"
 	MeteringTableAuroraHourly   MeteringTable = "hourly_metering"
 	MeteringTableSupabaseHourly MeteringTable = "hourly_metering"
+	MeteringTableHourly         MeteringTable = "hourly_metering"
 	MeteringTableDaily          MeteringTable = "daily_metering"
 	MeteringTableWeekly         MeteringTable = "weekly_metering"
 )
@@ -95,15 +95,6 @@ type FineGrainData struct {
 	End            int64
 	Window         string
 	RunningMinutes float64
-}
-
-type UsageAggregateRow struct {
-	StartTime      time.Time
-	EndTime        time.Time
-	DeploymentName string
-	Workspace      string
-	Shape          string
-	Usage          int
 }
 
 // GetFineGrainData queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
@@ -263,109 +254,4 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB) (time.Time, time.Time, error) 
 		return time.Time{}, time.Time{}, err
 	}
 	return start, end, nil
-}
-
-// GetUsageAggregate aggregates fine grain usage data for the specified time window
-func GetUsageAggregate(aurora AuroraDB, start, end time.Time) ([]UsageAggregateRow, error) {
-	// check start and end times valid
-	if start.IsZero() || end.IsZero() || start.Equal(end) || start.After(end) {
-		return nil, fmt.Errorf("start time, end time invalid: %s | %s", start.Format(time.ANSIC), end.Format(time.ANSIC))
-	}
-	db := aurora.DB
-	rows, err := db.Query(fmt.Sprintf(`SELECT 
-		namespace,
-		shape,
-		deployment_name,
-		ROUND(SUM(minutes)) as usage
-		from %s
-		where query_start >= '%s' and query_end <= '%s'
-		GROUP BY namespace, deployment_name, shape`,
-		MeteringTableFineGrain,
-		start.Format(time.RFC3339),
-		end.Format(time.RFC3339),
-	))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var res []UsageAggregateRow
-	for rows.Next() {
-		var agg UsageAggregateRow
-		agg.StartTime = start
-		agg.EndTime = end
-		err := rows.Scan(&agg.Workspace, &agg.Shape, &agg.DeploymentName, &agg.Usage)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, agg)
-	}
-	return res, nil
-}
-
-func InsertRowsIntoHourly(tx *sql.Tx, tableName MeteringTable, aggregateData []UsageAggregateRow, batch_id string) (int64, error) {
-	cmd := fmt.Sprintf(`INSERT INTO %s (
-		batch_id,
-		end_time,
-		workspace_id,
-		deployment_name,
-		shape,
-		usage
-	)
-	VALUES `, tableName)
-	onConflict := ` ON CONFLICT (workspace_id, deployment_name, shape, end_time) DO UPDATE SET usage = excluded.usage`
-	rowStr := genRowStr(6)
-	var toInsert []string
-	var vals []interface{}
-	for _, r := range aggregateData {
-		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batch_id, r.EndTime, r.Workspace, r.DeploymentName, r.Shape, r.Usage)
-	}
-	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
-	sqlStr = replaceSQL(sqlStr, "?")
-
-	stmt, _ := tx.Prepare(sqlStr)
-	defer stmt.Close()
-	res, err := stmt.Exec(vals...)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return affected, nil
-}
-
-func InsertRowsIntoDailyWeekly(tx *sql.Tx, table MeteringTable, aggregateData []UsageAggregateRow, id uuid.UUID) (int64, error) {
-	cmd := fmt.Sprintf(`INSERT INTO %s (
-		batch_id,
-		end_time,
-		workspace_id,
-		shape,
-		usage
-	)
-	VALUES `, table)
-	onConflict := ` ON CONFLICT (workspace_id, shape, end_time) DO UPDATE SET usage = excluded.usage`
-	rowStr := genRowStr(5)
-	var toInsert []string
-	var vals []interface{}
-	for _, r := range aggregateData {
-		toInsert = append(toInsert, rowStr)
-		vals = append(vals, id, r.EndTime, r.Workspace, r.Shape, r.Usage)
-	}
-	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
-	sqlStr = replaceSQL(sqlStr, "?")
-
-	stmt, _ := tx.Prepare(sqlStr)
-	defer stmt.Close()
-	res, err := stmt.Exec(vals...)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return affected, nil
 }
