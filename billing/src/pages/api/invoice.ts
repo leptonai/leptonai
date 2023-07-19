@@ -10,12 +10,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!workspace) {
       return res.status(401).send("You are not authorized to call this API");
     } else {
-      const consumerId = workspace.consumer_id;
-      const session = await stripeClient.billingPortal.sessions.create({
-        customer: consumerId,
-        return_url: "https://dashboard.lepton.ai/settings/usage",
+      const subscriptionId = workspace.subscription_id;
+      const invoice = await stripeClient.invoices.retrieveUpcoming({
+        subscription: subscriptionId,
       });
-      res.status(200).json({ url: session.url });
+      res.status(200).json(invoice);
     }
   } catch (err) {
     const errorMessage =
