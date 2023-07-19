@@ -245,5 +245,28 @@ def remove(workspace_name):
         sys.exit(1)
 
 
+@workspace.command()
+def name():
+    """
+    Prints the name of the current workspace. This is useful when you want to
+    obtain the workspace name in the command line in e.g. a shell script, but
+    do not want to hardcode it in the source file.
+    """
+    workspace_info = api.load_workspace_info()
+    current_workspace = workspace_info["current_workspace"]
+    console.print(current_workspace, end="")
+
+
+@workspace.command()
+def token():
+    """
+    Prints the authentication token of the current workspace. This is useful
+    when you want to obtain the workspace token in the command line in e.g.
+    a shell script, but do not want to hardcode it in the source file.
+    """
+    _, auth_token = get_workspace_and_token_or_die()
+    console.print(auth_token, end="")
+
+
 def add_command(cli_group):
     cli_group.add_command(workspace)
