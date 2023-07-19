@@ -10,14 +10,12 @@ on:
     paths:
       - ".github/workflow/cicd-mothership.yaml"
       - "lepton-mothership/**"
-      - "!lepton-mothership/cmd/**"
       - "go-pkg/**"
     branches: [ "main" ]
   pull_request:
     paths:
       - ".github/workflow/cicd-mothership.yaml"
       - "lepton-mothership/**"
-      - "!lepton-mothership/cmd/**"
       - "go-pkg/**"
     branches: [ "**" ]
 
@@ -44,7 +42,8 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
-    - name: Build Lepton mothership Docker image
+
+    - name: Build Lepton "mothership server" Docker image
       env:
         ECR_REPOSITORY: lepton-mothership
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -54,10 +53,30 @@ jobs:
         docker build . --file lepton-mothership/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-    - name: Push Docker image to latest
+    - name: Push Lepton "mothership server" Docker image to latest
       if: github.event_name == 'push'
       env:
         ECR_REPOSITORY: lepton-mothership
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+      run: |
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Build Lepton "mothership cli" Docker image
+      env:
+        ECR_REPOSITORY: lepton-mothershipctl
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+      run: |
+        echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
+        docker build . --file lepton-mothership/cmd/mothership/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Push Lepton "mothership cli" Docker image to latest
+      if: github.event_name == 'push'
+      env:
+        ECR_REPOSITORY: lepton-mothershipctl
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
       run: |
