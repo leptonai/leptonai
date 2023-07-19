@@ -5,19 +5,21 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 export const config = { api: { bodyParser: false } };
 
-async function updateSubscriptions(consumerId: string, amountGTE: number) {
-  const { data: subscriptions } = await stripeClient.subscriptions.search({
-    query: `status:'active' AND metadata['consumer_id']:'${consumerId}'`,
+async function updateSubscriptions(customer: string, amountGTE: number) {
+  const { data: subscriptions } = await stripeClient.subscriptions.list({
+    customer,
   });
   await Promise.all(
-    subscriptions.map(async ({ id }) => {
-      await stripeClient.subscriptions.update(id, {
-        billing_thresholds: {
-          amount_gte: amountGTE,
-          reset_billing_cycle_anchor: false,
-        },
-      });
-    }),
+    subscriptions
+      .filter(({ status }) => status === "active")
+      .map(async ({ id }) => {
+        await stripeClient.subscriptions.update(id, {
+          billing_thresholds: {
+            amount_gte: amountGTE,
+            reset_billing_cycle_anchor: false,
+          },
+        });
+      }),
   );
   return subscriptions.map(({ id }) => id);
 }

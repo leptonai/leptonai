@@ -19,14 +19,15 @@ export default async function handler(
     const workspace_id = body.record.id;
 
     const consumer = await stripeClient.customers.create({
-      name: workspace_id,
+      metadata: {
+        workspace_id,
+      },
     });
 
     const subscription = await stripeClient.subscriptions.create({
       customer: consumer.id,
       metadata: {
         workspace_id,
-        consumer_id: consumer.id,
       },
       billing_thresholds: {
         amount_gte: 50,
