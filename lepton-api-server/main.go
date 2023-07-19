@@ -229,6 +229,13 @@ func main() {
 		v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
 	}
 
+	if util.IsSysWorkspace(*workspaceNameFlag) {
+		ih := httpapi.NewInferenceHandler(*handler.DeploymentHandler())
+		v1.POST("/tuna/inference", ih.Create)
+		v1.GET("/tuna/inference", ih.Get)
+		v1.DELETE("/tuna/inference/:tiname", ih.Delete)
+	}
+
 	if *enableStorageFlag {
 		sh := httpapi.NewStorageHandler(*handler, *storageMountPathFlag)
 		v1.GET("/storage/default/*path", sh.GetFileOrDir)

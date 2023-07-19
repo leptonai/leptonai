@@ -27,23 +27,45 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	ld := &leptonaiv1alpha1.LeptonDeployment{}
-
-	if err := json.Unmarshal(body, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
+	userSpec := leptonaiv1alpha1.LeptonDeploymentUserSpec{}
+	if err := json.Unmarshal(body, &userSpec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
-	if err := h.validateCreateInput(c, &ld.Spec.LeptonDeploymentUserSpec); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
+
+	ld, err := h.createFromUserSpec(c, userSpec)
+	if err != nil {
+		goutil.Logger.Errorw("failed to create deployment",
+			"deployment", userSpec.Name,
+			"operation", "create",
+			"error", err,
+		)
 		return
 	}
+
+	goutil.Logger.Infow("created deployment",
+		"deployment", userSpec.Name,
+		"operation", "create",
+	)
+
+	c.JSON(http.StatusCreated, NewLeptonDeployment(ld).Output())
+}
+
+func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1alpha1.LeptonDeploymentUserSpec) (*leptonaiv1alpha1.LeptonDeployment, error) {
+	if err := h.validateCreateInput(c, &spec); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
+		return nil, err
+	}
+
+	ld := &leptonaiv1alpha1.LeptonDeployment{}
+	ld.Spec.LeptonDeploymentUserSpec = spec
 
 	ctx, cancel := util.CreateCtxFromGinCtx(c)
 	ph, err := h.phDB.Get(ctx, ld.Spec.PhotonID)
 	cancel()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
-		return
+		return nil, err
 	}
 
 	// efsID:path:accessPointID
@@ -73,24 +95,13 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 	err = h.ldDB.Create(ctx, ld.Name, ld)
 	cancel()
 	if err != nil {
-		goutil.Logger.Errorw("failed to create deployment",
-			"deployment", ld.Name,
-			"operation", "create",
-			"error", err,
-		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
-		return
+		return nil, err
 	}
 
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
 
-	goutil.Logger.Infow("created deployment",
-		"deployment", ld.Name,
-		"operation", "create",
-	)
-
-	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
+	return ld, nil
 }
 
 func (h *DeploymentHandler) List(c *gin.Context) {
@@ -179,17 +190,14 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	ctx, cancel := util.CreateCtxFromGinCtx(c)
-	err := h.ldDB.Delete(ctx, did)
-	cancel()
-	if err != nil {
-		ctx, cancel = util.CreateCtxFromGinCtx(c)
-		defer cancel()
-		if _, err := h.ldDB.Get(ctx, did); err != nil && apierrors.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + did + ": " + err.Error()})
+
+	if err := h.deleteFromName(c, did); err != nil {
+		goutil.Logger.Errorw("failed to delete deployment",
+			"deployment", did,
+			"operation", "delete",
+			"error", err,
+		)
+		// already write http response in deleteFromName
 		return
 	}
 
@@ -199,6 +207,22 @@ func (h *DeploymentHandler) Delete(c *gin.Context) {
 	)
 
 	c.Status(http.StatusOK)
+}
+
+func (h *DeploymentHandler) deleteFromName(c *gin.Context, name string) error {
+	ctx, cancel := util.CreateCtxFromGinCtx(c)
+	defer cancel()
+
+	if err := h.ldDB.Delete(ctx, name); err != nil {
+		if _, err := h.ldDB.Get(ctx, name); err != nil && apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
+			return err
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + name + ": " + err.Error()})
+		return err
+	}
+
+	return nil
 }
 
 func (h *DeploymentHandler) validateCreateInput(c *gin.Context, ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
