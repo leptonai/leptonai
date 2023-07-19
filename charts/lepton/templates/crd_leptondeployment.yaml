@@ -136,6 +136,10 @@ spec:
                 type: string
               s3_read_only_access_k8s_secret_name:
                 type: string
+              service_account_name:
+                description: 'TODO: delete ServiceAccountName at some point, which
+                  is only used for backward compatibility.'
+                type: string
               workspace_name:
                 type: string
               workspace_token:
