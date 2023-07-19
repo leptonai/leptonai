@@ -6,7 +6,7 @@ import {
   Routers,
 } from "@lepton-dashboard/services/navigate.service";
 import { RelativeRoutingType } from "react-router-dom";
-import { ReactNode, Ref, useMemo, forwardRef } from "react";
+import { ReactNode, Ref, useMemo, forwardRef, ForwardedRef } from "react";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { useInject } from "@lepton-libs/di";
 
@@ -29,18 +29,20 @@ type LinkToProps<T extends keyof Routers> = IsOptionalParams<T> extends true
       params: NullablePathParams<T>;
     } & LinkProps;
 
-const LinkToComp = <T extends keyof Routers>({
-  name,
-  params,
-  children,
-  target,
-  relative = "path",
-  icon,
-  className,
-  underline = true,
-  css,
-  ref,
-}: LinkToProps<T>) => {
+const LinkToComp = <T extends keyof Routers>(
+  {
+    name,
+    params,
+    children,
+    target,
+    relative = "path",
+    icon,
+    className,
+    underline = true,
+    css,
+  }: LinkToProps<T>,
+  ref: ForwardedRef<HTMLAnchorElement>
+) => {
   const navigateService = useInject(NavigateService);
   const path = useMemo(() => {
     return navigateService.getPath(
@@ -68,5 +70,5 @@ const LinkToComp = <T extends keyof Routers>({
 export const LinkTo = forwardRef(LinkToComp) as unknown as <
   T extends keyof Routers
 >(
-  props: LinkToProps<T> & { ref?: React.ForwardedRef<HTMLUListElement> }
+  props: LinkToProps<T> & { ref?: ForwardedRef<HTMLUListElement> }
 ) => ReturnType<typeof LinkToComp<T>>;
