@@ -4,17 +4,15 @@ package list
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
-	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/olekukonko/tablewriter"
@@ -49,18 +47,19 @@ func listFunc(cmd *cobra.Command, args []string) {
 	}
 
 	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/clusters", nil, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	var rs []*crdv1alpha1.LeptonCluster
-	if err = json.Unmarshal(b, &rs); err != nil {
-		log.Fatalf("failed to decode %v", err)
-	}
 	if output == "rawjson" {
+		b, err := util.ListClustersRaw(cli)
+		if err != nil {
+			log.Fatal(err)
+		}
 		fmt.Println(string(b))
 		return
+	}
+
+	rs, err := util.ListClusters(cli)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	log.Printf("fetched %d clusters", len(rs))

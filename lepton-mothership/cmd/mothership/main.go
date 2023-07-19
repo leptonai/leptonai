@@ -11,6 +11,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/purge"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/quotas"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
@@ -40,6 +41,7 @@ func init() {
 		workspaces.NewCommand(),
 		quotas.NewCommand(),
 		volumes.NewCommand(),
+		purge.NewCommand(),
 	)
 }
 
