@@ -29,35 +29,34 @@ resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment"
   ]
 }
 
-resource "aws_iam_role" "lepton-deployment-role" {
-  name = "lepton-deployment-role-${var.workspace_name}"
-  assume_role_policy = jsonencode({
-    Version : "2012-10-17",
-    Statement : [
-      {
-        Effect : "Allow",
-        Principal : {
-          Federated : "arn:aws:iam::${var.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}"
-        },
-        Action : "sts:AssumeRoleWithWebIdentity",
-        Condition : {
-          StringEquals : {
-            "oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}:aud" : "sts.amazonaws.com",
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lepton-deployment-role-s3-policy-attachment" {
+resource "aws_iam_user_policy_attachment" "iam-user-s3-ro-policy-attachment" {
   policy_arn = "arn:aws:iam::${var.account_id}:policy/${aws_iam_policy.s3-ro-policy.name}"
-  role       = aws_iam_role.lepton-deployment-role.name
+  user       = aws_iam_user.s3_ro.name
 
   depends_on = [
     aws_iam_policy.s3-ro-policy,
-    aws_iam_role.lepton-deployment-role
+    aws_iam_user.s3_ro
   ]
+}
+
+resource "aws_iam_user" "s3_ro" {
+  name = "s3-ro-user-${var.workspace_name}"
+}
+
+resource "aws_iam_access_key" "s3_ro" {
+  user = aws_iam_user.s3_ro.name
+}
+
+resource "kubernetes_secret" "s3_ro" {
+  metadata {
+    name      = "s3-ro-key"
+    namespace = var.namespace
+  }
+
+  data = {
+    AWS_ACCESS_KEY_ID     = aws_iam_access_key.s3_ro.id
+    AWS_SECRET_ACCESS_KEY = aws_iam_access_key.s3_ro.secret
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "api-server-role-dynamodb-policy-attachment" {
@@ -104,8 +103,8 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name  = "apiServer.deploymentServiceAccountRoleArn"
-    value = "arn:aws:iam::${var.account_id}:role/${aws_iam_role.lepton-deployment-role.name}"
+    name  = "apiServer.s3ReadOnlyAccessKeySecret"
+    value = kubernetes_secret.s3_ro.metadata.0.name
   }
 
   set {

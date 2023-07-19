@@ -39,8 +39,8 @@ var (
 	namespaceFlag    *string
 	photonPrefixFlag *string
 
-	serviceAccountNameFlag *string
-	prometheusURLFlag      *string
+	s3ReadOnlyAccessK8sSecretNameFlag *string
+	prometheusURLFlag                 *string
 
 	enableTunaFlag *bool
 
@@ -65,8 +65,7 @@ func main() {
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	stateFlag = flag.String("state", "ready", "workspace state after starting the server (allowed values: ready, paused, terminated)")
 
-	serviceAccountNameFlag = flag.String("service-account-name", "lepton-api-server", "service account name")
-
+	s3ReadOnlyAccessK8sSecretNameFlag = flag.String("s3-read-only-access-k8s-secret-name", "s3-ro-key", "S3 read only access k8s secret name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
 
@@ -126,7 +125,7 @@ func main() {
 		*bucketNameFlag,
 		*efsIDFlag,
 		*photonPrefixFlag,
-		*serviceAccountNameFlag,
+		*s3ReadOnlyAccessK8sSecretNameFlag,
 		*rootDomainFlag,
 		*workspaceNameFlag,
 		*certificateARNFlag,

@@ -135,6 +135,11 @@ func (k *deployment) newInitContainerArgs() []string {
 }
 
 func (k *deployment) newInitContainer() corev1.Container {
+	s3ReadOnlyAccessK8sSecretName := k.leptonDeployment.Spec.S3ReadOnlyAccessK8sSecretName
+	// set a default value for backward compatibility
+	if s3ReadOnlyAccessK8sSecretName == "" {
+		s3ReadOnlyAccessK8sSecretName = "s3-ro-key"
+	}
 	return corev1.Container{
 		Name:  initContainerName,
 		Image: awscliImageURL,
@@ -142,6 +147,28 @@ func (k *deployment) newInitContainer() corev1.Container {
 			{
 				Name:  "HOME",
 				Value: "/",
+			},
+			{
+				Name: "AWS_ACCESS_KEY_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: s3ReadOnlyAccessK8sSecretName,
+						},
+						Key: "AWS_ACCESS_KEY_ID",
+					},
+				},
+			},
+			{
+				Name: "AWS_SECRET_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: s3ReadOnlyAccessK8sSecretName,
+						},
+						Key: "AWS_SECRET_ACCESS_KEY",
+					},
+				},
 			},
 		},
 		Resources: *k.createCPUMemStorageResourceRequirements(),
@@ -354,11 +381,10 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	enableServiceLinks := false
 	autoMountServiceAccountToken := false
 	spec := &corev1.PodSpec{
-		InitContainers:     []corev1.Container{k.newInitContainer()},
-		Containers:         []corev1.Container{container},
-		Volumes:            append(volumes, sharedVolume, awsVolume),
-		ServiceAccountName: ld.Spec.ServiceAccountName,
-		NodeSelector:       nodeSelector,
+		InitContainers: []corev1.Container{k.newInitContainer()},
+		Containers:     []corev1.Container{container},
+		Volumes:        append(volumes, sharedVolume, awsVolume),
+		NodeSelector:   nodeSelector,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-service-discovery
 		EnableServiceLinks: &enableServiceLinks,
 		// https://aws.github.io/aws-eks-best-practices/security/docs/pods/#disable-automountserviceaccounttoken

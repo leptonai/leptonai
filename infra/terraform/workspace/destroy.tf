@@ -2,7 +2,7 @@ resource "null_resource" "delete_all_lepton_deployments" {
   triggers = {
     region       = var.region
     cluster_name = var.cluster_name
-    namespace = var.namespace
+    namespace    = var.namespace
   }
 
   provisioner "local-exec" {
@@ -16,5 +16,5 @@ EOD
 
   depends_on = [
     helm_release.lepton
-   ]
+  ]
 }

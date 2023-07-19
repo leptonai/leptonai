@@ -19,7 +19,7 @@ apiServer:
         memory: "512Mi"
         cpu: "1"
   serviceAccountRoleArn: ""
-  deploymentServiceAccountRoleArn: ""
+  s3ReadOnlyAccessKeyK8sSecretName: "s3-ro-key"
   bucketName: "leptonai"
   efsID: ""
   rootDomain: ""

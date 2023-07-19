@@ -19,41 +19,41 @@ type Backupable interface {
 }
 
 type Handler struct {
-	namespace          string
-	prometheusURL      string
-	bucketName         string
-	efsID              string
-	photonPrefix       string
-	serviceAccountName string
-	rootDomain         string
-	workspaceName      string
-	certARN            string
-	apiToken           string
-	photonBucket       *blob.Bucket
-	backupBucket       *blob.Bucket
+	namespace                     string
+	prometheusURL                 string
+	bucketName                    string
+	efsID                         string
+	photonPrefix                  string
+	s3ReadOnlyAccessK8sSecretName string
+	rootDomain                    string
+	workspaceName                 string
+	certARN                       string
+	apiToken                      string
+	photonBucket                  *blob.Bucket
+	backupBucket                  *blob.Bucket
 
 	secretDB *secret.SecretSet
 	phDB     *datastore.CRStore[*leptonaiv1alpha1.Photon]
 	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
 }
 
-func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, serviceAccountName,
+func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, s3ReadOnlyAccessK8sSecretName,
 	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
 	workspaceState WorkspaceState) *Handler {
 	k8s.Client.Scheme()
 	h := &Handler{
-		namespace:          namespace,
-		prometheusURL:      prometheusURL,
-		bucketName:         bucketName,
-		efsID:              efsID,
-		photonPrefix:       protonPrefix,
-		serviceAccountName: serviceAccountName,
-		rootDomain:         rootDomain,
-		workspaceName:      workspaceName,
-		certARN:            certARN,
-		apiToken:           apiToken,
-		photonBucket:       photonBucket,
-		backupBucket:       backupBucket,
+		namespace:                     namespace,
+		prometheusURL:                 prometheusURL,
+		bucketName:                    bucketName,
+		efsID:                         efsID,
+		photonPrefix:                  protonPrefix,
+		s3ReadOnlyAccessK8sSecretName: s3ReadOnlyAccessK8sSecretName,
+		rootDomain:                    rootDomain,
+		workspaceName:                 workspaceName,
+		certARN:                       certARN,
+		apiToken:                      apiToken,
+		photonBucket:                  photonBucket,
+		backupBucket:                  backupBucket,
 
 		secretDB: secret.New(namespace, secret.SecretObjectName),
 		phDB: datastore.NewCRStore[*leptonaiv1alpha1.Photon](

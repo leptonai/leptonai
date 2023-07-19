@@ -54,8 +54,6 @@ spec:
           args:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
-            - "--service-account-name"
-            - "{{ .Values.apiServer.name }}-deployment"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
             - "--efs-id"
@@ -78,6 +76,8 @@ spec:
             - "--enable-storage={{ .Values.apiServer.enableStorage }}"
             - "--state"
             - "{{ .Values.apiServer.state }}"
+            - "--s3-read-only-access-k8s-secret-name"
+            - "{{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
           readinessProbe:

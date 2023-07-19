@@ -38,13 +38,15 @@ type LeptonDeploymentSystemSpec struct {
 	// +optional
 	EFSID string `json:"efs_id"`
 	// +optional
-	EFSAccessPointID   string `json:"efs_access_point_id"`
-	PhotonPrefix       string `json:"photon_prefix"`
-	ServiceAccountName string `json:"service_account_name"`
-	RootDomain         string `json:"root_domain,omitempty"`
-	WorkspaceName      string `json:"workspace_name,omitempty"`
-	WorkspaceToken     string `json:"workspace_token,omitempty"`
-	CertificateARN     string `json:"certificate_arn,omitempty"`
+	EFSAccessPointID string `json:"efs_access_point_id"`
+	PhotonPrefix     string `json:"photon_prefix"`
+	// TODO: delete ServiceAccountName at some point, which is only used for backward compatibility.
+	ServiceAccountName            string `json:"service_account_name,omitempty"`
+	S3ReadOnlyAccessK8sSecretName string `json:"s3_read_only_access_k8s_secret_name,omitempty"`
+	RootDomain                    string `json:"root_domain,omitempty"`
+	WorkspaceName                 string `json:"workspace_name,omitempty"`
+	WorkspaceToken                string `json:"workspace_token,omitempty"`
+	CertificateARN                string `json:"certificate_arn,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.

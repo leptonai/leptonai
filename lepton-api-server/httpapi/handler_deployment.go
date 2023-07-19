@@ -54,16 +54,16 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 		efsAccessPointID = efsFields[2]
 	}
 	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
-		PhotonName:         ph.GetSpecName(),
-		PhotonImage:        ph.Spec.Image,
-		BucketName:         h.bucketName,
-		EFSID:              efsID,
-		EFSAccessPointID:   efsAccessPointID,
-		PhotonPrefix:       h.photonPrefix,
-		ServiceAccountName: h.serviceAccountName,
-		RootDomain:         h.rootDomain,
-		WorkspaceName:      h.workspaceName,
-		CertificateARN:     h.certARN,
+		PhotonName:                    ph.GetSpecName(),
+		PhotonImage:                   ph.Spec.Image,
+		BucketName:                    h.bucketName,
+		EFSID:                         efsID,
+		EFSAccessPointID:              efsAccessPointID,
+		PhotonPrefix:                  h.photonPrefix,
+		S3ReadOnlyAccessK8sSecretName: h.s3ReadOnlyAccessK8sSecretName,
+		RootDomain:                    h.rootDomain,
+		WorkspaceName:                 h.workspaceName,
+		CertificateARN:                h.certARN,
 	}
 	ld.Spec.WorkspaceToken = h.apiToken
 	ld.Namespace = h.namespace
