@@ -87,6 +87,7 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 			}
 			wage := (uint64(time.Now().Unix()) - r.Status.UpdatedAt) / 3600
 			if wage < age {
+				fmt.Printf("Workspace %s is only %d hours old, skipping\n", r.Spec.Name, wage)
 				continue
 			}
 			if r.Status.State == "deleting" || r.Status.State == "creating" || r.Status.State == "updating" {
