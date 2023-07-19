@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/util"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	"github.com/leptonai/lepton/lepton-mothership/httpapi"
@@ -15,6 +18,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "gocloud.dev/blob/s3blob"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func main() {
@@ -64,39 +69,86 @@ func main() {
 	v1.GET("/users/:uname", httpapi.HandleUserGet)
 	v1.DELETE("/users/:uname", httpapi.HandleUserDelete)
 
-	server := &http.Server{
-		Addr:    ":15213",
-		Handler: router,
-	}
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			goutil.Logger.Fatalw("failed to listen and serve",
-				"error", err,
-			)
-		}
-	}()
+	v1.PUT("/upgrade/:imagetag", upgradeHandler)
 
-	// quit every 24 hours to pull new image
-	time.Sleep(time.Hour * 24)
-	for { // wait until no jobs are running
+	if err := router.Run(":15213"); err != nil {
+		goutil.Logger.Fatalw("Failed to start mothership",
+			"operation", "router.Run",
+			"error", err,
+		)
+	}
+}
+
+func upgradeHandler(c *gin.Context) {
+	imageTag := c.Param("imagetag")
+	if imageTag == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    httperrors.ErrorCodeInvalidRequest,
+			"message": "Image tag is required",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Requested to restart. It may take some time.",
+	})
+	// start it in a new go routine to allow the http request to finish before shutting down
+	go waitForIdlingAndUpdateImageTag(imageTag)
+}
+
+func waitForIdlingAndUpdateImageTag(imageTag string) {
+	goutil.Logger.Infow("Received request to upgrade mothership",
+		"operation", "updateImageTag",
+		"image_tag", imageTag,
+	)
+	// wait until no jobs are running
+	for {
 		cluster.Worker.Lock()
 		workspace.Worker.Lock()
-		if workspace.Worker.CountJobs() == 0 && cluster.Worker.CountJobs() == 0 {
-			// Do not release locks to prevent new jobs from being created
-			break
+		clusterJobsCount := cluster.Worker.CountJobs()
+		workspaceJobsCount := workspace.Worker.CountJobs()
+		goutil.Logger.Infow("Checking if any jobs are running",
+			"operation", "updateImageTag",
+			"cluster_jobs_count", clusterJobsCount,
+			"workspace_jobs_count", workspaceJobsCount,
+		)
+		if clusterJobsCount == 0 && workspaceJobsCount == 0 {
+			err := updateImageTag(imageTag)
+			if err != nil {
+				goutil.Logger.Errorw("Failed to update mothership deployment image tag, will retry",
+					"operation", "updateImageTag",
+					"error", err,
+				)
+			} else {
+				goutil.Logger.Infow("Updated the image of mothership deployment, exiting...",
+					"operation", "updateImageTag",
+					"image_tag", imageTag,
+				)
+				// Done with the update, waiting for k8s to bring up a new pod and terminate this one.
+				// Do not release locks to prevent new jobs from being created.
+				// Requests sent during this time will be scheduled after restart.
+
+				// TODO: requests coming in during this time will be queued but the http request will not finish.
+				// Need to find a way to return a response.
+				return
+			}
 		}
 		workspace.Worker.Unlock()
 		cluster.Worker.Unlock()
 		time.Sleep(time.Minute)
 	}
-	// gracefully shutdown server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		goutil.Logger.Fatalw("failed to shutting down server",
-			"error", err,
-		)
-	}
+}
 
-	goutil.Logger.Infow("server exiting")
+func updateImageTag(imageTag string) error {
+	deployment := appsv1.Deployment{}
+	// TODO: remove the hardcoded name and namespace
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := k8s.Client.Get(ctx, types.NamespacedName{Name: "mothership", Namespace: "default"}, &deployment)
+	if err != nil {
+		return err
+	}
+	// update the image tag of the deployment
+	image := deployment.Spec.Template.Spec.Containers[0].Image
+	deployment.Spec.Template.Spec.Containers[0].Image = util.UpdateImageTag(image, imageTag)
+	return k8s.Client.Update(ctx, &deployment)
 }

@@ -197,3 +197,20 @@ func TestIsEmpty(t *testing.T) {
 		t.Errorf("IsEmpty(%s) = true; want false", newPath)
 	}
 }
+
+func TestUpdateImageTag(t *testing.T) {
+	tests := []struct {
+		image  string
+		tag    string
+		output string
+	}{
+		{"gcr.io/google_containers/pause-amd64:3.0", "3.1", "gcr.io/google_containers/pause-amd64:3.1"},
+		{"gcr.io/google_containers/pause-amd64:3.0", "3.0", "gcr.io/google_containers/pause-amd64:3.0"},
+	}
+	for _, test := range tests {
+		newImage := UpdateImageTag(test.image, test.tag)
+		if newImage != test.output {
+			t.Errorf("UpdateImageTag(%s, %s) = %s; want %s", test.image, test.tag, newImage, test.output)
+		}
+	}
+}

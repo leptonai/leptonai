@@ -96,3 +96,7 @@ func DeepCompareEq(file1, file2 string) bool {
 	}
 	return true
 }
+
+func UpdateImageTag(image, tag string) string {
+	return image[:strings.LastIndex(image, ":")+1] + tag
+}
