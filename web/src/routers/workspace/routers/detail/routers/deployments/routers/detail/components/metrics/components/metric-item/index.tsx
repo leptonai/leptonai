@@ -6,13 +6,13 @@ import { Metric } from "@lepton-dashboard/routers/workspace/routers/detail/route
 import { EChartsType } from "echarts";
 
 export const MetricItem: FC<{
-  deploymentId: string;
+  deploymentName: string;
   metricName: string[];
   description: string[];
   title: string;
   format: (value: number) => string;
   onInit?: (chart: EChartsType) => void;
-}> = ({ title, deploymentId, metricName, format, onInit, description }) => {
+}> = ({ title, deploymentName, metricName, format, onInit, description }) => {
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [data, setData] = useState<
@@ -24,7 +24,7 @@ export const MetricItem: FC<{
   const deploymentService = useInject(DeploymentService);
 
   useStateFromObservable(
-    () => deploymentService.getMetrics(deploymentId, metricName),
+    () => deploymentService.getMetrics(deploymentName, metricName),
     [],
     {
       next: (data) => {

@@ -12,22 +12,22 @@ import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 export const DeploymentIssuesTip: FC<
-  { status: string; deploymentId: string } & PropsWithChildren
-> = ({ status, deploymentId, children }) => {
+  { status: string; deploymentName: string } & PropsWithChildren
+> = ({ status, deploymentName, children }) => {
   const deploymentService = useInject(DeploymentService);
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const status$ = useObservableFromState(status);
-  const deploymentId$ = useObservableFromState(deploymentId);
+  const deploymentName$ = useObservableFromState(deploymentName);
   const hovered$ = useObservableFromState(hovered);
 
   const readiness = useStateFromObservable(
     () =>
-      combineLatest([status$, hovered$, deploymentId$]).pipe(
+      combineLatest([status$, hovered$, deploymentName$]).pipe(
         filter(([status, hovered, _]) => hovered && status !== State.Running),
-        switchMap(([_, __, deploymentId]) => {
+        switchMap(([_, __, deploymentName]) => {
           return deploymentService
-            .getReadiness(deploymentId)
+            .getReadiness(deploymentName)
             .pipe(takeUntil(hovered$.pipe(filter((hovered) => !hovered))));
         })
       ),
@@ -79,14 +79,14 @@ export const DeploymentIssuesTip: FC<
     return (
       <LinkTo
         name="deploymentDetailReplicasList"
-        params={{ deploymentId }}
+        params={{ deploymentName }}
         relative="route"
         underline
       >
         Found {message}, view details in the replicas list
       </LinkTo>
     );
-  }, [readiness, deploymentId]);
+  }, [readiness, deploymentName]);
 
   if (status !== State.Running) {
     return (

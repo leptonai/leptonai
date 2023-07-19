@@ -34,7 +34,7 @@ export const List: FC<{
       refreshService.refresh$.pipe(
         switchMap(() =>
           combineLatest([
-            deploymentService.getReadiness(deployment.id).pipe(
+            deploymentService.getReadiness(deployment.name).pipe(
               tap((readiness) => {
                 const hasIssues = Object.entries(readiness).some(([_, value]) =>
                   value.some(
@@ -50,7 +50,7 @@ export const List: FC<{
                 });
               })
             ),
-            deploymentService.listReplicas(deployment.id),
+            deploymentService.listReplicas(deployment.name),
           ]).pipe(
             map(([readiness, replicas]) => {
               return replicas
@@ -134,7 +134,7 @@ export const List: FC<{
                 <LinkTo
                   name="deploymentDetailReplicasDetail"
                   params={{
-                    deploymentId: deployment.id,
+                    deploymentName: deployment.name,
                     replicaId: id,
                   }}
                   relative="path"

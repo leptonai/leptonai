@@ -61,12 +61,12 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               `}
               icon={
                 <DeploymentStatus
-                  deploymentId={deployment.id}
+                  deploymentName={deployment.name}
                   status={deployment.status.state}
                 />
               }
               name="deploymentDetail"
-              params={{ deploymentId: deployment.id }}
+              params={{ deploymentName: deployment.name }}
               relative="route"
             >
               <Description.Item
@@ -90,7 +90,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     key: "delete-deployment",
                     duration: 0,
                   });
-                  deploymentService.delete(deployment.id).subscribe({
+                  deploymentService.delete(deployment.name).subscribe({
                     next: () => {
                       message.destroy("delete-deployment");
                       void message.success(
@@ -161,7 +161,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     description={
                       <LinkTo
                         name="deploymentDetailReplicasList"
-                        params={{ deploymentId: deployment.id }}
+                        params={{ deploymentName: deployment.name }}
                       >
                         {deployment.resource_requirement.min_replicas}
                         {deployment.resource_requirement.min_replicas > 1

@@ -15,8 +15,8 @@ export const Deployments: FC = () => {
   return (
     <Container>
       <Routes>
-        <Route path="list/:name?" element={<List />} />
-        <Route path="detail/:id/*" element={<Detail />} />
+        <Route path="list/:photonName?" element={<List />} />
+        <Route path="detail/:name/*" element={<Detail />} />
         <Route
           path="*"
           element={<NavigateTo name="deploymentsList" replace />}

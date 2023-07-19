@@ -25,38 +25,40 @@ export abstract class ApiService {
   abstract getPhotonDownloadUrl(id: string): string;
 
   abstract listDeployments(): Observable<Deployment[]>;
-  abstract listDeploymentReplicas(deploymentId: string): Observable<Replica[]>;
+  abstract listDeploymentReplicas(
+    deploymentName: string
+  ): Observable<Replica[]>;
 
   abstract listDeploymentEvents(
-    deploymentId: string
+    deploymentName: string
   ): Observable<DeploymentEvent[]>;
 
   abstract getDeploymentReadiness(
-    deploymentId: string
+    deploymentName: string
   ): Observable<DeploymentReadiness>;
 
   abstract getDeploymentMetrics(
-    deploymentId: string,
+    deploymentName: string,
     metricName: string
   ): Observable<Metric[]>;
   abstract getDeploymentReplicaLogs(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): Observable<string>;
   abstract getDeploymentReplicaSocketUrl(
     host: string,
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): string;
   abstract getDeploymentReplicaMetrics(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string,
     metricName: string
   ): Observable<Metric[]>;
   abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;
-  abstract deleteDeployment(id: string): Observable<void>;
+  abstract deleteDeployment(name: string): Observable<void>;
   abstract updateDeployment(
-    id: string,
+    name: string,
     deployment: Subset<Deployment>
   ): Observable<void>;
   abstract requestDeployment(

@@ -15,10 +15,10 @@ import { Events } from "@lepton-dashboard/routers/workspace/routers/detail/route
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 export const Detail: FC = () => {
-  const { id } = useParams();
+  const { name } = useParams();
   const deploymentService = useInject(DeploymentService);
   const deployment = useStateFromObservable(
-    () => deploymentService.id(id!),
+    () => deploymentService.name(name!),
     undefined
   );
   return deployment ? (
@@ -43,7 +43,7 @@ export const Detail: FC = () => {
           <NavigateTo
             name="deploymentDetailDemo"
             params={{
-              deploymentId: id!,
+              deploymentName: name!,
             }}
             replace
           />

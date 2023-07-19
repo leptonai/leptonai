@@ -7,8 +7,8 @@ import { State } from "@lepton-dashboard/interfaces/deployment";
 import { DeploymentIssuesTip } from "@lepton-dashboard/routers/workspace/components/deployment-status/components/deployment-issues-tip";
 
 export const DeploymentStatus: FC<
-  { deploymentId: string; status: State | string } & EmotionProps
-> = ({ status, deploymentId, className }) => {
+  { deploymentName: string; status: State | string } & EmotionProps
+> = ({ status, deploymentName, className }) => {
   const color = useMemo(() => {
     switch (status) {
       case State.Running:
@@ -20,7 +20,7 @@ export const DeploymentStatus: FC<
     }
   }, [status]);
   return (
-    <DeploymentIssuesTip status={status} deploymentId={deploymentId}>
+    <DeploymentIssuesTip status={status} deploymentName={deploymentName}>
       <Tag
         className={className}
         css={css`

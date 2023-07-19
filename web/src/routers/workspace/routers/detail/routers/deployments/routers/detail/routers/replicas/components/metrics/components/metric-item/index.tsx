@@ -6,7 +6,7 @@ import { Metric } from "@lepton-dashboard/routers/workspace/routers/detail/route
 import { EChartsType } from "echarts";
 
 export const MetricItem: FC<{
-  deploymentId: string;
+  deploymentName: string;
   replicaId: string;
   metricName: string[];
   title: string;
@@ -15,7 +15,7 @@ export const MetricItem: FC<{
   format: (value: number) => string;
 }> = ({
   title,
-  deploymentId,
+  deploymentName,
   replicaId,
   metricName,
   onInit,
@@ -33,7 +33,11 @@ export const MetricItem: FC<{
   const deploymentService = useInject(DeploymentService);
   useStateFromObservable(
     () =>
-      deploymentService.getReplicaMetrics(deploymentId, replicaId, metricName),
+      deploymentService.getReplicaMetrics(
+        deploymentName,
+        replicaId,
+        metricName
+      ),
     [],
     {
       next: (data) => {

@@ -22,7 +22,7 @@ export const Events: FC<{ deployment: Deployment }> = ({ deployment }) => {
       refreshService.refresh$.pipe(
         switchMap(() =>
           deploymentService
-            .listEvents(deployment.id)
+            .listEvents(deployment.name)
             .pipe(tap(() => setLoading(false)))
         )
       ),

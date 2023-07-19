@@ -57,7 +57,7 @@ export const Dashboard: FC = () => {
           </Card>
         ),
         date: d.created_at,
-        id: `photon-${d.id}`,
+        id: `photon-${d.name}`,
       };
     }),
   ].sort((a, b) => b.date - a.date);

@@ -67,7 +67,7 @@ export const Container: FC<
               title: (
                 <LinkTo
                   name="deploymentDetail"
-                  params={{ deploymentId: deployment.id }}
+                  params={{ deploymentName: deployment.name }}
                   relative="route"
                 >
                   <span>{deployment.name}</span>
@@ -78,7 +78,7 @@ export const Container: FC<
               title: (
                 <LinkTo
                   name="deploymentDetailReplicasList"
-                  params={{ deploymentId: deployment.id }}
+                  params={{ deploymentName: deployment.name }}
                   relative="route"
                 >
                   Replicas

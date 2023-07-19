@@ -55,7 +55,7 @@ export const Metrics: FC<{ deployment: Deployment }> = ({ deployment }) => {
             <Card paddingless overflowShow borderless shadowless>
               <MetricItem
                 onInit={(chart) => onInit(chart, m.title)}
-                deploymentId={deployment.id}
+                deploymentName={deployment.name}
                 metricName={m.name}
                 format={m.format}
                 title={m.title}

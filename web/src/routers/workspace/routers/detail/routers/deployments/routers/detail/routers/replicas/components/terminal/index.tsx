@@ -15,9 +15,9 @@ import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 
 export const TerminalDetail: FC<{
-  deploymentId: string;
+  deploymentName: string;
   replicaId: string;
-}> = ({ deploymentId, replicaId }) => {
+}> = ({ deploymentName, replicaId }) => {
   const theme = useAntdTheme();
   const terminalDOMRef = useRef<HTMLDivElement>(null);
   const deploymentService = useInject(DeploymentService);
@@ -58,7 +58,7 @@ export const TerminalDetail: FC<{
     const socket = new WebSocket(
       deploymentService.getReplicaSocketUrl(
         workspaceTrackerService.workspace!.auth.url,
-        deploymentId,
+        deploymentName,
         replicaId
       ),
       "v4.channel.k8s.io"
@@ -111,7 +111,7 @@ export const TerminalDetail: FC<{
       socket.close();
     };
   }, [
-    deploymentId,
+    deploymentName,
     deploymentService,
     replicaId,
     theme.fontFamilyCode,
@@ -146,7 +146,10 @@ export const Terminal: FC<{
         Terminal
       </Button>
       <FullScreenDrawer open={open} onClose={() => setOpen(false)}>
-        <TerminalDetail deploymentId={deployment.id} replicaId={replica.id} />
+        <TerminalDetail
+          deploymentName={deployment.name}
+          replicaId={replica.id}
+        />
       </FullScreenDrawer>
     </>
   );

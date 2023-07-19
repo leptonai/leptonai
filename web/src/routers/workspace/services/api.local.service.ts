@@ -131,13 +131,13 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  listDeploymentReplicas(deploymentId: string): Observable<Replica[]> {
-    console.log(deploymentId);
+  listDeploymentReplicas(deploymentName: string): Observable<Replica[]> {
+    console.log(deploymentName);
     return of([]);
   }
 
-  listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
-    console.log(deploymentId);
+  listDeploymentEvents(deploymentName: string): Observable<DeploymentEvent[]> {
+    console.log(deploymentName);
     return of([]);
   }
 
@@ -158,10 +158,10 @@ export class ApiLocalService implements ApiService {
   }
 
   getDeploymentMetrics(
-    deploymentId: string,
+    deploymentName: string,
     metricName: string
   ): Observable<Metric[]> {
-    console.log(deploymentId, metricName);
+    console.log(deploymentName, metricName);
     return of([
       {
         metric: { name: "demo" },
@@ -171,28 +171,28 @@ export class ApiLocalService implements ApiService {
   }
 
   getDeploymentReplicaLogs(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): Observable<string> {
-    console.log(deploymentId, replicaId);
+    console.log(deploymentName, replicaId);
     return of("");
   }
 
   getDeploymentReplicaSocketUrl(
     host: string,
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): string {
-    console.log(host, deploymentId, replicaId);
+    console.log(host, deploymentName, replicaId);
     return "";
   }
 
   getDeploymentReplicaMetrics(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string,
     metricName: string
   ): Observable<Metric[]> {
-    console.log(deploymentId, replicaId, metricName);
+    console.log(deploymentName, replicaId, metricName);
     return of([
       {
         metric: { name: "demo" },

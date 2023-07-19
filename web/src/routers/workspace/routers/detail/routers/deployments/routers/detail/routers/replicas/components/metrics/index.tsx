@@ -13,10 +13,10 @@ import { connect, EChartsType } from "echarts";
 import { css } from "@emotion/react";
 
 export const MetricsDetail: FC<{
-  deploymentId: string;
+  deploymentName: string;
   replicaId: string;
   gpu: boolean;
-}> = ({ deploymentId, replicaId, gpu }) => {
+}> = ({ deploymentName, replicaId, gpu }) => {
   const metricUtilService = useInject(MetricUtilService);
   const metrics = useMemo(() => {
     const data = [
@@ -88,7 +88,7 @@ export const MetricsDetail: FC<{
             <Card paddingless overflowShow borderless shadowless>
               <MetricItem
                 onInit={(chart) => onInit(chart, m.title)}
-                deploymentId={deploymentId}
+                deploymentName={deploymentName}
                 replicaId={replicaId}
                 metricName={m.name}
                 format={m.format}
@@ -130,7 +130,7 @@ export const Metrics: FC<{
             gpu={hardwareService.isGPUInstance(
               deployment.resource_requirement.resource_shape
             )}
-            deploymentId={deployment.id}
+            deploymentName={deployment.name}
             replicaId={replica.id}
           />
         </div>

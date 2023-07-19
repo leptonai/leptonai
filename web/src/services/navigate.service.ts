@@ -128,12 +128,12 @@ export const RoutersMap = {
   photonsList: `/workspace/:workspaceId?/photons/list`,
   photonVersions: `/workspace/:workspaceId?/photons/versions/:name`,
   photonDetail: `/workspace/:workspaceId?/photons/detail/:photonId`,
-  deploymentsList: `/workspace/:workspaceId?/deployments/list/:photonId?`,
-  deploymentDetail: `/workspace/:workspaceId?/deployments/detail/:deploymentId`,
-  deploymentDetailDemo: `/workspace/:workspaceId?/deployments/detail/:deploymentId/demo`,
-  deploymentDetailReplicasList: `/workspace/:workspaceId?/deployments/detail/:deploymentId/replicas/list`,
-  deploymentDetailReplicasDetail: `/workspace/:workspaceId?/deployments/detail/:deploymentId/replicas/detail/:replicaId`,
-  deploymentDetailReplicasTerminal: `/workspace/:workspaceId?/deployments/detail/:deploymentId/replicas/detail/:replicaId/terminal`,
+  deploymentsList: `/workspace/:workspaceId?/deployments/list/:photonName?`,
+  deploymentDetail: `/workspace/:workspaceId?/deployments/detail/:deploymentName`,
+  deploymentDetailDemo: `/workspace/:workspaceId?/deployments/detail/:deploymentName/demo`,
+  deploymentDetailReplicasList: `/workspace/:workspaceId?/deployments/detail/:deploymentName/replicas/list`,
+  deploymentDetailReplicasDetail: `/workspace/:workspaceId?/deployments/detail/:deploymentName/replicas/detail/:replicaId`,
+  deploymentDetailReplicasTerminal: `/workspace/:workspaceId?/deployments/detail/:deploymentName/replicas/detail/:replicaId/terminal`,
 } as const;
 
 @Injectable()

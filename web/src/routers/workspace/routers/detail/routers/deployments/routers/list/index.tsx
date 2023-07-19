@@ -21,7 +21,7 @@ import { DeploymentItem } from "../../../../../../components/deployment-item";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 
 export const List: FC = () => {
-  const { name } = useParams();
+  const { photonName } = useParams();
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromObservable(
     () => deploymentService.list(),
@@ -31,7 +31,7 @@ export const List: FC = () => {
   const [search, setSearch] = useState<string>("");
   const [status, setStatus] = useState<string[]>([]);
   const [photonFilters, setPhotonFilters] = useState<string[]>(
-    name ? [name] : []
+    photonName ? [photonName] : []
   );
   const photonService = useInject(PhotonService);
   const photonGroups = useStateFromObservable(
@@ -129,7 +129,7 @@ export const List: FC = () => {
       <Col span={24}>
         <AntdList
           id="deployment-list"
-          rowKey="id"
+          rowKey="name"
           locale={{
             emptyText: (
               <Empty

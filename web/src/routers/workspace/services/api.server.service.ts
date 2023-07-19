@@ -75,8 +75,8 @@ export class ApiServerService implements ApiService {
     });
   }
 
-  deleteDeployment(id: string): Observable<void> {
-    return this.httpClientService.delete(`${this.prefix}/deployments/${id}`);
+  deleteDeployment(name: string): Observable<void> {
+    return this.httpClientService.delete(`${this.prefix}/deployments/${name}`);
   }
 
   updateDeployment(
@@ -132,11 +132,11 @@ export class ApiServerService implements ApiService {
   }
 
   getDeploymentMetrics(
-    deploymentId: string,
+    deploymentName: string,
     metricName: string
   ): Observable<Metric[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/monitoring/${metricName}`,
+      `${this.prefix}/deployments/${deploymentName}/monitoring/${metricName}`,
       {
         context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
           ignoreErrors: [500],
@@ -145,24 +145,24 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  listDeploymentReplicas(deploymentId: string): Observable<Replica[]> {
+  listDeploymentReplicas(deploymentName: string): Observable<Replica[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/replicas`
+      `${this.prefix}/deployments/${deploymentName}/replicas`
     );
   }
 
-  listDeploymentEvents(deploymentId: string): Observable<DeploymentEvent[]> {
+  listDeploymentEvents(deploymentName: string): Observable<DeploymentEvent[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/events`
+      `${this.prefix}/deployments/${deploymentName}/events`
     );
   }
 
   getDeploymentReadiness(
-    deploymentId: string
+    deploymentName: string
   ): Observable<DeploymentReadiness> {
     return this.httpClientService
       .get<DeploymentReadiness>(
-        `${this.prefix}/deployments/${deploymentId}/readiness`
+        `${this.prefix}/deployments/${deploymentName}/readiness`
       )
       .pipe(
         catchError((err) => {
@@ -175,7 +175,7 @@ export class ApiServerService implements ApiService {
   }
 
   getDeploymentReplicaLogs(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): Observable<string> {
     return new Observable((subscriber) => {
@@ -200,7 +200,7 @@ export class ApiServerService implements ApiService {
         return reader.read().then(pushToReader);
       };
       fetch(
-        `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/log`,
+        `${this.prefix}/deployments/${deploymentName}/replicas/${replicaId}/log`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -216,19 +216,19 @@ export class ApiServerService implements ApiService {
 
   getDeploymentReplicaSocketUrl(
     host: string,
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): string {
-    return `wss://${host}/api/v1/deployments/${deploymentId}/replicas/${replicaId}/shell`;
+    return `wss://${host}/api/v1/deployments/${deploymentName}/replicas/${replicaId}/shell`;
   }
 
   getDeploymentReplicaMetrics(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string,
     metricName: string
   ): Observable<Metric[]> {
     return this.httpClientService.get(
-      `${this.prefix}/deployments/${deploymentId}/replicas/${replicaId}/monitoring/${metricName}`,
+      `${this.prefix}/deployments/${deploymentName}/replicas/${replicaId}/monitoring/${metricName}`,
       {
         context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
           ignoreErrors: [500],

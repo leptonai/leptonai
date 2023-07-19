@@ -37,7 +37,7 @@ const EditDeploymentDetail: FC<{
       duration: 0,
       key: "update-deployment",
     });
-    deploymentService.update(deployment.id, value).subscribe({
+    deploymentService.update(deployment.name, value).subscribe({
       next: () => {
         message.destroy("update-deployment");
         close();

@@ -50,7 +50,7 @@ export const PopoverDeploymentTable: FC<{
                 <LinkTo
                   name="deploymentsList"
                   params={{
-                    photonId: photon.name,
+                    photonName: photon.name,
                   }}
                   relative="route"
                 >

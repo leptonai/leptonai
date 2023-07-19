@@ -19,12 +19,12 @@ export const DeploymentMinTable: FC<{ deployments: Deployment[] }> = ({
       showHeader={false}
       pagination={false}
       bordered
-      rowKey="id"
+      rowKey="name"
       onRow={(record) => {
         return {
           onClick: () =>
             navigateService.navigateTo("deploymentDetail", {
-              deploymentId: record.id,
+              deploymentName: record.name,
             }),
         };
       }}
@@ -33,7 +33,7 @@ export const DeploymentMinTable: FC<{ deployments: Deployment[] }> = ({
           title: "Status",
           dataIndex: ["status", "state"],
           render: (state, record) => (
-            <DeploymentStatus deploymentId={record.id} status={state} />
+            <DeploymentStatus deploymentName={record.name} status={state} />
           ),
         },
         {

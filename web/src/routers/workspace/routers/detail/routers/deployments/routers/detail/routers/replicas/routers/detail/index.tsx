@@ -19,7 +19,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
         <Route
           path="terminal"
           element={
-            <TerminalDetail deploymentId={deployment.id} replicaId={id!} />
+            <TerminalDetail deploymentName={deployment.name} replicaId={id!} />
           }
         />
         <Route
@@ -30,7 +30,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
                 height: 500px;
               `}
             >
-              <LogDetail deploymentId={deployment.id} replicaId={id!} />
+              <LogDetail deploymentName={deployment.name} replicaId={id!} />
             </div>
           }
         />
@@ -41,7 +41,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
               gpu={hardwareService.isGPUInstance(
                 deployment.resource_requirement.resource_shape
               )}
-              deploymentId={deployment.id}
+              deploymentName={deployment.name}
               replicaId={id!}
             />
           }
@@ -52,7 +52,7 @@ export const Detail: FC<{ deployment: Deployment }> = ({ deployment }) => {
             <NavigateTo
               name="deploymentDetailReplicasTerminal"
               params={{
-                deploymentId: deployment.id,
+                deploymentName: deployment.name,
                 replicaId: id!,
               }}
               replace

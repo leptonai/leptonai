@@ -20,32 +20,32 @@ export class DeploymentService {
     return this.list$;
   }
 
-  listReplicas(deploymentId: string): Observable<Replica[]> {
-    return this.apiService.listDeploymentReplicas(deploymentId);
+  listReplicas(deploymentName: string): Observable<Replica[]> {
+    return this.apiService.listDeploymentReplicas(deploymentName);
   }
 
-  listEvents(deploymentId: string): Observable<DeploymentEvent[]> {
-    return this.apiService.listDeploymentEvents(deploymentId);
+  listEvents(deploymentName: string): Observable<DeploymentEvent[]> {
+    return this.apiService.listDeploymentEvents(deploymentName);
   }
 
-  getReadiness(deploymentId: string): Observable<DeploymentReadiness> {
-    return this.apiService.getDeploymentReadiness(deploymentId);
+  getReadiness(deploymentName: string): Observable<DeploymentReadiness> {
+    return this.apiService.getDeploymentReadiness(deploymentName);
   }
 
-  getReplicaLog(deploymentId: string, replicaId: string): Observable<string> {
-    return this.apiService.getDeploymentReplicaLogs(deploymentId, replicaId);
+  getReplicaLog(deploymentName: string, replicaId: string): Observable<string> {
+    return this.apiService.getDeploymentReplicaLogs(deploymentName, replicaId);
   }
 
   getReplicaSocketUrl(
     origin: string,
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string
   ): string {
     const host = new URL(origin).host;
     const url = new URL(
       this.apiService.getDeploymentReplicaSocketUrl(
         host,
-        deploymentId,
+        deploymentName,
         replicaId
       )
     );
@@ -59,13 +59,17 @@ export class DeploymentService {
     return url.toString();
   }
   getReplicaMetrics(
-    deploymentId: string,
+    deploymentName: string,
     replicaId: string,
     metricName: string[]
   ): Observable<Metric[]> {
     return forkJoin(
       metricName.map((m) =>
-        this.apiService.getDeploymentReplicaMetrics(deploymentId, replicaId, m)
+        this.apiService.getDeploymentReplicaMetrics(
+          deploymentName,
+          replicaId,
+          m
+        )
       )
     ).pipe(
       map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),
@@ -89,8 +93,10 @@ export class DeploymentService {
     );
   }
 
-  id(id: string): Observable<Deployment | undefined> {
-    return this.list().pipe(map((list) => list.find((item) => item.id === id)));
+  name(name: string): Observable<Deployment | undefined> {
+    return this.list().pipe(
+      map((list) => list.find((item) => item.name === name))
+    );
   }
 
   refresh() {
@@ -104,21 +110,24 @@ export class DeploymentService {
     return this.apiService.createDeployment(deployment);
   }
 
-  delete(id: string): Observable<void> {
-    return this.apiService.deleteDeployment(id);
+  delete(name: string): Observable<void> {
+    return this.apiService.deleteDeployment(name);
   }
-  update(id: string, deployment: Subset<Deployment>): Observable<void> {
-    return this.apiService.updateDeployment(id, deployment);
+  update(name: string, deployment: Subset<Deployment>): Observable<void> {
+    return this.apiService.updateDeployment(name, deployment);
   }
 
   request(name: string, request: OpenAPIRequest): Observable<Response> {
     return this.apiService.requestDeployment(name, request);
   }
 
-  getMetrics(deploymentId: string, metricName: string[]): Observable<Metric[]> {
+  getMetrics(
+    deploymentName: string,
+    metricName: string[]
+  ): Observable<Metric[]> {
     return forkJoin(
       metricName.map((m) =>
-        this.apiService.getDeploymentMetrics(deploymentId, m)
+        this.apiService.getDeploymentMetrics(deploymentName, m)
       )
     ).pipe(
       map((list) => list.reduce((pre, cur) => [...pre, ...cur], [])),

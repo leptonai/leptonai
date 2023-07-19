@@ -7,7 +7,6 @@ export enum State {
 }
 
 export interface Deployment {
-  id: string;
   name: string;
   photon_id: string;
   created_at: number;
