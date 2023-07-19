@@ -2,8 +2,9 @@ version: "3.8"
 
 services:
     controller:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
-        command: lep ph run -n controller -m controller.py -p 21001
+        build:
+            dockerfile: Dockerfile
+        command: bash -c 'lep ph run -n controller -m controller.py -p 21001'
         shm_size: 1gb
         volumes:
             - .:/workspace
@@ -12,8 +13,9 @@ services:
         ports:
             - "21001:21001"
     worker:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
-        command: lep ph run -n ft-worker -m ft_worker.py -p 21002
+        build:
+            dockerfile: Dockerfile
+        command: bash -c 'lep ph run -n model-worker -m model_worker.py -p 21002'
         shm_size: 1gb
         volumes:
             - .:/workspace
@@ -32,8 +34,9 @@ services:
         depends_on:
             - controller
     frontend:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
-        command: lep ph run -n frontend -m frontend.py -p 8080
+        build:
+            dockerfile: Dockerfile
+        command: bash -c 'lep ph run -n frontend -m frontend.py -p 8080'
         shm_size: 1gb
         volumes:
             - .:/workspace
