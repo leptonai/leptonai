@@ -150,7 +150,7 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	// cleanup
 	for _, d := range ds {
 		if d.PhotonID == pid {
-			err = lepton.Deployment().Delete(d.ID)
+			err = lepton.Deployment().Delete(d.Name)
 			if err != nil {
 				log.Fatal(err)
 			}

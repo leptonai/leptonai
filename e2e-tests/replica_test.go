@@ -11,7 +11,7 @@ import (
 
 func TestListReplica(t *testing.T) {
 	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		replicas, err := lepton.Replica().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -27,7 +27,7 @@ func TestListReplica(t *testing.T) {
 
 func TestReplicaShell(t *testing.T) {
 	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		replicas, err := lepton.Replica().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -35,7 +35,7 @@ func TestReplicaShell(t *testing.T) {
 			return fmt.Errorf("expected 1 replica, got %d", len(replicas))
 		}
 		rid := replicas[0].ID
-		_, err = lepton.Replica().Shell(mainTestDeploymentID, rid)
+		_, err = lepton.Replica().Shell(mainTestDeploymentName, rid)
 		if err != nil {
 			return err
 		}
@@ -47,12 +47,12 @@ func TestReplicaShell(t *testing.T) {
 }
 
 func TestReplicaShellQueryString(t *testing.T) {
-	replicas, err := lepton.Replica().List(mainTestDeploymentID)
+	replicas, err := lepton.Replica().List(mainTestDeploymentName)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rid := replicas[0].ID
-	shellURL := client.WorkspaceURL + "/deployments/" + mainTestDeploymentID + "/replicas/" + rid + "/shell" + "?access_token=" + *authToken
+	shellURL := client.WorkspaceURL + "/deployments/" + mainTestDeploymentName + "/replicas/" + rid + "/shell" + "?access_token=" + *authToken
 	u, err := url.Parse(shellURL)
 	if err != nil {
 		t.Fatal(err)

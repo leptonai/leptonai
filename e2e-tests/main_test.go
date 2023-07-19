@@ -24,7 +24,6 @@ var (
 	mainTestPhotonName     string
 	mainTestPhotonID       string
 	mainTestDeploymentName string
-	mainTestDeploymentID   string
 
 	lepton *goclient.Lepton
 	client *e2eutil.CliWrapper
@@ -105,14 +104,13 @@ func mustPrepareTest() {
 	if err != nil {
 		log.Fatal("Failed to create deployment: ", err)
 	}
-	mainTestDeploymentID = ld.ID
-	if mainTestDeploymentID != mainTestDeploymentName {
-		log.Fatal("Expected deployment ID to be ", mainTestDeploymentName, ", got ", mainTestDeploymentID)
+	if mainTestDeploymentName != ld.Name {
+		log.Fatal("Expected deployment ID to be ", mainTestDeploymentName, ", got ", ld.Name)
 	}
 }
 
 func mustTeardownTest() {
-	if err := lepton.Deployment().Delete(mainTestDeploymentID); err != nil {
+	if err := lepton.Deployment().Delete(mainTestDeploymentName); err != nil {
 		log.Fatal("Failed to delete deployment: ", err)
 	}
 	time.Sleep(time.Second)

@@ -12,9 +12,9 @@ import (
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
-	err := waitForDeploymentToRunningState(mainTestDeploymentID)
+	err := waitForDeploymentToRunningState(mainTestDeploymentName)
 	if err != nil {
-		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentID, err)
+		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
 	}
 	endpoint, err := url.Parse(*workspaceURL)
 	if err != nil {
@@ -22,7 +22,7 @@ func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 	}
 	u := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
 	header := map[string]string{
-		ingress.HTTPHeaderNameForDeployment: mainTestDeploymentID,
+		ingress.HTTPHeaderNameForDeployment: mainTestDeploymentName,
 	}
 	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
 		out, err := lepton.HTTP.RequestURL(http.MethodGet, u, header, nil)
@@ -40,11 +40,11 @@ func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 }
 
 func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
-	err := waitForDeploymentToRunningState(mainTestDeploymentID)
+	err := waitForDeploymentToRunningState(mainTestDeploymentName)
 	if err != nil {
-		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentID, err)
+		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
 	}
-	ld, err := lepton.Deployment().Get(mainTestDeploymentID)
+	ld, err := lepton.Deployment().Get(mainTestDeploymentName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
 	}()
 	err = waitForDeploymentToRunningState(dName)
 	if err != nil {
-		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentID, err)
+		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
 	}
 	// access deployment with the custom token
 	h := goclient.NewHTTP(*workspaceURL, token)

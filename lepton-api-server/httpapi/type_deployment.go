@@ -11,13 +11,11 @@ type LeptonDeployment struct {
 }
 
 type LeptonDeploymentMetadata struct {
-	ID        string `json:"id"`
-	CreatedAt int64  `json:"created_at"`
+	CreatedAt int64 `json:"created_at"`
 }
 
 func NewLeptonDeploymentMetadata(ld *leptonaiv1alpha1.LeptonDeployment) *LeptonDeploymentMetadata {
 	return &LeptonDeploymentMetadata{
-		ID:        ld.GetSpecID(),
 		CreatedAt: ld.CreationTimestamp.UnixMilli(),
 	}
 }

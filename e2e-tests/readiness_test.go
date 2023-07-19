@@ -8,7 +8,7 @@ import (
 
 func TestDeploymentReadiness(t *testing.T) {
 	err := retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		issue, err := lepton.Readiness().GetDeploymentReadinessIssue(mainTestDeploymentID)
+		issue, err := lepton.Readiness().GetDeploymentReadinessIssue(mainTestDeploymentName)
 		if err != nil {
 			t.Fatal(err)
 		}

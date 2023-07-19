@@ -30,15 +30,15 @@ var (
 
 func TestReplicaMonitoring(t *testing.T) {
 	for _, name := range replicaMonitoringInterfaces {
-		replicas, err := lepton.Replica().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentName)
 		if err != nil {
 			t.Fatalf("failed to list replicas: %s", err)
 		}
 		if len(replicas) < 1 {
-			t.Fatalf("no replicas found for deployment %s", mainTestDeploymentID)
+			t.Fatalf("no replicas found for deployment %s", mainTestDeploymentName)
 		}
 		replicaID := replicas[0].ID
-		raw, err := lepton.Monitoring().GetReplicaRaw(name, mainTestDeploymentID, replicaID)
+		raw, err := lepton.Monitoring().GetReplicaRaw(name, mainTestDeploymentName, replicaID)
 		if err != nil {
 			t.Fatalf("failed to get replica raw for name %s and replica %s: %s", name, replicaID, err)
 		}
@@ -52,7 +52,7 @@ func TestReplicaMonitoring(t *testing.T) {
 
 func TestDeploymentMonitoring(t *testing.T) {
 	for _, name := range deploymentMonitoringInterfaces {
-		raw, err := lepton.Monitoring().GetDeploymentRaw(name, mainTestDeploymentID)
+		raw, err := lepton.Monitoring().GetDeploymentRaw(name, mainTestDeploymentName)
 		if err != nil {
 			t.Fatalf("failed to get deployment raw for name %s: %s", name, err)
 		}

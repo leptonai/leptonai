@@ -37,9 +37,6 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 		if ld.Name != dName {
 			t.Fatal("Expected deployment name to be ", dName, ", got ", ld.Name)
 		}
-		if ld.ID != dName {
-			t.Fatal("Expected deployment ID to be ", dName, ", got ", ld.ID)
-		}
 	}
 	// Sleep for a bit to let the server reconcile
 	time.Sleep(time.Second)
@@ -84,9 +81,6 @@ func TestDeployWithDuplicateName(t *testing.T) {
 	if ld.Name != dName {
 		t.Fatal("Expected deployment name to be ", dName, ", got ", ld.Name)
 	}
-	if ld.ID != dName {
-		t.Fatal("Expected deployment ID to be ", dName, ", got ", ld.ID)
-	}
 	_, err = lepton.Deployment().Create(d)
 	if err == nil {
 		t.Fatal("Expected error when deployment with the same name again, got nil")
@@ -114,11 +108,11 @@ func waitForDeploymentToRunningState(id string) error {
 }
 
 func TestDeploymentStatusAndEvents(t *testing.T) {
-	if err := waitForDeploymentToRunningState(mainTestDeploymentID); err != nil {
+	if err := waitForDeploymentToRunningState(mainTestDeploymentName); err != nil {
 		t.Fatal(err)
 	}
 
-	es, err := lepton.Event().GetDeploymentEvents(mainTestDeploymentID)
+	es, err := lepton.Event().GetDeploymentEvents(mainTestDeploymentName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,11 +148,11 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 		return fmt.Errorf("Expected deployment to have %d replicas in patch response, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
 	// Wait for deployment to be running
-	if err := waitForDeploymentToRunningState(mainTestDeploymentID); err != nil {
+	if err := waitForDeploymentToRunningState(mainTestDeploymentName); err != nil {
 		return err
 	}
 	// Check that the deployment has numReplicas replicas in running state
-	d, err = lepton.Deployment().Get(mainTestDeploymentID)
+	d, err = lepton.Deployment().Get(mainTestDeploymentName)
 	if err != nil {
 		return err
 	}
@@ -167,7 +161,7 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 	}
 	// Verify there are numReplicas replicas
 	return retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		replicas, err := lepton.Replica().List(mainTestDeploymentID)
+		replicas, err := lepton.Replica().List(mainTestDeploymentName)
 		if err != nil {
 			return fmt.Errorf("Failed to list replicas: %v", err)
 		}

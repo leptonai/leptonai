@@ -3,7 +3,7 @@ package e2etests
 import "testing"
 
 func TestEvent(t *testing.T) {
-	events, err := lepton.Event().GetDeploymentEvents(mainTestDeploymentID)
+	events, err := lepton.Event().GetDeploymentEvents(mainTestDeploymentName)
 	if err != nil {
 		t.Fatalf("Error getting deployment events: %v", err)
 	}
