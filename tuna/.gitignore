@@ -2,3 +2,5 @@ package.json
 package-lock.json
 .vercel
 .env*
+*-conv.json
+model
