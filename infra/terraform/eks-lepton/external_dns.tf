@@ -12,7 +12,7 @@ resource "aws_iam_policy" "external_dns" {
           "route53:ChangeResourceRecordSets"
         ],
         "Resource" : [
-          "arn:aws:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
+          "arn:${local.partition}:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
         ]
       },
       {
@@ -37,7 +37,7 @@ resource "aws_iam_role" "external_dns" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -57,7 +57,7 @@ resource "aws_iam_role" "external_dns" {
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.external_dns.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.external_dns.name}"
   role       = aws_iam_role.external_dns.name
 
   depends_on = [
@@ -89,7 +89,7 @@ resource "kubernetes_service_account" "external_dns" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.external_dns.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.external_dns.name}"
     }
   }
 

@@ -55,6 +55,6 @@ module "eks_blueprints_kubernetes_addons" {
     }
   }
   external_dns_route53_zone_arns = [
-    "arn:aws:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
+    "arn:${local.partition}:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
   ]
 }

@@ -6,8 +6,6 @@
 # in a more deterministic way without dynamic resolution
 # see https://github.com/leptonai/lepton/issues/1117
 
-data "aws_partition" "current" {}
-
 # "var.create_iam_role" is default to "true"
 # which is same as the previous behavior
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/variables.tf

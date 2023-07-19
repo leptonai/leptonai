@@ -18,8 +18,8 @@ resource "aws_iam_policy" "s3-policy" {
           "s3:GetBucketLocation"
         ],
         Resource : [
-          "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}",
-          "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
+          "arn:${local.partition}:s3:::${aws_s3_bucket.s3-bucket.bucket}",
+          "arn:${local.partition}:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
         ]
       }
     ]
@@ -42,7 +42,7 @@ resource "aws_iam_policy" "s3-ro-policy" {
           "s3:GetObject",
         ],
         Resource : [
-          "arn:aws:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
+          "arn:${local.partition}:s3:::${aws_s3_bucket.s3-bucket.bucket}/*"
         ]
       }
     ]

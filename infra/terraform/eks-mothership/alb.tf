@@ -17,7 +17,7 @@ resource "aws_iam_role" "alb_iam_role" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -37,7 +37,7 @@ resource "aws_iam_role" "alb_iam_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "alb_iam_role_policy_attachment" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb_iam_policy.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.alb_iam_policy.name}"
   role       = aws_iam_role.alb_iam_role.name
 
   depends_on = [
@@ -57,7 +57,7 @@ resource "kubernetes_service_account" "aws_load_balancer_controller" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb_iam_role.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.alb_iam_role.name}"
     }
   }
 

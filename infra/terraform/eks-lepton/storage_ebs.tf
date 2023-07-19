@@ -28,8 +28,8 @@ resource "aws_iam_policy" "csi_ebs" {
           "ec2:CreateTags"
         ],
         "Resource" : [
-          "arn:aws:ec2:*:*:volume/*",
-          "arn:aws:ec2:*:*:snapshot/*"
+          "arn:${local.partition}:ec2:*:*:volume/*",
+          "arn:${local.partition}:ec2:*:*:snapshot/*"
         ],
         "Condition" : {
           "StringEquals" : {
@@ -46,8 +46,8 @@ resource "aws_iam_policy" "csi_ebs" {
           "ec2:DeleteTags"
         ],
         "Resource" : [
-          "arn:aws:ec2:*:*:volume/*",
-          "arn:aws:ec2:*:*:snapshot/*"
+          "arn:${local.partition}:ec2:*:*:volume/*",
+          "arn:${local.partition}:ec2:*:*:snapshot/*"
         ]
       },
       {
@@ -147,7 +147,7 @@ resource "aws_iam_role" "csi_ebs" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -167,7 +167,7 @@ resource "aws_iam_role" "csi_ebs" {
 }
 
 resource "aws_iam_role_policy_attachment" "csi_ebs" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_ebs.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.csi_ebs.name}"
   role       = aws_iam_role.csi_ebs.name
 
   depends_on = [

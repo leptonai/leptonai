@@ -35,7 +35,7 @@ resource "aws_iam_role" "kube_prometheus_stack_prometheus_server" {
         Effect = "Allow"
         Sid    = ""
         Principal = {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         }
         Condition = {
           StringEquals = {
@@ -77,9 +77,9 @@ resource "aws_iam_policy" "kube_prometheus_stack_prometheus_server" {
         # amp does not support arn based on alias, also wildcard does not work
         # specify the exact workspace id we need to grant
         # e.g.,
-        # not authorized to perform: aps:RemoteWrite on resource: arn:aws:aps:us-east-1:605454121064:workspace/ws-99847e3b...
+        # not authorized to perform: aps:RemoteWrite on resource: arn:${local.partition}:aps:us-east-1:605454121064:workspace/ws-99847e3b...
         "Resource" : [
-          "arn:aws:aps:${var.region}:${local.account_id}:workspace/${aws_prometheus_workspace.kube_prometheus_stack.id}"
+          "arn:${local.partition}:aps:${var.region}:${local.account_id}:workspace/${aws_prometheus_workspace.kube_prometheus_stack.id}"
         ]
       }
     ]
@@ -93,7 +93,7 @@ resource "aws_iam_policy" "kube_prometheus_stack_prometheus_server" {
 }
 
 resource "aws_iam_role_policy_attachment" "kube_prometheus_stack_prometheus_server" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.kube_prometheus_stack_prometheus_server.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.kube_prometheus_stack_prometheus_server.name}"
   role       = aws_iam_role.kube_prometheus_stack_prometheus_server.name
 
   depends_on = [
@@ -120,7 +120,7 @@ resource "kubernetes_service_account" "kube_prometheus_stack_prometheus_server" 
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.kube_prometheus_stack_prometheus_server.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.kube_prometheus_stack_prometheus_server.name}"
     }
   }
 
@@ -150,7 +150,7 @@ resource "aws_iam_role" "kube_prometheus_stack_grafana" {
       "Effect": "Allow",
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Principal": {
-        "Federated": "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+        "Federated": "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
       },
       "Condition" : {
         "StringEquals": {
@@ -207,9 +207,9 @@ resource "aws_iam_policy" "kube_prometheus_stack_grafana" {
         # amp does not support arn based on alias, also wildcard does not work
         # specify the exact workspace id we need to grant
         # e.g.,
-        # not authorized to perform: aps:RemoteWrite on resource: arn:aws:aps:us-east-1:605454121064:workspace/ws-99847e3b...
+        # not authorized to perform: aps:RemoteWrite on resource: arn:${local.partition}:aps:us-east-1:605454121064:workspace/ws-99847e3b...
         "Resource" : [
-          "arn:aws:aps:${var.region}:${local.account_id}:workspace/${aws_prometheus_workspace.kube_prometheus_stack.id}"
+          "arn:${local.partition}:aps:${var.region}:${local.account_id}:workspace/${aws_prometheus_workspace.kube_prometheus_stack.id}"
         ]
       }
     ]
@@ -223,7 +223,7 @@ resource "aws_iam_policy" "kube_prometheus_stack_grafana" {
 }
 
 resource "aws_iam_role_policy_attachment" "kube_prometheus_stack_grafana" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.kube_prometheus_stack_grafana.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.kube_prometheus_stack_grafana.name}"
   role       = aws_iam_role.kube_prometheus_stack_grafana.name
 
   depends_on = [
@@ -234,7 +234,7 @@ resource "aws_iam_role_policy_attachment" "kube_prometheus_stack_grafana" {
 
 # assume role itself is required for grafana dashboard to access amp
 # without "sts:AssumeRole", error:
-# not authorized to perform: sts:AssumeRole on resource: arn:aws:iam::...
+# not authorized to perform: sts:AssumeRole on resource: arn:${local.partition}:iam::...
 # "jsonencode" does not work...
 # MalformedPolicyDocument: Invalid principal in policy: "AWS"
 #
@@ -248,7 +248,7 @@ data "aws_iam_policy_document" "kube_prometheus_stack_grafana_update_assume_role
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
       type        = "Federated"
-      identifiers = ["arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"]
+      identifiers = ["arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"]
     }
     condition {
       test     = "StringEquals"
@@ -267,7 +267,7 @@ data "aws_iam_policy_document" "kube_prometheus_stack_grafana_update_assume_role
     actions = ["sts:AssumeRole"]
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::${local.account_id}:role/${var.cluster_name}-kube-prometheus-stack-role-grafana"]
+      identifiers = ["arn:${local.partition}:iam::${local.account_id}:role/${var.cluster_name}-kube-prometheus-stack-role-grafana"]
     }
   }
 }
@@ -306,7 +306,7 @@ resource "kubernetes_service_account" "kube_prometheus_stack_grafana" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.kube_prometheus_stack_grafana.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.kube_prometheus_stack_grafana.name}"
     }
   }
 

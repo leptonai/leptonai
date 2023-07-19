@@ -28,7 +28,7 @@ resource "aws_iam_policy" "dynamodb-policy" {
           "dynamodb:DescribeTable"
         ],
         "Resource" : [
-          "arn:aws:dynamodb:*:*:table/${aws_dynamodb_table.tuna.name}"
+          "arn:${local.partition}:dynamodb:*:*:table/${aws_dynamodb_table.tuna.name}"
         ]
       }
     ]

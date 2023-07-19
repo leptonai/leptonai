@@ -66,7 +66,7 @@ resource "aws_iam_role" "cluster_autoscaler" {
         Effect = "Allow"
         Sid    = ""
         Principal = {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         }
         Condition = {
           StringEquals = {
@@ -85,7 +85,7 @@ resource "aws_iam_role" "cluster_autoscaler" {
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.cluster_autoscaler.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.cluster_autoscaler.name}"
   role       = aws_iam_role.cluster_autoscaler.name
 
   depends_on = [
@@ -105,7 +105,7 @@ resource "kubernetes_service_account" "cluster_autoscaler" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.cluster_autoscaler.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.cluster_autoscaler.name}"
     }
   }
 

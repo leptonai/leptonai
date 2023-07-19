@@ -77,7 +77,7 @@ resource "aws_iam_role" "csi_efs" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -101,7 +101,7 @@ resource "aws_iam_role" "csi_efs" {
 # ref. https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 # ref. https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html
 resource "aws_iam_role_policy_attachment" "csi_efs_node" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
   role       = aws_iam_role.mng.name
 
   depends_on = [
@@ -111,7 +111,7 @@ resource "aws_iam_role_policy_attachment" "csi_efs_node" {
 }
 
 resource "aws_iam_role_policy_attachment" "csi_efs" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.csi_efs.name}"
   role       = aws_iam_role.csi_efs.name
 
   depends_on = [
@@ -130,7 +130,7 @@ resource "kubernetes_service_account" "csi_efs" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.csi_efs.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.csi_efs.name}"
     }
   }
 

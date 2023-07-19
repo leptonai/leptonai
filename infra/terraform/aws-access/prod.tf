@@ -35,7 +35,7 @@ resource "aws_iam_group_policy_attachment" "prod_admins" {
   count = (var.environment == "prod" && length(var.admin_users) > 0) ? 1 : 0
 
   group      = "prod-admins"
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
 
   depends_on = [aws_iam_group.prod_admins]
 }
@@ -85,7 +85,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_billing" {
   count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
-  policy_arn = "arn:aws:iam::aws:policy/AWSBillingReadOnlyAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AWSBillingReadOnlyAccess"
 
   depends_on = [aws_iam_group.prod_power_user]
 }
@@ -94,7 +94,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_iam_full_access" {
   count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
-  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
 
   depends_on = [aws_iam_group.prod_power_user]
 }
@@ -103,7 +103,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_iam_change_password"
   count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
-  policy_arn = "arn:aws:iam::aws:policy/IAMUserChangePassword"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
 
   depends_on = [aws_iam_group.prod_power_user]
 }
@@ -112,7 +112,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user" {
   count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
-  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/PowerUserAccess"
 
   depends_on = [aws_iam_group.prod_power_user]
 }
@@ -164,7 +164,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only" {
   count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/ReadOnlyAccess"
 
   depends_on = [aws_iam_group.prod_read_only]
 }
@@ -173,7 +173,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only_iam_full_access" {
   count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
-  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
 
   depends_on = [aws_iam_group.prod_read_only]
 }
@@ -182,7 +182,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only_iam_change_password" 
   count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
-  policy_arn = "arn:aws:iam::aws:policy/IAMUserChangePassword"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
 
   depends_on = [aws_iam_group.prod_read_only]
 }

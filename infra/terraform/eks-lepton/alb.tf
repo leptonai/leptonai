@@ -91,7 +91,7 @@ resource "aws_iam_policy" "alb_controller" {
         "Action" : [
           "ec2:CreateTags"
         ],
-        "Resource" : "arn:aws:ec2:*:*:security-group/*",
+        "Resource" : "arn:${local.partition}:ec2:*:*:security-group/*",
         "Condition" : {
           "StringEquals" : {
             "ec2:CreateAction" : "CreateSecurityGroup"
@@ -109,7 +109,7 @@ resource "aws_iam_policy" "alb_controller" {
           "ec2:CreateTags",
           "ec2:DeleteTags"
         ],
-        "Resource" : "arn:aws:ec2:*:*:security-group/*",
+        "Resource" : "arn:${local.partition}:ec2:*:*:security-group/*",
         "Condition" : {
           # https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Null
           "Null" : {
@@ -165,9 +165,9 @@ resource "aws_iam_policy" "alb_controller" {
           "elasticloadbalancing:RemoveTags"
         ],
         "Resource" : [
-          "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
-          "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
-          "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*"
+          "arn:${local.partition}:elasticloadbalancing:*:*:targetgroup/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:loadbalancer/app/*/*"
         ],
         "Condition" : {
           "Null" : {
@@ -186,10 +186,10 @@ resource "aws_iam_policy" "alb_controller" {
           "elasticloadbalancing:RemoveTags"
         ],
         "Resource" : [
-          "arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*",
-          "arn:aws:elasticloadbalancing:*:*:listener/app/*/*/*",
-          "arn:aws:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
-          "arn:aws:elasticloadbalancing:*:*:listener-rule/app/*/*/*"
+          "arn:${local.partition}:elasticloadbalancing:*:*:listener/net/*/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:listener/app/*/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:listener-rule/app/*/*/*"
         ]
       },
       {
@@ -198,9 +198,9 @@ resource "aws_iam_policy" "alb_controller" {
           "elasticloadbalancing:AddTags"
         ],
         "Resource" : [
-          "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
-          "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
-          "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*"
+          "arn:${local.partition}:elasticloadbalancing:*:*:targetgroup/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+          "arn:${local.partition}:elasticloadbalancing:*:*:loadbalancer/app/*/*"
         ],
         "Condition" : {
           "StringEquals" : {
@@ -242,7 +242,7 @@ resource "aws_iam_policy" "alb_controller" {
           "elasticloadbalancing:RegisterTargets",
           "elasticloadbalancing:DeregisterTargets"
         ],
-        "Resource" : "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"
+        "Resource" : "arn:${local.partition}:elasticloadbalancing:*:*:targetgroup/*/*"
       },
       {
         "Effect" : "Allow",
@@ -273,7 +273,7 @@ resource "aws_iam_role" "alb_controller" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:aws:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -293,7 +293,7 @@ resource "aws_iam_role" "alb_controller" {
 }
 
 resource "aws_iam_role_policy_attachment" "alb_controller" {
-  policy_arn = "arn:aws:iam::${local.account_id}:policy/${aws_iam_policy.alb_controller.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.alb_controller.name}"
   role       = aws_iam_role.alb_controller.name
 
   depends_on = [
@@ -313,7 +313,7 @@ resource "kubernetes_service_account" "alb_controller" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:aws:iam::${local.account_id}:role/${aws_iam_role.alb_controller.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.alb_controller.name}"
     }
   }
 
