@@ -1,11 +1,12 @@
-from leptonai.config import BASE_IMAGE_REPO, BASE_IMAGE_VERSION
 from leptonai.photon import Photon
 
 import fastchat.serve.controller
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-{BASE_IMAGE_VERSION}"
+    requirement_dependency = [
+        "git+https://github.com/lm-sys/FastChat.git@974537e",
+    ]
 
     def init(self):
         controller = fastchat.serve.controller.Controller("shortest_queue")

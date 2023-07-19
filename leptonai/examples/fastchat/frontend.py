@@ -1,7 +1,6 @@
 from collections import namedtuple
 import os
 
-from leptonai.config import BASE_IMAGE_REPO, BASE_IMAGE_VERSION
 from leptonai.photon import Photon
 
 import fastchat.serve.gradio_web_server
@@ -9,24 +8,28 @@ import fastchat.serve.openai_api_server
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-{BASE_IMAGE_VERSION}"
+    requirement_dependency = [
+        "git+https://github.com/lm-sys/FastChat.git@974537e",
+    ]
 
     def _init_gradio_web_server(self):
         fastchat.serve.gradio_web_server.controller_url = os.environ.get(
             "CONTROLLER_ADDR", "http://0.0.0.0:21001"
         )
         fastchat.serve.gradio_web_server.enable_moderation = False
-        fastchat.serve.gradio_web_server.templates_map.clear()
-
-        (
-            self._models,
-            fastchat.serve.gradio_web_server.templates_map,
-        ) = fastchat.serve.gradio_web_server.get_model_list(
-            fastchat.serve.gradio_web_server.controller_url
+        self._models = fastchat.serve.gradio_web_server.get_model_list(
+            fastchat.serve.gradio_web_server.controller_url, False, False, False
         )
 
-        FakeArgs = namedtuple("Args", ["model_list_mode"])
-        fastchat.serve.gradio_web_server.args = FakeArgs(model_list_mode="reload")
+        FakeArgs = namedtuple(
+            "Args", ["model_list_mode", "add_chatgpt", "add_claude", "add_palm"]
+        )
+        fastchat.serve.gradio_web_server.args = FakeArgs(
+            model_list_mode="reload",
+            add_chatgpt=False,
+            add_claude=False,
+            add_palm=False,
+        )
 
     def _init_openai_api_server(self):
         fastchat.serve.openai_api_server.app_settings.controller_address = (
