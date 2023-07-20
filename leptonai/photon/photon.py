@@ -214,9 +214,36 @@ class Photon(BasePhoton):
     obj_pkl_filename: str = "obj.pkl"
 
     image: str = BASE_IMAGE
+    """
+    The docker base image to use for the photon. In default, we encourage you to use the
+    default base image, which provides a blazing fast loading time when running photons
+    remotely. On top of the default image, you can then install any additional dependencies
+    via `requirement_dependency` or `system_dependency`.
+    """
+
     args: list = BASE_IMAGE_ARGS
+    """
+    The args for the base image.
+    """
+
     requirement_dependency: Optional[List[str]] = None
+    """
+    Required python dependencies that you usually install with `pip install`. For example, if
+    your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
+    photon depends on a package installable over github, you can set the dependency to
+    `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
+    """
+
     capture_requirement_dependency: bool = False
+    """
+    Experimental feature: whether to automatically capture dependencies automaticlaly from the
+    local environment. This is not recommended, as in many cases, we observe that local dependencies
+    may be polluted by different installation approaches (e.g. pip vs conda), and may result in
+    unexpected behavior when running remotely. If you do want to use this feature, please make sure
+    that you have a clean environment with only the dependencies you want to capture. We encourage
+    you to use `requirement_dependency` instead.
+    """
+
     system_dependency: Optional[List[str]] = None
     vcs_url: Optional[str] = None
 
@@ -322,7 +349,7 @@ class Photon(BasePhoton):
 
         return res
 
-    def save(self, path: str = None):
+    def save(self, path: Optional[str] = None):
         path = super().save(path=path)
         with zipfile.ZipFile(path, "a") as photon_file:
             with photon_file.open(self.obj_pkl_filename, "w") as obj_pkl_file:

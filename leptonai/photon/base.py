@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any, Dict, Optional
 import zipfile
 
 from leptonai.config import CACHE_DIR
@@ -16,7 +17,8 @@ class BasePhoton:
 
     photon_type = "base"
     """photon_type defines the type of the photon.
-    It is used to identify the photon at building and deployment time.
+    It is used to identify the photon at building and deployment time. Should not be
+    changed by user code.
     """
 
     extra_files = {}
@@ -28,6 +30,8 @@ class BasePhoton:
           the path pointing to the file in the local file system. If local_path
           is relative, it is relative to the current working directory of the
           local environment.
+        - a list of paths (relative to the cwd of the local directory) to be included.
+          The remote path will be the same as the local path.
     """
 
     def __init_subclass__(cls, **kwargs):
@@ -43,14 +47,17 @@ class BasePhoton:
         self.name = name
         self.model = model
 
-    def save(self, path: str = None):
+    def save(self, path: Optional[str] = None):
+        """
+        Saves the photon to a local zip file.
+        """
         if path is None:
             # assuming maximum 1000 versions for now
             for version in range(1000):
                 if version == 0:
-                    path = CACHE_DIR / f"{self.name}.photon"
+                    path = str(CACHE_DIR / f"{self.name}.photon")
                 else:
-                    path = CACHE_DIR / f"{self.name}.{version}.photon"
+                    path = str(CACHE_DIR / f"{self.name}.{version}.photon")
                 if not os.path.exists(path):
                     break
             else:
@@ -87,6 +94,9 @@ class BasePhoton:
 
     @staticmethod
     def load(path: str):
+        """
+        Loads a photon from a local zip file.
+        """
         metadata = BasePhoton.load_metadata(path, unpack_extra_files=True)
         photon_type = metadata["type"]
         photon_cls = type_str_registry.get(photon_type)
@@ -114,7 +124,7 @@ class BasePhoton:
         return metadata
 
     @property
-    def metadata(self):
+    def metadata(self) -> Dict[str, Any]:
         return {"name": self.name, "model": self.model, "type": self.photon_type}
 
     @property
