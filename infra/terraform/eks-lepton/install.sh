@@ -23,10 +23,16 @@ targets=(
   "kubernetes_storage_class_v1.gp3_sc_default"
   "kubernetes_annotations.gp2_sc_non_default"
 
-  "aws_eks_node_group.al2_x86_64_cpu_t3xlarge"
-  "aws_eks_node_group.al2_x86_64_ac_g4dnxlarge"
+  # add all these as "depends_on" of the next target
+  # so we can create these node groups in parallel
+  #
+  # "aws_eks_node_group.al2_x86_64_ac_g4dnxlarge"
+  # "aws_eks_node_group.al2_x86_64_ac_g52xlarge"
+  # "aws_eks_node_group.al2_x86_64_cpu_m6a16xlarge"
+  # "aws_eks_node_group.ubuntu_x86_64_ac_g4dnxlarge"
+  # "aws_eks_node_group.ubuntu_x86_64_ac_g52xlarge"
+  # "aws_eks_node_group.ubuntu_x86_64_cpu_m6a16xlarge"
 
-  "module.ebs_csi_driver_irsa"
   "aws_eks_addon.csi_ebs"
   "helm_release.csi_efs"
 

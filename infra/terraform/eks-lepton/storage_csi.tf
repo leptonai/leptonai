@@ -74,6 +74,6 @@ resource "kubernetes_annotations" "gp2_sc_non_default" {
     # k8s object requires access to EKS cluster via aws-auth
     # also required for deletion
     # this ensures deleting this object happens before aws-auth
-    kubernetes_config_map_v1_data.aws_auth
+    kubernetes_config_map_v1_data.aws_auth,
   ]
 }

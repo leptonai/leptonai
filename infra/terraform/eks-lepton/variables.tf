@@ -47,6 +47,12 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+variable "disk_size_in_gb_for_node_groups" {
+  description = "Default disk size for all nodes"
+  type        = number
+  default     = 100
+}
+
 # this is required for Amazon Linux based AMIs
 # https://github.com/leptonai/lepton/issues/225
 # https://github.com/leptonai/lepton/issues/526
@@ -60,4 +66,86 @@ variable "use_ubuntu_nvidia_gpu_operator" {
   description = "Determines whether to NVIDIA GPU operator with ubuntu tags or centos"
   type        = bool
   default     = false
+}
+
+variable "al2_x86_64_ac_g4dnxlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA T4 device)"
+  type        = number
+  default     = 0
+}
+
+variable "al2_x86_64_ac_g4dnxlarge_max_size" {
+  description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA T4 device)"
+  type        = number
+  default     = 10
+}
+
+variable "al2_x86_64_ac_g52xlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA A10G device)"
+  type        = number
+  default     = 0
+}
+
+variable "al2_x86_64_ac_g52xlarge_max_size" {
+  description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA A10G device)"
+  type        = number
+  default     = 10
+}
+
+variable "al2_x86_64_cpu_m6a16xlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
+  type        = number
+  default     = 0
+}
+
+variable "al2_x86_64_cpu_m6a16xlarge_max_size" {
+  description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
+  type        = number
+  default     = 10
+}
+
+variable "ubuntu_x86_64_ac_g4dnxlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 Ubuntu based nodes (GPU with NVIDIA T4 device)"
+  type        = number
+  default     = 0
+}
+
+variable "ubuntu_x86_64_ac_g4dnxlarge_max_size" {
+  description = "Max number of x86_64 Ubuntu based nodes (GPU with NVIDIA T4 device)"
+  type        = number
+  default     = 1
+}
+
+variable "ubuntu_x86_64_ac_g52xlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 Ubuntu based nodes (GPU with NVIDIA A10G device)"
+  type        = number
+  default     = 0
+}
+
+variable "ubuntu_x86_64_ac_g52xlarge_max_size" {
+  description = "Max number of x86_64 Ubuntu based nodes (GPU with NVIDIA A10G device)"
+  type        = number
+  default     = 1
+}
+
+variable "ubuntu_x86_64_cpu_m6a16xlarge_min_size" {
+  description = "Min number and initial desired size of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
+  type        = number
+  default     = 0
+}
+
+variable "ubuntu_x86_64_cpu_m6a16xlarge_max_size" {
+  description = "Max number of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
+  type        = number
+  default     = 10
+}
+
+variable "ubuntu_amis" {
+  description = "Defines a set of custom AMIs for default managed node groups per region"
+  type = map(object({
+    x86_64_cpu = string
+    x86_64_gpu = string
+  }))
+
+  default = {}
 }

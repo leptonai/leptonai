@@ -32,6 +32,17 @@ jobs:
       run: |
         (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
     - name: Create cluster
+
+      # TODO: remove this once EKS service makes cluster creation faster...
+      # TODO: remove this once mothership supports cancel API for ongoing jobs
+      # sometimes it randomly takes over 1-hour
+      # and current mothership job timeout is 120-minute anyways
+      # you can't cancel or delete before the job timeout anyways
+      # without cancel API, the subsequent delete step will fail!
+      # for now just let it timeout so that the following delete can cleanly
+      # delete the failed clusters
+      timeout-minutes: 130
+
       run: |
         ./mothership cluster create \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \

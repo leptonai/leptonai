@@ -46,3 +46,7 @@ resource "random_string" "suffix" {
   special = false
   upper   = false
 }
+
+locals {
+  regional_ubuntu_amis = lookup(var.ubuntu_amis, var.region, null)
+}

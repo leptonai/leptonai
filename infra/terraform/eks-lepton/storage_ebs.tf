@@ -196,6 +196,15 @@ resource "aws_eks_addon" "csi_ebs" {
 
   depends_on = [
     module.eks,
-    aws_iam_role_policy_attachment.csi_ebs
+    aws_iam_role_policy_attachment.csi_ebs,
+
+    # so that we don't need to specify targets individually
+    # creating this resource will create the following in parallel
+    aws_eks_node_group.al2_x86_64_ac_g4dnxlarge,
+    aws_eks_node_group.al2_x86_64_ac_g52xlarge,
+    aws_eks_node_group.al2_x86_64_cpu_m6a16xlarge,
+    aws_eks_node_group.ubuntu_x86_64_ac_g4dnxlarge,
+    aws_eks_node_group.ubuntu_x86_64_ac_g52xlarge,
+    aws_eks_node_group.ubuntu_x86_64_cpu_m6a16xlarge,
   ]
 }

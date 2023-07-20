@@ -2,27 +2,19 @@
 # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
-resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
-  # TODO
-  # can't really disable with "count" since tf will error
-  # "attributes must be accessed on specific instances."
-  # just remove once ubuntu GPU nodes are stable
-
+resource "aws_eks_node_group" "ubuntu_x86_64_ac_g4dnxlarge" {
   cluster_name    = module.eks.cluster_name
-  node_group_name = "${var.cluster_name}-al2-x86_64-g4dnxlarge"
+  node_group_name = "${var.cluster_name}-ubuntu-x86_64-g4dnxlarge"
   node_role_arn   = aws_iam_role.mng.arn
 
   # no need to be in public subnets
   # when all services are exposed via ingress/LB
   subnet_ids = module.vpc.private_subnets
 
-  # can only specify kubernetes version without an image id
-  version = "1.26"
-
   scaling_config {
-    min_size     = var.al2_x86_64_ac_g4dnxlarge_min_size
-    desired_size = var.al2_x86_64_ac_g4dnxlarge_min_size
-    max_size     = var.al2_x86_64_ac_g4dnxlarge_max_size
+    min_size     = var.ubuntu_x86_64_ac_g4dnxlarge_min_size
+    desired_size = var.ubuntu_x86_64_ac_g4dnxlarge_min_size
+    max_size     = var.ubuntu_x86_64_ac_g4dnxlarge_max_size
   }
   update_config {
     max_unavailable = 1
@@ -34,14 +26,12 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
   capacity_type  = var.default_capacity_type
   instance_types = ["g4dn.xlarge"]
 
-  # NOTE: EKS uses non-NVME based AMIs for root volume
-  # so the instance store for g4dn instance will be ignored
-  # instead using EBS for root volume
-  # ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/add-instance-store-volumes.html
-  disk_size = var.disk_size_in_gb_for_node_groups
-
   # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
-  ami_type = "AL2_x86_64_GPU"
+  ami_type = "CUSTOM"
+  launch_template {
+    id      = aws_launch_template.ubuntu_x86_64_ac.id
+    version = aws_launch_template.ubuntu_x86_64_ac.default_version
+  }
 
   # not allow new pods to schedule onto the node unless they tolerate the taint
   # only the pods with matching toleration will be scheduled
@@ -71,9 +61,6 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
     ]
   }
 
-  # NOTE: no need for "launch_template"
-  # EKS managed node group provides one for AL2 nodes
-
   depends_on = [
     module.vpc,
     aws_security_group.eks,
@@ -82,16 +69,13 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
     aws_iam_role_policy_attachment.mng_AmazonEC2ContainerRegistryReadOnly,
     aws_iam_role_policy_attachment.mng_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.csi_efs_node,
-    module.eks
+    module.eks,
+    aws_launch_template.ubuntu_x86_64_ac,
   ]
 }
 
-# TODO
-# can't really disable with "count" since tf will error
-# "attributes must be accessed on specific instances."
-# just remove once ubuntu GPU nodes are stable
-resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge" {
-  autoscaling_group_name = aws_eks_node_group.al2_x86_64_ac_g4dnxlarge.resources[0].autoscaling_groups[0].name
+resource "aws_autoscaling_group_tag" "ubuntu_x86_64_ac_g4dnxlarge" {
+  autoscaling_group_name = aws_eks_node_group.ubuntu_x86_64_ac_g4dnxlarge.resources[0].autoscaling_groups[0].name
 
   # add extra label in case we run cluster-autoscaler in parallel with others
   # e.g., karpenter
