@@ -307,7 +307,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 		}
 	}()
 
-	tfws := terraformWorkspaceName(ws.Spec.ClusterName, workspaceName)
+	tfws := terraformWorkspaceName(workspaceName)
 
 	_, err = terraform.GetWorkspace(tfws)
 	if err != nil {
@@ -422,7 +422,7 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 	var err error
 	workspaceName := ws.Spec.Name
 
-	err = terraform.CreateWorkspace(terraformWorkspaceName(ws.Spec.ClusterName, workspaceName))
+	err = terraform.CreateWorkspace(terraformWorkspaceName(workspaceName))
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
@@ -490,7 +490,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 	}
 	oidcID := cl.Status.Properties.OIDCID
 
-	tfws := terraformWorkspaceName(ws.Spec.ClusterName, workspaceName)
+	tfws := terraformWorkspaceName(workspaceName)
 	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
 	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
@@ -541,8 +541,8 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 	return nil
 }
 
-func terraformWorkspaceName(clusterName, workspaceName string) string {
-	return clusterName + "-" + workspaceName
+func terraformWorkspaceName(workspaceName string) string {
+	return "ws-" + workspaceName
 }
 
 func efsMountTargets(privateSubnets []string) string {

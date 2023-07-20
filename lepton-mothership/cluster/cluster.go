@@ -314,19 +314,19 @@ func delete(clusterName string, logCh chan<- string) error {
 		// we should debug why the delete failed manually and actually fix the root cause
 	}()
 
-	_, err = terraform.GetWorkspace(clusterName)
+	_, err = terraform.GetWorkspace(terraformWorkspaceName(clusterName))
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(clusterName)
+	err = terraform.ForceUnlockWorkspace(terraformWorkspaceName(clusterName))
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
-	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
-	defer util.TryDeletingTerraformWorkingDir(clusterName) // delete even if there are errors preparing the working dir
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(terraformWorkspaceName(clusterName)) // delete even if there are errors preparing the working dir
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
@@ -340,7 +340,7 @@ func delete(clusterName string, logCh chan<- string) error {
 			"error", err,
 		)
 
-		dir, err = util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", "")
+		dir, err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", "")
 		if err != nil {
 			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
 		}
@@ -364,7 +364,7 @@ func delete(clusterName string, logCh chan<- string) error {
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
 
-	err = terraform.DeleteEmptyWorkspace(clusterName)
+	err = terraform.DeleteEmptyWorkspace(terraformWorkspaceName(clusterName))
 	if err != nil {
 		return fmt.Errorf("failed to delete terraform workspace: %w", err)
 	}
@@ -391,7 +391,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 	var err error
 	clusterName := cl.Spec.Name
 
-	err = terraform.CreateWorkspace(clusterName)
+	err = terraform.CreateWorkspace(terraformWorkspaceName(clusterName))
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
@@ -410,7 +410,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		)
 	}
 
-	err = terraform.ForceUnlockWorkspace(clusterName)
+	err = terraform.ForceUnlockWorkspace(terraformWorkspaceName(clusterName))
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return nil, fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
@@ -460,8 +460,8 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		}
 	}()
 
-	dir, err := util.PrepareTerraformWorkingDir(clusterName, "eks-lepton", cl.Spec.GitRef)
-	defer util.TryDeletingTerraformWorkingDir(clusterName) // delete even if there are errors preparing the working dir
+	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(terraformWorkspaceName(clusterName)) // delete even if there are errors preparing the working dir
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -515,6 +515,10 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	}
 
 	return nil
+}
+
+func terraformWorkspaceName(clusterName string) string {
+	return "cl-" + clusterName
 }
 
 func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {

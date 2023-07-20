@@ -37,10 +37,10 @@ if [[ $CREATE_EFS == "true" ]]; then
   fi
 fi
 
-export TF_WORKSPACE=$CLUSTER_NAME-$WORKSPACE_NAME
+export TF_WORKSPACE="ws-$WORKSPACE_NAME"
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
-if terraform init --upgrade; then 
+if terraform init --upgrade; then
   echo "SUCCESS: Terraform init completed successfully"
 else
   echo "ERROR: Terraform init failed"
