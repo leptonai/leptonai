@@ -28,11 +28,12 @@ export const FullLayoutWidth = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  padding: 32px;
+  padding: 16px 32px;
 `;
 
 export const LimitedLayoutWidth = styled(FullLayoutWidth)`
   max-width: 1200px;
+  padding: 32px;
 `;
 
 export const Layout: FC<LayoutProps & PropsWithChildren> = ({

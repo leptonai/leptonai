@@ -35,24 +35,28 @@ export default async function handler(
       },
       items: [
         {
-          price: "price_1NTKPTBcUfXYxWWVOfMFn9DA",
-          metadata: { shape: "gpu.a10" },
+          price: "price_1NVbn2BcUfXYxWWViU0XrNgA",
+          metadata: { shape: "cpu.small" },
         },
         {
-          price: "price_1NTKOIBcUfXYxWWVJnXsjccc",
-          metadata: { shape: "gpu.t4" },
-        },
-        {
-          price: "price_1NTKNHBcUfXYxWWVVmx8QMSI",
-          metadata: { shape: "cpu.large" },
-        },
-        {
-          price: "price_1NSdc4BcUfXYxWWVmuu2ODKM",
+          price: "price_1NVbnlBcUfXYxWWVpXUeFNnl",
           metadata: { shape: "cpu.medium" },
         },
         {
-          price: "price_1NSdayBcUfXYxWWVGEjTuBEF",
-          metadata: { shape: "cpu.small" },
+          price: "price_1NVboUBcUfXYxWWVLB9kZXzA",
+          metadata: { shape: "cpu.large" },
+        },
+        {
+          price: "price_1NVbpbBcUfXYxWWVTfS6a74e",
+          metadata: { shape: "gpu.t4" },
+        },
+        {
+          price: "price_1NVbqXBcUfXYxWWVVQRL3Gl3",
+          metadata: { shape: "gpu.a10" },
+        },
+        {
+          price: "price_1NVbrIBcUfXYxWWVk7G25XEB",
+          metadata: { shape: "gpu.a100" },
         },
       ],
       coupon: "NolzLBLL",

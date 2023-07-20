@@ -16,7 +16,7 @@ import {
   FineTuneJobStatus,
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
-
+import Stripe from "stripe";
 @Injectable()
 export abstract class ApiService {
   abstract listPhotons(): Observable<Photon[]>;
@@ -81,4 +81,11 @@ export abstract class ApiService {
   abstract makeStorageDirectory(path: string): Observable<void>;
   abstract uploadStorageFile(path: string, file: File): Observable<void>;
   abstract removeStorageEntry(path: string): Observable<void>;
+
+  abstract getPortal(): Observable<{ url: string }>;
+  abstract getInvoice(): Observable<{
+    upcoming?: Stripe.UpcomingInvoice;
+    open?: Stripe.Invoice;
+    products: Stripe.Product[];
+  }>;
 }

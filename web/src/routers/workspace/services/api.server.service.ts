@@ -16,6 +16,7 @@ import {
 } from "@lepton-dashboard/services/http-client.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
+import Stripe from "stripe";
 import { WorkspaceTrackerService } from "../../../services/workspace-tracker.service";
 import {
   FineTuneJob,
@@ -307,6 +308,25 @@ export class ApiServerService implements ApiService {
 
   makeStorageDirectory(path: string): Observable<void> {
     return this.httpClientService.put<void>(`${this.prefix}/storage/${path}`);
+  }
+
+  getPortal(): Observable<{ url: string }> {
+    return this.httpClientService.post<{ url: string }>(
+      `https:/billing-gateway.lepton.ai/api/portal`,
+      {
+        workspace_id: this.workspaceTrackerService.id,
+      }
+    );
+  }
+
+  getInvoice() {
+    return this.httpClientService.post<{
+      products: Stripe.Product[];
+      upcoming?: Stripe.UpcomingInvoice;
+      open?: Stripe.Invoice;
+    }>(`https:/billing-gateway.lepton.ai/api/invoice`, {
+      workspace_id: this.workspaceTrackerService.id,
+    });
   }
 
   constructor(

@@ -13,6 +13,7 @@ import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.ser
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { FineTuneJob } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
+import Stripe from "stripe";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -243,5 +244,17 @@ export class ApiLocalService implements ApiService {
 
   makeStorageDirectory(): Observable<void> {
     return EMPTY;
+  }
+
+  getPortal(): Observable<{ url: string }> {
+    return of({ url: "" });
+  }
+
+  getInvoice(): Observable<{
+    products: Stripe.Product[];
+    upcoming?: Stripe.UpcomingInvoice;
+    open?: Stripe.Invoice;
+  }> {
+    return of({ products: [] });
   }
 }

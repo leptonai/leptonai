@@ -1,9 +1,9 @@
-import { Asterisk, Password, Settings } from "@carbon/icons-react";
+import { Asterisk, Password, Settings, Wallet } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { useResponsive } from "ahooks";
 import { Menu, MenuProps } from "antd";
 import { FC, PropsWithChildren, useMemo } from "react";
@@ -30,6 +30,11 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         key: `${pathname}/secrets`,
         label: "Secrets",
         icon: <CarbonIcon icon={<Asterisk />} />,
+      },
+      {
+        key: `${pathname}/billing`,
+        label: "Billing",
+        icon: <CarbonIcon icon={<Wallet />} />,
       },
     ],
     [pathname]

@@ -1,4 +1,5 @@
 import { Detail } from "@lepton-dashboard/routers/workspace/routers/detail";
+import { BillingService } from "@lepton-dashboard/routers/workspace/services/billing.service";
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { FC, Suspense } from "react";
@@ -25,6 +26,7 @@ export const Workspace: FC = () => {
         DeploymentService,
         SecretService,
         FineTuneService,
+        BillingService,
         { provide: ApiService, useClass: ApiServerService },
         { provide: FileManagerService, useClass: FileManagerServerService },
       ]}
