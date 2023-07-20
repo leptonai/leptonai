@@ -16,7 +16,7 @@ export const Billing: FC = () => {
     <Card
       icon={<CarbonIcon icon={<Wallet />} />}
       borderless
-      extra={<Portal />}
+      extra={supportBilling ? <Portal /> : null}
       shadowless
       title="Billing"
     >
