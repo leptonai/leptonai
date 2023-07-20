@@ -315,6 +315,9 @@ export class ApiServerService implements ApiService {
       `https://billing-gateway.lepton.ai/api/portal`,
       {
         workspace_id: this.workspaceTrackerService.id,
+      },
+      {
+        withCredentials: true,
       }
     );
   }
@@ -324,9 +327,15 @@ export class ApiServerService implements ApiService {
       products: Stripe.Product[];
       upcoming?: Stripe.UpcomingInvoice;
       open?: Stripe.Invoice;
-    }>(`https://billing-gateway.lepton.ai/api/invoice`, {
-      workspace_id: this.workspaceTrackerService.id,
-    });
+    }>(
+      `https://billing-gateway.lepton.ai/api/invoice`,
+      {
+        workspace_id: this.workspaceTrackerService.id,
+      },
+      {
+        withCredentials: true,
+      }
+    );
   }
 
   constructor(
