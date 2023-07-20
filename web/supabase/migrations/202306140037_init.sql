@@ -70,8 +70,9 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 AS $function$begin
   if exists(select 1 from public.users where email = lower(new.email)) then
     update public.users set auth_user_id = new.id where email = lower(new.email);
+  else
+    insert into public.users (email, auth_user_id, enable) values (lower(new.email), new.id, false);
   end if;
-  insert into public.users (email, auth_user_id, enable) values (lower(new.email), new.id, false);
   return new;
 end;$function$
 ;
