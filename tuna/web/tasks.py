@@ -32,7 +32,7 @@ class CookTask(Task):
                 break
         if dish is None:
             raise RuntimeError(
-                f"Can not find dish with task_id {task_id} (after {max_try} tries"
+                f"Can not find dish with task_id {task_id} (after {max_tries} tries"
             )
         dish.start_run()
         return super().before_start(task_id, args, kwargs)

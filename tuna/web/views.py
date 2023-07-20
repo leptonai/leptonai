@@ -19,6 +19,12 @@ class AddView(View):
               <input type='text' style='display:none;' value='%s' name='csrfmiddlewaretoken'/>
               <label for="data">Data</label>
               <input type="file" name="data" accept=".json">
+              <label for="model">Model(base):</label>
+              <select id="model" name="model">
+                <option value="llama2/7b-chat selected">llama2/7b-chat</option>
+                <option value="vicuna/7B">vicuna/7B</option>
+                <option value="baichuan">baichuan</option>
+              </select>
               <button type="submit">Submit</button>
             </form>
         """ % (get_token(request))
@@ -26,7 +32,7 @@ class AddView(View):
 
     @staticmethod
     def post(request):
-        data = request.FILES['data']
+        data = request.FILES["data"]
         logger.info(f"Received data file {data}")
 
         sesssion_id = uuid.uuid4().hex
@@ -35,7 +41,7 @@ class AddView(View):
         data_path = upload_dataset(data.file, id_=sesssion_id)
         logger.info(f"Using data_path {data_path}")
 
-        model_name_or_path = "vicuna/7B"
+        model_name_or_path = request.POST.get("model", "llama2/7b-chat")
         logger.info(f"Using model {model_name_or_path}")
 
         output_dir = get_output_dir(id_=sesssion_id)

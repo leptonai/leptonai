@@ -4,3 +4,4 @@ package-lock.json
 .env*
 *-conv.json
 model
+flower.db

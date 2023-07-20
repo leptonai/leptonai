@@ -36,10 +36,15 @@ echo "Done"
 echo "Checking model weights"
 if [[ ! -d "lepton-llm" ]]; then
     echo "Downloading letpton-llm models"
-    model=vicuna/7B
-    echo "model=${model}"
-    mkdir -p lepton-llm/${model}
-    gsutil -m rsync -r gs://lepton-llm/tuna-ready/${model}/ lepton-llm/${model}
+    for model in "llama2/7b-chat" "vicuna/7B" "baichuan"; do
+        if [[ -d "lepton-llm/${model}" ]]; then
+            echo "lepton-llm/${model} already exists"
+            continue
+        fi
+        echo "Downloading model ${model} to lepton-llm/${model}"
+        mkdir -p lepton-llm/${model}
+        gsutil -m rsync -r gs://lepton-llm/tuna-ready/${model}/ lepton-llm/${model}
+    done
 fi
 echo "Done"
 
