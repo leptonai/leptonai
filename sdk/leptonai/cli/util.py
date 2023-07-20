@@ -114,10 +114,27 @@ def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
     if response.status_code >= 200 and response.status_code <= 299:
         console.print(if_2xx)
         return
-    elif response.status_code >= 400 and response.status_code <= 499:
-        console.print(f"{response.status_code}: {response.text}\n{if_4xx}")
-        if exit_if_4xx:
-            sys.exit(1)
     else:
-        console.print(f"{response.status_code}: {response.text}\n{if_others}")
-        sys.exit(1)
+        if response.status_code >= 400 and response.status_code <= 499:
+            errmsg = if_4xx
+        else:
+            errmsg = if_others
+        try:
+            # convert response text to json
+            content = response.json()
+            console.print(
+                f"{response.status_code} {content['code']}:"
+                f" {content['message']}\n{errmsg}"
+            )
+        except Exception:
+            # fallback to display raw message
+            console.print(f"{response.status_code}: {response.text}\n{errmsg}")
+
+        if (
+            response.status_code >= 400
+            and response.status_code <= 499
+            and not exit_if_4xx
+        ):
+            return
+        else:
+            sys.exit(1)
