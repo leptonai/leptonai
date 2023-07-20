@@ -1,0 +1,1496 @@
+openapi: 3.0.0
+info:
+  description: API for interacting with the Lambda GPU Cloud
+  title: Lambda Cloud API
+  version: 1.4.0
+servers:
+- description: Production server
+  url: https://cloud.lambdalabs.com/api/v1/
+- url: https://cloud.lambdalabs.com/api/v1/
+security:
+- basicAuth: []
+- bearerAuth: []
+paths:
+  /instance-types:
+    get:
+      description: |
+        Returns a detailed list of the instance types offered by Lambda GPU Cloud. The details include the regions, if any, in which each instance type is currently available.
+      operationId: instanceTypes
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/instanceTypes_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+      summary: Retrieve list of offered instance types
+  /instances:
+    get:
+      description: Retrieves a detailed list of running instances.
+      operationId: listInstances
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/listInstances_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+      summary: List running instances
+      x-cli-aliases:
+      - ls
+  /instances/{id}:
+    get:
+      description: |
+        Retrieves details of a specific instance, including whether or not the instance is running.
+      operationId: getInstance
+      parameters:
+      - description: The unique identifier (ID) of the instance
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/instanceId'
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/getInstance_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Object does not exist.
+      summary: List details of a specific instance
+  /instance-operations/launch:
+    post:
+      description: Launches one or more instances of a given instance type.
+      operationId: launchInstance
+      requestBody:
+        $ref: '#/components/requestBodies/launch'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/launchInstance_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Request parameters were invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Object does not exist.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Something unexpected occurred.
+      summary: Launch instances
+  /instance-operations/terminate:
+    post:
+      description: Terminates a given instance.
+      operationId: terminateInstance
+      requestBody:
+        $ref: '#/components/requestBodies/terminate'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/terminateInstance_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Request parameters were invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Object does not exist.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Something unexpected occurred.
+      summary: Terminate an instance
+  /instance-operations/restart:
+    post:
+      description: Restarts the given instances.
+      operationId: restartInstance
+      requestBody:
+        $ref: '#/components/requestBodies/restart'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/restartInstance_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Request parameters were invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Object does not exist.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Something unexpected occurred.
+      summary: Restart instances
+  /ssh-keys:
+    get:
+      description: Retrieve the list of SSH keys
+      operationId: listSSHKeys
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/listSSHKeys_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+      summary: List SSH keys
+    post:
+      description: |
+        Add an SSH key
+
+        To use an existing key pair, enter the public key for the `public_key` property of the request body.
+
+        To generate a new key pair, omit the `public_key` property from the request body. Save the `private_key` from the response somewhere secure. For example, with curl:
+
+        ```
+        curl https://cloud.lambdalabs.com/api/v1/ssh-keys \
+          --fail \
+          -u ${LAMBDA_API_KEY}: \
+          -X POST \
+          -d '{"name": "new key"}' \
+          | jq -r '.data.private_key' > key.pem
+
+        chmod 400 key.pem
+        ```
+
+        Then, after you launch an instance with `new key` attached to it:
+        ```
+        ssh -i key.pem <instance IP>
+        ```
+      operationId: addSSHKey
+      requestBody:
+        $ref: '#/components/requestBodies/addSSHKey'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/addSSHKey_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Request parameters were invalid.
+      summary: Add SSH key
+  /ssh-keys/{id}:
+    delete:
+      description: Delete an SSH key.
+      operationId: deleteSSHKey
+      parameters:
+      - description: The unique identifier (ID) of the SSH key
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/sshKeyId'
+        style: simple
+      responses:
+        "200":
+          description: Deletion successful
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Request parameters were invalid.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+      summary: Delete SSH key
+  /file-systems:
+    get:
+      description: Retrieve the list of file systems
+      operationId: listFileSystems
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/listFileSystems_200_response'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Unauthorized.
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseBody'
+          description: Forbidden.
+      summary: List file systems
+components:
+  requestBodies:
+    launch:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/launchInstance_request'
+      required: true
+    terminate:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/terminateInstance_request'
+      required: true
+    restart:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/restartInstance_request'
+      required: true
+    addSSHKey:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/addSSHKey_request'
+      required: true
+  responses:
+    unauthorized:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorResponseBody'
+      description: Unauthorized.
+    forbidden:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorResponseBody'
+      description: Forbidden.
+    notFound:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorResponseBody'
+      description: Object does not exist.
+    badRequest:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorResponseBody'
+      description: Request parameters were invalid.
+    internalServerError:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorResponseBody'
+      description: Something unexpected occurred.
+    instances:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/listInstances_200_response'
+      description: OK
+    instance:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/getInstance_200_response'
+      description: OK
+    instanceTypes:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/instanceTypes_200_response'
+      description: OK
+    launch:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/launchInstance_200_response'
+      description: OK
+    terminate:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/terminateInstance_200_response'
+      description: OK
+    restart:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/restartInstance_200_response'
+      description: OK
+    sshKeys:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/listSSHKeys_200_response'
+      description: OK
+    addSSHKey:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/addSSHKey_200_response'
+      description: OK
+    fileSystems:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/listFileSystems_200_response'
+      description: OK
+  schemas:
+    errorCode:
+      description: Unique identifier for the type of error
+      enum:
+      - global/unknown
+      - global/invalid-api-key
+      - global/account-inactive
+      - global/invalid-parameters
+      - global/object-does-not-exist
+      - instance-operations/launch/insufficient-capacity
+      - instance-operations/launch/file-system-in-wrong-region
+      - instance-operations/launch/file-systems-not-supported
+      - ssh-keys/key-in-use
+      type: string
+    error:
+      additionalProperties: false
+      properties:
+        code:
+          $ref: '#/components/schemas/errorCode'
+        message:
+          description: Detailed description of the error
+          example: "API key is invalid, expired, or deleted."
+          type: string
+        suggestion:
+          description: Suggestion of possible ways to fix the error.
+          example: Create a new API key and try again.
+          nullable: true
+          type: string
+      required:
+      - code
+      - message
+      type: object
+    errorResponseBody:
+      additionalProperties: false
+      properties:
+        error:
+          $ref: '#/components/schemas/error'
+        field_errors:
+          additionalProperties:
+            $ref: '#/components/schemas/error'
+          description: Details about errors on a per-parameter basis
+          type: object
+      required:
+      - error
+      type: object
+    datetime:
+      description: "A date and time, formatted as an ISO 8601 time stamp"
+      example: 2023-02-24T20:48:56+00:00
+      type: string
+    user:
+      additionalProperties: false
+      description: Information about a user in your team
+      example:
+        id: 0920582c7ff041399e34823a0be62549
+        email: teammate@example.com
+        status: active
+      properties:
+        id:
+          description: Unique identifier for the user
+          example: 0920582c7ff041399e34823a0be62549
+          type: string
+        email:
+          description: Email address of the user
+          example: teammate@example.com
+          type: string
+        status:
+          description: Status of the user's account
+          enum:
+          - active
+          - deactivated
+          type: string
+      required:
+      - email
+      - id
+      - status
+      type: object
+    regionName:
+      description: Short name of a region
+      example: us-tx-1
+      type: string
+    region:
+      additionalProperties: false
+      example:
+        name: us-tx-1
+        description: "Austin, Texas"
+      properties:
+        name:
+          description: Short name of a region
+          example: us-tx-1
+          type: string
+        description:
+          description: Long name of a region
+          example: "Austin, Texas"
+          type: string
+      required:
+      - description
+      - name
+      type: object
+    instanceId:
+      description: Unique identifier (ID) of an instance
+      example: 0920582c7ff041399e34823a0be62549
+      type: string
+    sshKeyId:
+      description: Unique identifier (ID) of an SSH key
+      example: 0920582c7ff041399e34823a0be62548
+      type: string
+    fileSystemId:
+      description: Unique identifier (ID) of a file system
+      example: 0920582c7ff041399e34823a0be62547
+      type: string
+    sshKeyName:
+      description: Name of the SSH key
+      example: macbook-pro
+      maxLength: 64
+      type: string
+    sshPublicKey:
+      description: Public key for the SSH key
+      example: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+      maxLength: 4096
+      type: string
+    sshPrivateKey:
+      description: Private key for the SSH key. Only returned when generating a new
+        key pair.
+      example: |
+        -----BEGIN RSA PRIVATE KEY-----
+        MIIEpQIBAAKCAQEA5IGybv8/wdQM6Y4yYTGiEem4TscBZiAW+9xyW2pDt8S7VDtm
+        ...
+        eCW4938W9u8N3R/kpGwi1tZYiGMLBU4Ks0qKFi/VeEaE9OLeP5WQ8Pk=
+        -----END RSA PRIVATE KEY-----
+      nullable: true
+      type: string
+    sshKey:
+      additionalProperties: false
+      description: "Information about a stored SSH key, which can be used to access\
+        \ instances over SSH"
+      example:
+        public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+        name: macbook-pro
+        private_key: |
+          -----BEGIN RSA PRIVATE KEY-----
+          MIIEpQIBAAKCAQEA5IGybv8/wdQM6Y4yYTGiEem4TscBZiAW+9xyW2pDt8S7VDtm
+          ...
+          eCW4938W9u8N3R/kpGwi1tZYiGMLBU4Ks0qKFi/VeEaE9OLeP5WQ8Pk=
+          -----END RSA PRIVATE KEY-----
+        id: 0920582c7ff041399e34823a0be62548
+      properties:
+        id:
+          description: Unique identifier (ID) of an SSH key
+          example: 0920582c7ff041399e34823a0be62548
+          type: string
+        name:
+          description: Name of the SSH key
+          example: macbook-pro
+          maxLength: 64
+          type: string
+        public_key:
+          description: Public key for the SSH key
+          example: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+          maxLength: 4096
+          type: string
+        private_key:
+          description: Private key for the SSH key. Only returned when generating
+            a new key pair.
+          example: |
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIEpQIBAAKCAQEA5IGybv8/wdQM6Y4yYTGiEem4TscBZiAW+9xyW2pDt8S7VDtm
+            ...
+            eCW4938W9u8N3R/kpGwi1tZYiGMLBU4Ks0qKFi/VeEaE9OLeP5WQ8Pk=
+            -----END RSA PRIVATE KEY-----
+          nullable: true
+          type: string
+      required:
+      - id
+      - name
+      - public_key
+      type: object
+    fileSystemName:
+      description: Name of a file system
+      example: shared-fs
+      type: string
+    fileSystem:
+      additionalProperties: false
+      description: Information about a shared file system
+      example:
+        is_in_use: true
+        created: 2023-02-24T20:48:56+00:00
+        mount_point: /home/ubuntu/shared-fs
+        name: shared-fs
+        id: 0920582c7ff041399e34823a0be62547
+        region:
+          name: us-tx-1
+          description: "Austin, Texas"
+        created_by:
+          id: 0920582c7ff041399e34823a0be62549
+          email: teammate@example.com
+          status: active
+      properties:
+        id:
+          description: Unique identifier (ID) of a file system
+          example: 0920582c7ff041399e34823a0be62547
+          type: string
+        name:
+          description: Name of a file system
+          example: shared-fs
+          type: string
+        created:
+          description: "A date and time, formatted as an ISO 8601 time stamp"
+          example: 2023-02-24T20:48:56+00:00
+          type: string
+        created_by:
+          $ref: '#/components/schemas/user'
+        mount_point:
+          description: Absolute path indicating where on instances the file system
+            will be mounted
+          example: /home/ubuntu/shared-fs
+          type: string
+        region:
+          $ref: '#/components/schemas/region'
+        is_in_use:
+          description: Whether the file system is currently in use by an instance.
+            File systems that are in use cannot be deleted.
+          type: boolean
+      required:
+      - created
+      - created_by
+      - id
+      - is_in_use
+      - mount_point
+      - name
+      - region
+      type: object
+    instanceTypeName:
+      description: Name of an instance type
+      example: gpu_1x_a100
+      type: string
+    instanceName:
+      description: User-provided name for the instance
+      example: training-node-1
+      maxLength: 64
+      minLength: 1
+      nullable: true
+      type: string
+    instanceType:
+      additionalProperties: false
+      description: Hardware configuration and pricing of an instance type
+      example:
+        specs:
+          memory_gib: 800
+          vcpus: 24
+          storage_gib: 512
+        name: gpu_1x_a100
+        description: 1x RTX A100 (24 GB)
+        price_cents_per_hour: 110
+      properties:
+        name:
+          description: Name of an instance type
+          example: gpu_1x_a100
+          type: string
+        description:
+          description: Long name of the instance type
+          example: 1x RTX A100 (24 GB)
+          type: string
+        price_cents_per_hour:
+          description: "Price of the instance type, in US cents per hour"
+          example: 110
+          type: integer
+        specs:
+          $ref: '#/components/schemas/instanceType_specs'
+      required:
+      - description
+      - name
+      - price_cents_per_hour
+      - specs
+      type: object
+    instance:
+      description: Virtual machine (VM) in Lambda Cloud
+      example:
+        hostname: 10-0-8-196.cloud.lambdalabs.com
+        file_system_names:
+        - shared-fs
+        - shared-fs
+        ip: 10.10.10.1
+        name: training-node-1
+        id: 0920582c7ff041399e34823a0be62549
+        region:
+          name: us-tx-1
+          description: "Austin, Texas"
+        jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+        instance_type:
+          specs:
+            memory_gib: 800
+            vcpus: 24
+            storage_gib: 512
+          name: gpu_1x_a100
+          description: 1x RTX A100 (24 GB)
+          price_cents_per_hour: 110
+        status: active
+        ssh_key_names:
+        - macbook-pro
+        - macbook-pro
+        jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        id:
+          description: Unique identifier (ID) of an instance
+          example: 0920582c7ff041399e34823a0be62549
+          type: string
+        name:
+          description: User-provided name for the instance
+          example: training-node-1
+          maxLength: 64
+          minLength: 1
+          nullable: true
+          type: string
+        ip:
+          description: IPv4 address of the instance
+          example: 10.10.10.1
+          nullable: true
+          type: string
+        status:
+          description: The current status of the instance
+          enum:
+          - active
+          - booting
+          - unhealthy
+          - terminated
+          type: string
+        ssh_key_names:
+          description: Names of the SSH keys allowed to access the instance
+          items:
+            $ref: '#/components/schemas/sshKeyName'
+          type: array
+        file_system_names:
+          description: "Names of the file systems, if any, attached to the instance"
+          items:
+            $ref: '#/components/schemas/fileSystemName'
+          type: array
+        region:
+          $ref: '#/components/schemas/region'
+        instance_type:
+          $ref: '#/components/schemas/instanceType'
+        hostname:
+          description: "Hostname assigned to this instance, which resolves to the\
+            \ instance's IP."
+          example: 10-0-8-196.cloud.lambdalabs.com
+          nullable: true
+          type: string
+        jupyter_token:
+          description: Secret token used to log into the jupyter lab server hosted
+            on the instance.
+          example: 53968f128c4a4489b688c2c0a181d083
+          nullable: true
+          type: string
+        jupyter_url:
+          description: URL that opens a jupyter lab notebook on the instance.
+          example: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          nullable: true
+          type: string
+      required:
+      - file_system_names
+      - id
+      - ssh_key_names
+      - status
+      type: object
+    instanceTypes_200_response_data_value:
+      additionalProperties: false
+      properties:
+        instance_type:
+          $ref: '#/components/schemas/instanceType'
+        regions_with_capacity_available:
+          description: "List of regions, if any, that have this instance type available"
+          items:
+            $ref: '#/components/schemas/region'
+          type: array
+      required:
+      - instance_type
+      - regions_with_capacity_available
+      type: object
+    instanceTypes_200_response:
+      additionalProperties: false
+      example:
+        data:
+          gpu_1x_a100:
+            instance_type:
+              name: gpu_1x_a100
+              description: 1x RTX A100 (24 GB)
+              price_cents_per_hour: "80"
+              specs:
+                vcpus: 24
+                memory_gib: 800
+                storage_gib: 512
+            regions_with_capacity_available:
+            - name: us-tx-1
+              description: "Austin, Texas"
+          gpu_4x_a6000:
+            instance_type:
+              name: gpu_4x_a6000
+              description: 4x RTX 6000 (24 GB)
+              price_cents_per_hour: "110"
+              specs:
+                vcpus: 24
+                memory_gib: 800
+                storage_gib: 512
+            regions_with_capacity_available:
+            - name: us-az-1
+              description: "Phoenix, Arizona"
+      properties:
+        data:
+          additionalProperties:
+            $ref: '#/components/schemas/instanceTypes_200_response_data_value'
+          description: Dict of instance_type_name to instance_type and region availability.
+          example:
+            gpu_1x_a100:
+              instance_type:
+                name: gpu_1x_a100
+                description: 1x RTX A100 (24 GB)
+                price_cents_per_hour: "80"
+                specs:
+                  vcpus: 24
+                  memory_gib: 800
+                  storage_gib: 512
+              regions_with_capacity_available:
+              - name: us-tx-1
+                description: "Austin, Texas"
+            gpu_4x_a6000:
+              instance_type:
+                name: gpu_4x_a6000
+                description: 4x RTX 6000 (24 GB)
+                price_cents_per_hour: "110"
+                specs:
+                  vcpus: 24
+                  memory_gib: 800
+                  storage_gib: 512
+              regions_with_capacity_available:
+              - name: us-az-1
+                description: "Phoenix, Arizona"
+          type: object
+      required:
+      - data
+      type: object
+    listInstances_200_response:
+      additionalProperties: false
+      example:
+        data:
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/instance'
+          type: array
+      required:
+      - data
+      type: object
+    getInstance_200_response:
+      additionalProperties: false
+      example:
+        data:
+          hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        data:
+          $ref: '#/components/schemas/instance'
+      required:
+      - data
+      type: object
+    launchInstance_request:
+      additionalProperties: false
+      properties:
+        region_name:
+          description: Short name of a region
+          example: us-tx-1
+          type: string
+        instance_type_name:
+          description: Name of an instance type
+          example: gpu_1x_a100
+          type: string
+        ssh_key_names:
+          description: "Names of the SSH keys to allow access to the instances. Currently,\
+            \ exactly one SSH key must be specified."
+          items:
+            $ref: '#/components/schemas/sshKeyName'
+          maxItems: 1
+          minItems: 1
+          type: array
+        file_system_names:
+          description: "Names of the file systems to attach to the instances. Currently,\
+            \ only one (if any) file system may be specified."
+          items:
+            $ref: '#/components/schemas/fileSystemName'
+          maxItems: 1
+          type: array
+        quantity:
+          default: 1
+          description: Number of instances to launch
+          maximum: 1
+          minimum: 1
+          type: integer
+        name:
+          description: User-provided name for the instance
+          example: training-node-1
+          maxLength: 64
+          minLength: 1
+          nullable: true
+          type: string
+      required:
+      - instance_type_name
+      - region_name
+      - ssh_key_names
+      type: object
+    launchInstance_200_response_data:
+      additionalProperties: false
+      example:
+        instance_ids:
+        - 0920582c7ff041399e34823a0be62549
+        - 0920582c7ff041399e34823a0be62549
+      properties:
+        instance_ids:
+          description: "The unique identifiers (IDs) of the launched instances. Note:\
+            \ if a quantity was specified, fewer than the requested quantity might\
+            \ have been launched."
+          items:
+            $ref: '#/components/schemas/instanceId'
+          type: array
+      required:
+      - instance_ids
+      type: object
+    launchInstance_200_response:
+      additionalProperties: false
+      example:
+        data:
+          instance_ids:
+          - 0920582c7ff041399e34823a0be62549
+          - 0920582c7ff041399e34823a0be62549
+      properties:
+        data:
+          $ref: '#/components/schemas/launchInstance_200_response_data'
+      required:
+      - data
+      type: object
+    terminateInstance_request:
+      additionalProperties: false
+      properties:
+        instance_ids:
+          description: The unique identifiers (IDs) of the instances to terminate
+          items:
+            $ref: '#/components/schemas/instanceId'
+          type: array
+      required:
+      - instance_ids
+      type: object
+    terminateInstance_200_response_data:
+      additionalProperties: false
+      example:
+        terminated_instances:
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        terminated_instances:
+          description: "List of instances that were terminated. Note: this list might\
+            \ not contain all instances requested to be terminated."
+          items:
+            $ref: '#/components/schemas/instance'
+          type: array
+      required:
+      - terminated_instances
+      type: object
+    terminateInstance_200_response:
+      additionalProperties: false
+      example:
+        data:
+          terminated_instances:
+          - hostname: 10-0-8-196.cloud.lambdalabs.com
+            file_system_names:
+            - shared-fs
+            - shared-fs
+            ip: 10.10.10.1
+            name: training-node-1
+            id: 0920582c7ff041399e34823a0be62549
+            region:
+              name: us-tx-1
+              description: "Austin, Texas"
+            jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+            instance_type:
+              specs:
+                memory_gib: 800
+                vcpus: 24
+                storage_gib: 512
+              name: gpu_1x_a100
+              description: 1x RTX A100 (24 GB)
+              price_cents_per_hour: 110
+            status: active
+            ssh_key_names:
+            - macbook-pro
+            - macbook-pro
+            jupyter_token: 53968f128c4a4489b688c2c0a181d083
+          - hostname: 10-0-8-196.cloud.lambdalabs.com
+            file_system_names:
+            - shared-fs
+            - shared-fs
+            ip: 10.10.10.1
+            name: training-node-1
+            id: 0920582c7ff041399e34823a0be62549
+            region:
+              name: us-tx-1
+              description: "Austin, Texas"
+            jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+            instance_type:
+              specs:
+                memory_gib: 800
+                vcpus: 24
+                storage_gib: 512
+              name: gpu_1x_a100
+              description: 1x RTX A100 (24 GB)
+              price_cents_per_hour: 110
+            status: active
+            ssh_key_names:
+            - macbook-pro
+            - macbook-pro
+            jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        data:
+          $ref: '#/components/schemas/terminateInstance_200_response_data'
+      required:
+      - data
+      type: object
+    restartInstance_request:
+      additionalProperties: false
+      properties:
+        instance_ids:
+          description: The unique identifiers (IDs) of the instances to restart
+          items:
+            $ref: '#/components/schemas/instanceId'
+          type: array
+      required:
+      - instance_ids
+      type: object
+    restartInstance_200_response_data:
+      additionalProperties: false
+      example:
+        restarted_instances:
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+        - hostname: 10-0-8-196.cloud.lambdalabs.com
+          file_system_names:
+          - shared-fs
+          - shared-fs
+          ip: 10.10.10.1
+          name: training-node-1
+          id: 0920582c7ff041399e34823a0be62549
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+          instance_type:
+            specs:
+              memory_gib: 800
+              vcpus: 24
+              storage_gib: 512
+            name: gpu_1x_a100
+            description: 1x RTX A100 (24 GB)
+            price_cents_per_hour: 110
+          status: active
+          ssh_key_names:
+          - macbook-pro
+          - macbook-pro
+          jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        restarted_instances:
+          description: "List of instances that were restarted. Note: this list might\
+            \ not contain all instances requested to be restarted."
+          items:
+            $ref: '#/components/schemas/instance'
+          type: array
+      required:
+      - restarted_instances
+      type: object
+    restartInstance_200_response:
+      additionalProperties: false
+      example:
+        data:
+          restarted_instances:
+          - hostname: 10-0-8-196.cloud.lambdalabs.com
+            file_system_names:
+            - shared-fs
+            - shared-fs
+            ip: 10.10.10.1
+            name: training-node-1
+            id: 0920582c7ff041399e34823a0be62549
+            region:
+              name: us-tx-1
+              description: "Austin, Texas"
+            jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+            instance_type:
+              specs:
+                memory_gib: 800
+                vcpus: 24
+                storage_gib: 512
+              name: gpu_1x_a100
+              description: 1x RTX A100 (24 GB)
+              price_cents_per_hour: 110
+            status: active
+            ssh_key_names:
+            - macbook-pro
+            - macbook-pro
+            jupyter_token: 53968f128c4a4489b688c2c0a181d083
+          - hostname: 10-0-8-196.cloud.lambdalabs.com
+            file_system_names:
+            - shared-fs
+            - shared-fs
+            ip: 10.10.10.1
+            name: training-node-1
+            id: 0920582c7ff041399e34823a0be62549
+            region:
+              name: us-tx-1
+              description: "Austin, Texas"
+            jupyter_url: https://jupyter-3ac4c5c6-9026-47d2-9a33-71efccbcd0ee.lambdaspaces.com/?token=53968f128c4a4489b688c2c0a181d083
+            instance_type:
+              specs:
+                memory_gib: 800
+                vcpus: 24
+                storage_gib: 512
+              name: gpu_1x_a100
+              description: 1x RTX A100 (24 GB)
+              price_cents_per_hour: 110
+            status: active
+            ssh_key_names:
+            - macbook-pro
+            - macbook-pro
+            jupyter_token: 53968f128c4a4489b688c2c0a181d083
+      properties:
+        data:
+          $ref: '#/components/schemas/restartInstance_200_response_data'
+      required:
+      - data
+      type: object
+    listSSHKeys_200_response:
+      additionalProperties: false
+      example:
+        data:
+        - public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+          name: macbook-pro
+          private_key: |
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIEpQIBAAKCAQEA5IGybv8/wdQM6Y4yYTGiEem4TscBZiAW+9xyW2pDt8S7VDtm
+            ...
+            eCW4938W9u8N3R/kpGwi1tZYiGMLBU4Ks0qKFi/VeEaE9OLeP5WQ8Pk=
+            -----END RSA PRIVATE KEY-----
+          id: 0920582c7ff041399e34823a0be62548
+        - public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+          name: macbook-pro
+          private_key: |
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIEpQIBAAKCAQEA5IGybv8/wdQM6Y4yYTGiEem4TscBZiAW+9xyW2pDt8S7VDtm
+            ...
+            eCW4938W9u8N3R/kpGwi1tZYiGMLBU4Ks0qKFi/VeEaE9OLeP5WQ8Pk=
+            -----END RSA PRIVATE KEY-----
+          id: 0920582c7ff041399e34823a0be62548
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/sshKey'
+          type: array
+      required:
+      - data
+      type: object
+    addSSHKey_request:
+      additionalProperties: false
+      description: "The name for the SSH key. Optionally, an existing public key can\
+        \ be supplied for the `public_key` property. If the `public_key` property\
+        \ is omitted, a new key pair is generated. The private key is returned in\
+        \ the response."
+      example:
+        name: newly-generated-key
+      properties:
+        name:
+          description: Name of the SSH key
+          example: macbook-pro
+          maxLength: 64
+          type: string
+        public_key:
+          description: Public key for the SSH key
+          example: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+          maxLength: 4096
+          type: string
+      required:
+      - name
+      type: object
+    addSSHKey_200_response:
+      additionalProperties: false
+      description: "The added or generated SSH public key. If a new key pair was generated,\
+        \ the response body contains a `private_key` property that *must* be saved\
+        \ locally. Lambda Cloud does not store private keys."
+      example:
+        data:
+          id: 0920582c7ff041399e34823a0be62548
+          name: newly-generated-key
+          public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDfKpav4ILY54InZe27G user
+          private_key: |
+            -----BEGIN RSA PRIVATE KEY-----
+            KEY CONTENT-----END RSA PRIVATE KEY-----
+      properties:
+        data:
+          $ref: '#/components/schemas/sshKey'
+      required:
+      - data
+      type: object
+    listFileSystems_200_response:
+      additionalProperties: false
+      example:
+        data:
+        - is_in_use: true
+          created: 2023-02-24T20:48:56+00:00
+          mount_point: /home/ubuntu/shared-fs
+          name: shared-fs
+          id: 0920582c7ff041399e34823a0be62547
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          created_by:
+            id: 0920582c7ff041399e34823a0be62549
+            email: teammate@example.com
+            status: active
+        - is_in_use: true
+          created: 2023-02-24T20:48:56+00:00
+          mount_point: /home/ubuntu/shared-fs
+          name: shared-fs
+          id: 0920582c7ff041399e34823a0be62547
+          region:
+            name: us-tx-1
+            description: "Austin, Texas"
+          created_by:
+            id: 0920582c7ff041399e34823a0be62549
+            email: teammate@example.com
+            status: active
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/fileSystem'
+          type: array
+      required:
+      - data
+      type: object
+    instanceType_specs:
+      additionalProperties: false
+      example:
+        memory_gib: 800
+        vcpus: 24
+        storage_gib: 512
+      properties:
+        vcpus:
+          description: Number of virtual CPUs
+          example: 24
+          type: integer
+        memory_gib:
+          description: "Amount of RAM, in gibibytes (GiB)"
+          example: 800
+          type: integer
+        storage_gib:
+          description: "Amount of storage, in gibibytes (GiB)."
+          example: 512
+          type: integer
+      required:
+      - memory_gib
+      - storage_gib
+      - vcpus
+      type: object
+  securitySchemes:
+    basicAuth:
+      description: "Basic HTTP authentication. Allowed headers-- `Authorization: Basic\
+        \ <base64 encoding of api_key>:` | `Authorization: Basic <api_key>`"
+      scheme: basic
+      type: http
+    bearerAuth:
+      bearerFormat: auth-scheme
+      description: "Bearer HTTP authentication. Allowed headers-- `Authorization:\
+        \ Bearer <api_key>`"
+      scheme: bearer
+      type: http

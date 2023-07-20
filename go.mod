@@ -25,6 +25,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.39.0
 	github.com/spf13/cobra v1.6.0
+	github.com/stretchr/testify v1.8.3
 	go.uber.org/zap v1.24.0
 	k8s.io/api v0.26.4
 	k8s.io/apimachinery v0.26.4
@@ -101,6 +102,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rivo/uniseg v0.1.0 // indirect
