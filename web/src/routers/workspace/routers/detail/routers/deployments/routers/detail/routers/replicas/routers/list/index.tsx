@@ -20,7 +20,10 @@ import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/rout
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
-import { StatusPopover } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list/components/status-popover";
+import {
+  StatusPopover,
+  TerminationsPopover,
+} from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list/components/status-popover";
 
 interface UIReplica extends Replica {
   status: Status;
@@ -150,13 +153,10 @@ export const List: FC<{
         scroll={{ y: "800px" }}
         css={css`
           .ant-table-expanded-row {
-            .ant-table {
-              margin-inline: 0 !important;
-            }
             .ant-table-cell,
             &:hover,
             &:hover > td {
-              background: ${theme.colorWarningBg} !important;
+              background: ${theme.controlItemBgActiveHover} !important;
             }
           }
         `}
@@ -174,7 +174,9 @@ export const List: FC<{
             ellipsis: true,
             render: (id, record) => (
               <Space>
-                <ReplicaStatusTag status={record.status} />
+                <StatusPopover readiness={record.readiness}>
+                  <ReplicaStatusTag status={record.status} />
+                </StatusPopover>
                 {record.status === "terminated" ? (
                   <Typography.Text type="secondary">{id}</Typography.Text>
                 ) : (
@@ -189,10 +191,19 @@ export const List: FC<{
                     {id}
                   </LinkTo>
                 )}
-                <StatusPopover
-                  readiness={record.readiness}
-                  terminations={record.terminations}
-                />
+                {!!record.terminations && record.terminations?.length > 0 && (
+                  <TerminationsPopover terminations={record.terminations}>
+                    <Typography.Text
+                      css={css`
+                        cursor: pointer;
+                      `}
+                      type="secondary"
+                      underline
+                    >
+                      {record.terminations.length} terminated
+                    </Typography.Text>
+                  </TerminationsPopover>
+                )}
               </Space>
             ),
           },
