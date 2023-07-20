@@ -105,15 +105,6 @@ func HandleClusterCreate(c *gin.Context) {
 		return
 	}
 
-	switch spec.DeploymentEnvironment {
-	case cluster.DeploymentEnvironmentValueTest,
-		cluster.DeploymentEnvironmentValueDev,
-		cluster.DeploymentEnvironmentValueProd:
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "unknown deployment environment: " + spec.DeploymentEnvironment})
-		return
-	}
-
 	if spec.Provider == "" {
 		spec.Provider = defaultProvider
 	}
@@ -122,6 +113,18 @@ func HandleClusterCreate(c *gin.Context) {
 	}
 	if spec.GitRef == "" {
 		spec.GitRef = string(plumbing.Main)
+	}
+	if spec.DeploymentEnvironment == "" {
+		spec.DeploymentEnvironment = cluster.DeploymentEnvironmentValueTest
+	}
+
+	switch spec.DeploymentEnvironment {
+	case cluster.DeploymentEnvironmentValueTest,
+		cluster.DeploymentEnvironmentValueDev,
+		cluster.DeploymentEnvironmentValueProd:
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "unknown deployment environment: " + spec.DeploymentEnvironment})
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultCreateTimeout)
