@@ -85,6 +85,26 @@ func ListFileSystems(ctx context.Context, cli *aws_efs_v2.Client) ([]FileSystem,
 	return fss, nil
 }
 
+func DeleteFileSystem(ctx context.Context, cli *aws_efs_v2.Client, fsIDs []string) error {
+	var err error
+	for _, fsID := range fsIDs {
+		_, err = cli.DeleteFileSystem(ctx, &aws_efs_v2.DeleteFileSystemInput{
+			FileSystemId: &fsID,
+		})
+		if err != nil {
+			goutil.Logger.Errorw("failed to delete EFS filesystem",
+				"filesystem_id", fsID,
+			)
+		}
+
+		goutil.Logger.Debugw("deleted EFS filesystem",
+			"filesystem_id", fsID,
+		)
+	}
+
+	return nil
+}
+
 // Does not need to AZ at filesystem level.
 // AZ is defined at the mount target level.
 type FileSystem struct {

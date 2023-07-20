@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	goclient "github.com/leptonai/lepton/go-client"
 	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
+	"github.com/leptonai/lepton/go-pkg/aws/efs"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/spf13/cobra"
@@ -89,10 +92,13 @@ func purgeAWS(wps map[string]bool) {
 	hostZoneID := "Z007822916VK7B4DFVMP7"
 	err = purgeRoute53Records(cfg, hostZoneID, wps)
 	if err != nil {
-		log.Printf("failed to purge route53 records %v", err)
+		log.Printf("failed to purge all dangling route53 records %v", err)
 	}
 
-	purgeEFS()
+	err = purgeEFS(cfg, wps)
+	if err != nil {
+		log.Printf("failed to purge all dangling EFS %v", err)
+	}
 
 	purgeS3()
 
@@ -107,11 +113,44 @@ func purgeAWS(wps map[string]bool) {
 	purgeIAM()
 }
 
-func purgeEFS() {}
+func purgeEFS(cfg aws.Config, wps map[string]bool) error {
+	cli := aws_efs_v2.NewFromConfig(cfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	fss, err := efs.ListFileSystems(ctx, cli)
+	if err != nil {
+		log.Fatalf("failed to list EFS %v", err)
+	}
+
+	deleteIDs := []string{}
+
+	for _, fs := range fss {
+		wpn, ok := fs.Tags["LeptonWorkspaceName"]
+		if !ok {
+			parts := strings.Split(fs.Name, "-")
+			wpn = parts[2]
+		}
+
+		if _, ok := wps[wpn]; !ok {
+			deleteIDs = append(deleteIDs, fs.ID)
+			fmt.Printf("deleting dangling EFS %s %s\n", fs.Name, fs.ID)
+		} else {
+			fmt.Printf("workspace %s is still alive, keeping EFS %s %s\n", wpn, fs.Name, fs.ID)
+		}
+	}
+
+	return efs.DeleteFileSystem(ctx, cli, deleteIDs)
+}
 
 func purgeS3() {}
 
-func purgeEKS() {}
+func purgeEKS() {
+	// find EKS clusters that are not in the clusters list
+	// delete all node groups
+	// delete the eks cluster
+}
 
 func purgeNAT() {}
 
@@ -147,7 +186,7 @@ func purgeRoute53Records(cfg aws.Config, hostedZoneID string, wps map[string]boo
 				fmt.Println("skipping the global root record:", name, recordSet.Type)
 				continue
 			}
-			if strings.Contains(name, "motership") {
+			if strings.Contains(name, "mothership") {
 				fmt.Println("skipping the mothership record:", name, recordSet.Type)
 				continue
 			}
