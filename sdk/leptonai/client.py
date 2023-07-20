@@ -1,3 +1,4 @@
+from typing import Optional, List
 from urllib.parse import urljoin, urlparse
 import warnings
 
@@ -9,7 +10,7 @@ from leptonai.util import (
     get_full_workspace_url,
     get_full_workspace_api_url,
 )
-from .api.deployment import list_deployment
+from .api import deployment, APIError
 
 
 def _is_valid_url(candidate_str):
@@ -23,6 +24,22 @@ def _is_local_url(candidate_str):
     return parsed.netloc.lower() in local_hosts
 
 
+def local(port=8080):
+    """
+    Create a connection string for a local deployment. This is useful for testing
+    purposes, and does not require you to type the local IP address repeatedly.
+
+    Usage:
+        client = Client(local())
+        client.foo()
+
+    Args:
+        port (int, optional): The port number. Defaults to 8080.
+    Returns:
+        str: The connection string.
+    """
+
+
 class Workspace:
     """
     The lepton python class that holds necessary info to access a workspace.
@@ -31,7 +48,7 @@ class Workspace:
     Currently, we do not support local workspaces - all workspaces are remote.
     """
 
-    def __init__(self, workspace_name, token=None):
+    def __init__(self, workspace_name: str, token: Optional[str] = None):
         """
         Creates a Lepton workspace.
 
@@ -40,13 +57,19 @@ class Workspace:
             token (str, optional): The token to use for authentication. Defaults to None.
         """
         self.workspace_name = workspace_name
-        self.token = token
+        self.token = token if token else ""
 
     @cached_property
     def _workspace_deployments(self):
-        return list_deployment(
+        deployments = deployment.list_deployment(
             get_full_workspace_api_url(self.workspace_name), self.token
         )
+        if isinstance(deployments, APIError):
+            raise ValueError(
+                f"Failed to list deployments for workspace {self.workspace_name}"
+            )
+        else:
+            return deployments
 
     @cached_property
     def _workspace_deployments_names(self):
@@ -69,6 +92,8 @@ class Workspace:
             token (str, optional): The token to use for authentication. If None,
                 the default is to use the token passed in when the workspace was
                 created. Defaults to None.
+        Returns:
+            client: The client to call the deployment.
         """
         if deployment_name not in self._workspace_deployments_names:
             raise ValueError(
@@ -100,7 +125,12 @@ class Client:
     """
 
     # TODO: add support for creating client with name/id
-    def __init__(self, workspace_or_url, deployment=None, token=None):
+    def __init__(
+        self,
+        workspace_or_url: str,
+        deployment: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
 
@@ -127,7 +157,6 @@ class Client:
                 )
             self.url = workspace_or_url
         else:
-            # TODO: sanity check if the workspace name is legit.
             self.url = get_full_workspace_url(workspace_or_url)
         self._session = requests.Session()
         if deployment is None:
@@ -138,10 +167,6 @@ class Client:
                     DeprecationWarning,
                 )
         else:
-            # TODO: at the right time, change it to X-Lepton-Deployment
-            self._session.headers.update({"Deployment": deployment})
-            # As a future-proof approach, we pass in both at the moment, so the backend
-            # code can land asynchronously.
             self._session.headers.update({"X-Lepton-Deployment": deployment})
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
@@ -193,7 +218,7 @@ class Client:
             return self._post_path(name)
         raise AttributeError(name)
 
-    def __dir__(self):
+    def __dir__(self) -> List[str]:
         # Note: self.paths() returns the paths with the '/' prefix, so we will
         # remove that part.
-        return super().__dir__() + list(p.strip("/") for p in self.paths())
+        return list(super().__dir__()) + list(p.strip("/") for p in self.paths())

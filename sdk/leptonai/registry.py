@@ -2,6 +2,10 @@ from loguru import logger
 
 
 class Registry:
+    """
+    A utility class to register and retrieve values by keys.
+    """
+
     def __init__(self):
         self._map = {}
 
