@@ -312,7 +312,7 @@ export class ApiServerService implements ApiService {
 
   getPortal(): Observable<{ url: string }> {
     return this.httpClientService.post<{ url: string }>(
-      `https:/billing-gateway.lepton.ai/api/portal`,
+      `https://billing-gateway.lepton.ai/api/portal`,
       {
         workspace_id: this.workspaceTrackerService.id,
       }
@@ -324,7 +324,7 @@ export class ApiServerService implements ApiService {
       products: Stripe.Product[];
       upcoming?: Stripe.UpcomingInvoice;
       open?: Stripe.Invoice;
-    }>(`https:/billing-gateway.lepton.ai/api/invoice`, {
+    }>(`https://billing-gateway.lepton.ai/api/invoice`, {
       workspace_id: this.workspaceTrackerService.id,
     });
   }
