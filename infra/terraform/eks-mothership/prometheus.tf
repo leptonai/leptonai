@@ -1,16 +1,20 @@
+# TODO: once alert manager is enabled, enable the log group
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group
-resource "aws_cloudwatch_log_group" "kube_prometheus_stack" {
-  name              = "/aws/amp/${var.cluster_name}-kube-prometheus-stack"
-  retention_in_days = 3
-}
-
+# resource "aws_cloudwatch_log_group" "kube_prometheus_stack" {
+#   name              = "/aws/amp/${var.cluster_name}-kube-prometheus-stack"
+#   retention_in_days = 3
+# }
+#
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/prometheus_workspace
 resource "aws_prometheus_workspace" "kube_prometheus_stack" {
   alias = "${var.cluster_name}-kube-prometheus-stack"
 
-  logging_configuration {
-    log_group_arn = "${aws_cloudwatch_log_group.kube_prometheus_stack.arn}:*"
-  }
+  # TODO: once alert manager is enabled, enable the log group
+  # but with more limited arn (no wildcard)
+  # otherwise, "CloudWatch Logs resource policy size exceeded"
+  # logging_configuration {
+  #   log_group_arn = "${aws_cloudwatch_log_group.kube_prometheus_stack.arn}:*"
+  # }
 }
 
 # manually create here for manual service account creation
