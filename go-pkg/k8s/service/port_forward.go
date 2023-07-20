@@ -24,7 +24,7 @@ import (
 // Mostly copied from https://github.com/kubecost/kubectl-cost/blob/main/pkg/query/portforward.go
 
 type PortForwardQuerier struct {
-	baseQueryURL string
+	BaseQueryURL string
 	stopCh       chan struct{}
 }
 
@@ -131,27 +131,27 @@ func NewPortForwardQuerier(
 	log.Printf("port-forward set up to base-query url %q", baseQueryURL)
 
 	return &PortForwardQuerier{
-		baseQueryURL: baseQueryURL,
+		BaseQueryURL: baseQueryURL,
 		stopCh:       stopCh,
 	}, nil
 }
 
 // Stop ends the port forward session.
 func (pfq *PortForwardQuerier) Stop() {
-	pfq.baseQueryURL = ""
+	pfq.BaseQueryURL = ""
 	close(pfq.stopCh)
 }
 
 // QueryGet relies on a live port-forward session to execute a GET request
 // against a forwarded service at the given path with the given params.
 func (pfq *PortForwardQuerier) QueryGet(ctx context.Context, path string, params map[string]string) ([]byte, error) {
-	if pfq.baseQueryURL == "" {
+	if pfq.BaseQueryURL == "" {
 		return nil, fmt.Errorf("base port-forward URL must be non-empty")
 	}
 
-	fullPath, err := url.JoinPath(pfq.baseQueryURL, path)
+	fullPath, err := url.JoinPath(pfq.BaseQueryURL, path)
 	if err != nil {
-		return nil, fmt.Errorf("joining paths (%s, %s): %s", pfq.baseQueryURL, path, err)
+		return nil, fmt.Errorf("joining paths (%s, %s): %s", pfq.BaseQueryURL, path, err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -194,13 +194,13 @@ func (pfq *PortForwardQuerier) QueryPost(
 	params map[string]string,
 	headers map[string]string,
 	body []byte) ([]byte, error) {
-	if pfq.baseQueryURL == "" {
+	if pfq.BaseQueryURL == "" {
 		return nil, fmt.Errorf("base port-forward URL must be non-empty")
 	}
 
-	fullPath, err := url.JoinPath(pfq.baseQueryURL, path)
+	fullPath, err := url.JoinPath(pfq.BaseQueryURL, path)
 	if err != nil {
-		return nil, fmt.Errorf("joining paths (%s, %s): %s", pfq.baseQueryURL, path, err)
+		return nil, fmt.Errorf("joining paths (%s, %s): %s", pfq.BaseQueryURL, path, err)
 	}
 
 	req, err := http.NewRequestWithContext(

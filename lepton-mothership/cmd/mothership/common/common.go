@@ -100,6 +100,10 @@ func ReadTokenFromFlag(cmd *cobra.Command) string {
 	return token
 }
 
+func ReadKubeconfigFromFlag(cmd *cobra.Command) string {
+	return cmd.Flag("kubeconfig").Value.String()
+}
+
 func ReadMothershipURLFromFlag(cmd *cobra.Command) string {
 	return cmd.Flag("mothership-url").Value.String()
 }
@@ -123,4 +127,16 @@ func BuildRestConfig(configPath string) (*rest.Config, string, error) {
 	}
 
 	return restConfig, clusterARN, nil
+}
+
+// Maps namespace to common used eks-lepton services.
+var EKSLeptonServices = map[string]map[string]struct{}{
+	"kubecost": {
+		"cost-analyzer-cost-analyzer":     struct{}{},
+		"cost-analyzer-prometheus-server": struct{}{},
+	},
+	"kube-prometheus-stack": {
+		"kube-prometheus-stack-prometheus": struct{}{},
+		"kube-prometheus-stack-grafana":    struct{}{},
+	},
 }
