@@ -16,7 +16,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       const session = await stripeClient.billingPortal.sessions.create({
         customer: consumerId,
-        return_url: "https://dashboard.lepton.ai/settings/billing",
+        return_url: `https://dashboard.lepton.ai/workspace/${workspaceId}/settings/billing`,
       });
       res.status(200).json({ url: session.url });
     }
