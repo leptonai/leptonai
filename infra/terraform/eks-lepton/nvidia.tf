@@ -6,6 +6,9 @@ resource "helm_release" "nvidia_gpu_operator" {
   namespace        = "gpu-operator"
   create_namespace = true
 
+  # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/Chart.yaml
+  version = "v1.0.0-devel"
+
   # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
   values = [yamlencode({
     toolkit = {

@@ -298,6 +298,7 @@ resource "helm_release" "cluster_autoscaler" {
   chart      = "cluster-autoscaler"
   repository = "https://kubernetes.github.io/autoscaler"
 
+  # https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/Chart.yaml
   # https://github.com/kubernetes/autoscaler/releases
   version = "9.29.1"
 

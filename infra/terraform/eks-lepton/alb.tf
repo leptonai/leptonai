@@ -364,6 +364,9 @@ resource "helm_release" "alb_controller" {
   chart      = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
 
+  # https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/helm/aws-load-balancer-controller/Chart.yaml
+  version = "1.5.5"
+
   # https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/helm/aws-load-balancer-controller/values.yaml
   values = [yamlencode({
     clusterName  = module.eks.cluster_name

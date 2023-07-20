@@ -362,8 +362,9 @@ resource "helm_release" "kube_prometheus_stack" {
   chart      = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
 
+  # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/Chart.yaml
   # https://github.com/prometheus-community/helm-charts/releases
-  version = "48.1.1"
+  version = "48.1.2"
 
   # https://prometheus.io/docs/prometheus/latest/configuration/configuration/
   # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
