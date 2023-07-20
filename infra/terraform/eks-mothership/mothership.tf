@@ -7,9 +7,10 @@ resource "helm_release" "mothership" {
 
   namespace = "default"
 
-
   depends_on = [
+    module.vpc,
     module.eks,
-    module.vpc
+    helm_release.alb_controller,
+    helm_release.external_dns,
   ]
 }

@@ -6,8 +6,6 @@ set -x
 # need to delete existing kubernetes resources to avoid dependency conflicts
 #
 targets=(
-  "module.eks_blueprints_kubernetes_addons"
-  "helm_release.aws_load_balancer_controller"
   "module.eks"
   "module.vpc"
 )

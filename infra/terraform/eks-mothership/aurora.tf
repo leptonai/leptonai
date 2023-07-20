@@ -54,6 +54,9 @@ module "aurora" {
   }
 
   depends_on = [
-    module.vpc
+    module.vpc,
+    module.eks,
+    helm_release.alb_controller,
+    helm_release.external_dns,
   ]
 }

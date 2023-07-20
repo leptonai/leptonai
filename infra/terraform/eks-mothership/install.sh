@@ -7,7 +7,8 @@ targets=(
   "time_static.activation_date"
   "module.vpc"
   "module.eks"
-  "module.eks_blueprints_kubernetes_addons"
+  "helm_release.alb_controller"
+  "helm_release.external_dns"
 )
 
 if [[ -z $CLUSTER_NAME ]]; then
