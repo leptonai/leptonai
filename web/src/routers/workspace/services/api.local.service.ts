@@ -8,6 +8,7 @@ import {
   Replica,
   Metric,
   DeploymentReadiness,
+  DeploymentTerminations,
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
@@ -143,6 +144,10 @@ export class ApiLocalService implements ApiService {
   }
 
   getDeploymentReadiness(): Observable<DeploymentReadiness> {
+    return EMPTY;
+  }
+
+  getDeploymentTermination(): Observable<DeploymentTerminations> {
     return EMPTY;
   }
 

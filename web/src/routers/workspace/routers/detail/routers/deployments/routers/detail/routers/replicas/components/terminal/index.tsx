@@ -132,12 +132,14 @@ export const TerminalDetail: FC<{
 export const Terminal: FC<{
   deployment: Deployment;
   replica: Replica;
-}> = ({ deployment, replica }) => {
+  disabled?: boolean;
+}> = ({ deployment, replica, disabled }) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <Button
+        disabled={disabled}
         icon={<CarbonIcon icon={<CarbonTerminal />} />}
         type="text"
         onClick={() => setOpen(true)}

@@ -106,12 +106,14 @@ export const MetricsDetail: FC<{
 export const Metrics: FC<{
   deployment: Deployment;
   replica: Replica;
-}> = ({ deployment, replica }) => {
+  disabled?: boolean;
+}> = ({ deployment, replica, disabled }) => {
   const [open, setOpen] = useState(false);
   const hardwareService = useInject(HardwareService);
   return (
     <>
       <Button
+        disabled={disabled}
         onClick={() => setOpen(true)}
         icon={<CarbonIcon icon={<ChartLine />} />}
         type="text"

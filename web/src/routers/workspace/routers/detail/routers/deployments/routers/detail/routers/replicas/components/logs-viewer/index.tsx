@@ -82,11 +82,13 @@ export const LogDetail: FC<{
 export const LogsViewer: FC<{
   deployment: Deployment;
   replica: Replica;
-}> = ({ deployment, replica }) => {
+  disabled?: boolean;
+}> = ({ deployment, replica, disabled }) => {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
+        disabled={disabled}
         onClick={() => setOpen(true)}
         icon={<CarbonIcon icon={<DataViewAlt />} />}
         type="text"

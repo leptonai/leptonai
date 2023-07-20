@@ -69,11 +69,23 @@ export enum ReadinessReason {
   ReadinessReasonUnknown = "Unknown",
 }
 
-export interface DeploymentReadinessIssue {
+export interface DeploymentReadinessItem {
   reason: ReadinessReason;
   message: string;
 }
 
 export interface DeploymentReadiness {
-  [replicaID: string]: DeploymentReadinessIssue[];
+  [replicaID: string]: DeploymentReadinessItem[];
+}
+
+export interface ReplicaTermination {
+  started_at: number;
+  finished_at: number;
+  exit_code: number;
+  reason: string;
+  message: string;
+}
+
+export interface DeploymentTerminations {
+  [replicaID: string]: ReplicaTermination[];
 }

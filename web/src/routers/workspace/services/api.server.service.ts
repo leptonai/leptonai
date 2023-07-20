@@ -6,6 +6,7 @@ import {
   Deployment,
   DeploymentEvent,
   DeploymentReadiness,
+  DeploymentTerminations,
   Metric,
   Replica,
 } from "@lepton-dashboard/interfaces/deployment";
@@ -173,6 +174,14 @@ export class ApiServerService implements ApiService {
           throw err;
         })
       );
+  }
+
+  getDeploymentTermination(
+    deploymentName: string
+  ): Observable<DeploymentTerminations> {
+    return this.httpClientService.get(
+      `${this.prefix}/deployments/${deploymentName}/termination`
+    );
   }
 
   getDeploymentReplicaLogs(
