@@ -152,7 +152,7 @@ resource "helm_release" "csi_efs" {
 
   # https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml
   values = [yamlencode({
-    replicaCount = 2
+    replicaCount = 1
 
     # https://github.com/kubernetes/autoscaler/releases
     image = {
