@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -21,7 +22,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-const storeNamespace = "default"
+const (
+	storeNamespace = "default"
+
+	// NOTE: adjust based on per-account EKS quota
+	maxClusters = 100
+)
 
 // Make cluster a struct and do not use global variables
 // TODO: do we want to backup the cluster state?
@@ -34,6 +40,15 @@ var (
 
 	Worker = worker.New()
 
+	clusterTotal = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "mothership",
+			Subsystem: "cluster",
+			Name:      "total",
+			Help:      "Tracks the total number of clusters",
+		},
+	)
+
 	failedAPIs = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "mothership",
@@ -45,9 +60,24 @@ var (
 	)
 )
 
+func getTotalClusters(gatherer prometheus.Gatherer) int {
+	gss, err := gatherer.Gather()
+	if err != nil {
+		log.Printf("failed to get default gatherer %v", err)
+		return 0
+	}
+	for _, gs := range gss {
+		if gs.GetName() == "mothership_cluster_total" && len(gs.Metric) > 0 {
+			return int(*gs.Metric[0].GetGauge().Value)
+		}
+	}
+	return 0
+}
+
 // Init initializes the cluster and retore any ongoing operations
 func Init() {
 	prometheus.MustRegister(
+		clusterTotal,
 		failedAPIs,
 	)
 
@@ -64,6 +94,7 @@ func Init() {
 
 		switch cl.Status.State {
 		case crdv1alpha1.ClusterStateCreating, crdv1alpha1.ClusterStateUnknown:
+			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart creating cluster",
 					"cluster", cl.Spec.Name,
@@ -80,6 +111,7 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterStateUpdating:
+			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart updating cluster",
 					"cluster", cl.Spec.Name,
@@ -94,6 +126,7 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterStateDeleting:
+			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart deleting cluster",
 					"cluster", cl.Spec.Name,
@@ -106,6 +139,8 @@ func Init() {
 						"operation", "delete",
 						"error", err,
 					)
+				} else {
+					clusterTotal.Dec()
 				}
 			}()
 		}
@@ -115,11 +150,23 @@ func Init() {
 // Create schedules a cluster create job via "eks-lepton".
 // Note that the cluster name is globally unique, guaranteed by the Kubernetes and namespace.
 // A redundant cluster creation with the same name will fail.
-func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1alpha1.LeptonCluster, err error) {
 	clusterName := spec.Name
 	if !util.ValidateName(clusterName) {
 		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.NameInvalidMessage)
 	}
+
+	totalClusters := getTotalClusters(prometheus.DefaultGatherer)
+	log.Printf("currently total %d clusters... creating one more", totalClusters)
+	if totalClusters >= maxClusters {
+		return nil, fmt.Errorf("max cluster size limit exceeded (up to %d)", maxClusters)
+	}
+
+	defer func() {
+		if err == nil {
+			clusterTotal.Inc()
+		}
+	}()
 
 	cl := &crdv1alpha1.LeptonCluster{
 		Spec: spec,
