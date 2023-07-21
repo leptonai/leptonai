@@ -5,11 +5,11 @@ states persistent. For the details, please refer to the class comments
 To launch a safe counter, you need to have a Lepton storage attached. Run:
     lep photon create -n safe-counter -m safe_counter.py:SafeCounter
     # run locally
-    mkdir /opt/lepton_counter_example
-    lep photon run -n safe-ccounter --local
+    mkdir /mnt/leptonstore
+    lep photon run -n safe-counter --local
     # or if you want to run things remote, first push the photon
     lep photon push -n safe-counter
-    lep photon run -n safe-counter -dn safe-counter --mount /:/opt/lepton_counter_example
+    lep photon run -n safe-counter -dn safe-counter --mount /:/mnt/leptonstore
 
 To test the photon, you can either use the API explorer in the UI, or use
 the photon client class in python, e.g.
@@ -48,20 +48,19 @@ class SafeCounter(Photon):
 
     To run this example, you need to have a Lepton storage attached to the
     deployment. You can do this by adding the following to the run command:
-        --mount [storage path you want to use]:/opt/lepton_counter_example
+        --mount [storage path you want to use]:/mnt/leptonstore
     The simplest option for [storage path you want to use] is to use the root
-    path of the storage, aka ``--mount /:/opt/lepton_counter_example``.
+    path of the storage, aka ``--mount /:/mnt/leptonstore``.
     """
 
-    # Todo: when we also support
-    PATH = "/opt/lepton_counter_example/counter.txt"
+    PATH = "/mnt/leptonstore/safe_counter.txt"
 
     def init(self):
         # checks if the folder containing the file exists
         if not os.path.exists(os.path.dirname(self.PATH)):
             raise RuntimeError(
                 "SafeCounter requires a Lepton storage to be attached to the deployment"
-                "at /mnt/counter_example."
+                "at /mnt/leptonstore."
             )
         # checks if the file exists
         if not os.path.exists(self.PATH):

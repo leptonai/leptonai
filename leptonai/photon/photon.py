@@ -198,7 +198,11 @@ def get_routes(var):
     if mod_path is None:
         try:
             mod_path = os.path.abspath(inspect.getfile(var))
-        except TypeError:
+        except (TypeError, OSError):
+            # TypeError happens when var is not supported by inspect (like a built-in callable).
+            # OSError happens when a Photon class is defined in an interactive session and not in a source file.
+            # For these two cases, we cannot get the module path, so we just route back to the next available
+            # option.
             pass
     if mod_path is None:
         mod_path = var.__module__
@@ -409,7 +413,7 @@ class Photon(BasePhoton):
     def init(self):
         pass
 
-    def call_init(self):
+    def _call_init_once(self):
         if not self._init_called:
             self._init_called = True
             self._init_res = self.init()
@@ -540,7 +544,7 @@ class Photon(BasePhoton):
                 break
 
     def launch(self, host="0.0.0.0", port=DEFAULT_PORT, log_level="info"):
-        self.call_init()
+        self._call_init_once()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(
             host=host, port=port, log_level=log_level, log_config=log_config
@@ -744,7 +748,7 @@ class Photon(BasePhoton):
 
             @functools.wraps(func)
             def wrapped_func(self, *args, **kwargs):
-                self.call_init()
+                self._call_init_once()
                 return func(self, *args, **kwargs)
 
             routes.setdefault(path_, {})[method] = (func, kwargs)
