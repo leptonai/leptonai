@@ -5,8 +5,10 @@
 # default values are defined in "tfvars" files
 # optionally, overwrite those in the following flags/env vars
 
-deployment_environment = "PROD"
-region                 = "us-west-2"
+deployment_environment    = "PROD"
+auth_users_iam_group_name = "prod-admins"
+
+region = "us-west-2"
 
 default_capacity_type = "ON_DEMAND"
 

@@ -5,8 +5,10 @@
 # default values are defined in "tfvars" files
 # optionally, overwrite those in the following flags/env vars
 
-deployment_environment = "TEST"
-region                 = "us-east-1"
+deployment_environment    = "TEST"
+auth_users_iam_group_name = "dev"
+
+region = "us-east-1"
 
 # TODO: use SPOT once the account has enough spot availability
 default_capacity_type = "ON_DEMAND"
