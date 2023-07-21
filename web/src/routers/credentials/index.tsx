@@ -23,6 +23,7 @@ export const Credentials = () => {
       <div
         css={css`
           padding: 32px;
+          max-width: 700px;
         `}
       >
         <Typography.Title
@@ -59,7 +60,9 @@ export const Credentials = () => {
               dataIndex: "token",
               render: (v, record) => (
                 <Typography.Text
+                  code
                   copyable={{
+                    text: `${record.id}:${v}`,
                     icon: <CarbonIcon icon={<CopyFile />} />,
                   }}
                 >
