@@ -22,7 +22,7 @@ disk_size_in_gb_for_node_groups = 1000
 # but it does not come with necessary add-ons such as GPU driver
 # see https://github.com/leptonai/lepton/blob/main/infra/terraform/eks-lepton/README.amis.md for latest
 ubuntu_amis = {
-  "us-east-1" : {
+  "us-west-2" : {
     # custom built with pre-fetched Lepton images
     x86_64_cpu = "ami-0dfcb28cf6bf4142f",
 
