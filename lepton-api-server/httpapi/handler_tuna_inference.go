@@ -23,13 +23,11 @@ type TunaInferenceSpec struct {
 
 	ControllerPhotonID string `json:"controller_photon_id"`
 	WorkerPhotonID     string `json:"worker_photon_id"`
-	APIPhotonID        string `json:"api_photon_id"`
-	WebPhotonID        string `json:"web_photon_id"`
+	FrontendPhotonID   string `json:"frontend_photon_id"`
 }
 
 type TunaInferenceStatus struct {
-	WebEndpoint string `json:"web_endpoint"`
-	APIEndpoint string `json:"api_endpoint"`
+	FrontendEndpoint string `json:"frontend_endpoint"`
 }
 
 type InferenceHandler struct {
@@ -60,16 +58,6 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	err = ih.createWebDeployment(c, ti)
-	if err != nil {
-		goutil.Logger.Errorw("failed to create web deployment",
-			"operation", "createTunaInference",
-			"deployment", ti.Metadata.Name,
-			"error", err,
-		)
-		return
-	}
-
 	err = ih.createWorkerDeployment(c, ti)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create worker deployment",
@@ -80,9 +68,9 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	err = ih.createAPIDeployment(c, ti)
+	err = ih.createFrontendDeployment(c, ti)
 	if err != nil {
-		goutil.Logger.Errorw("failed to create api deployment",
+		goutil.Logger.Errorw("failed to create frontend deployment",
 			"operation", "createTunaInference",
 			"deployment", ti.Metadata.Name,
 			"error", err,
@@ -118,22 +106,14 @@ func (ih *InferenceHandler) Get(c *gin.Context) {
 	}
 	ti.Spec.WorkerPhotonID = worker.Spec.LeptonDeploymentUserSpec.PhotonID
 
-	api, err := ih.ldDB.Get(context.Background(), apiName(name))
+	frontend, err := ih.ldDB.Get(context.Background(), frontendName(name))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "api deployment " + name + " not found"})
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "frontend deployment " + name + " not found"})
 		return
 	}
-	ti.Spec.APIPhotonID = api.Spec.LeptonDeploymentUserSpec.PhotonID
+	ti.Spec.FrontendPhotonID = frontend.Spec.LeptonDeploymentUserSpec.PhotonID
 
-	web, err := ih.ldDB.Get(context.Background(), webName(name))
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "web deployment " + name + " not found"})
-		return
-	}
-	ti.Spec.WebPhotonID = web.Spec.LeptonDeploymentUserSpec.PhotonID
-
-	ti.Status.APIEndpoint = api.Status.Endpoint.ExternalEndpoint
-	ti.Status.WebEndpoint = web.Status.Endpoint.ExternalEndpoint
+	ti.Status.FrontendEndpoint = frontend.Status.Endpoint.ExternalEndpoint
 
 	c.JSON(http.StatusOK, ti)
 }
@@ -160,20 +140,10 @@ func (ih *InferenceHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	err = ih.deleteFromName(c, apiName(name))
+	err = ih.deleteFromName(c, frontendName(name))
 	if err != nil {
-		goutil.Logger.Errorw("failed to delete api deployment",
-			"operation", "deleteAPIDeployment",
-			"deployment", name,
-			"error", err,
-		)
-		return
-	}
-
-	err = ih.deleteFromName(c, webName(name))
-	if err != nil {
-		goutil.Logger.Errorw("failed to delete web deployment",
-			"operation", "deleteWebDeployment",
+		goutil.Logger.Errorw("failed to delete frontend deployment",
+			"operation", "deleteFrontendDeployment",
 			"deployment", name,
 			"error", err,
 		)
@@ -189,20 +159,6 @@ func (ih *InferenceHandler) createControllerDeployment(c *gin.Context, ti TunaIn
 	userSpec.Name = controllerName(ti.Metadata.Name)
 	userSpec.ResourceRequirement.ResourceShape = leptonaiv1alpha1.GP1Small
 	userSpec.ResourceRequirement.MinReplicas = 1
-	userSpec.Envs = []leptonaiv1alpha1.EnvVar{
-		{
-			Name: "GITHUB_USER",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_USER",
-			},
-		},
-		{
-			Name: "GITHUB_TOKEN",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_TOKEN",
-			},
-		},
-	}
 
 	_, err := ih.createFromUserSpec(c, userSpec)
 	return err
@@ -227,18 +183,6 @@ func (ih *InferenceHandler) createWorkerDeployment(c *gin.Context, ti TunaInfere
 			Name:  "MODEL_PATH",
 			Value: mountPath,
 		},
-		{
-			Name: "GITHUB_USER",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_USER",
-			},
-		},
-		{
-			Name: "GITHUB_TOKEN",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_TOKEN",
-			},
-		},
 	}
 	userSpec.Mounts = []leptonaiv1alpha1.Mount{
 		{
@@ -253,57 +197,16 @@ func (ih *InferenceHandler) createWorkerDeployment(c *gin.Context, ti TunaInfere
 	return err
 }
 
-func (ih *InferenceHandler) createAPIDeployment(c *gin.Context, ti TunaInference) error {
+func (ih *InferenceHandler) createFrontendDeployment(c *gin.Context, ti TunaInference) error {
 	userSpec := leptonaiv1alpha1.LeptonDeploymentUserSpec{}
-	userSpec.PhotonID = ti.Spec.APIPhotonID
-	userSpec.Name = apiName(ti.Metadata.Name)
+	userSpec.PhotonID = ti.Spec.FrontendPhotonID
+	userSpec.Name = frontendName(ti.Metadata.Name)
 	userSpec.ResourceRequirement.ResourceShape = leptonaiv1alpha1.GP1Small
 	userSpec.ResourceRequirement.MinReplicas = 1
 	userSpec.Envs = []leptonaiv1alpha1.EnvVar{
 		{
 			Name:  "CONTROLLER_ADDR",
 			Value: getSVCAddress(controllerName(ti.Metadata.Name), ih.namespace),
-		},
-		{
-			Name: "GITHUB_USER",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_USER",
-			},
-		},
-		{
-			Name: "GITHUB_TOKEN",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_TOKEN",
-			},
-		},
-	}
-
-	_, err := ih.createFromUserSpec(c, userSpec)
-	return err
-}
-
-func (ih *InferenceHandler) createWebDeployment(c *gin.Context, ti TunaInference) error {
-	userSpec := leptonaiv1alpha1.LeptonDeploymentUserSpec{}
-	userSpec.PhotonID = ti.Spec.WebPhotonID
-	userSpec.Name = webName(ti.Metadata.Name)
-	userSpec.ResourceRequirement.ResourceShape = leptonaiv1alpha1.GP1Small
-	userSpec.ResourceRequirement.MinReplicas = 1
-	userSpec.Envs = []leptonaiv1alpha1.EnvVar{
-		{
-			Name:  "CONTROLLER_ADDR",
-			Value: getSVCAddress(controllerName(ti.Metadata.Name), ih.namespace),
-		},
-		{
-			Name: "GITHUB_USER",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_USER",
-			},
-		},
-		{
-			Name: "GITHUB_TOKEN",
-			ValueFrom: leptonaiv1alpha1.EnvValue{
-				SecretNameRef: "GITHUB_FASTCHAT_TOKEN",
-			},
 		},
 	}
 
@@ -323,10 +226,6 @@ func workerName(name string) string {
 	return name + "-worker"
 }
 
-func apiName(name string) string {
-	return name + "-api"
-}
-
-func webName(name string) string {
-	return name + "-web"
+func frontendName(name string) string {
+	return name + "-frontend"
 }
