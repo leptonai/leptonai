@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/spf13/cobra"
@@ -27,9 +28,10 @@ var (
 	region   string
 	provider string
 
-	mothershipURL string
-	token         string
-	tokenPath     string
+	mothershipURL  string
+	token          string
+	tokenPath      string
+	enablePurgeKMS bool
 )
 
 func init() {
@@ -48,6 +50,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
 	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
+	cmd.PersistentFlags().BoolVarP(&enablePurgeKMS, "enalbe-purge-kms", "k", false, "Enable purging KMS and not others")
 
 	// TODO: support other providers
 	cmd.PersistentFlags().StringVarP(&provider, "provider", "", "aws", "Provider to check the quota")
@@ -71,22 +74,31 @@ func purgeFunc(cmd *cobra.Command, args []string) {
 	}
 
 	wps := map[string]bool{}
+	cls := map[string]bool{}
 	for _, c := range clusters {
+		cls[c.Name] = true
 		for _, w := range c.Status.Workspaces {
 			wps[w] = true
 		}
 	}
 
-	purgeAWS(wps)
+	purgeAWS(cls, wps)
 }
 
-func purgeAWS(wps map[string]bool) {
+func purgeAWS(cls map[string]bool, wps map[string]bool) {
 	cfg, err := leptonaws.New(&leptonaws.Config{
 		DebugAPICalls: false,
 		Region:        region,
 	})
 	if err != nil {
 		log.Fatalf("failed to create AWS session %v", err)
+	}
+
+	if enablePurgeKMS {
+		if err := purgeKMS(cfg, cls); err != nil {
+			log.Fatalf("failed to purge KMS %v", err)
+		}
+		return
 	}
 
 	hostZoneID := "Z007822916VK7B4DFVMP7"
@@ -228,5 +240,49 @@ func purgeRoute53Records(cfg aws.Config, hostedZoneID string, wps map[string]boo
 		nextr = result.NextRecordName
 	}
 
+	return nil
+}
+
+func purgeKMS(cfg aws.Config, cls map[string]bool) error {
+	var purgePendingWindowInDays int32 = 7
+	client := kms.NewFromConfig(cfg)
+	marker := ""
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		input := &kms.ListAliasesInput{}
+		if marker != "" {
+			input.Marker = &marker
+		}
+		aliases, err := client.ListAliases(ctx, input)
+		if err != nil {
+			return err
+		}
+		for _, alias := range aliases.Aliases {
+			names := strings.Split(*alias.AliasName, "/")
+			if len(names) >= 3 {
+				if names[1] != "eks" { // skip non eks kms keys
+					continue
+				}
+				name := names[len(names)-1]
+				if cls[name] {
+					log.Printf("cluster %s is still alive, skipping the kms key: %s", name, *alias.AliasName)
+					continue
+				}
+			}
+			log.Printf("deleting kms key %s\n", *alias.AliasName)
+			_, err := client.ScheduleKeyDeletion(ctx, &kms.ScheduleKeyDeletionInput{
+				KeyId:               alias.TargetKeyId,
+				PendingWindowInDays: &purgePendingWindowInDays,
+			})
+			if err != nil {
+				log.Printf("failed to delete kms key %s: %v", *alias.AliasName, err)
+			}
+		}
+		if !aliases.Truncated {
+			break
+		}
+		marker = *aliases.NextMarker
+	}
 	return nil
 }
