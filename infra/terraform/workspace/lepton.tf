@@ -133,13 +133,28 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name = "apiServer.image.repository"
+    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-api-server"
+  }
+
+  set {
     name  = "apiServer.image.tag"
     value = var.image_tag_api_server
   }
 
   set {
+    name = "deploymentOperator.image.repository"
+    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-deployment-operator"
+  }
+
+  set {
     name  = "deploymentOperator.image.tag"
     value = var.image_tag_deployment_operator
+  }
+
+  set {
+    name = "web.image.repository"
+    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-web"
   }
 
   set {
