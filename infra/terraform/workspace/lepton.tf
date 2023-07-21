@@ -128,6 +128,11 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name  = "apiServer.region"
+    value = var.region
+  }
+
+  set {
     name  = "apiServer.apiToken"
     value = var.api_token
   }

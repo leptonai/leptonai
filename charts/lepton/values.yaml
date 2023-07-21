@@ -21,6 +21,7 @@ apiServer:
   serviceAccountRoleArn: ""
   s3ReadOnlyAccessKeyK8sSecretName: "s3-ro-key"
   bucketName: "leptonai"
+  region: "us-east-1"
   efsID: ""
   rootDomain: ""
   certificateArn: ""

@@ -54,6 +54,8 @@ spec:
           args:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
+            - "--region"
+            - "{{ .Values.apiServer.region }}"
             - "--bucket-name"
             - "{{ .Values.apiServer.bucketName }}"
             - "--efs-id"
