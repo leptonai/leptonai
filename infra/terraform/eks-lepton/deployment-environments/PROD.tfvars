@@ -31,6 +31,12 @@ ubuntu_amis = {
     # but works with other instance types
     # since upstream NVIDIA driver is the same
     x86_64_gpu = "ami-0525c008f4e0dee62"
+  },
+
+  # TODO: remove this after us-east-1 is cleaned up
+  "us-east-1" : {
+    x86_64_cpu = "ami-00000000000000000",
+    x86_64_gpu = "ami-00000000000000000"
   }
 }
 
