@@ -22,4 +22,5 @@ jobs:
           exclude: |
             ./.git/*
             ./tuna/*
+            ./machine-rs/*
           check_all_files_with_shebangs: "false"

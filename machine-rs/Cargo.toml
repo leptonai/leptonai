@@ -1,0 +1,47 @@
+[package]
+name = "machine-rs"
+version = "0.0.0"
+edition = "2021"
+
+rust-version = "1.70"
+publish = true
+description = "machine-rs spec"
+repository = "https://github.com/lepton-ai/lepton-ai-dev-machine"
+readme = "README.md"
+
+[[bin]]
+name = "machine-rs"
+path = "src/main.rs"
+
+[dependencies]
+# path = "../../aws-manager"
+# git = "https://github.com/gyuho/aws-manager"
+aws-manager = { version = "0.28.71", features = [
+    "autoscaling",
+    "cloudformation",
+    "ec2",
+    "kms",
+    "s3",
+    "ssm",
+    "sts",
+] } # https://crates.io/crates/aws-manager
+
+aws-sdk-cloudformation = "0.28.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-sdk-ec2 = "0.28.0" # https://github.com/awslabs/aws-sdk-rust/releases
+clap = { version = "4.3.17", features = ["cargo", "derive"] } # https://github.com/clap-rs/clap
+compress-manager = "0.0.10"
+crossterm = "0.26.1"
+dialoguer = "0.10.4"
+env_logger = "0.10.0"
+id-manager = "0.0.3"
+log = "0.4.19"
+public-ip = "0.2.2"
+random-manager = "0.0.5"
+rust-embed = "6.8.1" # https://github.com/pyrossh/rust-embed
+serde = { version = "1.0.173", features = ["derive"] }
+serde_yaml = "0.9.24" # https://github.com/dtolnay/serde-yaml/releases
+ssh-scp-manager = "0.0.4"
+tokio = { version = "1.29.1", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
+
+[dev-dependencies]
+tempfile = "3.6.0"

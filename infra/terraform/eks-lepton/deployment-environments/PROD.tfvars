@@ -24,13 +24,13 @@ disk_size_in_gb_for_node_groups = 1000
 ubuntu_amis = {
   "us-east-1" : {
     # custom built with pre-fetched Lepton images
-    x86_64_cpu = "ami-0fb2155d0930fa381",
+    x86_64_cpu = "ami-0dfcb28cf6bf4142f",
 
     # custom built to install NVIDIA drivers with pre-fetched Lepton images
     # image is built using g4dn instance with NVIDIA T4 chip
     # but works with other instance types
     # since upstream NVIDIA driver is the same
-    x86_64_gpu = "ami-0f5cfba4a72f3af0d"
+    x86_64_gpu = "ami-0525c008f4e0dee62"
   }
 }
 
