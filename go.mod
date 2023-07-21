@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.200
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
 	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.2.12
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.18.14
 	github.com/aws/aws-sdk-go-v2/service/efs v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
