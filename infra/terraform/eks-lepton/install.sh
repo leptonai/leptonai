@@ -122,6 +122,10 @@ fi
 
 echo ""
 echo "Run this to access the cluster:"
-echo "aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
+if [[ "$REGION" != "" ]]; then
+    echo "aws eks update-kubeconfig --region $REGION --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
+else
+    echo "aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
+fi
 echo ""
 echo "APPLY SUCCESS"
