@@ -57,7 +57,10 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g52xlarge" {
     # the label value can be anything, and here we label by the device name for internal use
     # https://aws.github.io/aws-eks-best-practices/cluster-autoscaling/
     # https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#special-note-on-gpu-instances
-    "k8s.amazonaws.com/accelerator" = "nvidia-a10g"
+    #
+    # same as the one updated with gpu-operator
+    # nvidia.com/gpu.product	NVIDIA-A10G
+    "k8s.amazonaws.com/accelerator" = "NVIDIA-A10G"
   }
 
   # set same as "eks-managed-node-group" module
