@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/efs v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/eks v1.27.14
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
+	github.com/aws/aws-sdk-go-v2/service/iam v1.21.1
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.28.4
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14
 	github.com/dustin/go-humanize v1.0.1
