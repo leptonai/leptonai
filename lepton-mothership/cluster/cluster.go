@@ -346,11 +346,21 @@ func delete(clusterName string, logCh chan<- string) error {
 		}
 	}
 
+	dpEnv := cl.Spec.DeploymentEnvironment
+	if dpEnv == "" {
+		dpEnv = DeploymentEnvironmentValueTest
+	}
+
 	command := "sh"
 	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	cmd.Env = append(os.Environ(),
+		DeploymentEnvironmentKey+"="+dpEnv,
+		"REGION="+cl.Spec.Region,
+		"CLUSTER_NAME="+clusterName,
+		"TF_API_TOKEN="+terraform.TempToken,
+	)
 
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
@@ -475,7 +485,11 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	args := []string{"-c", "cd " + dir + " && ./install.sh"}
 
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), DeploymentEnvironmentKey+"="+dpEnv, "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	cmd.Env = append(os.Environ(),
+		DeploymentEnvironmentKey+"="+dpEnv,
+		"REGION="+cl.Spec.Region,
+		"CLUSTER_NAME="+clusterName,
+		"TF_API_TOKEN="+terraform.TempToken)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
 	cmd.Stderr = cw

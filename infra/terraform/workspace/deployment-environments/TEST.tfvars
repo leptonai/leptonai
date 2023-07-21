@@ -6,3 +6,5 @@
 # optionally, overwrite those in the following flags/env vars
 
 deployment_environment = "TEST"
+
+root_domain = "cloud.lepton.ai"

@@ -6,6 +6,7 @@
 # optionally, overwrite those in the following flags/env vars
 
 deployment_environment = "TEST"
+region                 = "us-east-1"
 
 # TODO: use SPOT once the account has enough spot availability
 default_capacity_type = "ON_DEMAND"

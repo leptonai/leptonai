@@ -29,7 +29,8 @@ resource "kubernetes_namespace" "kube_prometheus_stack" {
 
 # role for prometheus-server
 resource "aws_iam_role" "kube_prometheus_stack_prometheus_server" {
-  name = "${var.cluster_name}-kube-prometheus-stack-role-prometheus-server"
+  # iam role name cannot be >64
+  name = "${var.cluster_name}-prom-server"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -143,7 +144,8 @@ resource "kubernetes_service_account" "kube_prometheus_stack_prometheus_server" 
 # role for grafana
 # ref. "AmazonGrafanaServiceRole"
 resource "aws_iam_role" "kube_prometheus_stack_grafana" {
-  name = "${var.cluster_name}-kube-prometheus-stack-role-grafana"
+  # iam role name cannot be >64
+  name = "${var.cluster_name}-grafana"
 
   assume_role_policy = <<EOF
 {
@@ -193,7 +195,7 @@ EOF
 # prometheus-server needs write access
 # grafana only needs read access
 resource "aws_iam_policy" "kube_prometheus_stack_grafana" {
-  name        = "${var.cluster_name}-kube-prometheus-stack-policy-grafana"
+  name        = "${var.cluster_name}-grafana"
   description = "kube-prometheus-stack Amazon Managed Prometheus policy for grafana"
 
   policy = jsonencode({
@@ -271,7 +273,7 @@ data "aws_iam_policy_document" "kube_prometheus_stack_grafana_update_assume_role
     actions = ["sts:AssumeRole"]
     principals {
       type        = "AWS"
-      identifiers = ["arn:${local.partition}:iam::${local.account_id}:role/${var.cluster_name}-kube-prometheus-stack-role-grafana"]
+      identifiers = ["arn:${local.partition}:iam::${local.account_id}:role/${var.cluster_name}-grafana"]
     }
   }
 }

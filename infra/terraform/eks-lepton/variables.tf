@@ -12,6 +12,14 @@ variable "deployment_environment" {
   }
 }
 
+# use "prod-admins" for PROD account
+# see "infra/terraform/aws-access" for more
+variable "auth_users_iam_group_name" {
+  description = "AWS IAM group name whose users will be granted EKS cluster access"
+  type        = string
+  default     = "dev"
+}
+
 variable "region" {
   description = "AWS region"
   type        = string

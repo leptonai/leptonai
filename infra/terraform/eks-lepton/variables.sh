@@ -8,6 +8,10 @@ if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then
     APPLY_FLAGS+=("-var-file=deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars")
 fi
 
+if [[ "$AUTH_USERS_IAM_GROUP_NAME" != "" ]]; then
+    APPLY_FLAGS+=("-var=auth_users_iam_group_name=$AUTH_USERS_IAM_GROUP_NAME")
+fi
+
 if [[ "$REGION" != "" ]]; then
     APPLY_FLAGS+=("-var=region=$REGION")
 fi

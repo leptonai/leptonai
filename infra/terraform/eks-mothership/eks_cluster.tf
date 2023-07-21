@@ -44,7 +44,7 @@ module "eks" {
   manage_aws_auth_configmap = true
 
   aws_auth_users = [
-    for user in data.aws_iam_group.dev_members.users : {
+    for user in data.aws_iam_group.auth_users.users : {
       userarn  = "${user.arn}"
       username = "${user.user_name}"
       groups   = ["system:masters"]

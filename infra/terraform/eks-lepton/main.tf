@@ -37,8 +37,9 @@ locals {
   partition = one(data.aws_partition.current[*].partition)
 }
 
-data "aws_iam_group" "dev_members" {
-  group_name = "dev"
+# authenticated users to EKS cluster
+data "aws_iam_group" "auth_users" {
+  group_name = var.auth_users_iam_group_name
 }
 
 resource "random_string" "suffix" {

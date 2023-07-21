@@ -6,6 +6,7 @@
 # optionally, overwrite those in the following flags/env vars
 
 deployment_environment = "DEV"
+region                 = "us-east-1"
 
 default_capacity_type = "ON_DEMAND"
 

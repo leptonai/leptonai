@@ -34,14 +34,16 @@ else
   exit 1
 fi
 
+DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-TEST}
+REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"
 do
   echo "deleting ${target}"
-  terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -target="$target"
+  terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" -target="$target"
 done
 
 echo "deleting the remaining resources"
-if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" ; then
+if terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" ; then
   echo "SUCCESS: Terraform destroy completed successfully"
 else
   echo "FAILED: Terraform destroy failed"
