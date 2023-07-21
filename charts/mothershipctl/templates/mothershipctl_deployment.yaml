@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mothershipctl.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mothershipctl.name }}
+spec:
+  replicas: {{ .Values.mothershipctl.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mothershipctl.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mothershipctl.name }}
+    spec:
+      serviceAccountName: {{ .Values.mothershipctl.serviceAccountName }}
+      containers:
+        - name: {{ .Values.mothershipctl.name }}
+          image: {{ .Values.mothershipctl.image.repository }}:{{ .Values.mothershipctl.image.tag }}
+          imagePullPolicy: {{ .Values.mothershipctl.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.mothershipctl.service.resources.requests.memory }}
+              cpu: {{ .Values.mothershipctl.service.resources.requests.cpu }}
+          command: [ "sleep", "infinity"]

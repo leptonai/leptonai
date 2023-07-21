@@ -1,0 +1,13 @@
+mothershipctl:
+  name: mothershipctl
+  replicaCount: 1
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-mothershipctl
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    resources:
+      requests:
+        memory: "2048Mi"
+        cpu: "1"
+  serviceAccountName: "mothership"
