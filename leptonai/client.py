@@ -38,6 +38,7 @@ def local(port=8080):
     Returns:
         str: The connection string.
     """
+    return f"http://localhost:{port}"
 
 
 class Workspace:
