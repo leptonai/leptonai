@@ -30,12 +30,6 @@ variable "oidc_id" {
   default     = "B39F84C46B64A666C6BCF2E155312E98"
 }
 
-variable "account_id" {
-  description = "Account ID"
-  type        = string
-  default     = "605454121064"
-}
-
 variable "tls_cert_arn_id" {
   description = "TLS certificate ARN ID"
   type        = string

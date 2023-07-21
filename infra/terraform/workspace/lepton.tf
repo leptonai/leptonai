@@ -6,7 +6,7 @@ resource "aws_iam_role" "api-server-role" {
       {
         Effect : "Allow",
         Principal : {
-          Federated : "arn:${local.partition}:iam::${var.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}"
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${var.oidc_id}"
         },
         Action : "sts:AssumeRoleWithWebIdentity",
         Condition : {
@@ -20,7 +20,7 @@ resource "aws_iam_role" "api-server-role" {
 }
 
 resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment" {
-  policy_arn = "arn:${local.partition}:iam::${var.account_id}:policy/${aws_iam_policy.s3-policy.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.s3-policy.name}"
   role       = aws_iam_role.api-server-role.name
 
   depends_on = [
@@ -30,7 +30,7 @@ resource "aws_iam_role_policy_attachment" "api-server-role-s3-policy-attachment"
 }
 
 resource "aws_iam_user_policy_attachment" "iam-user-s3-ro-policy-attachment" {
-  policy_arn = "arn:${local.partition}:iam::${var.account_id}:policy/${aws_iam_policy.s3-ro-policy.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.s3-ro-policy.name}"
   user       = aws_iam_user.s3_ro.name
 
   depends_on = [
@@ -60,7 +60,7 @@ resource "kubernetes_secret" "s3_ro" {
 }
 
 resource "aws_iam_role_policy_attachment" "api-server-role-dynamodb-policy-attachment" {
-  policy_arn = "arn:${local.partition}:iam::${var.account_id}:policy/${aws_iam_policy.dynamodb-policy.name}"
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.dynamodb-policy.name}"
   role       = aws_iam_role.api-server-role.name
 
   depends_on = [
@@ -99,7 +99,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "apiServer.serviceAccountRoleArn"
-    value = "arn:${local.partition}:iam::${var.account_id}:role/${aws_iam_role.api-server-role.name}"
+    value = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.api-server-role.name}"
   }
 
   set {
@@ -119,7 +119,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "apiServer.certificateArn"
-    value = "arn:${local.partition}:acm:${var.region}:${var.account_id}:certificate/${var.tls_cert_arn_id}"
+    value = "arn:${local.partition}:acm:${var.region}:${local.account_id}:certificate/${var.tls_cert_arn_id}"
   }
 
   set {
@@ -134,7 +134,7 @@ resource "helm_release" "lepton" {
 
   set {
     name = "apiServer.image.repository"
-    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-api-server"
+    value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-api-server"
   }
 
   set {
@@ -144,7 +144,7 @@ resource "helm_release" "lepton" {
 
   set {
     name = "deploymentOperator.image.repository"
-    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-deployment-operator"
+    value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-deployment-operator"
   }
 
   set {
@@ -154,7 +154,7 @@ resource "helm_release" "lepton" {
 
   set {
     name = "web.image.repository"
-    value = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-web"
+    value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-web"
   }
 
   set {

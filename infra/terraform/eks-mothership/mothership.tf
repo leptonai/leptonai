@@ -61,8 +61,8 @@ resource "helm_release" "mothership" {
   }
 
   set {
-    name  = "mothership.hostname"
-    value = "mothership.${var.root_hostname}"
+    name  = "mothership.rootDomain"
+    value = var.root_hostname
   }
 
   depends_on = [

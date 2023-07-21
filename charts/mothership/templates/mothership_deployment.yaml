@@ -25,5 +25,8 @@ spec:
               memory: {{ .Values.mothership.service.resources.requests.memory }}
               cpu: {{ .Values.mothership.service.resources.requests.cpu }}
           command: [ "/mothership" ]
+          args:
+            - --root-domain={{ .Values.mothership.rootDomain }}
+            - --certificate-arn={{ .Values.mothership.certificateArn }}
           ports:
             - containerPort: {{ .Values.mothership.service.port }}

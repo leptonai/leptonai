@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: remove the default values set in install.sh so we use the default values in
+# variables.tf: use the style of setting deployment-environment in this file
 APPLY_FLAGS=(
     "-auto-approve"
     "-var=cluster_name=$CLUSTER_NAME"
@@ -16,6 +18,14 @@ APPLY_FLAGS=(
     "-var=efs_mount_targets=$EFS_MOUNT_TARGETS"
     "-var=quota_group=$QUOTA_GROUP"
 )
+
+if [[ "$TLS_CERT_ARN_ID" != "" ]]; then
+    APPLY_FLAGS+=("-var=tls_cert_arn_id=$TLS_CERT_ARN_ID")
+fi
+
+if [[ "$ROOT_DOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=root_domain=$ROOT_DOMAIN")
+fi
 
 # default values are defined in "tfvars" files
 # optionally, overwrite those in the following flags/env vars

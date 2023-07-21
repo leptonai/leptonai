@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"time"
 
@@ -22,7 +23,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var (
+	certificateARNFlag *string
+	rootDomainFlag     *string
+)
+
 func main() {
+	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
+	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
+	flag.Parse()
+	// TODO: create a workspace struct to pass them in
+	workspace.CertificateARN = *certificateARNFlag
+	workspace.RootDomain = *rootDomainFlag
+
 	terraform.MustInit()
 
 	cluster.Init()

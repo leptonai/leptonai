@@ -22,6 +22,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+var (
+	CertificateARN string
+	RootDomain     string
+)
+
 const storeNamespace = "default"
 
 // Make workspace a struct and do not use global variables
@@ -526,6 +531,12 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 		"QUOTA_GROUP="+ws.Spec.QuotaGroup,
 	)
+	if CertificateARN != "" {
+		cmd.Env = append(cmd.Env, "TLS_CERT_ARN_ID="+CertificateARN)
+	}
+	if RootDomain != "" {
+		cmd.Env = append(cmd.Env, "ROOT_DOMAIN="+RootDomain)
+	}
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
 	cmd.Stderr = cw
