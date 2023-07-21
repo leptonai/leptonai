@@ -2,6 +2,7 @@ package e2etests
 
 import (
 	"log"
+	"strings"
 	"testing"
 	"time"
 )
@@ -61,8 +62,14 @@ func TestPhotonPushTwice(t *testing.T) {
 		log.Fatalf("Failed to push photon %s: %s: %s", pName, err, out)
 	}
 	out, err = client.RunRemote("photon", "push", "-n", pName)
-	if err == nil {
-		log.Fatalf("Expected error when pushing photon %s twice, got none: %s", pName, out)
+
+	// re-pushing a photon from CLI returns 0 by default
+	if err != nil {
+		log.Fatalf("Pushing a photon(%s) twice should not return error code in CLI, got err: %s, out: %s", pName, err, out)
+	}
+
+	if !strings.Contains(out, "409 ResourceConflict") {
+		log.Fatalf("Expected 409 message when pushing photon %s twice, got: %s", pName, err)
 	}
 	phs, err := lepton.Photon().GetByName(pName)
 	if err != nil {

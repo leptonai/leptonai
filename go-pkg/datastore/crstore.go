@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
@@ -29,6 +30,12 @@ type CRStore[T client.Object] struct {
 	backupBucket *blob.Bucket
 }
 
+const errorMsgAlreadyExist = "already exists"
+
+func IsErrorAlreadyExist(err error) bool {
+	return strings.Contains(err.Error(), errorMsgAlreadyExist)
+}
+
 func NewCRStore[T client.Object](namespace string, example T, backupBucket *blob.Bucket) *CRStore[T] {
 	return &CRStore[T]{
 		namespace:    namespace,
@@ -42,7 +49,7 @@ func (s *CRStore[T]) Create(ctx context.Context, name string, t T) error {
 	// returning "*meta.NoKindMatchError" error type, but we don't care about this case now
 	// ref. https://github.com/openkruise/kruise/blob/6ca91fe04e521dafbd7d8170d03c3af4072ac645/pkg/controller/controllers.go#L75
 	if _, err := s.Get(ctx, name); !apierrors.IsNotFound(err) {
-		return fmt.Errorf("cluster %q already exists", name)
+		return fmt.Errorf("%q %s", name, errorMsgAlreadyExist)
 	}
 
 	t.SetNamespace(s.namespace)

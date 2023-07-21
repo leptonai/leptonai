@@ -5,4 +5,5 @@ const (
 	ErrorCodeInvalidRequest   = "InvalidRequest"
 	ErrorCodeValidationError  = "ValidationError"
 	ErrorCodeResourceNotFound = "ResourceNotFound"
+	ErrorCodeResourceConflict = "ResourceConflict"
 )

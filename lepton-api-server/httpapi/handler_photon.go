@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/leptonai/lepton/go-pkg/datastore"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-api-server/util"
@@ -167,8 +168,11 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 			"photon", ph.GetSpecID(),
 			"error", err,
 		)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
+		if datastore.IsErrorAlreadyExist(err) {
+			c.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeResourceConflict, "message": "failed to create photon: " + err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
+		}
 		return
 	}
 
