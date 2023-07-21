@@ -30,7 +30,7 @@ fi
 gcloud auth activate-service-account --key-file ${top_dir}/.google_application_credentials
 gcloud config set project lepton-dev
 gcloud auth configure-docker us-west1-docker.pkg.dev
-docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.01
+docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.02
 echo "Done"
 
 echo "Checking model weights"

@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
     controller:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
+        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.9
         command: lep ph run -n controller -m controller.py -p 21001
         shm_size: 1gb
         volumes:
@@ -12,7 +12,7 @@ services:
         ports:
             - "21001:21001"
     worker:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
+        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.9
         command: lep ph run -n ft-worker -m ft_worker.py -p 21002
         shm_size: 1gb
         volumes:
@@ -32,7 +32,7 @@ services:
         depends_on:
             - controller
     frontend:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.8
+        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-runner-0.1.9
         command: lep ph run -n frontend -m frontend.py -p 8080
         shm_size: 1gb
         volumes:

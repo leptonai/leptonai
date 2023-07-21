@@ -1,7 +1,7 @@
 from collections import namedtuple
 import os
 
-from leptonai.config import BASE_IMAGE_REPO, BASE_IMAGE_VERSION
+from leptonai.config import BASE_IMAGE_REPO
 from leptonai.photon import Photon
 
 import fastchat.serve.gradio_web_server
@@ -9,7 +9,7 @@ import fastchat.serve.openai_api_server
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-{BASE_IMAGE_VERSION}"
+    image: f"{BASE_IMAGE_REPO}:tuna-runner-0.1.9"
 
     def _init_gradio_web_server(self):
         fastchat.serve.gradio_web_server.controller_url = os.environ.get(
@@ -44,5 +44,5 @@ class Server(Photon):
 
     @Photon.handler(path="chat", mount=True)
     def gradio_web_server_subapp(self):
-        demo = fastchat.serve.gradio_web_server.build_demo(self._models)
+        demo = fastchat.serve.gradio_web_server.build_demo(self._models, fastchat.serve.gradio_web_server.args)
         return demo.queue(concurrency_count=10, status_update_rate=10, api_open=False)
