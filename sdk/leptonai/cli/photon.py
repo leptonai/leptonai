@@ -392,7 +392,7 @@ def _parse_deployment_tokens_or_die(public, tokens):
 )
 @click.option("--port", "-p", help="Port to run on.", default=8080)
 @click.option("--id", "-i", help="ID of the photon (only required for remote).")
-@click.option("--resource-shape", "-r", help="Resource shape required.", default=None)
+@click.option("--resource-shape", help="Resource shape required.", default=None)
 @click.option("--min-replicas", help="Number of replicas.", default=1)
 @click.option(
     "--mount",
@@ -511,8 +511,8 @@ def run(
         )
         explain_response(
             response,
-            f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment`"
-            " to check the status.",
+            f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment"
+            f" status -n {deployment_name}` to check the status.",
             f"Failed to launch photon as [red]{deployment_name}[/]. See error"
             " message above.",
             f"Failed to launch photon as [red]{deployment_name}[/]. Internal server"
