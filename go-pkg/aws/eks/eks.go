@@ -68,7 +68,50 @@ func IsErrClusterDeleted(err error) bool {
 	return strings.Contains(err.Error(), "No cluster found for")
 }
 
-const describeELBInterval = 5 * time.Second
+const describeInterval = 5 * time.Second
+
+func ListClusters(ctx context.Context, region string, cli *aws_eks_v2.Client, limit int) ([]Cluster, error) {
+	clusters := make([]Cluster, 0)
+
+	var nextToken *string = nil
+done:
+	for i := 0; i < 20; i++ {
+		out, err := cli.ListClusters(ctx, &aws_eks_v2.ListClustersInput{
+			NextToken: nextToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Printf("inspecting %d clusters", len(out.Clusters))
+		for _, c := range out.Clusters {
+			cl, err := inspectCluster(ctx, region, "UNKNOWN", cli, nil, c)
+			if err != nil {
+				return nil, err
+			}
+
+			clusters = append(clusters, cl)
+			if limit >= 0 && len(clusters) >= limit {
+				log.Printf("already listed %d clusters with limit %d -- skipping the rest", len(clusters), limit)
+				break done
+			}
+		}
+
+		log.Printf("listed %d clusters so far with limit %d", len(clusters), limit)
+		nextToken = out.NextToken
+		if nextToken == nil {
+			// no more resources are available
+			break
+		}
+
+		time.Sleep(describeInterval)
+	}
+
+	sort.SliceStable(clusters, func(i, j int) bool {
+		return clusters[i].ARN < clusters[j].ARN
+	})
+	return clusters, nil
+}
 
 // Inspects EKS resources based on the cluster name.
 // It may take long time, if the account has many number of ELB resources
@@ -133,7 +176,7 @@ func InspectClusters(ctx context.Context, clusters map[string]crdv1alpha1.Lepton
 				break
 			}
 
-			time.Sleep(describeELBInterval)
+			time.Sleep(describeInterval)
 		}
 	}
 
@@ -197,7 +240,16 @@ func inspectCluster(
 		vpcID = *eksOut.Cluster.ResourcesVpcConfig.VpcId
 	}
 
+	oidcIssuer := ""
+	if eksOut.Cluster.Identity != nil && eksOut.Cluster.Identity.Oidc != nil {
+		oidcIssuer = *eksOut.Cluster.Identity.Oidc.Issuer
+	}
+
 	version, status, health := GetClusterStatus(eksOut)
+	attachedELBs := make([]string, 0)
+	if vpcToELBv2s != nil {
+		attachedELBs = vpcToELBv2s[vpcID]
+	}
 	c := Cluster{
 		Name:   clusterName,
 		ARN:    *eksOut.Cluster.Arn,
@@ -212,7 +264,11 @@ func inspectCluster(
 		CreatedAt: *eksOut.Cluster.CreatedAt,
 
 		VPCID:             vpcID,
-		AttachedELBv2ARNs: vpcToELBv2s[vpcID],
+		AttachedELBv2ARNs: attachedELBs,
+
+		Endpoint:             *eksOut.Cluster.Endpoint,
+		CertificateAuthority: *eksOut.Cluster.CertificateAuthority.Data,
+		OIDCIssuer:           oidcIssuer,
 
 		// to populate below
 		NodeGroups: nil,
@@ -282,6 +338,10 @@ type Cluster struct {
 
 	VPCID             string   `json:"vpc-id"`
 	AttachedELBv2ARNs []string `json:"attached-elbv2-arns"`
+
+	Endpoint             string `json:"endpoint"`
+	CertificateAuthority string `json:"-"`
+	OIDCIssuer           string `json:"oidc-issuer"`
 
 	NodeGroups []MNG `json:"node-groups"`
 }
