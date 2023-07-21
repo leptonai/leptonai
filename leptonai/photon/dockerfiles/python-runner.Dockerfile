@@ -11,11 +11,11 @@ COPY . /tmp/lepton/
 
 ARG PYTHON_VERSION
 ENV LEPTON_VIRTUAL_ENV=/opt/lepton/venv
-RUN /tmp/lepton/leptonai/photon/dockerfiles/install_base.sh
-RUN /tmp/lepton/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
+RUN /tmp/lepton/sdk/leptonai/photon/dockerfiles/install_base.sh
+RUN /tmp/lepton/sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
 ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
 
-RUN pip install /tmp/lepton
+RUN pip install /tmp/lepton/sdk
 RUN pip install -U uvicorn[standard] gradio!=3.31.0
 RUN rm -rf /tmp/lepton
 
