@@ -40,10 +40,6 @@ const ReplicaStatusTable = ({
 }: {
   readiness?: DeploymentReadinessItem[];
 }) => {
-  const readyCount = readiness?.filter(
-    (item) => item.reason === ReadinessReason.ReadinessReasonReady
-  ).length;
-
   return (
     <Table
       size="small"
@@ -72,11 +68,6 @@ const ReplicaStatusTable = ({
             ),
         },
       ]}
-      footer={() =>
-        readiness
-          ? `${readyCount} out of ${readiness.length} replicas ready`
-          : null
-      }
     />
   );
 };

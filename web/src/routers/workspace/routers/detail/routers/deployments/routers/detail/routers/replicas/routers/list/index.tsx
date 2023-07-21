@@ -1,5 +1,5 @@
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
-import { FC, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   Deployment,
   DeploymentReadinessItem,
@@ -26,43 +26,85 @@ import {
 } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list/components/status-popover";
 
 interface UIReplica extends Replica {
-  status: Status;
+  terminated?: boolean;
   readiness?: (DeploymentReadinessItem & { key: string })[];
   terminations?: (ReplicaTermination & { key: string })[];
 }
-type Status = "terminated" | "ready" | "pending" | "unknown";
+type Status =
+  | "terminated"
+  | "ready"
+  | "pending"
+  | "error"
+  | "queued"
+  | "unknown";
 
-const ReplicaStatusTag = ({ status }: { status: Status }) => {
-  const color = useMemo(() => {
-    switch (status) {
-      case "ready":
-        return "success";
-      case "pending":
-        return "processing";
-      case "terminated":
-        return "default";
-      default:
-        return "default";
+const ReplicaStatusTag = ({
+  readiness,
+  terminated,
+}: {
+  readiness?: DeploymentReadinessItem[];
+  terminated?: boolean;
+}) => {
+  const [text, setText] = useState("");
+  const [color, setColor] = useState("");
+
+  useEffect(() => {
+    if (terminated) {
+      setText("Terminated");
+      setColor("default");
+      return;
     }
-  }, [status]);
-  const text = useMemo(() => {
-    switch (status) {
-      case "ready":
-        return "READY";
-      case "pending":
-        return "PENDING";
-      case "terminated":
-        return "TERMINATED";
-      default:
-        return "UNKNOWN";
+
+    let errorCount = 0;
+    let pendingCount = 0;
+    let readyCount = 0;
+    let queuedCount = 0;
+
+    readiness?.forEach((item) => {
+      switch (item.reason) {
+        case ReadinessReason.ReadinessReasonReady:
+          readyCount++;
+          break;
+        case ReadinessReason.ReadinessReasonNoCapacity:
+          queuedCount++;
+          break;
+        case ReadinessReason.ReadinessReasonInProgress:
+          pendingCount++;
+          break;
+        case ReadinessReason.ReadinessReasonUserCodeError:
+        case ReadinessReason.ReadinessReasonSystemError:
+          errorCount++;
+          break;
+        case ReadinessReason.ReadinessReasonUnknown:
+          break;
+        default:
+          break;
+      }
+    });
+
+    if (errorCount > 0) {
+      setText(`${errorCount} ${errorCount > 1 ? "errors" : "error"}`);
+      setColor("error");
+    } else if (pendingCount > 0) {
+      setText(`${pendingCount} pending`);
+      setColor("processing");
+    } else if (queuedCount > 0) {
+      setText(`${queuedCount} queued`);
+      setColor("default");
+    } else if (readyCount > 0) {
+      setText(`Ready`);
+      setColor("success");
+    } else {
+      setText(`Unknown`);
+      setColor("default");
     }
-  }, [status]);
+  }, [readiness, terminated]);
 
   return (
     <Tag
       css={css`
-        width: 90px;
         text-align: center;
+        margin-inline-end: 0;
       `}
       color={color}
     >
@@ -98,7 +140,7 @@ export const List: FC<{
                   mixedReadiness.push({
                     id: key,
                     // If it doesn't exist in replicas but in terminations, its status is terminated.
-                    status: "terminated",
+                    terminated: true,
                   });
                 }
               });
@@ -174,10 +216,22 @@ export const List: FC<{
             ellipsis: true,
             render: (id, record) => (
               <Space>
-                <StatusPopover readiness={record.readiness}>
-                  <ReplicaStatusTag status={record.status} />
-                </StatusPopover>
-                {record.status === "terminated" ? (
+                <>
+                  {record.terminated ? (
+                    <ReplicaStatusTag
+                      readiness={record.readiness}
+                      terminated={true}
+                    />
+                  ) : (
+                    <StatusPopover readiness={record.readiness}>
+                      <ReplicaStatusTag
+                        readiness={record.readiness}
+                        terminated={false}
+                      />
+                    </StatusPopover>
+                  )}
+                </>
+                {record.terminated ? (
                   <Typography.Text type="secondary">{id}</Typography.Text>
                 ) : (
                   <LinkTo
@@ -195,12 +249,14 @@ export const List: FC<{
                   <TerminationsPopover terminations={record.terminations}>
                     <Typography.Text
                       css={css`
-                        cursor: pointer;
+                        text-decoration: underline;
                       `}
                       type="secondary"
-                      underline
                     >
-                      {record.terminations.length} terminated
+                      {record.terminations.length === 1
+                        ? "last"
+                        : record.terminations.length}{" "}
+                      termination
                     </Typography.Text>
                   </TerminationsPopover>
                 )}
@@ -215,17 +271,17 @@ export const List: FC<{
                 <Terminal
                   replica={replica}
                   deployment={deployment}
-                  disabled={replica.status === "terminated"}
+                  disabled={replica.terminated}
                 />
                 <LogsViewer
                   replica={replica}
                   deployment={deployment}
-                  disabled={replica.status === "terminated"}
+                  disabled={replica.terminated}
                 />
                 <Metrics
                   replica={replica}
                   deployment={deployment}
-                  disabled={replica.status === "terminated"}
+                  disabled={replica.terminated}
                 />
               </Space>
             ),
