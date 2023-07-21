@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "gocloud.dev/blob/s3blob"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -160,8 +161,15 @@ func updateImageTag(imageTag string) error {
 	if err != nil {
 		return err
 	}
+	// If the new image is the same as the old image, patching the deployment will not trigger a restart/upgrade.
+	// We should trigger a rolling restart by adding an annotation.
+	if deployment.Annotations == nil {
+		deployment.Annotations = make(map[string]string)
+	}
+	deployment.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
 	// update the image tag of the deployment
 	image := deployment.Spec.Template.Spec.Containers[0].Image
-	deployment.Spec.Template.Spec.Containers[0].Image = util.UpdateImageTag(image, imageTag)
+	newImage := util.UpdateImageTag(image, imageTag)
+	deployment.Spec.Template.Spec.Containers[0].Image = newImage
 	return k8s.Client.Update(ctx, &deployment)
 }
