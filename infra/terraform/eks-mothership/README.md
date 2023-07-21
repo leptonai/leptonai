@@ -9,7 +9,7 @@ DEPLOYMENT_ENVIRONMENT=PROD \
 REGION=us-west-2 \
 ENABLE_COPY_LEPTON_CHARTS=true \
 CHECK_TERRAFORM_APPLY_OUTPUT=false \
-API_TOKEN=123 \
+API_TOKEN=... \
 TF_API_TOKEN="..." \
 CLUSTER_NAME="mothership-prod-aws-us-west-2" \
 ./install.sh mothership-prod-aws-us-west-2

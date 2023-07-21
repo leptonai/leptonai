@@ -58,3 +58,9 @@ variable "aurora_master_username" {
   type        = string
   default     = "root"
 }
+
+variable "api_token" {
+  description = "API token for auth"
+  type        = string
+  default     = ""
+}
