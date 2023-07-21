@@ -19,6 +19,10 @@ APPLY_FLAGS=(
     "-var=quota_group=$QUOTA_GROUP"
 )
 
+if [[ "$REGION" != "" ]]; then
+    APPLY_FLAGS+=("-var=region=$REGION")
+fi
+
 if [[ "$TLS_CERT_ARN_ID" != "" ]]; then
     APPLY_FLAGS+=("-var=tls_cert_arn_id=$TLS_CERT_ARN_ID")
 fi

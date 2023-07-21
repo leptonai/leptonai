@@ -522,6 +522,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,
 		"WORKSPACE_NAME="+workspaceName,
+		"REGION="+cl.Spec.Region,
 		"IMAGE_TAG="+ws.Spec.ImageTag,
 		"API_TOKEN="+ws.Spec.APIToken,
 		"OIDC_ID="+oidcID,
