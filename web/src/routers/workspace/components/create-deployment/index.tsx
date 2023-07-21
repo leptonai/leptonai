@@ -36,6 +36,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
       min_replicas: 1,
       resource_shape: hardwareService.shapes[0],
     },
+    api_tokens: [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
     envs: [],
     mounts: [],
   };

@@ -12,6 +12,7 @@ import { css } from "@emotion/react";
 import {
   Button,
   Cascader,
+  Checkbox,
   Col,
   Collapse,
   Dropdown,
@@ -41,6 +42,7 @@ interface RawForm {
   min_replicas: number;
   shape?: string;
   photon: string[];
+  enable_public: boolean;
   envs: { name: string; value: string }[];
   secret_envs: { name: string; value: string }[];
   mounts: DeploymentMount[];
@@ -129,6 +131,7 @@ export const DeploymentForm: FC<{
       name: initialDeploymentValue.name,
       min_replicas: initialDeploymentValue.resource_requirement?.min_replicas,
       photon: photon,
+      enable_public: !initialDeploymentValue.api_tokens?.length,
       shape: initialDeploymentValue.resource_requirement?.resource_shape,
       envs: initialDeploymentValue.envs?.filter(
         (e): e is DeploymentEnv => !!(e as DeploymentEnv).value
@@ -176,6 +179,9 @@ export const DeploymentForm: FC<{
         min_replicas: value.min_replicas,
         resource_shape: value.shape,
       },
+      api_tokens: value.enable_public
+        ? []
+        : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
       envs: [
         ...(value.envs || []),
         ...(value.secret_envs || []).map((e) => {
@@ -274,7 +280,9 @@ export const DeploymentForm: FC<{
       >
         <Select disabled={edit} options={shapeOptions} />
       </Form.Item>
-
+      <Form.Item name="enable_public" valuePropName="checked">
+        <Checkbox disabled={edit}>Enable public access</Checkbox>
+      </Form.Item>
       <Collapse
         css={css`
           margin-bottom: 24px;

@@ -6,6 +6,10 @@ export enum State {
   Unknown = "",
 }
 
+type Token =
+  | { value_from: { token_name_ref: "WORKSPACE_TOKEN" } }
+  | { value: string };
+
 export interface Deployment {
   name: string;
   photon_id: string;
@@ -20,6 +24,7 @@ export interface Deployment {
   };
   envs?: Array<DeploymentEnv | DeploymentSecretEnv>;
   mounts?: Array<DeploymentMount>;
+  api_tokens?: Token[];
 }
 
 export interface DeploymentMount {

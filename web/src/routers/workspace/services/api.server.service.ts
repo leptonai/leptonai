@@ -72,6 +72,7 @@ export class ApiServerService implements ApiService {
         min_replicas: deployment.resource_requirement?.min_replicas,
         resource_shape: deployment.resource_requirement?.resource_shape,
       },
+      api_tokens: deployment.api_tokens || [],
       envs: deployment.envs || [],
       mounts: deployment.mounts || [],
     });
