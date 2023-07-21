@@ -17,6 +17,7 @@ import (
 var (
 	deploymentEnvironment string
 	clusterName           string
+	region                string
 	gitRef                string
 	description           string
 )
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVar(&deploymentEnvironment, "deployment-environment", "TEST", "Deployment environment")
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to create")
+	cmd.PersistentFlags().StringVarP(&region, "region", "r", "us-east-1", "Set region for cluster spec")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the cluster")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the cluster")
 	return cmd
@@ -50,6 +52,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 	cluster := crdv1alpha1.LeptonClusterSpec{
 		DeploymentEnvironment: deploymentEnvironment,
 
+		Region:      region,
 		Name:        clusterName,
 		GitRef:      gitRef,
 		Description: description,
