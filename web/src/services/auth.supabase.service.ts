@@ -27,7 +27,8 @@ const SSO_CONFIG = {
   refresh_token_key: "lepton-refresh-token",
 };
 
-const workspaceUrl = (id: string): string => `https://${id}.cloud.lepton.ai`;
+const workspaceUrl = (id: string, clusterBase: string): string =>
+  `https://${id}.${clusterBase}`;
 
 @Injectable()
 export class AuthSupabaseService implements AuthService {
@@ -166,7 +167,7 @@ export class AuthSupabaseService implements AuthService {
       .select(
         `
       token,
-      workspaces(id, display_name, status)
+      workspaces(id, cluster_base, display_name, status)
     `
       )
       .abortSignal(abort.signal);
@@ -177,7 +178,9 @@ export class AuthSupabaseService implements AuthService {
 
     return (workspaces || [])
       .map((workspace) => {
-        const getFieldValue = <T extends "id" | "display_name" | "status">(
+        const getFieldValue = <
+          T extends "id" | "display_name" | "status" | "cluster_base"
+        >(
           field: T
         ) => {
           const value = Array.isArray(workspace.workspaces)
@@ -189,11 +192,12 @@ export class AuthSupabaseService implements AuthService {
         const id = getFieldValue("id");
         const displayName = getFieldValue("display_name");
         const status = getFieldValue("status");
+        const clusterBase = getFieldValue("cluster_base");
         return {
           id,
           displayName,
           status,
-          url: id ? workspaceUrl(id) : "",
+          url: id ? workspaceUrl(id, clusterBase) : "",
           token: workspace.token,
         };
       })

@@ -119,6 +119,7 @@ export interface Database {
       };
       workspaces: {
         Row: {
+          cluster_base: string;
           consumer_id: string | null;
           created_at: string | null;
           display_name: string | null;
@@ -128,6 +129,7 @@ export interface Database {
           type: string | null;
         };
         Insert: {
+          cluster_base: string;
           consumer_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
@@ -137,6 +139,7 @@ export interface Database {
           type?: string | null;
         };
         Update: {
+          cluster_base?: string;
           consumer_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
