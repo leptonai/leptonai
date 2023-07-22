@@ -11,12 +11,16 @@ import (
 	goclient "github.com/leptonai/lepton/go-client"
 	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
 	"github.com/leptonai/lepton/go-pkg/aws/efs"
+	"github.com/leptonai/lepton/go-pkg/aws/eks"
+	"github.com/leptonai/lepton/go-pkg/aws/iam"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
+	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
+	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/route53/types"
@@ -122,7 +126,7 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 
 	purgeAMP()
 
-	purgeIAM()
+	purgeIAM(cfg)
 }
 
 func purgeEFS(cfg aws.Config, wps map[string]bool) error {
@@ -170,7 +174,74 @@ func purgeALB() {}
 
 func purgeAMP() {}
 
-func purgeIAM() {}
+func purgeIAM(cfg aws.Config) {
+	eksCli := aws_eks_v2.NewFromConfig(cfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	eksClusters, err := eks.ListClusters(ctx, cfg.Region, eksCli, -1)
+	cancel()
+	if err != nil {
+		log.Fatalf("failed to list EKS clusters %v", err)
+	}
+	log.Printf("listed %d EKS clusters", len(eksClusters))
+
+	existingOIDCIssuers := make(map[string]struct{})
+	for _, c := range eksClusters {
+		existingOIDCIssuers[c.OIDCIssuer] = struct{}{}
+	}
+
+	iamCli := aws_iam_v2.NewFromConfig(cfg)
+	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Minute)
+	roles, err := iam.ListRoles(ctx, iamCli, -1)
+	cancel()
+	if err != nil {
+		log.Fatalf("failed to list IAM roles %v", err)
+	}
+	log.Printf("listed %d IAM roles", len(roles))
+
+	for _, role := range roles {
+		if len(role.AssumeRolePolicyDocument.Statement) > 0 {
+			federated := role.AssumeRolePolicyDocument.Statement[0].Principal.Federated
+			if _, exists := existingOIDCIssuers[federated]; exists {
+				log.Printf("federated OIDC issuer %q in use -- skipping", federated)
+				continue
+			}
+		}
+
+		log.Printf("deleting the role %q", role.ARN)
+		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Minute)
+		_, err = iamCli.DeleteRole(ctx, &aws_iam_v2.DeleteRoleInput{RoleName: &role.Name})
+		cancel()
+		if err != nil {
+			log.Printf("failed to delete %q (%v)", role.ARN, err)
+		} else {
+			log.Printf("deleted %q", role.ARN, err)
+		}
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	policies, err := iam.ListPolicies(ctx, iamCli, -1)
+	cancel()
+	if err != nil {
+		log.Fatalf("failed to list IAM policies %v", err)
+	}
+	for _, policy := range policies {
+		if policy.AWSManaged {
+			log.Printf("skipping aws managed policy %q", policy.ARN)
+			continue
+		}
+
+		log.Printf("deleting the policy %q", policy.ARN)
+		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Minute)
+		_, err = iamCli.DeletePolicy(ctx, &aws_iam_v2.DeletePolicyInput{PolicyArn: &policy.ARN})
+		cancel()
+		if err != nil {
+			log.Printf("failed to delete %q (%v)", policy.ARN, err)
+		} else {
+			log.Printf("deleted %q", policy.ARN, err)
+		}
+	}
+}
 
 // purgeRoute53Records deletes all Route53 records that are not in the workspace list.
 // Since external dns does not support tagging, so we have to do name based matching and filtering.
