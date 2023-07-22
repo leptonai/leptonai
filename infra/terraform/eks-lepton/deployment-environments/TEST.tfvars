@@ -18,6 +18,8 @@ single_nat_gateway = true
 # must be >= AMI snapshot size
 disk_size_in_gb_for_node_groups = 100
 
+lepton_cloud_route53_zone_id = "Z007822916VK7B4DFVMP7"
+
 # default AMI from https://cloud-images.ubuntu.com/docs/aws/eks also works
 # but it does not come with necessary add-ons such as GPU driver
 ubuntu_amis = {

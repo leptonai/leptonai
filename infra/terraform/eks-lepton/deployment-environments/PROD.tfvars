@@ -18,6 +18,8 @@ single_nat_gateway = false
 # must be >= AMI snapshot size
 disk_size_in_gb_for_node_groups = 1000
 
+lepton_cloud_route53_zone_id = "Z0305788EACPTSFEJARC"
+
 # default AMI from https://cloud-images.ubuntu.com/docs/aws/eks also works
 # but it does not come with necessary add-ons such as GPU driver
 # see https://github.com/leptonai/lepton/blob/main/infra/terraform/eks-lepton/README.amis.md for latest
