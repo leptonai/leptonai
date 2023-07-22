@@ -12,3 +12,5 @@ kubectl -n actions-runner-system delete -f lepton_runner_deployment.yaml
 helm uninstall actions-runner-controller --namespace actions-runner-system
 
 helm uninstall cert-manager  --namespace cert-manager
+
+kubectl delete ns actions-runner-system
