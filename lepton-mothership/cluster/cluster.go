@@ -22,6 +22,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+var (
+	RootDomain string
+)
+
 const (
 	storeNamespace = "default"
 
@@ -532,7 +536,8 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 }
 
 func terraformWorkspaceName(clusterName string) string {
-	return "cl-" + clusterName
+	domain := strings.Split(RootDomain, ".")[0]
+	return "cl-" + clusterName + "-" + domain
 }
 
 func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {

@@ -554,7 +554,8 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 }
 
 func terraformWorkspaceName(workspaceName string) string {
-	return "ws-" + workspaceName
+	domain := strings.Split(RootDomain, ".")[0]
+	return "ws-" + workspaceName + "-" + domain
 }
 
 func efsMountTargets(privateSubnets []string) string {

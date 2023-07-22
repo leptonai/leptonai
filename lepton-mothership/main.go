@@ -36,6 +36,7 @@ func main() {
 	// TODO: create a workspace struct to pass them in
 	workspace.CertificateARN = *certificateARNFlag
 	workspace.RootDomain = *rootDomainFlag
+	cluster.RootDomain = *rootDomainFlag
 
 	terraform.MustInit()
 
