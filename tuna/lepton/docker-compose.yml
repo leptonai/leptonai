@@ -18,8 +18,6 @@ services:
         volumes:
             - .:/workspace
         working_dir: /workspace
-        environment:
-            - USE_INT=1
         deploy:
             resources:
                 reservations:
