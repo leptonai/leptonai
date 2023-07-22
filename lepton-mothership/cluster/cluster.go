@@ -318,19 +318,20 @@ func delete(clusterName string, logCh chan<- string) error {
 		// we should debug why the delete failed manually and actually fix the root cause
 	}()
 
-	_, err = terraform.GetWorkspace(terraformWorkspaceName(clusterName))
+	tfws := terraformWorkspaceName(clusterName)
+	_, err = terraform.GetWorkspace(tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(terraformWorkspaceName(clusterName))
+	err = terraform.ForceUnlockWorkspace(tfws)
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", cl.Spec.GitRef)
-	defer util.TryDeletingTerraformWorkingDir(terraformWorkspaceName(clusterName)) // delete even if there are errors preparing the working dir
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
 			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
@@ -344,7 +345,7 @@ func delete(clusterName string, logCh chan<- string) error {
 			"error", err,
 		)
 
-		dir, err = util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", "")
+		dir, err = util.PrepareTerraformWorkingDir(tfws, "eks-lepton", "")
 		if err != nil {
 			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
 		}
@@ -363,6 +364,7 @@ func delete(clusterName string, logCh chan<- string) error {
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"REGION="+cl.Spec.Region,
 		"CLUSTER_NAME="+clusterName,
+		"TF_WORKSPACE="+tfws,
 		"TF_API_TOKEN="+terraform.TempToken,
 	)
 
@@ -474,8 +476,9 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		}
 	}()
 
-	dir, err := util.PrepareTerraformWorkingDir(terraformWorkspaceName(clusterName), "eks-lepton", cl.Spec.GitRef)
-	defer util.TryDeletingTerraformWorkingDir(terraformWorkspaceName(clusterName)) // delete even if there are errors preparing the working dir
+	tfws := terraformWorkspaceName(clusterName)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
@@ -493,6 +496,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"REGION="+cl.Spec.Region,
 		"CLUSTER_NAME="+clusterName,
+		"TF_WORKSPACE="+tfws,
 		"TF_API_TOKEN="+terraform.TempToken)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
@@ -512,7 +516,11 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	args = []string{"-c", "cd " + dir + " && ./output.sh"}
 
 	cmd = exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "CLUSTER_NAME="+clusterName, "TF_API_TOKEN="+terraform.TempToken)
+	cmd.Env = append(os.Environ(),
+		"CLUSTER_NAME="+clusterName,
+		"TF_WORKSPACE="+tfws,
+		"TF_API_TOKEN="+terraform.TempToken,
+	)
 	var output []byte
 	output, err = cmd.CombinedOutput()
 	if err != nil {

@@ -61,7 +61,11 @@ if [[ -z $TF_API_TOKEN ]]; then
   echo "ERROR: Terraform Cloud API token not specified"
   exit 1
 fi
-export TF_WORKSPACE="cl-$CLUSTER_NAME"
+if [[ -z $TF_WORKSPACE ]]; then
+  export TF_WORKSPACE="cl-$CLUSTER_NAME-default"
+else
+  export TF_WORKSPACE
+fi
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 echo "creating terraform workspace ${TF_WORKSPACE}"

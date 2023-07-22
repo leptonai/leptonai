@@ -61,7 +61,11 @@ fi
 # shellcheck source=/dev/null
 source ../lib.sh
 
-export TF_WORKSPACE="ws-$WORKSPACE_NAME"
+if [[ -z $TF_WORKSPACE ]]; then
+  export TF_WORKSPACE="ws-$WORKSPACE_NAME-default"
+else
+  export TF_WORKSPACE
+fi
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 echo "Creating Workspace $WORKSPACE_NAME at Cluster $CLUSTER_NAME..."

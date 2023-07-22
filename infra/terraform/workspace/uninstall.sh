@@ -37,7 +37,11 @@ if [[ $CREATE_EFS == "true" ]]; then
   fi
 fi
 
-export TF_WORKSPACE="ws-$WORKSPACE_NAME"
+if [[ -z $TF_WORKSPACE ]]; then
+  export TF_WORKSPACE="ws-$WORKSPACE_NAME-default"
+else
+  export TF_WORKSPACE
+fi
 export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 if terraform init --upgrade; then
