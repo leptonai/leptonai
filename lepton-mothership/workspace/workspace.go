@@ -536,7 +536,11 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"QUOTA_GROUP="+ws.Spec.QuotaGroup,
 	)
 	if CertificateARN != "" {
-		cmd.Env = append(cmd.Env, "TLS_CERT_ARN_ID="+CertificateARN)
+		// e.g.,
+		// if “arn:aws:acm:us-east-1:605454121064:certificate/d8d5e0e1-ecc5-4716-aa79-01625e60704d”
+		// then only take the last element (d8d5e0e1-ecc5-4716-aa79-01625e60704d)
+		arnComponents := strings.Split(CertificateARN, "/")
+		cmd.Env = append(cmd.Env, "TLS_CERT_ARN_ID="+arnComponents[len(arnComponents)-1])
 	}
 	if RootDomain != "" {
 		cmd.Env = append(cmd.Env, "ROOT_DOMAIN="+RootDomain)
