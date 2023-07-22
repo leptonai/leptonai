@@ -119,7 +119,6 @@ export interface Database {
       };
       workspaces: {
         Row: {
-          cluster_base: string;
           consumer_id: string | null;
           created_at: string | null;
           display_name: string | null;
@@ -127,9 +126,9 @@ export interface Database {
           status: string | null;
           subscription_id: string | null;
           type: string | null;
+          url: string;
         };
         Insert: {
-          cluster_base: string;
           consumer_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
@@ -137,9 +136,9 @@ export interface Database {
           status?: string | null;
           subscription_id?: string | null;
           type?: string | null;
+          url: string;
         };
         Update: {
-          cluster_base?: string;
           consumer_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
@@ -147,6 +146,7 @@ export interface Database {
           status?: string | null;
           subscription_id?: string | null;
           type?: string | null;
+          url?: string;
         };
         Relationships: [];
       };
