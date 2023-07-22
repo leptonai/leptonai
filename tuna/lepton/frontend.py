@@ -9,7 +9,7 @@ import fastchat.serve.openai_api_server
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-0.1.9"
+    image: f"{BASE_IMAGE_REPO}:tuna-23.02"
 
     def _init_gradio_web_server(self):
         fastchat.serve.gradio_web_server.controller_url = os.environ.get(

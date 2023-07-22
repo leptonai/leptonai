@@ -5,7 +5,7 @@ import fastchat.serve.controller
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-0.1.9"
+    image: f"{BASE_IMAGE_REPO}:tuna-23.02"
 
     def init(self):
         controller = fastchat.serve.controller.Controller("shortest_queue")

@@ -8,7 +8,7 @@ import fastchat.serve.ft_worker
 
 
 class Server(Photon):
-    image: f"{BASE_IMAGE_REPO}:tuna-runner-0.1.9"
+    image: f"{BASE_IMAGE_REPO}:tuna-23.02"
 
     def init(self):
         worker = fastchat.serve.ft_worker.ModelWorker(
