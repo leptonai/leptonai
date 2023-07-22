@@ -13,6 +13,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
+	"github.com/manifoldco/promptui"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/olekukonko/tablewriter"
@@ -20,7 +21,8 @@ import (
 )
 
 var (
-	output string
+	output           string
+	selectKubeconfig bool
 )
 
 func init() {
@@ -35,7 +37,7 @@ func NewCommand() *cobra.Command {
 		Run:   listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
-
+	cmd.PersistentFlags().BoolVarP(&selectKubeconfig, "select-kubeconfig", "k", false, "Set true to interactive select a cluster to write kubeconfig")
 	return cmd
 }
 
@@ -88,6 +90,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 
 	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 	rows := make([][]string, 0, len(rs))
+	promptOptions := make([]string, 0, len(rs))
 	for _, c := range rs {
 		eksAPI := eksAPIs[c.Spec.Region]
 
@@ -112,6 +115,14 @@ func listFunc(cmd *cobra.Command, args []string) {
 		}
 
 		rows = append(rows, []string{c.Spec.Name, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
+		promptOptions = append(promptOptions,
+			fmt.Sprintf("%s (provider %s region %s, state %s, eks status %s)",
+				c.Spec.Name,
+				c.Spec.Provider,
+				c.Spec.Region,
+				string(c.Status.State),
+				status,
+			))
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -123,4 +134,33 @@ func listFunc(cmd *cobra.Command, args []string) {
 	tb.AppendBulk(rows)
 	tb.Render()
 	fmt.Println(buf.String())
+
+	if !selectKubeconfig {
+		return
+	}
+
+	prompt := promptui.Select{
+		Label: "Select the cluster you would like to connect!",
+		Items: promptOptions,
+	}
+	idx, answer, err := prompt.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("downloading kubeoconfig for %s", answer)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	cl, err := eks.GetCluster(ctx, rs[idx].Spec.Region, eksAPIs[rs[idx].Spec.Region], rs[idx].Spec.Name)
+	cancel()
+	if err != nil {
+		panic(err)
+	}
+
+	ks, err := cl.Kubeconfig()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println()
+	fmt.Println(ks)
 }

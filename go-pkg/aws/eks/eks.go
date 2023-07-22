@@ -4,10 +4,13 @@ package eks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"os/exec"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
@@ -19,72 +22,43 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-// Returns true if the specified cluster does not exist, thus deleted.
-func IsClusterDeleted(eksAPI *aws_eks_v2.Client, name string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
-		Name: &name,
-	})
-	cancel()
-	if err == nil {
-		version, status, health := GetClusterStatus(eksOut)
-		log.Printf("cluster %q still exists with version %q, status %q, health %q", name, version, status, health)
-		return false, nil
-	}
-
-	if IsErrClusterDeleted(err) {
-		log.Printf("cluster %q already deleted", name)
-		return true, nil
-	}
-	return false, err
-}
-
-// Returns version, status, and health information.
-func GetClusterStatus(out *aws_eks_v2.DescribeClusterOutput) (string, string, string) {
-	version := *out.Cluster.Version
-	status := string(out.Cluster.Status)
-
-	health := "OK"
-	if out.Cluster.Health != nil && out.Cluster.Health.Issues != nil && len(out.Cluster.Health.Issues) > 0 {
-		health = fmt.Sprintf("%+v", out.Cluster.Health.Issues)
-	}
-
-	return version, status, health
-}
-
-func IsErrClusterDeleted(err error) bool {
-	if err == nil {
-		return false
-	}
-	awsErr, ok := err.(awserr.Error)
-	if ok && awsErr.Code() == "ResourceNotFoundException" &&
-		strings.HasPrefix(awsErr.Message(), "No cluster found for") {
-		// ResourceNotFoundException: No cluster found for name: aws-k8s-tester-155468BC717E03B003\n\tstatus code: 404, request id: 1e3fe41c-b878-11e8-adca-b503e0ba731d
-		return true
-	}
-
-	// must check the string
-	// sometimes EKS API returns untyped error value
-	return strings.Contains(err.Error(), "No cluster found for")
-}
-
 const describeInterval = 5 * time.Second
 
 func ListClusters(ctx context.Context, region string, cli *aws_eks_v2.Client, limit int) ([]Cluster, error) {
+	return listClusters(ctx, region, cli, "", limit)
+}
+
+func GetCluster(ctx context.Context, region string, cli *aws_eks_v2.Client, clusterName string) (Cluster, error) {
+	cs, err := listClusters(ctx, region, cli, clusterName, 1)
+	if err != nil {
+		return Cluster{}, err
+	}
+	if len(cs) != 1 {
+		return Cluster{}, errors.New("not found")
+	}
+	return cs[0], nil
+}
+
+func listClusters(ctx context.Context, region string, cli *aws_eks_v2.Client, clusterName string, limit int) ([]Cluster, error) {
 	clusters := make([]Cluster, 0)
 
 	var nextToken *string = nil
 done:
 	for i := 0; i < 20; i++ {
-		out, err := cli.ListClusters(ctx, &aws_eks_v2.ListClustersInput{
-			NextToken: nextToken,
-		})
-		if err != nil {
-			return nil, err
+		clusterNames := []string{clusterName}
+		if clusterName == "" {
+			out, err := cli.ListClusters(ctx, &aws_eks_v2.ListClustersInput{
+				NextToken: nextToken,
+			})
+			if err != nil {
+				return nil, err
+			}
+			clusterNames = out.Clusters
+			nextToken = out.NextToken
 		}
 
-		log.Printf("inspecting %d clusters", len(out.Clusters))
-		for _, c := range out.Clusters {
+		log.Printf("inspecting %d clusters", len(clusterNames))
+		for _, c := range clusterNames {
 			cl, err := inspectCluster(ctx, region, "UNKNOWN", cli, nil, c)
 			if err != nil {
 				return nil, err
@@ -98,7 +72,6 @@ done:
 		}
 
 		log.Printf("listed %d clusters so far with limit %d", len(clusters), limit)
-		nextToken = out.NextToken
 		if nextToken == nil {
 			// no more resources are available
 			break
@@ -410,4 +383,118 @@ func (c Cluster) String() string {
 	}
 
 	return rs
+}
+
+func (c Cluster) Kubeconfig() (string, error) {
+	awsPath, err := exec.LookPath("aws")
+	if err != nil {
+		return "", fmt.Errorf("aws cli not found %w", err)
+	}
+
+	tpl := template.Must(template.New("tmplKUBECONFIG").Parse(tmplKUBECONFIG))
+	buf := bytes.NewBuffer(nil)
+	if err := tpl.Execute(buf, kubeconfig{
+		Region:                   c.Region,
+		ClusterAPIServerEndpoint: c.Endpoint,
+		ClusterCA:                c.CertificateAuthority,
+		AWSCLIPath:               awsPath,
+		ClusterARN:               c.ARN,
+		ClusterName:              c.Name,
+		AuthenticationAPIVersion: "client.authentication.k8s.io/v1beta1",
+	}); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+type kubeconfig struct {
+	Region                   string
+	ClusterAPIServerEndpoint string
+	ClusterCA                string
+	AWSCLIPath               string
+	ClusterARN               string
+	ClusterName              string
+	AuthenticationAPIVersion string
+}
+
+const tmplKUBECONFIG = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: {{ .ClusterAPIServerEndpoint }}
+    certificate-authority-data: {{ .ClusterCA }}
+  name: {{ .ClusterARN }}
+contexts:
+- context:
+    cluster: {{ .ClusterARN }}
+    user: {{ .ClusterARN }}
+  name: {{ .ClusterARN }}
+current-context: {{ .ClusterARN }}
+preferences: {}
+users:
+- name: {{ .ClusterARN }}
+  user:
+    exec:
+      apiVersion: {{ .AuthenticationAPIVersion }}
+      command: {{ .AWSCLIPath }}
+      args:
+      - --region
+      - {{ .Region }}
+      - eks
+      - get-token
+      - --cluster-name
+      - {{ .ClusterName }}
+      - --output
+      - json
+`
+
+// Returns true if the specified cluster does not exist, thus deleted.
+func IsClusterDeleted(eksAPI *aws_eks_v2.Client, name string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
+		Name: &name,
+	})
+	cancel()
+	if err == nil {
+		version, status, health := GetClusterStatus(eksOut)
+		log.Printf("cluster %q still exists with version %q, status %q, health %q", name, version, status, health)
+		return false, nil
+	}
+
+	if IsErrClusterDeleted(err) {
+		log.Printf("cluster %q already deleted", name)
+		return true, nil
+	}
+	return false, err
+}
+
+// Returns version, status, and health information.
+func GetClusterStatus(out *aws_eks_v2.DescribeClusterOutput) (string, string, string) {
+	version := *out.Cluster.Version
+	status := string(out.Cluster.Status)
+
+	health := "OK"
+	if out.Cluster.Health != nil && out.Cluster.Health.Issues != nil && len(out.Cluster.Health.Issues) > 0 {
+		health = fmt.Sprintf("%+v", out.Cluster.Health.Issues)
+	}
+
+	return version, status, health
+}
+
+func IsErrClusterDeleted(err error) bool {
+	if err == nil {
+		return false
+	}
+	awsErr, ok := err.(awserr.Error)
+	if ok && awsErr.Code() == "ResourceNotFoundException" &&
+		strings.HasPrefix(awsErr.Message(), "No cluster found for") {
+		// ResourceNotFoundException: No cluster found for name: aws-k8s-tester-155468BC717E03B003\n\tstatus code: 404, request id: 1e3fe41c-b878-11e8-adca-b503e0ba731d
+		return true
+	}
+
+	// must check the string
+	// sometimes EKS API returns untyped error value
+	return strings.Contains(err.Error(), "No cluster found for")
 }
