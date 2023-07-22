@@ -129,12 +129,12 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	ph := phs[0]
 	pid := ph.ID
 
-	fullArgs = []string{"photon", "run", "-n", pName, "-r", "gp1.hidden_test"}
+	fullArgs = []string{"photon", "run", "-n", pName, "--resource-shape", "gp1.hidden_test"}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatal(err, output)
 	}
-	fullArgs = []string{"photon", "run", "-i", pid, "-r", "gp1.hidden_test"}
+	fullArgs = []string{"photon", "run", "-i", pid, "--resource-shape", "gp1.hidden_test"}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatal(err, output)
