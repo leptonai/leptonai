@@ -52,7 +52,7 @@ else
 fi
 
 echo "Deleting resources..."
-if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="region=$REGION" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="create_efs=$CREATE_EFS" \
   -var="vpc_id=$VPC_ID" \
   -var="efs_mount_targets=$EFS_MOUNT_TARGETS"; then

@@ -352,6 +352,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,
 		"WORKSPACE_NAME="+workspaceName,
+		"REGION="+cl.Spec.Region,
 		"TF_WORKSPACE="+tfws,
 		"CREATE_EFS=true",
 		"VPC_ID="+cl.Status.Properties.VPCID,
