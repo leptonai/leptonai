@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	RootDomain string
+	RootDomain            string
+	DeploymentEnvironment string
 )
 
 const (
@@ -174,6 +175,9 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 
 	cl := &crdv1alpha1.LeptonCluster{
 		Spec: spec,
+	}
+	if cl.Spec.DeploymentEnvironment == "" {
+		cl.Spec.DeploymentEnvironment = DeploymentEnvironment
 	}
 	if err := DataStore.Create(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
@@ -352,9 +356,6 @@ func delete(clusterName string, logCh chan<- string) error {
 	}
 
 	dpEnv := cl.Spec.DeploymentEnvironment
-	if dpEnv == "" {
-		dpEnv = DeploymentEnvironmentValueTest
-	}
 
 	command := "sh"
 	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
@@ -484,9 +485,6 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	}
 
 	dpEnv := cl.Spec.DeploymentEnvironment
-	if dpEnv == "" {
-		dpEnv = DeploymentEnvironmentValueTest
-	}
 
 	command := "sh"
 	args := []string{"-c", "cd " + dir + " && ./install.sh"}

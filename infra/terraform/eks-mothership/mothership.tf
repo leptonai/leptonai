@@ -65,6 +65,11 @@ resource "helm_release" "mothership" {
     value = var.root_hostname
   }
 
+  set {
+    name  = "mothership.deploymentEnvironment"
+    value = var.deployment_environment
+  }
+
   depends_on = [
     module.vpc,
     module.eks,

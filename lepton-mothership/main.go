@@ -25,18 +25,21 @@ import (
 )
 
 var (
-	certificateARNFlag *string
-	rootDomainFlag     *string
+	certificateARNFlag        *string
+	rootDomainFlag            *string
+	deploymentEnvironmentFlag *string
 )
 
 func main() {
 	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
 	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
+	deploymentEnvironmentFlag = flag.String("deployment-environment", "DEV", "deployment environment of the cluster")
 	flag.Parse()
 	// TODO: create a workspace struct to pass them in
 	workspace.CertificateARN = *certificateARNFlag
 	workspace.RootDomain = *rootDomainFlag
 	cluster.RootDomain = *rootDomainFlag
+	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
 
 	terraform.MustInit()
 

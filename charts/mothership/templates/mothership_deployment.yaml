@@ -30,5 +30,6 @@ spec:
           args:
             - --root-domain={{ .Values.mothership.rootDomain }}
             - --certificate-arn={{ .Values.mothership.certificateArn }}
+            - --deployment-environment={{ .Values.mothership.deploymentEnvironment }}
           ports:
             - containerPort: {{ .Values.mothership.service.port }}
