@@ -215,7 +215,7 @@ func purgeIAM(cfg aws.Config) {
 		if err != nil {
 			log.Printf("failed to delete %q (%v)", role.ARN, err)
 		} else {
-			log.Printf("deleted %q", role.ARN, err)
+			log.Printf("deleted %q", role.ARN)
 		}
 	}
 
@@ -238,7 +238,7 @@ func purgeIAM(cfg aws.Config) {
 		if err != nil {
 			log.Printf("failed to delete %q (%v)", policy.ARN, err)
 		} else {
-			log.Printf("deleted %q", policy.ARN, err)
+			log.Printf("deleted %q", policy.ARN)
 		}
 	}
 }
