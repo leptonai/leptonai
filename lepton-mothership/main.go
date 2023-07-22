@@ -163,11 +163,11 @@ func updateImageTag(imageTag string) error {
 		return err
 	}
 	// If the new image is the same as the old image, patching the deployment will not trigger a restart/upgrade.
-	// We should trigger a rolling restart by adding an annotation.
-	if deployment.Annotations == nil {
-		deployment.Annotations = make(map[string]string)
+	// We should trigger a rolling restart by adding an annotation within template.
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
-	deployment.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
 	// update the image tag of the deployment
 	image := deployment.Spec.Template.Spec.Containers[0].Image
 	newImage := util.UpdateImageTag(image, imageTag)
