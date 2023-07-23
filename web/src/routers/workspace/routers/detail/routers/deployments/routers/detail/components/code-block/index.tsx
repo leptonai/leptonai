@@ -17,7 +17,10 @@ export enum LanguageSupports {
   JSON = "json",
 }
 
-let highlighter: Highlighter;
+const highlighterLoader: Promise<Highlighter> = getHighlighter({
+  themes: ["github-dark", "github-light"],
+  langs: ["bash", "python", "json"],
+});
 
 export const CodeBlock: FC<{
   code: string;
@@ -37,12 +40,7 @@ export const CodeBlock: FC<{
   useEffect(() => {
     let inThisTake = true;
     const setCode = async () => {
-      if (!highlighter) {
-        highlighter = await getHighlighter({
-          themes: ["github-dark", "github-light"],
-          langs: ["bash", "python", "json"],
-        });
-      }
+      const highlighter = await highlighterLoader;
       if (inThisTake) {
         const output = highlighter.codeToHtml(code, {
           lang: language,
