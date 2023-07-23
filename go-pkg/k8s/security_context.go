@@ -38,6 +38,13 @@ func RootContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: &falseBool,
 		Capabilities: &corev1.Capabilities{
+			Add: []corev1.Capability{
+				"SETGID",
+				"SETUID",
+				"FOWNER",
+				"CHOWN",
+				"DAC_OVERRIDE",
+			},
 			Drop: []corev1.Capability{"ALL"},
 		},
 		SeccompProfile: &corev1.SeccompProfile{
