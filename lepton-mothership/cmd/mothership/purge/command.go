@@ -18,6 +18,8 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -32,9 +34,13 @@ var (
 	region   string
 	provider string
 
-	mothershipURL  string
-	token          string
-	tokenPath      string
+	mothershipURL string
+	token         string
+	tokenPath     string
+
+	enableEBS      bool
+	enableEFS      bool
+	enableR53      bool
 	enablePurgeKMS bool
 )
 
@@ -55,6 +61,10 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
 	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
 	cmd.PersistentFlags().BoolVarP(&enablePurgeKMS, "enalbe-purge-kms", "k", false, "Enable purging KMS and not others")
+
+	cmd.PersistentFlags().BoolVarP(&enableEBS, "ebs-enabled", "", false, "Enable EBS volume deletion")
+	cmd.PersistentFlags().BoolVarP(&enableEFS, "efs-enabled", "", false, "Enable EFS volume deletion")
+	cmd.PersistentFlags().BoolVarP(&enableR53, "r53-enabled", "", false, "Enable Route53 record deletion")
 
 	// TODO: support other providers
 	cmd.PersistentFlags().StringVarP(&provider, "provider", "", "aws", "Provider to check the quota")
@@ -105,15 +115,26 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 		return
 	}
 
-	hostZoneID := "Z007822916VK7B4DFVMP7"
-	err = purgeRoute53Records(cfg, hostZoneID, wps)
-	if err != nil {
-		log.Printf("failed to purge all dangling route53 records %v", err)
+	if enableR53 {
+		hostZoneID := "Z007822916VK7B4DFVMP7"
+		err = purgeRoute53Records(cfg, hostZoneID, wps)
+		if err != nil {
+			log.Printf("failed to purge all dangling route53 records %v", err)
+		}
 	}
 
-	err = purgeEFS(cfg, wps)
-	if err != nil {
-		log.Printf("failed to purge all dangling EFS %v", err)
+	if enableEFS {
+		err = purgeEFS(cfg, wps)
+		if err != nil {
+			log.Printf("failed to purge all dangling EFS %v", err)
+		}
+	}
+
+	if enableEBS {
+		err = purgeEBS(cfg)
+		if err != nil {
+			log.Printf("failed to purge all dangling EBS %v", err)
+		}
 	}
 
 	purgeS3()
@@ -243,6 +264,50 @@ func purgeIAM(cfg aws.Config) {
 	}
 }
 
+// TODO: move this to go/aws package
+func purgeEBS(cfg aws.Config) error {
+	cli := ec2.NewFromConfig(cfg)
+
+	vs := make([]ec2types.Volume, 0)
+	volumeInput := &ec2.DescribeVolumesInput{}
+	for {
+		volumeOutput, err := cli.DescribeVolumes(context.Background(), volumeInput)
+		if err != nil {
+			return err
+		}
+
+		vs = append(vs, volumeOutput.Volumes...)
+		if volumeOutput.NextToken == nil {
+			break
+		}
+		volumeInput.NextToken = volumeOutput.NextToken
+	}
+
+	unusedVolumes := make([]string, 0)
+	for _, volume := range vs {
+		if len(volume.Attachments) == 0 {
+			unusedVolumes = append(unusedVolumes, *volume.VolumeId)
+			fmt.Println("Found unused volume:", *volume.VolumeId)
+		}
+	}
+
+	for _, volumeID := range unusedVolumes {
+		deleteInput := &ec2.DeleteVolumeInput{
+			VolumeId: aws.String(volumeID),
+		}
+
+		_, err := cli.DeleteVolume(context.Background(), deleteInput)
+		if err != nil {
+			fmt.Println("Error deleting volume", volumeID, ":", err)
+		} else {
+			fmt.Println("Deleted volume:", volumeID)
+		}
+	}
+
+	return nil
+}
+
+// TODO: move this to go/aws package
 // purgeRoute53Records deletes all Route53 records that are not in the workspace list.
 // Since external dns does not support tagging, so we have to do name based matching and filtering.
 func purgeRoute53Records(cfg aws.Config, hostedZoneID string, wps map[string]bool) error {
