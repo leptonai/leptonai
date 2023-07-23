@@ -100,3 +100,9 @@ func DeepCompareEq(file1, file2 string) bool {
 func UpdateImageTag(image, tag string) string {
 	return image[:strings.LastIndex(image, ":")+1] + tag
 }
+
+const InvalidEnvNameMessage = "environment variable names are not allowed to start with lepton_ (both lower and upper cases)"
+
+func ValidateEnvName(name string) bool {
+	return !strings.HasPrefix(strings.ToLower(name), "lepton_")
+}

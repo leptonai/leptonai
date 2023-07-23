@@ -36,6 +36,15 @@ func (h *SecretHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
+	for _, env := range secrets {
+		if !goutil.ValidateEnvName(env.Name) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    httperrors.ErrorCodeValidationError,
+				"message": goutil.InvalidEnvNameMessage + ":" + env.Name},
+			)
+			return
+		}
+	}
 	err := h.secretDB.Put(secrets)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create secret",

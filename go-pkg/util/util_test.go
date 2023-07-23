@@ -214,3 +214,27 @@ func TestUpdateImageTag(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEnvName(t *testing.T) {
+	tests := []struct {
+		name  string
+		valid bool
+	}{
+		{"lepton", true},
+		{"lepton_", false},
+		{"LEPTON", true},
+		{"LEPTON_", false},
+		{"lepton_test", false},
+		{"LEPTON_TEST", false},
+		{"lepton_test_", false},
+		{"LEPTON_TEST_", false},
+		{"LepTON_TEST_", false},
+		{"PHOTON_TEST", true},
+	}
+	for _, test := range tests {
+		valid := ValidateEnvName(test.name)
+		if valid != test.valid {
+			t.Errorf("ValidateEnvName(%s) = %v; want %v", test.name, valid, test.valid)
+		}
+	}
+}

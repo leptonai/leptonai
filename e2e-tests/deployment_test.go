@@ -195,8 +195,17 @@ func TestDeployWithInvalidEnvVar(t *testing.T) {
 			},
 		},
 	}
-	_, err := lepton.Deployment().Create(d)
-	if err == nil {
+	if _, err := lepton.Deployment().Create(d); err == nil {
+		t.Fatalf("Expected error when deploying with invalid env var, got nil")
+	}
+
+	d.Envs[0].Name = "lepton_test"
+	if _, err := lepton.Deployment().Create(d); err == nil {
+		t.Fatalf("Expected error when deploying with invalid env var, got nil")
+	}
+
+	d.Envs[0].Name = "lEPton_test"
+	if _, err := lepton.Deployment().Create(d); err == nil {
 		t.Fatalf("Expected error when deploying with invalid env var, got nil")
 	}
 }

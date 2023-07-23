@@ -94,3 +94,19 @@ func TestSecret(t *testing.T) {
 		t.Fatalf("Expected 0 secrets, got %d", len(secrets))
 	}
 }
+
+func TestInvalidSecretName(t *testing.T) {
+	s := []secret.SecretItem{
+		{
+			Name:  "key1",
+			Value: "value1",
+		},
+		{
+			Name:  "lepton_key2",
+			Value: "value2",
+		},
+	}
+	if err := lepton.Secret().Create(s); err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+}
