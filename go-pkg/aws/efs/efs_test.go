@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
-
-	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 )
 
 func TestCreds(t *testing.T) {
@@ -22,9 +20,8 @@ func TestCreds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := aws_efs_v2.NewFromConfig(cfg)
 
-	fss, err := ListFileSystems(context.Background(), cli)
+	fss, err := ListFileSystems(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
-
-	aws_ecr_v2 "github.com/aws/aws-sdk-go-v2/service/ecr"
 )
 
 func TestListRepositories(t *testing.T) {
@@ -22,10 +20,9 @@ func TestListRepositories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := aws_ecr_v2.NewFromConfig(cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	repos, err := ListRepositories(ctx, cli, 10, 10)
+	repos, err := ListRepositories(ctx, cfg, 10, 10)
 	cancel()
 	if err != nil {
 		t.Fatal(err)

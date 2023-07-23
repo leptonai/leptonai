@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_svcquotas_v2 "github.com/aws/aws-sdk-go-v2/service/servicequotas"
 	aws_svcquotas_v2_types "github.com/aws/aws-sdk-go-v2/service/servicequotas/types"
 	"github.com/olekukonko/tablewriter"
@@ -17,8 +18,10 @@ const listInterval = 3 * time.Second
 
 // Lists all services.
 // ref. https://docs.aws.amazon.com/servicequotas/2019-06-24/apireference/API_ListServices.html
-func ListServices(ctx context.Context, cli *aws_svcquotas_v2.Client) ([]aws_svcquotas_v2_types.ServiceInfo, error) {
+func ListServices(ctx context.Context, cfg aws.Config) ([]aws_svcquotas_v2_types.ServiceInfo, error) {
 	svcs := make([]aws_svcquotas_v2_types.ServiceInfo, 0)
+	cli := aws_svcquotas_v2.NewFromConfig(cfg)
+
 	var nextToken *string = nil
 	for i := 0; i < 10; i++ {
 		out, err := cli.ListServices(ctx, &aws_svcquotas_v2.ListServicesInput{

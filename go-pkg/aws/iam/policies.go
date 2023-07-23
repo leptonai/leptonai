@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
@@ -24,8 +25,9 @@ type Policy struct {
 }
 
 // List policies up to 5,000.
-func ListPolicies(ctx context.Context, cli *aws_iam_v2.Client, limit int) ([]Policy, error) {
+func ListPolicies(ctx context.Context, cfg aws.Config, limit int) ([]Policy, error) {
 	policies := make([]Policy, 0)
+	cli := aws_iam_v2.NewFromConfig(cfg)
 
 	var nextMarker *string = nil
 	for i := 0; i < 50; i++ {

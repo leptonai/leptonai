@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
@@ -17,8 +18,10 @@ import (
 
 const describeInterval = 5 * time.Second
 
-func ListFileSystems(ctx context.Context, cli *aws_efs_v2.Client) ([]FileSystem, error) {
+func ListFileSystems(ctx context.Context, cfg aws.Config) ([]FileSystem, error) {
 	fss := make([]FileSystem, 0)
+	cli := aws_efs_v2.NewFromConfig(cfg)
+
 	var nextMarker *string = nil
 	for i := 0; i < 10; i++ {
 		out, err := cli.DescribeFileSystems(ctx, &aws_efs_v2.DescribeFileSystemsInput{
@@ -85,7 +88,9 @@ func ListFileSystems(ctx context.Context, cli *aws_efs_v2.Client) ([]FileSystem,
 	return fss, nil
 }
 
-func DeleteFileSystem(ctx context.Context, cli *aws_efs_v2.Client, fsIDs []string) error {
+func DeleteFileSystem(ctx context.Context, cfg aws.Config, fsIDs []string) error {
+	cli := aws_efs_v2.NewFromConfig(cfg)
+
 	var err error
 	for _, fsID := range fsIDs {
 		_, err = cli.DeleteFileSystem(ctx, &aws_efs_v2.DeleteFileSystemInput{

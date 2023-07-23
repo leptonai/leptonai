@@ -20,8 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
-	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
@@ -151,12 +149,10 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 }
 
 func purgeEFS(cfg aws.Config, wps map[string]bool) error {
-	cli := aws_efs_v2.NewFromConfig(cfg)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	fss, err := efs.ListFileSystems(ctx, cli)
+	fss, err := efs.ListFileSystems(ctx, cfg)
 	if err != nil {
 		log.Fatalf("failed to list EFS %v", err)
 	}
@@ -178,7 +174,7 @@ func purgeEFS(cfg aws.Config, wps map[string]bool) error {
 		}
 	}
 
-	return efs.DeleteFileSystem(ctx, cli, deleteIDs)
+	return efs.DeleteFileSystem(ctx, cfg, deleteIDs)
 }
 
 func purgeS3() {}
@@ -196,10 +192,8 @@ func purgeALB() {}
 func purgeAMP() {}
 
 func purgeIAM(cfg aws.Config) {
-	eksCli := aws_eks_v2.NewFromConfig(cfg)
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	eksClusters, err := eks.ListClusters(ctx, cfg.Region, eksCli, -1)
+	eksClusters, err := eks.ListClusters(ctx, cfg.Region, cfg, -1)
 	cancel()
 	if err != nil {
 		log.Fatalf("failed to list EKS clusters %v", err)
@@ -213,7 +207,7 @@ func purgeIAM(cfg aws.Config) {
 
 	iamCli := aws_iam_v2.NewFromConfig(cfg)
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Minute)
-	roles, err := iam.ListRoles(ctx, iamCli, -1)
+	roles, err := iam.ListRoles(ctx, cfg, -1)
 	cancel()
 	if err != nil {
 		log.Fatalf("failed to list IAM roles %v", err)
@@ -241,7 +235,7 @@ func purgeIAM(cfg aws.Config) {
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
-	policies, err := iam.ListPolicies(ctx, iamCli, -1)
+	policies, err := iam.ListPolicies(ctx, cfg, -1)
 	cancel()
 	if err != nil {
 		log.Fatalf("failed to list IAM policies %v", err)

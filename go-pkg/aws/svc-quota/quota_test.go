@@ -31,10 +31,8 @@ func TestListServices(t *testing.T) {
 		t.Skip("cannot create session; nil Credentials")
 	}
 
-	cli := aws_svcquotas_v2.NewFromConfig(cfg)
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	svcs, err := ListServices(ctx, cli)
+	svcs, err := ListServices(ctx, cfg)
 	cancel()
 	if err != nil {
 		t.Fatal(err)

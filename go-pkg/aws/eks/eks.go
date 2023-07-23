@@ -13,9 +13,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/leptonai/lepton/go-pkg/aws"
+	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	aws_elbv2_v2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -24,7 +25,8 @@ import (
 
 const describeInterval = 5 * time.Second
 
-func ListClusters(ctx context.Context, region string, cli *aws_eks_v2.Client, limit int) ([]Cluster, error) {
+func ListClusters(ctx context.Context, region string, cfg aws.Config, limit int) ([]Cluster, error) {
+	cli := aws_eks_v2.NewFromConfig(cfg)
 	return listClusters(ctx, region, cli, "", limit)
 }
 
@@ -99,7 +101,7 @@ func InspectClusters(ctx context.Context, clusters map[string]crdv1alpha1.Lepton
 		if _, ok := eksAPIs[cs.Spec.Region]; ok {
 			continue
 		}
-		cfg, err := aws.New(&aws.Config{
+		cfg, err := leptonaws.New(&leptonaws.Config{
 			// TODO: make these configurable, or derive from cluster spec
 			DebugAPICalls: false,
 			Region:        cs.Spec.Region,

@@ -15,7 +15,6 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
-	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/spf13/cobra"
 )
 
@@ -89,10 +88,9 @@ func inspectEFSFs(cli *goclient.HTTP, workspace *crdv1alpha1.LeptonWorkspace) {
 		if err != nil {
 			log.Panicf("failed to create AWS session %v", err)
 		}
-		cli := aws_efs_v2.NewFromConfig(cfg)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		fss, err := efs.ListFileSystems(ctx, cli)
+		fss, err := efs.ListFileSystems(ctx, cfg)
 		cancel()
 		if err != nil {
 			log.Fatalf("failed to list EFS file systems %v", err)

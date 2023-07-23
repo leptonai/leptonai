@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
-
-	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
 func TestListPolicies(t *testing.T) {
@@ -22,10 +20,9 @@ func TestListPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := aws_iam_v2.NewFromConfig(cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	policies, err := ListPolicies(ctx, cli, 10)
+	policies, err := ListPolicies(ctx, cfg, 10)
 	cancel()
 	if err != nil {
 		t.Fatal(err)

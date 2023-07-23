@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
@@ -24,8 +25,9 @@ type Role struct {
 }
 
 // List roles up to 5,000.
-func ListRoles(ctx context.Context, cli *aws_iam_v2.Client, limit int) ([]Role, error) {
+func ListRoles(ctx context.Context, cfg aws.Config, limit int) ([]Role, error) {
 	roles := make([]Role, 0)
+	cli := aws_iam_v2.NewFromConfig(cfg)
 
 	var nextMarker *string = nil
 	for i := 0; i < 50; i++ {

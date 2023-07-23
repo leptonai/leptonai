@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ecr_v2 "github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 )
@@ -29,7 +30,9 @@ type Image struct {
 const describeInterval = 5 * time.Second
 
 // Lists ECR repositories up to 5,000.
-func ListRepositories(ctx context.Context, cli *aws_ecr_v2.Client, repoLimit int, imgLimit int) ([]Repository, error) {
+func ListRepositories(ctx context.Context, cfg aws.Config, repoLimit int, imgLimit int) ([]Repository, error) {
+	cli := aws_ecr_v2.NewFromConfig(cfg)
+
 	repositories := make([]Repository, 0)
 
 	var nextToken *string = nil
@@ -43,7 +46,7 @@ func ListRepositories(ctx context.Context, cli *aws_ecr_v2.Client, repoLimit int
 		}
 
 		for _, repo := range out.Repositories {
-			imgs, err := listImages(ctx, cli, *repo.RepositoryName, *repo.RegistryId, imgLimit)
+			imgs, err := listImages(ctx, cfg, *repo.RepositoryName, *repo.RegistryId, imgLimit)
 			if err != nil {
 				return nil, err
 			}
@@ -78,7 +81,8 @@ func ListRepositories(ctx context.Context, cli *aws_ecr_v2.Client, repoLimit int
 	return repositories, nil
 }
 
-func listImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, registryID string, imgLimit int) ([]Image, error) {
+func listImages(ctx context.Context, cfg aws.Config, repoName string, registryID string, imgLimit int) ([]Image, error) {
+	cli := aws_ecr_v2.NewFromConfig(cfg)
 	images := make([]Image, 0)
 
 	var nextToken *string = nil
@@ -97,7 +101,7 @@ func listImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, re
 			break
 		}
 
-		imgs, err := describeImages(ctx, cli, repoName, registryID, out.ImageIds)
+		imgs, err := describeImages(ctx, cfg, repoName, registryID, out.ImageIds)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +132,8 @@ func listImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, re
 	return images, nil
 }
 
-func describeImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, registryID string, imgIDs []types.ImageIdentifier) ([]Image, error) {
+func describeImages(ctx context.Context, cfg aws.Config, repoName string, registryID string, imgIDs []types.ImageIdentifier) ([]Image, error) {
+	cli := aws_ecr_v2.NewFromConfig(cfg)
 	images := make([]Image, 0)
 
 	var nextToken *string = nil

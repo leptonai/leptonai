@@ -10,7 +10,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws"
 	efs "github.com/leptonai/lepton/go-pkg/aws/efs"
 
-	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/spf13/cobra"
 )
 
@@ -61,10 +60,9 @@ func listFunc(cmd *cobra.Command, args []string) {
 			if err != nil {
 				log.Panicf("failed to create AWS session %v", err)
 			}
-			cli := aws_efs_v2.NewFromConfig(cfg)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			fss, err := efs.ListFileSystems(ctx, cli)
+			fss, err := efs.ListFileSystems(ctx, cfg)
 			cancel()
 			if err != nil {
 				log.Fatalf("failed to list EFS file systems %v", err)
