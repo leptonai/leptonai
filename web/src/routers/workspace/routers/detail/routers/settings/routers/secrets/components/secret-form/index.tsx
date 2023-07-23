@@ -45,7 +45,13 @@ export const SecretForm: FC<{
       <Form.Item
         label="Name"
         name="name"
-        rules={[{ required: true, message: "Please input name" }]}
+        rules={[
+          { required: true, message: "Please input name" },
+          {
+            pattern: /^((?!LEPTON_).)*$/,
+            message: "Secret name cannot start with reserved prefix",
+          },
+        ]}
       >
         <Input ref={nameRef} disabled={edit} placeholder="Secret name" />
       </Form.Item>

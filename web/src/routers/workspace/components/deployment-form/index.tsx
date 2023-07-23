@@ -321,6 +321,11 @@ export const DeploymentForm: FC<{
                                         required: true,
                                         message: "Please input name",
                                       },
+                                      {
+                                        pattern: /^((?!LEPTON_).)*$/,
+                                        message:
+                                          "Environment variable name cannot start with reserved prefix",
+                                      },
                                     ]}
                                   >
                                     <Input
@@ -391,6 +396,11 @@ export const DeploymentForm: FC<{
                                       {
                                         required: true,
                                         message: "Please input name",
+                                      },
+                                      {
+                                        pattern: /^((?!LEPTON_).)*$/,
+                                        message:
+                                          "Secret name cannot start with reserved prefix",
                                       },
                                     ]}
                                   >
