@@ -8,7 +8,7 @@
 ###########################
 
 resource "aws_iam_user" "prod_admins" {
-  count = var.environment == "prod" ? length(var.admin_users) : 0
+  count = var.environment == "PROD" ? length(var.admin_users) : 0
 
   name = var.admin_users[count.index]
 
@@ -18,21 +18,21 @@ resource "aws_iam_user" "prod_admins" {
 }
 
 resource "aws_iam_group" "prod_admins" {
-  count = (var.environment == "prod" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.admin_users) > 0) ? 1 : 0
 
   name = "prod-admins"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "prod", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "prod_admins" {
-  count = (var.environment == "prod" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.admin_users) > 0) ? 1 : 0
 
   group      = "prod-admins"
   policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
@@ -41,7 +41,7 @@ resource "aws_iam_group_policy_attachment" "prod_admins" {
 }
 
 resource "aws_iam_group_membership" "prod_admins" {
-  count = (var.environment == "prod" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.admin_users) > 0) ? 1 : 0
 
   name = "prod-admins"
 
@@ -58,7 +58,7 @@ resource "aws_iam_group_membership" "prod_admins" {
 #######################
 
 resource "aws_iam_user" "prod_power_user" {
-  count = var.environment == "prod" ? length(var.power_users) : 0
+  count = var.environment == "PROD" ? length(var.power_users) : 0
 
   name = var.power_users[count.index]
 
@@ -68,21 +68,21 @@ resource "aws_iam_user" "prod_power_user" {
 }
 
 resource "aws_iam_group" "prod_power_user" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   name = "prod-power-user"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "prod", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "prod_power_user_billing" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/AWSBillingReadOnlyAccess"
@@ -91,7 +91,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_billing" {
 }
 
 resource "aws_iam_group_policy_attachment" "prod_power_user_iam_full_access" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
@@ -100,7 +100,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_iam_full_access" {
 }
 
 resource "aws_iam_group_policy_attachment" "prod_power_user_iam_change_password" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
@@ -109,7 +109,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user_iam_change_password"
 }
 
 resource "aws_iam_group_policy_attachment" "prod_power_user" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "prod-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/PowerUserAccess"
@@ -118,7 +118,7 @@ resource "aws_iam_group_policy_attachment" "prod_power_user" {
 }
 
 resource "aws_iam_group_membership" "prod_power_user" {
-  count = (var.environment == "prod" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.power_users) > 0) ? 1 : 0
 
   name = "prod-power-user"
 
@@ -138,7 +138,7 @@ resource "aws_iam_group_membership" "prod_power_user" {
 ########################
 
 resource "aws_iam_user" "prod_read_only" {
-  count = var.environment == "prod" ? length(var.read_only_users) : 0
+  count = var.environment == "PROD" ? length(var.read_only_users) : 0
 
   name = var.read_only_users[count.index]
 
@@ -147,21 +147,21 @@ resource "aws_iam_user" "prod_read_only" {
 }
 
 resource "aws_iam_group" "prod_read_only" {
-  count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.read_only_users) > 0) ? 1 : 0
 
   name = "prod-read-only"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "prod", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "prod_read_only" {
-  count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/ReadOnlyAccess"
@@ -170,7 +170,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only" {
 }
 
 resource "aws_iam_group_policy_attachment" "prod_read_only_iam_full_access" {
-  count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
@@ -179,7 +179,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only_iam_full_access" {
 }
 
 resource "aws_iam_group_policy_attachment" "prod_read_only_iam_change_password" {
-  count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "prod-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
@@ -188,7 +188,7 @@ resource "aws_iam_group_policy_attachment" "prod_read_only_iam_change_password" 
 }
 
 resource "aws_iam_group_membership" "prod_read_only" {
-  count = (var.environment == "prod" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "PROD" && length(var.read_only_users) > 0) ? 1 : 0
 
   name = "prod-read-only"
 

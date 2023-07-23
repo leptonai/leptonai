@@ -7,11 +7,11 @@ variable "region" {
 variable "environment" {
   description = "Deployment environment"
   type        = string
-  default     = "dev"
+  default     = "DEV"
 
   validation {
-    condition     = contains(["prod", "dev"], var.environment)
-    error_message = "Valid 'environment' values are prod or dev"
+    condition     = contains(["DEV", "PROD"], var.environment)
+    error_message = "Valid 'environment' values are DEV or PROD"
   }
 }
 

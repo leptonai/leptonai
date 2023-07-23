@@ -8,7 +8,7 @@
 ###########################
 
 resource "aws_iam_user" "dev_admins" {
-  count = var.environment == "dev" ? length(var.admin_users) : 0
+  count = var.environment == "DEV" ? length(var.admin_users) : 0
 
   name = var.admin_users[count.index]
 
@@ -18,21 +18,21 @@ resource "aws_iam_user" "dev_admins" {
 }
 
 resource "aws_iam_group" "dev_admins" {
-  count = (var.environment == "dev" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.admin_users) > 0) ? 1 : 0
 
   name = "dev-admins"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "dev", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "dev_admins" {
-  count = (var.environment == "dev" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.admin_users) > 0) ? 1 : 0
 
   group      = "dev-admins"
   policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
@@ -41,7 +41,7 @@ resource "aws_iam_group_policy_attachment" "dev_admins" {
 }
 
 resource "aws_iam_group_membership" "dev_admins" {
-  count = (var.environment == "dev" && length(var.admin_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.admin_users) > 0) ? 1 : 0
 
   name = "dev-admins"
 
@@ -58,7 +58,7 @@ resource "aws_iam_group_membership" "dev_admins" {
 #####################################
 
 resource "aws_iam_user" "dev_power_user" {
-  count = var.environment == "dev" ? length(var.power_users) : 0
+  count = var.environment == "DEV" ? length(var.power_users) : 0
 
   name = var.power_users[count.index]
 
@@ -68,21 +68,21 @@ resource "aws_iam_user" "dev_power_user" {
 }
 
 resource "aws_iam_group" "dev_power_user" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   name = "dev-power-user"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "dev", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "dev_power_user_billing" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "dev-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/AWSBillingReadOnlyAccess"
@@ -91,7 +91,7 @@ resource "aws_iam_group_policy_attachment" "dev_power_user_billing" {
 }
 
 resource "aws_iam_group_policy_attachment" "dev_power_user_iam_full_access" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "dev-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
@@ -100,7 +100,7 @@ resource "aws_iam_group_policy_attachment" "dev_power_user_iam_full_access" {
 }
 
 resource "aws_iam_group_policy_attachment" "dev_power_user_iam_change_password" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "dev-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
@@ -109,7 +109,7 @@ resource "aws_iam_group_policy_attachment" "dev_power_user_iam_change_password" 
 }
 
 resource "aws_iam_group_policy_attachment" "dev_power_user" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   group      = "dev-power-user"
   policy_arn = "arn:${local.partition}:iam::aws:policy/PowerUserAccess"
@@ -118,7 +118,7 @@ resource "aws_iam_group_policy_attachment" "dev_power_user" {
 }
 
 resource "aws_iam_group_membership" "dev_power_user" {
-  count = (var.environment == "dev" && length(var.power_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.power_users) > 0) ? 1 : 0
 
   name = "dev-power-user"
 
@@ -138,7 +138,7 @@ resource "aws_iam_group_membership" "dev_power_user" {
 ########################
 
 resource "aws_iam_user" "dev_read_only" {
-  count = var.environment == "dev" ? length(var.read_only_users) : 0
+  count = var.environment == "DEV" ? length(var.read_only_users) : 0
 
   name = var.read_only_users[count.index]
 
@@ -148,21 +148,21 @@ resource "aws_iam_user" "dev_read_only" {
 }
 
 resource "aws_iam_group" "dev_read_only" {
-  count = (var.environment == "dev" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.read_only_users) > 0) ? 1 : 0
 
   name = "dev-read-only"
   path = "/"
 
   lifecycle {
     precondition {
-      condition     = lookup(var.account_ids, "dev", null) == "${data.aws_caller_identity.current.account_id}"
+      condition     = lookup(var.account_ids, var.environment, null) == "${data.aws_caller_identity.current.account_id}"
       error_message = "Specified environment does not match with the current STS session account ID"
     }
   }
 }
 
 resource "aws_iam_group_policy_attachment" "dev_read_only" {
-  count = (var.environment == "dev" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "dev-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/ReadOnlyAccess"
@@ -171,7 +171,7 @@ resource "aws_iam_group_policy_attachment" "dev_read_only" {
 }
 
 resource "aws_iam_group_policy_attachment" "dev_read_only_iam_full_access" {
-  count = (var.environment == "dev" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "dev-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMFullAccess"
@@ -180,7 +180,7 @@ resource "aws_iam_group_policy_attachment" "dev_read_only_iam_full_access" {
 }
 
 resource "aws_iam_group_policy_attachment" "dev_read_only_iam_change_password" {
-  count = (var.environment == "dev" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.read_only_users) > 0) ? 1 : 0
 
   group      = "dev-read-only"
   policy_arn = "arn:${local.partition}:iam::aws:policy/IAMUserChangePassword"
@@ -189,7 +189,7 @@ resource "aws_iam_group_policy_attachment" "dev_read_only_iam_change_password" {
 }
 
 resource "aws_iam_group_membership" "dev_read_only" {
-  count = (var.environment == "dev" && length(var.read_only_users) > 0) ? 1 : 0
+  count = (var.environment == "DEV" && length(var.read_only_users) > 0) ? 1 : 0
 
   name = "dev-read-only"
 

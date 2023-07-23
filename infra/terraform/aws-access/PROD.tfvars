@@ -1,20 +1,18 @@
-environment = "dev"
+environment = "PROD"
 
 admin_users = [
   "xiang",
   "cong",
   "gyuho",
+  "yue",
 ]
 
 power_users = [
-  "andi",
-  "fanmin",
-  "hsuan",
-  "jbai",
-  "jcao",
   "jia",
+]
+
+read_only_users = [
+  "jbai",
   "uz",
   "yadong",
 ]
-
-read_only_users = []
