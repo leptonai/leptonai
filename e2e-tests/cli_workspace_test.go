@@ -84,7 +84,7 @@ func TestWorkspaceLoginToExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Login again
-	fullArgs := []string{"workspace", "login", "-n", cName}
+	fullArgs := []string{"workspace", "login", "-i", cName, "--test-only-workspace-url", client.WorkspaceURL}
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatal("Login Failed", err, output)
@@ -98,32 +98,6 @@ func TestWorkspaceLoginToExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-/*
-TODO: right now, cliwrapper does not support passing in stdin to Run(). In the
-future we should complete this test by testing if one can login with a new URL.
-This is currently being covered in python test with dryrun, so we are relatively
-OK for now.
-func TestWorkspaceLoginNoURL(t *testing.T) {
-	prevWorkspace, err := getCurrentWorkspace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cName := newName(t.Name())
-	fullArgs := []string{"workspace", "login", "-n", cName, "-t", client.AuthToken}
-	output, err := client.Run(fullArgs...)
-	if err == nil {
-		t.Fatal("Expected error, got none", output)
-	}
-	if strings.Contains(output, "logged in") {
-		t.Fatalf("Expected output to not contain '%s logged in', got '%s'", cName, output)
-	}
-	err = getAndCheckCurrentWorkspace(prevWorkspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-*/
 
 func TestWorkspaceLoginNoFlags(t *testing.T) {
 	prevWorkspace, err := getCurrentWorkspace()

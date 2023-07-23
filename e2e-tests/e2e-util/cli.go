@@ -22,7 +22,7 @@ func (c *CliWrapper) Login(name string) (string, error) {
 	if name == "" {
 		name = c.WorkspaceURL
 	}
-	fullArgs := []string{"workspace", "login", "-r", c.WorkspaceURL, "-n", name, "-t", c.AuthToken}
+	fullArgs := []string{"workspace", "login", "--test-only-workspace-url", c.WorkspaceURL, "-i", name, "-t", c.AuthToken}
 	return c.Run(fullArgs...)
 }
 
