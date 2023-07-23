@@ -1,4 +1,4 @@
-package efs
+package ebs
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws"
 )
 
-func TestEFS(t *testing.T) {
+func TestEBS(t *testing.T) {
 	if os.Getenv("RUN_AWS_TESTS") != "1" {
 		t.Skip()
 	}
@@ -21,12 +21,12 @@ func TestEFS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fss, err := ListFileSystems(context.Background(), cfg)
+	ebss, err := ListEBS(context.Background(), cfg, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, fs := range fss {
-		fmt.Println(fs.String())
+	for _, ebs := range ebss {
+		fmt.Println(ebs.VolumeId)
 	}
 }

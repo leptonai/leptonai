@@ -10,6 +10,7 @@ import (
 
 	goclient "github.com/leptonai/lepton/go-client"
 	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
+	"github.com/leptonai/lepton/go-pkg/aws/ebs"
 	"github.com/leptonai/lepton/go-pkg/aws/efs"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/go-pkg/aws/iam"
@@ -18,8 +19,6 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
@@ -36,10 +35,10 @@ var (
 	token         string
 	tokenPath     string
 
-	enableEBS      bool
-	enableEFS      bool
-	enableR53      bool
-	enablePurgeKMS bool
+	enableEBS bool
+	enableEFS bool
+	enableR53 bool
+	enableKMS bool
 )
 
 func init() {
@@ -58,8 +57,8 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
 	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
-	cmd.PersistentFlags().BoolVarP(&enablePurgeKMS, "enalbe-purge-kms", "k", false, "Enable purging KMS and not others")
 
+	cmd.PersistentFlags().BoolVarP(&enableKMS, "kms-enabled", "k", false, "Enable purging KMS")
 	cmd.PersistentFlags().BoolVarP(&enableEBS, "ebs-enabled", "", false, "Enable EBS volume deletion")
 	cmd.PersistentFlags().BoolVarP(&enableEFS, "efs-enabled", "", false, "Enable EFS volume deletion")
 	cmd.PersistentFlags().BoolVarP(&enableR53, "r53-enabled", "", false, "Enable Route53 record deletion")
@@ -106,11 +105,10 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 		log.Fatalf("failed to create AWS session %v", err)
 	}
 
-	if enablePurgeKMS {
+	if enableKMS {
 		if err := purgeKMS(cfg, cls); err != nil {
 			log.Fatalf("failed to purge KMS %v", err)
 		}
-		return
 	}
 
 	if enableR53 {
@@ -258,47 +256,15 @@ func purgeIAM(cfg aws.Config) {
 	}
 }
 
-// TODO: move this to go/aws package
 func purgeEBS(cfg aws.Config) error {
-	cli := ec2.NewFromConfig(cfg)
-
-	vs := make([]ec2types.Volume, 0)
-	volumeInput := &ec2.DescribeVolumesInput{}
-	for {
-		volumeOutput, err := cli.DescribeVolumes(context.Background(), volumeInput)
-		if err != nil {
-			return err
-		}
-
-		vs = append(vs, volumeOutput.Volumes...)
-		if volumeOutput.NextToken == nil {
-			break
-		}
-		volumeInput.NextToken = volumeOutput.NextToken
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	vs, err := ebs.ListEBS(ctx, cfg, true)
+	if err != nil {
+		return err
 	}
 
-	unusedVolumes := make([]string, 0)
-	for _, volume := range vs {
-		if len(volume.Attachments) == 0 {
-			unusedVolumes = append(unusedVolumes, *volume.VolumeId)
-			fmt.Println("Found unused volume:", *volume.VolumeId)
-		}
-	}
-
-	for _, volumeID := range unusedVolumes {
-		deleteInput := &ec2.DeleteVolumeInput{
-			VolumeId: aws.String(volumeID),
-		}
-
-		_, err := cli.DeleteVolume(context.Background(), deleteInput)
-		if err != nil {
-			fmt.Println("Error deleting volume", volumeID, ":", err)
-		} else {
-			fmt.Println("Deleted volume:", volumeID)
-		}
-	}
-
-	return nil
+	return ebs.DeleteVolumes(ctx, cfg, vs)
 }
 
 // TODO: move this to go/aws package
