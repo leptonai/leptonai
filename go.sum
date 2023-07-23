@@ -624,6 +624,7 @@ github.com/aws/aws-sdk-go-v2/service/route53 v1.28.4/go.mod h1:VBLWpaHvhQNeu7N9r
 github.com/aws/aws-sdk-go-v2/service/s3 v1.30.2/go.mod h1:SXDHd6fI2RhqB7vmAzyYQCTQnpZrIprVJvYxpzW3JAM=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0 h1:L5h2fymEdVJYvn6hYO8Jx48YmC6xVmjmgHJV3oGKgmc=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0/go.mod h1:J9kLNzEiHSeGMyN7238EjJmBpCniVzFda75Gxl/NqB8=
+github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.3 h1:Zod/h9QcDvbrrG3jjTUp4lctRb6Qg2nj7ARC/xMsUc4=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.3/go.mod h1:hqPcyOuLU6yWIbLy3qMnQnmidgKuIEwqIlW6+chYnog=
 github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14 h1:YB85xnU+0wCmg4M5IwjKLUKaG6SlPhfIEPztf/+aAgY=
 github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14/go.mod h1:XC0bYWjGX7oEpv/U1ujeFMrGvTOQVBzqU+vr22p7LDQ=

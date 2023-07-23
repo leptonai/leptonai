@@ -13,6 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.13
 	github.com/aws/aws-sdk-go-v2/service/iam v1.21.1
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.28.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.3
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.14.14
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gin-contrib/zap v0.1.0
@@ -161,7 +162,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.23.1
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-contrib/requestid v0.0.6

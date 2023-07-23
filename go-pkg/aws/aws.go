@@ -8,6 +8,7 @@ import (
 
 	aws_v2 "github.com/aws/aws-sdk-go-v2/aws"
 	config_v2 "github.com/aws/aws-sdk-go-v2/config"
+	aws_sts_v2 "github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // Config defines a top-level AWS API configuration to create a session.
@@ -53,4 +54,16 @@ func New(cfg *Config) (awsCfg aws_v2.Config, err error) {
 	}
 
 	return awsCfg, nil
+}
+
+func GetCallerIdentity() (*aws_sts_v2.GetCallerIdentityOutput, error) {
+	cfg, err := New(&Config{Region: "us-east-1"})
+	if err != nil {
+		return nil, err
+	}
+	cli := aws_sts_v2.NewFromConfig(cfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return cli.GetCallerIdentity(ctx, &aws_sts_v2.GetCallerIdentityInput{})
 }
