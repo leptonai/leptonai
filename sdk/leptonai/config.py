@@ -29,6 +29,8 @@ DEFAULT_PORT = 8080
 WORKSPACE_URL_TEMPLATE = "https://{workspace_name}.cloud.lepton.ai"
 WORKSPACE_API_PATH = "/api/v1"
 
+# Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
+LEPTON_RESERVED_ENV_PREFIX = "lepton_"
 # Dashboard URL
 LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
 

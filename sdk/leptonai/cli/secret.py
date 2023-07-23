@@ -15,6 +15,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import secret as api
+from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
 
 
 @click_group()
@@ -25,7 +26,8 @@ def secret():
     Secrets are like environmental variables, but the actual value never leaves
     the cloud environment. Secrets can be used to store sensitive information
     like API keys and passwords, which one does not want to accidentally leak
-    into display output.
+    into display output. Secret names starting with `LEPTON_` or `lepton_`are
+    reserved for system use, and cannot be used by the user.
 
     The secret commands allow you to create, list, and remove secrets on the
     Lepton AI cloud.
@@ -44,6 +46,12 @@ def create(name, value):
     """
     check(len(name), "No secret name given.")
     check(len(name) == len(value), "Number of names and values must be the same.")
+    for n in name:
+        check(
+            not n.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
+            "Secret name cannot start with reserved prefix"
+            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {n}.",
+        )
     workspace_url, auth_token = get_workspace_and_token_or_die()
     existing_secrets = api.list_secret(workspace_url, auth_token)
     if existing_secrets:
