@@ -15,14 +15,13 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/go-pkg/aws/iam"
 	"github.com/leptonai/lepton/go-pkg/aws/kms"
+	"github.com/leptonai/lepton/go-pkg/aws/route53"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/route53"
-	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/spf13/cobra"
 )
 
@@ -35,10 +34,11 @@ var (
 	token         string
 	tokenPath     string
 
-	enableEBS bool
-	enableEFS bool
-	enableR53 bool
-	enableKMS bool
+	enableEBS     bool
+	enableEFS     bool
+	enableR53     bool
+	r53HostZoneID string
+	enableKMS     bool
 )
 
 func init() {
@@ -62,6 +62,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&enableEBS, "ebs-enabled", "", false, "Enable EBS volume deletion")
 	cmd.PersistentFlags().BoolVarP(&enableEFS, "efs-enabled", "", false, "Enable EFS volume deletion")
 	cmd.PersistentFlags().BoolVarP(&enableR53, "r53-enabled", "", false, "Enable Route53 record deletion")
+	cmd.PersistentFlags().StringVarP(&r53HostZoneID, "r53-host-zone-id", "", "Z007822916VK7B4DFVMP7", "Route53 host zone ID")
 
 	// TODO: support other providers
 	cmd.PersistentFlags().StringVarP(&provider, "provider", "", "aws", "Provider to check the quota")
@@ -112,8 +113,7 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 	}
 
 	if enableR53 {
-		hostZoneID := "Z007822916VK7B4DFVMP7"
-		err = purgeRoute53Records(cfg, hostZoneID, wps)
+		err = purgeRoute53Records(cfg, r53HostZoneID, wps)
 		if err != nil {
 			log.Printf("failed to purge all dangling route53 records %v", err)
 		}
@@ -267,73 +267,50 @@ func purgeEBS(cfg aws.Config) error {
 	return ebs.DeleteVolumes(ctx, cfg, vs)
 }
 
-// TODO: move this to go/aws package
 // purgeRoute53Records deletes all Route53 records that are not in the workspace list.
 // Since external dns does not support tagging, so we have to do name based matching and filtering.
 func purgeRoute53Records(cfg aws.Config, hostedZoneID string, wps map[string]bool) error {
-	client := route53.NewFromConfig(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-	var nextr *string
-	for {
-		input := &route53.ListResourceRecordSetsInput{
-			HostedZoneId:    aws.String(hostedZoneID),
-			StartRecordName: nextr,
+	rs, err := route53.ListRecords(ctx, cfg, hostedZoneID)
+	if err != nil {
+		return err
+	}
+
+	for _, recordSet := range rs {
+		if recordSet.Name == nil {
+			fmt.Println("Record name is nil, skipping...")
+			continue
 		}
-		result, err := client.ListResourceRecordSets(context.TODO(), input)
+		name := *recordSet.Name
+		if name == "cloud.lepton.ai." || name == "app.lepton.ai." {
+			fmt.Println("skipping the global root record:", name, recordSet.Type)
+			continue
+		}
+		if strings.Contains(name, "mothership") {
+			fmt.Println("skipping the mothership record:", name, recordSet.Type)
+			continue
+		}
+
+		// TODO: handle .app.lepton.ai. records
+		prefix := name[:len(name)-len(".cloud.lepton.ai.")]
+		prefix = strings.TrimPrefix(prefix, "cname-")
+		workspaceName := strings.Split(prefix, "-")[0]
+
+		_, ok := wps[workspaceName]
+		if ok {
+			fmt.Println("Workspace", workspaceName, "is still alive, skipping the route53 record:", name, recordSet.Type)
+			continue
+		}
+
+		fmt.Println("Workspace", workspaceName, "is already deleted, deleting the route53 record:", name, recordSet.Type)
+		err = route53.DeleteRecord(ctx, cfg, hostedZoneID, recordSet)
 		if err != nil {
-			return err
+			fmt.Println("Failed to delete record:", err)
+		} else {
+			fmt.Println("Record deleted successfully.")
 		}
-
-		for _, recordSet := range result.ResourceRecordSets {
-			if recordSet.Name == nil {
-				fmt.Println("Record name is nil, skipping...")
-				continue
-			}
-			name := *recordSet.Name
-			if name == "cloud.lepton.ai." {
-				fmt.Println("skipping the global root record:", name, recordSet.Type)
-				continue
-			}
-			if strings.Contains(name, "mothership") {
-				fmt.Println("skipping the mothership record:", name, recordSet.Type)
-				continue
-			}
-
-			prefix := name[:len(name)-len(".cloud.lepton.ai.")]
-			prefix = strings.TrimPrefix(prefix, "cname-")
-			workspaceName := strings.Split(prefix, "-")[0]
-
-			_, ok := wps[workspaceName]
-			if !ok {
-				fmt.Println("Workspace", workspaceName, "is already deleted, deleting the route53 record:", name, recordSet.Type)
-
-				change := types.Change{
-					Action:            types.ChangeActionDelete,
-					ResourceRecordSet: &recordSet,
-				}
-				batchChangeInput := &route53.ChangeResourceRecordSetsInput{
-					HostedZoneId: aws.String(hostedZoneID),
-					ChangeBatch: &types.ChangeBatch{
-						Changes: []types.Change{change},
-					},
-				}
-
-				// Execute the batch change to delete the records
-				_, err = client.ChangeResourceRecordSets(context.TODO(), batchChangeInput)
-				if err != nil {
-					fmt.Println("Failed to delete record:", err)
-				} else {
-					fmt.Println("Record deleted successfully.")
-				}
-			} else {
-				fmt.Println("Workspace", workspaceName, "is still alive, skipping the route53 record:", name, recordSet.Type)
-			}
-		}
-
-		if result.NextRecordName == nil {
-			break
-		}
-		nextr = result.NextRecordName
 	}
 
 	return nil
