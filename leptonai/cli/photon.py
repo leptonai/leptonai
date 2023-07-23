@@ -30,6 +30,7 @@ from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.api.deployment import list_deployment
 from leptonai.api.storage import check_path_exists
+from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
 
 console = Console(highlight=False)
 
@@ -318,12 +319,22 @@ def _parse_env_and_secret_or_die(env, secret):
         except ValueError:
             console.print(f"Invalid environment definition: [red]{s}[/]")
             sys.exit(1)
+        check(
+            not k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
+            "Environment variable name cannot start with reserved prefix"
+            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}.",
+        )
         env_parsed[k] = v
     for s in secret:
         # We provide the user a shorcut: instead of having to specify
         # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
         # if the local env name and the secret name are the same.
         k, v = s.split("=", 1) if "=" in s else s, s
+        check(
+            not k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
+            "Secret name cannot start with reserved prefix"
+            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}.",
+        )
         # TODO: sanity check if these secrets exist.
         secret_parsed[k] = v
     return env_parsed, secret_parsed
