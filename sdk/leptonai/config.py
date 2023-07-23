@@ -25,8 +25,11 @@ BASE_IMAGE_ARGS = ["--shm-size=1g"]
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
-# Default url template for a workspace.
-WORKSPACE_URL_TEMPLATE = "https://{workspace_name}.cloud.lepton.ai"
+# Current API path to resolve a workspace url. When we calls the URL with a json
+# body {"id": <workspace_id>}, it returns the workspace url.
+WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
+
+# Current workspace api path
 WORKSPACE_API_PATH = "/api/v1"
 
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.

@@ -46,7 +46,7 @@ def create(name: str, model: Any) -> BasePhoton:
     raise ValueError(f"Failed to find Photon creator for name={name} and model={model}")
 
 
-def save(photon: BasePhoton, path: str = None) -> str:
+def save(photon: BasePhoton, path: Optional[str] = None) -> str:
     """
     Save a photon to a file. By default, the file is saved in the
     cache directory (``{CACHE_DIR} / {name}.photon``)
@@ -131,8 +131,10 @@ def fetch(url: str, auth_token: str, id: str, path: str):
     :param str path: path to save the photon to
     """
     if path is None:
-        path = CACHE_DIR / f"tmp.{id}.photon"
+        path = str(CACHE_DIR / f"tmp.{id}.photon")
         need_rename = True
+    else:
+        need_rename = False
 
     response = requests.get(
         url + "/photons/" + id + "?content=true",
@@ -151,6 +153,8 @@ def fetch(url: str, auth_token: str, id: str, path: str):
     if need_rename:
         new_path = CACHE_DIR / f"{photon.name}.{id}.photon"
         os.rename(path, new_path)
+    else:
+        new_path = path
 
     # TODO: use remote creation time
     add_photon(id, photon.name, photon.model, str(new_path))

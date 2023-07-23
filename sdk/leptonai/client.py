@@ -6,10 +6,7 @@ from backports.cached_property import cached_property
 from fastapi.encoders import jsonable_encoder
 import requests
 
-from leptonai.util import (
-    get_full_workspace_url,
-    get_full_workspace_api_url,
-)
+from leptonai.api.workspace import get_full_workspace_api_url
 from .api import deployment, APIError
 
 
@@ -49,25 +46,29 @@ class Workspace:
     Currently, we do not support local workspaces - all workspaces are remote.
     """
 
-    def __init__(self, workspace_name: str, token: Optional[str] = None):
+    def __init__(self, workspace_id: str, token: Optional[str] = None):
         """
         Creates a Lepton workspace.
 
         Args:
-            workspace_name (str): The workspace name.
+            workspace_id (str): The workspace id.
             token (str, optional): The token to use for authentication. Defaults to None.
         """
-        self.workspace_name = workspace_name
+        self.workspace_id = workspace_id
+        self.workspace_url = get_full_workspace_api_url(workspace_id)
+        if self.workspace_url is None:
+            raise ValueError(
+                f"Workspace {workspace_id} does not seem to exist. Did you specify the"
+                " right id?"
+            )
         self.token = token if token else ""
 
     @cached_property
     def _workspace_deployments(self):
-        deployments = deployment.list_deployment(
-            get_full_workspace_api_url(self.workspace_name), self.token
-        )
+        deployments = deployment.list_deployment(self.workspace_url, self.token)
         if isinstance(deployments, APIError):
             raise ValueError(
-                f"Failed to list deployments for workspace {self.workspace_name}"
+                f"Failed to list deployments for workspace {self.workspace_id}"
             )
         else:
             return deployments
@@ -99,10 +100,10 @@ class Workspace:
         if deployment_name not in self._workspace_deployments_names:
             raise ValueError(
                 f"Deployment {deployment_name} not found in workspace"
-                f" {self.workspace_name}."
+                f" {self.workspace_id}."
             )
         return Client(
-            self.workspace_name, deployment_name, token if token else self.token
+            self.workspace_id, deployment_name, token if token else self.token
         )
 
 
@@ -116,13 +117,15 @@ class Client:
     python equivalent will then be `client.foo` and `client.bar`, as one would
     expect a python class may have.
 
-    The client can be initialized with a workspace name and the deployment name,
+    The client can be initialized with a workspace id and the deployment name,
     or a full URL to the deployment's endpoint. For example, if the workspace is
     `my-workspace` and the deployment is `my-deployment`, the client can be created
     via
         client = Client("my-workspace", "my-deployment", token=MY_TOKEN)
-    or via the full URL (given you are using the public cloud deployment):
-        client = Client("https://my-workspace-my-deployment.cloud.lepton.ai", token=MY_TOKEN)
+    or if you are running locally,
+        client = Client(local())
+    or via a full URL if you are managing Lepton photons yourself:
+        client = Client("https://my-custom-lepton-deployment.com/")
     """
 
     # TODO: add support for creating client with name/id
@@ -136,7 +139,7 @@ class Client:
         Initializes a Lepton client that calls a deployment in a workspace.
 
         Args:
-            workspace_or_url (str): The workspace name, or a full URL to the deployment's
+            workspace_or_url (str): The workspace id, or a full URL to the deployment's
                 endpoint.
             deployment (str, optional): The deployment name. If a full URL is passed
                 in, deployment can be None.
@@ -145,7 +148,7 @@ class Client:
         Implementation Note: when one uses a full URL, the client accesses the deployment
         specific endpoint directly. This endpoint may have a certain delay, and may not be
         immediately available after the deployment is created. when one uses a workspace
-        name and the deployment name, the client accesses the workspace endpoint and uses
+        id and the deployment name, the client accesses the workspace endpoint and uses
         the deployment name as a header. This is the recommended way to use the client.
         We may remove the ability to use a full URL in the future.
         """
@@ -158,7 +161,7 @@ class Client:
                 )
             self.url = workspace_or_url
         else:
-            self.url = get_full_workspace_url(workspace_or_url)
+            self.url = get_full_workspace_api_url(workspace_or_url)
         self._session = requests.Session()
         if deployment is None:
             if not _is_local_url(workspace_or_url):

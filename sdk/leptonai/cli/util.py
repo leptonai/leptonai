@@ -56,7 +56,7 @@ def get_workspace_and_token_or_die():
 
     :return: A tuple of the workspace URL and auth token.
     """
-    workspace_url = workspace.get_workspace_url()
+    workspace_url = workspace.get_current_workspace_url()
     if workspace_url is None:
         console.print(
             "It seems that you are not logged in. Please run `lep workspace login`"
