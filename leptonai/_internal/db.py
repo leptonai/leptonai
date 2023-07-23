@@ -6,7 +6,7 @@ may cause the Lepton SDK metadata to be corrupted.
 """
 import sqlite3
 
-from .config import DB_PATH
+from ..config import DB_PATH
 
 DB = sqlite3.connect(DB_PATH)
 DB.cursor().execute(

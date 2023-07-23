@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 import zipfile
 
 from leptonai.config import CACHE_DIR
-from leptonai.db import DB
+from leptonai._internal.db import DB
 from leptonai.registry import Registry
 
 schema_registry = Registry()
