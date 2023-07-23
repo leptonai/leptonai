@@ -8,6 +8,15 @@ import (
 )
 
 func TestSecret(t *testing.T) {
+	// Test list
+	secrets, err := lepton.Secret().List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Recording the initial number of secrets. The reason is that we reuse the same workspace
+	// for all the tests, so we need to make sure that we take into account any secrets that
+	// might have been created by other tests.
+	initial_len := len(secrets)
 	// Test create
 	s := []secret.SecretItem{
 		{
@@ -23,12 +32,12 @@ func TestSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Test list
-	secrets, err := lepton.Secret().List()
+	secrets, err = lepton.Secret().List()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(secrets) != 2 {
-		t.Fatalf("Expected 2 secrets, got %d", len(secrets))
+	if len(secrets)-initial_len != 2 {
+		t.Fatalf("Expected 2 secrets added, got %d", len(secrets)-initial_len)
 	}
 	sort.Strings(secrets)
 	if secrets[0] != "key1" {
@@ -51,8 +60,8 @@ func TestSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(secrets) != 2 {
-		t.Fatalf("Expected 2 secrets, got %d", len(secrets))
+	if len(secrets)-initial_len != 2 {
+		t.Fatalf("Expected 2 secrets added, got %d", len(secrets)-initial_len)
 	}
 	// Test add
 	s = []secret.SecretItem{
@@ -68,8 +77,8 @@ func TestSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(secrets) != 3 {
-		t.Fatalf("Expected 3 secrets, got %d", len(secrets))
+	if len(secrets)-initial_len != 3 {
+		t.Fatalf("Expected 3 secrets added, got %d", len(secrets)-initial_len)
 	}
 	// Test delete
 	for _, key := range secrets {

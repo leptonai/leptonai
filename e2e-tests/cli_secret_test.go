@@ -12,6 +12,7 @@ func TestCLISecretCreateListRemove(t *testing.T) {
 	}
 	dummyName := newName("DUMMY_SECRET")
 	dummyValue := newName("DUMMY_SECRET_VALUE")
+	illegalName := newName("LEPTON_SECRET_1")
 
 	fullCreateArgs := []string{"secret", "create", "-n", dummyName, "-v", dummyValue}
 	output, err = client.Run(fullCreateArgs...)
@@ -20,6 +21,12 @@ func TestCLISecretCreateListRemove(t *testing.T) {
 	}
 	if !strings.Contains(output, dummyName) {
 		t.Fatalf("Expected output to contain %s, got %s", dummyName, output)
+	}
+
+	fullCreateIllegalNameArgs := []string{"secret", "create", "-n", illegalName, "-v", dummyValue}
+	output, err = client.Run(fullCreateIllegalNameArgs...)
+	if err == nil {
+		t.Fatalf("Expected error since secret %s is an illegal name, got %s", illegalName, output)
 	}
 
 	fullListArgs := []string{"secret", "list"}

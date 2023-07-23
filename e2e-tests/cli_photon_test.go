@@ -158,6 +158,37 @@ func TestCLIPhotonRunLoggedIn(t *testing.T) {
 	}
 }
 
+func TestCLIPhotonRunIllegalEnv(t *testing.T) {
+	output, err := client.Login("")
+	if err != nil {
+		t.Fatal("Login failed", err, output)
+	}
+	pName := newName(cliTestPhotonName)
+	output, err = createAndCheckPhoton(pName, modelName)
+	if err != nil {
+		t.Fatalf("Failed to check photon %s with err '%s' and output '%s'", pName, err, output)
+	}
+	fullArgs := []string{"photon", "push", "-n", pName}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatal("photon push failed:", err, output)
+	}
+	time.Sleep(time.Second)
+	phs, err := lepton.Photon().GetByName(pName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(phs) != 1 {
+		log.Fatal("Expected 1 photon, got ", len(phs))
+	}
+
+	fullArgs = []string{"photon", "run", "-n", pName, "--env", "LEPTON_ENV=value", "--resource-shape", "gp1.hidden_test"}
+	output, err = client.Run(fullArgs...)
+	if err == nil {
+		t.Fatalf("Expected error since env variable LEPTON_ENV is an illegal name, got %s", output)
+	}
+}
+
 func TestCLIPhotonList(t *testing.T) {
 	output, err := client.Login("")
 	if err != nil {
