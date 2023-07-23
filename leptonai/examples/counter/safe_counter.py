@@ -14,7 +14,7 @@ To launch a safe counter, you need to have a Lepton storage attached. Run:
 To test the photon, you can either use the API explorer in the UI, or use
 the photon client class in python, e.g.
     from leptonai.client import Client
-    # If you are runnnig the photon remotely with workspace name "myworkspace"
+    # If you are runnnig the photon remotely with workspace id "myworkspace"
     # and deployment name "safe-counter"
     client = Client("myworkspace", "safe-counter")
     # Or if you are running the photon locally at port 8080

@@ -3,9 +3,8 @@ Login is the main module that allows a serverless login.
 """
 import webbrowser
 
-from .util import console, guard_api
+from .util import check, console, guard_api
 from leptonai.api import workspace
-from leptonai.util import get_full_workspace_api_url
 
 LOGIN_LOGO = """\
 ========================================================
@@ -28,8 +27,8 @@ def cloud_login(credentials=None):
         # Already logged in. Notify the user the login status.
         console.print(f"Logged in to your workspace [green]{current_workspace}[/].")
         console.print(
-            "If you have multiple workspaces, use `lep workspace login -n \[name]` to"
-            " pick the one you want to log in to."
+            "If you have multiple workspaces, use `lep workspace login -i workspace_id`"
+            " to pick the one you want to log in to."
         )
     else:
         # Need to login.
@@ -51,26 +50,27 @@ def cloud_login(credentials=None):
                 console.print(
                     "It seems that you are running in a non-GUI environment. You can"
                     " manually obtain credentials from"
-                    " https://dashboard.lepton.ai/credentials and copy it over, or use"
-                    " `lep login -c \[credentials]` to log in."
+                    " [green]https://dashboard.lepton.ai/credentials[/] and copy it"
+                    " over, or use `lep login -c \[credentials]` to log in."
                 )
             while not credentials:
                 credentials = input("Credential: ")
 
-        workspace_name, auth_token = credentials.split(":", 1)
-        url = get_full_workspace_api_url(workspace_name)
-        workspace.save_workspace(workspace_name, url, auth_token=auth_token)
-        workspace.set_current_workspace(workspace_name)
+        workspace_id, auth_token = credentials.split(":", 1)
+        url = workspace.get_full_workspace_api_url(workspace_id)
+        check(url, "Workspace [red]{workspace_id}[/] does not exist.")
+        workspace.save_workspace(workspace_id, url, auth_token=auth_token)
+        workspace.set_current_workspace(workspace_id)
         guard_api(
             workspace.get_workspace_info(url, auth_token),
             detail=True,
             msg=(
-                f"Cannot properly log into workspace [red]{workspace_name}. This should"
+                f"Cannot properly log into workspace [red]{workspace_id}. This should"
                 " usually not happen - it might be a transient network issue. Please"
                 " contact us by sharing the error message above."
             ),
         )
-        console.print(f"Logged in to your workspace [green]{workspace_name}[/].")
+        console.print(f"Logged in to your workspace [green]{workspace_id}[/].")
 
 
 def cloud_logout(purge=False):
@@ -78,9 +78,11 @@ def cloud_logout(purge=False):
     Logs out of the serverless cloud.
     """
     if purge:
-        name = workspace.get_workspace()
-        workspace.remove_workspace(name)
-        if name:
-            console.print(f"OK, purging credentials for workspace [green]{name}[/].")
+        workspace_id = workspace.get_workspace()
+        workspace.remove_workspace(workspace_id)
+        if workspace_id:
+            console.print(
+                f"OK, purging credentials for workspace [green]{workspace_id}[/]."
+            )
     workspace.set_current_workspace(None)
     console.print("Logged out of Lepton AI.")

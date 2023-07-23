@@ -40,7 +40,9 @@ def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
     oldest. If no photon of such name exists, returns None.
     """
     photons = api.list_remote(workspace_url, auth_token)
-    guard_api(photons, f"Failed to list photons in workspace [red]{workspace_url}[/].")
+    guard_api(
+        photons, msg=f"Failed to list photons in workspace [red]{workspace_url}[/]."
+    )
     target_photons = [p for p in photons if p["name"] == name]
     if len(target_photons) == 0:
         return None
@@ -151,7 +153,7 @@ def remove(name, local, id_, all_):
     command will remove the photon from the workspace. Otherwise, or of `--local`
     is explicitly specified, it will remove the photon from the local environment.
     """
-    workspace_url = workspace.get_workspace_url()
+    workspace_url = workspace.get_current_workspace_url()
 
     check(
         not (name and id_), "Cannot specify both --name and --id. Use one or the other."
@@ -204,7 +206,7 @@ def list(local, pattern):
     `--local` is explicitly specified, it will list all photons in the local
     environment.
     """
-    workspace_url = workspace.get_workspace_url()
+    workspace_url = workspace.get_current_workspace_url()
 
     if workspace_url is not None and not local:
         auth_token = workspace.get_auth_token(workspace_url)
@@ -481,7 +483,7 @@ def run(
     Refer to the documentation for a more detailed description on the choices
     among `--name`, `--model`, `--path` and `--id`.
     """
-    workspace_url = workspace.get_workspace_url()
+    workspace_url = workspace.get_current_workspace_url()
 
     check(not (name and id), "Must specify either --id or --name, not both.")
 

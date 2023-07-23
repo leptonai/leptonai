@@ -31,9 +31,10 @@ from leptonai.config import (
     BASE_IMAGE,
     BASE_IMAGE_ARGS,
     DEFAULT_PORT,
+    LEPTON_DASHBOARD_URL,
     PYDANTIC_MAJOR_VERSION,
 )
-from leptonai.photon.constants import METADATA_VCS_URL_KEY, LEPTON_DASHBOARD_URL
+from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry

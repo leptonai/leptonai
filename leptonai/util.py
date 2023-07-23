@@ -6,23 +6,7 @@ import re
 
 from rich.console import Console
 
-from leptonai.config import WORKSPACE_URL_TEMPLATE, WORKSPACE_API_PATH
-
 console = Console(highlight=False)
-
-
-def get_full_workspace_url(workspace_name):
-    """
-    Get the full URL for a workspace.
-    """
-    return WORKSPACE_URL_TEMPLATE.format(workspace_name=workspace_name)
-
-
-def get_full_workspace_api_url(workspace_name):
-    """
-    Get the full URL for the API of a workspace.
-    """
-    return get_full_workspace_url(workspace_name) + WORKSPACE_API_PATH
 
 
 @contextmanager
