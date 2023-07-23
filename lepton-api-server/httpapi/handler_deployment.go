@@ -259,6 +259,12 @@ func (h *DeploymentHandler) validateCreateInput(c *gin.Context, ld *leptonaiv1al
 		return fmt.Errorf("min replicas must be positive")
 	}
 
+	for _, env := range ld.Envs {
+		if strings.HasPrefix(env.Name, "LEPTON_") {
+			return fmt.Errorf("environment variables are not allowed to start with LEPTON_: %s", env.Name)
+		}
+	}
+
 	if h.phDB == nil { // for testing
 		return nil
 	}

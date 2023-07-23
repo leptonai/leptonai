@@ -171,3 +171,32 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 		return nil
 	})
 }
+
+func TestDeployWithInvalidEnvVar(t *testing.T) {
+	dName := newName(t.Name())
+	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dName,
+		PhotonID: mainTestPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
+		},
+		APITokens: []leptonaiv1alpha1.TokenVar{
+			{
+				ValueFrom: leptonaiv1alpha1.TokenValue{
+					TokenNameRef: leptonaiv1alpha1.TokenNameRefWorkspaceToken,
+				},
+			},
+		},
+		Envs: []leptonaiv1alpha1.EnvVar{
+			{
+				Name:  "LEPTON_TEST",
+				Value: "test",
+			},
+		},
+	}
+	_, err := lepton.Deployment().Create(d)
+	if err == nil {
+		t.Fatalf("Expected error when deploying with invalid env var, got nil")
+	}
+}
