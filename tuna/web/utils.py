@@ -3,7 +3,6 @@ import os
 import tempfile
 
 from cryptography.fernet import Fernet
-from django.core import serializers
 from django.http import HttpResponse
 from dotenv import load_dotenv
 from google.cloud import storage

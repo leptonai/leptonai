@@ -25,7 +25,8 @@ class CookTask(Task):
                 dish = Dish.objects.get(task_id=task_id)
             except Dish.DoesNotExist:
                 logger.warning(
-                    f"Can not find dish with task_id {task_id}, will retry in {sleep_time}s"
+                    f"Can not find dish with task_id {task_id}, will retry in"
+                    f" {sleep_time}s"
                 )
                 time.sleep(sleep_time)
             else:
@@ -53,7 +54,8 @@ class CookTask(Task):
 @shared_task(base=CookTask)
 def cook(data_path, model_name_or_path, output_dir):
     logger.info(
-        f"Start cooking Tuna Dish with data_path: {data_path}, model_name_or_path: {model_name_or_path}, output_dir: {output_dir}"
+        f"Start cooking Tuna Dish with data_path: {data_path}, model_name_or_path:"
+        f" {model_name_or_path}, output_dir: {output_dir}"
     )
 
     if not shutil.which("docker"):
@@ -65,7 +67,8 @@ def cook(data_path, model_name_or_path, output_dir):
     )
     if not os.path.exists(model_path_on_host):
         raise RuntimeError(
-            f"Requested model {model_name_or_path} does not exist (at path {model_path_on_host})"
+            f"Requested model {model_name_or_path} does not exist (at path"
+            f" {model_path_on_host})"
         )
     model_path_in_container = "/model"
     gcp_key_on_host = os.path.join(settings.BASE_DIR, ".google_application_credentials")

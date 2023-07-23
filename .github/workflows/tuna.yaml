@@ -1,12 +1,12 @@
-name: tum
+name: tuna
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     paths:
-      - .github/workflows/tum.yaml
-      - tum/**
+      - .github/workflows/tuna.yaml
+      - tuna/**
     branches: [ "**" ]
 
 permissions:
@@ -28,15 +28,8 @@ jobs:
         pip install -U pip setuptools
     - name: Python-Lint
       run: |
-        cd tum
+        cd tuna
         pip install black ruff
         ruff .
-        black --preview --check .
+        black --check .
         cd -
-    - name: Cpp-Lint
-      run: |
-        set -x
-        cd tum
-        sudo apt-get update
-        sudo apt-get install -y clang-format
-        find -type f \( -name '*.h' -o -name '*.cc' \) -exec clang-format --dry-run --Werror {} +;

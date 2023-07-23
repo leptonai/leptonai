@@ -44,5 +44,7 @@ class Server(Photon):
 
     @Photon.handler(path="chat", mount=True)
     def gradio_web_server_subapp(self):
-        demo = fastchat.serve.gradio_web_server.build_demo(self._models, fastchat.serve.gradio_web_server.args)
+        demo = fastchat.serve.gradio_web_server.build_demo(
+            self._models, fastchat.serve.gradio_web_server.args
+        )
         return demo.queue(concurrency_count=10, status_update_rate=10, api_open=False)
