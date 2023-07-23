@@ -8,9 +8,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_efs_v2 "github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/dustin/go-humanize"
 	"github.com/olekukonko/tablewriter"

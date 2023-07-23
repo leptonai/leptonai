@@ -14,13 +14,13 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws/efs"
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/go-pkg/aws/iam"
+	"github.com/leptonai/lepton/go-pkg/aws/kms"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
 	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/spf13/cobra"
@@ -107,7 +107,7 @@ func purgeAWS(cls map[string]bool, wps map[string]bool) {
 
 	if enableKMS {
 		if err := purgeKMS(cfg, cls); err != nil {
-			log.Fatalf("failed to purge KMS %v", err)
+			log.Fatalf("failed to purge all dangling KMS keys %v", err)
 		}
 	}
 
@@ -340,45 +340,34 @@ func purgeRoute53Records(cfg aws.Config, hostedZoneID string, wps map[string]boo
 }
 
 func purgeKMS(cfg aws.Config, cls map[string]bool) error {
-	var purgePendingWindowInDays int32 = 7
-	client := kms.NewFromConfig(cfg)
-	marker := ""
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		input := &kms.ListAliasesInput{}
-		if marker != "" {
-			input.Marker = &marker
-		}
-		aliases, err := client.ListAliases(ctx, input)
-		if err != nil {
-			return err
-		}
-		for _, alias := range aliases.Aliases {
-			names := strings.Split(*alias.AliasName, "/")
-			if len(names) >= 3 {
-				if names[1] != "eks" { // skip non eks kms keys
-					continue
-				}
-				name := names[len(names)-1]
-				if cls[name] {
-					log.Printf("cluster %s is still alive, skipping the kms key: %s", name, *alias.AliasName)
-					continue
-				}
-			}
-			log.Printf("deleting kms key %s\n", *alias.AliasName)
-			_, err := client.ScheduleKeyDeletion(ctx, &kms.ScheduleKeyDeletionInput{
-				KeyId:               alias.TargetKeyId,
-				PendingWindowInDays: &purgePendingWindowInDays,
-			})
-			if err != nil {
-				log.Printf("failed to delete kms key %s: %v", *alias.AliasName, err)
-			}
-		}
-		if !aliases.Truncated {
-			break
-		}
-		marker = *aliases.NextMarker
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	as, err := kms.ListAliases(ctx, cfg)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	for _, alias := range as {
+		names := strings.Split(*alias.AliasName, "/")
+		if len(names) >= 3 {
+			if names[1] != "eks" { // skip non eks kms keys
+				continue
+			}
+			name := names[len(names)-1]
+			if cls[name] {
+				fmt.Printf("cluster %s is still alive, skipping the kms key: %s", name, *alias.AliasName)
+				continue
+			}
+		}
+
+		fmt.Printf("deleting kms key %s\n", *alias.AliasName)
+
+		err = kms.ScheduleDeleteKeyByID(ctx, cfg, alias.TargetKeyId)
+		if err != nil {
+			log.Printf("failed to delete kms key %s: %v", *alias.AliasName, err)
+		}
+	}
+
+	return err
 }
