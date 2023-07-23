@@ -93,3 +93,18 @@ mothership clusters logs \
 --mothership-url https://mothership.app.lepton.ai/api/v1 \
 --token ${API_TOKEN}
 ```
+
+### Step 6. Install CRDs
+
+TODO: make this run in the install script or in terraform.
+
+Apply the CRDs in the [`crd/bases`](../../../lepton-mothership/crd/config/crd/bases) directory:
+
+```bash
+aws eks update-kubeconfig \
+--region us-west-2 \
+--name mothership-prod-aws-us-west-2
+
+kubectl apply -f ./lepton-mothership/crd/config/crd/bases/mothership.lepton.ai_leptonclusters.yaml
+kubectl apply -f ./lepton-mothership/crd/config/crd/bases/mothership.lepton.ai_leptonworkspaces.yaml
+```
