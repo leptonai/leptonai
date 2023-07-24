@@ -1,3 +1,42 @@
+# How to set up EKS lepton locally
+This is for use cases like local testing, launching example photons.
+
+### Prerequisites (might be incomplete):
+1. install [terraform cli](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
+2. generate personal TF cloud token
+3. `git pull`
+
+### Create new cluster
+
+```bash
+rm -rf ${HOME}/.kube
+cd $HOME/lepton/infra/terraform
+./cleanup.sh
+
+# UBUNTU_X86_64_AC_P4D24XLARGE_MIN_SIZE=0 \
+# UBUNTU_X86_64_AC_P4D24XLARGE_MAX_SIZE=1 \
+cd $HOME/lepton/infra/terraform/eks-lepton
+CLUSTER_NAME=<cluster name> \
+DEPLOYMENT_ENVIRONMENT=DEV \
+DISK_SIZE_IN_GB_FOR_NODE_GROUPS=150 \
+API_TOKEN=123 \
+TF_API_TOKEN=<tf cloud api token> \
+./install.sh
+```
+
+### Uninstall cluster:
+
+```bash
+rm -rf ${HOME}/.kube
+cd $HOME/lepton/infra/terraform/eks-lepton
+DEPLOYMENT_ENVIRONMENT=DEV \
+API_TOKEN=123 \
+# the tf_workspace by default should be the same as cluster_name
+TF_WORKSPACE=<tf work space>\
+TF_API_TOKEN=<tf cloud api token> \
+CLUSTER_NAME=<cluster name> \
+./uninstall.sh
+```
 
 # Node group AMIs
 
