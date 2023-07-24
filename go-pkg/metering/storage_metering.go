@@ -65,7 +65,7 @@ func BatchInsertIntoFineGrainStorage(tx *sql.Tx, data []FineGrainStorageData, ba
 		toInsert = append(toInsert, rowStr)
 		vals = append(vals, batchID, d.Workspace, d.storageID, d.SizeInBytes, d.Size, d.Time)
 		batchSize++
-		if batchSize >= 999 {
+		if batchSize >= insertBatchSize {
 			res, err := sqlInsert(tx, cmd, toInsert, "", vals)
 			if err != nil {
 				return 0, err

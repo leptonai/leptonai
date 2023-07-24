@@ -21,8 +21,8 @@ var (
 	endTimeFlag      string
 	tableFlag        string
 	supabasePassword string
-	skipComputeFlag  bool
-	skipStorageFlag  bool
+	enableCompute    bool
+	enableStorage    bool
 )
 
 func NewCommand() *cobra.Command {
@@ -36,8 +36,8 @@ func NewCommand() *cobra.Command {
 --table value must be provided, and one of 'hourly', 'daily', or 'weekly'.
 
 
---skip-compute is optional, defaults to false. If true, will skip aggregation of compute (CPU, GPU, RAM) data.
---skip-storage is optional, defaults to false. If true, will skip aggregation of storage (EFS) data.
+--enable-compute is optional, defaults to false. If true, will enable aggregation of compute (CPU, GPU, RAM) data.
+--enable-storage is optional, defaults to false. If true, will enable aggregation of storage (EFS) data.
 
 Both start and end times will be truncated down to the nearest whole unit of aggregation.
 E.G:
@@ -76,14 +76,14 @@ mothership metering aggregate --start-time 1689033600 --end-time 1689206400 --ta
 	cmd.PersistentFlags().StringVarP(&endTimeFlag, "end-time", "e", "", "end time to aggregate to")
 	cmd.PersistentFlags().StringVarP(&tableFlag, "table", "t", "hourly", "table to aggregate to, accepts 'hourly', 'daily', 'weekly'")
 	cmd.PersistentFlags().StringVarP(&supabasePassword, "supabase-password", "p", "", "supabase password, can also be passed in using env var SUPABASE_PASSWORD")
-	cmd.PersistentFlags().BoolVar(&skipComputeFlag, "skip-compute", false, "skip aggregation of compute (CPU, GPU, RAM) data")
-	cmd.PersistentFlags().BoolVar(&skipStorageFlag, "skip-storage", false, "skip aggregation of storage (EFS) data")
+	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "enable aggregation of compute (CPU, GPU, RAM) data")
+	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "enable aggregation of storage (EFS) data")
 	return cmd
 }
 
 func aggregateFunc(cmd *cobra.Command, args []string) {
-	if skipComputeFlag && skipStorageFlag {
-		log.Fatal("both --skip-compute and --skip-storage are set. Doing nothing.")
+	if !(enableCompute || enableStorage) {
+		log.Fatal("Neither storage nor compute aggregation enabled. Doing nothing.")
 	}
 	// create aurora connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
@@ -150,7 +150,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	// truncate start and end times to the nearest whole unit of aggregation
 	startTime, endTime = startTime.Truncate(queryInterval), endTime.Truncate(queryInterval)
 	// compare start and end times to the most recent fine grain entry
-	if !skipComputeFlag {
+	if enableCompute {
 		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
 		if err != nil {
 			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
@@ -163,7 +163,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 				endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
 		}
 	}
-	if !skipStorageFlag {
+	if enableStorage {
 		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
 		if err != nil {
 			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
@@ -182,7 +182,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	maxRetries := 5
 	for i := 0; i < len(startTimes); i++ {
 		batchID := uuid.New().String()
-		if !skipComputeFlag {
+		if enableCompute {
 			computeAggregate, err := metering.GetComputeAggregate(aurora, startTimes[i], endTimes[i])
 			if err != nil {
 				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
@@ -208,7 +208,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 				}
 			}
 		}
-		if !skipStorageFlag {
+		if enableStorage {
 			storageAggregate, err := metering.GetStorageAggregate(aurora, startTimes[i], endTimes[i])
 			if err != nil {
 				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",

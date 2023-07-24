@@ -63,7 +63,7 @@ const (
 	insertStorageOnConflict = ` ON CONFLICT (end_time, workspace_id, storage_id) DO UPDATE SET size_bytes = excluded.size_bytes`
 )
 
-// GetUsageAggregate aggregates fine grain usage data for the specified hourly time window
+// GetComputeAggregate aggregates fine grain usage data for the specified hourly time window
 func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggregateRow, error) {
 	// check start and end times valid
 	if start.IsZero() || end.IsZero() || start.Equal(end) || start.After(end) {
@@ -73,7 +73,7 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 	diff := end.Sub(start)
 	switch diff {
 	case time.Hour:
-		return queryHourComputeAgg(db, start, end)
+		return aggComputeHourly(db, start, end)
 	case time.Hour * 24, time.Hour * 168:
 		return queryDailyOrWeeklyComputeAgg(db, start, end)
 	default:
@@ -81,7 +81,7 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 	}
 }
 
-func queryHourComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT 
 			namespace,
 			shape,
@@ -143,7 +143,7 @@ func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAg
 	return res, nil
 }
 
-func InsertRowsIntoComputeAggregate(tx *sql.Tx, tableName MeteringTable, aggregateData []ComputeAggregateRow, batch_id string) (int64, error) {
+func InsertRowsIntoComputeAggregate(tx *sql.Tx, tableName MeteringTable, aggregateData []ComputeAggregateRow, batchID string) (int64, error) {
 	var cmd string
 	var onConflict string
 	var rowStr string
@@ -162,22 +162,39 @@ func InsertRowsIntoComputeAggregate(tx *sql.Tx, tableName MeteringTable, aggrega
 	}
 	var toInsert []string
 	var vals []interface{}
-	for _, r := range aggregateData {
+	affected := int64(0)
+	for _, d := range aggregateData {
 		toInsert = append(toInsert, rowStr)
 		switch tableName {
 		case MeteringTableComputeHourly:
-			vals = append(vals, batch_id, r.EndTime, r.Workspace, r.DeploymentName, r.Shape, r.Usage)
+			vals = append(vals, batchID, d.EndTime, d.Workspace, d.DeploymentName, d.Shape, d.Usage)
 		case MeteringTableComputeDaily, MeteringTableComputeWeekly:
-			vals = append(vals, batch_id, r.EndTime, r.Workspace, r.Shape, r.Usage)
+			vals = append(vals, batchID, d.EndTime, d.Workspace, d.Shape, d.Usage)
+		}
+		if len(toInsert) >= insertBatchSize {
+			res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
+			if err != nil {
+				return 0, err
+			}
+			batchAffected, err := res.RowsAffected()
+			if err != nil {
+				return 0, err
+			}
+			affected += batchAffected
+			toInsert = []string{}
+			vals = []interface{}{}
 		}
 	}
-	res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
+	if len(toInsert) > 0 {
+		res, err := sqlInsert(tx, cmd, toInsert, "", vals)
+		if err != nil {
+			return 0, err
+		}
+		batchAffected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		affected += batchAffected
 	}
 	return affected, nil
 }
@@ -223,7 +240,7 @@ func queryStorageAgg(db *sql.DB, start, end time.Time) ([]StorageAggregateRow, e
 	return res, nil
 }
 
-func InsertRowsIntoStorageAggregate(tx *sql.Tx, tableName MeteringTable, aggregateData []StorageAggregateRow, batch_id string) (int64, error) {
+func InsertRowsIntoStorageAggregate(tx *sql.Tx, tableName MeteringTable, aggregateData []StorageAggregateRow, batchID string) (int64, error) {
 	if !(tableName == MeteringTableStorageHourly || tableName == MeteringTableStorageDaily || tableName == MeteringTableStorageWeekly) {
 		return 0, fmt.Errorf("invalid table name: %s", tableName)
 	}
@@ -233,18 +250,34 @@ func InsertRowsIntoStorageAggregate(tx *sql.Tx, tableName MeteringTable, aggrega
 	rowStr := genRowStr(5)
 	var toInsert []string
 	var vals []interface{}
-	for _, r := range aggregateData {
+	affected := int64(0)
+	for _, d := range aggregateData {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batch_id, r.EndTime.UTC(), r.Workspace, r.storageID, r.sizeBytes)
+		vals = append(vals, batchID, d.EndTime.UTC(), d.Workspace, d.storageID, d.sizeBytes)
+		if len(toInsert) >= insertBatchSize {
+			res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
+			if err != nil {
+				return 0, err
+			}
+			batchAffected, err := res.RowsAffected()
+			if err != nil {
+				return 0, err
+			}
+			affected += batchAffected
+			toInsert = []string{}
+			vals = []interface{}{}
+		}
 	}
-
-	res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
+	if len(toInsert) > 0 {
+		res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
+		if err != nil {
+			return 0, err
+		}
+		batchAffected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		affected += batchAffected
 	}
 	return affected, nil
 }

@@ -32,6 +32,8 @@ const (
 	MeteringTableStorageHourly    MeteringTable = "storage_hourly"
 	MeteringTableStorageDaily     MeteringTable = "storage_daily"
 	MeteringTableStorageWeekly    MeteringTable = "storage_weekly"
+
+	insertBatchSize = 999
 )
 
 func (d FineGrainComputeData) ToTableRow() []string {
@@ -109,7 +111,10 @@ func replaceSQL(old, pattern string) string {
 func sqlInsert(tx *sql.Tx, cmd string, toInsert []string, onConflict string, vals []interface{}) (sql.Result, error) {
 	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
 	sqlStr = replaceSQL(sqlStr, "?")
-	stmt, _ := tx.Prepare(sqlStr)
+	stmt, err := tx.Prepare(sqlStr)
+	if err != nil {
+		return nil, err
+	}
 	defer stmt.Close()
 	return stmt.Exec(vals...)
 }

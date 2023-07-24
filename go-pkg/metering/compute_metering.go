@@ -148,8 +148,8 @@ func GetFineGrainComputeData(clientset *kubernetes.Clientset, fwd *service.PortF
 	return data, nil
 }
 
-func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainComputeData, batchID string) (int64, error) {
-	fineGrainInsert := fmt.Sprintf(`INSERT INTO %s (
+func BatchInsertIntoFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID string) (int64, error) {
+	cmd := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
 		namespace,
 		deployment_name,
@@ -165,20 +165,34 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainComputeData, batchID s
 	rowStr := genRowStr(9)
 	var toInsert []string
 	var vals []interface{}
-	for _, r := range rows {
+	affected := int64(0)
+	for _, d := range data {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batchID, r.Namespace, r.LeptonDeploymentName, r.PodName, r.PodShape, time.Unix(r.Start, 0), time.Unix(r.End, 0), r.Window, r.RunningMinutes)
+		vals = append(vals, batchID, d.Namespace, d.LeptonDeploymentName, d.PodName, d.PodShape, time.Unix(d.Start, 0), time.Unix(d.End, 0), d.Window, d.RunningMinutes)
+		if len(toInsert) >= insertBatchSize {
+			res, err := sqlInsert(tx, cmd, toInsert, "", vals)
+			if err != nil {
+				return 0, err
+			}
+			batchAffected, err := res.RowsAffected()
+			if err != nil {
+				return 0, err
+			}
+			affected += batchAffected
+			toInsert = []string{}
+			vals = []interface{}{}
+		}
 	}
-	res, err := sqlInsert(tx, fineGrainInsert, toInsert, "", vals)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	if affected != int64(len(rows)) {
-		return 0, fmt.Errorf("expected %d rows affected, got %d", len(rows), affected)
+	if len(toInsert) > 0 {
+		res, err := sqlInsert(tx, cmd, toInsert, "", vals)
+		if err != nil {
+			return 0, err
+		}
+		batchAffected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		affected += batchAffected
 	}
 	return affected, nil
 }
@@ -252,5 +266,4 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	default:
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid table %s", table)
 	}
-
 }
