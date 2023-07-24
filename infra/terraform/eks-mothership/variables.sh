@@ -35,3 +35,7 @@ fi
 if [[ "$API_TOKEN" != "" ]]; then
     APPLY_FLAGS+=("-var=api_token=$API_TOKEN")
 fi
+
+if [[ "$MOTHERSHIP_ROLE_NAME" != "" ]]; then
+    APPLY_FLAGS+=("-var=mothership_role_name=$MOTHERSHIP_ROLE_NAME")
+fi

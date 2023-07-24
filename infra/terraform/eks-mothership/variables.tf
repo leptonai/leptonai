@@ -64,3 +64,9 @@ variable "api_token" {
   type        = string
   default     = ""
 }
+
+variable "mothership_role_name" {
+  description = "The name of AWS IAM role for mothership"
+  type        = string
+  default     = "mothership-role"
+}
