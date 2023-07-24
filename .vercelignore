@@ -1,5 +1,5 @@
 # Ignore everything (folders and files) on root only
 /*
 !web
-!billing
+!portal
 !api-docs
