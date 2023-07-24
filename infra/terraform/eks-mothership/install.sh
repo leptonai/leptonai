@@ -7,6 +7,9 @@ targets=(
   "time_static.activation_date"
   "module.vpc"
   "module.eks"
+  "kubernetes_storage_class_v1.gp3_sc_default"
+  "kubernetes_annotations.gp2_sc_non_default"
+  "aws_eks_addon.csi_ebs"
   "helm_release.alb_controller"
   "helm_release.external_dns"
 )
