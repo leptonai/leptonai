@@ -22,10 +22,15 @@ var (
 	opencostSvcName   string
 	opencostSvcPort   int
 
+	mothershipRegion string
+
 	queryPath       string
 	queryAgg        string
 	queryResolution string
 	syncInterval    int
+
+	enableStorage bool
+	enableCompute bool
 )
 
 func NewCommand() *cobra.Command {
@@ -37,6 +42,8 @@ func NewCommand() *cobra.Command {
 By default, we sync every 10th minute (i.e 10:00, 10:10, 10:20, etc) in 10 minute intervals
 query-window should evenly divide 60, e.g 10m, 15m, 20m, 30m, 60m 
 and recommended to be at least 5 minutes.
+
+--enable-compute and --enable-storage flags can be used to enable syncing compute and storage data respectively. At least one must be set.
 `,
 
 		Run: syncFunc,
@@ -47,18 +54,25 @@ and recommended to be at least 5 minutes.
 	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "cost-analyzer-cost-analyzer", "Service name of opencost/kubecost to port-forward")
 	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost")
 
+	cmd.PersistentFlags().StringVar(&mothershipRegion, "mothership-region", "", "AWS region of mothership")
+
 	// ref. https://docs.kubecost.com/apis/apis-overview/allocation#querying
 	cmd.PersistentFlags().StringVar(&queryPath, "query-path", "/allocation/compute", "Query path")
 	cmd.PersistentFlags().StringVar(&queryAgg, "query-aggregate", "cluster,namespace,pod", "Query aggregate")
 	cmd.PersistentFlags().StringVar(&queryResolution, "query-resolution", "1m", "Query resolution")
 	cmd.PersistentFlags().IntVar(&syncInterval, "sync-interval-in-minutes", 10, "Interval to sync data to db")
 
+	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "skips efs storage data sync (default false)")
+	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "skips compute data sync (default false)")
 	return cmd
 }
 
 func syncFunc(cmd *cobra.Command, args []string) {
 	if 60%syncInterval != 0 {
 		log.Fatalf("Invalid sync interval (must be a factor of 60, eg. 5, 10, etc): %d", syncInterval)
+	}
+	if !(enableStorage || enableCompute) {
+		log.Fatalf("Must sync at least one of storage or compute")
 	}
 	// create aurora db connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
@@ -108,32 +122,48 @@ func syncFunc(cmd *cobra.Command, args []string) {
 			ticker.Stop()
 			return
 		default:
-			now := time.Now()
-			_, lastRunTime, err := metering.GetMostRecentFineGrainEntry(aurora)
+			_, lastComputeSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
 			if err != nil {
 				log.Fatalf("failed to get most recent query time %v", err)
 			}
-			lastRunExists := !lastRunTime.IsZero()
+			lastComputeSyncExists := !lastComputeSync.IsZero()
 
+			_, lastStorageSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
+			if err != nil {
+				log.Fatalf("failed to get most recent query time %v", err)
+			}
+			lastStorageSyncExists := !lastStorageSync.IsZero()
+
+			now := time.Now()
 			currMinute := now.Minute()
-			diff := now.Sub(lastRunTime)
-			if currMinute%syncInterval == 0 && (diff > syncDuration || !lastRunExists) {
+			if currMinute%syncInterval == 0 {
+				timeSinceLastComputeSync := now.Sub(lastComputeSync)
+				timeSinceLastStorageSync := now.Sub(lastStorageSync)
 				queryEnd := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), currMinute, 0, 0, now.Location())
 				queryStart := queryEnd.Add(-1 * syncDuration)
-				log.Printf("Syncing with window query start: %s, query end: %s", queryStart, queryEnd)
-				syncOnce(queryStart, queryEnd, aurora, clientset, fwd, clusterARN, cmd)
+
+				canSyncCompute := false
+				canSyncStorage := false
+				if enableCompute {
+					canSyncCompute = timeSinceLastComputeSync > syncDuration || !lastComputeSyncExists
+				}
+				if enableStorage {
+					canSyncStorage = timeSinceLastStorageSync > syncDuration || !lastStorageSyncExists
+				}
+
+				syncOnce(canSyncCompute, canSyncStorage, queryStart, queryEnd, aurora, clientset, fwd, clusterARN, cmd)
 			} else {
-				if !lastRunExists {
-					log.Print("Skipping sync: syncing on % minute intervals, no previous sync found")
-				} else {
-					log.Printf("Skipping sync, time since last run time: %s", diff.Round(time.Second))
+				timeUntilNextSync := now.Truncate(syncDuration).Add(syncDuration).Sub(now)
+				// print every minute
+				if now.Second() < 10 {
+					log.Printf("Next sync in %s", timeUntilNextSync.Round(time.Second))
 				}
 			}
 		}
 	}
 }
 
-func syncOnce(start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
+func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
 	qp := metering.OcQueryParams{
 		ClusterARN:         clusterARN,
 		QueryPath:          queryPath,
@@ -145,13 +175,27 @@ func syncOnce(start time.Time, end time.Time, aurora metering.AuroraDB, clientse
 		ExcludedNamespaces: metering.ExcludedNamespaces,
 	}
 
-	data, err := metering.GetFineGrainData(clientset, fwd, qp)
-	if err != nil {
-		log.Fatalf("failed to get data %v", err)
+	var computeData []metering.FineGrainComputeData
+	var err error
+	if syncCompute {
+		log.Printf("Syncing kubecost compute data with window (%s -- %s)", start, end)
+		computeData, err = metering.GetFineGrainComputeData(clientset, fwd, qp)
+		if err != nil {
+			log.Fatalf("failed to get compute data %v", err)
+		}
 	}
 
+	var storageData []metering.FineGrainStorageData
+	if syncStorage {
+		log.Printf("Syncing efs storage data with window query start: (%s -- %s)", start, end)
+
+		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion)
+		if err != nil {
+			log.Fatalf("failed to get storage data %v", err)
+		}
+	}
 	// create a new connection each time (in case token/connections expire between syncs)
-	err = metering.SyncToDB(aurora, data)
+	err = metering.SyncToFineGrain(aurora, computeData, storageData)
 	if err != nil {
 		log.Printf("Data sync failed for window %s, %s: %v", start.Format(time.ANSIC), end.Format(time.ANSIC), err)
 	}

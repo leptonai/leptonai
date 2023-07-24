@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,14 +14,6 @@ import (
 	"github.com/opencost/opencost/pkg/kubecost"
 	"k8s.io/client-go/kubernetes"
 )
-
-type AuroraDB struct {
-	DB *sql.DB
-}
-
-type SupabaseDB struct {
-	DB *sql.DB
-}
 
 var (
 	// set of namespaces to exclude from the query
@@ -53,17 +44,6 @@ var (
 	}
 )
 
-type MeteringTable string
-
-const (
-	MeteringTableFineGrain      MeteringTable = "fine_grain"
-	MeteringTableAuroraHourly   MeteringTable = "hourly_metering"
-	MeteringTableSupabaseHourly MeteringTable = "hourly_metering"
-	MeteringTableHourly         MeteringTable = "hourly_metering"
-	MeteringTableDaily          MeteringTable = "daily_metering"
-	MeteringTableWeekly         MeteringTable = "weekly_metering"
-)
-
 type AllocationResponse struct {
 	Code int                              `json:"code"`
 	Data []map[string]kubecost.Allocation `json:"data"`
@@ -84,7 +64,7 @@ type OcQueryParams struct {
 	ExcludedNamespaces map[string]bool
 }
 
-type FineGrainData struct {
+type FineGrainComputeData struct {
 	Cluster              string
 	Namespace            string
 	LeptonDeploymentName string
@@ -97,8 +77,8 @@ type FineGrainData struct {
 	RunningMinutes float64
 }
 
-// GetFineGrainData queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
-func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, qp OcQueryParams) ([]FineGrainData, error) {
+// GetFineGrainComputeData queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
+func GetFineGrainComputeData(clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, qp OcQueryParams) ([]FineGrainComputeData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	if qp.QueryWindow == "" {
 		qp.QueryWindow = fmt.Sprintf("%d", qp.QueryStart.Unix()) + "," + fmt.Sprintf("%d", qp.QueryEnd.Unix())
@@ -128,7 +108,7 @@ func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQ
 		return nil, fmt.Errorf("failed to parse allocation response %v", err)
 	}
 
-	data := make([]FineGrainData, 0, len(ar.Data))
+	data := make([]FineGrainComputeData, 0, len(ar.Data))
 	for _, a := range ar.Data {
 		for _, v := range a {
 			// v.Name is same as key in the map
@@ -150,7 +130,7 @@ func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQ
 			if !qp.QueryEnd.IsZero() {
 				actualQueryEnd = qp.QueryEnd
 			}
-			d := FineGrainData{
+			d := FineGrainComputeData{
 				Cluster:              qp.ClusterARN,
 				Namespace:            v.Properties.Namespace,
 				LeptonDeploymentName: v.Properties.Labels["lepton_deployment_id"],
@@ -168,8 +148,8 @@ func GetFineGrainData(clientset *kubernetes.Clientset, fwd *service.PortForwardQ
 	return data, nil
 }
 
-func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainData) (int64, error) {
-	FineGrainInsert := fmt.Sprintf(`INSERT INTO %s (
+func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainComputeData, batchID string) (int64, error) {
+	fineGrainInsert := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
 		namespace,
 		deployment_name,
@@ -180,25 +160,16 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainData) (int64, error) {
 		query_window,
 		minutes
 	)
-	VALUES `, MeteringTableFineGrain)
+	VALUES `, MeteringTableComputeFineGrain)
 
-	// Generate a batch query ID
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return 0, err
-	}
 	rowStr := genRowStr(9)
 	var toInsert []string
 	var vals []interface{}
 	for _, r := range rows {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, id, r.Namespace, r.LeptonDeploymentName, r.PodName, r.PodShape, time.Unix(r.Start, 0), time.Unix(r.End, 0), r.Window, r.RunningMinutes)
+		vals = append(vals, batchID, r.Namespace, r.LeptonDeploymentName, r.PodName, r.PodShape, time.Unix(r.Start, 0), time.Unix(r.End, 0), r.Window, r.RunningMinutes)
 	}
-	sqlStr := FineGrainInsert + strings.Join(toInsert, ",")
-	sqlStr = replaceSQL(sqlStr, "?")
-	stmt, _ := tx.Prepare(sqlStr)
-	defer stmt.Close()
-	res, err := stmt.Exec(vals...)
+	res, err := sqlInsert(tx, fineGrainInsert, toInsert, "", vals)
 	if err != nil {
 		return 0, err
 	}
@@ -209,11 +180,11 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, rows []FineGrainData) (int64, error) {
 	if affected != int64(len(rows)) {
 		return 0, fmt.Errorf("expected %d rows affected, got %d", len(rows), affected)
 	}
-
 	return affected, nil
 }
 
-func SyncToDB(aurora AuroraDB, data []FineGrainData) error {
+// SyncToFineGrain handles the transaction for inserting fine grain compute and storage data into Aurora
+func SyncToFineGrain(aurora AuroraDB, computeData []FineGrainComputeData, storageData []FineGrainStorageData) error {
 	db := aurora.DB
 	// todo: check if tables exist
 	tx, err := db.Begin()
@@ -223,23 +194,38 @@ func SyncToDB(aurora AuroraDB, data []FineGrainData) error {
 	defer func() {
 		err = fmt.Errorf("%v \n %s", err, tx.Rollback())
 	}()
+	// Generate a batch query ID
+	batchID, _ := uuid.NewRandom()
+	batchIDStr := batchID.String()
 	// Insert into fine_grain
-	if len(data) > 0 {
-		affected, err := BatchInsertIntoFineGrain(tx, data)
+	if len(computeData) > 0 {
+		affected, err := BatchInsertIntoFineGrain(tx, computeData, batchIDStr)
 		if err != nil {
 			return err
 		}
-		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableFineGrain)
+		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableComputeFineGrain)
+	}
+	if len(storageData) > 0 {
+		affected, err := BatchInsertIntoFineGrainStorage(tx, storageData, batchIDStr)
+		if err != nil {
+			return err
+		}
+		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableStorageFineGrain)
 	}
 	return tx.Commit()
 }
 
 // returns the most recent query's start and end time, or zero time if table is empty
-func GetMostRecentFineGrainEntry(aurora AuroraDB) (time.Time, time.Time, error) {
+// case compute fine grain: return query start, end of most recent window
+// case compute storage fine grain: returns one time only, since storage is measured at discrete points.
+func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Time, time.Time, error) {
 	db := aurora.DB
+	if (table != MeteringTableComputeFineGrain) && (table != MeteringTableStorageFineGrain) {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid table %s", table)
+	}
 	// check if table is empty
 	var count int
-	err := db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s LIMIT 1) AS t", MeteringTableFineGrain)).Scan(&count)
+	err := db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s LIMIT 1) AS t", table)).Scan(&count)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
@@ -248,10 +234,23 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB) (time.Time, time.Time, error) 
 	}
 
 	var start, end time.Time
-	err = db.QueryRow(
-		fmt.Sprintf("SELECT query_start, query_end FROM %s ORDER BY query_end DESC LIMIT 1", MeteringTableFineGrain)).Scan(&start, &end)
-	if err != nil {
-		return time.Time{}, time.Time{}, err
+	switch table {
+	case MeteringTableComputeFineGrain:
+		err = db.QueryRow(
+			fmt.Sprintf("SELECT query_start, query_end FROM %s ORDER BY query_end DESC LIMIT 1", table)).Scan(&start, &end)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		return start, end, nil
+	case MeteringTableStorageFineGrain:
+		err = db.QueryRow(
+			fmt.Sprintf("SELECT time from %s ORDER BY time DESC LIMIT 1", table)).Scan(&end)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		return end, end, nil
+	default:
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid table %s", table)
 	}
-	return start, end, nil
+
 }

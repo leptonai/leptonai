@@ -2,6 +2,8 @@ package metering
 
 import (
 	"bytes"
+	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strconv"
@@ -10,7 +12,29 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-func (d FineGrainData) ToTableRow() []string {
+type AuroraDB struct {
+	DB *sql.DB
+}
+
+type SupabaseDB struct {
+	DB *sql.DB
+}
+
+type MeteringTable string
+
+const (
+	MeteringTableComputeFineGrain MeteringTable = "compute_fine_grain"
+	MeteringTableComputeHourly    MeteringTable = "compute_hourly"
+	MeteringTableComputeDaily     MeteringTable = "compute_daily"
+	MeteringTableComputeWeekly    MeteringTable = "compute_weekly"
+
+	MeteringTableStorageFineGrain MeteringTable = "storage_fine_grain"
+	MeteringTableStorageHourly    MeteringTable = "storage_hourly"
+	MeteringTableStorageDaily     MeteringTable = "storage_daily"
+	MeteringTableStorageWeekly    MeteringTable = "storage_weekly"
+)
+
+func (d FineGrainComputeData) ToTableRow() []string {
 	return []string{
 		d.Cluster,
 		d.Namespace,
@@ -25,7 +49,7 @@ func (d FineGrainData) ToTableRow() []string {
 	}
 }
 
-func PrettyPrint(data []FineGrainData) {
+func PrettyPrint(data []FineGrainComputeData) {
 	sort.SliceStable(data, func(i, j int) bool {
 		if data[i].Namespace == data[j].Namespace {
 			return data[i].PodName < data[j].PodName
@@ -79,4 +103,23 @@ func replaceSQL(old, pattern string) string {
 		old = strings.Replace(old, pattern, "$"+strconv.Itoa(m), 1)
 	}
 	return old
+}
+
+// performs a batch insert given a transaction, command, and values to insert
+func sqlInsert(tx *sql.Tx, cmd string, toInsert []string, onConflict string, vals []interface{}) (sql.Result, error) {
+	sqlStr := cmd + strings.Join(toInsert, ",") + onConflict
+	sqlStr = replaceSQL(sqlStr, "?")
+	stmt, _ := tx.Prepare(sqlStr)
+	defer stmt.Close()
+	return stmt.Exec(vals...)
+}
+
+// Get the md5 hash of input strings
+func Md5Hex(s ...string) string {
+	hash := md5.New()
+	for _, str := range s {
+		hash.Write([]byte(str))
+	}
+	hashSum := hash.Sum(nil)
+	return fmt.Sprintf("%x", hashSum)
 }

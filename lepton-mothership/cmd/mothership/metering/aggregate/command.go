@@ -1,14 +1,15 @@
 package aggregate
 
 import (
-	"crypto/md5"
 	"database/sql"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/leptonai/lepton/go-pkg/metering"
 	"github.com/leptonai/lepton/go-pkg/supabase"
+	"github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 
 	"github.com/araddon/dateparse"
@@ -20,6 +21,8 @@ var (
 	endTimeFlag      string
 	tableFlag        string
 	supabasePassword string
+	skipComputeFlag  bool
+	skipStorageFlag  bool
 )
 
 func NewCommand() *cobra.Command {
@@ -31,6 +34,10 @@ func NewCommand() *cobra.Command {
 --start-time value must be provided
 --end-time is optional, defaults a single unit of aggregation after the start-time.
 --table value must be provided, and one of 'hourly', 'daily', or 'weekly'.
+
+
+--skip-compute is optional, defaults to false. If true, will skip aggregation of compute (CPU, GPU, RAM) data.
+--skip-storage is optional, defaults to false. If true, will skip aggregation of storage (EFS) data.
 
 Both start and end times will be truncated down to the nearest whole unit of aggregation.
 E.G:
@@ -69,10 +76,15 @@ mothership metering aggregate --start-time 1689033600 --end-time 1689206400 --ta
 	cmd.PersistentFlags().StringVarP(&endTimeFlag, "end-time", "e", "", "end time to aggregate to")
 	cmd.PersistentFlags().StringVarP(&tableFlag, "table", "t", "hourly", "table to aggregate to, accepts 'hourly', 'daily', 'weekly'")
 	cmd.PersistentFlags().StringVarP(&supabasePassword, "supabase-password", "p", "", "supabase password, can also be passed in using env var SUPABASE_PASSWORD")
+	cmd.PersistentFlags().BoolVar(&skipComputeFlag, "skip-compute", false, "skip aggregation of compute (CPU, GPU, RAM) data")
+	cmd.PersistentFlags().BoolVar(&skipStorageFlag, "skip-storage", false, "skip aggregation of storage (EFS) data")
 	return cmd
 }
 
 func aggregateFunc(cmd *cobra.Command, args []string) {
+	if skipComputeFlag && skipStorageFlag {
+		log.Fatal("both --skip-compute and --skip-storage are set. Doing nothing.")
+	}
 	// create aurora connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 	db, err := auroraCfg.NewHandler()
@@ -90,20 +102,25 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	defer supabaseDB.Close()
 
 	var queryInterval time.Duration
-	var table metering.MeteringTable
+	var computeTable metering.MeteringTable
+	var storageTable metering.MeteringTable
 	switch tableFlag {
 	case "hourly":
 		queryInterval = time.Hour
-		table = metering.MeteringTableHourly
+		computeTable = metering.MeteringTableComputeHourly
+		storageTable = metering.MeteringTableStorageHourly
 	case "daily":
 		queryInterval = 24 * time.Hour
-		table = metering.MeteringTableDaily
+		computeTable = metering.MeteringTableComputeDaily
+		storageTable = metering.MeteringTableStorageHourly
 	case "weekly":
 		queryInterval = 168 * time.Hour
-		table = metering.MeteringTableWeekly
+		computeTable = metering.MeteringTableComputeWeekly
+		storageTable = metering.MeteringTableStorageHourly
 	default:
 		log.Fatalf(`invalid table %s, must be one of ("hourly", "daily", "weekly")`, tableFlag)
 	}
+
 	// get start and end times
 	var startTime, endTime time.Time
 	if len(startTimeFlag) <= 0 {
@@ -129,89 +146,163 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+
 	// truncate start and end times to the nearest whole unit of aggregation
 	startTime, endTime = startTime.Truncate(queryInterval), endTime.Truncate(queryInterval)
 	// compare start and end times to the most recent fine grain entry
-	_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora)
-	if err != nil {
-		log.Fatalf("couldn't get most recent fine grain entry: %v", err)
+	if !skipComputeFlag {
+		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
+		if err != nil {
+			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
+		}
+		if startTime.After(lastQueryEnd) {
+			log.Fatalf("Invalid start time: %v is after the most recent fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
+		}
+		if lastQueryEnd.Before(endTime) {
+			log.Printf("Warning: end time %s is past the most recent fine grain query %s. This aggregation will be incomplete.",
+				endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
+		}
 	}
-	if startTime.After(lastQueryEnd) {
-		log.Fatalf("Invalid start time: %v is after the most recent fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
+	if !skipStorageFlag {
+		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
+		if err != nil {
+			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
+		}
+		if startTime.After(lastQueryEnd) {
+			log.Fatalf("Invalid start time: %v is after the most recent fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
+		}
+		if lastQueryEnd.Before(endTime) {
+			log.Printf("Warning: end time %s is past the most recent fine grain query %s. This aggregation will be incomplete.",
+				endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
+		}
 	}
-	if lastQueryEnd.Before(endTime) {
-		log.Printf("Warning: end time %s is past the most recent fine grain query %s. This aggregation will be incomplete.",
-			endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
-	}
+
 	// get all intermediate query windows, aggregate each one and write to DB
 	startTimes, endTimes := getIntermediateQueryWindows(startTime, endTime, queryInterval)
+	maxRetries := 5
 	for i := 0; i < len(startTimes); i++ {
-		var aggregate []metering.UsageAggregateRow
-		aggregate, err = metering.GetUsageAggregate(aurora, startTimes[i], endTimes[i])
-		if err != nil {
-			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
-				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
-		}
-		if len(aggregate) == 0 {
-			log.Printf("no %s aggregate data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-		log.Printf("processing %d %s aggregate rows for window %s - %s", len(aggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
-		// create a 128 bit md5 batch_id for this aggregation
-		hash := md5.New()
-		hash.Write([]byte(fmt.Sprintf("%d%d%d", startTimes[i].Unix(), endTimes[i].Unix()*10, len(aggregate)*100)))
-		hashSum := hash.Sum(nil)
-		batchID := fmt.Sprintf("%x", hashSum)
-
-		maxRetries := 10
-		_, err = retryInsertIntoAggregate(aurora.DB, table, maxRetries, aggregate, batchID)
-		if err != nil {
-			log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
-		}
-
-		if table == metering.MeteringTableHourly {
-			// insert into supabase table
-			_, err = retryInsertIntoAggregate(supabaseDB, table, maxRetries, aggregate, batchID)
+		batchID := uuid.New().String()
+		if !skipComputeFlag {
+			computeAggregate, err := metering.GetComputeAggregate(aurora, startTimes[i], endTimes[i])
 			if err != nil {
-				log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
+				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
+					tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
+			}
+			if len(computeAggregate) == 0 {
+				log.Printf("no %s aggregate compute data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			log.Printf("processing %d %s compute rows for window %s - %s", len(computeAggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+
+			_, err = retryInsertIntoComputeAggregate(aurora.DB, computeTable, computeAggregate, batchID, maxRetries)
+			if err != nil {
+				log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
+			}
+
+			if computeTable == metering.MeteringTableComputeHourly {
+				// insert into supabase table
+				_, err = retryInsertIntoComputeAggregate(supabaseDB, computeTable, computeAggregate, batchID, maxRetries)
+				if err != nil {
+					log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
+				}
+			}
+		}
+		if !skipStorageFlag {
+			storageAggregate, err := metering.GetStorageAggregate(aurora, startTimes[i], endTimes[i])
+			if err != nil {
+				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
+					tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
+			}
+			if len(storageAggregate) == 0 {
+				log.Printf("no %s aggregate storage data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			log.Printf("processing %d %s storage rows for window %s - %s", len(storageAggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+
+			_, err = retryInsertIntoStorageAggregate(aurora.DB, storageTable, storageAggregate, batchID, maxRetries)
+			if err != nil {
+				log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
+			}
+			if storageTable == metering.MeteringTableStorageHourly {
+				// insert into supabase table
+				_, err = retryInsertIntoStorageAggregate(supabaseDB, storageTable, storageAggregate, batchID, maxRetries)
+				if err != nil {
+					log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
+				}
 			}
 		}
 	}
 	log.Printf("successfully processed %s aggregate data for window (%s,%s)", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 }
 
-func retryInsertIntoAggregate(db *sql.DB, table metering.MeteringTable, maxRetries int, aggregate []metering.UsageAggregateRow, batch_id string) (int64, error) {
-	for retries := 0; retries < maxRetries; retries++ {
+func retryInsertIntoStorageAggregate(
+	db *sql.DB, table metering.MeteringTable, aggregate []metering.StorageAggregateRow, batch_id string, maxRetries int) (int64, error) {
+	var retryErr error
+	var rows int64
+	retryErr = util.Retry(maxRetries, 2*time.Second, func() error {
 		tx, err := db.Begin()
 		if err != nil {
 			log.Printf("couldn't begin transaction: %v", err)
-			continue
+			return err
 		}
-		rows, err := metering.InsertRowsIntoAggregate(tx, table, aggregate, batch_id)
+		rows, err = metering.InsertRowsIntoStorageAggregate(tx, table, aggregate, batch_id)
 		if err != nil {
-			log.Printf("failed to execute query, trying again %v", err)
-			err = tx.Rollback()
-			if err != nil {
-				log.Printf("failed to rollback transaction: %v", err)
-				continue
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return fmt.Errorf("failed to insert rows, rollback txn: %v, %v", err, rollbackErr)
 			}
-			continue
+			return fmt.Errorf("failed to execute query, %v", err)
 		}
-
 		err = tx.Commit()
 		if err != nil {
-			log.Printf("failed to commit transaction, trying again: %v", err)
-			err = tx.Rollback()
-			if err != nil {
-				log.Printf("failed to rollback transaction: %v", err)
-				continue
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return fmt.Errorf("failed to commit txn, rollback txn: %v, %v", err, rollbackErr)
 			}
-			continue
+			return fmt.Errorf("failed to commit transaction: %v", err)
 		}
-		return rows, nil
+		return nil
+	})
+	if retryErr != nil {
+		return 0, retryErr
 	}
-	return 0, fmt.Errorf("failed to insert rows into aggregate table %s after %d retries", table, maxRetries)
+	return rows, nil
+}
+
+func retryInsertIntoComputeAggregate(
+	db *sql.DB, table metering.MeteringTable, aggregate []metering.ComputeAggregateRow, batch_id string, maxRetries int) (int64, error) {
+	var retryErr error
+	var rows int64
+	retryErr = util.Retry(maxRetries, 2*time.Second, func() error {
+		tx, err := db.Begin()
+		if err != nil {
+			log.Printf("couldn't begin transaction: %v", err)
+			return err
+		}
+		rows, err = metering.InsertRowsIntoComputeAggregate(tx, table, aggregate, batch_id)
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return fmt.Errorf("failed to insert rows, rollback txn: %v, %v", err, rollbackErr)
+			}
+			return fmt.Errorf("failed to execute query, %v", err)
+		}
+		err = tx.Commit()
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				return fmt.Errorf("failed to commit txn, rollback txn: %v, %v", err, rollbackErr)
+			}
+			return fmt.Errorf("failed to commit transaction: %v", err)
+		}
+		return nil
+	})
+	if retryErr != nil {
+		return 0, retryErr
+	}
+	return rows, nil
 }
 
 // get intermediate start and end times, interval time apart, between queryStart and queryEnd

@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -95,6 +96,21 @@ func DeepCompareEq(file1, file2 string) bool {
 		}
 	}
 	return true
+}
+
+// Retry a function for a number of times, with a delay between each attempt
+func Retry(attempts int, sleep time.Duration, f func() error) (err error) {
+	for i := 0; ; i++ {
+		err = f()
+		if err == nil {
+			return
+		}
+		if i >= (attempts - 1) {
+			break
+		}
+		time.Sleep(sleep)
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
 
 func UpdateImageTag(image, tag string) string {

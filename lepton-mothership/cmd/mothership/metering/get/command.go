@@ -139,12 +139,12 @@ func getFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		data, err := metering.GetFineGrainData(clientset, fwd, qp)
+		computeData, err := metering.GetFineGrainComputeData(clientset, fwd, qp)
 		if err != nil {
 			log.Fatalf("failed to get data %v", err)
 		}
-		log.Printf("total %d data", len(data))
-		metering.PrettyPrint(data)
+		log.Printf("total %d data", len(computeData))
+		metering.PrettyPrint(computeData)
 
 		auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 		db, err := auroraCfg.NewHandler()
@@ -158,7 +158,7 @@ func getFunc(cmd *cobra.Command, args []string) {
 			log.Printf("skipping sync")
 			return
 		}
-		err = metering.SyncToDB(aurora, data)
+		err = metering.SyncToFineGrain(aurora, computeData, nil)
 		if err != nil {
 			log.Fatalf("failed to sync to db %v", err)
 		}
