@@ -83,7 +83,7 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				labelKeyPhotonID:              ld.Spec.PhotonID,
-				labelKeyLeptonDeploymentID:    ld.GetSpecID(),
+				labelKeyLeptonDeploymentName:  ld.GetSpecName(),
 				labelKeyLeptonDeploymentShape: ld.GetShape(),
 			},
 		},
@@ -99,7 +99,6 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 				labelKeyPhotonName:           ld.Spec.PhotonName,
 				labelKeyPhotonID:             ld.Spec.PhotonID,
 				labelKeyLeptonDeploymentName: ld.GetSpecName(),
-				labelKeyLeptonDeploymentID:   ld.GetSpecID(),
 			},
 			OwnerReferences: or,
 		},
@@ -107,7 +106,7 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 			Replicas: &ld.Spec.ResourceRequirement.MinReplicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					labelKeyLeptonDeploymentID: ld.GetSpecID(),
+					labelKeyLeptonDeploymentName: ld.GetSpecName(),
 				},
 			},
 			Template: template,

@@ -23,12 +23,6 @@ import (
 
 // PhotonSpec defines the desired state of Photon
 type PhotonSpec struct {
-	PhotonUserSpec   `json:",inline"`
-	PhotonSystemSpec `json:",inline"`
-}
-
-// PhotonUserSpec defines the user-controlled spec.
-type PhotonUserSpec struct {
 	Name string `json:"name"`
 	// +optional
 	Model string `json:"model"`
@@ -45,11 +39,6 @@ type PhotonUserSpec struct {
 	OpenAPISchema runtime.RawExtension `json:"openapi_schema"`
 }
 
-// PhotonSystemSpec defines the system-controlled spec.
-type PhotonSystemSpec struct {
-	ID string `json:"id"`
-}
-
 // GetSpecName returns the name of the photon.
 func (p Photon) GetSpecName() string {
 	return p.Spec.Name
@@ -57,17 +46,7 @@ func (p Photon) GetSpecName() string {
 
 // GetSpecID returns the id of the photon.
 func (p Photon) GetSpecID() string {
-	return p.Spec.ID
-}
-
-// SetSpecID sets the id of the photon.
-func (p *Photon) SetSpecID(id string) {
-	p.Spec.ID = id
-}
-
-// GetVersion returns the version of the photon.
-func (p Photon) GetVersion() int64 {
-	return p.CreationTimestamp.UnixMilli()
+	return p.Name
 }
 
 // PhotonStatus defines the observed state of Photon. It is empty because we only use Photon as a database.

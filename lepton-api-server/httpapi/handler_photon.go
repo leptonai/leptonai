@@ -230,13 +230,13 @@ func (h *PhotonHandler) getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Ph
 
 	// Unmarshal the JSON into a Metadata struct
 	ph := &leptonaiv1alpha1.Photon{}
-	if err := json.Unmarshal(metadataBytes, &ph.Spec.PhotonUserSpec); err != nil {
+	if err := json.Unmarshal(metadataBytes, &ph.Spec); err != nil {
 		return nil, err
 	}
 	if !util.ValidateName(ph.Spec.Name) {
 		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
-	ph.SetSpecID(ph.GetSpecName() + "-" + util.HexHash(body))
+	ph.Name = ph.GetSpecName() + "-" + util.HexHash(body)
 
 	return ph, nil
 }

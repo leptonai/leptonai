@@ -5,8 +5,8 @@ import (
 )
 
 type Photon struct {
-	PhotonMetadata                  `json:",inline"`
-	leptonaiv1alpha1.PhotonUserSpec `json:",inline"`
+	PhotonMetadata              `json:",inline"`
+	leptonaiv1alpha1.PhotonSpec `json:",inline"`
 }
 
 type PhotonMetadata struct {
@@ -23,14 +23,14 @@ func NewPhotonMetadata(p *leptonaiv1alpha1.Photon) *PhotonMetadata {
 
 func NewPhoton(p *leptonaiv1alpha1.Photon) *Photon {
 	return &Photon{
-		PhotonUserSpec: p.Spec.PhotonUserSpec,
+		PhotonSpec:     p.Spec,
 		PhotonMetadata: *NewPhotonMetadata(p),
 	}
 }
 
 func (p *Photon) Output() *Photon {
 	return &Photon{
-		PhotonUserSpec: p.PhotonUserSpec,
+		PhotonSpec:     p.PhotonSpec,
 		PhotonMetadata: p.PhotonMetadata,
 	}
 }

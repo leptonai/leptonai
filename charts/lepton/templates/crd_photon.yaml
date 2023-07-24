@@ -51,8 +51,6 @@ spec:
                   format: int32
                   type: integer
                 type: array
-              id:
-                type: string
               image:
                 type: string
               model:
@@ -67,7 +65,6 @@ spec:
                   type: string
                 type: array
             required:
-            - id
             - image
             - name
             type: object

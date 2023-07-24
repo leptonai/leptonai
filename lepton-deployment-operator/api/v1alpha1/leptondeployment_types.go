@@ -67,16 +67,6 @@ func (ld LeptonDeployment) GetSpecName() string {
 	return ld.Spec.Name
 }
 
-// GetSpecID returns the ID of the deployment. It equals to the Name.
-func (ld LeptonDeployment) GetSpecID() string {
-	return ld.GetSpecName()
-}
-
-// GetVersion returns the version of the deployment, which is always 0 because we don't support versioning.
-func (ld LeptonDeployment) GetVersion() int64 {
-	return 0
-}
-
 // Get Shape returns the resource shape of the deployment as a string.
 func (ld *LeptonDeployment) GetShape() string {
 	if ld.Spec.ResourceRequirement.ResourceShape == "" {
