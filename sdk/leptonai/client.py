@@ -156,7 +156,8 @@ class Client:
             if not _is_local_url(workspace_or_url):
                 warnings.warn(
                     "Explicitly passing in a remote URL is deprecated, and may be"
-                    " removed in the future.",
+                    " removed in the future. Explicitly pass in the workspace id and"
+                    " deployment name instead.",
                     DeprecationWarning,
                 )
             self.url = workspace_or_url

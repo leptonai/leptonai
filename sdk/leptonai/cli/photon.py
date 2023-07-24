@@ -6,7 +6,7 @@ import subprocess
 import socket
 import sys
 import tempfile
-
+from typing import Optional
 from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
@@ -50,7 +50,9 @@ def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
     return [p["id"] for p in target_photons]
 
 
-def _get_most_recent_photon_id_or_none(workspace_url, auth_token, name):
+def _get_most_recent_photon_id_or_none(
+    workspace_url, auth_token, name
+) -> Optional[str]:
     """Returns the most recent photon id for a given name. If no photon of such
     name exists, returns None.
     """
@@ -258,7 +260,7 @@ def list(local, pattern):
     console.print(table)
 
 
-def _parse_mount_or_die(url: str, auth: str, mount: str):
+def _parse_mount_or_die(url: str, auth: Optional[str], mount: str):
     """
     Utility function to parse a mount string into a dict.
     """

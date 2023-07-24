@@ -1,7 +1,6 @@
 import requests
+from typing import Optional
 import yaml
-
-from typing import Union, Optional
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
 from .util import APIError, create_header, json_or_error
@@ -47,7 +46,7 @@ def _get_full_workspace_url(workspace_id) -> Optional[str]:
         return response["url"]
 
 
-def get_full_workspace_api_url(workspace_id) -> Union[str, None]:
+def get_full_workspace_api_url(workspace_id) -> Optional[str]:
     """
     Get the full URL for the API of a workspace.
 
@@ -97,7 +96,7 @@ def set_current_workspace(workspace_id=None):
         yaml.safe_dump(workspace_info, f)
 
 
-def get_auth_token(workspace_url):
+def get_auth_token(workspace_url) -> Optional[str]:
     """
     Gets the current workspace auth token.
     """
@@ -118,7 +117,7 @@ def get_workspace():
     return workspace_info["current_workspace"]
 
 
-def get_current_workspace_url():
+def get_current_workspace_url() -> Optional[str]:
     """
     Gets the current workspace url.
     """

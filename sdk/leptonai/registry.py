@@ -1,3 +1,5 @@
+from typing import Any
+
 from loguru import logger
 
 
@@ -9,7 +11,7 @@ class Registry:
     def __init__(self):
         self._map = {}
 
-    def register(self, keys, value):
+    def register(self, keys: Any, value: Any):
         try:
             _ = iter(keys)
         except TypeError:
@@ -27,7 +29,7 @@ class Registry:
                 )
             self._map[key] = value
 
-    def get(self, key):
+    def get(self, key: Any) -> Any:
         if key in self._map:
             return self._map[key]
         return None

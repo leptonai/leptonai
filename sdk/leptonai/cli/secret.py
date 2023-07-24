@@ -26,7 +26,7 @@ def secret():
     Secrets are like environmental variables, but the actual value never leaves
     the cloud environment. Secrets can be used to store sensitive information
     like API keys and passwords, which one does not want to accidentally leak
-    into display output. Secret names starting with `LEPTON_` or `lepton_`are
+    into display output. Secret names starting with `LEPTON_` or `lepton_` are
     reserved for system use, and cannot be used by the user.
 
     The secret commands allow you to create, list, and remove secrets on the

@@ -85,7 +85,7 @@ def load_metadata(path: str, unpack_extra_files: bool = False) -> Dict[Any, Any]
     return BasePhoton.load_metadata(path, unpack_extra_files)
 
 
-def push(url: str, auth_token: str, path: str):
+def push(url: str, auth_token: Optional[str], path: str):
     """
     Push a photon to a workspace.
     :param str url: url of the workspace including the schema
@@ -99,7 +99,7 @@ def push(url: str, auth_token: str, path: str):
         return response
 
 
-def list_remote(url: str, auth_token: str):
+def list_remote(url: str, auth_token: Optional[str]):
     """
     List the photons on a workspace.
     :param str url: url of the workspace including the schema
@@ -109,7 +109,7 @@ def list_remote(url: str, auth_token: str):
     return json_or_error(response)
 
 
-def remove_remote(url: str, auth_token: str, id: str):
+def remove_remote(url: str, auth_token: Optional[str], id: str):
     """
     Remove a photon from a workspace.
     :param str url: url of the workspace including the schema
@@ -122,7 +122,7 @@ def remove_remote(url: str, auth_token: str, id: str):
     return response
 
 
-def fetch(url: str, auth_token: str, id: str, path: str):
+def fetch(url: str, auth_token: Optional[str], id: str, path: str):
     """
     Fetch a photon from a workspace.
     :param str url: url of the workspace including the schema
@@ -164,7 +164,7 @@ def fetch(url: str, auth_token: str, id: str, path: str):
 
 def run_remote(
     url: str,
-    auth_token: str,
+    auth_token: Optional[str],
     id: str,
     deployment_name: str,
     resource_shape: str,
