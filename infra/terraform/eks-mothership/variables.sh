@@ -32,6 +32,10 @@ if [[ "$AURORA_MASTER_USERNAME" != "" ]]; then
     APPLY_FLAGS+=("-var=aurora_master_username=$AURORA_MASTER_USERNAME")
 fi
 
+if [[ "$API_TOKEN_KEY" != "" ]]; then
+    APPLY_FLAGS+=("-var=api_token_key=$API_TOKEN_KEY")
+fi
+
 if [[ "$API_TOKEN" != "" ]]; then
     APPLY_FLAGS+=("-var=api_token=$API_TOKEN")
 fi

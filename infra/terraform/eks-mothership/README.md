@@ -43,6 +43,7 @@ DEPLOYMENT_ENVIRONMENT=PROD \
 REGION=us-west-2 \
 ENABLE_COPY_LEPTON_CHARTS=true \
 CHECK_TERRAFORM_APPLY_OUTPUT=false \
+API_TOKEN_KEY=mothership_api_token \
 API_TOKEN=REDACTED \
 TF_API_TOKEN="REDACTED" \
 CLUSTER_NAME="mothership-prod-aws-us-west-2" \
@@ -81,6 +82,14 @@ mothership clusters create \
 --region us-west-2 \
 --cluster-name ${CLUSTER_NAME} \
 --deployment-environment PROD \
+--mothership-url https://mothership.app.lepton.ai/api/v1 \
+--token ${API_TOKEN}
+
+# to update
+mothership clusters update \
+--cluster-name ${CLUSTER_NAME} \
+--deployment-environment PROD \
+--git-ref release-0.6.0.20230721 \
 --mothership-url https://mothership.app.lepton.ai/api/v1 \
 --token ${API_TOKEN}
 ```

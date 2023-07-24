@@ -30,6 +30,18 @@ resource "aws_iam_role_policy_attachment" "mothership_role" {
   depends_on = [aws_iam_role.mothership_role]
 }
 
+#tfsec:ignore:aws-ssm-secret-use-customer-key
+resource "aws_secretsmanager_secret" "mothership_api_token" {
+  name                    = var.mothership_api_token_key
+  recovery_window_in_days = 0 # Set to zero for this example to force delete during Terraform destroy
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version
+resource "aws_secretsmanager_secret_version" "mothership_api_token" {
+  secret_id     = aws_secretsmanager_secret.mothership_api_token.id
+  secret_string = var.api_token
+}
+
 resource "helm_release" "mothership" {
   name = "mothership"
 

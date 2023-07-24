@@ -59,6 +59,12 @@ variable "aurora_master_username" {
   default     = "root"
 }
 
+variable "api_token_key" {
+  description = "Mothership API token key used for AWS secret manager"
+  type        = string
+  default     = "mothership_api_token"
+}
+
 variable "api_token" {
   description = "API token for auth"
   type        = string
