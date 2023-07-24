@@ -3,8 +3,7 @@ import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { Button, Dropdown, Space } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { ChevronDown, Logout } from "@carbon/icons-react";
-import { css } from "@emotion/react";
+import { ChevronDown, Logout, UserProfile } from "@carbon/icons-react";
 import { FC } from "react";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
@@ -33,13 +32,9 @@ export const ProfileMenu: FC = () => {
             ],
           }}
         >
-          <Button
-            type="text"
-            css={css`
-              padding: 4px 6px;
-            `}
-          >
+          <Button size="small" type="text">
             <Space>
+              <CarbonIcon icon={<UserProfile />} />
               {profileService.profile?.identification?.email}
               <CarbonIcon icon={<ChevronDown />} />
             </Space>

@@ -2,7 +2,10 @@ import { FC, useMemo } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button, Col, Row, Space, Typography } from "antd";
-import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
+import {
+  LanguageSupports,
+  CodeBlock,
+} from "../../../../../../../../../../components/code-block";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import mime2ext from "mime2ext";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";

@@ -1,4 +1,4 @@
-import { Asleep, Light } from "@carbon/icons-react";
+import { AsleepFilled, Light } from "@carbon/icons-react";
 import { FC } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
@@ -51,21 +51,35 @@ export const Footer: FC = () => {
         background: ${theme.colorBgContainer};
       `}
     >
-      <Logo>
-        <LeptonFillIcon />
-        <Text>Lepton AI</Text>
-      </Logo>
-      <Button
-        type="text"
-        onClick={() => themeService.toggleTheme()}
-        icon={
-          themeService.getValidTheme() === "dark" ? (
-            <CarbonIcon icon={<Asleep />} />
-          ) : (
-            <CarbonIcon icon={<Light />} />
-          )
-        }
-      />
+      <div
+        css={css`
+          display: flex;
+          align-items: center;
+        `}
+      >
+        <Logo>
+          <LeptonFillIcon />
+          <Text>Lepton AI</Text>
+        </Logo>
+        <Button
+          size="small"
+          css={css`
+            position: relative;
+            top: 1px;
+            font-size: 12px;
+          `}
+          type="text"
+          onClick={() => themeService.toggleTheme()}
+          icon={
+            themeService.getValidTheme() === "dark" ? (
+              <CarbonIcon icon={<AsleepFilled />} />
+            ) : (
+              <CarbonIcon icon={<Light />} />
+            )
+          }
+        />
+      </div>
+
       <MenuContainer>
         <Button
           type="text"

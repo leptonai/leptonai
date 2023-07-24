@@ -63,8 +63,8 @@ export const CodeBlock: FC<{
         position: relative;
         .ant-typography-copy {
           position: absolute;
-          top: 8px;
-          right: 8px;
+          top: 12px;
+          right: 12px;
           opacity: 0;
           transition: opacity 0.12s ease-in-out;
         }

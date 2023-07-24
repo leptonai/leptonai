@@ -1,3 +1,4 @@
+import { Link } from "@lepton-dashboard/components/link";
 import { FC, useMemo, useState } from "react";
 import { Col, Empty, Input, Row, Segmented } from "antd";
 import {
@@ -8,7 +9,7 @@ import {
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons/components/upload";
 import { PhotonItem } from "../../../../../../components/photon-item";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
@@ -94,7 +95,20 @@ export const List: FC = () => {
           <Card>
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No Photons"
+              description={
+                <>
+                  {photonGroups.length === 0 ? (
+                    <Link
+                      to="https://www.lepton.ai/docs/walkthrough/anatomy_of_a_photon"
+                      target="_blank"
+                    >
+                      No photons, write photon and push to see it in this view
+                    </Link>
+                  ) : (
+                    <>No photons found</>
+                  )}
+                </>
+              }
             />
           </Card>
         )}

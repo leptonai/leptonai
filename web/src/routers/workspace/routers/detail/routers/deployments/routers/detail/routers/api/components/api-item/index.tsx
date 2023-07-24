@@ -7,7 +7,10 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { Typography } from "antd";
-import { LanguageSupports, CodeBlock } from "../../../../components/code-block";
+import {
+  LanguageSupports,
+  CodeBlock,
+} from "../../../../../../../../../../components/code-block";
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;

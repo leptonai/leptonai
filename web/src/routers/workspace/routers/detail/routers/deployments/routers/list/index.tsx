@@ -1,3 +1,4 @@
+import { Link } from "@lepton-dashboard/components/link";
 import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
 import { FC, useMemo, useState } from "react";
 import {
@@ -133,7 +134,21 @@ export const List: FC = () => {
           locale={{
             emptyText: (
               <Empty
-                description="No deployments"
+                description={
+                  <>
+                    {deployments.length === 0 ? (
+                      <Link
+                        to="https://www.lepton.ai/docs/walkthrough/anatomy_of_a_photon#remote-deployment"
+                        target="_blank"
+                      >
+                        No deployments, deploy photon remotely to see it in this
+                        view
+                      </Link>
+                    ) : (
+                      <>No deployments found</>
+                    )}
+                  </>
+                }
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               />
             ),

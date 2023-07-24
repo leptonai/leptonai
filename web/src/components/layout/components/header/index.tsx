@@ -1,9 +1,11 @@
+import { Book } from "@carbon/icons-react";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { FC, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Space } from "antd";
+import { Button, Space } from "antd";
 import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
@@ -54,7 +56,19 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
       </div>
 
       <MenuContainer>
-        <Space>{actions}</Space>
+        <Space>
+          <Button
+            rel="noreferrer"
+            href="https://www.lepton.ai/docs"
+            target="_blank"
+            type="text"
+            size="small"
+            icon={<CarbonIcon icon={<Book />} />}
+          >
+            Docs
+          </Button>
+          {actions}
+        </Space>
       </MenuContainer>
     </Container>
   );

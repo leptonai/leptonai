@@ -8,7 +8,10 @@ import { Alert, Col, Row, Segmented, Space, Typography } from "antd";
 import { css } from "@emotion/react";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
-import { LanguageSupports, CodeBlock } from "../../components/code-block";
+import {
+  LanguageSupports,
+  CodeBlock,
+} from "../../../../../../../../components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 

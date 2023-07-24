@@ -1,6 +1,7 @@
+import { Link } from "@lepton-dashboard/components/link";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FC, useEffect, useRef, useState } from "react";
-import { Breadcrumb, Space, Table } from "antd";
+import { Breadcrumb, Empty, Space, Table } from "antd";
 
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Document, Folder, FolderParent } from "@carbon/icons-react";
@@ -229,7 +230,29 @@ export const Storage: FC = () => {
             thead tr td:first-of-type::before {
               display: none;
             }
+            .ant-table-placeholder {
+              .ant-table-cell {
+                border-bottom: none;
+              }
+            }
           `}
+          locale={{
+            emptyText: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <>
+                    <Link
+                      to="https://www.lepton.ai/docs/advanced/storage"
+                      target="_blank"
+                    >
+                      No files found, learn more about storage
+                    </Link>
+                  </>
+                }
+              />
+            ),
+          }}
           loading={loading}
           pagination={false}
           showHeader={false}
