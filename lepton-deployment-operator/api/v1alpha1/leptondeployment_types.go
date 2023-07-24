@@ -89,14 +89,34 @@ func (ld *LeptonDeployment) GetTokens() []string {
 	return util.UniqStringSlice(tokens)
 }
 
-// Patch modifies the deployment with the given user spec. It only supports PhotonID and MinReplicas for now.
-func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) {
+// Patch modifies the deployment with the given user spec.
+func (ld *LeptonDeployment) Patch(p *LeptonDeploymentUserSpec) bool {
+	patched := false
 	if p.PhotonID != "" {
 		ld.Spec.PhotonID = p.PhotonID
+		patched = true
 	}
 	if p.ResourceRequirement.MinReplicas > 0 {
 		ld.Spec.ResourceRequirement.MinReplicas = p.ResourceRequirement.MinReplicas
+		patched = true
 	}
+	if p.APITokens != nil {
+		ld.Spec.APITokens = p.APITokens
+		patched = true
+	}
+	if p.Envs != nil {
+		ld.Spec.Envs = p.Envs
+		patched = true
+	}
+	if p.Mounts != nil {
+		ld.Spec.Mounts = p.Mounts
+		patched = true
+	}
+	if p.ResourceRequirement.ResourceShape != "" {
+		ld.Spec.ResourceRequirement.ResourceShape = p.ResourceRequirement.ResourceShape
+		patched = true
+	}
+	return patched
 }
 
 // LeptonDeploymentResourceRequirement defines the resource requirement of the deployment.

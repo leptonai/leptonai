@@ -124,7 +124,11 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
 	ld, err := h.ldDB.Get(c, did)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+		if apierrors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + did + ": " + err.Error()})
+		}
 		return
 	}
 
@@ -134,17 +138,21 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		return
 	}
 
-	ldi := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
-	if err := json.Unmarshal(body, &ldi); err != nil {
+	spec := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
+	if err := json.Unmarshal(body, &spec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
-	if err := h.validateUpdateInput(c, ldi); err != nil {
+	spec.Name = did
+	if err := h.validateUpdateInput(c, ld, spec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
 
-	ld.Patch(ldi)
+	if !ld.Patch(spec) {
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "no valid field to patch"})
+		return
+	}
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	err = h.ldDB.Update(c, ld.Name, ld)
@@ -262,20 +270,19 @@ func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptona
 	return nil
 }
 
-func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
-	valid := false
-	if ld.ResourceRequirement.MinReplicas > 0 {
-		valid = true
-	}
-	if ld.PhotonID != "" {
-		_, err := h.phDB.Get(ctx, ld.PhotonID)
+func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, old *leptonaiv1alpha1.LeptonDeployment, spec *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
+	if spec.PhotonID != "" {
+		ph, err := h.phDB.Get(ctx, spec.PhotonID)
 		if err != nil {
-			return fmt.Errorf("photon %s does not exist", ld.PhotonID)
+			if apierrors.IsNotFound(err) {
+				return fmt.Errorf("photon %s does not exist", spec.PhotonID)
+			}
+			return fmt.Errorf("failed to get photon %s: %s", spec.PhotonID, err)
 		}
-		valid = true
-	}
-	if !valid {
-		return fmt.Errorf("no valid field to patch")
+		if old.Spec.PhotonName != ph.GetSpecName() {
+			return fmt.Errorf("can only update to a photon with the same name")
+		}
+		// TODO: Handle updating to a photon with a different Image/OpenAPISchema/etc
 	}
 	return nil
 }
