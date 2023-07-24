@@ -8,13 +8,13 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
-	"github.com/leptonai/lepton/go-pkg/util"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/lepton-mothership/cluster"
 	"github.com/leptonai/lepton/lepton-mothership/httpapi"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 	"github.com/leptonai/lepton/lepton-mothership/workspace"
 
+	"github.com/gin-contrib/timeout"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -28,13 +28,24 @@ var (
 	certificateARNFlag        *string
 	rootDomainFlag            *string
 	deploymentEnvironmentFlag *string
+
+	requestTimeoutInternal *string
 )
 
 func main() {
 	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
 	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
 	deploymentEnvironmentFlag = flag.String("deployment-environment", "DEV", "deployment environment of the cluster")
+	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
 	flag.Parse()
+
+	requestTimeoutInternalDur, err := time.ParseDuration(*requestTimeoutInternal)
+	if err != nil {
+		goutil.Logger.Fatalw("failed to parse request timeout",
+			"error", err,
+		)
+	}
+
 	// TODO: create a workspace struct to pass them in
 	workspace.CertificateARN = *certificateARNFlag
 	workspace.RootDomain = *rootDomainFlag
@@ -47,6 +58,7 @@ func main() {
 	workspace.Init()
 
 	router := gin.Default()
+	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
 
 	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:
@@ -173,7 +185,23 @@ func updateImageTag(imageTag string) error {
 	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
 	// update the image tag of the deployment
 	image := deployment.Spec.Template.Spec.Containers[0].Image
-	newImage := util.UpdateImageTag(image, imageTag)
+	newImage := goutil.UpdateImageTag(image, imageTag)
 	deployment.Spec.Template.Spec.Containers[0].Image = newImage
 	return k8s.Client.Update(ctx, &deployment)
+}
+
+func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
+	return timeout.New(
+		timeout.WithTimeout(t),
+		timeout.WithHandler(func(c *gin.Context) {
+			c.Next()
+		}),
+		timeout.WithResponse(
+			func(c *gin.Context) {
+				c.JSON(http.StatusRequestTimeout, gin.H{
+					"code": httperrors.ErrorCodeRequestTimeout,
+				})
+			},
+		),
+	)
 }

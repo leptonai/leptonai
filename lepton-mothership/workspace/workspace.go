@@ -56,7 +56,9 @@ func Init() {
 		failedAPIs,
 	)
 
-	wss, err := DataStore.List(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	wss, err := DataStore.List(ctx)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list workspaces",
 			"operation", "init",
@@ -97,7 +99,7 @@ func Init() {
 					"operation", "update",
 				)
 
-				_, err := Update(ws.Spec)
+				_, err := Update(ctx, ws.Spec)
 				if err != nil {
 					goutil.Logger.Errorw("failed to update workspace",
 						"workspace", ws.Spec.Name,
@@ -126,9 +128,7 @@ func Init() {
 	}
 
 	for clusterName, wss := range ctow {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		cl, err := cluster.DataStore.Get(ctx, clusterName)
-		cancel()
 		if err != nil {
 			goutil.Logger.Errorw("failed to get cluster",
 				"cluster", clusterName,
@@ -138,7 +138,7 @@ func Init() {
 			continue
 		}
 		cl.Status.Workspaces = wss
-		if err := cluster.DataStore.UpdateStatus(context.Background(), cl.Name, cl); err != nil {
+		if err := cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
 			goutil.Logger.Errorw("failed to update cluster",
 				"cluster", clusterName,
 				"operation", "init",
@@ -150,7 +150,7 @@ func Init() {
 	goutil.Logger.Infow("finished init all workspaces")
 }
 
-func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
+func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	workspaceName := spec.Name
 	if !util.ValidateName(workspaceName) {
 		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.NameInvalidMessage)
@@ -169,7 +169,7 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	// TODO: data race: if another call concurrently creates a ws with the same name under
 	// a different cluster, then the cluster will be updated with the new ws name while the
 	// ws is not created.
-	_, err := DataStore.Get(context.Background(), workspaceName)
+	_, err := DataStore.Get(ctx, workspaceName)
 	if err == nil {
 		return nil, fmt.Errorf("workspace %s already exists", workspaceName)
 	}
@@ -179,16 +179,16 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 
 	// TODO: Fact check: I think k8s will handle the data race here: e.g., someone stepped in
 	// between Get and Update, the update will fail. Users will see the error and retry.
-	cl, err := cluster.DataStore.Get(context.Background(), spec.ClusterName)
+	cl, err := cluster.DataStore.Get(ctx, spec.ClusterName)
 	if err != nil {
 		return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
 	}
 	cl.Status.Workspaces = append(cl.Status.Workspaces, workspaceName)
-	if err := cluster.DataStore.UpdateStatus(context.Background(), cl.Name, cl); err != nil {
+	if err := cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 
-	if err := DataStore.Create(context.Background(), workspaceName, ws); err != nil {
+	if err := DataStore.Create(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 	if err := updateState(ws, crdv1alpha1.WorkspaceStateCreating); err != nil {
@@ -198,14 +198,14 @@ func Create(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	return idempotentCreate(ws)
 }
 
-func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
+func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	goutil.Logger.Infow("updating workspace",
 		"workspace", spec.Name,
 		"operation", "update",
 	)
 
 	workspaceName := spec.Name
-	ws, err := DataStore.Get(context.Background(), workspaceName)
+	ws, err := DataStore.Get(ctx, workspaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
@@ -217,7 +217,7 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	}
 	// temporarily allow updating cluster name for testing
 	if spec.ClusterName != "" {
-		if _, err := cluster.DataStore.Get(context.Background(), spec.ClusterName); err != nil {
+		if _, err := cluster.DataStore.Get(ctx, spec.ClusterName); err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
 			}
@@ -234,14 +234,14 @@ func Update(spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace,
 	if ws.Spec.ImageTag == "" {
 		ws.Spec.ImageTag = "latest"
 	}
-	if err := DataStore.Update(context.Background(), workspaceName, ws); err != nil {
+	if err := DataStore.Update(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace: %w", err)
 	}
 
 	ws.Status.LastState = ws.Status.State
 	ws.Status.State = crdv1alpha1.WorkspaceStateUpdating
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
-	if err := DataStore.UpdateStatus(context.Background(), workspaceName, ws); err != nil {
+	if err := DataStore.UpdateStatus(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
@@ -408,16 +408,16 @@ func delete(workspaceName string, logCh chan<- string) error {
 	return nil
 }
 
-func List() ([]*crdv1alpha1.LeptonWorkspace, error) {
-	wss, err := DataStore.List(context.Background())
+func List(ctx context.Context) ([]*crdv1alpha1.LeptonWorkspace, error) {
+	wss, err := DataStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workspaces: %w", err)
 	}
 	return wss, nil
 }
 
-func Get(workspaceName string) (*crdv1alpha1.LeptonWorkspace, error) {
-	return DataStore.Get(context.Background(), workspaceName)
+func Get(ctx context.Context, workspaceName string) (*crdv1alpha1.LeptonWorkspace, error) {
+	return DataStore.Get(ctx, workspaceName)
 }
 
 func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorkspace, error) {

@@ -15,8 +15,7 @@ import (
 
 func HandleWorkspaceGet(c *gin.Context) {
 	wsname := c.Param("wsname")
-	// TODO: add context, similar to those in handler_cluster.go
-	lw, err := workspace.Get(wsname)
+	lw, err := workspace.Get(c, wsname)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "workspace " + wsname + " doesn't exist"})
@@ -56,7 +55,7 @@ func HandleWorkspaceGetFailureLog(c *gin.Context) {
 }
 
 func HandleWorkspaceList(c *gin.Context) {
-	lws, err := workspace.List()
+	lws, err := workspace.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list workspaces",
 			"operation", "list",
@@ -86,7 +85,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 		return
 	}
 
-	lw, err := workspace.Create(spec)
+	lw, err := workspace.Create(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create workspace",
 			"workspace", spec.Name,
@@ -137,7 +136,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 		return
 	}
 
-	lw, err := workspace.Update(spec)
+	lw, err := workspace.Update(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to update workspace",
 			"workspace", spec.Name,

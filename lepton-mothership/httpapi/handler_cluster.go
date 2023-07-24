@@ -1,10 +1,8 @@
 package httpapi
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -16,13 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const defaultGetTimeout = time.Minute
-
 func HandleClusterGet(c *gin.Context) {
 	clname := c.Param("clname")
-	ctx, cancel := context.WithTimeout(context.Background(), defaultGetTimeout)
-	cl, err := cluster.Get(ctx, clname)
-	cancel()
+	cl, err := cluster.Get(c, clname)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + clname + " doesn't exist"})
@@ -61,12 +55,8 @@ func HandleClusterGetFailureLog(c *gin.Context) {
 	c.String(http.StatusOK, job.GetLog())
 }
 
-const defaultListTimeout = time.Minute
-
 func HandleClusterList(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultListTimeout)
-	cls, err := cluster.List(ctx)
-	cancel()
+	cls, err := cluster.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list clusters",
 			"operation", "list",
@@ -88,9 +78,6 @@ const (
 	defaultProvider = "aws"
 	defaultRegion   = "us-east-1"
 )
-
-// create is async, so we don't need full duration
-const defaultCreateTimeout = time.Minute
 
 func HandleClusterCreate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
@@ -127,9 +114,7 @@ func HandleClusterCreate(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultCreateTimeout)
-	cl, err := cluster.Create(ctx, spec)
-	cancel()
+	cl, err := cluster.Create(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create cluster",
 			"cluster", spec.Name,
@@ -150,7 +135,7 @@ func HandleClusterCreate(c *gin.Context) {
 func HandleClusterDelete(c *gin.Context) {
 	force := c.DefaultQuery("force", "false")
 	clName := c.Param("clname")
-	lc, err := cluster.Get(context.TODO(), clName)
+	lc, err := cluster.Get(c, clName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + c.Param("clname") + " doesn't exist"})
@@ -189,9 +174,6 @@ func HandleClusterDelete(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// update is async, so we don't need full duration
-const defaultUpdateTimeout = time.Minute
-
 func HandleClusterUpdate(c *gin.Context) {
 	var spec crdv1alpha1.LeptonClusterSpec
 	err := c.BindJSON(&spec)
@@ -214,9 +196,7 @@ func HandleClusterUpdate(c *gin.Context) {
 		spec.GitRef = string(plumbing.Main)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultUpdateTimeout)
-	cl, err := cluster.Update(ctx, spec)
-	cancel()
+	cl, err := cluster.Update(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to update cluster",
 			"cluster", spec.Name,
