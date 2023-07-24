@@ -76,7 +76,7 @@ func DeleteTerraformWorkingDir(dirName string) (string, error) {
 }
 
 const (
-	NameInvalidMessage = "Name must consist of lower case alphanumeric characters, and must start with an alphabetical character and be no longer than 16 characters"
+	NameInvalidMessage = "Name must consist of lower case alphanumeric characters, and must start with an alphabetical character and be no longer than 20 characters"
 )
 
 var (
@@ -85,5 +85,5 @@ var (
 
 // ValidateName returns true if the given name is valid.
 func ValidateName(name string) bool {
-	return nameRegex.MatchString(name) && len(name) <= 16
+	return nameRegex.MatchString(name) && len(name) <= 20
 }

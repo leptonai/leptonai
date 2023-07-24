@@ -8,6 +8,7 @@ func TestValidateName(t *testing.T) {
 	if !ValidateName("test123") {
 		t.Error("validateName failed")
 	}
+	// include dash
 	if ValidateName("test-123") {
 		t.Error("validateName failed")
 	}
@@ -17,10 +18,11 @@ func TestValidateName(t *testing.T) {
 	if ValidateName("Test") {
 		t.Error("validateName failed")
 	}
-	if !ValidateName("abcdefghijklmnop") {
+	if !ValidateName("abcdefghijklmnopqrst") {
 		t.Error("validateName failed")
 	}
-	if ValidateName("abcdefghijklmnopq") {
+	// too long
+	if ValidateName("abcdefghijklmnopqrstu") {
 		t.Error("validateName failed")
 	}
 }
