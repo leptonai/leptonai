@@ -1,4 +1,10 @@
-import { Asterisk, Hashtag, Launch, TrashCan } from "@carbon/icons-react";
+import {
+  ArrowRight,
+  Asterisk,
+  Hashtag,
+  Launch,
+  TrashCan,
+} from "@carbon/icons-react";
 import { IconContainer } from "@lepton-dashboard/components/icon-container";
 import { CarbonIcon, EqualIcon } from "@lepton-dashboard/components/icons";
 import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/photon-label";
@@ -512,7 +518,7 @@ export const DeploymentForm: FC<{
                               </Col>
                               <Col flex={0}>
                                 <IconContainer>
-                                  <EqualIcon />
+                                  <CarbonIcon icon={<ArrowRight />} />
                                 </IconContainer>
                               </Col>
                               <Col flex="1 1 280px">

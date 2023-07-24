@@ -9,10 +9,12 @@ import {
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { map } from "rxjs";
-import { Tree } from "antd";
+import { Tree, Typography } from "antd";
 import { Document, Folder } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { LoadingOutlined } from "@ant-design/icons";
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { css } from "@emotion/react";
 
 export interface StorageTreeProps {
   nodeFilter?: (item: FileInfo) => boolean;
@@ -50,6 +52,7 @@ export const StorageTree: FC<StorageTreeProps> = ({
   nodeDisabler = () => false,
   disabled,
 }) => {
+  const theme = useAntdTheme();
   const fileManagerService: FileManagerService<FileInfo> =
     useInject(FileManagerService);
   const treeControl = useRef(
@@ -59,6 +62,14 @@ export const StorageTree: FC<StorageTreeProps> = ({
       trackBy: (item) => item.path,
       isExpandable: (item): item is DirectoryItem<FileInfo> =>
         item.type === "dir",
+      initData: [
+        {
+          type: "dir",
+          path: "/",
+          name: "/",
+          children: undefined,
+        },
+      ],
     })
   );
 
@@ -106,7 +117,14 @@ export const StorageTree: FC<StorageTreeProps> = ({
         const isLoading = loadings.includes(value.path);
         return {
           disabled: nodeDisabler(value),
-          title: value.name,
+          title: (
+            <Typography.Text
+              type={value.path === "/" ? "secondary" : undefined}
+              title={value.path}
+            >
+              {value.path === "/" ? "root" : value.name}
+            </Typography.Text>
+          ),
           icon:
             value.type === "dir" ? (
               isLoading ? (
@@ -141,7 +159,13 @@ export const StorageTree: FC<StorageTreeProps> = ({
   }, []);
 
   return (
-    <div>
+    <div
+      css={css`
+        .ant-tree-node-selected .ant-tree-title .ant-typography {
+          color: ${theme.colorTextLightSolid} !important;
+        }
+      `}
+    >
       <Tree.DirectoryTree
         showIcon
         disabled={disabled}
