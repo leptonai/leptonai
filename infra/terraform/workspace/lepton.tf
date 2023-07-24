@@ -138,6 +138,11 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name = "apiServer.photonImageRegistry"
+    value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com"
+  }
+
+  set {
     name = "apiServer.image.repository"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-api-server"
   }

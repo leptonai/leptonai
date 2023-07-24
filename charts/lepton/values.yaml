@@ -27,6 +27,7 @@ apiServer:
   certificateArn: ""
   apiToken: ""
   photonPrefix: "photons"
+  photonImageRegistry: "605454121064.dkr.ecr.us-east-1.amazonaws.com"
   dynamodbName: ""
   enableTuna: false
   enableStorage: true

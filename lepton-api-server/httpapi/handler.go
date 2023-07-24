@@ -24,6 +24,7 @@ type Handler struct {
 	bucketName                    string
 	efsID                         string
 	photonPrefix                  string
+	photonImageRegistry           string
 	s3ReadOnlyAccessK8sSecretName string
 	rootDomain                    string
 	workspaceName                 string
@@ -37,7 +38,7 @@ type Handler struct {
 	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
 }
 
-func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, s3ReadOnlyAccessK8sSecretName,
+func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
 	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
 	workspaceState WorkspaceState) *Handler {
 	k8s.Client.Scheme()
@@ -47,6 +48,7 @@ func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, s3ReadOnlyAc
 		bucketName:                    bucketName,
 		efsID:                         efsID,
 		photonPrefix:                  protonPrefix,
+		photonImageRegistry:           photonImageRegistry,
 		s3ReadOnlyAccessK8sSecretName: s3ReadOnlyAccessK8sSecretName,
 		rootDomain:                    rootDomain,
 		workspaceName:                 workspaceName,

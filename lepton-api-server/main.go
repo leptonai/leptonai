@@ -37,8 +37,10 @@ var (
 	efsIDFlag                      *string
 	dynamodbNameFlag               *string
 
-	namespaceFlag    *string
-	photonPrefixFlag *string
+	namespaceFlag *string
+
+	photonPrefixFlag        *string
+	photonImageRegistryFlag *string
 
 	s3ReadOnlyAccessK8sSecretNameFlag *string
 	prometheusURLFlag                 *string
@@ -81,6 +83,7 @@ func main() {
 	efsIDFlag = flag.String("efs-id", "", "EFS ID")
 
 	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
+	photonImageRegistryFlag = flag.String("photon-image-registry", "605454121064.dkr.ecr.us-east-1.amazonaws.com", "photon image registry")
 
 	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
 	prometheusURLFlag = flag.String("prometheus-url", "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090", "prometheus URL")
@@ -128,6 +131,7 @@ func main() {
 		*bucketNameFlag,
 		*efsIDFlag,
 		*photonPrefixFlag,
+		*photonImageRegistryFlag,
 		*s3ReadOnlyAccessK8sSecretNameFlag,
 		*rootDomainFlag,
 		*workspaceNameFlag,
