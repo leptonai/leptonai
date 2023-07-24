@@ -6,4 +6,5 @@ const (
 	ErrorCodeValidationError  = "ValidationError"
 	ErrorCodeResourceNotFound = "ResourceNotFound"
 	ErrorCodeResourceConflict = "ResourceConflict"
+	ErrorCodeRequestTimeout   = "RequestTimeout"
 )

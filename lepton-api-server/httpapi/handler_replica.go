@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,13 +27,13 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()
 
-	ld, err := h.ldDB.Get(context.Background(), did)
+	ld, err := h.ldDB.Get(c, did)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
 		return
 	}
 
-	deployment, err := clientset.AppsV1().Deployments(h.namespace).Get(context.TODO(), ld.GetSpecName(), metav1.GetOptions{})
+	deployment, err := clientset.AppsV1().Deployments(h.namespace).Get(c, ld.GetSpecName(), metav1.GetOptions{})
 	if err != nil {
 		goutil.Logger.Errorw("failed to get deployment",
 			"operation", "getReplicas",
@@ -55,7 +54,7 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 		labelSelector += fmt.Sprintf("%s=%s", key, value)
 	}
 
-	podList, err := clientset.CoreV1().Pods(h.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+	podList, err := clientset.CoreV1().Pods(h.namespace).List(c, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		goutil.Logger.Errorw("failed to get replicas for deployment",
 			"operation", "getReplicas",
@@ -151,7 +150,7 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 		LimitBytes: &tenMBInBytes,
 	}
 	req := clientset.CoreV1().Pods(h.namespace).GetLogs(rid, logOptions)
-	podLogs, err := req.Stream(context.Background())
+	podLogs, err := req.Stream(c)
 	// TODO: check if the error is pod not found, which can be user/web interface error
 	if err != nil {
 		goutil.Logger.Errorw("failed to get logs for replica",

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -92,21 +91,21 @@ func (ih *InferenceHandler) Get(c *gin.Context) {
 	ti := TunaInference{}
 	ti.Metadata.Name = name
 
-	ctrl, err := ih.ldDB.Get(context.Background(), controllerName(name))
+	ctrl, err := ih.ldDB.Get(c, controllerName(name))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "controller deployment " + name + " not found"})
 		return
 	}
 	ti.Spec.ControllerPhotonID = ctrl.Spec.LeptonDeploymentUserSpec.PhotonID
 
-	worker, err := ih.ldDB.Get(context.Background(), workerName(name))
+	worker, err := ih.ldDB.Get(c, workerName(name))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "worker deployment " + name + " not found"})
 		return
 	}
 	ti.Spec.WorkerPhotonID = worker.Spec.LeptonDeploymentUserSpec.PhotonID
 
-	frontend, err := ih.ldDB.Get(context.Background(), frontendName(name))
+	frontend, err := ih.ldDB.Get(c, frontendName(name))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "frontend deployment " + name + " not found"})
 		return

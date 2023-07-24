@@ -6,7 +6,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
-	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-gonic/gin"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,12 +21,10 @@ func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 	deployment := &appsv1.Deployment{}
 
-	ctx, cancel := util.CreateCtxFromGinCtx(c)
-	err := k8s.Client.Get(ctx, types.NamespacedName{
+	err := k8s.Client.Get(c, types.NamespacedName{
 		Namespace: h.namespace,
 		Name:      name,
 	}, deployment)
-	cancel()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
@@ -44,7 +41,7 @@ func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 		return
 	}
 
-	issue, err := getDeploymentReadinessIssue(deployment)
+	issue, err := getDeploymentReadinessIssue(c, deployment)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get deployment readiness issues",
 			"operation", "getRedinessIssue",

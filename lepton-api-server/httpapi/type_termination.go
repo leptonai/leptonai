@@ -27,13 +27,13 @@ type ReplicaTermination struct {
 	// TODO: add the last few lines of the logs before termination
 }
 
-func getDeploymentTerminations(deployment *appsv1.Deployment) (DeploymentTerminations, error) {
+func getDeploymentTerminations(ctx context.Context, deployment *appsv1.Deployment) (DeploymentTerminations, error) {
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels(deployment.Spec.Selector.MatchLabels),
 	}
-	if err := k8s.Client.List(context.Background(), podList, listOpts...); err != nil {
+	if err := k8s.Client.List(ctx, podList, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list replicas: %w", err)
 	}
 

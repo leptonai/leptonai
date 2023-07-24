@@ -67,7 +67,6 @@ func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, s3ReadOnlyAc
 			backupBucket,
 		),
 	}
-	h.migratePhotonFilenamePrefixInS3()
 
 	switch workspaceState {
 	case WorkspaceStateReady:
@@ -105,53 +104,6 @@ func (h *Handler) deleteAllDeployments() {
 			)
 		}
 		time.Sleep(deleteAllDeploymentInterval)
-	}
-}
-
-// TODO: this function is to fix the compatibility issue introduced
-// by https://github.com/leptonai/lepton/pull/1568
-// Will delete the function while we fully migrated all workspaces
-func (h *Handler) migratePhotonFilenamePrefixInS3() {
-	phs, err := h.phDB.List(context.Background())
-	if err != nil {
-		goutil.Logger.Fatalw("failed to list photons",
-			"operation", "migratePhotonFilenamePrefixInS3",
-			"error", err,
-		)
-	}
-	for _, ph := range phs {
-		oldName := ph.GetSpecName() + "-" + ph.GetSpecID()
-		newName := ph.GetSpecID()
-		exist, err := h.photonBucket.Exists(context.Background(), oldName)
-		if err != nil {
-			goutil.Logger.Fatalw("failed to check photon file",
-				"operation", "migratePhotonFilenamePrefixInS3",
-				"error", err,
-				"oldName", oldName,
-			)
-		}
-		if exist {
-			goutil.Logger.Infow("migrating photon file",
-				"operation", "migratePhotonFilenamePrefixInS3",
-				"oldName", oldName,
-				"newName", newName,
-			)
-			if err := h.photonBucket.Copy(context.Background(), newName, oldName, nil); err != nil {
-				goutil.Logger.Fatalw("failed to copy photon file",
-					"operation", "migratePhotonFilenamePrefixInS3",
-					"error", err,
-					"oldName", oldName,
-					"newName", newName,
-				)
-			}
-			if err := h.photonBucket.Delete(context.Background(), oldName); err != nil {
-				goutil.Logger.Fatalw("failed to delete photon file",
-					"operation", "migratePhotonFilenamePrefixInS3",
-					"error", err,
-					"oldName", oldName,
-				)
-			}
-		}
 	}
 }
 

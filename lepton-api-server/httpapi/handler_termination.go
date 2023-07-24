@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -22,7 +21,7 @@ func (h *DeploymentTerminationHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 
 	deployment := &appsv1.Deployment{}
-	err := k8s.Client.Get(context.Background(), types.NamespacedName{
+	err := k8s.Client.Get(c, types.NamespacedName{
 		Namespace: h.namespace,
 		Name:      name,
 	}, deployment)
@@ -42,7 +41,7 @@ func (h *DeploymentTerminationHandler) Get(c *gin.Context) {
 		return
 	}
 
-	terminations, err := getDeploymentTerminations(deployment)
+	terminations, err := getDeploymentTerminations(c, deployment)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get deployment terminations",
 			"operation", "getTermination",

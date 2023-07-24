@@ -19,6 +19,7 @@ import (
 	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-contrib/requestid"
+	"github.com/gin-contrib/timeout"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	_ "gocloud.dev/blob/s3blob"
@@ -88,7 +89,7 @@ func main() {
 	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
 	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
 
-	requestTimeoutInternal = flag.String(util.RequestTimeoutInternalCtxKey, "1m", "Default request timeout for internal calls")
+	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -98,7 +99,9 @@ func main() {
 
 	requestTimeoutInternalDur, err := time.ParseDuration(*requestTimeoutInternal)
 	if err != nil {
-		log.Fatalln(err)
+		goutil.Logger.Fatalw("failed to parse request timeout",
+			"error", err,
+		)
 	}
 
 	pbu := goutil.MustOpenAndAccessBucket(
@@ -140,10 +143,10 @@ func main() {
 	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
-	router.Use(CORSMiddleware())
+	router.Use(corsMiddleware())
 	router.Use(requestid.New())
-	router.Use(PauseMiddleware(workspaceState))
-	router.Use(setRequestTimeoutInternal(requestTimeoutInternalDur))
+	router.Use(pauseWorkspaceMiddleware(workspaceState))
+	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
 
 	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:
@@ -254,7 +257,7 @@ func main() {
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
-func CORSMiddleware() gin.HandlerFunc {
+func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
@@ -275,7 +278,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-func PauseMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
+func pauseWorkspaceMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if workspaceState != httpapi.WorkspaceStateReady {
 			switch c.Request.Method {
@@ -291,9 +294,18 @@ func PauseMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
 	}
 }
 
-func setRequestTimeoutInternal(d time.Duration) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(util.RequestTimeoutInternalCtxKey, d)
-		c.Next()
-	}
+func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
+	return timeout.New(
+		timeout.WithTimeout(t),
+		timeout.WithHandler(func(c *gin.Context) {
+			c.Next()
+		}),
+		timeout.WithResponse(
+			func(c *gin.Context) {
+				c.JSON(http.StatusRequestTimeout, gin.H{
+					"code": httperrors.ErrorCodeRequestTimeout,
+				})
+			},
+		),
+	)
 }

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,12 +23,12 @@ type PhotonHandler struct {
 
 func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
-	ph, err := h.phDB.Get(context.Background(), pid)
+	ph, err := h.phDB.Get(c, pid)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 		return
 	}
-	body, err := h.photonBucket.ReadAll(context.Background(), ph.GetSpecID())
+	body, err := h.photonBucket.ReadAll(c, ph.GetSpecID())
 	if err != nil {
 		goutil.Logger.Errorw("failed to get photon from object storage",
 			"operation", "downloadPhoton",
@@ -50,7 +49,7 @@ func (h *PhotonHandler) Get(c *gin.Context) {
 		h.Download(c)
 	} else {
 		pid := c.Param("pid")
-		ph, err := h.phDB.Get(context.Background(), pid)
+		ph, err := h.phDB.Get(c, pid)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
 			return
@@ -66,7 +65,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	// TODO: this has data race: if users create a deployment after this check
 	// but before the actual deletion of the photon from DB, then the deployment
 	// will be created with a photon that is being deleted.
-	list, err := h.ldDB.List(context.Background())
+	list, err := h.ldDB.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list deployments",
 			"operation", "deletePhoton",
@@ -83,7 +82,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 		}
 	}
 
-	if err := h.phDB.Delete(context.Background(), pid); err != nil {
+	if err := h.phDB.Delete(c, pid); err != nil {
 		goutil.Logger.Errorw("failed to delete photon from database",
 			"operation", "deletePhoton",
 			"photon", pid,
@@ -105,7 +104,7 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 func (h *PhotonHandler) List(c *gin.Context) {
 	name := c.DefaultQuery("name", "")
 	var phs []*leptonaiv1alpha1.Photon
-	phList, err := h.phDB.List(context.Background())
+	phList, err := h.phDB.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list photons",
 			"operation", "listPhotons",
@@ -150,7 +149,7 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 
 	// Upload to S3
 	// TODO: append the content hash to the s3 key as suffix
-	err = h.photonBucket.WriteAll(context.Background(), ph.GetSpecID(), body, nil)
+	err = h.photonBucket.WriteAll(c, ph.GetSpecID(), body, nil)
 	if err != nil {
 		goutil.Logger.Errorw("failed to upload photon to object storage",
 			"operation", "createPhoton",
@@ -162,7 +161,7 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.phDB.Create(context.Background(), ph.GetSpecID(), ph); err != nil {
+	if err := h.phDB.Create(c, ph.GetSpecID(), ph); err != nil {
 		goutil.Logger.Errorw("failed to create photon in database",
 			"operation", "createPhoton",
 			"photon", ph.GetSpecID(),

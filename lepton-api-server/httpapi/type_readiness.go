@@ -29,13 +29,13 @@ const (
 	ReadinessReasonUnknown       ReplicaReadinessReason = "Unknown"
 )
 
-func getDeploymentReadinessIssue(deployment *appsv1.Deployment) (DeploymentReadinessIssue, error) {
+func getDeploymentReadinessIssue(ctx context.Context, deployment *appsv1.Deployment) (DeploymentReadinessIssue, error) {
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels(deployment.Spec.Selector.MatchLabels),
 	}
-	if err := k8s.Client.List(context.Background(), podList, listOpts...); err != nil {
+	if err := k8s.Client.List(ctx, podList, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list replicas: %w", err)
 	}
 
