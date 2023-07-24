@@ -1,10 +1,12 @@
 import requests
-from typing import List
+from typing import List, Optional
 
 from .util import create_header, json_or_error
 
 
-def create_secret(url: str, auth_token: str, names: List[str], values: List[str]):
+def create_secret(
+    url: str, auth_token: Optional[str], names: List[str], values: List[str]
+):
     """
     Create a secret with the given name and value.
 
@@ -22,7 +24,7 @@ def create_secret(url: str, auth_token: str, names: List[str], values: List[str]
     return response
 
 
-def list_secret(url: str, auth_token: str):
+def list_secret(url: str, auth_token: Optional[str]):
     """
     List all secrets on a workspace.
     """
@@ -30,7 +32,7 @@ def list_secret(url: str, auth_token: str):
     return json_or_error(response)
 
 
-def remove_secret(url: str, auth_token: str, name: str):
+def remove_secret(url: str, auth_token: Optional[str], name: str):
     """
     Remove a secret from a workspace.
     """

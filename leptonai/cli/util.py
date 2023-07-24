@@ -3,6 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
+from typing import Any, Optional, Tuple
 from urllib.parse import urlparse
 
 import click
@@ -45,12 +46,12 @@ def click_group(*args, **kwargs):
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
 
 
-def is_valid_url(candidate_str):
+def is_valid_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     return parsed.scheme != "" and parsed.netloc != ""
 
 
-def get_workspace_and_token_or_die():
+def get_workspace_and_token_or_die() -> Tuple[str, Optional[str]]:
     """
     Gets the workspace URL and auth token or exits if they are not found.
 
@@ -63,14 +64,13 @@ def get_workspace_and_token_or_die():
             " first."
         )
         sys.exit(1)
+    # Note: it is possible that the workspace does not require an auth token, in
+    # which case this will return None and we will pass along.
     auth_token = workspace.get_auth_token(workspace_url)
-    if auth_token is None:
-        # TODO: should this actually be a programming error?
-        console.print("Warning: you don't seem to have a valid authentication token.")
     return workspace_url, auth_token
 
 
-def check(condition, message):
+def check(condition: Any, message: str) -> None:
     """
     Checks a condition and prints a message if the condition is false.
 
@@ -82,13 +82,15 @@ def check(condition, message):
         sys.exit(1)
 
 
-def guard_api(content_or_error, detail=False, msg=None):
+def guard_api(
+    content_or_error: Any, detail: Optional[bool] = False, msg: Optional[str] = None
+):
     """
     A wrapper around API calls that exits if the call  prints an error message and exits if the call was unsuccessful.
 
     This is useful for apis that return either a JSON response or an APIError.
 
-    :param json_or_error: The json returned by the API call, or an APIError or NotJsonError.
+    :param json_or_error: The json returned by the API call, or an APIError.
     :param detail: If True, print the error message from the API call.
     :param msg: If not None, print this message instead of the error message from the API call.
     """

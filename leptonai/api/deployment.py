@@ -1,9 +1,10 @@
 import requests
+from typing import Optional
 
 from .util import create_header, json_or_error, APIError
 
 
-def list_deployment(url: str, auth_token: str):
+def list_deployment(url: str, auth_token: Optional[str]):
     """
     List all deployments in a workspace.
 
@@ -13,7 +14,7 @@ def list_deployment(url: str, auth_token: str):
     return json_or_error(response)
 
 
-def remove_deployment(url: str, auth_token: str, name: str):
+def remove_deployment(url: str, auth_token: Optional[str], name: str):
     """
     Remove a deployment from a workspace.
 
@@ -25,7 +26,7 @@ def remove_deployment(url: str, auth_token: str, name: str):
     return response
 
 
-def get_deployment(url: str, auth_token: str, name: str):
+def get_deployment(url: str, auth_token: Optional[str], name: str):
     """
     Get a deployment from a workspace.
     """
@@ -35,7 +36,7 @@ def get_deployment(url: str, auth_token: str, name: str):
     return json_or_error(response)
 
 
-def get_readiness(url: str, auth_token: str, name: str):
+def get_readiness(url: str, auth_token: Optional[str], name: str):
     """
     Get a deployment readiness info from a workspace.
 
@@ -48,7 +49,7 @@ def get_readiness(url: str, auth_token: str, name: str):
     return json_or_error(response)
 
 
-def get_termination(url: str, auth_token: str, name: str):
+def get_termination(url: str, auth_token: Optional[str], name: str):
     """
     Get a deployment termination info from a workspace.
 
@@ -60,7 +61,7 @@ def get_termination(url: str, auth_token: str, name: str):
     return json_or_error(response)
 
 
-def get_replicas(url: str, auth_token: str, name: str):
+def get_replicas(url: str, auth_token: Optional[str], name: str):
     """
     Get a deployment's replicas from a workspace.
 
@@ -73,7 +74,7 @@ def get_replicas(url: str, auth_token: str, name: str):
     return json_or_error(response)
 
 
-def get_log(url: str, auth_token: str, name: str, replica: str):
+def get_log(url: str, auth_token: Optional[str], name: str, replica: str):
     """
     Get a deployment log from a workspace.
 
@@ -93,7 +94,7 @@ def get_log(url: str, auth_token: str, name: str, replica: str):
         return APIError(response)
 
 
-def update_deployment(url: str, auth_token: str, name: str, replicas: int):
+def update_deployment(url: str, auth_token: Optional[str], name: str, replicas: int):
     """
     Update a deployment in a workspace.
 
@@ -113,7 +114,7 @@ def update_deployment(url: str, auth_token: str, name: str, replicas: int):
     return json_or_error(response)
 
 
-def get_qps(url: str, auth_token: str, name: str, by_path: bool = False):
+def get_qps(url: str, auth_token: Optional[str], name: str, by_path: bool = False):
     """
     Get a deployment's QPS from a workspace.
 
@@ -133,7 +134,7 @@ def get_qps(url: str, auth_token: str, name: str, by_path: bool = False):
     return json_or_error(response)
 
 
-def get_latency(url: str, auth_token: str, name: str, by_path: bool = False):
+def get_latency(url: str, auth_token: Optional[str], name: str, by_path: bool = False):
     """
     Get a deployment's latency from a workspace.
 

@@ -1,5 +1,6 @@
 import os
 import requests
+from typing import Optional
 
 from .util import create_header, json_or_error, APIError
 
@@ -11,7 +12,7 @@ def _prepend_separator(file_path):
     return file_path if file_path.startswith("/") else "/" + file_path
 
 
-def get_dir(url: str, auth_token: str, file_path: str):
+def get_dir(url: str, auth_token: Optional[str], file_path: str):
     """
     Get the contents of a directory on the currently logged in remote server.
     :param str file_path: path to the directory on the remote server
@@ -23,7 +24,7 @@ def get_dir(url: str, auth_token: str, file_path: str):
     return json_or_error(response)
 
 
-def check_file_type(url: str, auth_token: str, file_path: str):
+def check_file_type(url: str, auth_token: Optional[str], file_path: str):
     """
     Check if the contents at file_path stored on the remote server are a file or a directory.
 
@@ -47,7 +48,7 @@ def check_file_type(url: str, auth_token: str, file_path: str):
     return None
 
 
-def check_path_exists(url: str, auth_token: str, file_path: str):
+def check_path_exists(url: str, auth_token: Optional[str], file_path: str):
     """
     Check if the contents at file_path exist on the remote server.
 
@@ -59,7 +60,7 @@ def check_path_exists(url: str, auth_token: str, file_path: str):
     return response.status_code == 200
 
 
-def remove_file_or_dir(url: str, auth_token: str, file_path: str):
+def remove_file_or_dir(url: str, auth_token: Optional[str], file_path: str):
     """
     Remove a file or directory on the currently logged in remote server.
 
@@ -70,7 +71,7 @@ def remove_file_or_dir(url: str, auth_token: str, file_path: str):
     return response
 
 
-def create_dir(url: str, auth_token: str, file_path: str):
+def create_dir(url: str, auth_token: Optional[str], file_path: str):
     """
     Create a directory on the currently logged in remote server.
     :param str file_path: path to the directory on the remote server
@@ -80,7 +81,7 @@ def create_dir(url: str, auth_token: str, file_path: str):
     return response
 
 
-def upload_file(url: str, auth_token: str, local_path: str, remote_path: str):
+def upload_file(url: str, auth_token: Optional[str], local_path: str, remote_path: str):
     """
     Upload a file to the currently logged in remote server.
 
@@ -95,7 +96,9 @@ def upload_file(url: str, auth_token: str, local_path: str, remote_path: str):
         return response
 
 
-def download_file(url: str, auth_token: str, remote_path: str, local_path: str):
+def download_file(
+    url: str, auth_token: Optional[str], remote_path: str, local_path: str
+):
     """
     Download a file from the currently logged in remote server.
     :param str url: url of the remote server including the schema

@@ -3,7 +3,7 @@ Utility functions for the Lepton AI API.
 """
 import json
 import requests
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 
 class APIError(object):
@@ -19,7 +19,7 @@ class APIError(object):
         return f"APIError {self.status_code}: {self.message}"
 
 
-def json_or_error(response: requests.Response) -> Union[APIError, dict]:
+def json_or_error(response: requests.Response) -> Union[Dict, APIError]:
     """
     A utility function to return json if the response is ok, and otherwise return two types of errors: APIError if the response is not ok and the content is json, and NotJsonError if the response is ok but the content cannot be decoded as json.
 
@@ -42,11 +42,11 @@ def json_or_error(response: requests.Response) -> Union[APIError, dict]:
         return APIError(response)
 
 
-def create_header(auth_token: str) -> Dict[str, str]:
+def create_header(auth_token: Optional[str]) -> Dict[str, str]:
     """
     Generate HTTP header for a request given an auth token.
 
-    :param str auth_token: auth token to use in the header
+    :param str auth_token: auth token to use in the header. None if the request does not require an auth token.
     :return: the generated HTTP header
     :rtype: dict[str, str]
     """
