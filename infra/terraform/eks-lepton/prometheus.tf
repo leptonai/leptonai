@@ -456,15 +456,26 @@ resource "helm_release" "kube_prometheus_stack" {
           }
         }
 
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
         # c.f., https://github.com/leptonai/lepton/pull/1369/files
         additionalScrapeConfigs = [
+          # NOTE: kube-prometheus-stack already scrapes node-exporter with
+          # "serviceMonitor/kube-prometheus-stack/kube-prometheus-stack-prometheus-node-exporter/0"
+          # with "kubernetes_sd_configs" "role: endpoints"
+          # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
+
           {
             job_name = "lepton-deployment-pods"
+
+            # List of Kubernetes service discovery configurations.
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
             kubernetes_sd_configs = [
               {
                 role = "pod"
               }
             ]
+
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
             relabel_configs = [
               {
                 source_labels = ["__meta_kubernetes_pod_label_photon_id"]
@@ -497,9 +508,27 @@ resource "helm_release" "kube_prometheus_stack" {
                 action        = "replace"
               },
             ]
-          }
+          },
+
+          # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+          {
+            job_name = "nvidia-dcgm-exporter"
+
+            # List of labeled statically configured targets for this job.
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#static_config
+            static_configs = [
+              {
+                # <service-name>.<namespace>.svc.cluster.local:<service-port>
+                targets = ["nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"]
+              }
+            ]
+          },
         ]
       }
+    }
+
+    nodeExporter = {
+      enabled = true
     }
 
     grafana = {
