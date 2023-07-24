@@ -44,8 +44,8 @@ func waitFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("workspace name is required")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 	start := time.Now()

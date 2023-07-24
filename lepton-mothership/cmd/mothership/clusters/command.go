@@ -32,9 +32,10 @@ func NewCommand() *cobra.Command {
 		Use:   "clusters",
 		Short: "Implements clusters sub-commands",
 	}
-	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1", "Mothership API endpoint URL")
+	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
-	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
+
+	cmd.PersistentFlags().StringVarP(&tokenPath, "context-path", "p", common.DefaultContextPath, "Directory path that contains the context of the motership API call (to be overwritten by non-empty --token)")
 	cmd.AddCommand(
 		get.NewCommand(),
 		list.NewCommand(),

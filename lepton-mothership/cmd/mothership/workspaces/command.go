@@ -17,7 +17,8 @@ import (
 var (
 	mothershipURL string
 	token         string
-	tokenPath     string
+
+	contextPath string
 )
 
 func init() {
@@ -31,9 +32,9 @@ func NewCommand() *cobra.Command {
 		Use:   "workspaces",
 		Short: "Implements workspace sub-commands",
 	}
-	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1", "Mothership API endpoint URL")
+	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
-	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
+	cmd.PersistentFlags().StringVarP(&contextPath, "token-path", "p", common.DefaultContextPath, "Directory path that contains the context of the motership API call (to be overwritten by non-empty --token)")
 	cmd.AddCommand(
 		get.NewCommand(),
 		list.NewCommand(),

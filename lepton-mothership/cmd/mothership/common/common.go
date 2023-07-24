@@ -14,9 +14,21 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// Context represents the mothership context.
+type Context struct {
+	Name  string `json:"name"`
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
+type Contexts struct {
+	Contexts map[string]Context `json:"contexts"`
+	Current  string             `json:"current"`
+}
+
 var (
-	homeDir, _       = os.UserHomeDir()
-	DefaultTokenPath = filepath.Join(homeDir, ".mothership", "token")
+	homeDir, _         = os.UserHomeDir()
+	DefaultContextPath = filepath.Join(homeDir, ".mothership", "context")
 )
 
 func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
@@ -66,46 +78,63 @@ func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
 	return config
 }
 
-func ReadTokenFromFlag(cmd *cobra.Command) string {
+func ReadContext(cmd *cobra.Command) Context {
 	tokenFlag := cmd.Flag("token")
-	tokenPathFlag := cmd.Flag("token-path")
-
 	token := ""
 	if tokenFlag != nil && tokenFlag.Value.String() != "" {
 		// --token flag is not empty, so overwrites --token-path value
 		token = tokenFlag.Value.String()
 	}
 
-	if token == "" {
-		// --token flag is empty, so fallback to --token-path value
-		// assume the default flag value is set to "DefaultTokenPath"
-		// so this is never an empty string
-		if tokenPathFlag == nil || tokenPathFlag.Value.String() == "" {
-			log.Fatal("both --token and --token-path are empty")
+	mothershipURLFlag := cmd.Flag("mothership-url")
+	mothershipURL := ""
+	if mothershipURLFlag != nil && mothershipURLFlag.Value.String() != "" {
+		mothershipURL = mothershipURLFlag.Value.String()
+	}
+	if token != "" && mothershipURL != "" {
+		return Context{
+			Name:  "user-provided",
+			URL:   mothershipURL,
+			Token: token,
 		}
-
-		tokenPath := tokenPathFlag.Value.String()
-		b, err := os.ReadFile(tokenPath)
-		if err != nil {
-			log.Fatalf("failed to read token file %v", err)
-		}
-
-		token = string(b)
 	}
 
-	if token == "" {
-		log.Fatal("no token found")
+	if token == "" && mothershipURL != "" {
+		log.Fatal("mothership-url flag is not empty but token flag is empty")
+	}
+	if token != "" && mothershipURL == "" {
+		log.Fatal("token flag is not empty but mothership-url flag is empty")
 	}
 
-	return token
+	contextPathFlag := cmd.Flag("context-path")
+	cpath := DefaultContextPath
+	if contextPathFlag != nil && contextPathFlag.Value.String() != "" {
+		cpath = contextPathFlag.Value.String()
+	}
+
+	f, err := os.Open(cpath)
+	if err != nil {
+		log.Fatalf("failed to open context file %v", err)
+	}
+	defer f.Close()
+
+	ctx := Contexts{}
+	err = json.NewDecoder(f).Decode(&ctx)
+	if err != nil {
+		log.Fatalf("failed to decode context file %v", err)
+	}
+
+	if ctx.Current == "" || ctx.Contexts[ctx.Current] == (Context{}) {
+		log.Fatalf("current context is empty or not found in context file %q", cpath)
+	}
+
+	fmt.Printf("using context %q\n", ctx.Current)
+
+	return ctx.Contexts[ctx.Current]
 }
 
 func ReadKubeconfigFromFlag(cmd *cobra.Command) string {
 	return cmd.Flag("kubeconfig").Value.String()
-}
-
-func ReadMothershipURLFromFlag(cmd *cobra.Command) string {
-	return cmd.Flag("mothership-url").Value.String()
 }
 
 func BuildRestConfig(configPath string) (*rest.Config, string, error) {

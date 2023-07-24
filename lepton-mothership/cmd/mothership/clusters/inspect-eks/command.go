@@ -39,8 +39,8 @@ func NewCommand() *cobra.Command {
 }
 
 func inspectFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 	cli := goclient.NewHTTP(mothershipURL, token)
 
 	// cluster name -> cluster object

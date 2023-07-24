@@ -10,10 +10,10 @@ import (
 
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/clusters"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/contexts"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/purge"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/quotas"
-	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/token"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/volumes"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces"
@@ -35,7 +35,7 @@ func init() {
 	rootCmd.AddCommand(
 		aurora.NewCommand(),
 		clusters.NewCommand(),
-		token.NewCommand(),
+		contexts.NewCommand(),
 		metering.NewCommand(),
 		version.NewCommand(),
 		workspaces.NewCommand(),

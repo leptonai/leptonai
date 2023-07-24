@@ -50,8 +50,8 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("workspace name and prefix cannot be used together")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 

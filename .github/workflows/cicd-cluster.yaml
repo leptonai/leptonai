@@ -45,10 +45,12 @@ jobs:
 
       run: |
         ./mothership cluster create \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
           --git-ref ${{ steps.vars.outputs.branch }}
         ./mothership cluster wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
           --timeout 60 \
@@ -56,12 +58,14 @@ jobs:
     - name: Create workspace
       run: |
         ./mothership workspace create \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --api-token "${{ steps.vars.outputs.api_token }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --git-ref "${{ steps.vars.outputs.branch }}"
         ./mothership workspace wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --timeout 10 \
@@ -77,9 +81,11 @@ jobs:
       run: |
         ./mothership workspace delete \
           --auto-approve \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}"
         ./mothership workspace wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --timeout 10 \
@@ -89,9 +95,11 @@ jobs:
       run: |
         ./mothership cluster delete \
           --auto-approve \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}"
         ./mothership cluster wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
           --timeout 60 \

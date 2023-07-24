@@ -45,8 +45,8 @@ func updateFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("workspace name is required")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	if !autoApprove {
 		if !prompt.IsInputYes(fmt.Sprintf("Confirm to update a workspace %q via %q\n", workspaceName, mothershipURL)) {

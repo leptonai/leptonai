@@ -42,8 +42,8 @@ func NewCommand() *cobra.Command {
 }
 
 func listFunc(cmd *cobra.Command, args []string) {
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 	if output != "rawjson" && output != "table" {
 		log.Fatalf("invalid output format %q, only 'rawjson' and 'table' are supported", output)
 	}

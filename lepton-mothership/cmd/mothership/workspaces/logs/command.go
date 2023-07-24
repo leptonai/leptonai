@@ -38,8 +38,8 @@ func logsFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("cluster name is required")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	url := mothershipURL + "/workspaces/" + workspaceName
 	if failure {

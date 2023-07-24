@@ -58,8 +58,8 @@ func createFunc(cmd *cobra.Command, args []string) {
 		log.Println("[UNSAFE] api token is not provided")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	workspace := crdv1alpha1.LeptonWorkspaceSpec{
 		Name:        workspaceName,

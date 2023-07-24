@@ -32,7 +32,7 @@ var (
 
 	mothershipURL string
 	token         string
-	tokenPath     string
+	contextPath   string
 
 	enableEBS     bool
 	enableEFS     bool
@@ -54,9 +54,9 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.PersistentFlags().StringSliceVar(&svcCodes, "service-codes", []string{"ec2", "eks"}, "Service codes to purge")
 	cmd.PersistentFlags().StringVarP(&region, "region", "r", "us-east-1", "AWS region to query")
-	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "https://mothership.cloud.lepton.ai/api/v1", "Mothership API endpoint URL")
+	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")
-	cmd.PersistentFlags().StringVarP(&tokenPath, "token-path", "p", common.DefaultTokenPath, "File path that contains the beaer token for API call (to be overwritten by non-empty --token)")
+	cmd.PersistentFlags().StringVarP(&contextPath, "token-path", "p", common.DefaultContextPath, "Directory path that contains the context of the motership API call (to be overwritten by non-empty --token)")
 
 	cmd.PersistentFlags().BoolVarP(&enableKMS, "kms-enabled", "k", false, "Enable purging KMS")
 	cmd.PersistentFlags().BoolVarP(&enableEBS, "ebs-enabled", "", false, "Enable EBS volume deletion")
@@ -71,8 +71,8 @@ func NewCommand() *cobra.Command {
 }
 
 func purgeFunc(cmd *cobra.Command, args []string) {
-	token = common.ReadTokenFromFlag(cmd)
-	mothershipURL = common.ReadMothershipURLFromFlag(cmd)
+	ctx := common.ReadContext(cmd)
+	token, mothershipURL = ctx.Token, ctx.URL
 
 	cli := goclient.NewHTTP(mothershipURL, token)
 	clusters, err := util.ListClusters(cli)

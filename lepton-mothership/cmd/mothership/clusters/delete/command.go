@@ -50,8 +50,8 @@ func deleteFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("cluster name is required")
 	}
 
-	token := common.ReadTokenFromFlag(cmd)
-	mothershipURL := common.ReadMothershipURLFromFlag(cmd)
+	mctx := common.ReadContext(cmd)
+	token, mothershipURL := mctx.Token, mctx.URL
 
 	if !autoApprove {
 		if !prompt.IsInputYes(fmt.Sprintf("Confirm to delete cluster %q via %q\n", clusterName, mothershipURL)) {
