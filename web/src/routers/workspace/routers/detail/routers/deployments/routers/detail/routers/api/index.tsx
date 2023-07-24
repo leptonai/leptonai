@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
@@ -14,6 +14,7 @@ import {
 } from "../../../../../../../../components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
+import { Link } from "@lepton-dashboard/components/link";
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
@@ -52,6 +53,14 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
     }
   );
 
+  const isPublic = useMemo(() => {
+    return !deployment.api_tokens?.length;
+  }, [deployment]);
+
+  const docsUrl = useMemo(() => {
+    const url = deployment.status.endpoint.external_endpoint;
+    return `${url}/docs`;
+  }, [deployment]);
   return (
     <Card
       loading={loading}
@@ -129,6 +138,21 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
               language={codeLanguage}
             />
           ))}
+          {codeLanguage === LanguageSupports.Bash && isPublic && (
+            <>
+              <br />
+              You can also check{" "}
+              <Link
+                css={css`
+                  text-decoration: underline !important;
+                `}
+                to={docsUrl}
+                target="_blank"
+              >
+                API docs here.
+              </Link>
+            </>
+          )}
         </>
       ) : (
         <Alert showIcon type="warning" message="No openapi schema found" />
