@@ -13,6 +13,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws/eks"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/util"
+	"github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
 	"github.com/manifoldco/promptui"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
@@ -64,35 +65,53 @@ func listFunc(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	log.Printf("fetched %d clusters", len(rs))
+	log.Printf("fetched %d clusters from mothership API", len(rs))
 
 	eksAPIs := make(map[string]*aws_eks_v2.Client)
-	for _, c := range rs {
-		if c.Spec.Region == "" {
-			log.Printf("cluster %q spec may be outdated -- region is not populated, default to us-east-1", c.Name)
-			c.Spec.Region = "us-east-1"
-		}
+	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 
-		if _, ok := eksAPIs[c.Spec.Region]; ok {
-			continue
-		}
+	stsID, err := aws.GetCallerIdentity()
+	if err != nil {
+		log.Printf("no AWS access -- skipping AWS API call, setting select-kubeconfig to false (%v)", err)
+		colums = []string{"name", "provider", "region", "git-ref", "state"}
 
-		cfg, err := aws.New(&aws.Config{
-			DebugAPICalls: false,
-			Region:        c.Spec.Region,
-		})
-		if err != nil {
-			log.Panicf("failed to create AWS session %v", err)
+		// connecting to EKS requires AWS session
+		selectKubeconfig = false
+	} else {
+		log.Printf("inspecting AWS resources using %v", *stsID.Arn)
+		for _, c := range rs {
+			if c.Spec.Region == "" {
+				log.Printf("cluster %q spec may be outdated -- region is not populated, default to us-east-1", c.Name)
+				c.Spec.Region = "us-east-1"
+			}
+			if _, ok := eksAPIs[c.Spec.Region]; ok {
+				continue
+			}
+			cfg, err := aws.New(&aws.Config{
+				DebugAPICalls: false,
+				Region:        c.Spec.Region,
+			})
+			if err != nil {
+				log.Panicf("failed to create AWS session %v", err)
+			}
+			eksAPI := aws_eks_v2.NewFromConfig(cfg)
+			eksAPIs[c.Spec.Region] = eksAPI
 		}
-		eksAPI := aws_eks_v2.NewFromConfig(cfg)
-		eksAPIs[c.Spec.Region] = eksAPI
 	}
 
-	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 	rows := make([][]string, 0, len(rs))
 	promptOptions := make([]string, 0, len(rs))
 	for _, c := range rs {
-		eksAPI := eksAPIs[c.Spec.Region]
+		if c.Status.State == v1alpha1.ClusterStateFailed {
+			log.Printf("skipping failed state cluster %q", c.Spec.Name)
+			continue
+		}
+
+		eksAPI, ok := eksAPIs[c.Spec.Region]
+		if !ok { // no aws access
+			rows = append(rows, []string{c.Spec.Name, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State)})
+			continue
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		eksOut, err := eksAPI.DescribeCluster(ctx, &aws_eks_v2.DescribeClusterInput{
@@ -105,8 +124,8 @@ func listFunc(cmd *cobra.Command, args []string) {
 		health := "OK"
 		if err != nil {
 			if eks.IsErrClusterDeleted(err) {
-				status = "DELETED"
-				health = "DELETED"
+				status = "DELETED/NOT FOUND"
+				health = "DELETED/NOT FOUND"
 			} else {
 				log.Panicf("failed to describe EKS cluster %q %v", c.Name, err)
 			}
