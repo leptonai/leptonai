@@ -41,7 +41,7 @@ func NewCommand() *cobra.Command {
 
 func getFunc(cmd *cobra.Command, args []string) {
 	if workspaceName == "" {
-		log.Fatal("cluster name is required")
+		log.Fatal("workspace name is required")
 	}
 
 	mctx := common.ReadContext(cmd)
