@@ -1,5 +1,6 @@
 from collections import namedtuple
 import httpx
+import json
 import os
 
 from leptonai.config import BASE_IMAGE_REPO, DEFAULT_PORT
@@ -8,6 +9,49 @@ from leptonai.photon import Photon
 
 class Server(Photon):
     image: f"{BASE_IMAGE_REPO}:tuna-23.02"
+
+    @staticmethod
+    def _patch_get_model_list(controller_url):
+        import fastchat.serve.ft_worker
+
+        models = {}
+        worker_status = fastchat.serve.ft_worker.worker.get_status()
+        for name in worker_status["model_names"]:
+            models[name] = json.dumps(worker_status["template"])
+        return list(models.keys()), models
+
+    @Photon.handler(path="controller/get_worker_address")
+    def _patch_gradio_web_server_get_worker_address(self, model: str):
+        # TODO: makes port configurable
+        return {"address": f"http://localhost:{DEFAULT_PORT}/worker"}
+
+    def _init_gradio_web_server(self):
+        import fastchat.serve.gradio_web_server
+
+        # TODO: makes port configurable
+        fastchat.serve.gradio_web_server.controller_url = (
+            f"http://localhost:{DEFAULT_PORT}/controller"
+        )
+        fastchat.serve.gradio_web_server.enable_moderation = False
+        fastchat.serve.gradio_web_server.templates_map.clear()
+
+        fastchat.serve.gradio_web_server.get_model_list = self._patch_get_model_list
+        (
+            self._models,
+            fastchat.serve.gradio_web_server.templates_map,
+        ) = fastchat.serve.gradio_web_server.get_model_list(
+            fastchat.serve.gradio_web_server.controller_url
+        )
+
+        FakeArgs = namedtuple(
+            "Args", ["model_list_mode", "add_chatgpt", "add_claude", "add_palm"]
+        )
+        fastchat.serve.gradio_web_server.args = FakeArgs(
+            model_list_mode="reload",
+            add_chatgpt=False,
+            add_claude=False,
+            add_palm=False,
+        )
 
     def _init_ft_worker(self):
         import fastchat.serve.ft_worker
@@ -72,6 +116,16 @@ class Server(Photon):
     def init(self):
         self._init_ft_worker()
         self._init_openai_api_server()
+        self._init_gradio_web_server()
+
+    @Photon.handler(path="chat", mount=True)
+    def gradio_web_server_subapp(self):
+        import fastchat.serve.gradio_web_server
+
+        demo = fastchat.serve.gradio_web_server.build_demo(
+            self._models, fastchat.serve.gradio_web_server.args
+        )
+        return demo.queue(concurrency_count=10, status_update_rate=10, api_open=False)
 
     @Photon.handler(path="worker", mount=True)
     def ft_worker_subapp(self):

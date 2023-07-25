@@ -1,44 +1,17 @@
 version: "3.8"
 
 services:
-    controller:
+    tuna:
         image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-23.02
-        command: lep ph run -n controller -m controller.py -p 21001
+        command: lep ph run -n tuna -m tuna-inference.py
         shm_size: 1gb
         volumes:
             - .:/workspace
         working_dir: /workspace
         network_mode: "host"
-        ports:
-            - "21001:21001"
-    worker:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-23.02
-        command: lep ph run -n ft-worker -m ft_worker.py -p 21002
-        shm_size: 1gb
-        volumes:
-            - .:/workspace
-        working_dir: /workspace
         deploy:
             resources:
                 reservations:
                     devices:
                         - driver: nvidia
                           capabilities: [gpu]
-        network_mode: "host"
-        ports:
-            - "21002:21002"
-        depends_on:
-            - controller
-    frontend:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-23.02
-        command: lep ph run -n frontend -m frontend.py -p 8080
-        shm_size: 1gb
-        volumes:
-            - .:/workspace
-        working_dir: /workspace
-        network_mode: "host"
-        ports:
-            - "8080:8080"
-        depends_on:
-            - controller
-            - worker
