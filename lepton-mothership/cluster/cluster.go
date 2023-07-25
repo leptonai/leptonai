@@ -213,7 +213,9 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	}
 
 	// only allow updating certain fields
-	cl.Spec.GitRef = spec.GitRef
+	if spec.GitRef != "" {
+		cl.Spec.GitRef = spec.GitRef
+	}
 
 	if err := DataStore.Update(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster: %w", err)

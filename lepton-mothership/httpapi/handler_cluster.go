@@ -102,7 +102,7 @@ func HandleClusterCreate(c *gin.Context) {
 		spec.GitRef = string(plumbing.Main)
 	}
 	if spec.DeploymentEnvironment == "" {
-		spec.DeploymentEnvironment = cluster.DeploymentEnvironmentValueTest
+		spec.DeploymentEnvironment = cluster.DeploymentEnvironment
 	}
 
 	switch spec.DeploymentEnvironment {
@@ -184,16 +184,6 @@ func HandleClusterUpdate(c *gin.Context) {
 		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
-	}
-
-	if spec.Provider == "" {
-		spec.Provider = defaultProvider
-	}
-	if spec.Region == "" {
-		spec.Region = defaultRegion
-	}
-	if spec.GitRef == "" {
-		spec.GitRef = string(plumbing.Main)
 	}
 
 	cl, err := cluster.Update(c, spec)
