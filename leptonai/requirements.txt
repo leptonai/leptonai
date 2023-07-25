@@ -11,6 +11,7 @@ typing-extensions
 uvicorn
 loguru
 requests
+pydantic<=2.0.3
 
 huggingface_hub
 diffusers[torch]
