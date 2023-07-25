@@ -6,7 +6,7 @@ from backports.cached_property import cached_property
 from fastapi.encoders import jsonable_encoder
 import requests
 
-from leptonai.api.workspace import get_full_workspace_api_url
+from leptonai.api.workspace import get_full_workspace_url, get_full_workspace_api_url
 from .api import deployment, APIError
 
 
@@ -162,7 +162,7 @@ class Client:
                 )
             self.url = workspace_or_url
         else:
-            self.url = get_full_workspace_api_url(workspace_or_url)
+            self.url = get_full_workspace_url(workspace_or_url)
         self._session = requests.Session()
         if deployment is None:
             if not _is_local_url(workspace_or_url):

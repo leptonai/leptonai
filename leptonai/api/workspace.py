@@ -19,13 +19,10 @@ def load_workspace_info():
     return workspace_info
 
 
-def _get_full_workspace_url(workspace_id) -> Optional[str]:
+def get_full_workspace_url(workspace_id) -> Optional[str]:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
-
-    In most cases, you should not be calling this function directly. Instead, use
-    :func:`get_full_workspace_api_url` to get the workspace API url.
 
     :param str workspace_id: the workspace_id of the workspace
     :return: the workspace url, or None if the workspace does not exist
@@ -54,7 +51,7 @@ def get_full_workspace_api_url(workspace_id) -> Optional[str]:
     :return: the workspace api url, or None if the workspace does not exist
     :raises APIError: if the backend server returns an error
     """
-    workspace_url = _get_full_workspace_url(workspace_id)
+    workspace_url = get_full_workspace_url(workspace_id)
     return workspace_url + WORKSPACE_API_PATH if workspace_url else None
 
 
