@@ -29,7 +29,7 @@ func (l *Replica) List(deploymentID string) ([]httpapi.Replica, error) {
 
 // TODO: refactor this to return a meaningful message instead of a single byte
 // quick implementation to test the websocket connection
-func (l *Replica) Shell(deploymentID string, replicaID string) ([]byte, error) {
+func (l *Replica) Shell(deploymentID, replicaID string) ([]byte, error) {
 	shellURL := l.HTTP.RemoteURL + deploymentsPath + "/" + deploymentID + replicasPath + "/" + replicaID + "/shell"
 	u, err := url.Parse(shellURL)
 	if err != nil {
@@ -71,4 +71,13 @@ func (l *Replica) Shell(deploymentID string, replicaID string) ([]byte, error) {
 	return msg, nil
 }
 
-// TODO: log
+// Log returns the logs of a replica with a max response length. 0 means no length limit.
+func (l *Replica) Log(deploymentID, replicaID string, maxLen int) ([]byte, error) {
+	output, err := l.HTTP.RequestURLWithRespMaxLen(http.MethodGet,
+		l.HTTP.RemoteURL+deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+"/log",
+		nil, nil, maxLen)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
+}

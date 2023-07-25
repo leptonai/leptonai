@@ -40,6 +40,10 @@ func NewHTTPSkipVerifyTLS(remoteURL string, authToken string) *HTTP {
 }
 
 func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []byte) ([]byte, error) {
+	return h.RequestURLWithRespMaxLen(method, url, headers, data, 0)
+}
+
+func (h *HTTP) RequestURLWithRespMaxLen(method, url string, headers map[string]string, data []byte, respMaxLen int) ([]byte, error) {
 	var reader *bytes.Reader
 	if data != nil {
 		reader = bytes.NewReader(data)
@@ -68,6 +72,13 @@ func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if respMaxLen > 0 {
+		buf := make([]byte, respMaxLen)
+		n, err := resp.Body.Read(buf)
+		buf = buf[:n]
+		return buf, err
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

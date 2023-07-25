@@ -1,7 +1,9 @@
 package e2etests
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/url"
 	"testing"
 	"time"
@@ -42,7 +44,7 @@ func TestReplicaShell(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to get replica shell: %v", err)
 	}
 }
 
@@ -81,5 +83,29 @@ func TestReplicaShellQueryString(t *testing.T) {
 }
 
 func TestReplicaLog(t *testing.T) {
-	// TODO: implement log in go-client first
+	replicas, err := lepton.Replica().List(mainTestDeploymentName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rid := replicas[0].ID
+	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
+		log, err := lepton.Replica().Log(mainTestDeploymentName, rid, 4096)
+		if err != nil {
+			// expected since it's a long running process
+			// e.g., "... (Press CTRL+C to quit)"
+			if err != io.ErrUnexpectedEOF {
+				return fmt.Errorf("failed to get replica log: %v", err)
+			}
+		}
+		if len(log) == 0 {
+			return fmt.Errorf("expected log to be non-empty, got %d", len(log))
+		}
+		if !bytes.Contains(log, []byte("running on http")) {
+			return fmt.Errorf("expected log to contain 'running on http', got %s", string(log))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to get replica log: %v", err)
+	}
 }

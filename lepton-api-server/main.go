@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -19,7 +20,6 @@ import (
 	"github.com/leptonai/lepton/lepton-api-server/util"
 
 	"github.com/gin-contrib/requestid"
-	"github.com/gin-contrib/timeout"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	_ "gocloud.dev/blob/s3blob"
@@ -162,6 +162,7 @@ func main() {
 	// Logs all panic to error log
 	//   - stack means whether output the stack info.
 	router.Use(ginzap.RecoveryWithZap(logger, true))
+	router.ContextWithFallback = true
 
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
@@ -299,17 +300,14 @@ func pauseWorkspaceMiddleware(workspaceState httpapi.WorkspaceState) gin.Handler
 }
 
 func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
-	return timeout.New(
-		timeout.WithTimeout(t),
-		timeout.WithHandler(func(c *gin.Context) {
-			c.Next()
-		}),
-		timeout.WithResponse(
-			func(c *gin.Context) {
-				c.JSON(http.StatusRequestTimeout, gin.H{
-					"code": httperrors.ErrorCodeRequestTimeout,
-				})
-			},
-		),
-	)
+	return func(c *gin.Context) {
+		if !strings.HasSuffix(c.Request.URL.Path, "/shell") &&
+			!strings.HasSuffix(c.Request.URL.Path, "/log") &&
+			!strings.Contains(c.Request.URL.Path, "/storage/") {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), t)
+			defer cancel()
+			c.Request = c.Request.WithContext(ctx)
+		}
+		c.Next()
+	}
 }
