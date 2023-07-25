@@ -76,7 +76,7 @@ func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1al
 	}
 	ld.Spec.LeptonDeploymentSystemSpec = leptonaiv1alpha1.LeptonDeploymentSystemSpec{
 		PhotonName:                    ph.GetSpecName(),
-		PhotonImage:                   ph.Spec.Image,
+		PhotonImage:                   util.UpdateDefaultRegistry(ph.Spec.Image, h.photonImageRegistry),
 		BucketName:                    h.bucketName,
 		EFSID:                         efsID,
 		EFSAccessPointID:              efsAccessPointID,

@@ -236,7 +236,6 @@ func (h *PhotonHandler) getPhotonFromMetadata(body []byte) (*leptonaiv1alpha1.Ph
 		return nil, fmt.Errorf("invalid name %s: %s", ph.Spec.Name, util.NameInvalidMessage)
 	}
 	ph.Name = ph.GetSpecName() + "-" + util.HexHash(body)
-	ph.Spec.Image = util.UpdateDefaultRegistry(ph.Spec.Image, h.photonImageRegistry)
 
 	return ph, nil
 }
