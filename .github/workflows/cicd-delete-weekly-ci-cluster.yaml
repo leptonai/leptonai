@@ -1,9 +1,10 @@
-name: weekly-ci-cluster
+name: weekly-delete-ci-cluster
 
 on:
   schedule:
-  # delete stale ci clusters on Sunday at 11:00 UTC, 3 hours after creation
-  - cron: "0 11 * * 0"
+  # delete stale ci clusters on Sunday at 11:00 UTC, 4 hours after creation,
+  # to allow for some time to run cicd-clean-test-workspaces
+  - cron: "0 12 * * 0"
 
 jobs:
   delete:
@@ -26,5 +27,5 @@ jobs:
         while read cluster; do
           echo "deleting cluster $cluster"
           curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X DELETE \
-          https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster?force=true
+          https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster
         done

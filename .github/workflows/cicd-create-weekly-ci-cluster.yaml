@@ -1,4 +1,4 @@
-name: weekly-ci-cluster
+name: weekly-create-ci-cluster
 
 on:
   schedule:
