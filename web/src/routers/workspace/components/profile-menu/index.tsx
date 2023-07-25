@@ -3,7 +3,12 @@ import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { Button, Dropdown, Space } from "antd";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { ChevronDown, Logout, UserProfile } from "@carbon/icons-react";
+import {
+  ChevronDown,
+  DataEnrichment,
+  Logout,
+  UserProfile,
+} from "@carbon/icons-react";
 import { FC } from "react";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 
@@ -18,6 +23,14 @@ export const ProfileMenu: FC = () => {
         <Dropdown
           menu={{
             items: [
+              {
+                icon: <DataEnrichment />,
+                label: "Getting Started",
+                key: "getting-started",
+                onClick: () => {
+                  navigateService.navigateTo(`gettingStarted`);
+                },
+              },
               {
                 icon: <Logout />,
                 label: "Logout",

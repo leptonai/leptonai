@@ -64,8 +64,6 @@ export const Footer: FC = () => {
         <Button
           size="small"
           css={css`
-            position: relative;
-            top: 1px;
             font-size: 12px;
           `}
           type="text"

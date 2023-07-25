@@ -1,5 +1,5 @@
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
-import { GettingStarted } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard/components/getting-started";
+import { GettingStarted } from "../../../../components/getting-started";
 import { Timeline } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard/components/timeline";
 import { FC } from "react";
 import styled from "@emotion/styled";

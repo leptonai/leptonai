@@ -121,6 +121,7 @@ export const RoutersMap = {
   noWorkspace: `/no-workspace`,
   workspace: `/workspace/:workspaceId?`,
   dashboard: `/workspace/:workspaceId?/dashboard`,
+  gettingStarted: `/workspace/:workspaceId?/getting-started`,
   fineTuneCreate: `/workspace/:workspaceId?/fine-tune/create`,
   settingsGeneral: `/workspace/:workspaceId?/settings/general`,
   settingsAPITokens: `/workspace/:workspaceId?/settings/api-tokens`,

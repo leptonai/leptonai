@@ -1,3 +1,4 @@
+import { GettingStarted } from "@lepton-dashboard/routers/workspace/components/getting-started";
 import { Dashboard } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard";
 import { Deployments } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments";
 import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons";
@@ -75,6 +76,14 @@ export const Detail: FC = () => {
             element={
               <LimitedLayoutWidth>
                 <Dashboard />
+              </LimitedLayoutWidth>
+            }
+          />
+          <Route
+            path="getting-started"
+            element={
+              <LimitedLayoutWidth>
+                <GettingStarted />
               </LimitedLayoutWidth>
             }
           />
