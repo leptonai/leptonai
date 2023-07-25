@@ -27,7 +27,8 @@ COPY . /go/src/github.com/leptonai/lepton/
 WORKDIR /go/src/github.com/leptonai/lepton/lepton-mothership/
 
 # Build
-RUN GIT_COMMIT=$(git rev-parse --short HEAD) && BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
+ARG GIT_COMMIT=HEAD
+RUN BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -ldflags \
     "-X github.com/leptonai/lepton/go-pkg/version.GitCommit=${GIT_COMMIT} \
     -X github.com/leptonai/lepton/go-pkg/version.BuildTime=${BUILD_TIME} \
     -extldflags \"-static\"" \
