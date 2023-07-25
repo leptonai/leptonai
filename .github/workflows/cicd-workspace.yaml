@@ -7,7 +7,7 @@ env:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "release-*" ]
   pull_request:
     paths-ignore:
       - "charts/mothership/**"
@@ -56,6 +56,17 @@ jobs:
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+    - name: Push Docker image with git tag
+      if: startsWith(github.ref, 'refs/heads/release-')
+      env:
+        ECR_REPOSITORY: lepton-api-server
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+      run: |
+        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
+        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
 
   build-lepton-deployment-operator:
     runs-on: self-hosted
@@ -97,6 +108,17 @@ jobs:
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+    - name: Push Docker image with git tag
+      if: startsWith(github.ref, 'refs/heads/release-')
+      env:
+        ECR_REPOSITORY: lepton-deployment-operator
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+      run: |
+        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
+        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
 
   build-lepton-web:
     if: github.event_name == 'push'
@@ -138,6 +160,17 @@ jobs:
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+    - name: Push Docker image with git tag
+      if: startsWith(github.ref, 'refs/heads/release-')
+      env:
+        ECR_REPOSITORY: lepton-web
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+      run: |
+        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
+        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
 
   e2e-tests:
     runs-on: self-hosted
