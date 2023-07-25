@@ -1,2 +1,2 @@
 # this fork fixes list[] type hints to be compatible with python3.7
-git+https://github.com/bddppq/hnsqlite.git@1f63bc5
+git+https://github.com/bddppq/hnsqlite.git@f5bd497
