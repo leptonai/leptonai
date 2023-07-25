@@ -150,7 +150,7 @@ func HandleClusterDelete(c *gin.Context) {
 		return
 	}
 
-	if force == "true" && len(lc.Status.Workspaces) != 0 {
+	if force != "true" && len(lc.Status.Workspaces) != 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    httperrors.ErrorCodeInvalidRequest,
 			"message": fmt.Sprintf("cluster %s has workspaces %v, please delete them first", clName, lc.Status.Workspaces),
