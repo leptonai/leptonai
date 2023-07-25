@@ -8,7 +8,7 @@ from leptonai.photon import Photon
 
 class WebUI(Photon):
     vcs_url: str = "https://github.com/AUTOMATIC1111/stable-diffusion-webui.git@v1.3.0"
-    requirement_dependency = ["loguru", "gradio==3.32.0"]
+    requirement_dependency = ["loguru", "gradio==3.32.0", "pydantic<2.0.0"]
     system_dependency = ["libgl1"]
 
     @Photon.handler("", mount=True)
