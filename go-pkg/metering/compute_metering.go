@@ -244,7 +244,6 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
-	fmt.Println("count", count)
 	if count == 0 {
 		return time.Time{}, time.Time{}, nil
 	}
@@ -293,6 +292,16 @@ func CheckEmptyWindow(auroraDB AuroraDB, start, end time.Time) (bool, error) {
 // get all missing fine_grain data between start and end.
 func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time, error) {
 	db := auroraDB.DB
+	// if table is empty, return the entire window as a gap
+	var count int
+	err := db.QueryRow(fmt.Sprintf(`SELECT count(*) from %s`, MeteringTableComputeFineGrain)).Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return [][]time.Time{{start, end}}, nil
+	}
+
 	rows, err := db.Query(fmt.Sprintf(`SELECT DISTINCT
 		query_start,
 		query_end
@@ -338,7 +347,7 @@ func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time,
 		log.Fatalf("Failed to get latest sync time: %v", err)
 	}
 	// if there is a gap between the last sync time and the current time, add it to the list of gaps
-	if lastSyncEnd.Before(end) {
+	if !lastSyncEnd.IsZero() && lastSyncEnd.Before(end) {
 		gaps = append(gaps, []time.Time{lastSyncEnd, end})
 	}
 	return gaps, nil
