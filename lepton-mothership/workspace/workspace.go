@@ -165,6 +165,9 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	if ws.Spec.QuotaGroup == "" {
 		ws.Spec.QuotaGroup = "small"
 	}
+	if ws.Spec.GitRef == "" {
+		ws.Spec.GitRef = "main"
+	}
 
 	// TODO: data race: if another call concurrently creates a ws with the same name under
 	// a different cluster, then the cluster will be updated with the new ws name while the
@@ -226,14 +229,18 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 		ws.Spec.ClusterName = spec.ClusterName
 	}
 	// only allow updating certain fields
-	ws.Spec.ImageTag = spec.ImageTag
+	if spec.ImageTag != "" {
+		ws.Spec.ImageTag = spec.ImageTag
+	}
 	ws.Spec.APIToken = spec.APIToken
 	ws.Spec.EnableWeb = spec.EnableWeb
-	ws.Spec.GitRef = spec.GitRef
-
-	if ws.Spec.ImageTag == "" {
-		ws.Spec.ImageTag = "latest"
+	if spec.GitRef != "" {
+		ws.Spec.GitRef = spec.GitRef
 	}
+	if spec.QuotaGroup != "" {
+		ws.Spec.QuotaGroup = spec.QuotaGroup
+	}
+
 	if err := DataStore.Update(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace: %w", err)
 	}

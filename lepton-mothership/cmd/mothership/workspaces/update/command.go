@@ -19,6 +19,7 @@ var (
 	workspaceName string
 	gitRef        string
 	imageTag      string
+	quotaGroup    string
 	autoApprove   bool
 )
 
@@ -34,8 +35,9 @@ func NewCommand() *cobra.Command {
 		Run:   updateFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to update")
-	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the workspace terraform")
+	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "", "Git ref to use for the workspace terraform")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace deployments")
+	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "q", "", "Quota group for the workspace deployments (e.g., small, unlimited)")
 	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
 }
@@ -75,6 +77,10 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	}
 	if imageTag != "" {
 		workspaceSpec.ImageTag = imageTag
+		updated = true
+	}
+	if quotaGroup != "" {
+		workspaceSpec.QuotaGroup = quotaGroup
 		updated = true
 	}
 	if !updated {
