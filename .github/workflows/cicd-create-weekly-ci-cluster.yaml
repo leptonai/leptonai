@@ -15,6 +15,7 @@ jobs:
         echo "Creating cluster $name"
         curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X POST \
           -d '{
+                "deployment_environment":"TEST",
                 "name":"'$name'"
               }' \
           https://mothership.cloud.lepton.ai/api/v1/clusters
