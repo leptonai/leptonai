@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,7 +95,7 @@ func GetFineGrainComputeData(clientset *kubernetes.Clientset, fwd *service.PortF
 			"accumulate": fmt.Sprintf("%v", qp.QueryAcc),
 			"resolution": qp.QueryResolution,
 			// TODO: filter query string currently doesn't do anything, debug this.
-			// Will improve performance if we can filter out excluded namespaces in the API call
+			// Will improve performance if we can filter out excluded namespaces in the API call.
 			"filter": filterString,
 		},
 	)
@@ -243,6 +244,7 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
+	fmt.Println("count", count)
 	if count == 0 {
 		return time.Time{}, time.Time{}, nil
 	}
@@ -266,4 +268,78 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	default:
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid table %s", table)
 	}
+}
+
+// Returns true if no entries are found within the given time window.
+func CheckEmptyWindow(auroraDB AuroraDB, start, end time.Time) (bool, error) {
+	// check if there are any rows in the table during a given window
+	db := auroraDB.DB
+	row := db.QueryRow(fmt.Sprintf(`SELECT 
+		count(*)
+		from %s
+		where query_start >= '%s' and query_end <= '%s'`,
+		MeteringTableComputeFineGrain,
+		start.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+	))
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
+}
+
+// get all missing fine_grain data between start and end.
+func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time, error) {
+	db := auroraDB.DB
+	rows, err := db.Query(fmt.Sprintf(`SELECT DISTINCT
+		query_start,
+		query_end
+		from %s
+		where query_start >= '%s' and query_end <= '%s'
+		order by query_start asc, query_end asc`,
+		MeteringTableComputeFineGrain,
+		start.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+	))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	gaps := make([][]time.Time, 0)
+	var prevEnd time.Time
+	for rows.Next() {
+		var start, end time.Time
+		if err := rows.Scan(&start, &end); err != nil {
+			return nil, err
+		}
+		// first row found: set prevEnd to end
+		if prevEnd.IsZero() {
+			prevEnd = end
+			continue
+		}
+		// if there is a gap between the previous end time and the current start time, add it to the list of gaps
+		if start.After(prevEnd) {
+			gaps = append(gaps, []time.Time{prevEnd, start})
+		}
+
+		// prevEnd = max(prevEnd, end)
+		if end.After(prevEnd) {
+			prevEnd = end
+		}
+	}
+	var lastSyncEnd time.Time
+	retryErr := goutil.Retry(3, 2*time.Second, func() error {
+		_, lastSyncEnd, err = GetMostRecentFineGrainEntry(auroraDB, MeteringTableComputeFineGrain)
+		return err
+	})
+	if retryErr != nil {
+		log.Fatalf("Failed to get latest sync time: %v", err)
+	}
+	// if there is a gap between the last sync time and the current time, add it to the list of gaps
+	if lastSyncEnd.Before(end) {
+		gaps = append(gaps, []time.Time{lastSyncEnd, end})
+	}
+	return gaps, nil
 }

@@ -1,11 +1,13 @@
 package util
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestRandString(t *testing.T) {
@@ -195,6 +197,21 @@ func TestIsEmpty(t *testing.T) {
 	}
 	if isEmpty {
 		t.Errorf("IsEmpty(%s) = true; want false", newPath)
+	}
+}
+
+func TestRetry(t *testing.T) {
+	err := Retry(3, 1*time.Second, func() error {
+		return nil
+	})
+	if err != nil {
+		t.Errorf("Retry() = %v; want nil", err)
+	}
+	err = Retry(3, 1*time.Second, func() error {
+		return errors.New("test")
+	})
+	if err == nil {
+		t.Errorf("Retry() = nil; want error")
 	}
 }
 

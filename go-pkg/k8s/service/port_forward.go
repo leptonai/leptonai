@@ -12,6 +12,7 @@ import (
 	"time"
 
 	opencost_pod "github.com/leptonai/lepton/go-pkg/k8s/pod-for-opencost/pod"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -60,7 +61,7 @@ func NewPortForwardQuerier(
 		return nil, fmt.Errorf("couldn't find a Pod which is Ready to serve the query")
 	}
 
-	log.Printf("selected pod to forward %q", podToForward.Name)
+	goutil.Logger.Infof("selected pod to forward %q", podToForward.Name)
 
 	// Second: build the port forwarding config
 	// https://stackoverflow.com/questions/59027739/upgrading-connection-error-in-port-forwarding-via-client-go
@@ -169,7 +170,7 @@ func (pfq *PortForwardQuerier) QueryGet(ctx context.Context, path string, params
 	}
 	req.URL.RawQuery = q.Encode()
 
-	log.Printf("executing GET to URL %q", req.URL.String())
+	goutil.Logger.Debugf("executing GET to URL %q", req.URL.String())
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
