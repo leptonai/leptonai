@@ -5,3 +5,5 @@ package-lock.json
 *-conv.json
 model
 flower.db
+*-eval-*.json
+*.log.*

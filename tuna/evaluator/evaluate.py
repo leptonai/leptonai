@@ -16,7 +16,6 @@ from rich.progress import Progress
 import threading
 from functools import partial
 import json
-import numpy as np
 import time
 
 logging.basicConfig(
@@ -327,7 +326,7 @@ END of convseration between user and Assistant B
             write_json_file(
                 self.metadata,
                 os.path.join(
-                    dir, f"{self.llm_1.alias}&{self.llm_2.alias}-eval-pairwise.json"
+                    dir, f"{self.llm_1.alias}-vs-{self.llm_2.alias}-eval-pairwise.json"
                 ),
             )
 
@@ -394,7 +393,7 @@ def main():
         model_to_addr.update({"gpt-4": (OPENAI_BASE, "gpt-4")})
 
     show_table(
-        ["Model Alias", "API Address", "Max tokens"],
+        ["Model", "API Address", "Max tokens"],
         [
             [x, f"{model_to_addr[x][0]} : {model_to_addr[x][1]}", str(args.max_tokens)]
             for x in model_to_addr
@@ -469,7 +468,7 @@ def main():
     #     llm.save(args.output_dir)
 
     show_bar_chart(
-        {llm.alias: np.mean(np.array(llm.single_scores)) for llm in llms},
+        {llm.alias: sum(llm.single_scores) / len(llm.single_scores) for llm in llms},
         "Average score out of 10",
     )
 
@@ -488,7 +487,7 @@ def main():
     }
     show_tree("Pairwise evaluation is ready for following groups:", tree_payload)
 
-    selected_idxs = np.arange(0, pair_count).tolist()
+    selected_idxs = list(range(0, pair_count))
     # eval_all = ask_yes_no("Do you want to evaluate all of these groups?")
     # if not eval_all:
     #     while True:
