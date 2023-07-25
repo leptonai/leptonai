@@ -152,8 +152,8 @@ func Init() {
 
 func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	workspaceName := spec.Name
-	if !util.ValidateName(workspaceName) {
-		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.NameInvalidMessage)
+	if !util.ValidateWorkspaceName(workspaceName) {
+		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.WorkspaceNameInvalidMessage)
 	}
 
 	ws := &crdv1alpha1.LeptonWorkspace{

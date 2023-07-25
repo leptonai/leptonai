@@ -157,8 +157,8 @@ func Init() {
 // A redundant cluster creation with the same name will fail.
 func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1alpha1.LeptonCluster, err error) {
 	clusterName := spec.Name
-	if !util.ValidateName(clusterName) {
-		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.NameInvalidMessage)
+	if !util.ValidateClusterName(clusterName) {
+		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
 	}
 
 	totalClusters := getTotalClusters(prometheus.DefaultGatherer)
@@ -196,8 +196,8 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 
 func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
 	clusterName := spec.Name
-	if !util.ValidateName(clusterName) {
-		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.NameInvalidMessage)
+	if !util.ValidateClusterName(clusterName) {
+		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
 	}
 
 	cl, err := DataStore.Get(ctx, clusterName)

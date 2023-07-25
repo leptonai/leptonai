@@ -76,14 +76,28 @@ func DeleteTerraformWorkingDir(dirName string) (string, error) {
 }
 
 const (
-	NameInvalidMessage = "Name must consist of lower case alphanumeric characters, and must start with an alphabetical character and be no longer than 20 characters"
+	nameInvalidMessageTemplate = "%s names must only consist of lower case alphanumeric characters%s, and must start with an alphabetical character and be no longer than 20 characters"
 )
 
 var (
-	nameRegex = regexp.MustCompile("^[a-z]([a-z0-9]*)?$")
+	ClusterNameInvalidMessage   = fmt.Sprintf(nameInvalidMessageTemplate, "Cluster", " or '-'")
+	WorkspaceNameInvalidMessage = fmt.Sprintf(nameInvalidMessageTemplate, "Workspace", "")
 )
 
-// ValidateName returns true if the given name is valid.
-func ValidateName(name string) bool {
+var (
+	nameRegexAlphanumericOnly   = regexp.MustCompile("^[a-z]([a-z0-9]*)?$")
+	nameRegexDashOrAlphanumeric = regexp.MustCompile("^[a-z]([a-z0-9-]*)?$")
+)
+
+// returns true if the given name is valid.
+func validateName(name string, nameRegex *regexp.Regexp) bool {
 	return nameRegex.MatchString(name) && len(name) <= 20
+}
+
+func ValidateClusterName(name string) bool {
+	return validateName(name, nameRegexDashOrAlphanumeric)
+}
+
+func ValidateWorkspaceName(name string) bool {
+	return validateName(name, nameRegexAlphanumericOnly)
 }
