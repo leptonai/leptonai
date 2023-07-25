@@ -32,7 +32,7 @@ resource "aws_iam_role_policy_attachment" "mothership_role" {
 
 #tfsec:ignore:aws-ssm-secret-use-customer-key
 resource "aws_secretsmanager_secret" "mothership_api_token" {
-  name                    = var.mothership_api_token_key
+  name                    = var.api_token_key
   recovery_window_in_days = 0 # Set to zero for this example to force delete during Terraform destroy
 }
 
