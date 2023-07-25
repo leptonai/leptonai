@@ -186,7 +186,7 @@ func InsertRowsIntoComputeAggregate(tx *sql.Tx, tableName MeteringTable, aggrega
 		}
 	}
 	if len(toInsert) > 0 {
-		res, err := sqlInsert(tx, cmd, toInsert, "", vals)
+		res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
 		if err != nil {
 			return 0, err
 		}
