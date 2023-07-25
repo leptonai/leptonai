@@ -1,9 +1,10 @@
 environment = "PROD"
 
 admin_users = [
-  "xiang",
   "cong",
   "gyuho",
+  "uz",
+  "xiang",
   "yue",
 ]
 
@@ -13,6 +14,5 @@ power_users = [
 
 read_only_users = [
   "jbai",
-  "uz",
   "yadong",
 ]
