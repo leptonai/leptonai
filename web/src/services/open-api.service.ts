@@ -181,13 +181,11 @@ export class OpenApiService {
       typeof api.request.body === "object" &&
       Object.keys(api.request.body).length > 0;
     const lines = [];
-    lines.push("from leptonai.client import Client\n");
-
     if (typeof scopeOrURL === "string") {
-      lines.push(`client = Client("${scopeOrURL}", token="$YOUR_TOKEN")`);
+      lines.push(`client = Client("${scopeOrURL}", token=LEPTON_API_TOKEN)\n`);
     } else {
       lines.push(
-        `client = Client("${scopeOrURL.workspace}", "${scopeOrURL.deployment}", token="$YOUR_TOKEN")`
+        `client = Client("${scopeOrURL.workspace}", "${scopeOrURL.deployment}", token=LEPTON_API_TOKEN)\n`
       );
     }
 

@@ -33,6 +33,12 @@ const escapeShell = (str: string) => {
   if (str === "-d ") {
     return str;
   }
+
+  // use double quotes if the string contains a shell variable
+  if (/\$.+/.test(str)) {
+    return `"${str}"`;
+  }
+
   // eslint-disable-next-line no-useless-escape
   if (!/^[_\/-]/g.test(str)) return "'" + str.replace(/'/g, "'\\''") + "'";
   else return str;

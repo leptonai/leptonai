@@ -276,9 +276,8 @@ describe("open-api.service", () => {
       );
 
       expect(code.replace(/\t/g, "  "))
-        .toEqual(`from leptonai.client import Client
+        .toEqual(`client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example(
   texts="string"
 )
@@ -317,9 +316,8 @@ print(result)`);
       expect(code).toEqual(code2);
 
       expect(code).toEqual(
-        `from leptonai.client import Client
+        `client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example()
 
 print(result)`
@@ -337,9 +335,8 @@ print(result)`
       );
 
       expect(code.replace(/\t/g, "  ")).toEqual(
-        `from leptonai.client import Client
+        `client = Client("https://latest.cloud.lepton.ai", token=LEPTON_API_TOKEN)
 
-client = Client("https://latest.cloud.lepton.ai", token="$YOUR_TOKEN")
 result = client.example()
 
 print(result)`
@@ -364,9 +361,8 @@ print(result)`
       );
 
       expect(code.replace(/\t/g, "  ")).toEqual(
-        `from leptonai.client import Client
+        `client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example(
   boolean=True
 )
@@ -393,9 +389,8 @@ print(result)`
       );
 
       expect(code.replace(/\t/g, "  "))
-        .toEqual(`from leptonai.client import Client
+        .toEqual(`client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example(
   use_null=None
 )
@@ -428,9 +423,8 @@ print(result)`);
       );
 
       expect(code.replace(/\t/g, "  "))
-        .toEqual(`from leptonai.client import Client
+        .toEqual(`client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example(
   object={
     "test": 1,
@@ -473,9 +467,8 @@ print(result)`);
       );
 
       expect(code.replace(/\t/g, "  ")).toEqual(
-        `from leptonai.client import Client
+        `client = Client("workspace", "test", token=LEPTON_API_TOKEN)
 
-client = Client("workspace", "test", token="$YOUR_TOKEN")
 result = client.example(
   array=[
     "1",

@@ -11,6 +11,15 @@ import { FC } from "react";
 export const GettingStarted: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const credential = `${workspaceTrackerService.id}:${workspaceTrackerService.workspace?.auth.token}`;
+  const maskCredential = (content: string) => {
+    if (content.includes(credential)) {
+      return `${workspaceTrackerService.id}:${"*".repeat(
+        workspaceTrackerService.workspace?.auth.token?.length ?? 0
+      )}`;
+    } else {
+      return false;
+    }
+  };
   return (
     <div>
       <Typography.Title
@@ -129,6 +138,7 @@ export const GettingStarted: FC = () => {
                 <Typography.Paragraph>
                   <CodeBlock
                     code={`lep login -c ${credential}`}
+                    tokenMask={maskCredential}
                     language={LanguageSupports.Bash}
                     copyable
                   />

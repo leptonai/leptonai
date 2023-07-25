@@ -44,7 +44,7 @@ export const ApiItem: FC<{
               ? api.request.headers
               : {
                   ...api.request.headers,
-                  Authorization: "Bearer $YOUR_TOKEN",
+                  Authorization: `Bearer $LEPTON_API_TOKEN`,
                 },
           });
         default:

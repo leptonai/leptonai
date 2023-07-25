@@ -1,5 +1,11 @@
 import { FC, useEffect, useState } from "react";
-import { getHighlighter, Highlighter, setCDN } from "shiki";
+import {
+  getHighlighter,
+  Highlighter,
+  setCDN,
+  renderToHtml,
+  IThemedToken,
+} from "shiki";
 import { useInject } from "@lepton-libs/di";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -26,7 +32,8 @@ export const CodeBlock: FC<{
   code: string;
   language: LanguageSupports;
   copyable?: boolean;
-}> = ({ code, language, copyable }) => {
+  tokenMask?: (content: string, token: IThemedToken) => boolean | string;
+}> = ({ code, language, copyable, tokenMask }) => {
   const [highlightedCode, setHighlightedCode] = useState(
     "<pre><code></code></pre>"
   );
@@ -42,11 +49,40 @@ export const CodeBlock: FC<{
     const setCode = async () => {
       const highlighter = await highlighterLoader;
       if (inThisTake) {
-        const output = highlighter.codeToHtml(code, {
-          lang: language,
-          theme: currentTheme === "dark" ? "github-dark" : "github-light",
+        const themeName =
+          currentTheme === "dark" ? "github-dark" : "github-light";
+        const tokens = highlighter.codeToThemedTokens(
+          code,
+          language,
+          themeName,
+          {
+            includeExplanation: false,
+          }
+        );
+        const _theme = highlighter.getTheme(themeName);
+        const codeString = renderToHtml(tokens, {
+          fg: _theme.fg,
+          bg: _theme.bg,
+          themeName,
+          elements: {
+            token({ style, children, token }) {
+              const _mask = tokenMask ? tokenMask(children, token) : false;
+              const mask = typeof _mask === "string" || _mask;
+              const maskStr =
+                typeof _mask === "string"
+                  ? _mask
+                  : "*".repeat(token.content.length);
+              return `<span style="${style}" ${
+                mask ? `class="mask-token"` : ""
+              }>${
+                !mask
+                  ? children
+                  : `<span class="mask">${maskStr}</span><span class="mask-content">${children}</span>`
+              }</span>`;
+            },
+          },
         });
-        setHighlightedCode(output);
+        setHighlightedCode(codeString);
       }
     };
 
@@ -55,7 +91,7 @@ export const CodeBlock: FC<{
     return () => {
       inThisTake = false;
     };
-  }, [language, code, currentTheme]);
+  }, [language, code, currentTheme, tokenMask]);
 
   return (
     <div
@@ -79,6 +115,19 @@ export const CodeBlock: FC<{
           min-height: 35px;
           font-size: 12px;
           padding: 12px;
+        }
+        .mask-token {
+          .mask-content {
+            display: none;
+          }
+          &:hover {
+            .mask-content {
+              display: inline;
+            }
+            .mask {
+              display: none;
+            }
+          }
         }
       `}
     >
