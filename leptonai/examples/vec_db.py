@@ -7,7 +7,7 @@ from leptonai.photon import Photon, HTTPException
 
 
 class VecDB(Photon):
-    requirement_dependency = ["git+https://github.com/bddppq/hnsqlite.git@1f63bc5"]
+    requirement_dependency = ["git+https://github.com/bddppq/hnsqlite.git@f5bd497"]
 
     def init(self):
         self.db_dir = os.path.dirname(__file__)
