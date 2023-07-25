@@ -2,7 +2,7 @@ import gradio as gr
 import torch
 
 from leptonai.photon import Photon
-from leptonai.photon.hf_utils import create_diffusion_pipeline
+from leptonai.photon.hf.hf_utils import create_diffusion_pipeline
 
 
 class ImageGen(Photon):
