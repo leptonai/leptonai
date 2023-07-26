@@ -47,10 +47,13 @@ export const StorageSelect: FC<StorageSelectProps> = ({
             }}
             css={css`
               min-height: 40px;
+              max-height: 50vh;
+              max-width: 100vw;
               background: ${theme.colorBgContainer};
               padding: ${theme.paddingSM}px;
               border-radius: ${theme.borderRadiusLG};
               box-shadow: ${theme.boxShadowSecondary};
+              overflow: auto;
             `}
           >
             <StorageTree
