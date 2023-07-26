@@ -46,14 +46,14 @@ func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
 		dbHost := cmd.Flag("db-host").Value.String()
 		dbPort, _ := strconv.Atoi(cmd.Flag("db-port").Value.String())
 
-		s := cmd.Flag("auth-with-token").Value.String()
+		s := cmd.Flag("auth-aurora-with-token").Value.String()
 		authWithToken, _ := strconv.ParseBool(s)
 
 		if !authWithToken && cmd.Flag("db-password").Value.String() == "" {
 			log.Fatal("token auth is not enabled but db-password flag is empty")
 		}
 		return aurora.AuroraConfig{
-			Region:        cmd.Flag("region").Value.String(),
+			Region:        cmd.Flag("db-region").Value.String(),
 			DBDriverName:  cmd.Flag("db-driver-name").Value.String(),
 			DBName:        cmd.Flag("db-name").Value.String(),
 			DBHost:        dbHost,
@@ -64,8 +64,12 @@ func ReadAuroraConfigFromFlag(cmd *cobra.Command) aurora.AuroraConfig {
 			AuthWithToken: authWithToken,
 		}
 	}
-
-	useConfigPath := aurora.DefaultAuroraPath
+	var useConfigPath string
+	if cmd.Flag("aurora-config-path").Value.String() == "" {
+		useConfigPath = aurora.DefaultAuroraPath
+	} else {
+		useConfigPath = cmd.Flag("aurora-config-path").Value.String()
+	}
 	b, err := os.ReadFile(useConfigPath)
 	if err != nil {
 		log.Fatalf("failed to read config file %v", err)

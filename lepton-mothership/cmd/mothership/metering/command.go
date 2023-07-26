@@ -13,6 +13,7 @@ import (
 
 var (
 	dbDriverName  string
+	dbRegion      string
 	dbHost        string
 	dbName        string
 	dbPort        int
@@ -20,7 +21,8 @@ var (
 	dbPassword    string
 	authWithToken bool
 
-	auroraConfig bool
+	auroraConfig     bool
+	auroraConfigPath string
 )
 
 func init() {
@@ -38,12 +40,14 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&dbDriverName, "db-driver-name", "", aurora.DefaultDriver, "AWS Aurora database driver name")
 	cmd.PersistentFlags().StringVarP(&dbName, "db-name", "", aurora.DefaultDBName, "AWS Aurora database name")
 	cmd.PersistentFlags().StringVar(&dbHost, "db-host", "", "AWS Aurora database host")
+	cmd.PersistentFlags().StringVar(&dbRegion, "db-region", "us-east-1", "AWS Aurora database region")
 	cmd.PersistentFlags().IntVarP(&dbPort, "db-port", "", aurora.DefaultDBPort, "AWS Aurora database port")
 
 	cmd.PersistentFlags().StringVar(&dbUser, "db-user", "", "AWS Aurora database user")
 	cmd.PersistentFlags().StringVar(&dbPassword, "db-password", "", "AWS Aurora database password")
 	cmd.PersistentFlags().BoolVar(&authWithToken, "auth-with-token", aurora.DefaultAuthWithToken, "Authenticate with token, overwrites AWS Aurora database password, user name must be valid")
 	cmd.PersistentFlags().BoolVar(&auroraConfig, "aurora-config", false, "use stored Aurora DB config")
+	cmd.PersistentFlags().StringVar(&auroraConfigPath, "aurora-config-path", aurora.DefaultAuroraPath, "Aurora DB config file path")
 
 	cmd.AddCommand(get.NewCommand())
 	cmd.AddCommand(sync.NewCommand())
