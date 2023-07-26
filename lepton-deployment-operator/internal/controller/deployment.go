@@ -251,6 +251,7 @@ func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceR
 	return resources
 }
 
+// TODO: test me!
 func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
 
@@ -287,22 +288,35 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		nodeSelector[k.gpuProductLableKey] = acctype
 	}
 
-	env := util.ToContainerEnv(ld.Spec.Envs)
-
-	cpuCeil := fmt.Sprint(math.Ceil(resources.Limits.Cpu().AsApproximateFloat64()))
+	envs := util.ToContainerEnv(ld.Spec.Envs)
 	// Add lepton runtime envs to the container envs
-	runtime_envs := []corev1.EnvVar{
+	runtimeEnvs := []corev1.EnvVar{
 		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
 		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
 		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
 		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
 		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.AcceleratorType},
-
-		// Set the expected number of threads for OMP and MKL to avoid CPU cache thrashing.
-		{Name: "OMP_NUM_THREADS", Value: cpuCeil},
-		{Name: "MKL_NUM_THREADS", Value: cpuCeil},
 	}
-	env = append(env, runtime_envs...)
+	envs = append(envs, runtimeEnvs...)
+
+	// Set the expected number of threads for OMP and MKL to avoid CPU cache thrashing.
+	// Do not overwrite user's setting.
+	threads := fmt.Sprint(math.Ceil(resources.Limits.Cpu().AsApproximateFloat64()))
+	setOT, setMT := false, false
+	for _, e := range envs {
+		if e.Name == "OMP_NUM_THREADS" {
+			setOT = true
+		}
+		if e.Name == "MKL_NUM_THREADS" {
+			setMT = true
+		}
+	}
+	if !setOT {
+		envs = append(envs, corev1.EnvVar{Name: "OMP_NUM_THREADS", Value: threads})
+	}
+	if !setMT {
+		envs = append(envs, corev1.EnvVar{Name: "MKL_NUM_THREADS", Value: threads})
+	}
 
 	container := corev1.Container{
 		Name:            mainContainerName,
@@ -311,7 +325,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		Command:         k.newMainContainerCommand(),
 		Args:            k.newMainContainerArgs(),
 		Resources:       *resources,
-		Env:             env,
+		Env:             envs,
 
 		Ports: []corev1.ContainerPort{
 			{
