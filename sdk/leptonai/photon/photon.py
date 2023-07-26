@@ -652,6 +652,17 @@ class Photon(BasePhoton):
         if http_method.lower() == "post":
             vd = pydantic.decorator.validate_arguments(method).vd
 
+            # for post handler, we change endpoint function's signature to make
+            # it taking json body as input, so do not copy the
+            # `__annotations__` attribute here
+            @functools.wraps(
+                method,
+                assigned=(
+                    wa
+                    for wa in functools.WRAPPER_ASSIGNMENTS
+                    if wa != "__annotations__"
+                ),
+            )
             async def typed_handler(request: request_model):
                 logger.info(request)
                 try:
@@ -667,6 +678,8 @@ class Photon(BasePhoton):
                     if not isinstance(res, response_class):
                         res = response_class(res)
                     return res
+
+            delattr(typed_handler, "__wrapped__")
 
         elif http_method.lower() == "get":
 

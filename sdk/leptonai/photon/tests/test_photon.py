@@ -886,6 +886,23 @@ class CustomPhoton2(Photon):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"status": "ok"})
 
+    def test_preserve_doc_str(self):
+        class DocStrPhoton(Photon):
+            @Photon.handler()
+            def greet(self) -> str:
+                """this is greet"""
+                return "hello"
+
+        ph = DocStrPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(
+            client.openapi["paths"]["/greet"]["post"]["description"],
+            DocStrPhoton.greet.__doc__,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
