@@ -2,12 +2,15 @@ import { css } from "@emotion/react";
 import { CenterBox } from "@lepton-dashboard/components/center-box";
 import { Loading } from "@lepton-dashboard/components/loading";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
+import { EventTrackerService } from "@lepton-dashboard/services/event-tracker.service";
+import { useInject } from "@lepton-libs/di";
 import { Button, Typography } from "antd";
 import { LazyExoticComponent, ReactElement, Suspense } from "react";
 import { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
+  eventTrackerService: EventTrackerService;
 }
 
 interface State {
@@ -19,11 +22,22 @@ class ErrorBoundary extends Component<Props, State> {
     hasError: false,
   };
 
+  private eventTrackerService: EventTrackerService;
+
   public static getDerivedStateFromError(_: Error): State {
     return { hasError: true };
   }
 
+  constructor(props: Props) {
+    super(props);
+    this.eventTrackerService = props.eventTrackerService;
+  }
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.eventTrackerService.track("JS_ERROR", {
+      componentStack: errorInfo.componentStack,
+      error: error.message,
+    });
     console.error("Uncaught error:", error, errorInfo);
   }
 
@@ -56,11 +70,14 @@ class ErrorBoundary extends Component<Props, State> {
 export const lazyErrorWrapper = (
   Component: LazyExoticComponent<SafeAny>
 ): (() => ReactElement) => {
-  return () => (
-    <ErrorBoundary>
-      <Suspense fallback={<Loading />}>
-        <Component />
-      </Suspense>
-    </ErrorBoundary>
-  );
+  return () => {
+    const eventTrackerService = useInject(EventTrackerService);
+    return (
+      <ErrorBoundary eventTrackerService={eventTrackerService}>
+        <Suspense fallback={<Loading />}>
+          <Component />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  };
 };

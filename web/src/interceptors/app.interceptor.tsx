@@ -1,3 +1,4 @@
+import { EventTrackerService } from "@lepton-dashboard/services/event-tracker.service";
 import { Injectable } from "injection-js";
 import {
   HttpHandler,
@@ -5,13 +6,12 @@ import {
   HTTPRequest,
   HTTPResponse,
 } from "@lepton-dashboard/services/http-client.service";
-import { catchError, mergeMap, Observable, throwError } from "rxjs";
+import { catchError, from, mergeMap, Observable, throwError } from "rxjs";
 import {
   AuthService,
   UnauthorizedError,
 } from "@lepton-dashboard/services/auth.service";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
-import { fromPromise } from "rxjs/internal/observable/innerFrom";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { ReactNode } from "react";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
@@ -21,6 +21,7 @@ import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.intercep
 export class AppInterceptor implements HTTPInterceptor {
   constructor(
     private navigateService: NavigateService,
+    private eventTrackerService: EventTrackerService,
     private notificationService: NotificationService,
     private profileService: ProfileService,
     private authService: AuthService
@@ -47,6 +48,18 @@ export class AppInterceptor implements HTTPInterceptor {
           const status = error.status || error.response?.status;
           const ignoreErrors =
             req.context?.get(INTERCEPTOR_CONTEXT).ignoreErrors;
+
+          const requestId = error.response?.headers?.["x-request-id"];
+          const message: ReactNode = error.response?.data?.code || error.code;
+          const errorMessage = error.response?.data?.message || error.message;
+          const time = new Date();
+
+          this.eventTrackerService.track("API_ERROR", {
+            requestId,
+            errorMessage,
+            timestamp: time.toUTCString(),
+          });
+
           if (
             ignoreErrors === true ||
             (Array.isArray(ignoreErrors) && ignoreErrors.includes(status))
@@ -55,7 +68,7 @@ export class AppInterceptor implements HTTPInterceptor {
           }
 
           if (status === 401) {
-            return fromPromise(
+            return from(
               this.authService.logout().then(() => {
                 this.navigateService.navigateTo("login");
               })
@@ -66,20 +79,16 @@ export class AppInterceptor implements HTTPInterceptor {
             );
           }
 
-          const requestId = error.response?.headers?.["x-request-id"];
-          const message: ReactNode = error.response?.data?.code || error.code;
-          let description: ReactNode =
-            error.response?.data?.message || error.message;
-          description = requestId ? (
+          const description = requestId ? (
             <>
-              <strong>Error Message</strong>: {description}
+              <strong>Error Message</strong>: {errorMessage}
               <br />
               <strong>Request ID</strong>: {requestId}
               <br />
-              <strong>Timestamp</strong>: {new Date().toLocaleString()}
+              <strong>Timestamp</strong>: {time.toLocaleString()}
             </>
           ) : (
-            description
+            errorMessage
           );
 
           this.notificationService.error({
