@@ -483,7 +483,7 @@ resource "helm_release" "kube_prometheus_stack" {
                 regex         = ".+"
               },
               {
-                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_id"]
+                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_name"]
                 action        = "keep"
                 regex         = ".+"
               },
@@ -493,8 +493,8 @@ resource "helm_release" "kube_prometheus_stack" {
                 action        = "replace"
               },
               {
-                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_id"]
-                target_label  = "kubernetes_pod_label_lepton_deployment_id"
+                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_name"]
+                target_label  = "kubernetes_pod_label_lepton_deployment_name"
                 action        = "replace"
               },
               {
