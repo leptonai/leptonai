@@ -1,3 +1,4 @@
+import { lazyErrorWrapper } from "@lepton-dashboard/components/lazy-error-wrapper";
 import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
 import { AuthSupabaseService } from "@lepton-dashboard/services/auth.supabase.service";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
@@ -35,40 +36,54 @@ import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 
-const Login = lazy(() =>
-  import("@lepton-dashboard/routers/login").then((e) => ({
-    default: e.Login,
-  }))
+const Login = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/login").then((e) => ({
+      default: e.Login,
+    }))
+  )
 );
-const Redirect = lazy(() =>
-  import("@lepton-dashboard/routers/redirect").then((e) => ({
-    default: e.Redirect,
-  }))
+const Redirect = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/redirect").then((e) => ({
+      default: e.Redirect,
+    }))
+  )
 );
-const Credentials = lazy(() =>
-  import("@lepton-dashboard/routers/credentials").then((e) => ({
-    default: e.Credentials,
-  }))
+const Credentials = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/credentials").then((e) => ({
+      default: e.Credentials,
+    }))
+  )
 );
-const CloseBeta = lazy(() =>
-  import("@lepton-dashboard/routers/close-beta").then((e) => ({
-    default: e.CloseBeta,
-  }))
+const CloseBeta = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/close-beta").then((e) => ({
+      default: e.CloseBeta,
+    }))
+  )
 );
-const WaitList = lazy(() =>
-  import("@lepton-dashboard/routers/wait-list").then((e) => ({
-    default: e.WaitList,
-  }))
+const WaitList = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/wait-list").then((e) => ({
+      default: e.WaitList,
+    }))
+  )
 );
-const NoWorkspace = lazy(() =>
-  import("@lepton-dashboard/routers/no-workspace").then((e) => ({
-    default: e.NoWorkspace,
-  }))
+const NoWorkspace = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/no-workspace").then((e) => ({
+      default: e.NoWorkspace,
+    }))
+  )
 );
-const Workspace = lazy(() =>
-  import("@lepton-dashboard/routers/workspace").then((e) => ({
-    default: e.Workspace,
-  }))
+const Workspace = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/workspace").then((e) => ({
+      default: e.Workspace,
+    }))
+  )
 );
 
 const router = createBrowserRouter([
