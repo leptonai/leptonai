@@ -57,7 +57,6 @@ const ReplicaStatusTable = ({
           title: "message",
           dataIndex: "message",
           key: "message",
-          ellipsis: true,
           render: (message: string) =>
             message ? (
               <Typography.Text title={message} onClick={() => copy(message)}>
@@ -108,7 +107,6 @@ const TerminationsTable = ({
         {
           title: "Message",
           dataIndex: "message",
-          ellipsis: true,
           render: (message) =>
             message ? (
               <Typography.Text title={message} onClick={() => copy(message)}>
