@@ -51,7 +51,6 @@ export abstract class ApiService {
     replicaId: string
   ): Observable<string>;
   abstract getDeploymentReplicaSocketUrl(
-    host: string,
     deploymentName: string,
     replicaId: string
   ): string;

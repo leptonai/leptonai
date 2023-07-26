@@ -73,11 +73,7 @@ export const TerminalDetail: FC<{
       },
     });
     const socket = new WebSocket(
-      deploymentService.getReplicaSocketUrl(
-        workspaceTrackerService.workspace!.auth.url,
-        deploymentName,
-        replicaId
-      ),
+      deploymentService.getReplicaSocketUrl(deploymentName, replicaId),
       "v4.channel.k8s.io"
     );
     const fitAddon = new FitAddon();

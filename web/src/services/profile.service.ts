@@ -5,6 +5,7 @@ import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { HttpClientService, HttpContext } from "./http-client.service";
 import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
+import pathJoin from "@lepton-libs/url/path-join";
 
 @Injectable()
 export class ProfileService {
@@ -18,8 +19,9 @@ export class ProfileService {
           authWorkspaces.length > 0
             ? forkJoin([
                 ...authWorkspaces.map(({ url, token }) => {
+                  const apiUrl = pathJoin(url, "/api/v1/workspace");
                   return this.httpClientService
-                    .get<WorkspaceDetail>(`${url}/api/v1/workspace`, {
+                    .get<WorkspaceDetail>(apiUrl, {
                       headers: {
                         // The interceptor will set the token from the profile to the header,
                         // but the token is not set to profile now, so we need to set it manually.

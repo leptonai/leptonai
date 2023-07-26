@@ -25,6 +25,7 @@ import {
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
+import pathJoin from "@lepton-libs/url/path-join";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -40,7 +41,7 @@ export class ApiServerService implements ApiService {
 
   get prefix() {
     return this.host
-      ? new URL(this.apiVersionPrefix, this.host).href
+      ? pathJoin(this.host, this.apiVersionPrefix)
       : this.apiVersionPrefix;
   }
 
@@ -234,11 +235,26 @@ export class ApiServerService implements ApiService {
   }
 
   getDeploymentReplicaSocketUrl(
-    host: string,
     deploymentName: string,
     replicaId: string
   ): string {
-    return `wss://${host}/api/v1/deployments/${deploymentName}/replicas/${replicaId}/shell`;
+    const url = new URL(
+      pathJoin(
+        this.prefix,
+        "deployments",
+        deploymentName,
+        "replicas",
+        replicaId,
+        "shell"
+      )
+    );
+    if (url.protocol === "https:") {
+      url.protocol = "wss:";
+    } else {
+      url.protocol = "ws:";
+    }
+    url.searchParams.set("access_token", this.token || "");
+    return url.toString();
   }
 
   getDeploymentReplicaMetrics(

@@ -185,11 +185,10 @@ export class ApiLocalService implements ApiService {
   }
 
   getDeploymentReplicaSocketUrl(
-    host: string,
     deploymentName: string,
     replicaId: string
   ): string {
-    console.log(host, deploymentName, replicaId);
+    console.log(deploymentName, replicaId);
     return "";
   }
 

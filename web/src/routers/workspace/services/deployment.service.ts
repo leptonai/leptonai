@@ -12,7 +12,6 @@ import {
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
-import { ProfileService } from "@lepton-dashboard/services/profile.service";
 
 @Injectable()
 export class DeploymentService {
@@ -41,28 +40,13 @@ export class DeploymentService {
     return this.apiService.getDeploymentReplicaLogs(deploymentName, replicaId);
   }
 
-  getReplicaSocketUrl(
-    origin: string,
-    deploymentName: string,
-    replicaId: string
-  ): string {
-    const host = new URL(origin).host;
-    const url = new URL(
-      this.apiService.getDeploymentReplicaSocketUrl(
-        host,
-        deploymentName,
-        replicaId
-      )
+  getReplicaSocketUrl(deploymentName: string, replicaId: string): string {
+    return this.apiService.getDeploymentReplicaSocketUrl(
+      deploymentName,
+      replicaId
     );
-    const token =
-      this.profileService.profile?.authorized_workspaces?.find(
-        (i) => new URL(i.auth.url).host === host
-      )?.auth.token || "";
-
-    url.searchParams.set("access_token", token);
-
-    return url.toString();
   }
+
   getReplicaMetrics(
     deploymentName: string,
     replicaId: string,
@@ -147,7 +131,6 @@ export class DeploymentService {
   }
   constructor(
     private apiService: ApiService,
-    private metricServiceUtil: MetricUtilService,
-    private profileService: ProfileService
+    private metricServiceUtil: MetricUtilService
   ) {}
 }
