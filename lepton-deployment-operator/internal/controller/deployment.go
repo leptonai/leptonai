@@ -294,7 +294,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
 		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
 		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
-		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.AcceleratorType},
+		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: nodeSelector[k.gpuProductLableKey]},
 	}
 	envs = append(envs, runtimeEnvs...)
 
