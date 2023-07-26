@@ -10,7 +10,7 @@ auth_users_iam_group_name = "dev"
 
 region = "us-east-1"
 
-default_capacity_type = "SPOT"
+default_capacity_type = "ON_DEMAND"
 
 single_nat_gateway = true
 
