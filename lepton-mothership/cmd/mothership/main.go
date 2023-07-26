@@ -14,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/purge"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/quotas"
+	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/self"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/version"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/volumes"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/workspaces"
@@ -42,6 +43,7 @@ func init() {
 		quotas.NewCommand(),
 		volumes.NewCommand(),
 		purge.NewCommand(),
+		self.NewCommand(),
 	)
 }
 
