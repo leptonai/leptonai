@@ -60,14 +60,11 @@ export class AppInterceptor implements HTTPInterceptor {
             timestamp: time.toUTCString(),
           });
 
-          if (
-            ignoreErrors === true ||
-            (Array.isArray(ignoreErrors) && ignoreErrors.includes(status))
-          ) {
-            return throwError(error);
-          }
+          const ignore401 =
+            Array.isArray(ignoreErrors) && ignoreErrors.includes(401);
 
-          if (status === 401) {
+          // request to ignore 401 errors explicitly
+          if (status === 401 && !ignore401) {
             return from(
               this.authService.logout().then(() => {
                 this.navigateService.navigateTo("login");
@@ -77,6 +74,13 @@ export class AppInterceptor implements HTTPInterceptor {
                 throwError(() => new UnauthorizedError("Unauthorized"))
               )
             );
+          }
+
+          if (
+            ignoreErrors === true ||
+            (Array.isArray(ignoreErrors) && ignoreErrors.includes(status))
+          ) {
+            return throwError(error);
           }
 
           const description = requestId ? (
