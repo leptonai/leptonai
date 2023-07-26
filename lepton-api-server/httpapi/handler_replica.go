@@ -117,6 +117,9 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 	proxy.Transport = httpClient.Transport
 
 	r := c.Request
+	// Close the forward request regardless of the action from the client.
+	defer r.Body.Close()
+
 	// delete our custom authorization header so that we don't forward it and override k8s auth
 	r.Header.Del("Authorization")
 	r.Host = targetURL.Host
