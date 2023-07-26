@@ -35,7 +35,6 @@ const (
 	labelKeyPhotonName            = "photon_name"
 	labelKeyPhotonID              = "photon_id"
 	labelKeyLeptonDeploymentName  = "lepton_deployment_name"
-	labelKeyLeptonDeploymentID    = "lepton_deployment_id"
 	labelKeyLeptonDeploymentShape = "lepton_deployment_shape"
 
 	readinessProbeInitialDelaySeconds = 30
