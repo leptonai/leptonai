@@ -37,10 +37,14 @@ const (
 	labelKeyLeptonDeploymentName  = "lepton_deployment_name"
 	labelKeyLeptonDeploymentShape = "lepton_deployment_shape"
 
-	readinessProbeInitialDelaySeconds = 30
-	readinessProbePeriodSeconds       = 20
+	readinessProbeInitialDelaySeconds = 5
+	readinessProbePeriodSeconds       = 5
+	readinessProbeFailureThreshold    = 5
+	readinessProbeSuccessThreshold    = 1
 	livenessProbeInitialDelaySeconds  = 600
-	livenessProbePeriodSeconds        = 20
+	livenessProbePeriodSeconds        = 5
+	livenessProbeFailureThreshold     = 5
+	livenessProbeSuccessThreshold     = 1
 )
 
 type deployment struct {
@@ -347,6 +351,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 			},
 			InitialDelaySeconds: readinessProbeInitialDelaySeconds,
 			PeriodSeconds:       readinessProbePeriodSeconds,
+			FailureThreshold:    readinessProbeFailureThreshold,
+			SuccessThreshold:    readinessProbeSuccessThreshold,
 		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -356,6 +362,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 			},
 			InitialDelaySeconds: livenessProbeInitialDelaySeconds,
 			PeriodSeconds:       livenessProbePeriodSeconds,
+			FailureThreshold:    livenessProbeFailureThreshold,
+			SuccessThreshold:    livenessProbeSuccessThreshold,
 		},
 	}
 
