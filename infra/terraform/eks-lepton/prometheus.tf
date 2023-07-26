@@ -392,6 +392,7 @@ resource "helm_release" "kube_prometheus_stack" {
       }
     }
 
+    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
     prometheus = {
       enabled = true
 
@@ -456,6 +457,7 @@ resource "helm_release" "kube_prometheus_stack" {
           }
         }
 
+        # the following scrape config is encoded as k8s secret objects
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
         # c.f., https://github.com/leptonai/lepton/pull/1369/files
         additionalScrapeConfigs = [
@@ -514,12 +516,27 @@ resource "helm_release" "kube_prometheus_stack" {
           {
             job_name = "nvidia-dcgm-exporter"
 
-            # List of labeled statically configured targets for this job.
-            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#static_config
-            static_configs = [
+            # discovers targets from listed endpoints of a service
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+            kubernetes_sd_configs = [
               {
-                # <service-name>.<namespace>.svc.cluster.local:<service-port>
-                targets = ["nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"]
+                role = "endpoints"
+              }
+            ]
+
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+            #
+            # fetches endpoints of this service (basically # of nodes with DCGM installed)
+            # instead of directly from this service.
+            #
+            # e.g.,
+            # <service-name>.<namespace>.svc.cluster.local:<service-port>
+            # "nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"
+            relabel_configs = [
+              {
+                source_labels = ["__meta_kubernetes_service_label_app"]
+                action        = "keep"
+                regex         = "nvidia-dcgm-exporter"
               }
             ]
           },
@@ -527,10 +544,63 @@ resource "helm_release" "kube_prometheus_stack" {
       }
     }
 
+    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+    kubelet = {
+      enabled = true
+
+      # use the same default value as the helm chart
+      namespace = "kube-system"
+
+      serviceMonitor = {
+        # scraping /metrics/cadvisor from kubelet's service
+        cAdvisor = true
+
+        # upstream kube-prometheus-stack chart by default
+        # drops some metrics they think not useful
+        # add the useful ones back
+        # TODO: remove the ones we don't use to save AMP costs
+        # ref. https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml#L1166-L1218
+        cAdvisorMetricRelabelings = [
+          { # drop less useful container CPU metrics
+            sourceLabels = ["__name__"]
+            action       = "drop"
+            regex        = "container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)"
+          },
+          { # drop less useful, always zero container file system metrics
+            sourceLabels = ["__name__"]
+            action       = "drop"
+            regex        = "container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)"
+          },
+          { # drop less useful, always zero container memory metrics
+            sourceLabels = ["__name__"]
+            action       = "drop"
+            regex        = "container_memory_(mapped_file|swap)"
+          },
+          { # less useful container process metrics
+            sourceLabels = ["__name__"]
+            action       = "drop"
+            regex        = "container_(file_descriptors|tasks_state|threads_max)"
+          },
+
+          # less useful container process metrics
+          # do not drop "container_spec.*"
+          # TODO: drop this when we find the equivalent in kube-state-metrics
+
+          { # cgroup metrics with no pod
+            sourceLabels = ["id", "pod"]
+            action       = "drop"
+            regex        = ".+;"
+          },
+        ]
+      }
+    }
+
+    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
     nodeExporter = {
       enabled = true
     }
 
+    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
     grafana = {
       enabled = true
 
