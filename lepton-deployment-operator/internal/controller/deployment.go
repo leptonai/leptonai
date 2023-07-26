@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"math"
 	"path"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
@@ -252,17 +253,6 @@ func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceR
 
 func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
-	env := util.ToContainerEnv(ld.Spec.Envs)
-
-	// Add lepton runtime envs to the container envs
-	runtime_envs := []corev1.EnvVar{
-		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
-		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
-		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
-		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
-		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.AcceleratorType},
-	}
-	env = append(env, runtime_envs...)
 
 	resources := k.createCPUMemStorageResourceRequirements()
 
@@ -296,6 +286,23 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		// only schedule the pod with exact matching node labels
 		nodeSelector[k.gpuProductLableKey] = acctype
 	}
+
+	env := util.ToContainerEnv(ld.Spec.Envs)
+
+	cpuCeil := fmt.Sprint(math.Ceil(resources.Limits.Cpu().AsApproximateFloat64()))
+	// Add lepton runtime envs to the container envs
+	runtime_envs := []corev1.EnvVar{
+		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
+		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
+		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
+		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},
+		{Name: "LEPTON_RESOURCE_ACCELERATOR_TYPE", Value: ld.Spec.ResourceRequirement.AcceleratorType},
+
+		// Set the expected number of threads for OMP and MKL to avoid CPU cache thrashing.
+		{Name: "OMP_NUM_THREADS", Value: cpuCeil},
+		{Name: "MKL_NUM_THREADS", Value: cpuCeil},
+	}
+	env = append(env, runtime_envs...)
 
 	container := corev1.Container{
 		Name:            mainContainerName,
