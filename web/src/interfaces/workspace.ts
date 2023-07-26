@@ -13,5 +13,5 @@ export interface AuthorizedWorkspace {
 
 export interface Workspace {
   auth: AuthorizedWorkspace;
-  data: WorkspaceDetail;
+  data: WorkspaceDetail | null;
 }

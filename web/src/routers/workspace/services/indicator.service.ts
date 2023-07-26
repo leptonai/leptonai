@@ -1,7 +1,7 @@
 import { Injectable } from "injection-js";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { map, mergeMap, take, tap } from "rxjs";
+import { catchError, map, mergeMap, of, take, tap } from "rxjs";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
 import { WorkspaceTrackerService } from "../../../services/workspace-tracker.service";
@@ -20,7 +20,8 @@ export class IndicatorService {
       } else {
         return latest && latest.created_at !== +cache;
       }
-    })
+    }),
+    catchError(() => of(false))
   );
 
   photonNotify$ = this.refreshService.refresh$.pipe(
@@ -35,7 +36,8 @@ export class IndicatorService {
       } else {
         return latest && latest.created_at !== +cache;
       }
-    })
+    }),
+    catchError(() => of(false))
   );
 
   updateDeploymentNotify() {

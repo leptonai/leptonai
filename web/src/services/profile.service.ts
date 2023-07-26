@@ -3,10 +3,7 @@ import { catchError, forkJoin, map, mergeMap, Observable, of, tap } from "rxjs";
 import { Profile } from "@lepton-dashboard/interfaces/profile";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { HttpClientService, HttpContext } from "./http-client.service";
-import {
-  Workspace,
-  WorkspaceDetail,
-} from "@lepton-dashboard/interfaces/workspace";
+import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 
 @Injectable()
@@ -36,14 +33,12 @@ export class ProfileService {
                 }),
               ]).pipe(
                 map((detailWorkspaces) => {
-                  return detailWorkspaces
-                    .map((data, i) => {
-                      return {
-                        auth: authWorkspaces[i],
-                        data,
-                      };
-                    })
-                    .filter((c): c is Workspace => !!c.data);
+                  return detailWorkspaces.map((data, i) => {
+                    return {
+                      auth: authWorkspaces[i],
+                      data,
+                    };
+                  });
                 })
               )
             : of([])
@@ -55,7 +50,7 @@ export class ProfileService {
         this.profile = {
           identification: user,
           oauth: auth_info,
-          authorized_workspaces: authorized_workspaces,
+          authorized_workspaces,
         };
       }),
       map(() => true)

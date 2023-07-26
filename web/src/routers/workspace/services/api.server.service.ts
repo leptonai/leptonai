@@ -45,7 +45,11 @@ export class ApiServerService implements ApiService {
   }
 
   listPhotons(): Observable<Photon[]> {
-    return this.httpClientService.get(`${this.prefix}/photons`);
+    return this.httpClientService.get(`${this.prefix}/photons`, {
+      context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+        ignoreErrors: true,
+      }),
+    });
   }
 
   deletePhoton(id: string): Observable<void> {
@@ -61,7 +65,11 @@ export class ApiServerService implements ApiService {
   }
 
   listDeployments(): Observable<Deployment[]> {
-    return this.httpClientService.get(`${this.prefix}/deployments`);
+    return this.httpClientService.get(`${this.prefix}/deployments`, {
+      context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+        ignoreErrors: true,
+      }),
+    });
   }
 
   createDeployment(deployment: Partial<Deployment>): Observable<void> {

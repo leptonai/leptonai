@@ -1,9 +1,11 @@
+import { Card } from "@lepton-dashboard/components/card";
 import { GettingStarted } from "@lepton-dashboard/routers/workspace/components/getting-started";
 import { Dashboard } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard";
 import { Deployments } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments";
 import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons";
 import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
 import { Storage } from "@lepton-dashboard/routers/workspace/routers/detail/routers/storage";
+import { Button, Result, Typography } from "antd";
 import { FC, Suspense, lazy } from "react";
 import { Route, Routes, useParams } from "react-router-dom";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -11,7 +13,7 @@ import { useInject } from "@lepton-libs/di";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { forkJoin, map, merge, switchMap } from "rxjs";
+import { catchError, forkJoin, map, merge, of, switchMap } from "rxjs";
 import { Loading } from "@lepton-dashboard/components/loading";
 import {
   FullLayoutWidth,
@@ -41,7 +43,7 @@ export const Detail: FC = () => {
   const { workspaceId } = useParams();
   const workspaceId$ = useObservableFromState(workspaceId);
 
-  const initialized = useStateFromObservable(
+  const state = useStateFromObservable(
     () =>
       merge(
         refreshService.refresh$.pipe(
@@ -51,87 +53,115 @@ export const Detail: FC = () => {
               photonService.refresh(),
             ]);
           }),
-          map(() => true)
+          map(() => "normal"),
+          catchError(() => of("error"))
         ),
-        workspaceId$.pipe(map(() => false))
+        workspaceId$.pipe(map(() => "initializing"))
       ),
-    false
+    "initializing"
   );
-  return initialized ? (
-    <Layout
-      nav={<Nav />}
-      footer={<Footer />}
-      header={<Header menu={<WorkspaceSwitch />} actions={<ProfileMenu />} />}
-    >
-      <Suspense
-        fallback={
-          <LimitedLayoutWidth>
-            <Loading />
-          </LimitedLayoutWidth>
-        }
+  if (state === "initializing") {
+    return <Loading />;
+  } else {
+    return (
+      <Layout
+        nav={<Nav />}
+        footer={<Footer />}
+        header={<Header menu={<WorkspaceSwitch />} actions={<ProfileMenu />} />}
       >
-        <Routes>
-          <Route
-            path="dashboard"
-            element={
+        {state === "normal" ? (
+          <Suspense
+            fallback={
               <LimitedLayoutWidth>
-                <Dashboard />
+                <Loading />
               </LimitedLayoutWidth>
             }
-          />
-          <Route
-            path="getting-started"
-            element={
-              <LimitedLayoutWidth>
-                <GettingStarted />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route
-            path="photons/*"
-            element={
-              <LimitedLayoutWidth>
-                <Photons />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route
-            path="deployments/*"
-            element={
-              <LimitedLayoutWidth>
-                <Deployments />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route
-            path="storage"
-            element={
-              <LimitedLayoutWidth>
-                <Storage />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route
-            path="settings/*"
-            element={
-              <FullLayoutWidth>
-                <Settings />
-              </FullLayoutWidth>
-            }
-          />
-          <Route
-            path="fine-tune/*"
-            element={
-              <LimitedLayoutWidth>
-                <FineTune />
-              </LimitedLayoutWidth>
-            }
-          />
-          <Route path="*" element={<NavigateTo name="dashboard" replace />} />
-        </Routes>
-      </Suspense>
-    </Layout>
-  ) : (
-    <Loading />
-  );
+          >
+            <Routes>
+              <Route
+                path="dashboard"
+                element={
+                  <LimitedLayoutWidth>
+                    <Dashboard />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="getting-started"
+                element={
+                  <LimitedLayoutWidth>
+                    <GettingStarted />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="photons/*"
+                element={
+                  <LimitedLayoutWidth>
+                    <Photons />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="deployments/*"
+                element={
+                  <LimitedLayoutWidth>
+                    <Deployments />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="storage"
+                element={
+                  <LimitedLayoutWidth>
+                    <Storage />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="settings/*"
+                element={
+                  <FullLayoutWidth>
+                    <Settings />
+                  </FullLayoutWidth>
+                }
+              />
+              <Route
+                path="fine-tune/*"
+                element={
+                  <LimitedLayoutWidth>
+                    <FineTune />
+                  </LimitedLayoutWidth>
+                }
+              />
+              <Route
+                path="*"
+                element={<NavigateTo name="dashboard" replace />}
+              />
+            </Routes>
+          </Suspense>
+        ) : (
+          <LimitedLayoutWidth>
+            <Card>
+              <Result
+                title="Temporarily unavailable"
+                subTitle={
+                  <Typography.Text>
+                    Workspace{" "}
+                    <Typography.Text code>{workspaceId}</Typography.Text> is
+                    temporarily unavailable, stay tuned.
+                  </Typography.Text>
+                }
+                extra={
+                  <Button type="primary" onClick={() => location.reload()}>
+                    Try again
+                  </Button>
+                }
+              />
+            </Card>
+          </LimitedLayoutWidth>
+        )}
+      </Layout>
+    );
+  }
 };

@@ -42,14 +42,14 @@ export const General: FC = () => {
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.workspace?.data.build_time}
+            {workspaceTrackerService.workspace?.data?.build_time}
           </Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Version hash">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >
-            {workspaceTrackerService.workspace?.data.git_commit}
+            {workspaceTrackerService.workspace?.data?.git_commit}
           </Typography.Text>
         </Descriptions.Item>
       </Descriptions>
