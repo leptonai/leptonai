@@ -14,6 +14,23 @@ import "xterm/css/xterm.css";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 
+/**
+ * | Caret notation | Hexadecimal | Description |
+ * | -------------- | ----------- | ----------- |
+ * | ^C             | 0x03        | End of Text |
+ * | ^J             | 0x0A        | Line Feed   |
+ * | ^D             | 0x04        | End of Transmission |
+ */
+const exit = (socket: WebSocket) => {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return;
+  }
+  const encoder = new TextEncoder();
+  socket.send(encoder.encode(`\x00\x03`));
+  socket.send(encoder.encode(`\x00\x0A`));
+  socket.send(encoder.encode(`\x00\x04`));
+};
+
 export const TerminalDetail: FC<{
   deploymentName: string;
   replicaId: string;
@@ -107,6 +124,7 @@ export const TerminalDetail: FC<{
       );
     };
     return () => {
+      exit(socket);
       term.dispose();
       socket.close();
     };
