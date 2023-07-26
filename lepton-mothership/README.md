@@ -24,3 +24,7 @@ User information is stored in a shared database with the web authentication syst
 go install -v ./lepton-mothership/cmd/mothership
 mothership -h
 ```
+
+To use the cli for dev:
+1. point .kube/config to the mothership cluster in aws dev account
+2. save mother ship context by running `mothership context save -n dev -u https://mothership.cloud.lepton.ai/api/v1 -t <mothership token>`
