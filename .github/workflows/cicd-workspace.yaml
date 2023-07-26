@@ -51,7 +51,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Push Docker image to latest
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       env:
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -60,7 +60,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     - name: Push Docker image with git tag
-      if: startsWith(github.ref, 'refs/heads/release-')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
       env:
         ECR_REPOSITORY: lepton-api-server
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -106,7 +106,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Push Docker image to latest
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       env:
         ECR_REPOSITORY: lepton-deployment-operator
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -115,7 +115,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     - name: Push Docker image with git tag
-      if: startsWith(github.ref, 'refs/heads/release-')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
       env:
         ECR_REPOSITORY: lepton-deployment-operator
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -159,6 +159,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Push Docker image to latest
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       env:
         ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -167,7 +168,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     - name: Push Docker image with git tag
-      if: startsWith(github.ref, 'refs/heads/release-')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
       env:
         ECR_REPOSITORY: lepton-web
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -251,7 +252,7 @@ jobs:
           --expected-state "deleted"
 
   deploy-to-dev-latest:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [e2e-tests]
     steps:

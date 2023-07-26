@@ -57,7 +57,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Push Lepton "mothership server" Docker image to latest
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       env:
         ECR_REPOSITORY: lepton-mothership
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -66,7 +66,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     - name: Push Lepton "mothership server" Docker image with git tag
-      if: startsWith(github.ref, 'refs/heads/release-')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
       env:
         ECR_REPOSITORY: lepton-mothership
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -91,7 +91,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
     - name: Push Lepton "mothership cli" Docker image to latest
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       env:
         ECR_REPOSITORY: lepton-mothershipctl
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -100,7 +100,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     - name: Push Lepton "mothership cli" Docker image with git tag
-      if: startsWith(github.ref, 'refs/heads/release-')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
       env:
         ECR_REPOSITORY: lepton-mothershipctl
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
