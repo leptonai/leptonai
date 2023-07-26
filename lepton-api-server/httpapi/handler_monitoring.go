@@ -186,7 +186,7 @@ func (h *MonitorningHandler) DeploymentFastAPIQPS(c *gin.Context) {
 		handlers = "/.*"
 	}
 	// get the inference QPS over 2 min windows for the past 1 hour
-	query := "sum(rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum(rate(http_requests_total{kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(c, query, "all", "")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get QPS",
@@ -207,7 +207,7 @@ func (h *MonitorningHandler) DeploymentFastAPILatency(c *gin.Context) {
 		handlers = "/.*"
 	}
 	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
 	result, err := h.queryMetrics(c, query, "all", "")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get latency",
@@ -228,7 +228,7 @@ func (h *MonitorningHandler) DeploymentFastAPIQPSByPath(c *gin.Context) {
 		handlers = "/.*"
 	}
 	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	query := "sum by (handler) (rate(http_requests_total{kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
 	result, err := h.queryMetrics(c, query, "qps", "handler")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get QPS",
@@ -249,7 +249,7 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 		handlers = "/.*"
 	}
 	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_id=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
 	result, err := h.queryMetrics(c, query, "latency_p90", "handler")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get latency",
