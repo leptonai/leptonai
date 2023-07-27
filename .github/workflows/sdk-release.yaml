@@ -79,7 +79,7 @@ jobs:
         pytest sdk
 
   publish-s3:
-    if: github.event_name == 'push' || inputs.publish_s3 == 'true'
+    if: github.event_name == 'push' || inputs.publish_s3
     needs: test-package
     runs-on: self-hosted
     steps:
@@ -101,12 +101,15 @@ jobs:
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip
         sudo ./aws/install
+    - uses: actions/download-artifact@v3
+      with:
+        name: sdk-package
     - name: Upload package to S3
       run: |
         aws s3 cp leptonai*.whl s3://lepton-sdk/
 
   publish-pypi:
-    if: inputs.publish_pypi == 'true'
+    if: inputs.publish_pypi
     needs: test-package
     runs-on: self-hosted
     steps:
