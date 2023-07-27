@@ -138,12 +138,12 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name = "apiServer.photonImageRegistry"
+    name  = "apiServer.photonImageRegistry"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com"
   }
 
   set {
-    name = "apiServer.image.repository"
+    name  = "apiServer.image.repository"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-api-server"
   }
 
@@ -153,7 +153,7 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name = "deploymentOperator.image.repository"
+    name  = "deploymentOperator.image.repository"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-deployment-operator"
   }
 
@@ -163,7 +163,7 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name = "web.image.repository"
+    name  = "web.image.repository"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-web"
   }
 

@@ -72,23 +72,19 @@ resource "kubernetes_namespace" "lepton" {
   }
 }
 
-resource "kubernetes_resource_quota" "lepton_small_quota" {
+resource "kubernetes_resource_quota" "lepton_quota" {
   metadata {
     name      = "quota-${var.workspace_name}"
     namespace = var.namespace
   }
 
-  count = var.quota_group == "small" ? 1 : 0 # Enable only when quota_group variable is "small"
+  count = var.enable_quota ? 1 : 0
 
   spec {
     hard = {
-      "requests.cpu"            = "5"
-      "requests.memory"         = "17Gi"
-      "requests.nvidia.com/gpu" = 1
+      "requests.cpu"            = tostring(var.quota_cpu)
+      "requests.memory"         = "${var.quota_memory}Gi"
+      "requests.nvidia.com/gpu" = var.quota_gpu
     }
-  }
-
-  lifecycle {
-    ignore_changes = all
   }
 }

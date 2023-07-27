@@ -16,8 +16,23 @@ APPLY_FLAGS=(
     "-var=create_efs=$CREATE_EFS"
     "-var=vpc_id=$VPC_ID"
     "-var=efs_mount_targets=$EFS_MOUNT_TARGETS"
-    "-var=quota_group=$QUOTA_GROUP"
 )
+
+if [[ "$ENABLE_QUOTA" != "" ]]; then
+    APPLY_FLAGS+=("-var=enable_quota=$ENABLE_QUOTA")
+fi
+
+if [[ "$QUOTA_CPU" != "" ]]; then
+    APPLY_FLAGS+=("-var=quota_cpu=$QUOTA_CPU")
+fi
+
+if [[ "$QUOTA_MEMORY" != "" ]]; then
+    APPLY_FLAGS+=("-var=quota_memory=$QUOTA_MEMORY")
+fi
+
+if [[ "$QUOTA_GPU" != "" ]]; then
+    APPLY_FLAGS+=("-var=quota_gpu=$QUOTA_GPU")
+fi
 
 if [[ "$REGION" != "" ]]; then
     APPLY_FLAGS+=("-var=region=$REGION")

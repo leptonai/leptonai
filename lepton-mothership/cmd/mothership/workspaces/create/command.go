@@ -21,6 +21,9 @@ var (
 	apiToken      string
 	imageTag      string
 	quotaGroup    string
+	quotaCPU      int
+	quotaMemory   int
+	quotaGPU      int
 	enableWeb     bool
 	description   string
 )
@@ -41,7 +44,10 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the workspace")
 	cmd.PersistentFlags().StringVarP(&apiToken, "api-token", "a", "", "API token to use for the workspace")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace")
-	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "q", "small", "Quota group for the workspace")
+	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "", "small", "Quota group for the workspace (small, medium, large, unlimited, custom)")
+	cmd.PersistentFlags().IntVarP(&quotaCPU, "quota-cpu", "", 0, "Quota CPU for the workspace if quota group is custom")
+	cmd.PersistentFlags().IntVarP(&quotaMemory, "quota-memory", "", 0, "Quota memory for the workspace if quota group is custom")
+	cmd.PersistentFlags().IntVarP(&quotaGPU, "quota-gpu", "", 0, "Quota GPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().BoolVarP(&enableWeb, "enable-web", "e", false, "Enable web for the workspace")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the workspace")
 	return cmd
@@ -71,6 +77,31 @@ func createFunc(cmd *cobra.Command, args []string) {
 		EnableWeb:   enableWeb,
 
 		Description: description,
+	}
+
+	if quotaGroup == "custom" {
+		if quotaCPU == 0 {
+			log.Fatal("quota cpu is required when quota group is custom")
+		}
+		if quotaMemory == 0 {
+			log.Fatal("quota memory is required when quota group is custom")
+		}
+		if quotaGPU == 0 {
+			log.Fatal("quota gpu is required when quota group is custom")
+		}
+		workspace.QuotaCPU = quotaCPU
+		workspace.QuotaMemoryInGi = quotaMemory
+		workspace.QuotaGPU = quotaGPU
+	} else {
+		if quotaCPU != 0 {
+			log.Fatal("quota cpu is not allowed when quota group is not custom")
+		}
+		if quotaMemory != 0 {
+			log.Fatal("quota memory is not allowed when quota group is not custom")
+		}
+		if quotaGPU != 0 {
+			log.Fatal("quota gpu is not allowed when quota group is not custom")
+		}
 	}
 
 	b, err := json.Marshal(workspace)

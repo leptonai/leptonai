@@ -110,8 +110,26 @@ variable "vpc_id" {
   default     = "vpc-0a0b0c0d0e0f0g0h0"
 }
 
-variable "quota_group" {
-  description = "Quota Group (only support small for now)"
-  type        = string
-  default     = "small"
+variable "enable_quota" {
+  description = "Enable quota"
+  type        = bool
+  default     = true
+}
+
+variable "quota_cpu" {
+  description = "Quota limit for CPU"
+  type        = number
+  default     = 5
+}
+
+variable "quota_memory" {
+  description = "Quota limit for memory"
+  type        = number
+  default     = 17
+}
+
+variable "quota_gpu" {
+  description = "Quota limit for GPU"
+  type        = number
+  default     = 1
 }

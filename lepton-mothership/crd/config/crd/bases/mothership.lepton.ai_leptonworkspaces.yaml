@@ -55,8 +55,14 @@ spec:
                 description: Name is a globally unique name of a workspace within
                   mothership.
                 type: string
+              quota_cpu:
+                type: integer
+              quota_gpu:
+                type: integer
               quota_group:
                 type: string
+              quota_memory:
+                type: integer
             required:
             - cluster_name
             - description
