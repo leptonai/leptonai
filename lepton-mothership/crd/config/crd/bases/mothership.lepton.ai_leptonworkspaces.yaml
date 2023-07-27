@@ -61,7 +61,7 @@ spec:
                 type: integer
               quota_group:
                 type: string
-              quota_memory:
+              quota_memory_in_gi:
                 type: integer
             required:
             - cluster_name

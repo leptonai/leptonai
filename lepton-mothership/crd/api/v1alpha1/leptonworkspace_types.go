@@ -34,7 +34,7 @@ type LeptonWorkspaceSpec struct {
 
 	QuotaGroup      string `json:"quota_group,omitempty"`
 	QuotaCPU        int    `json:"quota_cpu,omitempty"`
-	QuotaMemoryInGi int    `json:"quota_memory,omitempty"`
+	QuotaMemoryInGi int    `json:"quota_memory_in_gi,omitempty"`
 	QuotaGPU        int    `json:"quota_gpu,omitempty"`
 
 	Description string `json:"description"`

@@ -552,7 +552,11 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"VPC_ID="+cl.Status.Properties.VPCID,
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 	)
-	if ws.Spec.QuotaGroup != "unlimited" {
+	if ws.Spec.QuotaGroup == "unlimited" {
+		cmd.Env = append(cmd.Env,
+			"ENABLE_QUOTA=false",
+		)
+	} else {
 		cmd.Env = append(cmd.Env,
 			"ENABLE_QUOTA=true",
 			"QUOTA_CPU="+fmt.Sprint(ws.Spec.QuotaCPU),

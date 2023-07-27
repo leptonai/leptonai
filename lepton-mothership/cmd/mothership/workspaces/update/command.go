@@ -40,7 +40,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to update")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "", "Git ref to use for the workspace terraform")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace deployments")
-	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "q", "", "Quota group for the workspace deployments (e.g., small, unlimited)")
+	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "", "", "Quota group for the workspace (small, medium, large, unlimited, custom)")
 	cmd.PersistentFlags().IntVarP(&quotaCPU, "quota-cpu", "", 0, "Quota CPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaMemory, "quota-memory", "", 0, "Quota memory in Gi for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaGPU, "quota-gpu", "", 0, "Quota GPU for the workspace if quota group is custom")
@@ -110,6 +110,9 @@ func updateFunc(cmd *cobra.Command, args []string) {
 			if quotaGPU != 0 {
 				log.Fatal("quota gpu is not allowed when quota group is not custom")
 			}
+			workspaceSpec.QuotaCPU = 0
+			workspaceSpec.QuotaMemoryInGi = 0
+			workspaceSpec.QuotaGPU = 0
 		}
 		updated = true
 	}
