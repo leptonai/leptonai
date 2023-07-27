@@ -215,7 +215,7 @@ func queryStorageAgg(db *sql.DB, start, end time.Time) ([]StorageAggregateRow, e
 	rows, err := db.Query(fmt.Sprintf(`SELECT
 			workspace, storage_id, ROUND(AVG(size_bytes)) as avg_size
 			from %s
-			where time > '%s' and time <= '%s' and workspace ilike 'ws-%%'
+			where time > '%s' and time <= '%s'
 			GROUP BY workspace, storage_id`,
 		MeteringTableStorageFineGrain,
 		start.Format(time.RFC3339),
