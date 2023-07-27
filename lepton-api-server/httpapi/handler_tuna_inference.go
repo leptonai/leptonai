@@ -128,5 +128,5 @@ func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInferenc
 }
 
 func tunaDeploymentName(name string) string {
-	return " tuna-" + name
+	return "tuna-" + name
 }
