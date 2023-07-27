@@ -1,5 +1,6 @@
+ARG REPO=public.ecr.aws
 # Use golang:1.19 as the base image for image build
-FROM public.ecr.aws/docker/library/golang:1.19 as builder
+FROM ${REPO}/docker/library/golang:1.19 as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . /go/src/github.com/leptonai/lepton/
@@ -15,6 +16,6 @@ RUN BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOO
     -extldflags \"-static\"" \
     -o mothershipctl .
 
-FROM public.ecr.aws/aws-cli/aws-cli:latest
+FROM ${REPO}/aws-cli/aws-cli:latest
 COPY --from=builder /go/src/github.com/leptonai/lepton/lepton-mothership/cmd/mothership/mothershipctl /
 ENTRYPOINT ["/mothershipctl"]

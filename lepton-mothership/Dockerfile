@@ -1,5 +1,6 @@
+ARG REPO=public.ecr.aws
 # Use golang:1.19 as the base image for image build
-FROM public.ecr.aws/docker/library/golang:1.19 as builder
+FROM ${REPO}/docker/library/golang:1.19 as builder
 
 RUN apt-get update && apt-get install -y curl unzip
 
@@ -35,7 +36,7 @@ RUN BUILD_TIME=$(date -u +"%Y-%m-%d_%H-%M-%S") && CGO_ENABLED=0 GOARCH=amd64 GOO
     -o mothership main.go
 
 # Use aws cli as the base image
-FROM public.ecr.aws/aws-cli/aws-cli:latest
+FROM ${REPO}/aws-cli/aws-cli:latest
 
 # Install git
 RUN yum update -y && yum install -y git

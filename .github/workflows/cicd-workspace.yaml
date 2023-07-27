@@ -45,7 +45,10 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build --file lepton-api-server/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG --build-arg GIT_COMMIT=$RELEASE_TAG .
+        docker build . --file lepton-api-server/Dockerfile \
+          --tag $ECR_REPOSITORY:$IMAGE_TAG \
+          --build-arg GIT_COMMIT=$RELEASE_TAG \
+          --build-arg REPO=$ECR_REGISTRY/ecr-public
 
         echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
@@ -101,7 +104,10 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build --file lepton-deployment-operator/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG --build-arg GIT_COMMIT=$RELEASE_TAG .
+        docker build . --file lepton-deployment-operator/Dockerfile \
+          --tag $ECR_REPOSITORY:$IMAGE_TAG \
+          --build-arg GIT_COMMIT=$RELEASE_TAG \
+          --build-arg REPO=$ECR_REGISTRY/ecr-public
 
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
