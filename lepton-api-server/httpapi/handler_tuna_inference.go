@@ -53,7 +53,7 @@ func NewInferenceHandlerForSys(d DeploymentHandler) *InferenceHandler {
 func NewInferenceHandler(d DeploymentHandler) *InferenceHandler {
 	u := &url.URL{
 		Scheme: "http",
-		Host:   service.ServiceName("lepton-api-server") + "." + d.clusterName + "sys" + ".svc:20863",
+		Host:   service.ServiceName("lepton-api-server") + "." + "ws-" + d.clusterName + "sys" + ".svc:20863",
 	}
 	sp := httputil.NewSingleHostReverseProxy(u)
 
