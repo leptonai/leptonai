@@ -23,6 +23,14 @@ resource "helm_release" "nvidia_gpu_operator" {
       # when ami type is "al2"
       version = var.use_ubuntu_nvidia_gpu_operator ? "v1.13.1-ubuntu20.04" : "v1.13.1-centos7"
     }
+
+    dcgmExporter = {
+      enabled         = true
+      repository      = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com"
+      image           = "dcgm-exporter"
+      version         = "3.1.8-3.1.5-ubuntu20.04"
+      imagePullPolicy = "IfNotPresent"
+    }
   })]
 
   depends_on = [module.eks]

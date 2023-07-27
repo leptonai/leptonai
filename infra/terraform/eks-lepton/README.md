@@ -162,7 +162,7 @@ I0624 10:01:18.772447       1 main.go:161] Starting OS watcher.
 I0624 10:01:18.772779       1 main.go:176] Starting Plugins.
 I0624 10:01:18.772794       1 main.go:234] Loading configuration.
 I0624 10:01:18.772987       1 main.go:242] Updating config with default resource matching patterns.
-I0624 10:01:18.773176       1 main.go:253] 
+I0624 10:01:18.773176       1 main.go:253]
 Running with config:
 {
   "version": "v1",
@@ -232,4 +232,16 @@ I0624 20:45:52.481026       1 klogx.go:87] Pod prometheus/prometheus-pushgateway
 I0624 20:45:52.481044       1 cluster.go:178] node ip-10-0-2-185.ec2.internal may be removed
 I0624 20:45:52.503388       1 taints.go:162] Successfully added ToBeDeletedTaint on node ip-10-0-2-185.ec2.internal
 I0624 20:45:52.503536       1 actuator.go:211] Scale-down: removing node ip-10-0-2-185.ec2.internal, utilization: {0 0 0 nvidia.com/gpu 0}, pods to reschedule: coredns-55fb5d545d-tqnxm,grafana-d6bc8f9-phs2m,coredns-55fb5d545d-zn54w,prometheus-pushgateway-6ffb6f7466-bfl5l
+```
+
+# Build dcgm-exporter ECR image
+
+Just manually build (for now) whenever there are new versions in upstream NVIDIA:
+
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 605454121064.dkr.ecr.us-east-1.amazonaws.com
+docker build --file Dockerfile.dcgm-exporter --tag dcgm-exporter:3.1.8-3.1.5-ubuntu20.04 .
+docker tag dcgm-exporter:3.1.8-3.1.5-ubuntu20.04 605454121064.dkr.ecr.us-east-1.amazonaws.com/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
+docker push 605454121064.dkr.ecr.us-east-1.amazonaws.com/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
+# this will be cloned to prod account automatic
 ```

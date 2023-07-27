@@ -264,9 +264,11 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// for GPU memory utilization, do not use "DCGM_FI_DEV_MEM_COPY_UTIL"
+// as it's been deprecated
 func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 	// get the GPU memory util for the past 1 hour
-	query := "DCGM_FI_DEV_MEM_COPY_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
+	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"} / DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("rid") + "\"})[1h:1m]"
 	result, err := h.queryMetrics(c, query, "gpu_memory_util", "gpu")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get GPU memory util",
@@ -281,9 +283,12 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// for GPU utilization, do not use "DCGM_FI_DEV_GPU_UTIL"
+// as it's been deprecated
+// ref. https://github.com/NVIDIA/gpu-monitoring-tools/issues/143
 func (h *MonitorningHandler) ReplicaGPUUtil(c *gin.Context) {
 	// get the GPU util for the past 1 hour
-	query := "DCGM_FI_DEV_GPU_UTIL{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
+	query := "DCGM_FI_PROF_GR_ENGINE_ACTIVE{pod=\"" + c.Param("rid") + "\"}[1h:1m]"
 	result, err := h.queryMetrics(c, query, "gpu_util", "gpu")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get GPU util",
