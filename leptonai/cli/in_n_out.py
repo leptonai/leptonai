@@ -5,6 +5,7 @@ import webbrowser
 
 from .util import check, console, guard_api
 from leptonai.api import workspace
+from leptonai.cli.util import get_workspace_and_token_or_die
 
 LOGIN_LOGO = """\
 ========================================================
@@ -22,13 +23,13 @@ def cloud_login(credentials=None):
     Logs in to the serverless cloud.
     """
     console.print(LOGIN_LOGO)
-    current_workspace = workspace.get_workspace()
-    if current_workspace and not credentials:
+    workspace_id = workspace.get_workspace()
+    if workspace_id and not credentials:
         # Already logged in. Notify the user the login status.
-        console.print(f"Logged in to your workspace [green]{current_workspace}[/].")
+        url, auth_token = get_workspace_and_token_or_die()
         console.print(
-            "If you have multiple workspaces, use `lep workspace login -i workspace_id`"
-            " to pick the one you want to log in to."
+            "Hint: If you have multiple workspaces, you can pick the one you want\n"
+            "to log in via `lep workspace login -i workspace_id`."
         )
     else:
         # Need to login.
@@ -61,16 +62,21 @@ def cloud_login(credentials=None):
         check(url, "Workspace [red]{workspace_id}[/] does not exist.")
         workspace.save_workspace(workspace_id, url, auth_token=auth_token)
         workspace.set_current_workspace(workspace_id)
-        guard_api(
-            workspace.get_workspace_info(url, auth_token),
-            detail=True,
-            msg=(
-                f"Cannot properly log into workspace [red]{workspace_id}. This should"
-                " usually not happen - it might be a transient network issue. Please"
-                " contact us by sharing the error message above."
-            ),
-        )
-        console.print(f"Logged in to your workspace [green]{workspace_id}[/].")
+    # Try to login and print the info.
+    info = workspace.get_workspace_info(url, auth_token)
+    guard_api(
+        info,
+        detail=True,
+        msg=(
+            f"Cannot properly log into workspace [red]{workspace_id} (debug:"
+            f" url={url}). This should usually not happen - it might be a transient"
+            " network issue. Please contact us by sharing the error message above."
+        ),
+    )
+
+    console.print(f"Logged in to your workspace [green]{workspace_id}[/].")
+    console.print(f"\tbuild time: {info['build_time']}")
+    console.print(f"\t   version: {info['git_commit']}")
 
 
 def cloud_logout(purge=False):
