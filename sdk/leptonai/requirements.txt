@@ -16,4 +16,5 @@ pydantic<=2.0.3
 huggingface_hub
 diffusers[torch]
 sentence-transformers
+torch
 transformers
