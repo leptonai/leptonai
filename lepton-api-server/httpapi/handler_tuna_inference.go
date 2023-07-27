@@ -188,6 +188,6 @@ func tunaDeploymentName(name string) string {
 
 func (ih *InferenceHandler) forwardToSysWorkspace(c *gin.Context) {
 	r := c.Request.Clone(context.Background())
-	r.URL.Path = strings.Replace(r.URL.Path, "/tuna-inference/", "/tuna-inference/"+ih.workspaceName+"-", 1)
+	r.URL.Path = strings.Replace(r.URL.Path, "/tuna/inference/", "/tuna/inference/"+ih.workspaceName+"-", 1)
 	ih.sysProxy.ServeHTTP(c.Writer, r)
 }
