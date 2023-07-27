@@ -179,7 +179,7 @@ func fineGrainComputeDataFromResponse(ar AllocationResponse, qp OcQueryParams) (
 			d := FineGrainComputeData{
 				Cluster:              qp.ClusterARN,
 				Namespace:            v.Properties.Namespace,
-				LeptonDeploymentName: v.Properties.Labels["lepton_deployment_id"],
+				LeptonDeploymentName: v.Properties.Labels["lepton_deployment_name"],
 				PodName:              v.Properties.Pod,
 				PodShape:             v.Properties.Labels["lepton_deployment_shape"],
 
