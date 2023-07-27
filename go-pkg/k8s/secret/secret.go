@@ -2,8 +2,13 @@ package secret
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
+
+	"gocloud.dev/blob"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +16,8 @@ import (
 )
 
 type SecretSet struct {
-	NamespacedName types.NamespacedName
+	namespacedName types.NamespacedName
+	backupBucket   *blob.Bucket
 }
 
 type SecretItem struct {
@@ -19,18 +25,21 @@ type SecretItem struct {
 	Value string `json:"value"`
 }
 
-func New(namespace, secretSetName string) *SecretSet {
+// New creates a new secret set.
+func New(namespace, secretSetName string, backupBucket *blob.Bucket) *SecretSet {
 	return &SecretSet{
-		NamespacedName: types.NamespacedName{
+		namespacedName: types.NamespacedName{
 			Namespace: namespace,
 			Name:      secretSetName,
 		},
+		backupBucket: backupBucket,
 	}
 }
 
-func (s *SecretSet) List() ([]string, error) {
+// List lists the keys in the secret set.
+func (s *SecretSet) List(ctx context.Context) ([]string, error) {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(context.Background(), s.NamespacedName, secret)
+	err := k8s.Client.Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, err
@@ -44,9 +53,10 @@ func (s *SecretSet) List() ([]string, error) {
 	return ret, nil
 }
 
-func (s *SecretSet) Put(secrets []SecretItem) error {
+// Put puts the specified secrets into the secret set.
+func (s *SecretSet) Put(ctx context.Context, secrets []SecretItem) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(context.Background(), s.NamespacedName, secret)
+	err := k8s.Client.Get(ctx, s.namespacedName, secret)
 	exist := true
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -54,8 +64,8 @@ func (s *SecretSet) Put(secrets []SecretItem) error {
 		}
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      s.NamespacedName.Name,
-				Namespace: s.NamespacedName.Namespace,
+				Name:      s.namespacedName.Name,
+				Namespace: s.namespacedName.Namespace,
 			},
 		}
 		exist = false
@@ -69,15 +79,16 @@ func (s *SecretSet) Put(secrets []SecretItem) error {
 		}
 	}
 	if exist {
-		return k8s.Client.Update(context.Background(), secret)
+		return k8s.Client.Update(ctx, secret)
 	} else {
-		return k8s.Client.Create(context.Background(), secret)
+		return k8s.Client.Create(ctx, secret)
 	}
 }
 
-func (s *SecretSet) Delete(keys ...string) error {
+// Delete deletes the specified keys from the secret set.
+func (s *SecretSet) Delete(ctx context.Context, keys ...string) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(context.Background(), s.NamespacedName, secret)
+	err := k8s.Client.Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
@@ -87,17 +98,54 @@ func (s *SecretSet) Delete(keys ...string) error {
 	for _, key := range keys {
 		delete(secret.Data, key)
 	}
-	return k8s.Client.Update(context.Background(), secret)
+	return k8s.Client.Update(ctx, secret)
 }
 
-func (s *SecretSet) Destroy() error {
+// Destroy deletes the secret set.
+func (s *SecretSet) Destroy(ctx context.Context) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(context.Background(), s.NamespacedName, secret)
+	err := k8s.Client.Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		return nil
 	}
-	return k8s.Client.Delete(context.Background(), secret)
+	return k8s.Client.Delete(ctx, secret)
+}
+
+// Backup uploads the secret set to the backup bucket.
+func (s *SecretSet) Backup(ctx context.Context) error {
+	kind := "Secret"
+	secret := &corev1.Secret{}
+	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		goutil.Logger.Infow("no Secret found, skipping backup",
+			"operation", "backup",
+			"kind", kind,
+		)
+		return nil
+	}
+	secretData, err := secret.Marshal()
+	if err != nil {
+		return err
+	}
+
+	uploadFilename := fmt.Sprintf("backup-%s-%s.data", kind, time.Now().Format("2006-01-02T15:04:05"))
+
+	err = s.backupBucket.WriteAll(ctx, uploadFilename, secretData, nil)
+	if err != nil {
+		return err
+	}
+
+	goutil.Logger.Infow("uploaded backup",
+		"operation", "backup",
+		"kind", kind,
+		"filename", uploadFilename,
+		"size", len(secretData),
+	)
+	return nil
 }

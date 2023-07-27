@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/datastore"
-	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
@@ -31,7 +30,6 @@ type Handler struct {
 	certARN                       string
 	apiToken                      string
 	photonBucket                  *blob.Bucket
-	backupBucket                  *blob.Bucket
 
 	secretDB *secret.SecretSet
 	phDB     *datastore.CRStore[*leptonaiv1alpha1.Photon]
@@ -41,7 +39,6 @@ type Handler struct {
 func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
 	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
 	workspaceState WorkspaceState) *Handler {
-	k8s.Client.Scheme()
 	h := &Handler{
 		namespace:                     namespace,
 		prometheusURL:                 prometheusURL,
@@ -55,9 +52,8 @@ func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageR
 		certARN:                       certARN,
 		apiToken:                      apiToken,
 		photonBucket:                  photonBucket,
-		backupBucket:                  backupBucket,
 
-		secretDB: secret.New(namespace, secret.SecretObjectName),
+		secretDB: secret.New(namespace, secret.SecretObjectName, backupBucket),
 		phDB: datastore.NewCRStore[*leptonaiv1alpha1.Photon](
 			namespace,
 			&leptonaiv1alpha1.Photon{},
@@ -86,6 +82,7 @@ func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageR
 
 	go runBackupsPeriodically(h.phDB)
 	go runBackupsPeriodically(h.ldDB)
+	go runBackupsPeriodically(h.secretDB)
 
 	return h
 }

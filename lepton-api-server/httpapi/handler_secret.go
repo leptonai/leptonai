@@ -15,7 +15,7 @@ type SecretHandler struct {
 }
 
 func (h *SecretHandler) List(c *gin.Context) {
-	keys, err := h.secretDB.List()
+	keys, err := h.secretDB.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list secrets",
 			"operation", "listSecrets",
@@ -44,7 +44,7 @@ func (h *SecretHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	err := h.secretDB.Put(secrets)
+	err := h.secretDB.Put(c, secrets)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create secret",
 			"operation", "createSecret",
@@ -88,7 +88,7 @@ func (h *SecretHandler) Delete(c *gin.Context) {
 		}
 	}
 
-	if err := h.secretDB.Delete(key); err != nil {
+	if err := h.secretDB.Delete(c, key); err != nil {
 		goutil.Logger.Errorw("failed to delete secret",
 			"operation", "deleteSecret",
 			"error", err,
