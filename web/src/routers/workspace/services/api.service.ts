@@ -15,6 +15,7 @@ import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 import {
   FineTuneJob,
   FineTuneJobStatus,
+  TunaInference,
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import Stripe from "stripe";
@@ -77,9 +78,13 @@ export abstract class ApiService {
   abstract listFineTuneJobs(
     status?: FineTuneJobStatus
   ): Observable<FineTuneJob[]>;
-  abstract addFineTuneJob(file: File): Observable<FineTuneJob>;
+  abstract addFineTuneJob(name: string, file: File): Observable<FineTuneJob>;
   abstract cancelFineTuneJob(id: number): Observable<void>;
   abstract getFineTuneJob(id: number): Observable<FineTuneJob>;
+
+  abstract createInference(tunaInference: TunaInference): Observable<void>;
+  abstract deleteInference(name: string): Observable<void>;
+  abstract getInference(name: string): Observable<TunaInference | null>;
 
   abstract listStorageEntries(path: string): Observable<FileInfo[]>;
   abstract makeStorageDirectory(path: string): Observable<void>;

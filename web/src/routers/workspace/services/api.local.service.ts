@@ -12,7 +12,10 @@ import {
 } from "@lepton-dashboard/interfaces/deployment";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
-import { FineTuneJob } from "@lepton-dashboard/interfaces/fine-tune";
+import {
+  FineTuneJob,
+  TunaInference,
+} from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import Stripe from "stripe";
 const mockedPhotons = [
@@ -222,7 +225,7 @@ export class ApiLocalService implements ApiService {
     return EMPTY;
   }
 
-  addFineTuneJob(_file: File): Observable<FineTuneJob> {
+  addFineTuneJob(): Observable<FineTuneJob> {
     return EMPTY;
   }
 
@@ -231,6 +234,18 @@ export class ApiLocalService implements ApiService {
   }
 
   listFineTuneJobs(): Observable<FineTuneJob[]> {
+    return EMPTY;
+  }
+
+  createInference(): Observable<void> {
+    return EMPTY;
+  }
+
+  deleteInference(): Observable<void> {
+    return EMPTY;
+  }
+
+  getInference(): Observable<TunaInference> {
     return EMPTY;
   }
 

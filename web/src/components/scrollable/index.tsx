@@ -1,4 +1,11 @@
-import { FC, PropsWithChildren, useEffect, useRef, useState } from "react";
+import {
+  FC,
+  MutableRefObject,
+  PropsWithChildren,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties } from "react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
@@ -6,7 +13,8 @@ import { css } from "@emotion/react";
 export type ScrollablePosition = "start" | "end";
 
 export interface ScrollableProps {
-  position?: ScrollablePosition | ScrollablePosition[];
+  position?: "start" | "end" | ["start", "end"];
+  scrollableRef?: MutableRefObject<HTMLDivElement | null>;
   className?: string;
   style?: CSSProperties;
   margin?: string;
@@ -20,9 +28,10 @@ export const Scrollable: FC<ScrollableProps & PropsWithChildren> = ({
   style,
   children,
   margin,
+  scrollableRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollableBoxRef = useRef<HTMLDivElement>(null);
+  const scrollableBoxRef = useRef<HTMLDivElement | null>(null);
   const theme = useAntdTheme();
   const [positions, setPositions] = useState<ScrollablePosition[]>([]);
 
@@ -105,7 +114,15 @@ export const Scrollable: FC<ScrollableProps & PropsWithChildren> = ({
       id={id}
       style={style}
     >
-      <div ref={scrollableBoxRef} className="scrollable-container">
+      <div
+        ref={(ref) => {
+          if (scrollableRef) {
+            scrollableRef.current = ref;
+          }
+          scrollableBoxRef.current = ref;
+        }}
+        className="scrollable-container"
+      >
         <span data-position="start" />
         {children}
         <span data-position="end" />

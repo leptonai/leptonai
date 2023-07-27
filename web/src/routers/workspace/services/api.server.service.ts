@@ -22,10 +22,22 @@ import { WorkspaceTrackerService } from "../../../services/workspace-tracker.ser
 import {
   FineTuneJob,
   FineTuneJobStatus,
+  TunaInference,
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 import pathJoin from "@lepton-libs/url/path-join";
+
+// TODO(hsuanxyz): remove this hard-coded values
+const tuna_dev_config = {
+  workspace: {
+    url: "https://devsys.cloud.lepton.ai",
+    token: "token",
+  },
+  spec: {
+    photon_id: "tuna-s7pg7n51",
+  },
+};
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -293,7 +305,7 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  addFineTuneJob(file: File): Observable<FineTuneJob> {
+  addFineTuneJob(name: string, file: File): Observable<FineTuneJob> {
     const formData = new FormData();
     formData.append("data", file);
     return this.httpClientService.post<FineTuneJob>(
@@ -301,7 +313,7 @@ export class ApiServerService implements ApiService {
       formData,
       {
         params: {
-          name: file.name,
+          name,
         },
       }
     );
@@ -317,6 +329,39 @@ export class ApiServerService implements ApiService {
     return this.httpClientService.get<FineTuneJob>(
       `${this.prefix}/tuna/job/${id}`
     );
+  }
+
+  createInference(tunaInference: TunaInference): Observable<void> {
+    return this.httpClientService.post<void>(`${this.prefix}/tuna/inference`, {
+      ...tunaInference,
+      spec: {
+        ...tunaInference.spec,
+        ...tuna_dev_config.spec,
+      },
+    });
+  }
+
+  deleteInference(name: string): Observable<void> {
+    return this.httpClientService.delete<void>(
+      `${this.prefix}/tuna/inference/${name}`
+    );
+  }
+
+  getInference(name: string): Observable<TunaInference | null> {
+    return this.httpClientService
+      .get<TunaInference>(`${this.prefix}/tuna/inference/${name}`, {
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: [404],
+        }),
+      })
+      .pipe(
+        catchError((err) => {
+          if (err?.response?.status === 404) {
+            return of(null);
+          }
+          throw err;
+        })
+      );
   }
 
   uploadStorageFile(path: string, file: File): Observable<void> {

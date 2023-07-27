@@ -12,7 +12,7 @@ import { DeploymentService } from "./services/deployment.service";
 import { ApiService } from "./services/api.service";
 import { ApiServerService } from "./services/api.server.service";
 import { IndicatorService } from "./services/indicator.service";
-import { FineTuneService } from "@lepton-dashboard/routers/workspace/services/fine-tune.service";
+import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { FileManagerServerService } from "@lepton-dashboard/routers/workspace/services/file-manager-server.service";
 import { FileManagerService } from "@lepton-dashboard/routers/workspace/services/file-manager.service";
 
@@ -25,7 +25,7 @@ export const Workspace: FC = () => {
         MetricUtilService,
         DeploymentService,
         SecretService,
-        FineTuneService,
+        TunaService,
         BillingService,
         { provide: ApiService, useClass: ApiServerService },
         { provide: FileManagerService, useClass: FileManagerServerService },

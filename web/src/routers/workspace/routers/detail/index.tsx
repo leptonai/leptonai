@@ -30,9 +30,9 @@ import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 
 const FineTune = lazy(() =>
   import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/fine-tune"
+    "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna"
   ).then((e) => ({
-    default: e.FineTune,
+    default: e.Tuna,
   }))
 );
 
@@ -127,7 +127,7 @@ export const Detail: FC = () => {
                 }
               />
               <Route
-                path="fine-tune/*"
+                path="tuna/*"
                 element={
                   <LimitedLayoutWidth>
                     <FineTune />

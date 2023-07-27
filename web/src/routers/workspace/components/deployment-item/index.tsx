@@ -1,7 +1,7 @@
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
 import { Storage } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/storage";
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
   App,
@@ -15,7 +15,7 @@ import {
 } from "antd";
 import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon, TunaIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Api, CopyFile, Replicate, Time, TrashCan } from "@carbon/icons-react";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
@@ -29,6 +29,7 @@ import { EditDeployment } from "@lepton-dashboard/routers/workspace/components/d
 import { Envs } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/envs";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
+import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
@@ -38,11 +39,16 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   const navigateService = useInject(NavigateService);
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
+  const tunaService = useInject(TunaService);
   const photonService = useInject(PhotonService);
   const photon = useStateFromObservable(
     () => photonService.id(deployment.photon_id),
     undefined
   );
+
+  const createByTuna = useMemo(() => {
+    return DeploymentService.isCreateByTuna(deployment);
+  }, [deployment]);
 
   return (
     <Row gutter={[16, 8]}>
@@ -55,32 +61,48 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
           `}
         >
           <Col flex="1 1 auto">
-            <LinkTo
-              css={css`
-                color: ${theme.colorTextHeading};
-              `}
-              icon={
-                <DeploymentStatus
-                  deploymentName={deployment.name}
-                  status={deployment.status.state}
-                />
-              }
-              name="deploymentDetail"
-              params={{ deploymentName: deployment.name }}
-              relative="route"
-            >
+            {createByTuna ? (
               <Description.Item
+                icon={
+                  <DeploymentStatus
+                    deploymentName={deployment.name}
+                    status={deployment.status.state}
+                  />
+                }
                 css={css`
                   font-weight: 600;
                   font-size: 16px;
                 `}
                 term={deployment.name}
               />
-            </LinkTo>
+            ) : (
+              <LinkTo
+                css={css`
+                  color: ${theme.colorTextHeading};
+                `}
+                icon={
+                  <DeploymentStatus
+                    deploymentName={deployment.name}
+                    status={deployment.status.state}
+                  />
+                }
+                name="deploymentDetail"
+                params={{ deploymentName: deployment.name }}
+                relative="route"
+              >
+                <Description.Item
+                  css={css`
+                    font-weight: 600;
+                    font-size: 16px;
+                  `}
+                  term={deployment.name}
+                />
+              </LinkTo>
+            )}
           </Col>
           <Col flex="0 0 auto">
             <Space size={0} split={<Divider type="vertical" />}>
-              <EditDeployment deployment={deployment} />
+              {!createByTuna && <EditDeployment deployment={deployment} />}
               <Popconfirm
                 title="Delete the deployment"
                 description="Are you sure to delete?"
@@ -90,7 +112,11 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                     key: "delete-deployment",
                     duration: 0,
                   });
-                  deploymentService.delete(deployment.name).subscribe({
+                  const deleteObservable = createByTuna
+                    ? // TODO(hsuanxyz): this is not using the id
+                      tunaService.deleteInference(deployment.name)
+                    : deploymentService.delete(deployment.name);
+                  deleteObservable.subscribe({
                     next: () => {
                       message.destroy("delete-deployment");
                       void message.success(
@@ -131,6 +157,14 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   />
                 </Space>
               </Col>
+              {createByTuna && (
+                <Col span={24}>
+                  <Description.Item
+                    icon={<TunaIcon />}
+                    description={<>Created by Tuna</>}
+                  />
+                </Col>
+              )}
               <Col span={24}>
                 <Description.Container>
                   <Description.Item
@@ -152,7 +186,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               </Col>
             </Row>
           </Col>
-          <Col flex="0 0 auto">
+          <Col flex="0 0 400px">
             <Row gutter={[0, 4]}>
               <Col span={24}>
                 <Description.Container>

@@ -36,6 +36,7 @@
     "dayjs": "^1.11.7",
     "decimal.js": "^10.4.3",
     "echarts": "^5.4.2",
+    "eventsource-parser": "^1.0.0",
     "injection-js": "^2.4.0",
     "lodash": "^4.17.21",
     "mime2ext": "^2.0.0",
