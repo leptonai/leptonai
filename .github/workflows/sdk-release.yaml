@@ -7,6 +7,16 @@ on:
     paths:
       - .github/workflows/sdk-release.yaml
     branches: [ "**" ]
+  workflow_dispatch:
+    inputs:
+      publish_s3:
+        description: "Whether publish to S3"
+        type: boolean
+        default: true
+      publish_pypi:
+        description: "Whether publish to PyPI"
+        type: boolean
+        default: false
 
 jobs:
 
@@ -68,7 +78,35 @@ jobs:
         echo "Run unittests"
         pytest sdk
 
-  upload-package:
+  publish-s3:
+    if: github.event_name == 'push' || inputs.publish_s3 == 'true'
+    needs: test-package
+    runs-on: self-hosted
+    steps:
+    - name: Set up Python Environment
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Set up pip
+      run: |
+        pip install -U pip setuptools
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Install awscli
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install
+    - name: Upload package to S3
+      run: |
+        aws s3 cp leptonai*.whl s3://lepton-sdk/
+
+  publish-pypi:
+    if: inputs.publish_pypi == 'true'
     needs: test-package
     runs-on: self-hosted
     steps:
@@ -102,6 +140,6 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: sdk-package
-    - name: Upload Package
+    - name: Upload Package to PyPI
       run: |
         twine upload --verbose --repository codeartifact leptonai*.whl
