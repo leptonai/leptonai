@@ -14,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -31,8 +32,9 @@ var (
 	startFlag            string
 	endFlag              string
 	durationFlag         time.Duration
+	previewBackfill      bool
 
-	previewBackfill bool
+	inCluster bool
 )
 
 func NewCommand() *cobra.Command {
@@ -75,11 +77,12 @@ $ mothership metering backfill --start '07/11/2023 00:00:00+00' --end '07/14/202
 	cmd.PersistentFlags().StringVar(&queryResolution, "query-resolution", "1m", "Query resolution")
 
 	cmd.PersistentFlags().IntVarP(&backfillIntervalFlag, "backfill-interval-minutes", "i", 10, "Interval to sync data to db, in minutes")
-	cmd.PersistentFlags().StringVar(&startFlag, "start", "", "Start time for backfill, defaults to most recent query")
-	cmd.PersistentFlags().StringVar(&endFlag, "end", "", "End time for backfill, defaults to current time")
+	cmd.PersistentFlags().StringVar(&startFlag, "start-time", "", "Start time for backfill, defaults to most recent query")
+	cmd.PersistentFlags().StringVar(&endFlag, "end-time", "", "End time for backfill, defaults to current time")
 	cmd.PersistentFlags().DurationVar(&durationFlag, "duration", 0, "Duration of backfill, defaults to 12 hours")
 
 	cmd.PersistentFlags().BoolVar(&previewBackfill, "preview-dry", false, "display all intervals to be backfilled for the current operation. Does not run any database queries.")
+	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run backfill from an in-cluster deployment")
 	return cmd
 }
 
@@ -124,7 +127,6 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 			log.Fatal("No previous sync found, please specify a start time")
 		}
 	}
-
 	// truncate to the nearest sync interval
 	backfillStart = backfillStart.Truncate(backfillInterval)
 	backfillEnd = backfillEnd.Truncate(backfillInterval)
@@ -139,31 +141,39 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 			backfillEnd.Sub(backfillStart).String(), backfillInterval)
 	}
 	log.Printf("Backfill (%s, %s)", backfillStart.Format(time.RFC3339), backfillEnd.Format(time.RFC3339))
-	// connect to opencost
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfigPath != "" {
-		kubeconfig = kubeconfigPath
+
+	// set up portforwarding if run externally
+	var kubeconfig string
+	var restConfig *rest.Config
+	var clusterARN string
+	var clientset *kubernetes.Clientset
+	var fwd *service.PortForwardQuerier
+	if !inCluster {
+		kubeconfig = os.Getenv("KUBECONFIG")
+		if kubeconfigPath != "" {
+			kubeconfig = kubeconfigPath
+		}
+		restConfig, clusterARN, err = common.BuildRestConfig(kubeconfig)
+		if err != nil {
+			log.Fatalf("Failed to build rest config: %v", err)
+		}
+		clientset, err = kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			log.Fatalf("Failed to build clientset: %v", err)
+		}
+		fwd, err = service.NewPortForwardQuerier(
+			context.Background(),
+			clientset,
+			restConfig,
+			opencostNamespace,
+			opencostSvcName,
+			opencostSvcPort,
+		)
+		if err != nil {
+			log.Fatalf("Failed to build port forwarder: %v", err)
+		}
+		defer fwd.Stop()
 	}
-	restConfig, clusterARN, err := common.BuildRestConfig(kubeconfig)
-	if err != nil {
-		log.Fatalf("Failed to build rest config: %v", err)
-	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		log.Fatalf("Failed to build clientset: %v", err)
-	}
-	fwd, err := service.NewPortForwardQuerier(
-		context.Background(),
-		clientset,
-		restConfig,
-		opencostNamespace,
-		opencostSvcName,
-		opencostSvcPort,
-	)
-	if err != nil {
-		log.Fatalf("Failed to build port forwarder: %v", err)
-	}
-	defer fwd.Stop()
 
 	var gaps [][]time.Time
 	retryErr := util.Retry(5, 2*time.Second, func() (err error) {
@@ -198,6 +208,9 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 	for i := 0; i < len(startTimes); i++ {
 		log.Printf("Backfilling from %v to %v", startTimes[i], endTimes[i])
 		qp := metering.OcQueryParams{
+			OCSvcName:          opencostSvcName,
+			OCNamespace:        opencostNamespace,
+			OCPort:             opencostSvcPort,
 			ClusterARN:         clusterARN,
 			QueryPath:          queryPath,
 			QueryAgg:           queryAgg,
@@ -210,7 +223,11 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		// TODO: use Kubecost Allocation API's `step` query param to return multiple intervals in one query
 		var computeData []metering.FineGrainComputeData
 		retryGetErr := util.Retry(5, 2*time.Second, func() (err error) {
-			computeData, err = metering.GetFineGrainComputeData(clientset, fwd, qp)
+			if inCluster {
+				computeData, err = metering.GetFineGrainComputeDataInCluster(qp)
+			} else {
+				computeData, err = metering.GetFineGrainComputeDataExternal(clientset, fwd, qp)
+			}
 			if err != nil {
 				log.Printf("Failed to get compute data, retrying: %v", err)
 				return err

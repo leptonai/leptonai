@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/metering"
@@ -33,7 +34,8 @@ var (
 	queryRounds   uint
 	queryInterval time.Duration
 
-	syncToDB bool
+	syncToDB  bool
+	inCluster bool
 )
 
 func init() {
@@ -57,6 +59,8 @@ kubectl cost pod \
 
 # for example
 mothership metering get --kubeconfig /tmp/gh82.kubeconfig
+
+to query on cluster, use --opencost-service-port 9090
 `,
 		Run: getFunc,
 	}
@@ -78,20 +82,59 @@ mothership metering get --kubeconfig /tmp/gh82.kubeconfig
 
 	// aurora db related flags
 	cmd.PersistentFlags().BoolVar(&syncToDB, "sync-to-db", false, "Must be set true to enable sync to backend database")
+	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "Toggles between running on cluster or locally")
 	return cmd
 }
 
 func getFunc(cmd *cobra.Command, args []string) {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfigPath != "" {
-		kubeconfig = kubeconfigPath
-	}
-	restConfig, clusterARN, err := common.BuildRestConfig(kubeconfig)
-	if err != nil {
-		log.Fatalf("error building config from kubeconfig %v", err)
+	var kubeconfig string
+
+	var restConfig *rest.Config
+	var clusterARN string
+
+	var clientset *kubernetes.Clientset
+	var fwd *service.PortForwardQuerier
+	var err error
+	if inCluster {
+		log.Printf("running get in cluster")
+	} else {
+		// set up port forwarding if running externally
+		log.Println("running externally")
+		kubeconfig = os.Getenv("KUBECONFIG")
+		if kubeconfigPath != "" {
+			kubeconfig = kubeconfigPath
+		}
+
+		restConfig, clusterARN, err = common.BuildRestConfig(kubeconfig)
+		if err != nil {
+			log.Fatalf("error building config from kubeconfig %v", err)
+		}
+
+		// Create a Kubernetes client
+
+		clientset, err = kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fwd, err = service.NewPortForwardQuerier(
+			context.Background(),
+			clientset,
+			restConfig,
+			opencostNamespace,
+			opencostSvcName,
+			opencostSvcPort,
+		)
+		if err != nil {
+			log.Fatalf("failed to create port forwarder for service %v", err)
+		}
+		defer fwd.Stop()
 	}
 
 	qp := metering.OcQueryParams{
+		OCSvcName:          opencostSvcName,
+		OCNamespace:        opencostNamespace,
+		OCPort:             opencostSvcPort,
 		ClusterARN:         clusterARN,
 		QueryPath:          queryPath,
 		QueryAgg:           queryAgg,
@@ -103,27 +146,9 @@ func getFunc(cmd *cobra.Command, args []string) {
 		ExcludedNamespaces: metering.ExcludedNamespaces,
 	}
 
-	// Create a Kubernetes client
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/cmd/aggregatedcommandbuilder.go
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/query/allocation.go
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/query/portforward.go
-	fwd, err := service.NewPortForwardQuerier(
-		context.Background(),
-		clientset,
-		restConfig,
-		opencostNamespace,
-		opencostSvcName,
-		opencostSvcPort,
-	)
-	if err != nil {
-		log.Fatalf("failed to create port forwarder for service %v", err)
-	}
-	defer fwd.Stop()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
@@ -138,8 +163,14 @@ func getFunc(cmd *cobra.Command, args []string) {
 			case <-time.After(queryInterval):
 			}
 		}
+		var computeData []metering.FineGrainComputeData
+		var err error
+		if inCluster {
+			computeData, err = metering.GetFineGrainComputeDataInCluster(qp)
+		} else {
+			computeData, err = metering.GetFineGrainComputeDataExternal(clientset, fwd, qp)
+		}
 
-		computeData, err := metering.GetFineGrainComputeData(clientset, fwd, qp)
 		if err != nil {
 			log.Fatalf("failed to get data %v", err)
 		}

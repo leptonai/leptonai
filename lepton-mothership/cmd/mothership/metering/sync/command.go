@@ -13,6 +13,7 @@ import (
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -31,6 +32,8 @@ var (
 
 	enableStorage bool
 	enableCompute bool
+
+	inCluster bool
 )
 
 func NewCommand() *cobra.Command {
@@ -64,6 +67,7 @@ and recommended to be at least 5 minutes.
 
 	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "skips efs storage data sync (default false)")
 	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "skips compute data sync (default false)")
+	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run sync on cluster (default false)")
 	return cmd
 }
 
@@ -76,40 +80,49 @@ func syncFunc(cmd *cobra.Command, args []string) {
 	}
 	// create aurora db connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
-	db, err := auroraCfg.NewHandler()
-	if err != nil {
-		log.Fatalf("failed to connect to db %v", err)
+	db, auroraErr := auroraCfg.NewHandler()
+	if auroraErr != nil {
+		log.Fatalf("failed to connect to db %v", auroraErr)
 	}
 	aurora := metering.AuroraDB{DB: db}
 	defer aurora.DB.Close()
 	log.Printf("Database connection established")
 
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfigPath != "" {
-		kubeconfig = kubeconfigPath
+	// set up port forwarding if running externally
+	var kubeconfig string
+	var restConfig *rest.Config
+	var clusterARN string
+	var clientset *kubernetes.Clientset
+	var fwd *service.PortForwardQuerier
+	var err error
+	if !inCluster {
+		kubeconfig = os.Getenv("KUBECONFIG")
+		if kubeconfigPath != "" {
+			kubeconfig = kubeconfigPath
+		}
+		// build rest config
+		restConfig, clusterARN, err = common.BuildRestConfig(kubeconfig)
+		if err != nil {
+			log.Fatalf("failed to build rest config %v", err)
+		}
+		// build k8s clientset
+		clientset, err = kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			log.Fatalf("failed to build k8s clientset %v", err)
+		}
+		fwd, err := service.NewPortForwardQuerier(
+			context.Background(),
+			clientset,
+			restConfig,
+			opencostNamespace,
+			opencostSvcName,
+			opencostSvcPort,
+		)
+		if err != nil {
+			log.Fatalf("failed to create port forwarder for service %v", err)
+		}
+		defer fwd.Stop()
 	}
-	// build rest config
-	restConfig, clusterARN, err := common.BuildRestConfig(kubeconfig)
-	if err != nil {
-		log.Fatalf("failed to build rest config %v", err)
-	}
-	// build k8s clientset
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		log.Fatalf("failed to build k8s clientset %v", err)
-	}
-	fwd, err := service.NewPortForwardQuerier(
-		context.Background(),
-		clientset,
-		restConfig,
-		opencostNamespace,
-		opencostSvcName,
-		opencostSvcPort,
-	)
-	if err != nil {
-		log.Fatalf("failed to create port forwarder for service %v", err)
-	}
-	defer fwd.Stop()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
@@ -165,6 +178,9 @@ func syncFunc(cmd *cobra.Command, args []string) {
 
 func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
 	qp := metering.OcQueryParams{
+		OCSvcName:          opencostSvcName,
+		OCNamespace:        opencostNamespace,
+		OCPort:             opencostSvcPort,
 		ClusterARN:         clusterARN,
 		QueryPath:          queryPath,
 		QueryAgg:           queryAgg,
@@ -179,7 +195,11 @@ func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time
 	var err error
 	if syncCompute {
 		log.Printf("Syncing kubecost compute data with window (%s -- %s)", start, end)
-		computeData, err = metering.GetFineGrainComputeData(clientset, fwd, qp)
+		if inCluster {
+			computeData, err = metering.GetFineGrainComputeDataInCluster(qp)
+		} else {
+			computeData, err = metering.GetFineGrainComputeDataExternal(clientset, fwd, qp)
+		}
 		if err != nil {
 			log.Fatalf("failed to get compute data %v", err)
 		}

@@ -6,7 +6,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,6 +54,9 @@ type AllocationResponse struct {
 }
 
 type OcQueryParams struct {
+	OCSvcName       string
+	OCNamespace     string
+	OCPort          int
 	ClusterARN      string
 	QueryPath       string
 	QueryAgg        string
@@ -78,37 +84,76 @@ type FineGrainComputeData struct {
 	RunningMinutes float64
 }
 
-// GetFineGrainComputeData queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
-func GetFineGrainComputeData(clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, qp OcQueryParams) ([]FineGrainComputeData, error) {
+// GetFineGrainComputeDataExternal queries kubecost service forwarded by fwd, for raw allocation data given query parameters qp
+func GetFineGrainComputeDataExternal(clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, qp OcQueryParams) ([]FineGrainComputeData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	if qp.QueryWindow == "" {
 		qp.QueryWindow = fmt.Sprintf("%d", qp.QueryStart.Unix()) + "," + fmt.Sprintf("%d", qp.QueryEnd.Unix())
 	}
 
 	filterString := CreateExludeFilterStringForNamespaces(qp.ExcludedNamespaces)
-	queryRs, err := fwd.QueryGet(
-		ctx,
-		qp.QueryPath,
-		map[string]string{
-			"window":     qp.QueryWindow,
-			"aggregate":  qp.QueryAgg,
-			"accumulate": fmt.Sprintf("%v", qp.QueryAcc),
-			"resolution": qp.QueryResolution,
-			// TODO: filter query string currently doesn't do anything, debug this.
-			// Will improve performance if we can filter out excluded namespaces in the API call.
-			"filter": filterString,
-		},
-	)
+	var queryRs []byte
+	var queryErr error
+	// if clientset and port forwarder are nil, query on-cluster
+	params := map[string]string{
+		"window":     qp.QueryWindow,
+		"aggregate":  qp.QueryAgg,
+		"accumulate": fmt.Sprintf("%v", qp.QueryAcc),
+		"resolution": qp.QueryResolution,
+		// TODO: filter query string currently doesn't do anything, debug this.
+		// Will improve performance if we can filter out excluded namespaces in the API call.
+		"filter": filterString,
+	}
+	queryRs, queryErr = fwd.QueryGet(ctx, qp.QueryPath, params)
 	cancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to proxy get kubecost %v", err)
+	if queryErr != nil {
+		return nil, fmt.Errorf("failed to proxy get kubecost %v", queryErr)
 	}
 
 	var ar AllocationResponse
-	if err = json.Unmarshal(queryRs, &ar); err != nil {
+	if err := json.Unmarshal(queryRs, &ar); err != nil {
 		return nil, fmt.Errorf("failed to parse allocation response %v", err)
 	}
 
+	return fineGrainComputeDataFromResponse(ar, qp)
+}
+
+func GetFineGrainComputeDataInCluster(qp OcQueryParams) ([]FineGrainComputeData, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if qp.QueryWindow == "" {
+		qp.QueryWindow = fmt.Sprintf("%d", qp.QueryStart.Unix()) + "," + fmt.Sprintf("%d", qp.QueryEnd.Unix())
+	}
+
+	filterString := CreateExludeFilterStringForNamespaces(qp.ExcludedNamespaces)
+	var queryRs []byte
+	var queryErr error
+	// if clientset and port forwarder are nil, query on-cluster
+	params := map[string]string{
+		"window":     qp.QueryWindow,
+		"aggregate":  qp.QueryAgg,
+		"accumulate": fmt.Sprintf("%v", qp.QueryAcc),
+		"resolution": qp.QueryResolution,
+		// TODO: filter query string currently doesn't do anything, debug this.
+		// Will improve performance if we can filter out excluded namespaces in the API call.
+		"filter": filterString,
+	}
+
+	queryRs, queryErr = queryKubeCostInCluster(ctx, qp.OCSvcName, qp.OCNamespace, qp.OCPort, qp.QueryPath, params)
+	cancel()
+	if queryErr != nil {
+		return nil, fmt.Errorf("failed to proxy get kubecost %v", queryErr)
+	}
+
+	var ar AllocationResponse
+	if err := json.Unmarshal(queryRs, &ar); err != nil {
+		return nil, fmt.Errorf("failed to parse allocation response %v", err)
+	}
+
+	return fineGrainComputeDataFromResponse(ar, qp)
+}
+
+// create list of fine grain compute data from allocation response
+func fineGrainComputeDataFromResponse(ar AllocationResponse, qp OcQueryParams) ([]FineGrainComputeData, error) {
 	data := make([]FineGrainComputeData, 0, len(ar.Data))
 	for _, a := range ar.Data {
 		for _, v := range a {
@@ -147,6 +192,48 @@ func GetFineGrainComputeData(clientset *kubernetes.Clientset, fwd *service.PortF
 		}
 	}
 	return data, nil
+}
+
+func queryKubeCostInCluster(ctx context.Context, opencostSvcName string, opencostNamespace string, opencostSvcPort int, path string, params map[string]string) ([]byte, error) {
+	baseURL := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", opencostSvcName, opencostNamespace, opencostSvcPort)
+	fullPath, err := url.JoinPath(baseURL, "model", path)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"GET",
+		fullPath,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create base query request: %s", err)
+	}
+
+	q := req.URL.Query()
+	for key, val := range params {
+		q.Add(key, val)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	goutil.Logger.Debugf("executing GET to URL %q", req.URL.String())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to GET %s: %s", fullPath, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s response body: %s", fullPath, err)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("received non-200 status code %d and data: %s", resp.StatusCode, body)
+	}
+
+	return body, nil
 }
 
 func BatchInsertIntoFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID string) (int64, error) {
