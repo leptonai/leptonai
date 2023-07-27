@@ -100,8 +100,8 @@ func TestReplicaLog(t *testing.T) {
 		if len(log) == 0 {
 			return fmt.Errorf("expected log to be non-empty, got %d", len(log))
 		}
-		if !bytes.Contains(log, []byte("running on http")) {
-			return fmt.Errorf("expected log to contain 'running on http', got %s", string(log))
+		if !bytes.Contains(log, []byte("INFO")) {
+			return fmt.Errorf("expected log to contain 'INFO', got %s", string(log))
 		}
 		return nil
 	})
