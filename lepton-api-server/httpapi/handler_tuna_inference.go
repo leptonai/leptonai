@@ -102,11 +102,26 @@ func (ih *InferenceHandler) Delete(c *gin.Context) {
 }
 
 func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInference) error {
+	mountPath := "/mnt/model"
+
 	userSpec := leptonaiv1alpha1.LeptonDeploymentUserSpec{}
 	userSpec.PhotonID = ti.Spec.PhotonID
 	userSpec.Name = tunaDeploymentName(ti.Metadata.Name)
 	userSpec.ResourceRequirement.ResourceShape = leptonaiv1alpha1.AC1A10
 	userSpec.ResourceRequirement.MinReplicas = 1
+
+	userSpec.Envs = []leptonaiv1alpha1.EnvVar{
+		{
+			Name:  "MODEL_PATH",
+			Value: mountPath,
+		},
+	}
+	userSpec.Mounts = []leptonaiv1alpha1.Mount{
+		{
+			Path:      ti.Spec.TunaOutputDir,
+			MountPath: mountPath,
+		},
+	}
 
 	_, err := ih.createFromUserSpec(c, userSpec)
 	return err
