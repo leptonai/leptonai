@@ -21,7 +21,7 @@ class AddView(View):
               <input type="file" name="data" accept=".json">
               <label for="model">Model(base):</label>
               <select id="model" name="model">
-                <option value="llama2/7b-chat selected">llama2/7b-chat</option>
+                <option value="llama2/7b-chat" selected>llama2/7b-chat</option>
                 <option value="vicuna/7B">vicuna/7B</option>
                 <option value="baichuan">baichuan</option>
               </select>
