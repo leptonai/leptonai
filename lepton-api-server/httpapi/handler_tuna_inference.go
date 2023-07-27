@@ -88,8 +88,9 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(jti))
+		r.ContentLength = int64(len(jti))
 
-		ih.sysProxy.ServeHTTP(c.Writer, c.Request)
+		ih.sysProxy.ServeHTTP(c.Writer, r)
 		return
 	}
 
