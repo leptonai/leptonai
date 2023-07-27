@@ -1,6 +1,6 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
-import { catchError, Observable, of } from "rxjs";
+import { catchError, mergeMap, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -23,21 +23,11 @@ import {
   FineTuneJob,
   FineTuneJobStatus,
   TunaInference,
+  TunaInferenceSpec,
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 import pathJoin from "@lepton-libs/url/path-join";
-
-// TODO(hsuanxyz): remove this hard-coded values
-const tuna_dev_config = {
-  workspace: {
-    url: "https://devsys.cloud.lepton.ai",
-    token: "token",
-  },
-  spec: {
-    photon_id: "tuna-s7pg7n51",
-  },
-};
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -332,13 +322,30 @@ export class ApiServerService implements ApiService {
   }
 
   createInference(tunaInference: TunaInference): Observable<void> {
-    return this.httpClientService.post<void>(`${this.prefix}/tuna/inference`, {
-      ...tunaInference,
-      spec: {
-        ...tunaInference.spec,
-        ...tuna_dev_config.spec,
-      },
-    });
+    const tunaConfigFileURL = new URL(
+      "https://oauth.lepton.ai/storage/v1/object/sign/config/tuna.json"
+    );
+    tunaConfigFileURL.searchParams.set(
+      "token",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjb25maWcvdHVuYS5qc29uIiwiaWF0IjoxNjkwNDk3NTMyLCJleHAiOjE3MjIwMzM1MzJ9.Lvf3Bq2UX1GWMs7j7OdjS1IkHEGC0MXzfBh-kJj4VdQ"
+    );
+    tunaConfigFileURL.searchParams.set("t", Date.now().toString());
+
+    return this.httpClientService
+      .get<{
+        spec: Partial<TunaInferenceSpec>;
+      }>(tunaConfigFileURL.toString())
+      .pipe(
+        mergeMap((config) =>
+          this.httpClientService.post<void>(`${this.prefix}/tuna/inference`, {
+            ...tunaInference,
+            spec: {
+              ...tunaInference.spec,
+              ...config.spec,
+            },
+          })
+        )
+      );
   }
 
   deleteInference(name: string): Observable<void> {
