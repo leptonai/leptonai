@@ -2,6 +2,7 @@ import { stripeClient } from "@/utils/stripe";
 import { supabase } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
+// Report usage to stripe
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -47,10 +48,13 @@ export default async function handler(
     const usageRecord = await stripeClient.subscriptionItems.createUsageRecord(
       subscriptionItem.id,
       { quantity: usage, timestamp },
+      {
+        idempotencyKey: id,
+      },
     );
 
     await supabase
-      .from("hourly_metering")
+      .from("compute_hourly")
       .update({ stripe_usage_record_id: usageRecord.id })
       .eq("id", id);
     res.status(200).json(usageRecord);

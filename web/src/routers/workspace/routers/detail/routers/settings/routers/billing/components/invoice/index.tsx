@@ -66,7 +66,7 @@ export const Invoice: FC = () => {
           items={[
             {
               key: "credits",
-              label: <Typography.Text strong>Credit used</Typography.Text>,
+              label: <Typography.Text strong>Credits</Typography.Text>,
               children:
                 creditGranted &&
                 creditUsed !== undefined &&

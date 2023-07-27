@@ -2,6 +2,7 @@ import { stripeClient } from "@/utils/stripe";
 import { supabase } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
+// Subscribe a workspace to a plan
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,

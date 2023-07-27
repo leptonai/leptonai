@@ -24,6 +24,7 @@ async function updateSubscriptions(customer: string, amountGTE: number) {
   return subscriptions.map(({ id }) => id);
 }
 
+// Update workspace status based on subscription status
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,

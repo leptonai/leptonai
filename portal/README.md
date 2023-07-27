@@ -1,4 +1,4 @@
-# Billing
+# Portal
 
 ## Getting Started
 

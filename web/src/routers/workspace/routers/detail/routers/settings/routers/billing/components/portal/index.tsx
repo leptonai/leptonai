@@ -24,7 +24,7 @@ export const Portal: FC = () => {
       type="primary"
       onClick={() => jumpToPortal()}
     >
-      Manage payment method
+      Manage payment
     </Button>
   );
 };

@@ -3,6 +3,7 @@ import { stripeClient } from "@/utils/stripe";
 import { getWorkspaceById } from "@/utils/workspace";
 import { NextApiRequest, NextApiResponse } from "next";
 
+// Get the stripe portal URL for a workspace
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const workspaceId = req.body.workspace_id;
