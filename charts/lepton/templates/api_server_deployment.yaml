@@ -54,6 +54,8 @@ spec:
           {{ end }}
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
+            - "--cluster-name"
+            - "{{ .Values.clusterName }}"
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--region"

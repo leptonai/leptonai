@@ -1,4 +1,5 @@
 workspaceName: "default"
+clusterName: ""
 
 apiServer:
   enabled: true

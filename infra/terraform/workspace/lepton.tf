@@ -83,6 +83,11 @@ resource "helm_release" "lepton" {
   namespace = var.namespace
 
   set {
+    name = "clusterName"
+    value = var.cluster_name
+  }
+
+  set {
     name  = "workspaceName"
     value = var.workspace_name
   }

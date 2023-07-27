@@ -28,6 +28,7 @@ import (
 var (
 	certificateARNFlag *string
 	rootDomainFlag     *string
+	clusterNameFlag    *string
 	workspaceNameFlag  *string
 	apiTokenFlag       *string
 
@@ -64,6 +65,7 @@ const (
 )
 
 func main() {
+	clusterNameFlag = flag.String("cluster-name", "", "name of the Kubernetes cluster this server is running on")
 	workspaceNameFlag = flag.String("workspace-name", "default", "workspace name")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
 	stateFlag = flag.String("state", "ready", "workspace state after starting the server (allowed values: ready, paused, terminated)")
@@ -126,6 +128,7 @@ func main() {
 	workspaceState := httpapi.WorkspaceState(*stateFlag)
 
 	handler := httpapi.New(
+		*clusterNameFlag,
 		*namespaceFlag,
 		*prometheusURLFlag,
 		*bucketNameFlag,
@@ -237,12 +240,16 @@ func main() {
 		v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
 	}
 
+	var ih *httpapi.InferenceHandler
 	if util.IsSysWorkspace(*workspaceNameFlag) {
-		ih := httpapi.NewInferenceHandler(*handler.DeploymentHandler())
-		v1.POST("/tuna/inference", ih.Create)
-		v1.GET("/tuna/inference", ih.Get)
-		v1.DELETE("/tuna/inference/:tiname", ih.Delete)
+		ih = httpapi.NewInferenceHandlerForSys(*handler.DeploymentHandler())
+	} else {
+		ih = httpapi.NewInferenceHandler(*handler.DeploymentHandler())
 	}
+
+	v1.POST("/tuna/inference", ih.Create)
+	v1.GET("/tuna/inference/:tiname", ih.Get)
+	v1.DELETE("/tuna/inference/:tiname", ih.Delete)
 
 	if *enableStorageFlag {
 		sh := httpapi.NewStorageHandler(*handler, *storageMountPathFlag)

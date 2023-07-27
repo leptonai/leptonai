@@ -1,9 +1,17 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
@@ -30,12 +38,29 @@ type TunaInferenceStatus struct {
 
 type InferenceHandler struct {
 	DeploymentHandler
+	isSysWorkspace bool
+	sysProxy       *httputil.ReverseProxy
+}
+
+func NewInferenceHandlerForSys(d DeploymentHandler) *InferenceHandler {
+	return &InferenceHandler{
+		DeploymentHandler: d,
+		isSysWorkspace:    true,
+	}
 }
 
 // NewInferenceHandler creates a new InferenceHandler
 func NewInferenceHandler(d DeploymentHandler) *InferenceHandler {
+	u := &url.URL{
+		Scheme: "http",
+		Host:   service.ServiceName("lepton-api-server") + "." + d.clusterName + "sys" + ".svc:20863",
+	}
+	sp := httputil.NewSingleHostReverseProxy(u)
+
 	return &InferenceHandler{
 		DeploymentHandler: d,
+		isSysWorkspace:    false,
+		sysProxy:          sp,
 	}
 }
 
@@ -45,6 +70,26 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 	err := c.BindJSON(&ti)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !ih.isSysWorkspace {
+		ti.Metadata.Name = ih.workspaceName + "-" + ti.Metadata.Name
+		r := c.Request.Clone(context.Background())
+
+		jti, err := json.Marshal(ti)
+		if err != nil {
+			goutil.Logger.Errorw("failed to marshal tuna inference",
+				"operation", "createTunaInference",
+				"deployment", ti.Metadata.Name,
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(jti))
+
+		ih.sysProxy.ServeHTTP(c.Writer, c.Request)
 		return
 	}
 
@@ -68,8 +113,12 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 
 // Get gets a tuna inference deployment
 func (ih *InferenceHandler) Get(c *gin.Context) {
-	name := c.Param("tiname")
+	if !ih.isSysWorkspace {
+		ih.forwardToSysWorkspace(c)
+		return
+	}
 
+	name := c.Param("tiname")
 	ti := TunaInference{}
 	ti.Metadata.Name = name
 
@@ -87,6 +136,11 @@ func (ih *InferenceHandler) Get(c *gin.Context) {
 
 // Delete deletes a tuna inference deployment
 func (ih *InferenceHandler) Delete(c *gin.Context) {
+	if !ih.isSysWorkspace {
+		ih.forwardToSysWorkspace(c)
+		return
+	}
+
 	name := c.Param("tiname")
 	err := ih.deleteFromName(c, tunaDeploymentName(name))
 	if err != nil {
@@ -129,4 +183,10 @@ func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInferenc
 
 func tunaDeploymentName(name string) string {
 	return "tuna-" + name
+}
+
+func (ih *InferenceHandler) forwardToSysWorkspace(c *gin.Context) {
+	r := c.Request.Clone(context.Background())
+	r.URL.Path = strings.Replace(r.URL.Path, "/tuna-inference/", "/tuna-inference/"+ih.workspaceName+"-", 1)
+	ih.sysProxy.ServeHTTP(c.Writer, r)
 }

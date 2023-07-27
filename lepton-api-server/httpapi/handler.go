@@ -18,6 +18,7 @@ type Backupable interface {
 }
 
 type Handler struct {
+	clusterName                   string
 	namespace                     string
 	prometheusURL                 string
 	bucketName                    string
@@ -36,10 +37,11 @@ type Handler struct {
 	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
 }
 
-func New(namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
+func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
 	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
 	workspaceState WorkspaceState) *Handler {
 	h := &Handler{
+		clusterName:                   clusterName,
 		namespace:                     namespace,
 		prometheusURL:                 prometheusURL,
 		bucketName:                    bucketName,
