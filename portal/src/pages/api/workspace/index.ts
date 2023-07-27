@@ -10,12 +10,12 @@ export default async function handler(
     const id = body.id;
     const { data: workspaces } = await supabase
       .from("workspaces")
-      .select("id, url")
+      .select("id, url, display_name")
       .eq("id", id);
 
-    res
-      .status(200)
-      .json({ id: workspaces?.[0]?.id, url: workspaces?.[0]?.url });
+    const workspace = workspaces?.[0];
+
+    res.status(200).json(workspace);
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
