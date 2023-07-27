@@ -88,7 +88,7 @@ func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, 
 			deployment_name,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s'
+			where query_start >= '%s' and query_end <= '%s' and namespace ilike 'ws-%%'
 			GROUP BY namespace, deployment_name, shape`,
 		MeteringTableComputeFineGrain,
 		start.Format(time.RFC3339),
@@ -119,7 +119,7 @@ func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAg
 			shape,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s'
+			where query_start >= '%s' and query_end <= '%s' and namespace ilike 'ws-%%'
 			GROUP BY namespace, shape`,
 		MeteringTableComputeFineGrain,
 		start.Format(time.RFC3339),
@@ -215,7 +215,7 @@ func queryStorageAgg(db *sql.DB, start, end time.Time) ([]StorageAggregateRow, e
 	rows, err := db.Query(fmt.Sprintf(`SELECT
 			workspace, storage_id, ROUND(AVG(size_bytes)) as avg_size
 			from %s
-			where time > '%s' and time <= '%s'
+			where time > '%s' and time <= '%s' and workspace ilike 'ws-%%'
 			GROUP BY workspace, storage_id`,
 		MeteringTableStorageFineGrain,
 		start.Format(time.RFC3339),

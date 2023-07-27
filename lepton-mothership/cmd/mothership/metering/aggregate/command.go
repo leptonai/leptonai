@@ -31,8 +31,9 @@ func NewCommand() *cobra.Command {
 		Short: "Aggregate all data from start-time to end-time, into the specified aggregate table",
 		Long: `
 # Aggregate data from start-time to end-time, into the specified aggregate table.
---start-time value must be provided
---end-time is optional, defaults a single unit of aggregation after the start-time.
+--end-time is optional, and defaults to the current time.
+--start-time value is optional, and defaults to one unit of aggregation before --end-time.
+
 --table value must be provided, and one of 'hourly', 'daily', or 'weekly'.
 
 
@@ -120,21 +121,11 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	default:
 		log.Fatalf(`invalid table %s, must be one of ("hourly", "daily", "weekly")`, tableFlag)
 	}
-
 	// get start and end times
 	var startTime, endTime time.Time
-	if len(startTimeFlag) <= 0 {
-		log.Fatal("No --start-time passed, and could not get most recent fine_grain entry")
-	} else {
-		var err error
-		startTime, err = dateparse.ParseAny(startTimeFlag)
-		if err != nil {
-			log.Fatal("couldn't parse --start-time: ", err)
-		}
-	}
 	if len(endTimeFlag) <= 0 {
-		log.Println("no end time specified, defaulting to one unit of aggregation after start time")
-		endTime = startTime.Add(queryInterval)
+		log.Println("no end time specified, defaulting to current time")
+		endTime = time.Now().UTC()
 	} else {
 		var err error
 		if endTimeFlag == "now" {
@@ -146,33 +137,48 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
-
+	if len(startTimeFlag) <= 0 {
+		// default to one unit of aggregation before end time
+		log.Println("no start time specified, defaulting to one unit of aggregation before end time")
+		startTime = endTime.Add(-queryInterval)
+	} else {
+		var err error
+		startTime, err = dateparse.ParseAny(startTimeFlag)
+		if err != nil {
+			log.Fatal("couldn't parse --start-time: ", err)
+		}
+		if startTime.After(endTime) {
+			log.Fatalf("provided start-time %s is after end-time %s", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+		}
+	}
 	// truncate start and end times to the nearest whole unit of aggregation
 	startTime, endTime = startTime.Truncate(queryInterval), endTime.Truncate(queryInterval)
-	// compare start and end times to the most recent fine grain entry
+	log.Printf("Aggregating window (%s, %s) into %s table. Compute enabled: %t, storage enabled: %t", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), tableFlag, enableCompute, enableStorage)
+
+	// compare start and end times to the most recent fine grain entries
 	if enableCompute {
 		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
 		if err != nil {
-			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
+			log.Fatalf("couldn't get most recent compute data fine grain entry: %v", err)
 		}
 		if startTime.After(lastQueryEnd) {
-			log.Fatalf("Invalid start time: %v is after the most recent fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
+			log.Fatalf("Invalid start time: %v is after the most recent compute data fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
 		}
 		if lastQueryEnd.Before(endTime) {
-			log.Printf("Warning: end time %s is past the most recent fine grain query %s. This aggregation will be incomplete.",
+			log.Printf("Warning: end time %s is past the most recent compute data fine grain query %s. This aggregation will be incomplete.",
 				endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
 		}
 	}
 	if enableStorage {
 		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
 		if err != nil {
-			log.Fatalf("couldn't get most recent fine grain entry: %v", err)
+			log.Fatalf("couldn't get most recent storage data fine grain entry: %v", err)
 		}
 		if startTime.After(lastQueryEnd) {
-			log.Fatalf("Invalid start time: %v is after the most recent fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
+			log.Fatalf("Invalid start time: %v is after the most recent storage fine grain query%v", startTime.Format(time.RFC3339), lastQueryEnd)
 		}
 		if lastQueryEnd.Before(endTime) {
-			log.Printf("Warning: end time %s is past the most recent fine grain query %s. This aggregation will be incomplete.",
+			log.Printf("Warning: end time %s is past the most recent storage fine grain query %s. This aggregation will be incomplete.",
 				endTime.Format(time.RFC3339), lastQueryEnd.Format(time.RFC3339))
 		}
 	}

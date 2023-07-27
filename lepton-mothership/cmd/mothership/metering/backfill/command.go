@@ -30,7 +30,9 @@ var (
 	backfillIntervalFlag int
 	startFlag            string
 	endFlag              string
-	previewBackfill      bool
+	durationFlag         time.Duration
+
+	previewBackfill bool
 )
 
 func NewCommand() *cobra.Command {
@@ -41,6 +43,7 @@ func NewCommand() *cobra.Command {
 Backfill a cluster's metering data from kubecost/opencost to fine_grained table.
 By default, this starts from the most recent fine_grained sync, up to the current time.
 Optionally, you can specify a start and end time to backfill.
+Furthermore, if the duration flag is specified, the start time will be ignored, and the backfill will proceed from end-time - duration
 
 Specifying the --preview-dry flag will display all gaps in the fine_grain data from the provided start to end time, and all exact
 query windows that will be executed. No database writes will occur.
@@ -74,6 +77,7 @@ $ mothership metering backfill --start '07/11/2023 00:00:00+00' --end '07/14/202
 	cmd.PersistentFlags().IntVarP(&backfillIntervalFlag, "backfill-interval-minutes", "i", 10, "Interval to sync data to db, in minutes")
 	cmd.PersistentFlags().StringVar(&startFlag, "start", "", "Start time for backfill, defaults to most recent query")
 	cmd.PersistentFlags().StringVar(&endFlag, "end", "", "End time for backfill, defaults to current time")
+	cmd.PersistentFlags().DurationVar(&durationFlag, "duration", 0, "Duration of backfill, defaults to 12 hours")
 
 	cmd.PersistentFlags().BoolVar(&previewBackfill, "preview-dry", false, "display all intervals to be backfilled for the current operation. Does not run any database queries.")
 	return cmd
@@ -95,7 +99,18 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 	backfillInterval := time.Duration(backfillIntervalFlag) * time.Minute
 
 	var backfillStart, backfillEnd time.Time
-	if startFlag != "" {
+	if endFlag != "" {
+		backfillEnd, err = dateparse.ParseAny(endFlag)
+		if err != nil {
+			log.Fatalf("Failed to parse end time: %v", err)
+		}
+	} else {
+		backfillEnd = time.Now().UTC().Truncate(backfillInterval)
+	}
+	// duration flag takes precedence over start flag
+	if durationFlag != 0 {
+		backfillStart = backfillEnd.Add(-durationFlag)
+	} else if startFlag != "" {
 		backfillStart, err = dateparse.ParseAny(startFlag)
 		if err != nil {
 			log.Fatalf("Failed to parse start time: %v", err)
@@ -108,14 +123,6 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		if backfillStart.IsZero() {
 			log.Fatal("No previous sync found, please specify a start time")
 		}
-	}
-	if endFlag != "" {
-		backfillEnd, err = dateparse.ParseAny(endFlag)
-		if err != nil {
-			log.Fatalf("Failed to parse end time: %v", err)
-		}
-	} else {
-		backfillEnd = time.Now().UTC().Truncate(backfillInterval)
 	}
 
 	// truncate to the nearest sync interval
