@@ -7,13 +7,13 @@
 ```bash
 # create a release branch
 git checkout main
-git checkout -B release-0.6.0.20230721
-git push origin release-0.6.0.20230721
+git checkout -B release-0.7.0.20230804
+git push origin release-0.7.0.20230804
 
 # sync main to release branch
 git checkout main
 git pull origin main
-git push -f origin main:release-0.6.0.20230721
+git push -f origin main:release-0.7.0.20230804
 ```
 
 ### Step 2. Create mothership EKS cluster itself
@@ -47,7 +47,8 @@ API_TOKEN_KEY=mothership_api_token \
 API_TOKEN=REDACTED \
 TF_API_TOKEN="REDACTED" \
 CLUSTER_NAME="mothership-prod-aws-us-west-2" \
-./install.sh mothership-prod-aws-us-west-2
+MOTHERSHIP_ROLE_NAME="mothership-role" \
+./install.sh
 ```
 
 All variables are defined in [`deployment-environments/PROD.tfvars`](./deployment-environments/PROD.tfvars).
@@ -79,28 +80,28 @@ Checklist:
 
 ```bash
 mothership clusters create \
+--mothership-url https://mothership.app.lepton.ai/api/v1 \
+--token ${API_TOKEN} \
 --region us-west-2 \
 --cluster-name ${CLUSTER_NAME} \
---deployment-environment PROD \
---mothership-url https://mothership.app.lepton.ai/api/v1 \
---token ${API_TOKEN}
+--deployment-environment PROD
 
 # to update
 mothership clusters update \
+--mothership-url https://mothership.app.lepton.ai/api/v1 \
+--token ${API_TOKEN} \
 --cluster-name ${CLUSTER_NAME} \
 --deployment-environment PROD \
---git-ref release-0.6.0.20230721 \
---mothership-url https://mothership.app.lepton.ai/api/v1 \
---token ${API_TOKEN}
+--git-ref release-0.7.0.20230804
 ```
 
 ### Step 5. Check the logs
 
 ```bash
 mothership clusters logs \
---cluster-name ${CLUSTER_NAME}
 --mothership-url https://mothership.app.lepton.ai/api/v1 \
---token ${API_TOKEN}
+--token ${API_TOKEN} \
+--cluster-name ${CLUSTER_NAME}
 ```
 
 ### Step 6. Install CRDs
