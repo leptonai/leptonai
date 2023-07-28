@@ -57,10 +57,12 @@ const (
 		end_time,
 		workspace_id,	
 		storage_id,
-		size_bytes
+		size_bytes,
+		size_gb
 	)
 	VALUES `
-	insertStorageOnConflict = ` ON CONFLICT (end_time, workspace_id, storage_id) DO UPDATE SET size_bytes = excluded.size_bytes`
+	insertStorageOnConflict = ` ON CONFLICT (end_time, workspace_id, storage_id) DO UPDATE SET size_bytes = excluded.size_bytes, size_gb = excluded.size_gb`
+	bytesInGibabyte         = 1000000000
 )
 
 // GetComputeAggregate aggregates fine grain usage data for the specified hourly time window
@@ -247,13 +249,15 @@ func InsertRowsIntoStorageAggregate(tx *sql.Tx, tableName MeteringTable, aggrega
 
 	cmd := fmt.Sprintf(insertStorage, tableName)
 	onConflict := insertStorageOnConflict
-	rowStr := genRowStr(5)
+	rowStr := genRowStr(6)
 	var toInsert []string
 	var vals []interface{}
 	affected := int64(0)
 	for _, d := range aggregateData {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batchID, d.EndTime.UTC(), d.Workspace, d.storageID, d.sizeBytes)
+		// gets the floor of size in GB
+		sizeGB := int(d.sizeBytes / bytesInGibabyte)
+		vals = append(vals, batchID, d.EndTime.UTC(), d.Workspace, d.storageID, d.sizeBytes, sizeGB)
 		if len(toInsert) >= insertBatchSize {
 			res, err := sqlInsert(tx, cmd, toInsert, onConflict, vals)
 			if err != nil {
