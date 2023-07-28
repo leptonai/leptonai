@@ -1,3 +1,4 @@
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useState } from "react";
 import { App, Button, Empty, Modal, Space } from "antd";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
@@ -73,6 +74,7 @@ export const EditDeployment: FC<{ deployment: Deployment }> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const refreshService = useInject(RefreshService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
   const openLayer = () => {
     setOpen(true);
@@ -89,6 +91,7 @@ export const EditDeployment: FC<{ deployment: Deployment }> = ({
         size="small"
         icon={<CarbonIcon icon={<EditIcon />} />}
         onClick={openLayer}
+        disabled={workspaceTrackerService.workspace?.isPastDue}
       >
         Edit
       </Button>

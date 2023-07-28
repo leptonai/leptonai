@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useMemo, useState } from "react";
 import { Col, Row, Radio, Button, Empty, Spin, Modal } from "antd";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
@@ -46,6 +47,7 @@ const FilterConfig = {
 
 export const List: FC = () => {
   const refreshService = useInject(RefreshService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const fineTuneService = useInject(TunaService);
   const [status, setStatus] = useState<string>(AllStatus);
   const [loading, setLoading] = useState(true);
@@ -119,6 +121,7 @@ export const List: FC = () => {
             <Col>
               <Button
                 type="primary"
+                disabled={workspaceTrackerService.workspace?.isPastDue}
                 icon={<PlusOutlined />}
                 onClick={() => setCreateModalOpen(true)}
               >

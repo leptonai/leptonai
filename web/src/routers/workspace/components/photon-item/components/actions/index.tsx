@@ -48,7 +48,10 @@ export const Actions: FC<{
 
   const deleteButton = (
     <Button
-      disabled={relatedDeployments.length > 0}
+      disabled={
+        relatedDeployments.length > 0 ||
+        workspaceTrackerService.workspace?.isPastDue
+      }
       size="small"
       type="text"
       icon={<CarbonIcon icon={<TrashCan />} />}
@@ -71,7 +74,10 @@ export const Actions: FC<{
             Download
           </Button>
           <Popconfirm
-            disabled={relatedDeployments.length > 0}
+            disabled={
+              relatedDeployments.length > 0 ||
+              workspaceTrackerService.workspace?.isPastDue
+            }
             title="Delete the photon"
             description="Are you sure to delete?"
             onConfirm={() => {

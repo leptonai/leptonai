@@ -1,4 +1,5 @@
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useState } from "react";
 import { App, Button, Empty, Modal, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
@@ -85,7 +86,7 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
   photonId,
 }) => {
   const [open, setOpen] = useState(false);
-
+  const workpsaceTrackerService = useInject(WorkspaceTrackerService);
   const openLayer = () => {
     setOpen(true);
   };
@@ -100,6 +101,7 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
           size="small"
           type="text"
           icon={<DeploymentIcon />}
+          disabled={workpsaceTrackerService.workspace?.isPastDue}
           onClick={openLayer}
         >
           Deploy
@@ -109,6 +111,7 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
           type="primary"
           block
           icon={<PlusOutlined />}
+          disabled={workpsaceTrackerService.workspace?.isPastDue}
           onClick={openLayer}
         >
           Create deployment

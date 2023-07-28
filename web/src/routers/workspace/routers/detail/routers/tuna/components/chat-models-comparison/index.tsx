@@ -1,3 +1,4 @@
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import {
   FC,
   forwardRef,
@@ -642,6 +643,7 @@ const ChatHeader: FC<{
 };
 
 export const ChatModelsComparison: FC<ChatModelsComparisonProps> = () => {
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const { name } = useParams<{ name: string }>();
   const theme = useAntdTheme();
   const [input, setInput] = useState("");
@@ -689,7 +691,7 @@ export const ChatModelsComparison: FC<ChatModelsComparisonProps> = () => {
           }
         >
           <ChatBox
-            disabled={!modelA}
+            disabled={!modelA || workspaceTrackerService.workspace?.isPastDue}
             ref={(ref) => {
               chatRefMap.current["modelA"] = ref;
             }}
@@ -723,7 +725,7 @@ export const ChatModelsComparison: FC<ChatModelsComparisonProps> = () => {
             ref={(ref) => {
               chatRefMap.current["modelB"] = ref;
             }}
-            disabled={!modelB}
+            disabled={!modelB || workspaceTrackerService.workspace?.isPastDue}
             apiUrl={modelB?.apiOption.api_url}
             apiKey={modelB?.apiOption.api_key}
             syncInput={input}

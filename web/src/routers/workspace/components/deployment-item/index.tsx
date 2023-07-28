@@ -1,6 +1,7 @@
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
 import { Storage } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/storage";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useMemo } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import {
@@ -40,6 +41,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
   const tunaService = useInject(TunaService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const photonService = useInject(PhotonService);
   const photon = useStateFromObservable(
     () => photonService.id(deployment.photon_id),
@@ -106,6 +108,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               <Popconfirm
                 title="Delete the deployment"
                 description="Are you sure to delete?"
+                disabled={workspaceTrackerService.workspace?.isPastDue}
                 onConfirm={() => {
                   void message.loading({
                     content: `Deleting deployment ${deployment.name}, please wait...`,
@@ -136,6 +139,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Button
                   type="text"
                   size="small"
+                  disabled={workspaceTrackerService.workspace?.isPastDue}
                   icon={<CarbonIcon icon={<TrashCan />} />}
                 >
                   Delete

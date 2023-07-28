@@ -1,5 +1,6 @@
 import { Link } from "@lepton-dashboard/components/link";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useEffect, useRef, useState } from "react";
 import { Breadcrumb, Empty, Space, Table } from "antd";
 
@@ -31,6 +32,7 @@ const generateNavigatePaths = (path: string): string[] => {
 export const Storage: FC = () => {
   const theme = useAntdTheme();
   useDocumentTitle("Storage");
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const [loading, setLoading] = useState(true);
   const [touchTime, setTouchTime] = useState(0);
   const [path, setPath] = useState<string>("");
@@ -140,7 +142,7 @@ export const Storage: FC = () => {
       <Card
         extra={
           <Actions
-            disabled={loading}
+            disabled={loading || workspaceTrackerService.workspace?.isPastDue}
             path={path}
             selectedPath={selectedPath}
             files={files}

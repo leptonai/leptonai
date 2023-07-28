@@ -1,3 +1,4 @@
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Button, Col, Popconfirm, Row, Space, Tag } from "antd";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
@@ -57,6 +58,7 @@ export const JobItem: FC<{
   const fineTuneService = useInject(TunaService);
   const refreshService = useInject(RefreshService);
   const navigateService = useInject(NavigateService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const [loading, setLoading] = useState(
     job.status === FineTuneJobStatus.SUCCESS
   );
@@ -176,7 +178,10 @@ export const JobItem: FC<{
                 {!deployed && (
                   <>
                     <Button
-                      disabled={!deployable}
+                      disabled={
+                        workspaceTrackerService.workspace?.isPastDue ||
+                        !deployable
+                      }
                       size="small"
                       key="deploy"
                       type="text"
@@ -186,13 +191,20 @@ export const JobItem: FC<{
                       Deploy
                     </Button>
                     <Popconfirm
-                      disabled={!cancelable || canceling}
+                      disabled={
+                        !cancelable ||
+                        canceling ||
+                        workspaceTrackerService.workspace?.isPastDue
+                      }
                       title="Cancel this training job"
                       description="Are you sure to cancel this training job?"
                       onConfirm={cancelJob}
                     >
                       <Button
-                        disabled={!cancelable}
+                        disabled={
+                          !cancelable ||
+                          workspaceTrackerService.workspace?.isPastDue
+                        }
                         loading={canceling}
                         size="small"
                         key="cancel"

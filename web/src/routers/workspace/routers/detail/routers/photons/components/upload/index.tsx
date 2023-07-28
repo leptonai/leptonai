@@ -1,3 +1,4 @@
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useState } from "react";
 import { App, Button, Upload as AntdUpload, UploadFile } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
@@ -9,6 +10,7 @@ import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 export const Upload: FC = () => {
   const photonService = useInject(PhotonService);
   const refreshService = useInject(RefreshService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const beforeUpload = (file: UploadFile) => {
@@ -33,7 +35,13 @@ export const Upload: FC = () => {
       beforeUpload={beforeUpload}
       style={{ width: "100%" }}
     >
-      <Button type="primary" icon={<UploadOutlined />} block loading={loading}>
+      <Button
+        disabled={workspaceTrackerService.workspace?.isPastDue}
+        type="primary"
+        icon={<UploadOutlined />}
+        block
+        loading={loading}
+      >
         Upload photon
       </Button>
     </AntdUpload>
