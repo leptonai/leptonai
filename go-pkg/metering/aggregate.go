@@ -75,7 +75,7 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 	diff := end.Sub(start)
 	switch diff {
 	case time.Hour:
-		return aggComputeHourly(db, start, end)
+		return queryHourlyComputeAgg(db, start, end)
 	case time.Hour * 24, time.Hour * 168:
 		return queryDailyOrWeeklyComputeAgg(db, start, end)
 	default:
@@ -83,14 +83,19 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 	}
 }
 
-func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+func queryHourlyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+	// all user workspaces are prefixed with 'ws-'
+	// REGEXP_REPLACE removes 'ws-' prefix from workspaces
+	// LENGTH(deployment_name) > 0 filters out pods not associated with a lepton deployment
 	rows, err := db.Query(fmt.Sprintf(`SELECT 
 			REGEXP_REPLACE(namespace, '^ws-', '') as namespace,
 			shape,
 			deployment_name,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s' and namespace ilike 'ws-%%'
+			where query_start >= '%s' and query_end <= '%s' 
+			and namespace ilike 'ws-%%'
+			and LENGTH(deployment_name) > 0
 			GROUP BY namespace, deployment_name, shape`,
 		MeteringTableComputeFineGrain,
 		start.Format(time.RFC3339),
@@ -116,12 +121,17 @@ func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, 
 }
 
 func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+	// all user workspaces are prefixed with 'ws-'
+	// REGEXP_REPLACE removes 'ws-' prefix from workspaces
+	// LENGTH(deployment_name) > 0 filters out pods not associated with a lepton deployment
 	rows, err := db.Query(fmt.Sprintf(`SELECT
 			REGEXP_REPLACE(namespace, '^ws-', '') as namespace,
 			shape,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s' and namespace ilike 'ws-%%'
+			where query_start >= '%s' and query_end <= '%s'
+			and namespace ilike 'ws-%%'
+			and LENGTH(deployment_name) > 0
 			GROUP BY namespace, shape`,
 		MeteringTableComputeFineGrain,
 		start.Format(time.RFC3339),
