@@ -39,11 +39,11 @@ const (
 
 	readinessProbeInitialDelaySeconds = 5
 	readinessProbePeriodSeconds       = 5
-	readinessProbeFailureThreshold    = 5
+	readinessProbeFailureThreshold    = 12
 	readinessProbeSuccessThreshold    = 1
 	livenessProbeInitialDelaySeconds  = 600
 	livenessProbePeriodSeconds        = 5
-	livenessProbeFailureThreshold     = 5
+	livenessProbeFailureThreshold     = 12
 	livenessProbeSuccessThreshold     = 1
 )
 
