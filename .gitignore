@@ -202,3 +202,5 @@ _testmain.go
 
 # Lepton photon compiled file
 obj.pkl
+# mothership cmd
+mothership
