@@ -10,17 +10,18 @@ import { FC } from "react";
 
 export const Billing: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const supportBilling = !!workspaceTrackerService.workspace?.auth.status;
+  const isBillingSupported =
+    workspaceTrackerService.workspace?.isBillingSupported;
 
   return (
     <Card
       icon={<CarbonIcon icon={<Wallet />} />}
       borderless
-      extra={supportBilling ? <Portal /> : null}
+      extra={isBillingSupported ? <Portal /> : null}
       shadowless
       title="Billing"
     >
-      {supportBilling ? (
+      {isBillingSupported ? (
         <Invoice />
       ) : (
         <>The current workspace does not support billing yet</>

@@ -39,6 +39,8 @@ export class ProfileService {
                     return {
                       auth: authWorkspaces[i],
                       data,
+                      isBillingSupported: !!authWorkspaces[i].status,
+                      isPastDue: authWorkspaces[i].status === "past_due",
                     };
                   });
                 })

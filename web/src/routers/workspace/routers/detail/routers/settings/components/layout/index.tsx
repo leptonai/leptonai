@@ -4,6 +4,8 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Card } from "@lepton-dashboard/components/card";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
+import { useInject } from "@lepton-libs/di";
 import { useResponsive } from "ahooks";
 import { Menu, MenuProps } from "antd";
 import { FC, PropsWithChildren, useMemo } from "react";
@@ -14,8 +16,9 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const responsive = useResponsive();
   const location = useLocation();
   const { pathname } = useResolvedPath("");
-  const menuItems: MenuProps["items"] = useMemo(
-    () => [
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
+  const menuItems: MenuProps["items"] = useMemo(() => {
+    const menus = [
       {
         key: `${pathname}/general`,
         label: "General",
@@ -31,14 +34,16 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         label: "Secrets",
         icon: <CarbonIcon icon={<Asterisk />} />,
       },
-      {
+    ];
+    if (workspaceTrackerService?.workspace?.isBillingSupported) {
+      menus.push({
         key: `${pathname}/billing`,
         label: "Billing",
         icon: <CarbonIcon icon={<Wallet />} />,
-      },
-    ],
-    [pathname]
-  );
+      });
+    }
+    return menus;
+  }, [pathname, workspaceTrackerService]);
   const selectedKeys: string[] = useMemo(() => {
     return menuItems
       .filter((item) => location.pathname.startsWith(`${item?.key}`))

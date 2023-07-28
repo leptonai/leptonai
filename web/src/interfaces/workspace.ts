@@ -14,4 +14,6 @@ export interface AuthorizedWorkspace {
 export interface Workspace {
   auth: AuthorizedWorkspace;
   data: WorkspaceDetail | null;
+  isBillingSupported: boolean;
+  isPastDue: boolean;
 }
