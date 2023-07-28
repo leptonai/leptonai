@@ -102,7 +102,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 	rows := make([][]string, 0, len(rs))
 	promptOptions := make([]string, 0, len(rs))
 	for _, c := range rs {
-		if c.Status.State == v1alpha1.ClusterStateFailed {
+		if c.Status.State == v1alpha1.ClusterOperationalStateFailed {
 			log.Printf("skipping failed state cluster %q", c.Spec.Name)
 			continue
 		}

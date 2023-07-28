@@ -40,9 +40,9 @@ type LeptonClusterSpec struct {
 // LeptonClusterStatus defines the observed state of LeptonCluster
 type LeptonClusterStatus struct {
 	// Previously known cluster state.
-	LastState LeptonClusterState `json:"last_state,omitempty"`
+	LastState LeptonClusterOperationalState `json:"last_state,omitempty"`
 	// Current cluster state.
-	State LeptonClusterState `json:"state"`
+	State LeptonClusterOperationalState `json:"state"`
 
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
@@ -60,17 +60,17 @@ type LeptonClusterProperties struct {
 }
 
 const (
-	ClusterStateCreating LeptonClusterState = "creating"
-	ClusterStateUpdating LeptonClusterState = "updating"
-	ClusterStateReady    LeptonClusterState = "ready"
-	ClusterStateFailed   LeptonClusterState = "failed"
-	ClusterStateDeleting LeptonClusterState = "deleting"
-	ClusterStateDeleted  LeptonClusterState = "deleted"
-	ClusterStateUnknown  LeptonClusterState = ""
+	ClusterOperationalStateCreating LeptonClusterOperationalState = "creating"
+	ClusterOperationalStateUpdating LeptonClusterOperationalState = "updating"
+	ClusterOperationalStateReady    LeptonClusterOperationalState = "ready"
+	ClusterOperationalStateFailed   LeptonClusterOperationalState = "failed"
+	ClusterOperationalStateDeleting LeptonClusterOperationalState = "deleting"
+	ClusterOperationalStateDeleted  LeptonClusterOperationalState = "deleted"
+	ClusterOperationalStateUnknown  LeptonClusterOperationalState = ""
 )
 
 type (
-	LeptonClusterState string
+	LeptonClusterOperationalState string
 )
 
 //+kubebuilder:object:root=true

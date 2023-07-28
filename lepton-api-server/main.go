@@ -68,7 +68,7 @@ func main() {
 	clusterNameFlag = flag.String("cluster-name", "", "name of the Kubernetes cluster this server is running on")
 	workspaceNameFlag = flag.String("workspace-name", "default", "workspace name")
 	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
-	stateFlag = flag.String("state", "ready", "workspace state after starting the server (allowed values: ready, paused, terminated)")
+	stateFlag = flag.String("state", "normal", "workspace state after starting the server (allowed values: normal, paused, terminated)")
 
 	s3ReadOnlyAccessK8sSecretNameFlag = flag.String("s3-read-only-access-k8s-secret-name", "s3-ro-key", "S3 read only access k8s secret name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
@@ -291,7 +291,7 @@ func corsMiddleware() gin.HandlerFunc {
 
 func pauseWorkspaceMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if workspaceState != httpapi.WorkspaceStateReady {
+		if workspaceState != httpapi.WorkspaceStateNormal {
 			switch c.Request.Method {
 			case http.MethodPut, http.MethodPost, http.MethodPatch:
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{

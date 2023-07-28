@@ -46,6 +46,10 @@ if [[ "$ROOT_DOMAIN" != "" ]]; then
     APPLY_FLAGS+=("-var=root_domain=$ROOT_DOMAIN")
 fi
 
+if [[ "$STATE" != "" ]]; then
+    APPLY_FLAGS+=("-var=state=$STATE")
+fi
+
 # default values are defined in "tfvars" files
 # optionally, overwrite those in the following flags/env vars
 if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then

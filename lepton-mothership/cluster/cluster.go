@@ -98,7 +98,7 @@ func Init() {
 		cl := item
 
 		switch cl.Status.State {
-		case crdv1alpha1.ClusterStateCreating, crdv1alpha1.ClusterStateUnknown:
+		case crdv1alpha1.ClusterOperationalStateCreating, crdv1alpha1.ClusterOperationalStateUnknown:
 			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart creating cluster",
@@ -118,7 +118,7 @@ func Init() {
 					)
 				}
 			}()
-		case crdv1alpha1.ClusterStateUpdating:
+		case crdv1alpha1.ClusterOperationalStateUpdating:
 			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart updating cluster",
@@ -133,7 +133,7 @@ func Init() {
 						"error", err)
 				}
 			}()
-		case crdv1alpha1.ClusterStateDeleting:
+		case crdv1alpha1.ClusterOperationalStateDeleting:
 			clusterTotal.Inc()
 			go func() {
 				goutil.Logger.Infow("restart deleting cluster",
@@ -186,8 +186,8 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
 	cl.Status = crdv1alpha1.LeptonClusterStatus{
-		LastState: crdv1alpha1.ClusterStateUnknown,
-		State:     crdv1alpha1.ClusterStateCreating,
+		LastState: crdv1alpha1.ClusterOperationalStateUnknown,
+		State:     crdv1alpha1.ClusterOperationalStateCreating,
 		UpdatedAt: uint64(time.Now().Unix()),
 	}
 	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
@@ -208,7 +208,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
 
-	if cl.Status.State != crdv1alpha1.ClusterStateReady {
+	if cl.Status.State != crdv1alpha1.ClusterOperationalStateReady {
 		goutil.Logger.Warnw("updating a non-ready cluster",
 			"cluster", clusterName,
 			"operation", "update",
@@ -224,7 +224,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 	cl.Status.LastState = cl.Status.State
-	cl.Status.State = crdv1alpha1.ClusterStateUpdating
+	cl.Status.State = crdv1alpha1.ClusterOperationalStateUpdating
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
@@ -276,7 +276,7 @@ func delete(clusterName string, logCh chan<- string) error {
 	}
 
 	cl.Status.LastState = cl.Status.State
-	cl.Status.State = crdv1alpha1.ClusterStateDeleting
+	cl.Status.State = crdv1alpha1.ClusterOperationalStateDeleting
 	if err := DataStore.UpdateStatus(context.Background(), clusterName, cl); err != nil {
 		return fmt.Errorf("failed to update cluster status: %w", err)
 	}
@@ -479,7 +479,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		if err == nil {
 			// if err != nil, the state will be updated in the failure handler
 			cl.Status.LastState = cl.Status.State
-			cl.Status.State = crdv1alpha1.ClusterStateReady
+			cl.Status.State = crdv1alpha1.ClusterOperationalStateReady
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(ctx, clusterName, cl)
@@ -568,7 +568,7 @@ func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 		return
 	}
 
-	if err := updateState(ctx, cl, crdv1alpha1.ClusterStateFailed); err != nil {
+	if err := updateState(ctx, cl, crdv1alpha1.ClusterOperationalStateFailed); err != nil {
 		goutil.Logger.Errorw("failed to update the cluster",
 			"cluster", clusterName,
 			"operation", "update cluster state",
@@ -577,7 +577,7 @@ func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
 	}
 }
 
-func updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterState) error {
+func updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterOperationalState) error {
 	cl.Status.LastState = cl.Status.State
 	cl.Status.State = state
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())

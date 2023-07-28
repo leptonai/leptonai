@@ -83,7 +83,7 @@ resource "helm_release" "lepton" {
   namespace = var.namespace
 
   set {
-    name = "clusterName"
+    name  = "clusterName"
     value = var.cluster_name
   }
 
@@ -185,6 +185,11 @@ resource "helm_release" "lepton" {
   set {
     name  = "apiServer.dynamodbName"
     value = aws_dynamodb_table.tuna.name
+  }
+
+  set {
+    name  = "apiServer.state"
+    value = var.state
   }
 
   depends_on = [

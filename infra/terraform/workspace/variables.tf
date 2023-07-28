@@ -133,3 +133,9 @@ variable "quota_gpu" {
   type        = number
   default     = 1
 }
+
+variable "state" {
+  description = "Workspace state (normal, paused, terminated)"
+  type        = string
+  default     = "normal"
+}

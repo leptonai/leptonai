@@ -62,7 +62,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 		b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)
 		if err != nil {
 			// if expects deleted and server returns 404, we are done
-			if crdv1alpha1.LeptonWorkspaceState(expectedState) == crdv1alpha1.WorkspaceStateDeleted &&
+			if crdv1alpha1.LeptonWorkspaceOperationalState(expectedState) == crdv1alpha1.WorkspaceOperationalStateDeleted &&
 				// TODO: use status code rather than error message
 				strings.Contains(err.Error(), "unexpected HTTP status code 404 with body") {
 				return
@@ -77,7 +77,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Printf("failed to decode %v", err)
 		} else {
-			if w.Status.State == crdv1alpha1.LeptonWorkspaceState(expectedState) {
+			if w.Status.State == crdv1alpha1.LeptonWorkspaceOperationalState(expectedState) {
 				log.Printf("workspace %q is already in state %q", workspaceName, expectedState)
 				return
 			} else {

@@ -61,7 +61,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 		b, err := cli.RequestPath(http.MethodGet, "/clusters/"+clusterName, nil, nil)
 		if err != nil {
 			// if expects deleted and server returns 404, we are done
-			if crdv1alpha1.LeptonClusterState(expectedState) == crdv1alpha1.ClusterStateDeleted &&
+			if crdv1alpha1.LeptonClusterOperationalState(expectedState) == crdv1alpha1.ClusterOperationalStateDeleted &&
 				// TODO: use status code rather than error message
 				strings.Contains(err.Error(), "unexpected HTTP status code 404 with body") {
 				return
@@ -75,7 +75,7 @@ func waitFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Printf("failed to decode %v", err)
 		} else {
-			if c.Status.State == crdv1alpha1.LeptonClusterState(expectedState) {
+			if c.Status.State == crdv1alpha1.LeptonClusterOperationalState(expectedState) {
 				log.Printf("cluster %q is already in state %q", clusterName, expectedState)
 				return
 			} else {

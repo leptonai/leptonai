@@ -37,31 +37,41 @@ type LeptonWorkspaceSpec struct {
 	QuotaMemoryInGi int    `json:"quota_memory_in_gi,omitempty"`
 	QuotaGPU        int    `json:"quota_gpu,omitempty"`
 
+	State LeptonWorkspaceState `json:"state,omitempty"`
+
 	Description string `json:"description"`
 }
+
+type LeptonWorkspaceState string
+
+const (
+	WorkspaceStateNormal     LeptonWorkspaceState = "normal"
+	WorkspaceStatePaused     LeptonWorkspaceState = "paused"
+	WorkspaceStateTerminated LeptonWorkspaceState = "terminated"
+)
 
 // LeptonWorkspaceStatus defines the observed state of LeptonWorkspace
 type LeptonWorkspaceStatus struct {
 	// Previously known workspace state.
-	LastState LeptonWorkspaceState `json:"last_state,omitempty"`
+	LastState LeptonWorkspaceOperationalState `json:"last_state,omitempty"`
 	// Current workspace state.
-	State LeptonWorkspaceState `json:"state"`
+	State LeptonWorkspaceOperationalState `json:"state"`
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
 }
 
 const (
-	WorkspaceStateCreating LeptonWorkspaceState = "creating"
-	WorkspaceStateUpdating LeptonWorkspaceState = "updating"
-	WorkspaceStateReady    LeptonWorkspaceState = "ready"
-	WorkspaceStateFailed   LeptonWorkspaceState = "failed"
-	WorkspaceStateDeleting LeptonWorkspaceState = "deleting"
-	WorkspaceStateDeleted  LeptonWorkspaceState = "deleted"
-	WorkspaceStateUnknown  LeptonWorkspaceState = ""
+	WorkspaceOperationalStateCreating LeptonWorkspaceOperationalState = "creating"
+	WorkspaceOperationalStateUpdating LeptonWorkspaceOperationalState = "updating"
+	WorkspaceOperationalStateReady    LeptonWorkspaceOperationalState = "ready"
+	WorkspaceOperationalStateFailed   LeptonWorkspaceOperationalState = "failed"
+	WorkspaceOperationalStateDeleting LeptonWorkspaceOperationalState = "deleting"
+	WorkspaceOperationalStateDeleted  LeptonWorkspaceOperationalState = "deleted"
+	WorkspaceOperationalStateUnknown  LeptonWorkspaceOperationalState = ""
 )
 
 type (
-	LeptonWorkspaceState string
+	LeptonWorkspaceOperationalState string
 )
 
 //+kubebuilder:object:root=true

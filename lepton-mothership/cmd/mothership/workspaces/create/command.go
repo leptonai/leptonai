@@ -75,6 +75,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		ImageTag:    imageTag,
 		QuotaGroup:  quotaGroup,
 		EnableWeb:   enableWeb,
+		State:       crdv1alpha1.WorkspaceStateNormal,
 
 		Description: description,
 	}

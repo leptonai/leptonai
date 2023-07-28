@@ -24,6 +24,7 @@ var (
 	quotaMemory   int
 	quotaGPU      int
 	autoApprove   bool
+	state         string
 )
 
 func init() {
@@ -40,6 +41,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to update")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "", "Git ref to use for the workspace terraform")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace deployments")
+	cmd.PersistentFlags().StringVarP(&state, "state", "", "", "Workspace running state (normal, paused, terminated)")
 	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "", "", "Quota group for the workspace (small, medium, large, unlimited, custom)")
 	cmd.PersistentFlags().IntVarP(&quotaCPU, "quota-cpu", "", 0, "Quota CPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaMemory, "quota-memory", "", 0, "Quota memory in Gi for the workspace if quota group is custom")
@@ -83,6 +85,10 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	}
 	if imageTag != "" {
 		workspaceSpec.ImageTag = imageTag
+		updated = true
+	}
+	if state != "" {
+		workspaceSpec.State = crdv1alpha1.LeptonWorkspaceState(state)
 		updated = true
 	}
 	if quotaGroup != "" {

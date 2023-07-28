@@ -77,7 +77,7 @@ func Init() {
 		ctow[ws.Spec.ClusterName] = append(ctow[ws.Spec.ClusterName], ws.Spec.Name)
 
 		switch ws.Status.State {
-		case crdv1alpha1.WorkspaceStateCreating, crdv1alpha1.WorkspaceStateUnknown:
+		case crdv1alpha1.WorkspaceOperationalStateCreating, crdv1alpha1.WorkspaceOperationalStateUnknown:
 			go func() {
 				goutil.Logger.Infow("restart creating workspace",
 					"workspace", ws.Spec.Name,
@@ -95,7 +95,7 @@ func Init() {
 					)
 				}
 			}()
-		case crdv1alpha1.WorkspaceStateUpdating:
+		case crdv1alpha1.WorkspaceOperationalStateUpdating:
 			go func() {
 				goutil.Logger.Infow("restart updating workspace",
 					"workspace", ws.Spec.Name,
@@ -111,7 +111,7 @@ func Init() {
 					)
 				}
 			}()
-		case crdv1alpha1.WorkspaceStateDeleting:
+		case crdv1alpha1.WorkspaceOperationalStateDeleting:
 			go func() {
 				goutil.Logger.Infow("restart deleting workspace",
 					"workspace", ws.Spec.Name,
@@ -171,6 +171,16 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	if ws.Spec.GitRef == "" {
 		ws.Spec.GitRef = string(plumbing.HEAD)
 	}
+	if ws.Spec.State == "" {
+		ws.Spec.State = crdv1alpha1.WorkspaceStateNormal
+	}
+	switch ws.Spec.State {
+	case crdv1alpha1.WorkspaceStateNormal:
+	case crdv1alpha1.WorkspaceStatePaused:
+	case crdv1alpha1.WorkspaceStateTerminated:
+	default:
+		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
+	}
 
 	if err := generateQuotaFromQuotaGroup(&ws.Spec); err != nil {
 		return nil, fmt.Errorf("invalid quota setting: %w", err)
@@ -201,7 +211,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	if err := DataStore.Create(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
-	if err := updateState(ws, crdv1alpha1.WorkspaceStateCreating); err != nil {
+	if err := updateState(ws, crdv1alpha1.WorkspaceOperationalStateCreating); err != nil {
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
@@ -219,7 +229,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
-	if ws.Status.State != crdv1alpha1.WorkspaceStateReady {
+	if ws.Status.State != crdv1alpha1.WorkspaceOperationalStateReady {
 		goutil.Logger.Warnw("updating a non-ready workspace",
 			"workspace", workspaceName,
 			"operation", "update",
@@ -253,13 +263,26 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 			return nil, fmt.Errorf("invalid quota setting: %w", err)
 		}
 	}
+	if spec.State != "" {
+		ws.Spec.State = spec.State
+	}
+	if ws.Spec.State == "" {
+		ws.Spec.State = crdv1alpha1.WorkspaceStateNormal
+	}
+	switch ws.Spec.State {
+	case crdv1alpha1.WorkspaceStateNormal:
+	case crdv1alpha1.WorkspaceStatePaused:
+	case crdv1alpha1.WorkspaceStateTerminated:
+	default:
+		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
+	}
 
 	if err := DataStore.Update(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace: %w", err)
 	}
 
 	ws.Status.LastState = ws.Status.State
-	ws.Status.State = crdv1alpha1.WorkspaceStateUpdating
+	ws.Status.State = crdv1alpha1.WorkspaceOperationalStateUpdating
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
 	if err := DataStore.UpdateStatus(ctx, workspaceName, ws); err != nil {
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
@@ -314,7 +337,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 	}
 
 	ws.Status.LastState = ws.Status.State
-	ws.Status.State = crdv1alpha1.WorkspaceStateDeleting
+	ws.Status.State = crdv1alpha1.WorkspaceOperationalStateDeleting
 	if err := DataStore.UpdateStatus(ctxBeforeTF, workspaceName, ws); err != nil {
 		return fmt.Errorf("failed to update workspace status: %w", err)
 	}
@@ -508,7 +531,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 	defer func() {
 		if err == nil {
 			ws.Status.LastState = ws.Status.State
-			ws.Status.State = crdv1alpha1.WorkspaceStateReady
+			ws.Status.State = crdv1alpha1.WorkspaceOperationalStateReady
 		}
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(context.Background(), workspaceName, ws)
@@ -563,6 +586,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		"CREATE_EFS=true",
 		"VPC_ID="+cl.Status.Properties.VPCID,
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
+		"STATE="+string(ws.Spec.State),
 	)
 	if ws.Spec.QuotaGroup == "unlimited" {
 		cmd.Env = append(cmd.Env,
@@ -628,7 +652,7 @@ func tryUpdatingStateToFailed(workspaceName string) {
 		)
 		return
 	}
-	if err := updateState(ws, crdv1alpha1.WorkspaceStateFailed); err != nil {
+	if err := updateState(ws, crdv1alpha1.WorkspaceOperationalStateFailed); err != nil {
 		goutil.Logger.Errorw("failed to update workspace state to failed",
 			"workspace", workspaceName,
 			"error", err,
@@ -636,7 +660,7 @@ func tryUpdatingStateToFailed(workspaceName string) {
 	}
 }
 
-func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceState) error {
+func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceOperationalState) error {
 	ws.Status.LastState = ws.Status.State
 	ws.Status.State = state
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())

@@ -63,6 +63,8 @@ spec:
                 type: string
               quota_memory_in_gi:
                 type: integer
+              state:
+                type: string
             required:
             - cluster_name
             - description

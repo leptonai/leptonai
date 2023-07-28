@@ -69,7 +69,7 @@ func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix,
 	}
 
 	switch workspaceState {
-	case WorkspaceStateReady:
+	case WorkspaceStateNormal:
 	case WorkspaceStatePaused:
 	case WorkspaceStateTerminated:
 		go h.deleteAllDeployments()

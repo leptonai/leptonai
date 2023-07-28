@@ -32,7 +32,7 @@ type ResourceQuota struct {
 type WorkspaceState string
 
 const (
-	WorkspaceStateReady      WorkspaceState = "ready"
+	WorkspaceStateNormal     WorkspaceState = "normal"
 	WorkspaceStatePaused     WorkspaceState = "paused"
 	WorkspaceStateTerminated WorkspaceState = "terminated"
 )
