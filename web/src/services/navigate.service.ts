@@ -127,6 +127,7 @@ export const RoutersMap = {
   tunaChat: `/workspace/:workspaceId?/tuna/chat/:name`,
   settingsGeneral: `/workspace/:workspaceId?/settings/general`,
   settingsAPITokens: `/workspace/:workspaceId?/settings/api-tokens`,
+  settingsBilling: `/workspace/:workspaceId?/settings/billing`,
   settingsSecrets: `/workspace/:workspaceId?/settings/secrets`,
   photonsList: `/workspace/:workspaceId?/photons/list`,
   photonVersions: `/workspace/:workspaceId?/photons/versions/:name`,

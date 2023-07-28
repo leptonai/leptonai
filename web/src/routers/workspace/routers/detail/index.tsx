@@ -1,5 +1,6 @@
 import { Card } from "@lepton-dashboard/components/card";
 import { GettingStarted } from "@lepton-dashboard/routers/workspace/components/getting-started";
+import { PastDueBanner } from "@lepton-dashboard/routers/workspace/components/past-due-banner";
 import { Dashboard } from "@lepton-dashboard/routers/workspace/routers/detail/routers/dashboard";
 import { Deployments } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments";
 import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons";
@@ -77,6 +78,7 @@ export const Detail: FC = () => {
               </LimitedLayoutWidth>
             }
           >
+            <PastDueBanner />
             <Routes>
               <Route
                 path="dashboard"

@@ -17,7 +17,7 @@ export const Status: FC = () => {
       );
     } else if (status === "past_due") {
       return (
-        <Tag bordered={false} color="past_due">
+        <Tag bordered={false} color="error">
           PAST DUE
         </Tag>
       );
