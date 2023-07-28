@@ -83,7 +83,7 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 
 func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT 
-			namespace,
+			REGEXP_REPLACE(namespace, '^ws-', '') as namespace,
 			shape,
 			deployment_name,
 			ROUND(SUM(minutes)) as usage
@@ -115,7 +115,7 @@ func aggComputeHourly(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, 
 
 func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT
-			namespace,
+			REGEXP_REPLACE(namespace, '^ws-', '') as namespace,
 			shape,
 			ROUND(SUM(minutes)) as usage
 			from %s
