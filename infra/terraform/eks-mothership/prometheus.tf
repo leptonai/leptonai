@@ -467,48 +467,30 @@ resource "helm_release" "kube_prometheus_stack" {
           # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
 
           {
-            job_name = "lepton-deployment-pods"
+            job_name = "mothership-service-pods"
 
-            # List of Kubernetes service discovery configurations.
+            # discovers targets from listed endpoints of a service
             # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
             kubernetes_sd_configs = [
               {
-                role = "pod"
+                role = "endpoints"
               }
             ]
 
             # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+            #
+            # fetches endpoints of this service (basically # of mothership pods)
+            # instead of directly from this service.
+            #
+            # e.g.,
+            # <service-name>.<namespace>.svc.cluster.local:<service-port>
+            # "mothership-service.default.svc.cluster.local:15213"
             relabel_configs = [
               {
-                source_labels = ["__meta_kubernetes_pod_label_photon_id"]
+                source_labels = ["__meta_kubernetes_service_label_app"]
                 action        = "keep"
-                regex         = ".+"
-              },
-              {
-                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_id"]
-                action        = "keep"
-                regex         = ".+"
-              },
-              {
-                source_labels = ["__meta_kubernetes_pod_label_photon_id"]
-                target_label  = "kubernetes_pod_label_photon_id"
-                action        = "replace"
-              },
-              {
-                source_labels = ["__meta_kubernetes_pod_label_lepton_deployment_id"]
-                target_label  = "kubernetes_pod_label_lepton_deployment_id"
-                action        = "replace"
-              },
-              {
-                source_labels = ["__meta_kubernetes_pod_name"]
-                target_label  = "kubernetes_pod_name"
-                action        = "replace"
-              },
-              {
-                source_labels = ["__meta_kubernetes_namespace"]
-                target_label  = "kubernetes_namespace"
-                action        = "replace"
-              },
+                regex         = "mothership-service"
+              }
             ]
           }
         ]
