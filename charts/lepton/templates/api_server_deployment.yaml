@@ -82,8 +82,10 @@ spec:
             - "--storage-mount-path"
             - "{{ .Values.apiServer.storageMountPath }}"
             - "--enable-storage={{ .Values.apiServer.enableStorage }}"
+{{ if .Values.apiServer.state }}
             - "--state"
             - "{{ .Values.apiServer.state }}"
+{{ end }}
             - "--s3-read-only-access-k8s-secret-name"
             - "{{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
           ports:

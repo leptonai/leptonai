@@ -33,7 +33,7 @@ apiServer:
   enableTuna: false
   enableStorage: true
   storageMountPath: "/mnt/efs/default"
-  state: normal
+  state: ""
 
 deploymentOperator:
   enabled: true
