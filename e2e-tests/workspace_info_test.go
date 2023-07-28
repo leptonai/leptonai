@@ -8,12 +8,18 @@ func TestWorkspaceInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if info.BuildTime == "" {
-		t.Fatal("BuildTime is empty")
+		t.Error("BuildTime is empty")
 	}
 	if info.GitCommit == "" {
-		t.Fatal("GitCommit is empty")
+		t.Error("GitCommit is empty")
 	}
 	if info.WorkspaceName == "" {
-		t.Fatal("WorkspaceName is empty")
+		t.Error("WorkspaceName is empty")
+	}
+	if len(info.ResourceQuota.Limit) == 0 {
+		t.Error("ResourceQuota.Limit is empty")
+	}
+	if len(info.ResourceQuota.Used) == 0 {
+		t.Error("ResourceQuota.Used is empty")
 	}
 }

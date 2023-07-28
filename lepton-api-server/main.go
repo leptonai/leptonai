@@ -145,8 +145,6 @@ func main() {
 		workspaceState,
 	)
 
-	wih := httpapi.NewWorkspaceInfoHandler(*workspaceNameFlag, workspaceState)
-
 	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
@@ -175,6 +173,7 @@ func main() {
 
 	v1 := api.Group("/v1")
 
+	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, workspaceState)
 	v1.GET("/workspace", wih.HandleGet)
 
 	v1.GET("/photons", handler.PhotonHanlder().List)
