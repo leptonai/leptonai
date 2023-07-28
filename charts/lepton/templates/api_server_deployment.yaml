@@ -54,40 +54,51 @@ spec:
           {{ end }}
           command: [ "/app/{{ .Values.apiServer.name }}" ]
           args:
-            - "--cluster-name"
-            - "{{ .Values.clusterName }}"
-            - "--namespace"
-            - {{ .Release.Namespace | quote }}
-            - "--region"
-            - "{{ .Values.apiServer.region }}"
-            - "--bucket-name"
-            - "{{ .Values.apiServer.bucketName }}"
-            - "--efs-id"
-            - "{{ .Values.apiServer.efsID }}"
-            - "--certificate-arn"
-            - "{{ .Values.apiServer.certificateArn }}"
-            - "--root-domain"
-            - "{{ .Values.apiServer.rootDomain }}"
-            - "--api-token"
-            - "{{ .Values.apiServer.apiToken }}"
-            - "--photon-prefix"
-            - "{{ .Values.apiServer.photonPrefix }}"
-            - "--photon-image-registry"
-            - "{{ .Values.apiServer.photonImageRegistry }}"
-            - "--workspace-name"
-            - "{{ .Values.workspaceName }}"
-            - "--dynamodb-name"
-            - "{{ .Values.apiServer.dynamodbName }}"
-            - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
-            - "--storage-mount-path"
-            - "{{ .Values.apiServer.storageMountPath }}"
-            - "--enable-storage={{ .Values.apiServer.enableStorage }}"
-{{ if .Values.apiServer.state }}
-            - "--state"
-            - "{{ .Values.apiServer.state }}"
+{{ if .Values.clusterName }}
+            - "--cluster-name={{ .Values.clusterName }}"
 {{ end }}
-            - "--s3-read-only-access-k8s-secret-name"
-            - "{{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
+            - "--namespace={{ .Release.Namespace }}"
+{{ if .Values.apiServer.region }}
+            - "--region={{ .Values.apiServer.region }}"
+{{ end }}
+{{ if .Values.apiServer.bucketName }}
+            - "--bucket-name={{ .Values.apiServer.bucketName }}"
+{{ end }}
+{{ if .Values.apiServer.efsID }}
+            - "--efs-id={{ .Values.apiServer.efsID }}"
+{{ end }}
+{{ if .Values.apiServer.certificateArn }}
+            - "--certificate-arn={{ .Values.apiServer.certificateArn }}"
+{{ end }}
+{{ if .Values.apiServer.rootDomain }}
+            - "--root-domain={{ .Values.apiServer.rootDomain }}"
+{{ end }}
+{{ if .Values.apiServer.apiToken }}
+            - "--api-token={{ .Values.apiServer.apiToken }}"
+{{ end }}
+{{ if .Values.apiServer.photonPrefix }}
+            - "--photon-prefix={{ .Values.apiServer.photonPrefix }}"
+{{ end }}
+{{ if .Values.apiServer.photonImageRegistry }}
+            - "--photon-image-registry={{ .Values.apiServer.photonImageRegistry }}"
+{{ end }}
+{{ if .Values.workspaceName }}
+            - "--workspace-name={{ .Values.workspaceName }}"
+{{ end }}
+{{ if .Values.apiServer.dynamodbName }}
+            - "--dynamodb-name={{ .Values.apiServer.dynamodbName }}"
+{{ end }}
+{{ if .Values.apiServer.storageMountPath }}
+            - "--storage-mount-path={{ .Values.apiServer.storageMountPath }}"
+{{ end }}
+            - "--enable-storage={{ .Values.apiServer.enableStorage }}"
+            - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
+{{ if .Values.apiServer.state }}
+            - "--state={{ .Values.apiServer.state }}"
+{{ end }}
+{{ if .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}
+            - "--s3-read-only-access-k8s-secret-name={{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
+{{ end }}
           ports:
             - containerPort: {{ .Values.apiServer.service.port }}
           readinessProbe:
