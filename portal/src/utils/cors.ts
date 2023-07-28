@@ -1,10 +1,13 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
+const allowHeader =
+  process.env.NODE_ENV === "development" ? "*" : "https://dashboard.lepton.ai";
+
 export const cors =
   (fn: (req: NextApiRequest, res: NextApiResponse) => Promise<void>) =>
   async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Origin", "https://dashboard.lepton.ai");
+    res.setHeader("Access-Control-Allow-Origin", allowHeader);
     res.setHeader(
       "Access-Control-Allow-Methods",
       "GET,OPTIONS,PATCH,DELETE,POST,PUT",

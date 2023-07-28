@@ -33,6 +33,9 @@ import pathJoin from "@lepton-libs/url/path-join";
 export class ApiServerService implements ApiService {
   private apiVersionPrefix = `/api/v1`;
 
+  private portalUrl =
+    import.meta.env.VITE_PORTAL_URL || "http://localhost:8000";
+
   get host() {
     return this.workspaceTrackerService.workspace?.auth.url;
   }
@@ -398,12 +401,12 @@ export class ApiServerService implements ApiService {
 
   getPortal(): Observable<{ url: string }> {
     return this.httpClientService.post<{ url: string }>(
-      `https://portal.lepton.ai/api/billing/portal`,
+      `${this.portalUrl}/api/billing/portal`,
       {
         workspace_id: this.workspaceTrackerService.id,
       },
       {
-        withCredentials: true,
+        withCredentials: import.meta.env.PROD,
       }
     );
   }
@@ -414,12 +417,12 @@ export class ApiServerService implements ApiService {
       upcoming?: Stripe.UpcomingInvoice;
       open?: Stripe.Invoice;
     }>(
-      `https://portal.lepton.ai/api/billing/invoice`,
+      `${this.portalUrl}/api/billing/invoice`,
       {
         workspace_id: this.workspaceTrackerService.id,
       },
       {
-        withCredentials: true,
+        withCredentials: import.meta.env.PROD,
       }
     );
   }

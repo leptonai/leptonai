@@ -1,5 +1,5 @@
 import { stripeClient } from "@/utils/stripe";
-import { supabase } from "@/utils/supabase";
+import { supabaseAdminClient } from "@/utils/supabase";
 import { buffer } from "micro";
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
@@ -58,7 +58,7 @@ export default async function handler(
           if (subscription.status === "active") {
             // TODO: mothership resume workspace if terminate
           }
-          await supabase
+          await supabaseAdminClient
             .from("workspaces")
             .update({ status: subscription.status })
             .eq("id", subscription.metadata.workspace_id);

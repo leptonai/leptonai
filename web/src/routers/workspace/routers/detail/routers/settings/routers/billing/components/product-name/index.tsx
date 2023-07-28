@@ -1,3 +1,4 @@
+import { Tag } from "antd";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
 
@@ -10,5 +11,5 @@ export const ProductName: FC<{
       (i) => (i.default_price as Stripe.Price).id === priceId
     );
   }, [products, priceId]);
-  return <>{product?.name}</>;
+  return <Tag>{product?.name}</Tag>;
 };

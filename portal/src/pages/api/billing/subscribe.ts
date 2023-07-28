@@ -1,5 +1,5 @@
 import { stripeClient } from "@/utils/stripe";
-import { supabase } from "@/utils/supabase";
+import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 // Subscribe a workspace to a plan
@@ -68,7 +68,7 @@ export default async function handler(
       subscription_id: subscription.id,
     };
 
-    await supabase
+    await supabaseAdminClient
       .from("workspaces")
       .update({ consumer_id: consumer.id, subscription_id: subscription.id })
       .eq("id", workspace_id);

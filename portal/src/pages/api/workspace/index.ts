@@ -1,4 +1,4 @@
-import { supabase } from "@/utils/supabase";
+import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 export default async function handler(
@@ -8,7 +8,7 @@ export default async function handler(
   try {
     const body = req.body;
     const id = body.id;
-    const { data: workspaces } = await supabase
+    const { data: workspaces } = await supabaseAdminClient
       .from("workspaces")
       .select("id, url, display_name")
       .eq("id", id);

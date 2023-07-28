@@ -1,5 +1,5 @@
 import { stripeClient } from "@/utils/stripe";
-import { supabase } from "@/utils/supabase";
+import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 // Report usage to stripe
@@ -24,7 +24,7 @@ export default async function handler(
       new Date(body.record.start_time).getTime() / 1000,
     );
 
-    const { data: subscriptionId } = await supabase
+    const { data: subscriptionId } = await supabaseAdminClient
       .from("workspaces")
       .select("subscription_id")
       .eq("id", workspaceId);
@@ -53,7 +53,7 @@ export default async function handler(
       },
     );
 
-    await supabase
+    await supabaseAdminClient
       .from("compute_hourly")
       .update({ stripe_usage_record_id: usageRecord.id })
       .eq("id", id);

@@ -5,7 +5,7 @@ import { InvoiceTable } from "@lepton-dashboard/routers/workspace/routers/detail
 import { BillingService } from "@lepton-dashboard/routers/workspace/services/billing.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Collapse, Descriptions, Progress, Typography } from "antd";
+import { Collapse, Descriptions, Progress, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import Decimal from "decimal.js";
 import { FC, useMemo, useState } from "react";
@@ -39,6 +39,7 @@ export const Invoice: FC = () => {
     }
   }, [upcoming, open]);
   const creditGranted = invoice?.data?.discount?.coupon.amount_off;
+  const creditReason = invoice?.data?.discount?.coupon.name;
   const creditUsed = invoice?.data?.total_discount_amounts?.[0].amount;
   const creditExpired = (invoice?.data?.period_end || 0) * 1000;
   const theme = useAntdTheme();
@@ -83,16 +84,21 @@ export const Invoice: FC = () => {
                     `}
                     bordered
                     layout="vertical"
-                    column={{ xxl: 3, xl: 3, lg: 3, md: 3, sm: 2, xs: 1 }}
+                    column={{ xxl: 4, xl: 4, lg: 4, md: 4, sm: 2, xs: 1 }}
                     size="small"
                   >
-                    <Descriptions.Item label="CREDIT GRANTED">
-                      ${new Decimal(creditGranted).div(100).toFixed()}
+                    <Descriptions.Item label="GRANTED">
+                      <Tag>
+                        ${new Decimal(creditGranted).div(100).toFixed()}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="REASON">
+                      {creditReason}
                     </Descriptions.Item>
                     <Descriptions.Item label="EXPIRES">
                       {dayjs(creditExpired).format("LL")}
                     </Descriptions.Item>
-                    <Descriptions.Item label="CREDIT USED">
+                    <Descriptions.Item label="USED">
                       <Progress
                         css={css`
                           margin: 0;
