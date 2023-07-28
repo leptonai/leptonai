@@ -39,7 +39,7 @@ func New(namespace, secretSetName string, backupBucket *blob.Bucket) *SecretSet 
 // List lists the keys in the secret set.
 func (s *SecretSet) List(ctx context.Context) ([]string, error) {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, err
@@ -56,7 +56,7 @@ func (s *SecretSet) List(ctx context.Context) ([]string, error) {
 // Put puts the specified secrets into the secret set.
 func (s *SecretSet) Put(ctx context.Context, secrets []SecretItem) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
 	exist := true
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -79,16 +79,16 @@ func (s *SecretSet) Put(ctx context.Context, secrets []SecretItem) error {
 		}
 	}
 	if exist {
-		return k8s.Client.Update(ctx, secret)
+		return k8s.MustLoadDefaultClient().Update(ctx, secret)
 	} else {
-		return k8s.Client.Create(ctx, secret)
+		return k8s.MustLoadDefaultClient().Create(ctx, secret)
 	}
 }
 
 // Delete deletes the specified keys from the secret set.
 func (s *SecretSet) Delete(ctx context.Context, keys ...string) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
@@ -98,27 +98,27 @@ func (s *SecretSet) Delete(ctx context.Context, keys ...string) error {
 	for _, key := range keys {
 		delete(secret.Data, key)
 	}
-	return k8s.Client.Update(ctx, secret)
+	return k8s.MustLoadDefaultClient().Update(ctx, secret)
 }
 
 // Destroy deletes the secret set.
 func (s *SecretSet) Destroy(ctx context.Context) error {
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		return nil
 	}
-	return k8s.Client.Delete(ctx, secret)
+	return k8s.MustLoadDefaultClient().Delete(ctx, secret)
 }
 
 // Backup uploads the secret set to the backup bucket.
 func (s *SecretSet) Backup(ctx context.Context) error {
 	kind := "Secret"
 	secret := &corev1.Secret{}
-	err := k8s.Client.Get(ctx, s.namespacedName, secret)
+	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err

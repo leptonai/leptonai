@@ -31,7 +31,7 @@ func ListEvents(ctx context.Context, namespace, name, kind string) (*eventv1.Eve
 	defer cancel()
 
 	events := &eventv1.EventList{}
-	err := Client.List(ctx, events, &client.ListOptions{
+	err := MustLoadDefaultClient().List(ctx, events, &client.ListOptions{
 		Namespace:     namespace,
 		FieldSelector: selector,
 	})

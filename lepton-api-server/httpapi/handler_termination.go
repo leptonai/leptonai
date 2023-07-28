@@ -21,7 +21,7 @@ func (h *DeploymentTerminationHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 
 	deployment := &appsv1.Deployment{}
-	err := k8s.Client.Get(c, types.NamespacedName{
+	err := k8s.MustLoadDefaultClient().Get(c, types.NamespacedName{
 		Namespace: h.namespace,
 		Name:      name,
 	}, deployment)

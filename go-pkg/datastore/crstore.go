@@ -54,18 +54,18 @@ func (s *CRStore[T]) Create(ctx context.Context, name string, t T) error {
 
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Create(ctx, t)
+	return k8s.MustLoadDefaultClient().Create(ctx, t)
 }
 
 func (s *CRStore[T]) UpdateStatus(ctx context.Context, name string, t T) error {
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Status().Update(ctx, t)
+	return k8s.MustLoadDefaultClient().Status().Update(ctx, t)
 }
 
 func (s *CRStore[T]) Get(ctx context.Context, name string) (T, error) {
 	t := s.example.DeepCopyObject().(T)
-	err := k8s.Client.Get(ctx, client.ObjectKey{
+	err := k8s.MustLoadDefaultClient().Get(ctx, client.ObjectKey{
 		Namespace: s.namespace,
 		Name:      name,
 	}, t)
@@ -80,7 +80,7 @@ func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
 
 	tList := &unstructured.UnstructuredList{}
 	tList.SetGroupVersionKind(*gvk)
-	if err := k8s.Client.List(ctx, tList, client.InNamespace(s.namespace)); err != nil {
+	if err := k8s.MustLoadDefaultClient().List(ctx, tList, client.InNamespace(s.namespace)); err != nil {
 		return nil, err
 	}
 	ts := make([]T, 0, len(tList.Items))
@@ -98,14 +98,14 @@ func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
 func (s *CRStore[T]) Update(ctx context.Context, name string, t T) error {
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Update(ctx, t)
+	return k8s.MustLoadDefaultClient().Update(ctx, t)
 }
 
 func (s *CRStore[T]) Delete(ctx context.Context, name string) error {
 	t := s.example.DeepCopyObject().(T)
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
-	return k8s.Client.Delete(ctx, t)
+	return k8s.MustLoadDefaultClient().Delete(ctx, t)
 }
 
 func (s *CRStore[T]) BackupAndDeleteAll(ctx context.Context) error {
@@ -241,7 +241,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 }
 
 func (s *CRStore[T]) getGVK() (*schema.GroupVersionKind, error) {
-	gvks, _, err := k8s.Client.Scheme().ObjectKinds(s.example)
+	gvks, _, err := k8s.MustLoadDefaultClient().Scheme().ObjectKinds(s.example)
 	if err != nil {
 		return nil, err
 	}

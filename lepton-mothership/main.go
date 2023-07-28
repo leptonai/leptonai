@@ -173,7 +173,7 @@ func updateImageTag(imageTag string) error {
 	// TODO: remove the hardcoded name and namespace
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	err := k8s.Client.Get(ctx, types.NamespacedName{Name: "mothership", Namespace: "default"}, &deployment)
+	err := k8s.MustLoadDefaultClient().Get(ctx, types.NamespacedName{Name: "mothership", Namespace: "default"}, &deployment)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func updateImageTag(imageTag string) error {
 	image := deployment.Spec.Template.Spec.Containers[0].Image
 	newImage := goutil.UpdateImageTag(image, imageTag)
 	deployment.Spec.Template.Spec.Containers[0].Image = newImage
-	return k8s.Client.Update(ctx, &deployment)
+	return k8s.MustLoadDefaultClient().Update(ctx, &deployment)
 }
 
 func timeoutMiddleware(t time.Duration) gin.HandlerFunc {

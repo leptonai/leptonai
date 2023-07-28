@@ -10,6 +10,6 @@ import (
 // GetResourceQuota returns the ResourceQuota object for the given namespace.
 func GetResourceQuota(ctx context.Context, namespace, name string) (v1.ResourceQuota, error) {
 	quota := v1.ResourceQuota{}
-	err := Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &quota)
+	err := MustLoadDefaultClient().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &quota)
 	return quota, err
 }

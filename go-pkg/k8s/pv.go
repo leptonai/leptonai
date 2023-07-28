@@ -47,7 +47,7 @@ func CreatePV(ctx context.Context, name string, volumeHandle string) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	err := Client.Create(ctx, pv)
+	err := MustLoadDefaultClient().Create(ctx, pv)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func DeletePV(ctx context.Context, name string) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	err := Client.Delete(ctx, pv)
+	err := MustLoadDefaultClient().Delete(ctx, pv)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func CreatePVC(ctx context.Context, namespace, name, pvname string, or []metav1.
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	err := Client.Create(ctx, pvc)
+	err := MustLoadDefaultClient().Create(ctx, pvc)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func DeletePVC(ctx context.Context, namespace, name string) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	err := Client.Delete(ctx, pvc)
+	err := MustLoadDefaultClient().Delete(ctx, pvc)
 	if err != nil {
 		return err
 	}

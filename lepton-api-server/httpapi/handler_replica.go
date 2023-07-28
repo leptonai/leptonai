@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type ReplicaHandler struct {
@@ -85,8 +86,19 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 }
 
 func (h *ReplicaHandler) Shell(c *gin.Context) {
+	inClusterConfig, err := config.GetConfig()
+	if err != nil {
+		goutil.Logger.Errorw("failed to get in cluster config for shell",
+			"operation", "shell",
+			"error", err,
+		)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get in cluster config for shell"})
+		return
+	}
+
 	rid := c.Param("rid")
-	httpClient, err := restclient.HTTPClientFor(k8s.Config)
+	httpClient, err := restclient.HTTPClientFor(inClusterConfig)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create client for shell",
 			"operation", "shell",
@@ -98,12 +110,12 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 		return
 	}
 
-	targetURL, err := url.Parse(k8s.Config.Host)
+	targetURL, err := url.Parse(inClusterConfig.Host)
 	if err != nil {
 		goutil.Logger.Errorw("failed to parse host for shell",
 			"operation", "shell",
 			"replica", rid,
-			"url", k8s.Config.Host,
+			"url", inClusterConfig.Host,
 			"error", err,
 		)
 

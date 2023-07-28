@@ -35,7 +35,7 @@ func getDeploymentReadinessIssue(ctx context.Context, deployment *appsv1.Deploym
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels(deployment.Spec.Selector.MatchLabels),
 	}
-	if err := k8s.Client.List(ctx, podList, listOpts...); err != nil {
+	if err := k8s.MustLoadDefaultClient().List(ctx, podList, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list replicas: %w", err)
 	}
 

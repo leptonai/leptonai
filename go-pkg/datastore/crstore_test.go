@@ -29,7 +29,7 @@ func TestCRStore(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testOperationTimeout)
 	defer cancel()
 
-	if err := k8s.Client.Create(ctx, nsObj); err != nil {
+	if err := k8s.MustLoadDefaultClient().Create(ctx, nsObj); err != nil {
 		t.Fatalf("Failed to create namespace %s: %v", namespace, err)
 	}
 
@@ -46,7 +46,7 @@ func TestCRStore(t *testing.T) {
 	}
 
 	defer func() {
-		if err := k8s.Client.Delete(ctx, nsObj); err != nil {
+		if err := k8s.MustLoadDefaultClient().Delete(ctx, nsObj); err != nil {
 			t.Fatalf("Failed to delete namespace %s: %v", namespace, err)
 		}
 	}()

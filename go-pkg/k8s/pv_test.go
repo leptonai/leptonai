@@ -31,7 +31,7 @@ func TestPVandPVC(t *testing.T) {
 
 	// Make this a sub test
 	pv := &corev1.PersistentVolume{}
-	err = Client.Get(ctx, types.NamespacedName{Name: name}, pv, &client.GetOptions{})
+	err = MustLoadDefaultClient().Get(ctx, types.NamespacedName{Name: name}, pv, &client.GetOptions{})
 	if err != nil {
 		t.Fatal("failed to get PV:", err)
 	}
@@ -58,7 +58,7 @@ func TestPVandPVC(t *testing.T) {
 	}()
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err = Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cname}, pvc, &client.GetOptions{})
+	err = MustLoadDefaultClient().Get(ctx, types.NamespacedName{Namespace: namespace, Name: cname}, pvc, &client.GetOptions{})
 	if err != nil {
 		t.Fatal("failed to get PVC:", err)
 	}

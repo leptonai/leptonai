@@ -90,7 +90,7 @@ func CreateSyncerForDefaultEFS(ctx context.Context, ns, name string, gcsURL, pat
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	return k8s.Client.Create(ctx, deployment)
+	return k8s.MustLoadDefaultClient().Create(ctx, deployment)
 }
 
 // DeleteSyncerForDefaultEFS deletes the deployment with the given name in the given namespace.
@@ -105,5 +105,5 @@ func DeleteSyncerForDefaultEFS(ctx context.Context, ns, name string) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
 	defer cancel()
 
-	return k8s.Client.Delete(ctx, deployment)
+	return k8s.MustLoadDefaultClient().Delete(ctx, deployment)
 }
