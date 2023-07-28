@@ -21,7 +21,7 @@ export default async function handler(
     const shape = body.record.shape;
     const usage = body.record.usage;
     const timestamp = Math.round(
-      new Date(body.record.start_time).getTime() / 1000,
+      new Date(body.record.end_time).getTime() / 1000,
     );
 
     const { data: subscriptionId } = await supabaseAdminClient
