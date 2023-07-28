@@ -111,7 +111,6 @@ func getFunc(cmd *cobra.Command, args []string) {
 		}
 
 		// Create a Kubernetes client
-
 		clientset, err = kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			log.Fatal(err)

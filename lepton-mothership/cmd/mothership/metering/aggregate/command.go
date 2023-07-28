@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +26,9 @@ var (
 	supabasePassword string
 	enableCompute    bool
 	enableStorage    bool
+
+	runBackground   bool
+	runBackgroundOn int
 )
 
 func NewCommand() *cobra.Command {
@@ -31,43 +37,32 @@ func NewCommand() *cobra.Command {
 		Short: "Aggregate all data from start-time to end-time, into the specified aggregate table",
 		Long: `
 # Aggregate data from start-time to end-time, into the specified aggregate table.
+--run-background will run hourly aggregation indefinitely. This ignores --start-time, --end-time, --table flags.
 --end-time is optional, and defaults to the current time.
 --start-time value is optional, and defaults to one unit of aggregation before --end-time.
-
---table value must be provided, and one of 'hourly', 'daily', or 'weekly'.
-
+--table value must be provided if not running in background, and one of 'hourly', 'daily', or 'weekly'.
 
 --enable-compute is optional, defaults to false. If true, will enable aggregation of compute (CPU, GPU, RAM) data.
 --enable-storage is optional, defaults to false. If true, will enable aggregation of storage (EFS) data.
 
 Both start and end times will be truncated down to the nearest whole unit of aggregation.
-E.G:
+Weekly aggregation starts from Monday 12AM, and ends on Sunday 11:59:59PM.
+Daily aggregation starts from 12AM, and ends on 11:59:59PM.
+Thus the following are equivalent:
 
 hourly aggregation: '2023-07-11T20:40:00+00' -> '2023-07-11T20:00:00+00'
 daily aggregation: '2023-07-11T20:40:00+00' -> '2023-07-11T00:00:00+00'
 weekly aggregation: '2023-07-11T20:40:00+00' -> '2023-07-10T00:00:00+00'
-This is to ensure that no aggregation overlap occurs.
-
-
-Weekly aggregation starts from Monday 12AM, and ends on Sunday 11:59:59PM.
-Daily aggregation starts from 12AM, and ends on 11:59:59PM.
 
 Usage examples:
-To aggregate a single hour of data starting from 8 PM UTC time, on July 11th, 2023, into the hourly table:
-mothership metering aggregate --start-time "2023-07-11T20:40:00+00" --table hourly
+To aggregate a single hour of data from 8-9 PM UTC time, on July 11th, 2023, into the hourly table:
+mothership metering aggregate --end-time "2023-07-11T21:40:00+00" --table hourly
 
 The minutes and seconds are ignored, so, this is the same as:
-mothership metering aggregate --start-time "2023-07-11T20:00:00+00" --table hourly
+mothership metering aggregate --end-time "2023-07-11T21:00:00+00" --table hourly
 
-we can also use human readable time formats:
+we can also use human readable time formats (ref https://github.com/araddon/dateparse):
 mothership metering aggregate --start-time "7/11/2023 8:00PM" --table hourly
-
-Note that the following 3 commands are equivalent
-To aggregate July 11th and July 12th data into the daily table: 
-mothership metering aggregate --start-time "2023-07-11T00:00:00+00" --end-time "2023-07-13T00:00:00+00" --table daily
-mothership metering aggregate --start-time "07/11/2023 12:30 AM" --end-time "07/11/2023 8:30 PM" --table daily
-mothership metering aggregate --start-time "07/11/2023M" --end-time "07-13" --table daily
-mothership metering aggregate --start-time 1689033600 --end-time 1689206400 --table daily
 `,
 
 		Run: aggregateFunc,
@@ -77,8 +72,12 @@ mothership metering aggregate --start-time 1689033600 --end-time 1689206400 --ta
 	cmd.PersistentFlags().StringVarP(&endTimeFlag, "end-time", "e", "", "end time to aggregate to")
 	cmd.PersistentFlags().StringVarP(&tableFlag, "table", "t", "hourly", "table to aggregate to, accepts 'hourly', 'daily', 'weekly'")
 	cmd.PersistentFlags().StringVarP(&supabasePassword, "supabase-password", "p", "", "supabase password, can also be passed in using env var SUPABASE_PASSWORD")
+
 	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "enable aggregation of compute (CPU, GPU, RAM) data")
 	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "enable aggregation of storage (EFS) data")
+
+	cmd.PersistentFlags().BoolVar(&runBackground, "run-background", false, "run hourly aggregate in background indefinitely, ignoring --start-time, --end-time, --table flags")
+	cmd.PersistentFlags().IntVar(&runBackgroundOn, "run-background-on", 5, "minute of hour to run aggregate each hour, must be between 0-59")
 	return cmd
 }
 
@@ -86,6 +85,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	if !(enableCompute || enableStorage) {
 		log.Fatal("Neither storage nor compute aggregation enabled. Doing nothing.")
 	}
+
 	// create aurora connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 	db, err := auroraCfg.NewHandler()
@@ -93,14 +93,83 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 		log.Fatalf("couldn't connect to aurora db: %v", err)
 	}
 	aurora := metering.AuroraDB{DB: db}
-	defer aurora.DB.Close()
 	// create supabase connection
 	supabaseConfig := supabase.NewDefaultConfigFromFlagAndEnv(supabasePassword)
 	supabaseDB, err := supabaseConfig.NewHandler()
 	if err != nil {
 		log.Fatalf("couldn't connect to supabase db: %v", err)
 	}
+	defer aurora.DB.Close()
 	defer supabaseDB.Close()
+
+	if runBackground {
+		if runBackgroundOn < 0 || runBackgroundOn > 59 {
+			log.Fatalf("--run-background-on must be between 0-59, got %d", runBackgroundOn)
+		}
+		queryInterval := time.Hour
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+		ticker := time.NewTicker(time.Minute)
+		fmt.Printf("starting background aggregation on minute %d", runBackgroundOn)
+		for range ticker.C {
+			select {
+			case <-sigs:
+				ticker.Stop()
+				return
+			default:
+				now := time.Now().UTC()
+				currMinute := now.Minute()
+				// run aggregation at runBackgroundOn minute of every hour
+				if currMinute == runBackgroundOn {
+					// recreate aurora connection
+					auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
+					db, err := auroraCfg.NewHandler()
+					if err != nil {
+						log.Fatalf("couldn't connect to aurora db: %v", err)
+					}
+					aurora := metering.AuroraDB{DB: db}
+					// recreate supabase connection
+					supabaseConfig := supabase.NewDefaultConfigFromFlagAndEnv(supabasePassword)
+					supabaseDB, err := supabaseConfig.NewHandler()
+					if err != nil {
+						log.Fatalf("couldn't connect to supabase db: %v", err)
+					}
+
+					startTime := now.Add(-queryInterval).Truncate(queryInterval)
+					endTime := now.Truncate(queryInterval)
+					log.Printf("Aggregating window (%s, %s) into hourly table. Compute enabled: %t, storage enabled: %t",
+						startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), enableCompute, enableStorage)
+					batchID := uuid.New().String()
+					aggregateOneWindowIntoTables(
+						aurora,
+						supabaseDB,
+						startTime,
+						endTime,
+						"hourly",
+						metering.MeteringTableComputeHourly,
+						metering.MeteringTableStorageHourly,
+						batchID,
+						5,
+					)
+					log.Printf("successfully processed %s aggregate data for window (%s,%s)", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+					err = aurora.DB.Close()
+					if err != nil {
+						log.Printf("couldn't close aurora db connection: %v", err)
+					}
+					err = supabaseDB.Close()
+					if err != nil {
+						log.Printf("couldn't close supabase db connection: %v", err)
+					}
+				} else {
+					timeToNext := runBackgroundOn - currMinute
+					if currMinute >= runBackgroundOn {
+						timeToNext += 60
+					}
+					log.Printf("next aggregate operation in %d minutes", timeToNext)
+				}
+			}
+		}
+	}
 
 	var queryInterval time.Duration
 	var computeTable metering.MeteringTable
@@ -121,6 +190,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	default:
 		log.Fatalf(`invalid table %s, must be one of ("hourly", "daily", "weekly")`, tableFlag)
 	}
+
 	// get start and end times
 	var startTime, endTime time.Time
 	if len(endTimeFlag) <= 0 {
@@ -153,7 +223,8 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	}
 	// truncate start and end times to the nearest whole unit of aggregation
 	startTime, endTime = startTime.Truncate(queryInterval), endTime.Truncate(queryInterval)
-	log.Printf("Aggregating window (%s, %s) into %s table. Compute enabled: %t, storage enabled: %t", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), tableFlag, enableCompute, enableStorage)
+	log.Printf("Aggregating window (%s, %s) into %s table. Compute enabled: %t, storage enabled: %t",
+		startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), tableFlag, enableCompute, enableStorage)
 
 	// compare start and end times to the most recent fine grain entries
 	if enableCompute {
@@ -188,18 +259,42 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 	maxRetries := 5
 	for i := 0; i < len(startTimes); i++ {
 		batchID := uuid.New().String()
-		if enableCompute {
-			computeAggregate, err := metering.GetComputeAggregate(aurora, startTimes[i], endTimes[i])
-			if err != nil {
-				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
-					tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
-			}
-			if len(computeAggregate) == 0 {
-				log.Printf("no %s aggregate compute data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			log.Printf("processing %d %s compute rows for window %s - %s", len(computeAggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+		aggregateOneWindowIntoTables(
+			aurora,
+			supabaseDB,
+			startTimes[i],
+			endTimes[i],
+			tableFlag,
+			computeTable,
+			storageTable,
+			batchID,
+			maxRetries)
+	}
+	log.Printf("successfully processed %s aggregate data for window (%s,%s)", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+}
+
+// wrapper function for handling getting aggregate data and inserting into tables
+func aggregateOneWindowIntoTables(
+	aurora metering.AuroraDB,
+	supabaseDB *sql.DB,
+	startTime time.Time,
+	endTime time.Time,
+	tableFlag string,
+	computeTable metering.MeteringTable,
+	storageTable metering.MeteringTable,
+	batchID string,
+	maxRetries int,
+) {
+	if enableCompute {
+		computeAggregate, err := metering.GetComputeAggregate(aurora, startTime, endTime)
+		if err != nil {
+			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
+				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
+		}
+		if len(computeAggregate) == 0 {
+			log.Printf("no %s aggregate compute data for window %s - %s", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+		} else {
+			log.Printf("processing %d %s compute rows for window %s - %s", len(computeAggregate), tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
 			_, err = retryInsertIntoComputeAggregate(aurora.DB, computeTable, computeAggregate, batchID, maxRetries)
 			if err != nil {
@@ -214,18 +309,17 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 				}
 			}
 		}
-		if enableStorage {
-			storageAggregate, err := metering.GetStorageAggregate(aurora, startTimes[i], endTimes[i])
-			if err != nil {
-				log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
-					tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
-			}
-			if len(storageAggregate) == 0 {
-				log.Printf("no %s aggregate storage data for window %s - %s", tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			log.Printf("processing %d %s storage rows for window %s - %s", len(storageAggregate), tableFlag, startTimes[i].Format(time.RFC3339), endTimes[i].Format(time.RFC3339))
+	}
+	if enableStorage {
+		storageAggregate, err := metering.GetStorageAggregate(aurora, startTime, endTime)
+		if err != nil {
+			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
+				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
+		}
+		if len(storageAggregate) == 0 {
+			log.Printf("no %s aggregate storage data for window %s - %s", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+		} else {
+			log.Printf("processing %d %s storage rows for window %s - %s", len(storageAggregate), tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
 			_, err = retryInsertIntoStorageAggregate(aurora.DB, storageTable, storageAggregate, batchID, maxRetries)
 			if err != nil {
@@ -240,7 +334,6 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
-	log.Printf("successfully processed %s aggregate data for window (%s,%s)", tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 }
 
 func retryInsertIntoStorageAggregate(

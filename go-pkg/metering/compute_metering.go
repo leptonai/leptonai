@@ -40,7 +40,6 @@ var (
 		"deployment name",
 		"pod name",
 		"shape",
-
 		"start",
 		"end",
 		"running minutes",
