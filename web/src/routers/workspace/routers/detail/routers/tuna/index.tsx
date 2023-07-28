@@ -3,6 +3,8 @@ import { FC, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import styled from "@emotion/styled";
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
+import { DIContainer } from "@lepton-libs/di";
+import { ChatService } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
 
 const List = lazy(() =>
   import(
@@ -27,14 +29,16 @@ const Container = styled.div`
 export const Tuna: FC = () => {
   useDocumentTitle("TUNA");
   return (
-    <Container>
-      <Routes>
-        <Route>
-          <Route path="list" element={<List />} />
-          <Route path="chat/:name" element={<ModelComparison />} />
-          <Route path="*" element={<NavigateTo name="tunaList" replace />} />
-        </Route>
-      </Routes>
-    </Container>
+    <DIContainer providers={[ChatService]}>
+      <Container>
+        <Routes>
+          <Route>
+            <Route path="list" element={<List />} />
+            <Route path="chat/:name" element={<ModelComparison />} />
+            <Route path="*" element={<NavigateTo name="tunaList" replace />} />
+          </Route>
+        </Routes>
+      </Container>
+    </DIContainer>
   );
 };

@@ -1,4 +1,4 @@
-import { Button, message, Modal, Space } from "antd";
+import { Button, message, Modal, Popover, Space } from "antd";
 import {
   FC,
   PropsWithChildren,
@@ -71,16 +71,23 @@ sys.stdout.write("\\n")`;
   }, [pythonCode]);
   return (
     <>
-      <Button
-        disabled={disabled}
-        size="small"
-        key="deploy"
-        type="text"
-        icon={icon}
-        onClick={() => setOpen(true)}
+      <Popover
+        trigger="hover"
+        placement="top"
+        content="Get the API for this model"
       >
-        {children}
-      </Button>
+        <Button
+          disabled={disabled}
+          size="small"
+          key="deploy"
+          type="text"
+          icon={icon}
+          onClick={() => setOpen(true)}
+        >
+          {children}
+        </Button>
+      </Popover>
+
       <Modal
         width={600}
         onCancel={() => setOpen(false)}
