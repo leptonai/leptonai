@@ -45,6 +45,7 @@ targets=(
 
   "aws_eks_addon.kubecost"
   "helm_release.kube_prometheus_stack"
+  "helm_release.gloo_edge"
 )
 
 if [[ -z $CLUSTER_NAME ]]; then

@@ -20,6 +20,7 @@ targets=(
   "null_resource.delete_calico_installation"
 
   "helm_release.kube_prometheus_stack"
+  "helm_release.gloo_edge"
 )
 
 if [ -z "$CLUSTER_NAME" ]; then
