@@ -50,12 +50,12 @@ func getDeploymentReadinessIssue(ctx context.Context, deployment *appsv1.Deploym
 			)
 			continue
 		}
-		issue[ReplicaID(pod.Name)] = []ReplicaReadinessIssue{getReplicaReadinessIssue(&pod)}
+		issue[ReplicaID(pod.Name)] = []ReplicaReadinessIssue{getReplicaReadinessIssue(ctx, &pod)}
 	}
 	return issue, nil
 }
 
-func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
+func getReplicaReadinessIssue(ctx context.Context, pod *corev1.Pod) ReplicaReadinessIssue {
 	for _, containerStatus := range pod.Status.InitContainerStatuses {
 		waiting := containerStatus.State.Waiting
 		if waiting == nil {
@@ -124,7 +124,7 @@ func getReplicaReadinessIssue(pod *corev1.Pod) ReplicaReadinessIssue {
 
 	switch pod.Status.Phase {
 	case corev1.PodPending:
-		events, err := k8s.ListPodEvents(pod.Namespace, pod.Name)
+		events, err := k8s.ListPodEvents(ctx, pod.Namespace, pod.Name)
 		if err != nil {
 			return ReplicaReadinessIssue{Reason: ReadinessReasonSystemError, Message: err.Error()}
 		}

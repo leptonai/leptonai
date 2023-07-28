@@ -16,7 +16,7 @@ type DeploymentEventHandler struct {
 
 func (h *DeploymentEventHandler) Get(c *gin.Context) {
 	name := c.Param("did")
-	events, err := k8s.ListDeploymentEvents(h.namespace, name)
+	events, err := k8s.ListDeploymentEvents(c, h.namespace, name)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get events",
 			"operation", "getDeploymentEvents",

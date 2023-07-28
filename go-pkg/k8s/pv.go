@@ -3,14 +3,19 @@ package k8s
 import (
 	"context"
 	"log"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	defaultOperationTimeout = 10 * time.Second
+)
+
 // CreatePV creates a PersistentVolume object points to the EFS volume Handle.
-func CreatePV(name string, volumeHandle string) error {
+func CreatePV(ctx context.Context, name string, volumeHandle string) error {
 	mode := corev1.PersistentVolumeFilesystem
 	csiDriver := "efs.csi.aws.com"
 
@@ -39,7 +44,10 @@ func CreatePV(name string, volumeHandle string) error {
 		},
 	}
 
-	err := Client.Create(context.TODO(), pv)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	err := Client.Create(ctx, pv)
 	if err != nil {
 		return err
 	}
@@ -49,14 +57,17 @@ func CreatePV(name string, volumeHandle string) error {
 }
 
 // DeletePV deletes the PersistentVolume object with the given name.
-func DeletePV(name string) error {
+func DeletePV(ctx context.Context, name string) error {
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
 
-	err := Client.Delete(context.Background(), pv)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	err := Client.Delete(ctx, pv)
 	if err != nil {
 		return err
 	}
@@ -66,7 +77,7 @@ func DeletePV(name string) error {
 }
 
 // CreatePVC creates a PersistentVolumeClaim object points to the PV with the given name.
-func CreatePVC(namespace, name, pvname string, or []metav1.OwnerReference) error {
+func CreatePVC(ctx context.Context, namespace, name, pvname string, or []metav1.OwnerReference) error {
 	storageClass := "efs-sc"
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -88,7 +99,10 @@ func CreatePVC(namespace, name, pvname string, or []metav1.OwnerReference) error
 		},
 	}
 
-	err := Client.Create(context.Background(), pvc)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	err := Client.Create(ctx, pvc)
 	if err != nil {
 		return err
 	}
@@ -98,7 +112,7 @@ func CreatePVC(namespace, name, pvname string, or []metav1.OwnerReference) error
 }
 
 // DeletePVC deletes the PersistentVolumeClaim object with the given name.
-func DeletePVC(namespace, name string) error {
+func DeletePVC(ctx context.Context, namespace, name string) error {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -106,7 +120,10 @@ func DeletePVC(namespace, name string) error {
 		},
 	}
 
-	err := Client.Delete(context.Background(), pvc)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	err := Client.Delete(ctx, pvc)
 	if err != nil {
 		return err
 	}

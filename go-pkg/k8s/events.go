@@ -2,28 +2,36 @@ package k8s
 
 import (
 	"context"
+	"time"
 
 	eventv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ListPodEvents(namespace, name string) (*eventv1.EventList, error) {
-	return ListEvents(namespace, name, "Pod")
+// ListPodEvents returns a list of events for a pod
+func ListPodEvents(ctx context.Context, namespace, name string) (*eventv1.EventList, error) {
+	return ListEvents(ctx, namespace, name, "Pod")
 }
 
-func ListDeploymentEvents(namespace, name string) (*eventv1.EventList, error) {
-	return ListEvents(namespace, name, "Deployment")
+// ListDeploymentEvents returns a list of events for a deployment
+func ListDeploymentEvents(ctx context.Context, namespace, name string) (*eventv1.EventList, error) {
+	return ListEvents(ctx, namespace, name, "Deployment")
 }
 
-func ListEvents(namespace, name, kind string) (*eventv1.EventList, error) {
+// ListEvents returns a list of events for a resource
+func ListEvents(ctx context.Context, namespace, name, kind string) (*eventv1.EventList, error) {
 	selector := fields.SelectorFromSet(fields.Set{
 		"regarding.kind": kind,
 		"regarding.name": name,
 	})
 
+	// A relative high timeout since k8s list can be slow
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	events := &eventv1.EventList{}
-	err := Client.List(context.TODO(), events, &client.ListOptions{
+	err := Client.List(ctx, events, &client.ListOptions{
 		Namespace:     namespace,
 		FieldSelector: selector,
 	})

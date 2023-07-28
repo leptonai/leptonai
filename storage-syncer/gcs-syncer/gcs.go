@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -11,8 +12,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	defaultOperationTimeout = 10 * time.Second
+)
+
 // CreateSyncerForDefaultEFS creates a deployment that syncs the given GCS URL to the given path under the default EFS root.
-func CreateSyncerForDefaultEFS(ns, name string, gcsURL, path, credJSON string) error {
+func CreateSyncerForDefaultEFS(ctx context.Context, ns, name string, gcsURL, path, credJSON string) error {
 	image := "google/cloud-sdk"
 	mountPath := "/mnt/efs/default/"
 	volumeName := "default-efs"
@@ -82,11 +87,14 @@ func CreateSyncerForDefaultEFS(ns, name string, gcsURL, path, credJSON string) e
 
 	deployment.Spec.Template = podTemplate
 
-	return k8s.Client.Create(context.TODO(), deployment)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	return k8s.Client.Create(ctx, deployment)
 }
 
 // DeleteSyncerForDefaultEFS deletes the deployment with the given name in the given namespace.
-func DeleteSyncerForDefaultEFS(ns, name string) error {
+func DeleteSyncerForDefaultEFS(ctx context.Context, ns, name string) error {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -94,5 +102,8 @@ func DeleteSyncerForDefaultEFS(ns, name string) error {
 		},
 	}
 
-	return k8s.Client.Delete(context.Background(), deployment)
+	ctx, cancel := context.WithTimeout(ctx, defaultOperationTimeout)
+	defer cancel()
+
+	return k8s.Client.Delete(ctx, deployment)
 }

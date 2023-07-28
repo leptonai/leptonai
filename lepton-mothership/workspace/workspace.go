@@ -84,7 +84,9 @@ func Init() {
 					"operation", "create",
 				)
 
-				_, err := idempotentCreate(ws)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				_, err := idempotentCreate(ctx, ws)
 				if err != nil {
 					goutil.Logger.Errorw("failed to create workspace",
 						"workspace", ws.Spec.Name,
@@ -203,7 +205,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
-	return idempotentCreate(ws)
+	return idempotentCreate(ctx, ws)
 }
 
 func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
@@ -284,6 +286,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	return ws, nil
 }
 
+// Delete deletes a workspace asynchronously
 func Delete(workspaceName string) error {
 	return Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
 		return delete(workspaceName, logCh)
@@ -299,7 +302,10 @@ func delete(workspaceName string, logCh chan<- string) error {
 		"operation", "delete",
 	)
 
-	ws, err := DataStore.Get(context.Background(), workspaceName)
+	ctxBeforeTF, cancelBeforeTF := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelBeforeTF()
+
+	ws, err := DataStore.Get(ctxBeforeTF, workspaceName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -309,12 +315,12 @@ func delete(workspaceName string, logCh chan<- string) error {
 
 	ws.Status.LastState = ws.Status.State
 	ws.Status.State = crdv1alpha1.WorkspaceStateDeleting
-	if err := DataStore.UpdateStatus(context.Background(), workspaceName, ws); err != nil {
+	if err := DataStore.UpdateStatus(ctxBeforeTF, workspaceName, ws); err != nil {
 		return fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
 	var cl *crdv1alpha1.LeptonCluster
-	cl, err = cluster.DataStore.Get(context.Background(), ws.Spec.ClusterName)
+	cl, err = cluster.DataStore.Get(ctxBeforeTF, ws.Spec.ClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -332,7 +338,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 
 	tfws := terraformWorkspaceName(workspaceName)
 
-	_, err = terraform.GetWorkspace(tfws)
+	_, err = terraform.GetWorkspace(ctxBeforeTF, tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
@@ -357,7 +363,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 		}
 	}
 
-	err = terraform.ForceUnlockWorkspace(tfws)
+	err = terraform.ForceUnlockWorkspace(ctxBeforeTF, tfws)
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
@@ -389,7 +395,10 @@ func delete(workspaceName string, logCh chan<- string) error {
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
 
-	cl, err = cluster.DataStore.Get(context.Background(), ws.Spec.ClusterName)
+	ctxAfterTFApply, cancelAfterTFApply := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelAfterTFApply()
+
+	cl, err = cluster.DataStore.Get(ctxAfterTFApply, ws.Spec.ClusterName)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get cluster",
 			"cluster", ws.Spec.ClusterName,
@@ -409,7 +418,7 @@ func delete(workspaceName string, logCh chan<- string) error {
 		}
 	}
 
-	err = terraform.DeleteEmptyWorkspace(tfws)
+	err = terraform.DeleteEmptyWorkspace(ctxAfterTFApply, tfws)
 	if err != nil {
 		return fmt.Errorf("failed to delete terraform workspace: %w", err)
 	}
@@ -438,7 +447,7 @@ func Get(ctx context.Context, workspaceName string) (*crdv1alpha1.LeptonWorkspac
 	return DataStore.Get(ctx, workspaceName)
 }
 
-func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorkspace, error) {
+func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorkspace, error) {
 	goutil.Logger.Infow("creating workspace",
 		"workspace", ws.Spec.Name,
 		"operation", "create",
@@ -447,7 +456,7 @@ func idempotentCreate(ws *crdv1alpha1.LeptonWorkspace) (*crdv1alpha1.LeptonWorks
 	var err error
 	workspaceName := ws.Spec.Name
 
-	err = terraform.CreateWorkspace(terraformWorkspaceName(workspaceName))
+	err = terraform.CreateWorkspace(ctx, terraformWorkspaceName(workspaceName))
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
@@ -508,8 +517,11 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		}
 	}()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var cl *crdv1alpha1.LeptonCluster
-	cl, err = cluster.DataStore.Get(context.Background(), ws.Spec.ClusterName)
+	cl, err = cluster.DataStore.Get(ctx, ws.Spec.ClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -522,7 +534,7 @@ func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- strin
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(tfws)
+	err = terraform.ForceUnlockWorkspace(ctx, tfws)
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}

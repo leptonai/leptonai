@@ -23,7 +23,7 @@ func (h *StorageSyncerHandler) Create(c *gin.Context) {
 		return
 	}
 
-	err = gcssyncer.CreateSyncerForDefaultEFS(h.namespace, s.Metadata.Name, s.Spec.GCSURL, s.Spec.DestPath, s.Spec.CredJSON)
+	err = gcssyncer.CreateSyncerForDefaultEFS(c, h.namespace, s.Metadata.Name, s.Spec.GCSURL, s.Spec.DestPath, s.Spec.CredJSON)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create storage syncer",
 			"operation", "createStorageSyncer",
@@ -46,7 +46,7 @@ func (h *StorageSyncerHandler) Create(c *gin.Context) {
 // Delete deletes a storage syncer.
 func (h *StorageSyncerHandler) Delete(c *gin.Context) {
 	name := c.Param("name")
-	err := gcssyncer.DeleteSyncerForDefaultEFS(h.namespace, name)
+	err := gcssyncer.DeleteSyncerForDefaultEFS(c, h.namespace, name)
 	if err != nil {
 		goutil.Logger.Errorw("failed to delete storage syncer",
 			"operation", "deleteStorageSyncer",

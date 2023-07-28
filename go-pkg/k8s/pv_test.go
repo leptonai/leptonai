@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/util"
 
@@ -14,12 +15,15 @@ import (
 func TestPVandPVC(t *testing.T) {
 	name := "test-pv-" + util.RandString(5)
 	handle := "fs-12345678"
-	err := CreatePV(name, handle)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	err := CreatePV(ctx, name, handle)
 	if err != nil {
 		t.Fatal("failed to create PV:", err)
 	}
 	defer func() {
-		err = DeletePV(name)
+		err = DeletePV(ctx, name)
 		if err != nil {
 			t.Fatal("failed to delete PV:", err)
 		}
@@ -27,7 +31,7 @@ func TestPVandPVC(t *testing.T) {
 
 	// Make this a sub test
 	pv := &corev1.PersistentVolume{}
-	err = Client.Get(context.Background(), types.NamespacedName{Name: name}, pv, &client.GetOptions{})
+	err = Client.Get(ctx, types.NamespacedName{Name: name}, pv, &client.GetOptions{})
 	if err != nil {
 		t.Fatal("failed to get PV:", err)
 	}
@@ -42,19 +46,19 @@ func TestPVandPVC(t *testing.T) {
 	cname := "test-pvc-" + util.RandString(5)
 	namespace := "default"
 
-	err = CreatePVC(namespace, cname, name, nil)
+	err = CreatePVC(ctx, namespace, cname, name, nil)
 	if err != nil {
 		t.Fatal("failed to create PVC:", err)
 	}
 	defer func() {
-		err = DeletePVC(namespace, cname)
+		err = DeletePVC(ctx, namespace, cname)
 		if err != nil {
 			t.Fatal("failed to delete PVC:", err)
 		}
 	}()
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err = Client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: cname}, pvc, &client.GetOptions{})
+	err = Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cname}, pvc, &client.GetOptions{})
 	if err != nil {
 		t.Fatal("failed to get PVC:", err)
 	}

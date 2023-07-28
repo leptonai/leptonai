@@ -554,7 +554,7 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 		pvname := getPVName(ld.Namespace, ld.GetSpecName(), i)
 		pvcname := getPVCName(ld.Namespace, ld.GetSpecName(), i)
 
-		err := k8s.CreatePV(pvname, ld.Spec.EFSID+":"+v.Path+":"+ld.Spec.EFSAccessPointID)
+		err := k8s.CreatePV(ctx, pvname, ld.Spec.EFSID+":"+v.Path+":"+ld.Spec.EFSAccessPointID)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
@@ -565,7 +565,7 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 			"pvname", pvname,
 		)
 
-		err = k8s.CreatePVC(ld.Namespace, pvcname, pvname, or)
+		err = k8s.CreatePVC(ctx, ld.Namespace, pvcname, pvname, or)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
@@ -595,7 +595,7 @@ func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv
 			"pvname", pvname,
 		)
 
-		err := k8s.DeletePV(pvname)
+		err := k8s.DeletePV(ctx, pvname)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}

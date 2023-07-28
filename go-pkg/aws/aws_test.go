@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestCreds(t *testing.T) {
@@ -23,7 +24,10 @@ func TestCreds(t *testing.T) {
 	if cfg.Credentials == nil {
 		t.Skip("cannot create session; nil Credentials")
 	}
-	creds, err := cfg.Credentials.Retrieve(context.TODO())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	creds, err := cfg.Credentials.Retrieve(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

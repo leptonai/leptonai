@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
@@ -18,6 +19,8 @@ const (
 	DefaultDBName        = "postgres"
 	DefaultDBPort        = 5432
 	DefaultAuthWithToken = false
+
+	defaultOperationTimeout = 10 * time.Second
 )
 
 var (
@@ -57,13 +60,16 @@ func (c AuroraConfig) DSNWithAuthToken(authToken string) string {
 func (c AuroraConfig) NewHandler() (*sql.DB, error) {
 	dsn := c.DSN()
 	if c.AuthWithToken {
-		awsCfg, err := config.LoadDefaultConfig(context.TODO())
+		ctx, cancel := context.WithTimeout(context.Background(), defaultOperationTimeout)
+		defer cancel()
+
+		awsCfg, err := config.LoadDefaultConfig(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("NewHandler: configuration error: " + err.Error())
 		}
 
 		authTkn, err := auth.BuildAuthToken(
-			context.TODO(), c.DBEndpoint, c.Region, c.DBUser, awsCfg.Credentials)
+			ctx, c.DBEndpoint, c.Region, c.DBUser, awsCfg.Credentials)
 		if err != nil {
 			return nil, fmt.Errorf("NewHandler: failed to BuildAuthToken %v", err)
 		}

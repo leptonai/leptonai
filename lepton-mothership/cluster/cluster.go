@@ -105,8 +105,11 @@ func Init() {
 					"cluster", cl.Spec.Name,
 					"operation", "create",
 				)
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
 				// call the idempotent create function
-				_, err := idempotentCreate(cl)
+				_, err := idempotentCreate(ctx, cl)
 				if err != nil {
 					goutil.Logger.Errorw("failed to create cluster",
 						"cluster", cl.Spec.Name,
@@ -191,7 +194,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 		return nil, fmt.Errorf("failed to update cluster status: %w", err)
 	}
 
-	return idempotentCreate(cl)
+	return idempotentCreate(ctx, cl)
 }
 
 func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
@@ -324,14 +327,17 @@ func delete(clusterName string, logCh chan<- string) error {
 		// we should debug why the delete failed manually and actually fix the root cause
 	}()
 
+	ctxBeforeTF, cancelBeforeTF := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelBeforeTF()
+
 	tfws := terraformWorkspaceName(clusterName)
-	_, err = terraform.GetWorkspace(tfws)
+	_, err = terraform.GetWorkspace(ctxBeforeTF, tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(tfws)
+	err = terraform.ForceUnlockWorkspace(ctxBeforeTF, tfws)
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
@@ -383,7 +389,10 @@ func delete(clusterName string, logCh chan<- string) error {
 		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
 	}
 
-	err = terraform.DeleteEmptyWorkspace(terraformWorkspaceName(clusterName))
+	ctxAfterTF, cancelAfterTF := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelAfterTF()
+
+	err = terraform.DeleteEmptyWorkspace(ctxAfterTF, terraformWorkspaceName(clusterName))
 	if err != nil {
 		return fmt.Errorf("failed to delete terraform workspace: %w", err)
 	}
@@ -406,11 +415,11 @@ func Get(ctx context.Context, clusterName string) (*crdv1alpha1.LeptonCluster, e
 	return DataStore.Get(ctx, clusterName)
 }
 
-func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster, error) {
+func idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster, error) {
 	var err error
 	clusterName := cl.Spec.Name
 
-	err = terraform.CreateWorkspace(terraformWorkspaceName(clusterName))
+	err = terraform.CreateWorkspace(ctx, terraformWorkspaceName(clusterName))
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
@@ -429,7 +438,7 @@ func idempotentCreate(cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster
 		)
 	}
 
-	err = terraform.ForceUnlockWorkspace(terraformWorkspaceName(clusterName))
+	err = terraform.ForceUnlockWorkspace(ctx, terraformWorkspaceName(clusterName))
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return nil, fmt.Errorf("failed to force unlock workspace: %w", err)
 	}

@@ -32,17 +32,20 @@ func NewCommand() *cobra.Command {
 func pingFunc(cmd *cobra.Command, args []string) {
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	dsn := auroraCfg.DSN()
 	if auroraCfg.AuthWithToken {
 		log.Printf("--auth-with-token specified, ignoring --db-password")
 
-		awsCfg, err := config.LoadDefaultConfig(context.TODO())
+		awsCfg, err := config.LoadDefaultConfig(ctx)
 		if err != nil {
 			panic("configuration error: " + err.Error())
 		}
 
 		authTkn, err := auth.BuildAuthToken(
-			context.TODO(), auroraCfg.DBEndpoint, auroraCfg.Region, auroraCfg.DBUser, awsCfg.Credentials)
+			ctx, auroraCfg.DBEndpoint, auroraCfg.Region, auroraCfg.DBUser, awsCfg.Credentials)
 		if err != nil {
 			log.Fatalf("failed to BuildAuthToken %v", err)
 		}
