@@ -58,7 +58,10 @@ func NewInferenceHandler(d DeploymentHandler) *InferenceHandler {
 	}
 	sp := httputil.NewSingleHostReverseProxy(u)
 	sp.ModifyResponse = func(resp *http.Response) error {
-		util.SetCORSForDashboard(resp.Header)
+		// Have to remove CORS headers from response
+		// The reverse proxy continues to merge headers even if we overwrite the modify response function here.
+		// So we have to unset the CORS headers here instead of set it correctly.
+		util.UnsetCORSForDashboard(resp.Header)
 		return nil
 	}
 

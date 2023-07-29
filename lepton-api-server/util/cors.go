@@ -19,3 +19,12 @@ func SetCORSForDashboard(h http.Header) {
 			ingress.HTTPHeaderNameForAuthorization+", "+
 			ingress.HTTPHeaderNameForDeployment)
 }
+
+// UnsetCORSForDashboard unsets the CORS headers for the response for dashboard.lepton.ai.
+// This is for working around the header merging bug in the http reserve proxy package.
+func UnsetCORSForDashboard(h http.Header) {
+	h.Del("Access-Control-Allow-Credentials")
+	h.Del("Access-Control-Allow-Origin")
+	h.Del("Access-Control-Allow-Methods")
+	h.Del("Access-Control-Allow-Headers")
+}
