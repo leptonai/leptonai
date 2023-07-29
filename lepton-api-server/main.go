@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 	"github.com/leptonai/lepton/go-pkg/kv"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
@@ -270,28 +269,15 @@ func main() {
 
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		util.SetCORSForDashboard(c.Writer.Header())
+
 		if c.Request.Method == "OPTIONS" {
-			setCors(c)
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
 		c.Next()
-		setCors(c)
 	}
-}
-
-func setCors(c *gin.Context) {
-	// Add the CORS headers after the request is handled to avoid duplication.
-	c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
-	c.Writer.Header().Set("Access-Control-Allow-Methods",
-		"POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS")
-	c.Writer.Header().Set("Access-Control-Allow-Headers",
-		"X-CSRF-Token, X-Requested-With, Accept, Accept-Version, "+
-			"Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, "+
-			ingress.HTTPHeaderNameForAuthorization+", "+
-			ingress.HTTPHeaderNameForDeployment)
 }
 
 func pauseWorkspaceMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {

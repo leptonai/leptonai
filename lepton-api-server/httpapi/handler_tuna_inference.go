@@ -13,6 +13,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/lepton-api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,10 @@ func NewInferenceHandler(d DeploymentHandler) *InferenceHandler {
 		Host:   service.ServiceName("lepton-api-server") + "." + "ws-" + d.clusterName + "sys" + ".svc:20863",
 	}
 	sp := httputil.NewSingleHostReverseProxy(u)
+	sp.ModifyResponse = func(resp *http.Response) error {
+		util.SetCORSForDashboard(resp.Header)
+		return nil
+	}
 
 	return &InferenceHandler{
 		DeploymentHandler: d,
