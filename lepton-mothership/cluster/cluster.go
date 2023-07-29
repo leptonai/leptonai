@@ -15,6 +15,7 @@ import (
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/worker"
 	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/lepton-mothership/metrics"
 	"github.com/leptonai/lepton/lepton-mothership/terraform"
 	"github.com/leptonai/lepton/lepton-mothership/util"
 
@@ -44,48 +45,10 @@ var (
 	)
 
 	Worker = worker.New()
-
-	clusterTotal = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: "mothership",
-			Subsystem: "cluster",
-			Name:      "total",
-			Help:      "Tracks the total number of clusters",
-		},
-	)
-
-	failedAPIs = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "mothership",
-			Subsystem: "cluster",
-			Name:      "failed_apis",
-			Help:      "Tracks failed mothership cluster operations",
-		},
-		[]string{"api"},
-	)
 )
-
-func getTotalClusters(gatherer prometheus.Gatherer) int {
-	gss, err := gatherer.Gather()
-	if err != nil {
-		log.Printf("failed to get default gatherer %v", err)
-		return 0
-	}
-	for _, gs := range gss {
-		if gs.GetName() == "mothership_cluster_total" && len(gs.Metric) > 0 {
-			return int(*gs.Metric[0].GetGauge().Value)
-		}
-	}
-	return 0
-}
 
 // Init initializes the cluster and retore any ongoing operations
 func Init() {
-	prometheus.MustRegister(
-		clusterTotal,
-		failedAPIs,
-	)
-
 	clusters, err := DataStore.List(context.Background())
 	if err != nil {
 		goutil.Logger.Fatalw("failed to list clusters",
@@ -99,7 +62,7 @@ func Init() {
 
 		switch cl.Status.State {
 		case crdv1alpha1.ClusterOperationalStateCreating, crdv1alpha1.ClusterOperationalStateUnknown:
-			clusterTotal.Inc()
+			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart creating cluster",
 					"cluster", cl.Spec.Name,
@@ -119,7 +82,7 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterOperationalStateUpdating:
-			clusterTotal.Inc()
+			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart updating cluster",
 					"cluster", cl.Spec.Name,
@@ -134,7 +97,7 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterOperationalStateDeleting:
-			clusterTotal.Inc()
+			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart deleting cluster",
 					"cluster", cl.Spec.Name,
@@ -148,7 +111,7 @@ func Init() {
 						"error", err,
 					)
 				} else {
-					clusterTotal.Dec()
+					metrics.DecrementClustersTotal()
 				}
 			}()
 		}
@@ -164,7 +127,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
 	}
 
-	totalClusters := getTotalClusters(prometheus.DefaultGatherer)
+	totalClusters := metrics.GetTotalClusters(prometheus.DefaultGatherer)
 	log.Printf("currently total %d clusters... creating one more", totalClusters)
 	if totalClusters >= maxClusters {
 		return nil, fmt.Errorf("max cluster size limit exceeded (up to %d)", maxClusters)
@@ -172,7 +135,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 
 	defer func() {
 		if err == nil {
-			clusterTotal.Inc()
+			metrics.IncrementClustersTotal()
 		}
 	}()
 
@@ -231,7 +194,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
+		cerr := createOrUpdateCluster(metrics.NewCtxWithJobKind("update"), cl, logCh)
 		if cerr != nil {
 			goutil.Logger.Errorw("failed to update cluster",
 				"cluster", clusterName,
@@ -242,7 +205,6 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
-		failedAPIs.WithLabelValues("create").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -256,11 +218,21 @@ func Delete(clusterName string) error {
 		return delete(clusterName, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
-		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
-func delete(clusterName string, logCh chan<- string) error {
+func delete(clusterName string, logCh chan<- string) (err error) {
+	start := time.Now()
+	defer func() {
+		metrics.ObserveClusterJobsLatency("delete", err == nil, time.Since(start))
+
+		if err == nil {
+			metrics.IncrementClusterJobsSuccessTotal("delete")
+			return
+		}
+		metrics.IncrementClusterJobsFailureTotal("delete")
+	}()
+
 	cl, err := DataStore.Get(context.Background(), clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -444,7 +416,7 @@ func idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv
 	}
 
 	err = Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
-		cerr := createOrUpdateCluster(context.Background(), cl, logCh)
+		cerr := createOrUpdateCluster(metrics.NewCtxWithJobKind("create"), cl, logCh)
 		if cerr != nil {
 			goutil.Logger.Errorw("failed to create cluster",
 				"cluster", clusterName,
@@ -455,7 +427,6 @@ func idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(context.Background(), clusterName)
-		failedAPIs.WithLabelValues("update").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -472,19 +443,28 @@ const (
 )
 
 func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
+	start := time.Now()
+	jkind := metrics.ReadJobKindFromCtx(ctx)
+
 	clusterName := cl.Spec.Name
 	var err error
 
 	defer func() {
+		metrics.ObserveClusterJobsLatency(jkind, err == nil, time.Since(start))
+
 		if err == nil {
 			// if err != nil, the state will be updated in the failure handler
 			cl.Status.LastState = cl.Status.State
 			cl.Status.State = crdv1alpha1.ClusterOperationalStateReady
+			metrics.IncrementClusterJobsSuccessTotal(jkind)
+		} else {
+			metrics.IncrementClusterJobsFailureTotal(jkind)
 		}
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(ctx, clusterName, cl)
 		if err == nil && derr != nil {
 			err = derr
+			metrics.IncrementClusterJobsFailureTotal(jkind)
 		}
 	}()
 
