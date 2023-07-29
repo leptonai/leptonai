@@ -148,7 +148,6 @@ func main() {
 	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
-	router.Use(corsMiddleware())
 	router.Use(requestid.New())
 	router.Use(pauseWorkspaceMiddleware(workspaceState))
 	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
@@ -264,6 +263,9 @@ func main() {
 		v1.DELETE("/syncer/:name", handler.StorageSyncerHandler().Delete)
 		// TODO: add list and get
 	}
+
+	// Add the middleware to the router as the last step to avoid duplication.
+	router.Use(corsMiddleware())
 
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
