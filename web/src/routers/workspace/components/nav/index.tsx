@@ -1,5 +1,5 @@
 import { Badge, TabsProps } from "antd";
-import { FC, useMemo } from "react";
+import { FC } from "react";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import {
@@ -11,7 +11,7 @@ import {
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
 import { Folder, Settings, Workspace } from "@carbon/icons-react";
 import { TabsNav } from "../../../../components/tabs-nav";
-import { useParams, useResolvedPath } from "react-router-dom";
+import { useResolvedPath } from "react-router-dom";
 
 const PhotonLabel: FC = () => {
   const notificationService = useInject(IndicatorService);
@@ -43,11 +43,6 @@ const DeploymentLabel: FC = () => {
 
 export const Nav: FC = () => {
   const { pathname } = useResolvedPath("");
-  const { workspaceId } = useParams();
-
-  const isSys = useMemo(() => {
-    return workspaceId?.endsWith("sys") ?? false;
-  }, [workspaceId]);
 
   const menuItems: TabsProps["items"] = [
     {
@@ -85,7 +80,6 @@ export const Nav: FC = () => {
       key: `${pathname}/storage`,
     },
     {
-      disabled: !isSys,
       label: (
         <span id="nav-tuna">
           <TunaIcon /> Tuna
@@ -101,7 +95,7 @@ export const Nav: FC = () => {
       ),
       key: `${pathname}/settings`,
     },
-  ].filter((e) => !e.disabled);
+  ];
 
   const notificationService = useInject(IndicatorService);
   const keyActive = (key: string) => {
