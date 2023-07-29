@@ -10,9 +10,17 @@ import { FC } from "react";
 
 export const GettingStarted: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const credential = `${workspaceTrackerService.id}:${workspaceTrackerService.workspace?.auth.token}`;
+  const credential = [
+    workspaceTrackerService.id,
+    workspaceTrackerService.workspace?.auth.token,
+  ]
+    .filter((x) => x)
+    .join(":");
   const maskCredential = (content: string) => {
-    if (content.includes(credential)) {
+    if (
+      content.includes(credential) &&
+      workspaceTrackerService.workspace?.auth.token
+    ) {
       return `${workspaceTrackerService.id}:${"*".repeat(
         workspaceTrackerService.workspace?.auth.token?.length ?? 0
       )}`;

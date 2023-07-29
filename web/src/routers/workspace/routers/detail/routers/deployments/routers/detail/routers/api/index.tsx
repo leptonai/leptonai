@@ -9,9 +9,9 @@ import { css } from "@emotion/react";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
 import {
-  LanguageSupports,
   CodeBlock,
-} from "../../../../../../../../components/code-block";
+  LanguageSupports,
+} from "@lepton-dashboard/routers/workspace/components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 import { Link } from "@lepton-dashboard/components/link";
@@ -70,7 +70,7 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   const maskToken = useCallback(
     (content: string) => {
-      if (content.includes(APIToken)) {
+      if (APIToken && content.includes(APIToken)) {
         const startSubstring = APIToken.substring(0, 3);
         const endSubstring = APIToken.substring(
           APIToken.length - 3,
@@ -139,13 +139,22 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
                   copyable
                 />
               </Typography.Paragraph>
-              <Typography.Paragraph>
-                Import the client and save your API token as a variable:
-              </Typography.Paragraph>
+              {APIToken ? (
+                <Typography.Paragraph>
+                  Import the client and save your API token as a variable:
+                </Typography.Paragraph>
+              ) : (
+                <Typography.Paragraph>Import the client:</Typography.Paragraph>
+              )}
+
               <Typography.Paragraph>
                 <CodeBlock
-                  code={`from leptonai.client import Client
-LEPTON_API_TOKEN = "${APIToken}"`}
+                  code={
+                    APIToken
+                      ? `from leptonai.client import Client
+LEPTON_API_TOKEN = "${APIToken}"`
+                      : `from leptonai.client import Client`
+                  }
                   language={LanguageSupports.Python}
                   tokenMask={maskToken}
                   copyable
@@ -153,7 +162,7 @@ LEPTON_API_TOKEN = "${APIToken}"`}
               </Typography.Paragraph>
             </>
           )}
-          {codeLanguage === LanguageSupports.Bash && (
+          {APIToken && codeLanguage === LanguageSupports.Bash && (
             <>
               <Typography.Paragraph>
                 Export your API token as an environment variable:
@@ -168,32 +177,41 @@ LEPTON_API_TOKEN = "${APIToken}"`}
               </Typography.Paragraph>
             </>
           )}
-          <Typography.Paragraph>
-            You can find your API token in the{" "}
-            <LinkTo
-              css={css`
-                text-decoration: underline !important;
-              `}
-              name="settingsAPITokens"
-            >
-              settings page
-            </LinkTo>
-            .
-          </Typography.Paragraph>
+          {APIToken && (
+            <Typography.Paragraph>
+              You can find your API token in the{" "}
+              <LinkTo
+                css={css`
+                  text-decoration: underline !important;
+                `}
+                name="settingsAPITokens"
+              >
+                settings page
+              </LinkTo>
+              .
+            </Typography.Paragraph>
+          )}
           {codeLanguage === LanguageSupports.Python && (
             <Typography.Paragraph>
               Then, you can call the API(s) like the following code segments:
             </Typography.Paragraph>
           )}
-          {codeLanguage === LanguageSupports.Bash && (
-            <Typography.Paragraph>
-              Then, you can call the API(s) with cURL like the following code
-              segments:
-            </Typography.Paragraph>
-          )}
+          {codeLanguage === LanguageSupports.Bash &&
+            (APIToken ? (
+              <Typography.Paragraph>
+                Then, you can call the API(s) with cURL like the following code
+                segments:
+              </Typography.Paragraph>
+            ) : (
+              <Typography.Paragraph>
+                You can call the API(s) with cURL like the following code
+                segments:
+              </Typography.Paragraph>
+            ))}
           {apis.map((api) => (
             <ApiItem
               api={api}
+              authorization={APIToken}
               key={api.operationId}
               deployment={deployment}
               language={codeLanguage}

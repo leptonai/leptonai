@@ -58,17 +58,20 @@ export const Credentials = () => {
             {
               title: "CREDENTIAL",
               dataIndex: "token",
-              render: (v, record) => (
-                <Typography.Text
-                  code
-                  copyable={{
-                    text: `${record.id}:${v}`,
-                    icon: <CarbonIcon icon={<CopyFile />} />,
-                  }}
-                >
-                  {record.id}:{v}
-                </Typography.Text>
-              ),
+              render: (v, record) => {
+                const credential = v ? `${record.id}:${v}` : `${record.id}`;
+                return (
+                  <Typography.Text
+                    code
+                    copyable={{
+                      text: credential,
+                      icon: <CarbonIcon icon={<CopyFile />} />,
+                    }}
+                  >
+                    {credential}
+                  </Typography.Text>
+                );
+              },
             },
           ]}
         />

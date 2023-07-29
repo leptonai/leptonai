@@ -14,9 +14,10 @@ import {
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;
+  authorization: string;
   deployment: Deployment;
   language: LanguageSupports;
-}> = ({ api, deployment, language }) => {
+}> = ({ api, authorization, deployment, language }) => {
   const openApiService = useInject(OpenApiService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
 
@@ -40,12 +41,13 @@ export const ApiItem: FC<{
         case LanguageSupports.Bash:
           return openApiService.curlify({
             ...api.request,
-            headers: hasAuthHeader
-              ? api.request.headers
-              : {
-                  ...api.request.headers,
-                  Authorization: `Bearer $LEPTON_API_TOKEN`,
-                },
+            headers:
+              hasAuthHeader || !authorization
+                ? api.request.headers
+                : {
+                    ...api.request.headers,
+                    Authorization: `Bearer $LEPTON_API_TOKEN`,
+                  },
           });
         default:
           return "";
@@ -53,7 +55,14 @@ export const ApiItem: FC<{
     } else {
       return "";
     }
-  }, [language, api, deployment, openApiService, workspaceTrackerService]);
+  }, [
+    api,
+    language,
+    openApiService,
+    authorization,
+    deployment.name,
+    workspaceTrackerService.id,
+  ]);
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { CopyFile, Password, View, ViewOff } from "@carbon/icons-react";
 import { ActionsHeader } from "@lepton-dashboard/components/actions-header";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Card } from "../../../../../../../../components/card";
+import { Card } from "@lepton-dashboard/components/card";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Button, Table, Typography } from "antd";
@@ -10,7 +10,9 @@ import { FC, useMemo, useState } from "react";
 
 export const ApiTokens: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const data = [{ token: workspaceTrackerService.workspace!.auth.token }];
+  const data = workspaceTrackerService.workspace?.auth.token
+    ? [{ token: workspaceTrackerService.workspace.auth.token }]
+    : [];
   const [mask, setMask] = useState(true);
   const columns: ColumnsType<{ token: string }> = useMemo(
     () => [
