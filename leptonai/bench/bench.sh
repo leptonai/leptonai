@@ -80,10 +80,10 @@ fi
 client_py=$(mktemp --suffix .py)
 
 cat >"${client_py}" <<EOF
-from locust import HttpUser, task
+from locust import FastHttpUser, task
 
 
-class BenchUser(HttpUser):
+class BenchUser(FastHttpUser):
     def _send_request(self):
         self.client.post(
             "", headers={"Authorization": "Bearer " + "${token}"}, json=${data}
@@ -97,4 +97,4 @@ class BenchUser(HttpUser):
         self._send_request()
 EOF
 
-locust -f "${client_py}" --headless --users "${users}" --spawn-rate 1 -H "${remote}" -t "${period}"
+locust -f "${client_py}" --headless --users "${users}" --spawn-rate "${users}" -H "${remote}" -t "${period}"
