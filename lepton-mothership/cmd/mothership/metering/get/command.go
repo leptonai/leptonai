@@ -116,8 +116,10 @@ func getFunc(cmd *cobra.Command, args []string) {
 			log.Fatal(err)
 		}
 
+		// set timeout for querying pods to get the service information
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		fwd, err = service.NewPortForwardQuerier(
-			context.Background(),
+			ctx,
 			clientset,
 			restConfig,
 			opencostNamespace,
@@ -127,7 +129,10 @@ func getFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("failed to create port forwarder for service %v", err)
 		}
-		defer fwd.Stop()
+		defer func() {
+			cancel()
+			fwd.Stop()
+		}()
 	}
 
 	qp := metering.OcQueryParams{

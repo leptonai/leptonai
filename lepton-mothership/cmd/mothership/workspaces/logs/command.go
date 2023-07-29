@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
 	"github.com/spf13/cobra"
@@ -48,8 +49,10 @@ func logsFunc(cmd *cobra.Command, args []string) {
 		url += "/logs"
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	req, err := http.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		"GET",
 		url,
 		nil,

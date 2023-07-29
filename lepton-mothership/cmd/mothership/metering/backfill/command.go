@@ -161,8 +161,11 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to build clientset: %v", err)
 		}
+
+		// set timeout for querying pods to get the service information
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		fwd, err = service.NewPortForwardQuerier(
-			context.Background(),
+			ctx,
 			clientset,
 			restConfig,
 			opencostNamespace,
@@ -172,7 +175,10 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to build port forwarder: %v", err)
 		}
-		defer fwd.Stop()
+		defer func() {
+			cancel()
+			fwd.Stop()
+		}()
 	}
 
 	var gaps [][]time.Time

@@ -43,7 +43,7 @@ func NewCommand() *cobra.Command {
 		Long: `
 # Sync metering data from kubecost/opencost indefinitely to interval-based metering db
 By default, we sync every 10th minute (i.e 10:00, 10:10, 10:20, etc) in 10 minute intervals
-query-window should evenly divide 60, e.g 10m, 15m, 20m, 30m, 60m 
+query-window should evenly divide 60, e.g 10m, 15m, 20m, 30m, 60m
 and recommended to be at least 5 minutes.
 
 --enable-compute and --enable-storage flags can be used to enable syncing compute and storage data respectively. At least one must be set.
@@ -110,8 +110,11 @@ func syncFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("failed to build k8s clientset %v", err)
 		}
+
+		// set timeout for querying pods to get the service information
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		fwd, err := service.NewPortForwardQuerier(
-			context.Background(),
+			ctx,
 			clientset,
 			restConfig,
 			opencostNamespace,
@@ -121,7 +124,10 @@ func syncFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("failed to create port forwarder for service %v", err)
 		}
-		defer fwd.Stop()
+		defer func() {
+			cancel()
+			fwd.Stop()
+		}()
 	}
 
 	sigs := make(chan os.Signal, 1)

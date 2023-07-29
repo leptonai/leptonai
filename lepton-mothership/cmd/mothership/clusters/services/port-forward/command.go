@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/lepton-mothership/cmd/mothership/common"
@@ -65,14 +66,17 @@ func portForwardFunc(cmd *cobra.Command, args []string) {
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/cmd/aggregatedcommandbuilder.go
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/query/allocation.go
 	// ref. https://github.com/kubecost/kubectl-cost/blob/main/pkg/query/portforward.go
+	// set timeout for querying pods to get the service information
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	fwd, err := service.NewPortForwardQuerier(
-		context.Background(),
+		ctx,
 		clientset,
 		restConfig,
 		namespace,
 		svcName,
 		int(svcPort),
 	)
+	cancel()
 	if err != nil {
 		log.Fatalf("failed to create port forwarder for service %v", err)
 	}
