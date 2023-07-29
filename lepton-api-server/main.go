@@ -148,6 +148,7 @@ func main() {
 	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
+	router.Use(corsMiddleware())
 	router.Use(requestid.New())
 	router.Use(pauseWorkspaceMiddleware(workspaceState))
 	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
@@ -264,31 +265,33 @@ func main() {
 		// TODO: add list and get
 	}
 
-	// Add the middleware to the router as the last step to avoid duplication.
-	router.Use(corsMiddleware())
-
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
-		c.Writer.Header().Set("Access-Control-Allow-Methods",
-			"POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers",
-			"X-CSRF-Token, X-Requested-With, Accept, Accept-Version, "+
-				"Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, "+
-				ingress.HTTPHeaderNameForAuthorization+", "+
-				ingress.HTTPHeaderNameForDeployment)
-
 		if c.Request.Method == "OPTIONS" {
+			setCors(c)
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
 		c.Next()
+		setCors(c)
 	}
+}
+
+func setCors(c *gin.Context) {
+	// Add the CORS headers after the request is handled to avoid duplication.
+	c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
+	c.Writer.Header().Set("Access-Control-Allow-Methods",
+		"POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS")
+	c.Writer.Header().Set("Access-Control-Allow-Headers",
+		"X-CSRF-Token, X-Requested-With, Accept, Accept-Version, "+
+			"Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, "+
+			ingress.HTTPHeaderNameForAuthorization+", "+
+			ingress.HTTPHeaderNameForDeployment)
 }
 
 func pauseWorkspaceMiddleware(workspaceState httpapi.WorkspaceState) gin.HandlerFunc {
