@@ -120,13 +120,14 @@ export const JobItem: FC<{
     });
   }, [fineTuneService, job.name, job.output_dir, refreshService]);
 
-  const gotoModelComparison = useCallback(
-    (name: string) => {
-      const slugName = name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-      navigateService.navigateTo("tunaChat", { name: slugName });
-    },
-    [navigateService]
-  );
+  const gotoModelComparison = useCallback(() => {
+    if (!inference?.metadata.name) {
+      return;
+    }
+    navigateService.navigateTo("tunaChat", {
+      inferenceName: inference.metadata.name,
+    });
+  }, [navigateService, inference]);
   return (
     <>
       <Row gutter={[0, 12]}>
@@ -169,7 +170,7 @@ export const JobItem: FC<{
                       key="try"
                       type="text"
                       icon={<CarbonIcon icon={<PlayFilledAlt />} />}
-                      onClick={() => gotoModelComparison(job.name)}
+                      onClick={gotoModelComparison}
                     >
                       Try it out
                     </Button>
