@@ -654,6 +654,12 @@ resource "helm_release" "kube_prometheus_stack" {
         aws = {
           assume_role_enabled = true
         }
+
+        # https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#override-configuration-with-environment-variables
+        # export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/tmp/dashboards/k8s-resources-cluster.json
+        dashboards = {
+          default_home_dashboard_path = "/tmp/dashboards/k8s-resources-cluster.json"
+        }
       }
 
       # use additional data sources to configure aws auth (sig v4)
