@@ -14,7 +14,7 @@ import (
 	e2eutil "github.com/leptonai/lepton/e2e-tests/e2e-util"
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 )
 
 var (

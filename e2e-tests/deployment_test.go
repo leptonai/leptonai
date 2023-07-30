@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 )
 
 func TestDeploySamePhotonMultipleTimes(t *testing.T) {

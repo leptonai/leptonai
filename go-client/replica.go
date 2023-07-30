@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/api-server/httpapi"
 	"golang.org/x/net/websocket"
 )
 

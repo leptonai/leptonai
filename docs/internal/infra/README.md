@@ -25,7 +25,7 @@ We have to manually update other resources using [install.sh](terraform/eks-moth
 Mothership creates and updates clusters using code in [terraform/eks-lepton](terraform/eks-lepton).
 We have to call mothership to update cluster-level resources, including CRDs.
 
-The mothership API for creating clusters is at [CRD](../lepton-mothership/crd/api/v1alpha1/leptoncluster_types.go).
+The mothership API for creating clusters is at [CRD](../mothership/crd/api/v1alpha1/leptoncluster_types.go).
 
 Currently, we have two clusters: `dev` and `ci`. As their names suggest, we use `dev` for development purposes and `ci` to run continous integrity.
 Additionally, `dev` cluster also runs the [github actions runners](../github-actions-runner/).
@@ -36,7 +36,7 @@ TODO: we weekly delete and recreate the `ci` cluster.
 
 Mothership creates and updates workspaces using code in [terraform/workspace](terraform/workspace).
 
-The mothership API for creating workspaces is at [CRD](../lepton-mothership/crd/api/v1alpha1/leptonworkspace_types.go).
+The mothership API for creating workspaces is at [CRD](../mothership/crd/api/v1alpha1/leptonworkspace_types.go).
 
 Currently, we have three long-running workspaces: `latest`, `staging`, and `stable`.
 [cicd-satallite.yaml](../.github/workflows/cicd-satallite.yaml) automatically bumps the image version of the workspace named `latest`.

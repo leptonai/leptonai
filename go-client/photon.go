@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
+	"github.com/leptonai/lepton/api-server/httpapi"
 )
 
 const photonsPath = "/photons"

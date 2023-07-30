@@ -16,10 +16,10 @@ jobs:
         go-version: 1.19.x
     - name: Build mothership cli
       run: |
-        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
     - name: Delete test workspaces
       run: |
-        ./mothership workspace delete \
+        ./mothershipctl workspace delete \
           --auto-approve \
           --workspace-prefix "test" \
           --age 2 \

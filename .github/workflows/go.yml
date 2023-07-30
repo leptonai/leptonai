@@ -58,8 +58,8 @@ jobs:
         aws eks update-kubeconfig --name "$latest_ready_cluster" --region ${{ vars.AWS_REGION }}
     - name: Test
       run: |
-        (cd lepton-api-server && go test -v ./...)
-        (cd lepton-deployment-operator && go test -v ./...)
-        (cd lepton-mothership && go test -v ./...)
+        (cd api-server && go test -v ./...)
+        (cd deployment-operator && go test -v ./...)
+        (cd mothership && go test -v ./...)
         (cd go-pkg && go test -v ./...)
         (cd go-client && go test -v ./...)

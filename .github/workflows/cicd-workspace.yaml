@@ -15,7 +15,7 @@ on:
     branches: [ "**" ]
 
 jobs:
-  build-lepton-api-server:
+  build-api-server:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
@@ -45,7 +45,7 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file lepton-api-server/Dockerfile \
+        docker build . --file api-server/Dockerfile \
           --tag $ECR_REPOSITORY:$IMAGE_TAG \
           --build-arg GIT_COMMIT=$RELEASE_TAG \
           --build-arg REPO=$ECR_REGISTRY/ecr-public
@@ -74,7 +74,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
 
-  build-lepton-deployment-operator:
+  build-deployment-operator:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
@@ -104,7 +104,7 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file lepton-deployment-operator/Dockerfile \
+        docker build . --file deployment-operator/Dockerfile \
           --tag $ECR_REPOSITORY:$IMAGE_TAG \
           --build-arg GIT_COMMIT=$RELEASE_TAG \
           --build-arg REPO=$ECR_REGISTRY/ecr-public
@@ -132,7 +132,7 @@ jobs:
         docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
 
-  build-lepton-web:
+  build-web:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -187,7 +187,7 @@ jobs:
 
   e2e-tests:
     runs-on: self-hosted
-    needs: [build-lepton-api-server, build-lepton-deployment-operator]
+    needs: [build-api-server, build-deployment-operator]
     steps:
     - uses: actions/checkout@v3
     - name: Set short git commit SHA
@@ -208,11 +208,11 @@ jobs:
         python-version: '3.10'
     - name: Build mothership cli
       run: |
-        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
     - name: Find the latest CI cluster to run tests
       id: find_ci_cluster
       run: |
-        latest_ready_cluster=$(./mothership cluster list -o rawjson -u https://mothership.cloud.lepton.ai/api/v1 -t ${{ secrets.MOTHERSHIP_TOKEN }} 2>/dev/null | \
+        latest_ready_cluster=$(./mothershipctl cluster list -o rawjson -u https://mothership.cloud.lepton.ai/api/v1 -t ${{ secrets.MOTHERSHIP_TOKEN }} 2>/dev/null | \
         jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
         echo "latest ready cluster: $latest_ready_cluster"
         if [ -z "$latest_ready_cluster" ]; then
@@ -222,7 +222,7 @@ jobs:
         echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
     - name: Create ci workspace
       run: |
-        ./mothership workspace create \
+        ./mothershipctl workspace create \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --api-token "${{ steps.vars.outputs.api_token }}" \
@@ -230,7 +230,7 @@ jobs:
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --git-ref "${{ steps.vars.outputs.branch }}" \
           --image-tag "${{ steps.vars.outputs.image_tag }}"
-        ./mothership workspace wait \
+        ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
@@ -245,12 +245,12 @@ jobs:
     - name: Delete ci workspace
       if: always()
       run: |
-        ./mothership workspace delete \
+        ./mothershipctl workspace delete \
           --auto-approve \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}"
-        ./mothership workspace wait \
+        ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
@@ -274,18 +274,18 @@ jobs:
         go-version: 1.19.x
     - name: Build mothership cli
       run: |
-        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
     - name: Update the latest workspace
       env:
         WORKSPACE_NAME: latest
       run: |
-        ./mothership workspace update \
+        ./mothershipctl workspace update \
           --auto-approve \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "$WORKSPACE_NAME" \
           --image-tag "${{ steps.vars.outputs.image_tag }}"
-        ./mothership workspace wait \
+        ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "$WORKSPACE_NAME" \

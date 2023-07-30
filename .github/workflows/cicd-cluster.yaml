@@ -30,7 +30,7 @@ jobs:
         python-version: '3.10'
     - name: Build mothership cli
       run: |
-        (cd lepton-mothership && go build -v ./cmd/mothership && mv mothership ..)
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
     - name: Create cluster
 
       # TODO: remove this once EKS service makes cluster creation faster...
@@ -44,13 +44,13 @@ jobs:
       timeout-minutes: 130
 
       run: |
-        ./mothership cluster create \
+        ./mothershipctl cluster create \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
           --git-ref ${{ steps.vars.outputs.branch }} \
           --deployment-environment TEST
-        ./mothership cluster wait \
+        ./mothershipctl cluster wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
@@ -58,14 +58,14 @@ jobs:
           --expected-state "ready"
     - name: Create workspace
       run: |
-        ./mothership workspace create \
+        ./mothershipctl workspace create \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --api-token "${{ steps.vars.outputs.api_token }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --git-ref "${{ steps.vars.outputs.branch }}"
-        ./mothership workspace wait \
+        ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
@@ -80,12 +80,12 @@ jobs:
     - name: Delete workspace
       if: always()
       run: |
-        ./mothership workspace delete \
+        ./mothershipctl workspace delete \
           --auto-approve \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}"
-        ./mothership workspace wait \
+        ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
@@ -94,12 +94,12 @@ jobs:
     - name: Delete cluster
       if: always()
       run: |
-        ./mothership cluster delete \
+        ./mothershipctl cluster delete \
           --auto-approve \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}"
-        ./mothership cluster wait \
+        ./mothershipctl cluster wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --cluster-name "${{ steps.vars.outputs.cluster_name }}" \

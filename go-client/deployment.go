@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/leptonai/lepton/lepton-api-server/httpapi"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/api-server/httpapi"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 )
 
 const deploymentsPath = "/deployments"

@@ -9,13 +9,13 @@ on:
   push:
     paths:
       - ".github/workflow/cicd-mothership.yaml"
-      - "lepton-mothership/**"
+      - "mothership/**"
       - "go-pkg/**"
     branches: [ "main", "release-*" ]
   pull_request:
     paths:
       - ".github/workflow/cicd-mothership.yaml"
-      - "lepton-mothership/**"
+      - "mothership/**"
       - "go-pkg/**"
     branches: [ "**" ]
 
@@ -51,7 +51,7 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file lepton-mothership/Dockerfile \
+        docker build . --file mothership/Dockerfile \
           --tag $ECR_REPOSITORY:$IMAGE_TAG \
           --build-arg GIT_COMMIT=$RELEASE_TAG \
           --build-arg REPO=$ECR_REGISTRY/ecr-public
@@ -88,7 +88,7 @@ jobs:
       run: |
         # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
         RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file lepton-mothership/cmd/mothership/Dockerfile \
+        docker build . --file mothership/cmd/mothership/Dockerfile \
           --tag $ECR_REPOSITORY:$IMAGE_TAG \
           --build-arg GIT_COMMIT=$RELEASE_TAG \
           --build-arg REPO=$ECR_REGISTRY/ecr-public

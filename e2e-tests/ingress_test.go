@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/lepton-deployment-operator/api/v1alpha1"
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {

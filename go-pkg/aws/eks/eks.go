@@ -14,7 +14,7 @@ import (
 	"time"
 
 	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
-	crdv1alpha1 "github.com/leptonai/lepton/lepton-mothership/crd/api/v1alpha1"
+	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"

@@ -60,7 +60,7 @@ Once the install command above is complete, check the mothership API:
 ```bash
 # API_TOKEN: use the same value as the one used in mothership install.sh
 
-go install -v ./lepton-mothership/cmd/mothership
+go install -v ./mothership/cmd/mothership
 mothership clusters list -h
 
 mothership clusters list \
@@ -108,13 +108,13 @@ mothership clusters logs \
 
 TODO: make this run in the install script or in terraform.
 
-Apply the CRDs in the [`crd/bases`](../../../lepton-mothership/crd/config/crd/bases) directory:
+Apply the CRDs in the [`crd/bases`](../../../mothership/crd/config/crd/bases) directory:
 
 ```bash
 aws eks update-kubeconfig \
 --region us-west-2 \
 --name mothership-prod-aws-us-west-2
 
-kubectl apply -f ./lepton-mothership/crd/config/crd/bases/mothership.lepton.ai_leptonclusters.yaml
-kubectl apply -f ./lepton-mothership/crd/config/crd/bases/mothership.lepton.ai_leptonworkspaces.yaml
+kubectl apply -f ./mothership/crd/config/crd/bases/mothership.lepton.ai_leptonclusters.yaml
+kubectl apply -f ./mothership/crd/config/crd/bases/mothership.lepton.ai_leptonworkspaces.yaml
 ```
