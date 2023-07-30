@@ -173,8 +173,13 @@ dist-ssr
 
 
 ############ gitignore for golang ############
-lepton-api-server/lepton-api-server
-lepton-mothership/lepton-mothership
+api-server/api-server
+api-server/lepton-api-server
+mothership/mothership
+mothership/mothershipctl
+mothership/lepton-mothership
+mothership/cmd/mothership/mothership
+mothership/cmd/mothership/mothershipctl
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
@@ -202,5 +207,3 @@ _testmain.go
 
 # Lepton photon compiled file
 obj.pkl
-# mothership cmd
-mothership
