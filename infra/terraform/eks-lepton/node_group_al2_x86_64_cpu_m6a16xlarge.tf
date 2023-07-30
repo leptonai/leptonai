@@ -2,6 +2,9 @@
 # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
+#
+# NOTE: "var.cpu_node_group_instance_types" may be set to non-m16a instance types for testing
+# but should be set to m6a instance types for production
 resource "aws_eks_node_group" "al2_x86_64_cpu_m6a16xlarge" {
   cluster_name    = module.eks.cluster_name
   node_group_name = "${var.cluster_name}-al2-x86_64-m6a16xlarge"
@@ -15,9 +18,9 @@ resource "aws_eks_node_group" "al2_x86_64_cpu_m6a16xlarge" {
   version = "1.26"
 
   scaling_config {
-    min_size     = var.al2_x86_64_cpu_m6a16xlarge_min_size
-    desired_size = var.al2_x86_64_cpu_m6a16xlarge_min_size
-    max_size     = var.al2_x86_64_cpu_m6a16xlarge_max_size
+    min_size     = var.al2_x86_64_cpu_min_size
+    desired_size = var.al2_x86_64_cpu_min_size
+    max_size     = var.al2_x86_64_cpu_max_size
   }
   update_config {
     max_unavailable = 1
@@ -27,7 +30,7 @@ resource "aws_eks_node_group" "al2_x86_64_cpu_m6a16xlarge" {
   force_update_version = false
 
   capacity_type  = var.default_capacity_type
-  instance_types = ["m6a.16xlarge"]
+  instance_types = var.cpu_node_group_instance_types
 
   disk_size = var.disk_size_in_gb_for_node_groups
 

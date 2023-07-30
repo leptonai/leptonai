@@ -48,7 +48,8 @@ jobs:
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
-          --git-ref ${{ steps.vars.outputs.branch }}
+          --git-ref ${{ steps.vars.outputs.branch }} \
+          --deployment-environment TEST
         ./mothership cluster wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \

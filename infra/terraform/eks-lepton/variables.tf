@@ -43,6 +43,12 @@ variable "default_capacity_type" {
   }
 }
 
+variable "cpu_node_group_instance_types" {
+  description = "List of EC2 instance types to use/overwrite for CPU node groups (useful for testing with lower spot availability)"
+  type        = list(string)
+  default     = ["m6a.16xlarge"]
+}
+
 variable "lepton_cloud_route53_zone_id" {
   description = "cloud.lepton.ai Route53 zone ID"
   type        = string
@@ -100,13 +106,13 @@ variable "al2_x86_64_ac_g52xlarge_max_size" {
   default     = 10
 }
 
-variable "al2_x86_64_cpu_m6a16xlarge_min_size" {
+variable "al2_x86_64_cpu_min_size" {
   description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
   type        = number
   default     = 0
 }
 
-variable "al2_x86_64_cpu_m6a16xlarge_max_size" {
+variable "al2_x86_64_cpu_max_size" {
   description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
   type        = number
   default     = 10
@@ -136,13 +142,13 @@ variable "ubuntu_x86_64_ac_g52xlarge_max_size" {
   default     = 1
 }
 
-variable "ubuntu_x86_64_cpu_m6a16xlarge_min_size" {
+variable "ubuntu_x86_64_cpu_min_size" {
   description = "Min number and initial desired size of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
   type        = number
   default     = 0
 }
 
-variable "ubuntu_x86_64_cpu_m6a16xlarge_max_size" {
+variable "ubuntu_x86_64_cpu_max_size" {
   description = "Max number of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
   type        = number
   default     = 10

@@ -10,7 +10,8 @@ auth_users_iam_group_name = "dev"
 
 region = "us-east-1"
 
-default_capacity_type = "ON_DEMAND"
+default_capacity_type         = "SPOT"
+cpu_node_group_instance_types = ["t3.xlarge", "c5.xlarge"]
 
 single_nat_gateway = true
 
@@ -36,16 +37,16 @@ ubuntu_amis = {
 
 use_ubuntu_nvidia_gpu_operator = true
 
-al2_x86_64_ac_g4dnxlarge_min_size   = 0
-al2_x86_64_ac_g4dnxlarge_max_size   = 1
-al2_x86_64_ac_g52xlarge_min_size    = 0
-al2_x86_64_ac_g52xlarge_max_size    = 1
-al2_x86_64_cpu_m6a16xlarge_min_size = 0
-al2_x86_64_cpu_m6a16xlarge_max_size = 1
+al2_x86_64_ac_g4dnxlarge_min_size = 0
+al2_x86_64_ac_g4dnxlarge_max_size = 1
+al2_x86_64_ac_g52xlarge_min_size  = 0
+al2_x86_64_ac_g52xlarge_max_size  = 1
+al2_x86_64_cpu_min_size           = 0
+al2_x86_64_cpu_max_size           = 1
 
-ubuntu_x86_64_ac_g4dnxlarge_min_size   = 0
-ubuntu_x86_64_ac_g4dnxlarge_max_size   = 1
-ubuntu_x86_64_ac_g52xlarge_min_size    = 0
-ubuntu_x86_64_ac_g52xlarge_max_size    = 1
-ubuntu_x86_64_cpu_m6a16xlarge_min_size = 1
-ubuntu_x86_64_cpu_m6a16xlarge_max_size = 3
+ubuntu_x86_64_ac_g4dnxlarge_min_size = 0
+ubuntu_x86_64_ac_g4dnxlarge_max_size = 1
+ubuntu_x86_64_ac_g52xlarge_min_size  = 0
+ubuntu_x86_64_ac_g52xlarge_max_size  = 1
+ubuntu_x86_64_cpu_min_size           = 3 # run more nodes since we are using small instance types
+ubuntu_x86_64_cpu_max_size           = 10

@@ -20,6 +20,12 @@ if [[ "$DEFAULT_CAPACITY_TYPE" != "" ]]; then
     APPLY_FLAGS+=("-var=default_capacity_type=$DEFAULT_CAPACITY_TYPE")
 fi
 
+# e.g., -var='cpu_node_group_instance_types=["t3.xlarge","c5.xlarge"]'
+# ref. https://developer.hashicorp.com/terraform/language/values/variables#variables-on-the-command-line
+if [[ "$CPU_NODE_GROUP_INSTANCE_TYPES" != "" ]]; then
+    APPLY_FLAGS+=("-var=cpu_node_group_instance_types=$CPU_NODE_GROUP_INSTANCE_TYPES")
+fi
+
 if [[ "$LEPTON_CLOUD_ROUTE53_ZONE_ID" != "" ]]; then
     APPLY_FLAGS+=("-var=lepton_cloud_route53_zone_id=$LEPTON_CLOUD_ROUTE53_ZONE_ID")
 fi
@@ -52,12 +58,12 @@ if [[ "$UBUNTU_X86_64_AC_G52XLARGE_MAX_SIZE" != "" ]]; then
     APPLY_FLAGS+=("-var=ubuntu_x86_64_ac_g52xlarge_max_size=$UBUNTU_X86_64_AC_G52XLARGE_MAX_SIZE")
 fi
 
-if [[ "$UBUNTU_X86_64_CPU_M6A16XLARGE_MIN_SIZE" != "" ]]; then
-    APPLY_FLAGS+=("-var=ubuntu_x86_64_cpu_m6a16xlarge_min_size=$UBUNTU_X86_64_CPU_M6A16XLARGE_MIN_SIZE")
+if [[ "$UBUNTU_X86_64_CPU_MIN_SIZE" != "" ]]; then
+    APPLY_FLAGS+=("-var=ubuntu_x86_64_cpu_min_size=$UBUNTU_X86_64_CPU_MIN_SIZE")
 fi
 
-if [[ "$UBUNTU_X86_64_CPU_M6A16XLARGE_MAX_SIZE" != "" ]]; then
-    APPLY_FLAGS+=("-var=ubuntu_x86_64_cpu_m6a16xlarge_max_size=$UBUNTU_X86_64_CPU_M6A16XLARGE_MAX_SIZE")
+if [[ "$UBUNTU_X86_64_CPU_MAX_SIZE" != "" ]]; then
+    APPLY_FLAGS+=("-var=ubuntu_x86_64_cpu_max_size=$UBUNTU_X86_64_CPU_MAX_SIZE")
 fi
 
 # TODO: remove all these
@@ -78,10 +84,10 @@ if [[ "$AL2_X86_64_AC_G52XLARGE_MAX_SIZE" != "" ]]; then
     APPLY_FLAGS+=("-var=al2_x86_64_ac_g52xlarge_max_size=$AL2_X86_64_AC_G52XLARGE_MAX_SIZE")
 fi
 
-if [[ "$AL2_X86_64_CPU_M6A16XLARGE_MIN_SIZE" != "" ]]; then
-    APPLY_FLAGS+=("-var=al2_x86_64_cpu_m6a16xlarge_min_size=$AL2_X86_64_CPU_M6A16XLARGE_MIN_SIZE")
+if [[ "$AL2_X86_64_CPU_MIN_SIZE" != "" ]]; then
+    APPLY_FLAGS+=("-var=al2_x86_64_cpu_min_size=$AL2_X86_64_CPU_MIN_SIZE")
 fi
 
-if [[ "$AL2_X86_64_CPU_M6A16XLARGE_MAX_SIZE" != "" ]]; then
-    APPLY_FLAGS+=("-var=al2_x86_64_cpu_m6a16xlarge_max_size=$AL2_X86_64_CPU_M6A16XLARGE_MAX_SIZE")
+if [[ "$AL2_X86_64_CPU_MAX_SIZE" != "" ]]; then
+    APPLY_FLAGS+=("-var=al2_x86_64_cpu_max_size=$AL2_X86_64_CPU_MAX_SIZE")
 fi

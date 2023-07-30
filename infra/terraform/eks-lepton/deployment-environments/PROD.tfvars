@@ -10,7 +10,8 @@ auth_users_iam_group_name = "prod-admins"
 
 region = "us-west-2"
 
-default_capacity_type = "ON_DEMAND"
+default_capacity_type         = "ON_DEMAND"
+cpu_node_group_instance_types = ["m6a.16xlarge"]
 
 # for maximum availability
 single_nat_gateway = false
@@ -44,16 +45,16 @@ ubuntu_amis = {
 
 use_ubuntu_nvidia_gpu_operator = true
 
-al2_x86_64_ac_g4dnxlarge_min_size   = 0
-al2_x86_64_ac_g4dnxlarge_max_size   = 1
-al2_x86_64_ac_g52xlarge_min_size    = 0
-al2_x86_64_ac_g52xlarge_max_size    = 1
-al2_x86_64_cpu_m6a16xlarge_min_size = 0
-al2_x86_64_cpu_m6a16xlarge_max_size = 1
+al2_x86_64_ac_g4dnxlarge_min_size = 0
+al2_x86_64_ac_g4dnxlarge_max_size = 1
+al2_x86_64_ac_g52xlarge_min_size  = 0
+al2_x86_64_ac_g52xlarge_max_size  = 1
+al2_x86_64_cpu_min_size           = 0
+al2_x86_64_cpu_max_size           = 1
 
-ubuntu_x86_64_ac_g4dnxlarge_min_size   = 1
-ubuntu_x86_64_ac_g4dnxlarge_max_size   = 8
-ubuntu_x86_64_ac_g52xlarge_min_size    = 1
-ubuntu_x86_64_ac_g52xlarge_max_size    = 8
-ubuntu_x86_64_cpu_m6a16xlarge_min_size = 1
-ubuntu_x86_64_cpu_m6a16xlarge_max_size = 4
+ubuntu_x86_64_ac_g4dnxlarge_min_size = 1
+ubuntu_x86_64_ac_g4dnxlarge_max_size = 8
+ubuntu_x86_64_ac_g52xlarge_min_size  = 1
+ubuntu_x86_64_ac_g52xlarge_max_size  = 8
+ubuntu_x86_64_cpu_min_size           = 1
+ubuntu_x86_64_cpu_max_size           = 4
