@@ -16,3 +16,14 @@ func TestGetTotalClusters(t *testing.T) {
 		t.Fatalf("expected 1.0, got %d", r)
 	}
 }
+
+func TestGetTotalWorkspaces(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(workspacesTotal)
+
+	workspacesTotal.Inc()
+	r := GetTotalWorkspaces(reg)
+	if r != 1.0 {
+		t.Fatalf("expected 1.0, got %d", r)
+	}
+}

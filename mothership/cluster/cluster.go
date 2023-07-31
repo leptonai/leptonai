@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
@@ -49,20 +51,24 @@ var (
 
 // Init initializes the cluster and retore any ongoing operations
 func Init() {
-	clusters, err := DataStore.List(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	clusters, err := DataStore.List(ctx)
 	if err != nil {
 		goutil.Logger.Fatalw("failed to list clusters",
 			"error", err,
 		)
 		return
 	}
+	log.Printf("listed total %d clusters", len(clusters))
+	metrics.SetClustersTotal(float64(len(clusters)))
+	go monitorTotalNumberOfClusters()
 
 	for _, item := range clusters {
 		cl := item
 
 		switch cl.Status.State {
 		case crdv1alpha1.ClusterOperationalStateCreating, crdv1alpha1.ClusterOperationalStateUnknown:
-			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart creating cluster",
 					"cluster", cl.Spec.Name,
@@ -82,7 +88,6 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterOperationalStateUpdating:
-			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart updating cluster",
 					"cluster", cl.Spec.Name,
@@ -97,7 +102,6 @@ func Init() {
 				}
 			}()
 		case crdv1alpha1.ClusterOperationalStateDeleting:
-			metrics.IncrementClustersTotal()
 			go func() {
 				goutil.Logger.Infow("restart deleting cluster",
 					"cluster", cl.Spec.Name,
@@ -110,10 +114,37 @@ func Init() {
 						"operation", "delete",
 						"error", err,
 					)
-				} else {
-					metrics.DecrementClustersTotal()
 				}
 			}()
+		}
+	}
+}
+
+// monitorTotalNumberOfClusters periodically polls the data store to track the total number of clusters.
+func monitorTotalNumberOfClusters() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	for {
+		select {
+		case sig := <-sigs:
+			goutil.Logger.Infow("received signal", "signal", sig)
+			return
+		case <-time.After(5 * time.Minute):
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			css, err := DataStore.List(ctx)
+			cancel()
+			if err != nil {
+				goutil.Logger.Warnw("failed to list clusters",
+					"operation", "monitorTotalNumberOfClusters",
+					"error", err,
+				)
+				continue
+			}
+			goutil.Logger.Infow("listed total clusters",
+				"operation", "list",
+				"clusters", len(css),
+			)
+			metrics.SetClustersTotal(float64(len(css)))
 		}
 	}
 }
@@ -132,12 +163,6 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (c *crdv1al
 	if totalClusters >= maxClusters {
 		return nil, fmt.Errorf("max cluster size limit exceeded (up to %d)", maxClusters)
 	}
-
-	defer func() {
-		if err == nil {
-			metrics.IncrementClustersTotal()
-		}
-	}()
 
 	cl := &crdv1alpha1.LeptonCluster{
 		Spec: spec,
@@ -460,11 +485,11 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		} else {
 			metrics.IncrementClusterJobsFailureTotal(jkind)
 		}
+
 		cl.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(ctx, clusterName, cl)
 		if err == nil && derr != nil {
 			err = derr
-			metrics.IncrementClusterJobsFailureTotal(jkind)
 		}
 	}()
 

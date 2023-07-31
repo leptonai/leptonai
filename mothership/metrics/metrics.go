@@ -44,12 +44,65 @@ var (
 			Name:      "latency_seconds",
 
 			// lowest bucket start of upper bound 60 sec (1 min) with factor 2
-			// highest bucket start of 2-hour (7200 seconds)
-			Buckets: prometheus.ExponentialBuckets(60, 2, 12),
+			// highest bucket start of 7680 seconds = 60 * pow(2, 7).
+			Buckets: prometheus.ExponentialBuckets(60, 2, 8),
+		},
+		[]string{"job", "success"},
+	)
+
+	workspacesTotal = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "mothership",
+			Subsystem: "workspaces",
+			Name:      "total",
+			Help:      "Tracks the total number of workspaces",
+		},
+	)
+	workspaceJobsSuccessTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace_jobs",
+			Name:      "success_total",
+			Help:      "Tracks successful mothership workspace job operations (asynchronous calls)",
+		},
+		[]string{"job"},
+	)
+	workspaceJobsFailureTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace_jobs",
+			Name:      "failure_total",
+			Help:      "Tracks failed mothership workspace job operations (asynchronous calls)",
+		},
+		[]string{"job"},
+	)
+	workspaceJobsLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace_jobs",
+			Name:      "latency_seconds",
+
+			// lowest bucket start of upper bound 20 sec with factor 2
+			// highest bucket start of 1280 seconds = 20 * pow(2, 6).
+			Buckets: prometheus.ExponentialBuckets(20, 2, 7),
 		},
 		[]string{"job", "success"},
 	)
 )
+
+func init() {
+	prometheus.MustRegister(
+		clustersTotal,
+		clusterJobsSuccessTotal,
+		clusterJobsFailureTotal,
+		clusterJobsLatency,
+
+		workspacesTotal,
+		workspaceJobsSuccessTotal,
+		workspaceJobsFailureTotal,
+		workspaceJobsLatency,
+	)
+}
 
 type jobKind string
 
@@ -63,15 +116,6 @@ func NewCtxWithJobKind(jk string) context.Context {
 // ReadJobKindFromCtx returns the job kind string value from the context.
 func ReadJobKindFromCtx(ctx context.Context) string {
 	return ctx.Value(jobKindCtxKey).(string)
-}
-
-func init() {
-	prometheus.MustRegister(
-		clustersTotal,
-		clusterJobsSuccessTotal,
-		clusterJobsFailureTotal,
-		clusterJobsLatency,
-	)
 }
 
 // GetTotalClusters returns the total number of clusters from the default Prometheus gatherer.
@@ -89,14 +133,9 @@ func GetTotalClusters(gatherer prometheus.Gatherer) int {
 	return 0
 }
 
-// IncrementClusterJobsSuccessTotal increments the total number of clusters.
-func IncrementClustersTotal() {
-	clustersTotal.Inc()
-}
-
-// DecrementClusterJobsSuccessTotal decrements the total number of clusters.
-func DecrementClustersTotal() {
-	clustersTotal.Dec()
+// SetClustersTotal sets the total number of clusters.
+func SetClustersTotal(n float64) {
+	clustersTotal.Set(n)
 }
 
 // IncrementClusterJobsSuccessTotal increments the total number of successful cluster jobs.
@@ -112,4 +151,39 @@ func IncrementClusterJobsFailureTotal(job string) {
 // ObserveClusterJobsLatency tracks the latency of cluster jobs.
 func ObserveClusterJobsLatency(job string, success bool, took time.Duration) {
 	clusterJobsLatency.WithLabelValues(job, strconv.FormatBool(success)).Observe(took.Seconds())
+}
+
+// GetTotalWorkspaces returns the total number of workspaces from the default Prometheus gatherer.
+func GetTotalWorkspaces(gatherer prometheus.Gatherer) int {
+	gss, err := gatherer.Gather()
+	if err != nil {
+		log.Printf("failed to get default gatherer %v", err)
+		return 0
+	}
+	for _, gs := range gss {
+		if gs.GetName() == "mothership_workspaces_total" && len(gs.Metric) > 0 {
+			return int(*gs.Metric[0].GetGauge().Value)
+		}
+	}
+	return 0
+}
+
+// SetWorkspacesTotal updates the total number of workspaces.
+func SetWorkspacesTotal(n float64) {
+	workspacesTotal.Set(n)
+}
+
+// IncrementWorkspaceJobsSuccessTotal increments the total number of successful workspace jobs.
+func IncrementWorkspaceJobsSuccessTotal(job string) {
+	workspaceJobsSuccessTotal.WithLabelValues(job).Inc()
+}
+
+// IncrementWorkspaceJobsFailureTotal increments the total number of failed workspace jobs.
+func IncrementWorkspaceJobsFailureTotal(job string) {
+	workspaceJobsFailureTotal.WithLabelValues(job).Inc()
+}
+
+// ObserveWorkspaceJobsLatency tracks the latency of workspace jobs.
+func ObserveWorkspaceJobsLatency(job string, success bool, took time.Duration) {
+	workspaceJobsLatency.WithLabelValues(job, strconv.FormatBool(success)).Observe(took.Seconds())
 }

@@ -3,10 +3,13 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -16,6 +19,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/worker"
 	"github.com/leptonai/lepton/mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/mothership/metrics"
 	"github.com/leptonai/lepton/mothership/terraform"
 	"github.com/leptonai/lepton/mothership/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +32,12 @@ var (
 	RootDomain     string
 )
 
-const storeNamespace = "default"
+const (
+	storeNamespace = "default"
+
+	// NOTE: adjust based on per-account EKS quota
+	maxWorkspaces = 300
+)
 
 // Make workspace a struct and do not use global variables
 // TODO: do we want to backup the workspaces?
@@ -40,23 +49,9 @@ var (
 	)
 
 	Worker = worker.New()
-
-	failedAPIs = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "mothership",
-			Subsystem: "workspace",
-			Name:      "failed_apis",
-			Help:      "Tracks failed mothership workspace operations",
-		},
-		[]string{"api"},
-	)
 )
 
 func Init() {
-	prometheus.MustRegister(
-		failedAPIs,
-	)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	wss, err := DataStore.List(ctx)
@@ -67,6 +62,9 @@ func Init() {
 		)
 		return
 	}
+	log.Printf("listed total %d workspaces", len(wss))
+	metrics.SetWorkspacesTotal(float64(len(wss)))
+	go monitorTotalNumberOfWorkspaces()
 
 	ctow := make(map[string][]string)
 
@@ -153,10 +151,44 @@ func Init() {
 	goutil.Logger.Infow("finished init all workspaces")
 }
 
+// monitorTotalNumberOfWorkspaces periodically polls the data store to track the total number of workspaces.
+func monitorTotalNumberOfWorkspaces() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	for {
+		select {
+		case sig := <-sigs:
+			goutil.Logger.Infow("received signal", "signal", sig)
+			return
+		case <-time.After(5 * time.Minute):
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			wss, err := DataStore.List(ctx)
+			cancel()
+			if err != nil {
+				goutil.Logger.Warnw("failed to list workspaces",
+					"error", err,
+				)
+				continue
+			}
+			goutil.Logger.Infow("listed total workspaces",
+				"operation", "list",
+				"workspaces", len(wss),
+			)
+			metrics.SetWorkspacesTotal(float64(len(wss)))
+		}
+	}
+}
+
 func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	workspaceName := spec.Name
 	if !util.ValidateWorkspaceName(workspaceName) {
 		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.WorkspaceNameInvalidMessage)
+	}
+
+	totalWorkspaces := metrics.GetTotalWorkspaces(prometheus.DefaultGatherer)
+	log.Printf("currently total %d workspaces... creating one more", totalWorkspaces)
+	if totalWorkspaces >= maxWorkspaces {
+		return nil, fmt.Errorf("max workspace size limit exceeded (up to %d)", maxWorkspaces)
 	}
 
 	ws := &crdv1alpha1.LeptonWorkspace{
@@ -289,7 +321,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	}
 
 	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
-		cerr := createOrUpdateWorkspace(ws, logCh)
+		cerr := createOrUpdateWorkspace(metrics.NewCtxWithJobKind("update"), ws, logCh)
 		if cerr != nil {
 			goutil.Logger.Errorw("failed to create or update workspace",
 				"workspace", ws.Spec.Name,
@@ -300,7 +332,6 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
-		failedAPIs.WithLabelValues("update").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -315,11 +346,22 @@ func Delete(workspaceName string) error {
 		return delete(workspaceName, logCh)
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
-		failedAPIs.WithLabelValues("delete").Inc()
 	})
 }
 
-func delete(workspaceName string, logCh chan<- string) error {
+// TODO: handle or prevent redundant delete requests (e.g. by using a lock)
+func delete(workspaceName string, logCh chan<- string) (err error) {
+	start := time.Now()
+	defer func() {
+		metrics.ObserveWorkspaceJobsLatency("delete", err == nil, time.Since(start))
+
+		if err == nil {
+			metrics.IncrementWorkspaceJobsSuccessTotal("delete")
+			return
+		}
+		metrics.IncrementWorkspaceJobsFailureTotal("delete")
+	}()
+
 	goutil.Logger.Infow("deleting workspace",
 		"workspace", workspaceName,
 		"operation", "delete",
@@ -497,7 +539,7 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 	}
 
 	err = Worker.CreateJob(30*time.Minute, workspaceName, func(logCh chan<- string) error {
-		cerr := createOrUpdateWorkspace(ws, logCh)
+		cerr := createOrUpdateWorkspace(metrics.NewCtxWithJobKind("create"), ws, logCh)
 		if cerr != nil {
 			goutil.Logger.Errorw("failed to create or update workspace",
 				"workspace", workspaceName,
@@ -513,7 +555,6 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 		return cerr
 	}, func() {
 		tryUpdatingStateToFailed(workspaceName)
-		failedAPIs.WithLabelValues("create").Inc()
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -524,15 +565,24 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 
 const DeploymentEnvironmentKey = "DEPLOYMENT_ENVIRONMENT"
 
-func createOrUpdateWorkspace(ws *crdv1alpha1.LeptonWorkspace, logCh chan<- string) error {
+func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace, logCh chan<- string) error {
+	start := time.Now()
+	jkind := metrics.ReadJobKindFromCtx(ctx)
+
 	workspaceName := ws.Spec.Name
 	var err error
 
 	defer func() {
+		metrics.ObserveClusterJobsLatency(jkind, err == nil, time.Since(start))
+
 		if err == nil {
 			ws.Status.LastState = ws.Status.State
 			ws.Status.State = crdv1alpha1.WorkspaceOperationalStateReady
+			metrics.IncrementWorkspaceJobsSuccessTotal(jkind)
+		} else {
+			metrics.IncrementWorkspaceJobsFailureTotal(jkind)
 		}
+
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
 		derr := DataStore.UpdateStatus(context.Background(), workspaceName, ws)
 		if err == nil && derr != nil {
