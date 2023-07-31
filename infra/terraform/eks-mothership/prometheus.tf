@@ -392,9 +392,40 @@ resource "helm_release" "kube_prometheus_stack" {
       }
     }
 
+    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+    alertmanager = {
+      enabled = true
+
+      # just use port-forwarding for now
+      ingress = {
+        enabled = false
+      }
+      service = {
+        port       = 9093
+        targetPort = 9093
+      }
+    }
+
     # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
     prometheus = {
       enabled = true
+
+      ingress = {
+        # NOTE: to just use service
+        #
+        # e.g.,
+        # <service-name>.<namespace>.svc.cluster.local:<service-port>
+        # http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
+        #
+        # e.g.,
+        # kubectl -n kube-prometheus-stack port-forward prometheus-kube-prometheus-stack-prometheus-0 3000:9090
+        # http://localhost:3000
+        enabled = false
+      }
+      service = {
+        port       = 9090
+        targetPort = 9090
+      }
 
       # manually create here to set up IRSA
       #
@@ -409,19 +440,6 @@ resource "helm_release" "kube_prometheus_stack" {
         # use the one created above that maps IRSA for IAM permissions
         create = false
         name   = "kube-prometheus-stack-prometheus"
-      }
-
-      ingress = {
-        # NOTE: to just use service
-        #
-        # e.g.,
-        # <service-name>.<namespace>.svc.cluster.local:<service-port>
-        # http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
-        #
-        # e.g.,
-        # kubectl -n kube-prometheus-stack port-forward prometheus-kube-prometheus-stack-prometheus-0 3000:9090
-        # http://localhost:3000
-        enabled = false
       }
 
       prometheusSpec = {
@@ -560,6 +578,24 @@ resource "helm_release" "kube_prometheus_stack" {
     grafana = {
       enabled = true
 
+      ingress = {
+        # NOTE: to just use service
+        #
+        # e.g.,
+        # <service-name>.<namespace>.svc.cluster.local:<service-port>
+        # http://kube-prometheus-stack-grafana.kube-prometheus-stack.svc.cluster.local:80
+        #
+        # e.g.,
+        # POD=$(kubectl -n kube-prometheus-stack get pod -l app.kubernetes.io/instance=kube-prometheus-stack -l app.kubernetes.io/name=grafana -o jsonpath="{.items[0].metadata.name}")
+        # kubectl -n kube-prometheus-stack port-forward $POD 3001:3000
+        # http://localhost:3001
+        enabled = false
+      }
+      service = {
+        port       = 3000
+        targetPort = 3000
+      }
+
       adminPassword = aws_secretsmanager_secret_version.grafana.secret_string
 
       # manually create here to set up IRSA
@@ -575,20 +611,6 @@ resource "helm_release" "kube_prometheus_stack" {
         # use the one created above that maps IRSA for IAM permissions
         create = false
         name   = "kube-prometheus-stack-grafana"
-      }
-
-      ingress = {
-        # NOTE: to just use service
-        #
-        # e.g.,
-        # <service-name>.<namespace>.svc.cluster.local:<service-port>
-        # http://kube-prometheus-stack-grafana.kube-prometheus-stack.svc.cluster.local:80
-        #
-        # e.g.,
-        # POD=$(kubectl -n kube-prometheus-stack get pod -l app.kubernetes.io/instance=kube-prometheus-stack -l app.kubernetes.io/name=grafana -o jsonpath="{.items[0].metadata.name}")
-        # kubectl -n kube-prometheus-stack port-forward $POD 3001:3000
-        # http://localhost:3001
-        enabled = false
       }
 
       sidecar = {
