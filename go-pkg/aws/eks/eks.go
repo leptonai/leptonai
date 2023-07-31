@@ -4,13 +4,13 @@ package eks
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
 	"os/exec"
 	"sort"
 	"strings"
-	"text/template"
 	"time"
 
 	leptonaws "github.com/leptonai/lepton/go-pkg/aws"
@@ -21,6 +21,7 @@ import (
 	aws_elbv2_v2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/olekukonko/tablewriter"
+	clientcmd_api_v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
 const describeInterval = 5 * time.Second
@@ -60,8 +61,8 @@ done:
 		}
 
 		log.Printf("inspecting %d clusters", len(clusterNames))
-		for _, c := range clusterNames {
-			cl, err := inspectCluster(ctx, region, "UNKNOWN", cli, nil, c)
+		for _, cname := range clusterNames {
+			cl, err := inspectCluster(ctx, region, "UNKNOWN", cli, nil, cname)
 			if err != nil {
 				return nil, err
 			}
@@ -220,6 +221,16 @@ func inspectCluster(
 		oidcIssuer = *eksOut.Cluster.Identity.Oidc.Issuer
 	}
 
+	endpoint := ""
+	if eksOut.Cluster.Endpoint != nil {
+		endpoint = *eksOut.Cluster.Endpoint
+	}
+
+	ca := ""
+	if eksOut.Cluster.CertificateAuthority != nil {
+		ca = *eksOut.Cluster.CertificateAuthority.Data
+	}
+
 	version, status, health := GetClusterStatus(eksOut)
 	attachedELBs := make([]string, 0)
 	if vpcToELBv2s != nil {
@@ -241,8 +252,8 @@ func inspectCluster(
 		VPCID:             vpcID,
 		AttachedELBv2ARNs: attachedELBs,
 
-		Endpoint:             *eksOut.Cluster.Endpoint,
-		CertificateAuthority: *eksOut.Cluster.CertificateAuthority.Data,
+		Endpoint:             endpoint,
+		CertificateAuthority: ca,
 		OIDCIssuer:           oidcIssuer,
 
 		// to populate below
@@ -387,70 +398,61 @@ func (c Cluster) String() string {
 	return rs
 }
 
-func (c Cluster) Kubeconfig() (string, error) {
+func (c Cluster) Kubeconfig() (clientcmd_api_v1.Config, error) {
 	awsPath, err := exec.LookPath("aws")
 	if err != nil {
-		return "", fmt.Errorf("aws cli not found %w", err)
+		return clientcmd_api_v1.Config{}, fmt.Errorf("aws cli not found %w", err)
 	}
 
-	tpl := template.Must(template.New("tmplKUBECONFIG").Parse(tmplKUBECONFIG))
-	buf := bytes.NewBuffer(nil)
-	if err := tpl.Execute(buf, kubeconfig{
-		Region:                   c.Region,
-		ClusterAPIServerEndpoint: c.Endpoint,
-		ClusterCA:                c.CertificateAuthority,
-		AWSCLIPath:               awsPath,
-		ClusterARN:               c.ARN,
-		ClusterName:              c.Name,
-		AuthenticationAPIVersion: "client.authentication.k8s.io/v1beta1",
-	}); err != nil {
-		return "", err
+	decoded, err := base64.StdEncoding.DecodeString(c.CertificateAuthority)
+	if err != nil {
+		return clientcmd_api_v1.Config{}, fmt.Errorf("failed to decode certificate authority %w", err)
 	}
 
-	return buf.String(), nil
+	kcfg := clientcmd_api_v1.Config{
+		Clusters: []clientcmd_api_v1.NamedCluster{
+			{
+				Name: c.ARN,
+				Cluster: clientcmd_api_v1.Cluster{
+					Server:                   c.Endpoint,
+					CertificateAuthorityData: decoded,
+				},
+			},
+		},
+		Contexts: []clientcmd_api_v1.NamedContext{
+			{
+				Name: c.ARN,
+				Context: clientcmd_api_v1.Context{
+					Cluster:  c.ARN,
+					AuthInfo: c.ARN,
+				},
+			},
+		},
+		CurrentContext: c.ARN,
+		AuthInfos: []clientcmd_api_v1.NamedAuthInfo{
+			{
+				Name: c.ARN,
+				AuthInfo: clientcmd_api_v1.AuthInfo{
+					Exec: &clientcmd_api_v1.ExecConfig{
+						APIVersion: "client.authentication.k8s.io/v1beta1",
+						Command:    awsPath,
+						Args: []string{
+							"--region",
+							c.Region,
+							"eks",
+							"get-token",
+							"--cluster-name",
+							c.Name,
+							"--output",
+							"json",
+						},
+					},
+				},
+			},
+		},
+	}
+	return kcfg, nil
 }
-
-type kubeconfig struct {
-	Region                   string
-	ClusterAPIServerEndpoint string
-	ClusterCA                string
-	AWSCLIPath               string
-	ClusterARN               string
-	ClusterName              string
-	AuthenticationAPIVersion string
-}
-
-const tmplKUBECONFIG = `
-apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    server: {{ .ClusterAPIServerEndpoint }}
-    certificate-authority-data: {{ .ClusterCA }}
-  name: {{ .ClusterARN }}
-contexts:
-- context:
-    cluster: {{ .ClusterARN }}
-    user: {{ .ClusterARN }}
-  name: {{ .ClusterARN }}
-current-context: {{ .ClusterARN }}
-preferences: {}
-users:
-- name: {{ .ClusterARN }}
-  user:
-    exec:
-      apiVersion: {{ .AuthenticationAPIVersion }}
-      command: {{ .AWSCLIPath }}
-      args:
-      - --region
-      - {{ .Region }}
-      - eks
-      - get-token
-      - --cluster-name
-      - {{ .ClusterName }}
-      - --output
-      - json
-`
 
 // Returns true if the specified cluster does not exist, thus deleted.
 func IsClusterDeleted(eksAPI *aws_eks_v2.Client, name string) (bool, error) {

@@ -11,6 +11,7 @@ import (
 	"github.com/leptonai/lepton/mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/contexts"
+	"github.com/leptonai/lepton/mothership/cmd/mothership/kubeconfig"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/purge"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/quotas"
@@ -37,6 +38,7 @@ func init() {
 		aurora.NewCommand(),
 		clusters.NewCommand(),
 		contexts.NewCommand(),
+		kubeconfig.NewCommand(),
 		metering.NewCommand(),
 		version.NewCommand(),
 		workspaces.NewCommand(),

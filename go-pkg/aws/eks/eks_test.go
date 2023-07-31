@@ -2,11 +2,13 @@ package eks
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
+	"sigs.k8s.io/yaml"
 )
 
 func TestListClusters(t *testing.T) {
@@ -30,5 +32,17 @@ func TestListClusters(t *testing.T) {
 
 	for _, cl := range clusters {
 		t.Logf("%s %s %s\n%+v\n\n", cl.CertificateAuthority, cl.Endpoint, cl.OIDCIssuer, cl)
+
+		kcfg, err := cl.Kubeconfig()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		kb, err := yaml.Marshal(kcfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Println(string(kb))
 	}
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/util"
 	"github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
-	"github.com/manifoldco/promptui"
 
 	aws_eks_v2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/olekukonko/tablewriter"
@@ -22,8 +21,7 @@ import (
 )
 
 var (
-	output           string
-	selectKubeconfig bool
+	output string
 )
 
 func init() {
@@ -38,7 +36,6 @@ func NewCommand() *cobra.Command {
 		Run:   listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
-	cmd.PersistentFlags().BoolVarP(&selectKubeconfig, "select-kubeconfig", "k", false, "Set true to interactive select a cluster to write kubeconfig")
 	return cmd
 }
 
@@ -74,9 +71,6 @@ func listFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Printf("no AWS access -- skipping AWS API call, setting select-kubeconfig to false (%v)", err)
 		colums = []string{"name", "provider", "region", "git-ref", "state"}
-
-		// connecting to EKS requires AWS session
-		selectKubeconfig = false
 	} else {
 		log.Printf("inspecting AWS resources using %v", *stsID.Arn)
 		for _, c := range rs {
@@ -153,33 +147,4 @@ func listFunc(cmd *cobra.Command, args []string) {
 	tb.AppendBulk(rows)
 	tb.Render()
 	fmt.Println(buf.String())
-
-	if !selectKubeconfig {
-		return
-	}
-
-	prompt := promptui.Select{
-		Label: "Select the cluster you would like to connect!",
-		Items: promptOptions,
-	}
-	idx, answer, err := prompt.Run()
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("downloading kubeoconfig for %s", answer)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	cl, err := eks.GetCluster(ctx, rs[idx].Spec.Region, eksAPIs[rs[idx].Spec.Region], rs[idx].Spec.Name)
-	cancel()
-	if err != nil {
-		panic(err)
-	}
-
-	ks, err := cl.Kubeconfig()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println()
-	fmt.Println(ks)
 }
