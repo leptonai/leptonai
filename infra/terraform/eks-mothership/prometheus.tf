@@ -474,6 +474,9 @@ resource "helm_release" "kube_prometheus_stack" {
             kubernetes_sd_configs = [
               {
                 role = "endpoints"
+                namespaces = {
+                  names = ["default"]
+                }
               }
             ]
 
@@ -487,7 +490,7 @@ resource "helm_release" "kube_prometheus_stack" {
             # "mothership-service.default.svc.cluster.local:15213"
             relabel_configs = [
               {
-                source_labels = ["__meta_kubernetes_service_label_app"]
+                source_labels = ["__meta_kubernetes_service_name"]
                 action        = "keep"
                 regex         = "mothership-service"
               }
