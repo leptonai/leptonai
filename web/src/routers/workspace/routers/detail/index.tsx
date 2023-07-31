@@ -6,8 +6,9 @@ import { Deployments } from "@lepton-dashboard/routers/workspace/routers/detail/
 import { Photons } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons";
 import { Settings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings";
 import { Storage } from "@lepton-dashboard/routers/workspace/routers/detail/routers/storage";
+import { Tuna } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna";
 import { Button, Result, Typography } from "antd";
-import { FC, Suspense, lazy } from "react";
+import { FC, Suspense } from "react";
 import { Route, Routes, useParams } from "react-router-dom";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useInject } from "@lepton-libs/di";
@@ -28,14 +29,6 @@ import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { WorkspaceSwitch } from "@lepton-dashboard/routers/workspace/components/workspace-switch";
 import { ProfileMenu } from "@lepton-dashboard/routers/workspace/components/profile-menu";
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
-
-const FineTune = lazy(() =>
-  import(
-    "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna"
-  ).then((e) => ({
-    default: e.Tuna,
-  }))
-);
 
 export const Detail: FC = () => {
   const refreshService = useInject(RefreshService);
@@ -132,7 +125,7 @@ export const Detail: FC = () => {
                 path="tuna/*"
                 element={
                   <LimitedLayoutWidth>
-                    <FineTune />
+                    <Tuna />
                   </LimitedLayoutWidth>
                 }
               />

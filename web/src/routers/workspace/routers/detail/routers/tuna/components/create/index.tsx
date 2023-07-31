@@ -13,6 +13,7 @@ import {
   Divider,
   Form,
   Input,
+  Popover,
   Row,
   Spin,
   Typography,
@@ -72,96 +73,112 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
   return (
     <Row gutter={[16, 16]}>
       <Col span={24}>
-        <Form form={form} onFinish={submit} layout="vertical">
+        <Form
+          form={form}
+          onFinish={submit}
+          layout="vertical"
+          requiredMark={false}
+        >
           <Form.Item
-            label="Model Name"
+            label="Tuna name"
             name="name"
             rules={[{ required: true, message: "Please enter model name" }]}
           >
-            <Input readOnly={loading} placeholder="Model Name" />
+            <Input readOnly={loading} placeholder="Tuna name" />
           </Form.Item>
           <Form.Item
-            label="Training Data"
+            label="Training data"
             required
             css={css`
               margin-bottom: 0;
             `}
           >
-            <Spin spinning={loading} tip="Uploading ...">
-              <Form.Item
-                name="fileList"
-                valuePropName="fileList"
-                getValueFromEvent={normFile}
-                rules={[
-                  {
-                    type: "array",
-                    validator: async (_, fileList) => {
-                      if (!fileList || fileList.length === 0) {
-                        return Promise.reject(
-                          new Error("Please upload training data")
-                        );
-                      }
-                      return Promise.resolve();
+            <Popover
+              placement="right"
+              content={
+                <ThemeProvider token={{ fontSize: 12, padding: 4 }}>
+                  <Typography.Text strong>Data JSON format</Typography.Text>
+                  <Typography.Paragraph>
+                    <Typography.Text strong>messages</Typography.Text>{" "}
+                    <Typography.Text type="secondary">array</Typography.Text>
+                  </Typography.Paragraph>
+                  <Typography.Text>
+                    A list of messages comprising the conversation so far.
+                  </Typography.Text>
+                  <Card
+                    shadowless
+                    paddingless
+                    css={css`
+                      margin-top: 16px;
+                      padding: 8px;
+                    `}
+                  >
+                    <Typography.Paragraph>
+                      <Typography.Text strong>role</Typography.Text>{" "}
+                      <Typography.Text type="secondary">string</Typography.Text>
+                    </Typography.Paragraph>
+                    <Typography.Text>
+                      The role of the messages author. One of{" "}
+                      <Typography.Text code>system</Typography.Text>,{" "}
+                      <Typography.Text code>user</Typography.Text>,{" "}
+                      <Typography.Text code>assistant</Typography.Text>.
+                    </Typography.Text>
+                    <Divider
+                      css={css`
+                        margin: 16px 0;
+                      `}
+                    />
+                    <Typography.Paragraph>
+                      <Typography.Text strong>content</Typography.Text>{" "}
+                      <Typography.Text type="secondary">string</Typography.Text>
+                    </Typography.Paragraph>
+                    <Typography.Text>
+                      The contents of the message.{" "}
+                      <Typography.Text code>content</Typography.Text> is
+                      required for all messages.
+                    </Typography.Text>
+                  </Card>
+                </ThemeProvider>
+              }
+            >
+              <Spin spinning={loading}>
+                <Form.Item
+                  name="fileList"
+                  valuePropName="fileList"
+                  getValueFromEvent={normFile}
+                  rules={[
+                    {
+                      type: "array",
+                      validator: async (_, fileList) => {
+                        if (!fileList || fileList.length === 0) {
+                          return Promise.reject(
+                            new Error("Please upload training data")
+                          );
+                        }
+                        return Promise.resolve();
+                      },
                     },
-                  },
-                ]}
-                noStyle
-              >
-                <AntdUpload.Dragger
-                  disabled={loading}
-                  maxCount={1}
-                  beforeUpload={() => false}
-                  accept="application/JSON, application/json, .json"
+                  ]}
+                  noStyle
                 >
-                  <p className="ant-upload-drag-icon">
-                    <CarbonIcon icon={<CloudUpload />} />
-                  </p>
-                  <p className="ant-upload-text">
-                    Click or drag to this area to upload training data.
-                  </p>
-                </AntdUpload.Dragger>
-              </Form.Item>
-            </Spin>
+                  <AntdUpload.Dragger
+                    disabled={loading}
+                    maxCount={1}
+                    beforeUpload={() => false}
+                    accept="application/JSON, application/json, .json"
+                  >
+                    <p className="ant-upload-drag-icon">
+                      <CarbonIcon icon={<CloudUpload />} />
+                    </p>
+                    <p className="ant-upload-text">
+                      Click or drag to this area to upload training data.
+                    </p>
+                  </AntdUpload.Dragger>
+                </Form.Item>
+              </Spin>
+            </Popover>
           </Form.Item>
         </Form>
-      </Col>
-      <Col span={24}>
-        <ThemeProvider token={{ fontSize: 12, padding: 4 }}>
-          <Typography.Text strong>Data JSON format</Typography.Text>
-          <Typography.Paragraph>
-            <Typography.Text strong>messages</Typography.Text>{" "}
-            <Typography.Text type="secondary">array</Typography.Text>
-          </Typography.Paragraph>
-          <Typography.Paragraph>
-            A list of messages comprising the conversation so far.
-          </Typography.Paragraph>
-          <Card shadowless>
-            <Typography.Paragraph>
-              <Typography.Text strong>role</Typography.Text>{" "}
-              <Typography.Text type="secondary">string</Typography.Text>
-            </Typography.Paragraph>
-            <Typography.Text>
-              The role of the messages author. One of{" "}
-              <Typography.Text code>system</Typography.Text>,{" "}
-              <Typography.Text code>user</Typography.Text>,{" "}
-              <Typography.Text code>assistant</Typography.Text>.
-            </Typography.Text>
-            <Divider
-              css={css`
-                margin: 16px 0;
-              `}
-            />
-            <Typography.Paragraph>
-              <Typography.Text strong>content</Typography.Text>{" "}
-              <Typography.Text type="secondary">string</Typography.Text>
-            </Typography.Paragraph>
-            <Typography.Text>
-              The contents of the message.{" "}
-              <Typography.Text code>content</Typography.Text> is required for
-              all messages.
-            </Typography.Text>
-          </Card>
-        </ThemeProvider>
       </Col>
       <Col span={24}>
         <Button

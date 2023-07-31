@@ -89,7 +89,7 @@ export const List: FC = () => {
           showSearch
           value={photonFilters}
           allowClear
-          placeholder="Select Photon"
+          placeholder="Select photon"
           style={{ width: "100%" }}
           options={options}
           changeOnSelect
@@ -101,7 +101,7 @@ export const List: FC = () => {
           style={{ width: "100%" }}
           mode="multiple"
           value={status}
-          placeholder="Deployment Status"
+          placeholder="Deployment status"
           onChange={(v) => setStatus(v)}
           maxTagCount={1}
           options={[

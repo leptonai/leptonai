@@ -64,12 +64,21 @@ export const Nav: FC = () => {
     },
     {
       label: (
+        <span id="nav-tuna">
+          <TunaIcon /> Tunas
+        </span>
+      ),
+      key: `${pathname}/tuna`,
+    },
+    {
+      label: (
         <span id="nav-deployments">
           <DeploymentLabel />
         </span>
       ),
       key: `${pathname}/deployments`,
     },
+
     {
       label: (
         <span id="nav-storage">
@@ -79,14 +88,7 @@ export const Nav: FC = () => {
       ),
       key: `${pathname}/storage`,
     },
-    {
-      label: (
-        <span id="nav-tuna">
-          <TunaIcon /> Tuna
-        </span>
-      ),
-      key: `${pathname}/tuna`,
-    },
+
     {
       label: (
         <span id="nav-settings">

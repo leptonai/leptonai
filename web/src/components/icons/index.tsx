@@ -2,12 +2,7 @@ import Icon from "@ant-design/icons";
 
 import type { CustomIconComponentProps } from "@ant-design/icons/lib/components/Icon";
 import { cloneElement, FC, ReactElement, SVGProps } from "react";
-import {
-  CarbonIconProps,
-  Cube,
-  FishMultiple,
-  Rocket,
-} from "@carbon/icons-react";
+import { CarbonIconProps, Cube, Fish, Rocket } from "@carbon/icons-react";
 
 const iconGenerator = (svg: SVGProps<SVGSVGElement>) => {
   const component = () => <>{svg}</>;
@@ -131,7 +126,7 @@ export const PhotonIcon = () => <CarbonIcon icon={<Cube />} />;
 
 export const DeploymentIcon = () => <CarbonIcon icon={<Rocket />} />;
 
-export const TunaIcon = () => <CarbonIcon icon={<FishMultiple />} />;
+export const TunaIcon = () => <CarbonIcon icon={<Fish />} />;
 
 export const CarbonIcon: FC<{ icon: ReactElement<CarbonIconProps> }> = ({
   icon,
