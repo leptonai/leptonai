@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/leptonai/lepton/go-pkg/httperrors"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/api-server/quota"
 	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	"github.com/gin-gonic/gin"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,11 +38,6 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 
 	ld, err := h.createFromUserSpec(c, userSpec)
 	if err != nil {
-		goutil.Logger.Errorw("failed to create deployment",
-			"deployment", userSpec.Name,
-			"operation", "create",
-			"error", err,
-		)
 		return
 	}
 
@@ -92,6 +89,11 @@ func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1al
 
 	err = h.ldDB.Create(c, ld.Name, ld)
 	if err != nil {
+		goutil.Logger.Errorw("failed to create deployment",
+			"deployment", spec.Name,
+			"operation", "create",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create deployment: " + err.Error()})
 		return nil, err
 	}
@@ -144,6 +146,7 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		return
 	}
 	spec.Name = did
+
 	if err := h.validateUpdateInput(c, ld, spec); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
@@ -153,6 +156,7 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "no valid field to patch"})
 		return
 	}
+
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	err = h.ldDB.Update(c, ld.Name, ld)
@@ -253,6 +257,11 @@ func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptona
 		return fmt.Errorf("min replicas must be positive")
 	}
 
+	err := h.checkQuota(ctx, ld, nil)
+	if err != nil {
+		return err
+	}
+
 	for _, env := range ld.Envs {
 		if !goutil.ValidateEnvName(env.Name) {
 			return fmt.Errorf(goutil.InvalidEnvNameMessage + ":" + env.Name)
@@ -263,13 +272,14 @@ func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptona
 		return nil
 	}
 
-	_, err := h.phDB.Get(ctx, ld.PhotonID)
+	_, err = h.phDB.Get(ctx, ld.PhotonID)
 	if err != nil {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
 	return nil
 }
 
+// TODO: add test
 func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, old *leptonaiv1alpha1.LeptonDeployment, spec *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	if spec.PhotonID != "" {
 		ph, err := h.phDB.Get(ctx, spec.PhotonID)
@@ -284,5 +294,54 @@ func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, old *lepton
 		}
 		// TODO: Handle updating to a photon with a different Image/OpenAPISchema/etc
 	}
+
+	err := h.checkQuota(ctx, spec, &old.Spec.LeptonDeploymentUserSpec)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *DeploymentHandler) checkQuota(ctx context.Context, spec *leptonaiv1alpha1.LeptonDeploymentUserSpec, oldSpec *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
+	if h.namespace == "" { // for testing
+		goutil.Logger.Warnw("namespace not set, skip quota check",
+			"operation", "check quota",
+			"workspace", h.workspaceName,
+		)
+		return nil
+	}
+
+	q, err := k8s.GetResourceQuota(ctx, h.namespace, "quota-"+h.workspaceName)
+	if err != nil && !apierrors.IsNotFound(err) {
+		goutil.Logger.Errorw("failed to get resource quota",
+			"operation", "check quota",
+			"namespace", h.namespace,
+			"workspace", h.workspaceName,
+			"error", err,
+		)
+
+		return fmt.Errorf("failed to get resource quota: %v", err)
+	}
+
+	// if quota is not found, skip quota check since it is unlimited
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Warnw("resource quota not found",
+			"operation", "check quota",
+			"namespace", h.namespace,
+			"workspace", h.workspaceName,
+		)
+		return nil
+	}
+
+	var cr *leptonaiv1alpha1.LeptonDeploymentResourceRequirement
+	if oldSpec != nil {
+		cr = &oldSpec.ResourceRequirement
+	}
+
+	if !quota.Admit(q, &spec.ResourceRequirement, cr) {
+		return fmt.Errorf("resource requirement exceeds quota")
+	}
+
 	return nil
 }

@@ -133,6 +133,34 @@ func TestUpdateDeploymentMinReplicas(t *testing.T) {
 	}
 }
 
+func TestDeploymentOutOfQuota(t *testing.T) {
+	patch := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name: mainTestDeploymentName,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			MinReplicas:   100,
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+		},
+	}
+	_, err := lepton.Deployment().Update(patch)
+	if err == nil {
+		t.Error("update expecting out of quota error, got nil")
+	}
+
+	dName := newName(t.Name())
+	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dName,
+		PhotonID: mainTestPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1Large,
+			MinReplicas:   20,
+		},
+	}
+	_, err = lepton.Deployment().Create(d)
+	if err == nil {
+		t.Error("create expecting out of quota error, got nil")
+	}
+}
+
 func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error {
 	patch := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name: mainTestDeploymentName,

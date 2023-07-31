@@ -81,7 +81,7 @@ var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 		Resource: LeptonDeploymentReplicaResourceRequirement{
 			CPU:                  4,
 			Memory:               16 * 1024,
-			EphemeralStorageInGB: 100,
+			EphemeralStorageInGB: 64,
 			AcceleratorType:      "Tesla-T4",
 			AcceleratorNum:       1,
 		},
@@ -92,7 +92,7 @@ var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 		Resource: LeptonDeploymentReplicaResourceRequirement{
 			CPU:                  8,
 			Memory:               32 * 1024,
-			EphemeralStorageInGB: 400,
+			EphemeralStorageInGB: 64,
 			AcceleratorType:      "NVIDIA-A10G",
 			AcceleratorNum:       1,
 		},
@@ -104,7 +104,7 @@ var SupportedShapesAWS = map[LeptonDeploymentResourceShape]*ResourceShape{
 	// 	Resource: LeptonDeploymentReplicaResourceRequirement{
 	// 		CPU:                  12,
 	// 		Memory:               144 * 1024,
-	// 		EphemeralStorageInGB: 975,
+	// 		EphemeralStorageInGB: 256,
 	// 		AcceleratorType:      "Not supported yet",
 	// 		AcceleratorNum:       1,
 	// 	},

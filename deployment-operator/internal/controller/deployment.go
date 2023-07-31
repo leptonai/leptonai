@@ -5,15 +5,14 @@ import (
 	"math"
 	"path"
 
-	"github.com/leptonai/lepton/go-pkg/k8s"
-	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/go-pkg/deploymentutil"
+	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/k8s/service"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -174,7 +173,7 @@ func (k *deployment) newInitContainer() corev1.Container {
 				},
 			},
 		},
-		Resources: *k.createCPUMemStorageResourceRequirements(),
+		Resources: deploymentutil.LeptonResourceToKubeResource(k.leptonDeployment.Spec.ResourceRequirement),
 		Command:   k.newInitContainerCommand(),
 		Args:      k.newInitContainerArgs(),
 		VolumeMounts: []corev1.VolumeMount{
@@ -207,59 +206,11 @@ func (k *deployment) gpuEnabled() bool {
 	return at != "" && an > 0
 }
 
-func (k *deployment) createCPUMemStorageResourceRequirements() *corev1.ResourceRequirements {
-	ld := k.leptonDeployment
-	// we need to set request to a smaller value to account for shared node resources
-	requestFactor := 0.9
-	cpuValue := ld.Spec.ResourceRequirement.CPU
-	memValue := ld.Spec.ResourceRequirement.Memory
-	storageValue := ld.Spec.ResourceRequirement.EphemeralStorageInGB
-
-	if ld.Spec.ResourceRequirement.ResourceShape != "" {
-		replicaResourceRequirement, err := leptonaiv1alpha1.ShapeToReplicaResourceRequirement(ld.Spec.ResourceRequirement.ResourceShape)
-		if err != nil {
-			goutil.Logger.Errorw("Unexpected shape to requirement error, using small shape resource requirement",
-				"error", err,
-			)
-			replicaResourceRequirement, _ = leptonaiv1alpha1.ShapeToReplicaResourceRequirement(leptonaiv1alpha1.GP1Small)
-		}
-
-		cpuValue = replicaResourceRequirement.CPU
-		memValue = replicaResourceRequirement.Memory
-		storageValue = replicaResourceRequirement.EphemeralStorageInGB
-	}
-
-	cpuRequestQuantity := *resource.NewScaledQuantity(int64(cpuValue*requestFactor)*1000, -3)
-	cpuLimitQuantity := *resource.NewScaledQuantity(int64(cpuValue*1000), -3)
-	memRequestQuantity := *resource.NewQuantity(int64(float64(memValue)*requestFactor)*1024*1024, resource.BinarySI)
-	memLimitQuantity := *resource.NewQuantity(memValue*1024*1024, resource.BinarySI)
-
-	// Define the main container
-	resources := &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    cpuRequestQuantity,
-			corev1.ResourceMemory: memRequestQuantity,
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    cpuLimitQuantity,
-			corev1.ResourceMemory: memLimitQuantity,
-		},
-	}
-
-	if storageValue != 0 {
-		storageQuantity := *resource.NewQuantity(storageValue*1024*1024*1024, resource.BinarySI)
-		resources.Requests[corev1.ResourceEphemeralStorage] = storageQuantity
-		resources.Limits[corev1.ResourceEphemeralStorage] = storageQuantity
-	}
-	return resources
-}
-
 // TODO: test me!
 func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	ld := k.leptonDeployment
 
-	resources := k.createCPUMemStorageResourceRequirements()
-
+	resources := deploymentutil.LeptonResourceToKubeResource(ld.Spec.ResourceRequirement)
 	// We do not want non-GPU workloads to waste our GPU resources.
 	// Use taint to not schedule those on GPU.
 	// All pods without matching tolerations to these taints won't be scheduled.
@@ -277,16 +228,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	// tolerations := []corev1.Toleration{}
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
-		accnum, acctype := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
-
-		// if gpu is enabled, set gpu resource limit and node selector
-		rv := *resource.NewQuantity(int64(accnum), resource.DecimalSI)
-		resources.Limits[corev1.ResourceName(k.gpuResourceKey)] = rv
-
-		// cluster-autoscaler uses this key to prevent early scale-down on new/upcoming pods
-		// even without this, execution uses the "resources.Limits" as defaults
-		resources.Requests[corev1.ResourceName(k.gpuResourceKey)] = rv
-
+		_, acctype := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
 		// only schedule the pod with exact matching node labels
 		nodeSelector[k.gpuProductLableKey] = acctype
 	}
@@ -327,7 +269,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         k.newMainContainerCommand(),
 		Args:            k.newMainContainerArgs(),
-		Resources:       *resources,
+		Resources:       resources,
 		Env:             envs,
 
 		Ports: []corev1.ContainerPort{
