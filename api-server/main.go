@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leptonai/lepton/api-server/httpapi"
+	"github.com/leptonai/lepton/api-server/util"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/kv"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
-	"github.com/leptonai/lepton/api-server/httpapi"
-	"github.com/leptonai/lepton/api-server/util"
+	"github.com/leptonai/lepton/metrics"
 
 	"github.com/gin-contrib/requestid"
 	ginzap "github.com/gin-contrib/zap"
@@ -151,6 +152,7 @@ func main() {
 	router.Use(requestid.New())
 	router.Use(pauseWorkspaceMiddleware(workspaceState))
 	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
+	router.Use(metrics.PrometheusMiddlewareForGin("api_server"))
 
 	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:
