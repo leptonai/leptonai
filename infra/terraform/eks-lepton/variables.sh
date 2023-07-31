@@ -91,3 +91,7 @@ fi
 if [[ "$AL2_X86_64_CPU_MAX_SIZE" != "" ]]; then
     APPLY_FLAGS+=("-var=al2_x86_64_cpu_max_size=$AL2_X86_64_CPU_MAX_SIZE")
 fi
+
+if [[ "$MOTHERSHIP_RDS_AURORA_SECRET_ARN" != "" ]]; then
+    APPLY_FLAGS+=("-var=mothership_rds_aurora_secret_arn=$MOTHERSHIP_RDS_AURORA_SECRET_ARN")
+fi

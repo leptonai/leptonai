@@ -229,3 +229,9 @@ variable "ubuntu_amis" {
 
   default = {}
 }
+
+variable "mothership_rds_aurora_secret_arn" {
+  description = "RDS Aurora secret ARN from mothership"
+  type        = string
+  default     = null
+}

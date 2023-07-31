@@ -193,3 +193,25 @@ resource "kubernetes_cluster_role_binding" "metering" {
     kubernetes_config_map_v1_data.aws_auth
   ]
 }
+
+data "aws_secretsmanager_secret" "mothership_rds_aurora_secret" {
+  arn = var.mothership_rds_aurora_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "mothership_rds_aurora_secret" {
+  secret_id = data.aws_secretsmanager_secret.mothership_rds_aurora_secret.id
+}
+
+resource "kubernetes_secret" "mothership_rds_aurora_secret" {
+  metadata {
+    name      = "mothership-rds-aurora-secret"
+    namespace = kubernetes_namespace.metering.metadata[0].name
+  }
+
+  data = {
+    username = jsondecode(data.aws_secretsmanager_secret_version.mothership_rds_aurora_secret.secret_string)["username"]
+    password = jsondecode(data.aws_secretsmanager_secret_version.mothership_rds_aurora_secret.secret_string)["password"]
+  }
+
+  type = "Opaque"
+}
