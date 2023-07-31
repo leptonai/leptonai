@@ -89,7 +89,7 @@ func TestReplicaLog(t *testing.T) {
 	}
 	rid := replicas[0].ID
 	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		log, err := lepton.Replica().Log(mainTestDeploymentName, rid, 4096)
+		log, err := lepton.Replica().Log(mainTestDeploymentName, rid, 4096, 5)
 		if err != nil {
 			// expected since it's a long running process
 			// e.g., "... (Press CTRL+C to quit)"
@@ -100,7 +100,7 @@ func TestReplicaLog(t *testing.T) {
 		if len(log) == 0 {
 			return fmt.Errorf("expected log to be non-empty, got %d", len(log))
 		}
-		if !bytes.Contains(log, []byte("INFO")) {
+		if !bytes.Contains(log, []byte("running on http")) {
 			return fmt.Errorf("expected log to contain 'INFO', got %s", string(log))
 		}
 		return nil

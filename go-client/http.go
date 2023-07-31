@@ -40,10 +40,10 @@ func NewHTTPSkipVerifyTLS(remoteURL string, authToken string) *HTTP {
 }
 
 func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []byte) ([]byte, error) {
-	return h.RequestURLWithRespMaxLen(method, url, headers, data, 0)
+	return h.RequestURLUntil(method, url, headers, data, 0, 0)
 }
 
-func (h *HTTP) RequestURLWithRespMaxLen(method, url string, headers map[string]string, data []byte, respMaxLen int) ([]byte, error) {
+func (h *HTTP) RequestURLUntil(method, url string, headers map[string]string, data []byte, expectedBytes, timeoutInSeconds int) ([]byte, error) {
 	var reader *bytes.Reader
 	if data != nil {
 		reader = bytes.NewReader(data)
@@ -58,8 +58,11 @@ func (h *HTTP) RequestURLWithRespMaxLen(method, url string, headers map[string]s
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	if timeoutInSeconds == 0 {
+		timeoutInSeconds = 30
+	}
 	httpClient := &http.Client{
-		Timeout: time.Duration(60 * time.Second),
+		Timeout: time.Duration(timeoutInSeconds) * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: h.SkipVerifyTLS,
@@ -73,11 +76,23 @@ func (h *HTTP) RequestURLWithRespMaxLen(method, url string, headers map[string]s
 	}
 	defer resp.Body.Close()
 
-	if respMaxLen > 0 {
-		buf := make([]byte, respMaxLen)
-		n, err := resp.Body.Read(buf)
-		buf = buf[:n]
-		return buf, err
+	if expectedBytes > 0 {
+		buf := make([]byte, expectedBytes)
+		pos := 0
+		for {
+			n, err := resp.Body.Read(buf[pos:expectedBytes])
+			pos += n
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return buf[:pos], err
+			}
+			if pos >= expectedBytes {
+				break
+			}
+		}
+		return buf[:pos], nil
 	}
 
 	body, err := io.ReadAll(resp.Body)
