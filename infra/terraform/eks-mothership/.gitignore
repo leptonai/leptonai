@@ -38,5 +38,5 @@ override.tf.json
 terraform.rc
 .terraform.lock.hcl
 
-# copied "charts" directory should be ignored
+# copied directory should be ignored
 charts

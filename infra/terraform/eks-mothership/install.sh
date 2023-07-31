@@ -68,12 +68,13 @@ done
 
 # here, we assume the running script or mothership(controller)
 # copies the whole directory in the same directory tree
-ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
+# we're not running install.sh via mothership, thus requiring manual copy
+ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-true}
 if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
-  # this is not running via mothership, thus requiring manual copy
-  echo "copying lepton charts from ../../../charts"
-  rm -rf ./charts || true
-  cp -r ../../../charts .
+  echo "copying lepton charts from ../../../charts/mothership"
+  rm -rf ./charts && mkdir -p ./charts
+  cp -r ../../../charts/mothership ./charts/
+  cp ../../../mothership/crd/config/crd/bases/*.yaml ./charts/mothership/templates/
 else
   echo "skipping copying lepton charts"
 fi
