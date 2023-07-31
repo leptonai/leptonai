@@ -5,6 +5,8 @@
 # NOTE: "var.cpu_node_group_instance_types" may be set to non-m16a instance types for testing
 # but should be set to m6a instance types for production
 resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
+  # NOTE: do not set "count" field here since we always want the ubuntu CPU node groups
+
   cluster_name    = module.eks.cluster_name
   node_group_name = "${var.cluster_name}-ubuntu-x86_64-m6a16xlarge"
   node_role_arn   = aws_iam_role.mng.arn
@@ -60,6 +62,8 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
 }
 
 resource "aws_autoscaling_group_tag" "ubuntu_x86_64_cpu_m6a16xlarge" {
+  # NOTE: do not set "count" field here since we always want the ubuntu CPU node groups
+
   autoscaling_group_name = aws_eks_node_group.ubuntu_x86_64_cpu_m6a16xlarge.resources[0].autoscaling_groups[0].name
 
   # add extra label in case we run cluster-autoscaler in parallel with others

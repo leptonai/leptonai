@@ -37,16 +37,18 @@ ubuntu_amis = {
 
 use_ubuntu_nvidia_gpu_operator = true
 
+# no need to create AL2 nodes for fallback
 al2_x86_64_ac_g4dnxlarge_min_size = 0
-al2_x86_64_ac_g4dnxlarge_max_size = 1
+al2_x86_64_ac_g4dnxlarge_max_size = 0
 al2_x86_64_ac_g52xlarge_min_size  = 0
-al2_x86_64_ac_g52xlarge_max_size  = 1
+al2_x86_64_ac_g52xlarge_max_size  = 0
 al2_x86_64_cpu_min_size           = 0
-al2_x86_64_cpu_max_size           = 1
+al2_x86_64_cpu_max_size           = 0
 
+# do not create GPU nodes for tests
 ubuntu_x86_64_ac_g4dnxlarge_min_size = 0
-ubuntu_x86_64_ac_g4dnxlarge_max_size = 1
+ubuntu_x86_64_ac_g4dnxlarge_max_size = 0
 ubuntu_x86_64_ac_g52xlarge_min_size  = 0
-ubuntu_x86_64_ac_g52xlarge_max_size  = 1
+ubuntu_x86_64_ac_g52xlarge_max_size  = 0
 ubuntu_x86_64_cpu_min_size           = 3 # run more nodes since we are using small instance types
 ubuntu_x86_64_cpu_max_size           = 10

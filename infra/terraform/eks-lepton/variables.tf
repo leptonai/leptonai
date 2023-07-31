@@ -56,7 +56,7 @@ variable "lepton_cloud_route53_zone_id" {
 }
 
 variable "single_nat_gateway" {
-  description = "Determines whether to use a single-AZ NAT gateway, MUST set true for PROD"
+  description = "Determines whether to use a single-AZ NAT gateway, MUST set true for PROD (set true for TEST/DEV to save costs)"
   type        = bool
   default     = true
 }
@@ -86,72 +86,138 @@ variable "al2_x86_64_ac_g4dnxlarge_min_size" {
   description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA T4 device)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.al2_x86_64_ac_g4dnxlarge_min_size >= 0
+    error_message = "MUST: al2_x86_64_ac_g4dnxlarge_min_size >=0"
+  }
 }
 
 variable "al2_x86_64_ac_g4dnxlarge_max_size" {
   description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA T4 device)"
   type        = number
   default     = 10
+
+  validation {
+    # all AL2 nodes are optional, only required for fallback, thus ok to set it to 0
+    condition     = var.al2_x86_64_ac_g4dnxlarge_max_size >= 0
+    error_message = "MUST: al2_x86_64_ac_g4dnxlarge_max_size >=0"
+  }
 }
 
 variable "al2_x86_64_ac_g52xlarge_min_size" {
   description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA A10G device)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.al2_x86_64_ac_g52xlarge_min_size >= 0
+    error_message = "MUST: al2_x86_64_ac_g52xlarge_min_size >=0"
+  }
 }
 
 variable "al2_x86_64_ac_g52xlarge_max_size" {
   description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (GPU with NVIDIA A10G device)"
   type        = number
   default     = 10
+
+  validation {
+    # all AL2 nodes are optional, only required for fallback, thus ok to set it to 0
+    condition     = var.al2_x86_64_ac_g52xlarge_max_size >= 0
+    error_message = "MUST: al2_x86_64_ac_g52xlarge_max_size >=0"
+  }
 }
 
 variable "al2_x86_64_cpu_min_size" {
   description = "Min number and initial desired size of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.al2_x86_64_cpu_min_size >= 0
+    error_message = "MUST: al2_x86_64_cpu_min_size >=0"
+  }
 }
 
 variable "al2_x86_64_cpu_max_size" {
   description = "Max number of x86_64 AL2 (Amazon Linux 2) based nodes (m6a.16xlarge)"
   type        = number
   default     = 10
+
+  validation {
+    # all AL2 nodes are optional, only required for fallback, thus ok to set it to 0
+    condition     = var.al2_x86_64_cpu_max_size >= 0
+    error_message = "MUST: al2_x86_64_cpu_max_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_ac_g4dnxlarge_min_size" {
   description = "Min number and initial desired size of x86_64 Ubuntu based nodes (GPU with NVIDIA T4 device)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.ubuntu_x86_64_ac_g4dnxlarge_min_size >= 0
+    error_message = "MUST: ubuntu_x86_64_ac_g4dnxlarge_min_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_ac_g4dnxlarge_max_size" {
   description = "Max number of x86_64 Ubuntu based nodes (GPU with NVIDIA T4 device)"
   type        = number
   default     = 1
+
+  validation {
+    # optionally, don't create GPU nodes, so ok to set this to zero
+    condition     = var.ubuntu_x86_64_ac_g4dnxlarge_max_size >= 0
+    error_message = "MUST: ubuntu_x86_64_ac_g4dnxlarge_max_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_ac_g52xlarge_min_size" {
   description = "Min number and initial desired size of x86_64 Ubuntu based nodes (GPU with NVIDIA A10G device)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.ubuntu_x86_64_ac_g52xlarge_min_size >= 0
+    error_message = "MUST: ubuntu_x86_64_ac_g52xlarge_min_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_ac_g52xlarge_max_size" {
   description = "Max number of x86_64 Ubuntu based nodes (GPU with NVIDIA A10G device)"
   type        = number
   default     = 1
+
+  validation {
+    # optionally, don't create GPU nodes, so ok to set this to zero
+    condition     = var.ubuntu_x86_64_ac_g52xlarge_max_size >= 0
+    error_message = "MUST: ubuntu_x86_64_ac_g52xlarge_max_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_cpu_min_size" {
   description = "Min number and initial desired size of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
   type        = number
   default     = 0
+
+  validation {
+    condition     = var.ubuntu_x86_64_cpu_min_size >= 0
+    error_message = "MUST: ubuntu_x86_64_cpu_min_size >=0"
+  }
 }
 
 variable "ubuntu_x86_64_cpu_max_size" {
   description = "Max number of x86_64 Ubuntu based nodes (CPU m6a.16xlarge)"
   type        = number
   default     = 10
+
+  validation {
+    # we always want ubuntu CPU nodes thus enforce >0
+    condition     = var.ubuntu_x86_64_cpu_max_size > 0
+    error_message = "MUST: ubuntu_x86_64_cpu_min_size >0"
+  }
 }
 
 variable "ubuntu_amis" {

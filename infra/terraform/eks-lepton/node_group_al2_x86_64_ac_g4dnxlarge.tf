@@ -3,10 +3,8 @@
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/modules/eks-managed-node-group/main.tf
 resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
-  # TODO
-  # can't really disable with "count" since tf will error
-  # "attributes must be accessed on specific instances."
-  # just remove once ubuntu GPU nodes are stable
+  # we may disable GPU AL2 node groups for CI testing
+  count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
 
   cluster_name    = module.eks.cluster_name
   node_group_name = "${var.cluster_name}-al2-x86_64-g4dnxlarge"
@@ -89,12 +87,13 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
   ]
 }
 
-# TODO
-# can't really disable with "count" since tf will error
-# "attributes must be accessed on specific instances."
-# just remove once ubuntu GPU nodes are stable
 resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge" {
-  autoscaling_group_name = aws_eks_node_group.al2_x86_64_ac_g4dnxlarge.resources[0].autoscaling_groups[0].name
+  # we may disable GPU AL2 node groups for CI testing
+  count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
+
+  # need "*" to work around the error
+  # "attributes must be accessed on specific instances."
+  autoscaling_group_name = aws_eks_node_group.al2_x86_64_ac_g4dnxlarge.*.resources[0].autoscaling_groups[0].name
 
   # add extra label in case we run cluster-autoscaler in parallel with others
   # e.g., karpenter

@@ -45,6 +45,7 @@ ubuntu_amis = {
 
 use_ubuntu_nvidia_gpu_operator = true
 
+# create node groups with zero desired capacity as fallback
 al2_x86_64_ac_g4dnxlarge_min_size = 0
 al2_x86_64_ac_g4dnxlarge_max_size = 1
 al2_x86_64_ac_g52xlarge_min_size  = 0
