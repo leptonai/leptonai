@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/metering"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
+
+	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (

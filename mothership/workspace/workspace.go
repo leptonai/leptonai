@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-git/go-git/v5/plumbing"
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
@@ -22,8 +21,9 @@ import (
 	"github.com/leptonai/lepton/mothership/metrics"
 	"github.com/leptonai/lepton/mothership/terraform"
 	"github.com/leptonai/lepton/mothership/util"
-	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/prometheus/client_golang/prometheus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

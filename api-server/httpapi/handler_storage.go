@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+
+	"github.com/gin-gonic/gin"
 )
 
 type StorageHandler struct {

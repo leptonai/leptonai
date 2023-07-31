@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-tfe"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+
+	"github.com/hashicorp/go-tfe"
 )
 
 var (

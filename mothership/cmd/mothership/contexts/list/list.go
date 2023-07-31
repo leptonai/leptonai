@@ -10,8 +10,8 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
-	"github.com/olekukonko/tablewriter"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 

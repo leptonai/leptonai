@@ -4,9 +4,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/leptonai/lepton/api-server/httpapi"
+
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"github.com/leptonai/lepton/api-server/httpapi"
 )
 
 const (

@@ -21,6 +21,13 @@ import (
 	"errors"
 	"sync"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
+	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
+	"github.com/leptonai/lepton/go-pkg/k8s/service"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -32,13 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
-	"github.com/leptonai/lepton/go-pkg/k8s"
-	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
-	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 )
 
 // LeptonDeploymentReconciler reconciles a LeptonDeployment object

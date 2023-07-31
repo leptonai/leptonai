@@ -3,8 +3,9 @@ package httpapi
 import (
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestValidateCreateInput_ResourceRequirement(t *testing.T) {

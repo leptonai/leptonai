@@ -12,9 +12,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+
+	"github.com/google/uuid"
 	"github.com/opencost/opencost/pkg/kubecost"
 	"k8s.io/client-go/kubernetes"
 )
@@ -359,7 +360,7 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 func CheckEmptyWindow(auroraDB AuroraDB, start, end time.Time) (bool, error) {
 	// check if there are any rows in the table during a given window
 	db := auroraDB.DB
-	row := db.QueryRow(fmt.Sprintf(`SELECT 
+	row := db.QueryRow(fmt.Sprintf(`SELECT
 		count(*)
 		from %s
 		where query_start >= '%s' and query_end <= '%s'`,

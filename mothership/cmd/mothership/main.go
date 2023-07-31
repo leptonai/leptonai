@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	"github.com/leptonai/lepton/mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/contexts"
@@ -19,6 +17,8 @@ import (
 	"github.com/leptonai/lepton/mothership/cmd/mothership/version"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/volumes"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/workspaces"
+
+	"github.com/spf13/cobra"
 )
 
 const appName = "mothership"

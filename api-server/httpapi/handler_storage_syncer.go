@@ -3,11 +3,11 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	gcssyncer "github.com/leptonai/lepton/storage-syncer/gcs-syncer"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leptonai/lepton/go-pkg/httperrors"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
 )
 
 type StorageSyncerHandler struct {
