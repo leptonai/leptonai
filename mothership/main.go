@@ -9,9 +9,10 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/metrics"
 	"github.com/leptonai/lepton/mothership/cluster"
 	"github.com/leptonai/lepton/mothership/httpapi"
-	"github.com/leptonai/lepton/mothership/metrics"
+	_ "github.com/leptonai/lepton/mothership/metrics"
 	"github.com/leptonai/lepton/mothership/terraform"
 	"github.com/leptonai/lepton/mothership/workspace"
 
@@ -60,7 +61,7 @@ func main() {
 
 	router := gin.Default()
 	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
-	router.Use(metrics.PrometheusMiddleware())
+	router.Use(metrics.PrometheusMiddlewareForGin("mothership"))
 
 	logger := goutil.Logger.Desugar()
 	// Add a ginzap middleware, which:

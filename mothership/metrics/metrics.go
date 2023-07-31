@@ -5,35 +5,12 @@ import (
 	"context"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	httpReqsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "mothership",
-			Subsystem: "http_requests",
-			Name:      "total",
-			Help:      "Tracks all mothership HTTP requests",
-		},
-		[]string{"api", "method", "status_code"},
-	)
-	httpReqsLatency = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "mothership",
-			Subsystem: "http_requests",
-			Name:      "latency_seconds",
-
-			// lowest bucket start of upper bound 0.001 sec (1 ms) with factor 2
-			// highest bucket start of 0.001 sec * 2^13 == 8.192 sec
-			Buckets: prometheus.ExponentialBuckets(0.001, 2, 14),
-		},
-		[]string{"api", "method", "status_code"},
-	)
 	clustersTotal = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: "mothership",
@@ -90,39 +67,11 @@ func ReadJobKindFromCtx(ctx context.Context) string {
 
 func init() {
 	prometheus.MustRegister(
-		httpReqsTotal,
-		httpReqsLatency,
 		clustersTotal,
 		clusterJobsSuccessTotal,
 		clusterJobsFailureTotal,
 		clusterJobsLatency,
 	)
-}
-
-// PrometheusMiddleware is a Gin middleware that exports Prometheus metrics.
-func PrometheusMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		c.Next()
-
-		took := time.Since(start)
-
-		// e.g.,
-		// "c.FullPath" returns "/user/:id"
-		// always use the first element "user"
-		// only use the first 3 elements as we prefix with api groups
-		// /api/v1/...
-		splits := strings.Split(c.FullPath(), "/")
-		api := "/" + splits[0]
-		if len(splits) > 2 {
-			api = "/" + strings.Join(splits[:3], "/")
-		}
-		method := c.Request.Method
-		statusCode := strconv.Itoa(c.Writer.Status())
-
-		httpReqsTotal.WithLabelValues(api, method, statusCode).Inc()
-		httpReqsLatency.WithLabelValues(api, method, statusCode).Observe(took.Seconds())
-	}
 }
 
 // GetTotalClusters returns the total number of clusters from the default Prometheus gatherer.
