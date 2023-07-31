@@ -73,11 +73,7 @@ func (l *Replica) Shell(deploymentID, replicaID string) ([]byte, error) {
 
 // Log returns the logs of a replica with a max response length. 0 means no length limit.
 func (l *Replica) Log(deploymentID, replicaID string, expectedBytes, timeoutInSeconds int) ([]byte, error) {
-	output, err := l.HTTP.RequestURLUntil(http.MethodGet,
+	return l.HTTP.RequestURLUntil(http.MethodGet,
 		l.HTTP.RemoteURL+deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+"/log",
 		nil, nil, expectedBytes, timeoutInSeconds)
-	if err != nil {
-		return nil, err
-	}
-	return output, nil
 }

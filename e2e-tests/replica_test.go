@@ -3,7 +3,6 @@ package e2etests
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/url"
 	"testing"
 	"time"
@@ -89,14 +88,10 @@ func TestReplicaLog(t *testing.T) {
 	}
 	rid := replicas[0].ID
 	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		log, err := lepton.Replica().Log(mainTestDeploymentName, rid, 4096, 5)
-		if err != nil {
-			// expected since it's a long running process
-			// e.g., "... (Press CTRL+C to quit)"
-			if err != io.ErrUnexpectedEOF {
-				return fmt.Errorf("failed to get replica log: %v", err)
-			}
-		}
+		log, _ := lepton.Replica().Log(mainTestDeploymentName, rid, 4096, 5)
+		// do not check error as long as the content has the required substring:
+		// error is expected since it's a long running process
+		// e.g., "... (Press CTRL+C to quit)", or context deadline exceeded
 		if len(log) == 0 {
 			return fmt.Errorf("expected log to be non-empty, got %d", len(log))
 		}
