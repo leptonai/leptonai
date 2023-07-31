@@ -17,6 +17,10 @@ on:
         description: "Whether publish to PyPI"
         type: boolean
         default: false
+      is_release:
+        description: "Is this a release package"
+        type: boolean
+        default: false
 
 jobs:
 
@@ -106,7 +110,12 @@ jobs:
         name: sdk-package
     - name: Upload package to S3
       run: |
-        aws s3 cp leptonai*.whl s3://lepton-sdk/
+        s3_url="s3://lepton-sdk"
+        if {{ github.event_name == "workflow_dispatch" && inputs.is_release == "true" }}; then
+            s3_url="${s3_url}/release"
+        fi
+        echo "s3_url=${s3_url}"
+        aws s3 cp leptonai*.whl "${s3_url}/"
 
   publish-pypi:
     if: inputs.publish_pypi
