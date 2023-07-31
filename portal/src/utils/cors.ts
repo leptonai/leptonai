@@ -1,13 +1,26 @@
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 
-const allowHeader =
-  process.env.NODE_ENV === "development" ? "*" : "https://dashboard.lepton.ai";
+const allowOrigin = (origin?: string): origin is string => {
+  if (!origin) {
+    return false;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return ["https://dashboard.lepton.ai", "https://lepton.ai"].includes(
+      origin,
+    );
+  }
+  return origin.includes("localhost") || origin.includes("leptonai.vercel.app");
+};
 
 export const cors =
-  (fn: (req: NextApiRequest, res: NextApiResponse) => Promise<void>) =>
+  (fn: NextApiHandler): NextApiHandler =>
   async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Origin", allowHeader);
+
+    if (allowOrigin(req.headers.origin)) {
+      res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    }
+
     res.setHeader(
       "Access-Control-Allow-Methods",
       "GET,OPTIONS,PATCH,DELETE,POST,PUT",

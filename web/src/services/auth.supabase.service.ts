@@ -12,6 +12,11 @@ import {
 import { AuthorizedWorkspace } from "@lepton-dashboard/interfaces/workspace";
 import { User } from "@lepton-dashboard/interfaces/user";
 import { Database } from "@lepton-dashboard/interfaces/database";
+import {
+  HttpClientService,
+  HttpContext,
+} from "@lepton-dashboard/services/http-client.service";
+import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 
 /**
  * Must be instantiated outside OauthService
@@ -32,7 +37,7 @@ export class AuthSupabaseService implements AuthService {
   private session$ = new BehaviorSubject<Session | null>(null);
   public readonly client = client;
 
-  constructor() {
+  constructor(private http: HttpClientService) {
     this.client.auth.getSession().then(({ data: { session } }) => {
       this.session$.next(session);
     });
@@ -94,6 +99,14 @@ export class AuthSupabaseService implements AuthService {
   }
 
   getSessionProfile(): Observable<SessionUser | null> {
+    this.http
+      .get("https://portal.lepton.ai/api/auth/profile", {
+        withCredentials: true,
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: [401],
+        }),
+      })
+      .subscribe();
     return from(this.getSessionUser());
   }
 
