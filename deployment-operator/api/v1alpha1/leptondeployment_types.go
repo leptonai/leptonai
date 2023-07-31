@@ -142,8 +142,10 @@ func (lr *LeptonDeploymentResourceRequirement) GetAcceleratorRequirement() (floa
 
 // LeptonDeploymentReplicaResourceRequirement defines the resource requirement of the deployment.
 type LeptonDeploymentReplicaResourceRequirement struct {
-	CPU    float64 `json:"cpu"`
-	Memory int64   `json:"memory"`
+	// CPU is the number of CPU cores required for each replica.
+	CPU float64 `json:"cpu"`
+	// Memory is the amount of memory in MiB required for each replica.
+	Memory int64 `json:"memory"`
 	// +optional
 	AcceleratorType string `json:"accelerator_type"`
 	// +optional

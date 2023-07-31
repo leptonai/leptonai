@@ -92,3 +92,23 @@ func TestQuotaAdmit(t *testing.T) {
 		}
 	}
 }
+
+func TestGetTotalResource(t *testing.T) {
+	rl := v1.ResourceList{
+		v1.ResourceRequestsCPU:    resource.MustParse("12.6"),
+		v1.ResourceRequestsMemory: resource.MustParse("48Gi"),
+		"requests.nvidia.com/gpu": resource.MustParse("2.8"),
+	}
+
+	q := GetTotalResource(rl)
+
+	if q.CPU != 12.6 {
+		t.Errorf("CPU: %v, want %v", q.CPU, 12.6)
+	}
+	if q.Memory != 48*1024 {
+		t.Errorf("Memory: %v, want %v", q.Memory, 48*1024)
+	}
+	if q.AcceleratorNum != 2.8 {
+		t.Errorf("Ac: %v, want %v", q.AcceleratorNum, 2.8)
+	}
+}

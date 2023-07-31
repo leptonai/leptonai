@@ -3,11 +3,11 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/leptonai/lepton/api-server/quota"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/gin-gonic/gin"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,9 +24,9 @@ type WorkspaceInfo struct {
 // ResourceQuota is a struct that contains the limit and used resources
 type ResourceQuota struct {
 	// Limit is the limit of resources
-	Limit v1.ResourceList `json:"limit"`
+	Limit quota.TotalResource `json:"limit"`
 	// Used is the used resources
-	Used v1.ResourceList `json:"used"`
+	Used quota.TotalResource `json:"used"`
 }
 
 type WorkspaceState string
@@ -66,8 +66,8 @@ func (wi *WorkspaceInfoHandler) HandleGet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get resource quota: " + err.Error()})
 		return
 	}
-	wi.WorkspaceInfo.ResourceQuota.Limit = q.Status.Hard
-	wi.WorkspaceInfo.ResourceQuota.Used = q.Status.Used
+	wi.WorkspaceInfo.ResourceQuota.Limit = quota.GetTotalResource(q.Status.Hard)
+	wi.WorkspaceInfo.ResourceQuota.Used = quota.GetTotalResource(q.Status.Used)
 
 	c.JSON(http.StatusOK, wi.WorkspaceInfo)
 }
