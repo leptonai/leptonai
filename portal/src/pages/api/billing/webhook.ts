@@ -1,28 +1,10 @@
-import { stripeClient } from "@/utils/stripe";
+import { stripeClient } from "@/utils/stripe/stripe-client";
+import { updateCustomerAmountGTE } from "@/utils/stripe/update-subscription";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { buffer } from "micro";
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 export const config = { api: { bodyParser: false } };
-
-async function updateSubscriptions(customer: string, amountGTE: number) {
-  const { data: subscriptions } = await stripeClient.subscriptions.list({
-    customer,
-  });
-  await Promise.all(
-    subscriptions
-      .filter(({ status }) => status === "active")
-      .map(async ({ id }) => {
-        await stripeClient.subscriptions.update(id, {
-          billing_thresholds: {
-            amount_gte: amountGTE,
-            reset_billing_cycle_anchor: false,
-          },
-        });
-      }),
-  );
-  return subscriptions.map(({ id }) => id);
-}
 
 // Update workspace status based on subscription status
 export default async function handler(
@@ -75,7 +57,7 @@ export default async function handler(
         break;
       case "payment_method.attached":
         const paymentMethodAttached = event.data.object as Stripe.PaymentMethod;
-        const incrementIds = await updateSubscriptions(
+        const incrementIds = await updateCustomerAmountGTE(
           paymentMethodAttached.customer as string,
           5000,
         );
@@ -85,7 +67,7 @@ export default async function handler(
         break;
       case "payment_method.detached":
         const paymentMethodDetached = event.data.object as Stripe.PaymentMethod;
-        const decrementIds = await updateSubscriptions(
+        const decrementIds = await updateCustomerAmountGTE(
           paymentMethodDetached.customer as string,
           50,
         );

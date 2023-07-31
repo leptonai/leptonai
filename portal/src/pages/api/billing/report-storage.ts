@@ -1,8 +1,9 @@
-import { stripeClient } from "@/utils/stripe";
+import { stripeClient } from "@/utils/stripe/stripe-client";
+import { retrieveSubscriptionItem } from "@/utils/stripe/retrieve-subscription-item";
 import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
-// Report usage to stripe
+// Report storage usage to stripe
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -18,27 +19,14 @@ export default async function handler(
     const body = req.body;
     const id = body.record.id;
     const workspaceId = body.record.workspace_id;
-    const shape = body.record.shape;
-    const usage = body.record.usage;
+    const usage = body.record.size_gb;
     const timestamp = Math.round(
       new Date(body.record.end_time).getTime() / 1000,
     );
 
-    const { data: subscriptionId } = await supabaseAdminClient
-      .from("workspaces")
-      .select("subscription_id")
-      .eq("id", workspaceId);
-
-    if (!subscriptionId || subscriptionId.length === 0) {
-      return res.status(412).send("Workspace has no subscription");
-    }
-
-    const subscription = await stripeClient.subscriptions.retrieve(
-      subscriptionId[0].subscription_id,
-    );
-
-    const subscriptionItem = subscription.items.data.find(
-      (i) => i.metadata.shape === shape,
+    const subscriptionItem = await retrieveSubscriptionItem(
+      workspaceId,
+      "storage",
     );
 
     if (!subscriptionItem) {
@@ -54,9 +42,10 @@ export default async function handler(
     );
 
     await supabaseAdminClient
-      .from("compute_hourly")
+      .from("storage_hourly")
       .update({ stripe_usage_record_id: usageRecord.id })
       .eq("id", id);
+
     res.status(200).json(usageRecord);
   } catch (err) {
     const errorMessage =

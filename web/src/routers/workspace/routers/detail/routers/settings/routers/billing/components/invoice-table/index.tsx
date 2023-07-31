@@ -1,8 +1,9 @@
 import { css } from "@emotion/react";
 import { PriceSummary } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/price-summary";
 import { ProductName } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-name";
+import { ProductQuantity } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-quantity";
 import { ProductUnitPrice } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-unit-price";
-import { Table } from "antd";
+import { Table, Tag } from "antd";
 import Decimal from "decimal.js";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
@@ -64,12 +65,18 @@ export const InvoiceTable: FC<{
           },
         },
         {
-          title: "MINUTES",
+          title: "QUANTITY",
           dataIndex: "quantity",
-          render: (q) => `${q}`,
+          render: (q, data) => (
+            <ProductQuantity
+              quantity={q}
+              products={products}
+              priceId={data.price?.id}
+            />
+          ),
         },
         {
-          title: "PRICE / MINUTE",
+          title: "PRICE",
           dataIndex: "quantity",
           render: (_, data) => {
             return (
@@ -80,7 +87,11 @@ export const InvoiceTable: FC<{
         {
           title: "AMOUNT",
           dataIndex: "amount",
-          render: (amount) => `$${new Decimal(amount).div(100).toFixed()}`,
+          render: (amount) => (
+            <Tag bordered={false}>
+              $ {new Decimal(amount).div(100).toFixed()}
+            </Tag>
+          ),
         },
       ]}
     />

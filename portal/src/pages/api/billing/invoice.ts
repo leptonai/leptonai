@@ -1,5 +1,5 @@
 import { cors } from "@/utils/cors";
-import { stripeClient } from "@/utils/stripe";
+import { stripeClient } from "@/utils/stripe/stripe-client";
 import { getWorkspaceById } from "@/utils/workspace";
 import { NextApiRequest, NextApiResponse } from "next";
 

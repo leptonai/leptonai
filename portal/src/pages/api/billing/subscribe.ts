@@ -1,4 +1,5 @@
-import { stripeClient } from "@/utils/stripe";
+import { AvailableProducts } from "@/utils/stripe/available-products";
+import { stripeClient } from "@/utils/stripe/stripe-client";
 import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -34,32 +35,7 @@ export default async function handler(
         amount_gte: 50,
         reset_billing_cycle_anchor: false,
       },
-      items: [
-        {
-          price: "price_1NVbn2BcUfXYxWWViU0XrNgA",
-          metadata: { shape: "cpu.small" },
-        },
-        {
-          price: "price_1NVbnlBcUfXYxWWVpXUeFNnl",
-          metadata: { shape: "cpu.medium" },
-        },
-        {
-          price: "price_1NVboUBcUfXYxWWVLB9kZXzA",
-          metadata: { shape: "cpu.large" },
-        },
-        {
-          price: "price_1NVbpbBcUfXYxWWVTfS6a74e",
-          metadata: { shape: "gpu.t4" },
-        },
-        {
-          price: "price_1NVbqXBcUfXYxWWVVQRL3Gl3",
-          metadata: { shape: "gpu.a10" },
-        },
-        {
-          price: "price_1NVbrIBcUfXYxWWVk7G25XEB",
-          metadata: { shape: "gpu.a100" },
-        },
-      ],
+      items: AvailableProducts,
       coupon: "NolzLBLL",
     });
 
