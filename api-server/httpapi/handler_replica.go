@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -193,7 +194,7 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 		c.Writer.Flush()
 	}
 
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && err != context.Canceled {
 		goutil.Logger.Errorw("failed to stream logs for replica",
 			"operation", "getLogs",
 			"replica", rid,
