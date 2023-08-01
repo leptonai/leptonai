@@ -45,7 +45,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.PersistentFlags().StringVar(&dbUser, "db-user", "", "AWS Aurora database user")
 	cmd.PersistentFlags().StringVar(&dbPassword, "db-password", "", "AWS Aurora database password")
-	cmd.PersistentFlags().BoolVar(&authWithToken, "auth-with-token", aurora.DefaultAuthWithToken, "Authenticate with token, overwrites AWS Aurora database password, user name must be valid")
+	cmd.PersistentFlags().BoolVar(&authWithToken, "auth-aurora-with-token", aurora.DefaultAuthWithToken, "Authenticate with token, overwrites AWS Aurora database password, user name must be valid")
 	cmd.PersistentFlags().BoolVar(&auroraConfig, "aurora-config", false, "use stored Aurora DB config")
 	cmd.PersistentFlags().StringVar(&auroraConfigPath, "aurora-config-path", aurora.DefaultAuroraPath, "Aurora DB config file path")
 
