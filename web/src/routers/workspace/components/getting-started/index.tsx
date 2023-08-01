@@ -61,6 +61,17 @@ export const GettingStarted: FC = () => {
                   />
                 </Typography.Paragraph>
                 <Typography.Paragraph>
+                  Closed beta users: use the following command to install the
+                  leptonai sdk:
+                </Typography.Paragraph>
+                <Typography.Paragraph>
+                  <CodeBlock
+                    code="pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-0.6.0-py3-none-any.whl"
+                    copyable={true}
+                    language={LanguageSupports.Bash}
+                  />
+                </Typography.Paragraph>
+                <Typography.Paragraph>
                   You can check that it is installed by running:
                 </Typography.Paragraph>
                 <Typography.Paragraph>
