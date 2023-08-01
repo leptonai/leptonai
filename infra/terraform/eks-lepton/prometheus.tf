@@ -485,6 +485,37 @@ resource "helm_release" "kube_prometheus_stack" {
           # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
 
           {
+            job_name = "lepton-api-server-service-pods"
+
+            # discovers targets from listed endpoints of a service
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+            kubernetes_sd_configs = [
+              {
+                role = "endpoints"
+
+                # Optional namespace discovery. If omitted, all namespaces are used.
+                # namespaces = { ... }
+              }
+            ]
+
+            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+            #
+            # fetches endpoints of this service (basically # of mothership pods)
+            # instead of directly from this service.
+            #
+            # e.g.,
+            # <service-name>.<namespace>.svc.cluster.local:<service-port>
+            # "lepton-api-server-service.*.svc.cluster.local:20863"
+            relabel_configs = [
+              {
+                source_labels = ["__meta_kubernetes_service_name"]
+                action        = "keep"
+                regex         = "lepton-api-server-service"
+              }
+            ]
+          },
+
+          {
             job_name = "lepton-deployment-pods"
 
             # List of Kubernetes service discovery configurations.
