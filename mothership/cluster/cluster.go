@@ -333,15 +333,25 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 	defer cancelBeforeTF()
 
 	tfws := terraformWorkspaceName(clusterName)
-	_, err = terraform.GetWorkspace(ctxBeforeTF, tfws)
+	tfw, err := terraform.GetWorkspace(ctxBeforeTF, tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(ctxBeforeTF, tfws)
-	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
-		return fmt.Errorf("failed to force unlock workspace: %w", err)
+	if !tfw.Locked {
+		goutil.Logger.Infow("tf workspace is locked -- force unlocking",
+			"tf-workspace", tfws,
+			"operation", "force-unlock",
+		)
+		err = terraform.ForceUnlockWorkspace(ctxBeforeTF, tfws)
+		if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+			return fmt.Errorf("failed to force unlock workspace: %w", err)
+		}
+	} else {
+		goutil.Logger.Infow("tf workspace is not locked, continuing...",
+			"tf-workspace", tfws,
+		)
 	}
 
 	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef, crdSrcsToCopy...)
