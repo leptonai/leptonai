@@ -1,7 +1,11 @@
-# How to set up EKS lepton locally
+# eks-lepton
+
+## Deploy locally
+
 This is for use cases like local testing, launching example photons.
 
-### Prerequisites (might be incomplete):
+### Prerequisites (might be incomplete)
+
 1. install [terraform cli](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 2. generate personal TF cloud token
 3. `git pull`
@@ -9,12 +13,6 @@ This is for use cases like local testing, launching example photons.
 ### Create new cluster
 
 ```bash
-rm -rf ${HOME}/.kube
-cd $HOME/lepton/infra/terraform
-./cleanup.sh
-
-# UBUNTU_X86_64_AC_P4D24XLARGE_MIN_SIZE=0 \
-# UBUNTU_X86_64_AC_P4D24XLARGE_MAX_SIZE=1 \
 cd $HOME/lepton/infra/terraform/eks-lepton
 CLUSTER_NAME=<cluster name> \
 DEPLOYMENT_ENVIRONMENT=DEV \
@@ -25,27 +23,83 @@ ENABLE_COPY_LEPTON_CHARTS=true \
 ./install.sh
 ```
 
-### Uninstall cluster:
+### Uninstall cluster
 
 ```bash
-rm -rf ${HOME}/.kube
-cd $HOME/lepton/infra/terraform/eks-lepton
+# the tf_workspace by default should be the same as cluster_name
+cd ./infra/terraform/eks-lepton
 DEPLOYMENT_ENVIRONMENT=DEV \
 API_TOKEN=123 \
-# the tf_workspace by default should be the same as cluster_name
 TF_WORKSPACE=<tf work space>\
 TF_API_TOKEN=<tf cloud api token> \
 CLUSTER_NAME=<cluster name> \
 ./uninstall.sh
 ```
 
-# Node group AMIs
+## Set up mothership context
+
+```bash
+MOTHERSHIP_URL="https://mothership.cloud.lepton.ai/api/v1" # for dev
+MOTHERSHIP_URL="https://mothership.app.lepton.ai/api/v1" # for prod
+
+MOTHERSHIP_CONTEXT_NAME=""
+MOTHERSHIP_TOKEN=""
+
+mothership context save \
+--name $MOTHERSHIP_CONTEXT_NAME \
+--url $MOTHERSHIP_URL \
+--token $MOTHERSHIP_TOKEN
+
+mothership context list
+```
+
+## Create eks-lepton clusters
+
+**DO NOT UPDATE MANUALLY.**
+
+Always use `mothership` API to create eks-lepton clusters.
+
+```bash
+mothership clusters list
+
+# --git-ref will default to "main" if not specified
+mothership clusters create \
+--deployment-environment DEV \
+--region us-east-1 \
+--cluster-name $CLUSTER_NAME \
+--git-ref $GIT_BRANCH_NAME_OR_TAG
+
+mothership clusters logs \
+-c $CLUSTER_NAME
+```
+
+## Update existing eks-lepton clusters
+
+**DO NOT UPDATE MANUALLY.**
+
+Always use `mothership` API to manage existing eks-lepton clusters.
+
+```bash
+MOTHERSHIP_URL="https://mothership.cloud.lepton.ai/api/v1" # for dev
+MOTHERSHIP_URL="https://mothership.app.lepton.ai/api/v1" # for prod
+
+mothership clusters list
+
+mothership clusters update \
+-c $CLUSTER_NAME \
+--git-ref $GIT_BRANCH_NAME_OR_TAG
+
+mothership clusters logs \
+-c $CLUSTER_NAME
+```
+
+## Node group AMIs
 
 To summarize, the custom Ubuntu AMI + NVIDIA driver + pre-fetched Lepton container images is the best option, the platform that NVIDIA supports the most (see [NVIDIA/gpu-operator/issues/227](https://github.com/NVIDIA/gpu-operator/issues/227)). But, this can be cutting edge, unstable sometimes (see [launchpad/cloud-images/2012689](https://bugs.launchpad.net/cloud-images/+bug/2012689)). Alternatively, we can use the default Amazon Linux 2 (AL2) AMI, but the NVIDIA GPU operator does not work on AL2, which also breaks the `cluster-autoscaler` scale-downs.
 
 We should use Ubuntu wherever we need the GPU operator but have a way to fall back to AL2 if something goes wrong with the Ubuntu AMI.
 
-## AL2 and AL2_GPU AMI
+### AL2 and AL2_GPU AMI
 
 The official AMI type from EKS for CPU/GPU platforms.
 
@@ -75,7 +129,7 @@ The AMI build script can be found at [`awslabs/amazon-eks-ami`](https://github.c
   - See [lepton/issues/526](https://github.com/leptonai/lepton/issues/526).
   - The `cluster-autoscaler` is unable to scale down AL2 based GPU nodes.
 
-## Official Ubuntu EKS AMI
+### Official Ubuntu EKS AMI
 
 The official Ubuntu 20.04 AMI for EKS nodes. The official AMIs can be found at [`cloud-images.ubuntu.com`](https://cloud-images.ubuntu.com/docs/aws/eks) or in the SSM parameter store:
 
@@ -106,11 +160,11 @@ aws ssm get-parameters \
 - Build script is not open sourced.
 - The default image does not cache Lepton-specific container images at the AMI layer.
 
-## Custom Ubuntu AMI built from scratch
+### Custom Ubuntu AMI built from scratch
 
 We may want to build our AMI from scratch, but it requires a lot of work, as Canonical does not open source their AMI build script.
 
-## Custom Ubuntu AMI (built on top of Ubuntu EKS AMI)
+### Custom Ubuntu AMI (built on top of Ubuntu EKS AMI)
 
 We can address above issues by rebuilding a new AMI on top of the Ubuntu EKS AMI. For GPU support, we can simply take the existing Ubuntu EKS AMI and install the NVIDIA drivers and toolkit. And the snap kubelet-eks issue was just resolved with the latest AMI, but in the worst case, we can always fall back to AL2 node groups. For Lepton specific container images, we can pre-fetch the container images during AMI build process. For upgrade issues, we will build more reliable testing suites to make sure of its release quality. Most important, **we got this working** and confirmed that the GPU operator runs with no issue on the custom Ubuntu AMIs.
 
@@ -234,7 +288,7 @@ I0624 20:45:52.503388       1 taints.go:162] Successfully added ToBeDeletedTaint
 I0624 20:45:52.503536       1 actuator.go:211] Scale-down: removing node ip-10-0-2-185.ec2.internal, utilization: {0 0 0 nvidia.com/gpu 0}, pods to reschedule: coredns-55fb5d545d-tqnxm,grafana-d6bc8f9-phs2m,coredns-55fb5d545d-zn54w,prometheus-pushgateway-6ffb6f7466-bfl5l
 ```
 
-# Build dcgm-exporter ECR image
+## Build dcgm-exporter ECR image
 
 Just manually build (for now) whenever there are new versions in upstream NVIDIA:
 
