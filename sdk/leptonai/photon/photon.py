@@ -664,7 +664,6 @@ class Photon(BasePhoton):
                 ),
             )
             async def typed_handler(request: request_model):
-                logger.info(request)
                 try:
                     res = await vd.execute(request)
                 except Exception as e:
@@ -685,7 +684,6 @@ class Photon(BasePhoton):
 
             @functools.wraps(method)
             async def typed_handler(*args, **kwargs):
-                logger.info(f"args: {args}, kwargs: {kwargs}")
                 try:
                     res = await method(*args, **kwargs)
                 except Exception as e:
