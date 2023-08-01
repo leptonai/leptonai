@@ -5,6 +5,10 @@ on:
     inputs:
       version:
         description: 'Photon Runner Version'
+      is_release:
+        description: "Is this a release build"
+        type: boolean
+        default: false
 
 jobs:
   build_matrix:
@@ -34,5 +38,7 @@ jobs:
         echo "Building for python_version=${{ matrix.python_version }}"
         tag="${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}-runner-${VERSION_TAG}"
         docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file sdk/leptonai/photon/dockerfiles/python-runner.Dockerfile --tag ${tag}
-        docker push ${tag}
+        if [ "${{ inputs.is_release }}" == 'true' ]; then
+            docker push ${tag}
+        fi
         docker rmi ${tag}
