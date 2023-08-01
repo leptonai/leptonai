@@ -1,15 +1,13 @@
 import { Policies } from "@lepton-dashboard/components/policies";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
-import { OAuthLogin } from "@lepton-dashboard/routers/login/components/oauth-login";
 import { TokenLogin } from "@lepton-dashboard/routers/login/components/token-login";
 import { useInject } from "@lepton-libs/di";
 import { css } from "@emotion/react";
 import { CenterBox } from "@lepton-dashboard/components/center-box";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { useSearchParams } from "react-router-dom";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
-function getURL(url: string | null): URL;
 function getURL(url: string | null, fallback: URL): URL;
 function getURL(url: string | null, fallback?: URL): null | URL {
   let parsedURL: URL | null;
@@ -32,47 +30,43 @@ function getURL(url: string | null, fallback?: URL): null | URL {
 export const Login = () => {
   const authService = useInject(AuthService);
   const [params] = useSearchParams();
-  const callbackURL = params.get("callbackURL");
-  const redirectTo = params.get("redirectTo");
+  const next = params.get("next");
   useDocumentTitle("Login");
 
   const url = useMemo(() => {
-    const parsedCallbackURL = getURL(
-      callbackURL,
-      new URL(window.location.origin)
-    );
-    const parsedRedirectTo = getURL(redirectTo);
-    if (parsedRedirectTo) {
-      const callbackURL = new URL(`${window.location.origin}/redirect`);
-      callbackURL!.searchParams.set("to", parsedRedirectTo.toString());
-      return callbackURL.toString();
-    }
+    const parsedCallbackURL = getURL(next, new URL(window.location.origin));
     return parsedCallbackURL.toString();
-  }, [callbackURL, redirectTo]);
+  }, [next]);
+
+  useEffect(() => {
+    if (authService.authServerUrl && url) {
+      window.location.href = `${
+        authService.authServerUrl
+      }/login?next=${encodeURIComponent(url)}`;
+    }
+  }, [authService, url]);
 
   return (
-    <CenterBox>
-      <div
-        css={css`
-          flex: 1 1 auto;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        `}
-      >
+    !authService.authServerUrl && (
+      <CenterBox>
         <div
           css={css`
             flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           `}
         >
-          {authService.client ? (
-            <OAuthLogin url={url} client={authService.client} />
-          ) : (
+          <div
+            css={css`
+              flex: 1 1 auto;
+            `}
+          >
             <TokenLogin />
-          )}
+          </div>
         </div>
-      </div>
-      <Policies />
-    </CenterBox>
+        <Policies />
+      </CenterBox>
+    )
   );
 };

@@ -12,8 +12,7 @@ export class ProfileService {
   profile: Profile | null = null;
   bootstrap(): Observable<boolean> {
     return forkJoin([
-      this.authService.getSessionProfile().pipe(catchError(() => of(null))),
-      this.authService.getUserProfile().pipe(catchError(() => of(null))),
+      this.authService.getUser().pipe(catchError(() => of(null))),
       this.authService.listAuthorizedWorkspaces().pipe(
         mergeMap((authWorkspaces) =>
           authWorkspaces.length > 0
@@ -50,10 +49,9 @@ export class ProfileService {
         catchError(() => of([]))
       ),
     ]).pipe(
-      tap(([auth_info, user, authorized_workspaces]) => {
+      tap(([user, authorized_workspaces]) => {
         this.profile = {
           identification: user,
-          oauth: auth_info,
           authorized_workspaces,
         };
       }),

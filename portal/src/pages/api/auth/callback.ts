@@ -17,6 +17,11 @@ const callback: NextApiHandler = async (req, res) => {
     return;
   }
 
+  if (process.env.NODE_ENV === "development") {
+    res.redirect("http://localhost:3000");
+    return;
+  }
+
   res.redirect("/login");
 };
 

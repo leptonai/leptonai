@@ -19,7 +19,7 @@ export const ProfileMenu: FC = () => {
 
   return (
     <>
-      {profileService.profile?.oauth?.id ? (
+      {profileService.profile?.identification?.id ? (
         <Dropdown
           menu={{
             items: [
@@ -36,7 +36,7 @@ export const ProfileMenu: FC = () => {
                 label: "Logout",
                 key: "logout",
                 onClick: () =>
-                  authService.logout().then(() => {
+                  authService.logout().subscribe(() => {
                     navigateService.navigateTo("login", {
                       relative: "route",
                     });
@@ -59,7 +59,7 @@ export const ProfileMenu: FC = () => {
           size="small"
           icon={<CarbonIcon icon={<Logout />} />}
           onClick={() => {
-            authService.logout().then(() => {
+            authService.logout().subscribe(() => {
               navigateService.navigateTo("login", {
                 relative: "route",
               });

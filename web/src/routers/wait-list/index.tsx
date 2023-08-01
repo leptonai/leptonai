@@ -3,10 +3,7 @@ import { LeptonIcon } from "@lepton-dashboard/components/icons";
 import { SignAsOther } from "@lepton-dashboard/components/signin-other";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
-import {
-  AuthService,
-  WaitlistEntry,
-} from "@lepton-dashboard/services/auth.service";
+import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
 import { useInject } from "@lepton-libs/di";
@@ -14,6 +11,7 @@ import { useInject } from "@lepton-libs/di";
 import { Button, Col, Form, Input, Row, Select, Typography } from "antd";
 import { FC, useMemo, useState } from "react";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { WaitlistEntry } from "@lepton-dashboard/interfaces/user";
 
 export const WaitList: FC = () => {
   useDocumentTitle("Join wait list");

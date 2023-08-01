@@ -19,7 +19,9 @@ const serverCallback = isProd
   : "http://localhost:8000/api/auth/callback";
 
 const validateNext = (next: string | string[] | undefined): string => {
-  const defaultNext = "https://dashboard.lepton.ai";
+  const defaultNext = isProd
+    ? "https://dashboard.lepton.ai"
+    : "http://localhost:3000";
   const url = Array.isArray(next) ? next[0] : next;
   if (!url) return defaultNext;
   try {
@@ -95,9 +97,9 @@ export default function Login({
           {isDev && (
             <>
               <p>
-                <Link href="/api/auth/user">profile</Link>
+                <Link href={validatedNext}>next</Link>
                 <br />
-                <Link href={validatedNext}>goToCallback</Link>
+                <Link href="/api/auth/user">profile</Link>
                 <br />
                 <Link href="/api/auth/logout?next=https://dashboard.lepton.ai/">
                   logout

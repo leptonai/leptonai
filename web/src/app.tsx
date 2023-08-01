@@ -1,6 +1,6 @@
 import { lazyErrorWrapper } from "@lepton-dashboard/components/lazy-error-wrapper";
 import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
-import { AuthSupabaseService } from "@lepton-dashboard/services/auth.supabase.service";
+import { AuthPortalService } from "@lepton-dashboard/services/auth-portal.service";
 import { EventTrackerService } from "@lepton-dashboard/services/event-tracker.service";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
@@ -181,7 +181,7 @@ function App() {
         OpenApiService,
         ProfileService,
         AuthTokenService,
-        AuthSupabaseService,
+        AuthPortalService,
         NavigateService,
         WorkspaceTrackerService,
         NotificationService,
@@ -194,16 +194,16 @@ function App() {
         {
           provide: AuthService,
           useFactory: (
-            authSupabaseService: AuthSupabaseService,
+            authPortalService: AuthPortalService,
             authNoopService: AuthTokenService
           ) => {
             if (import.meta.env.VITE_ENABLE_OAUTH === "enable") {
-              return authSupabaseService;
+              return authPortalService;
             } else {
               return authNoopService;
             }
           },
-          deps: [AuthSupabaseService, AuthTokenService],
+          deps: [AuthPortalService, AuthTokenService],
         },
       ]}
     >

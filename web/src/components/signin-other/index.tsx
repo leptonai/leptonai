@@ -28,11 +28,11 @@ export const SignAsOther: FC<{
         </Typography.Title>
       )}
       {tips && <Typography.Paragraph>{tips}</Typography.Paragraph>}
-      {profileService.profile?.oauth?.id ? (
+      {profileService.profile?.identification?.id ? (
         <>
           <Typography.Paragraph>
             You are logged in as{" "}
-            <strong>{profileService.profile?.oauth?.email}</strong>
+            <strong>{profileService.profile?.identification?.email}</strong>
           </Typography.Paragraph>
           <Row gutter={[16, 16]}>
             {buttons}
@@ -41,7 +41,7 @@ export const SignAsOther: FC<{
                 block
                 type="primary"
                 onClick={() =>
-                  authService.logout().then(() =>
+                  authService.logout().subscribe(() =>
                     navigateService.navigateTo("login", {
                       relative: "route",
                     })

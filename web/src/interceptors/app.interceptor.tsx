@@ -6,7 +6,7 @@ import {
   HTTPRequest,
   HTTPResponse,
 } from "@lepton-dashboard/services/http-client.service";
-import { catchError, from, mergeMap, Observable, throwError } from "rxjs";
+import { catchError, mergeMap, Observable, tap, throwError } from "rxjs";
 import {
   AuthService,
   UnauthorizedError,
@@ -65,11 +65,10 @@ export class AppInterceptor implements HTTPInterceptor {
 
           // request to ignore 401 errors explicitly
           if (status === 401 && !ignore401) {
-            return from(
-              this.authService.logout().then(() => {
+            return this.authService.logout().pipe(
+              tap(() => {
                 this.navigateService.navigateTo("login");
-              })
-            ).pipe(
+              }),
               mergeMap(() =>
                 throwError(() => new UnauthorizedError("Unauthorized"))
               )

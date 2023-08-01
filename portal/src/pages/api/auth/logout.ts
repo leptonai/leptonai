@@ -1,5 +1,6 @@
 import { NextApiHandler } from "next";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { cors } from "@/utils/cors";
 
 const logout: NextApiHandler = async (req, res) => {
   // Create authenticated Supabase Client
@@ -17,4 +18,4 @@ const logout: NextApiHandler = async (req, res) => {
   res.redirect("/login");
 };
 
-export default logout;
+export default cors(logout);
