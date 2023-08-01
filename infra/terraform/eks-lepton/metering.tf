@@ -215,3 +215,24 @@ resource "kubernetes_secret" "mothership_rds_aurora_secret" {
 
   type = "Opaque"
 }
+
+data "aws_secretsmanager_secret" "mothership_supabase_credential_secret" {
+  arn = var.mothership_supabase_credential_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "mothership_supabase_credential_secret" {
+  secret_id = data.aws_secretsmanager_secret.mothership_supabase_credential_secret.id
+}
+
+resource "kubernetes_secret" "mothership_supabase_credential_secret" {
+  metadata {
+    name      = "mothership-supabase-credential-secret"
+    namespace = kubernetes_namespace.metering.metadata[0].name
+  }
+
+  data = {
+    password = jsondecode(data.aws_secretsmanager_secret_version.mothership_supabase_credential_secret.secret_string)["password"]
+  }
+
+  type = "Opaque"
+}

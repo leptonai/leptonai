@@ -95,3 +95,7 @@ fi
 if [[ "$MOTHERSHIP_RDS_AURORA_SECRET_ARN" != "" ]]; then
     APPLY_FLAGS+=("-var=mothership_rds_aurora_secret_arn=$MOTHERSHIP_RDS_AURORA_SECRET_ARN")
 fi
+
+if [[ "$MOTHERSHIP_SUPABASE_CREDENTIAL_SECRET_ARN" != "" ]]; then
+    APPLY_FLAGS+=("-var=mothership_supabase_credential_secret_arn=$MOTHERSHIP_SUPABASE_CREDENTIAL_SECRET_ARN")
+fi

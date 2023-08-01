@@ -235,3 +235,9 @@ variable "mothership_rds_aurora_secret_arn" {
   type        = string
   default     = null
 }
+
+variable "mothership_supabase_credential_secret_arn" {
+  description = "Supabase auth secret ARN from mothership"
+  type        = string
+  default     = null
+}
