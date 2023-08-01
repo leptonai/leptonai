@@ -406,7 +406,7 @@ export class ApiServerService implements ApiService {
         workspace_id: this.workspaceTrackerService.id,
       },
       {
-        withCredentials: import.meta.env.PROD,
+        withCredentials: true,
       }
     );
   }
@@ -422,7 +422,7 @@ export class ApiServerService implements ApiService {
         workspace_id: this.workspaceTrackerService.id,
       },
       {
-        withCredentials: import.meta.env.PROD,
+        withCredentials: true,
       }
     );
   }

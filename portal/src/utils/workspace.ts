@@ -1,4 +1,4 @@
-import { supabaseAdminClient, supabaseClient } from "@/utils/supabase";
+import { supabaseAdminClient } from "@/utils/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 async function getWorkspace(id: string, client: SupabaseClient) {
@@ -16,9 +16,7 @@ async function getWorkspace(id: string, client: SupabaseClient) {
 
 export async function getWorkspaceById(
   id: string,
-  cookies: Partial<{
-    [key: string]: string;
-  }>,
+  supabaseClient: SupabaseClient,
 ): Promise<{
   id: string;
   created_at: string;
@@ -27,21 +25,11 @@ export async function getWorkspaceById(
   display_name: string;
   type: string;
 } | null> {
-  if (process.env.NODE_ENV === "development") {
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.SUPABASE_SECRET_KEY
+  ) {
     return await getWorkspace(id, supabaseAdminClient);
   }
-
-  const accessToken = cookies[`lepton-access-token`];
-  const refreshToken = cookies[`lepton-refresh-token`];
-
-  if (!accessToken || !refreshToken) {
-    return null;
-  }
-
-  await supabaseClient.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-
   return await getWorkspace(id, supabaseClient);
 }

@@ -1,13 +1,16 @@
 import { cors } from "@/utils/cors";
 import { stripeClient } from "@/utils/stripe/stripe-client";
 import { getWorkspaceById } from "@/utils/workspace";
-import { NextApiRequest, NextApiResponse } from "next";
+import {
+  NextApiWithSupabaseHandler,
+  serverClientWithAuthorized,
+} from "@/utils/supabase";
 
 // Get the invoice data for a workspace
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   try {
     const workspaceId = req.body.workspace_id;
-    const workspace = await getWorkspaceById(workspaceId, req.cookies);
+    const workspace = await getWorkspaceById(workspaceId, supabase);
     if (!workspace) {
       return res.status(401).send("You are not authorized to call this API");
     } else {
@@ -45,6 +48,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       err instanceof Error ? err.message : "Internal server error";
     res.status(500).send(`Error: ${errorMessage}`);
   }
-}
+};
 
-export default cors(handler);
+export default cors(serverClientWithAuthorized(handler));
