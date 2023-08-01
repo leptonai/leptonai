@@ -119,21 +119,29 @@ def list():
     current_workspace = workspace_info["current_workspace"]
     table = Table()
     table.add_column("ID")
+    table.add_column("Name")
     table.add_column("URL")
     table.add_column("Role")
     table.add_column("Auth Token")
     for workspace_id, info in workspaces.items():
         url = info["url"]
-        if workspace_id == current_workspace:
-            workspace_id = f'[green]{workspace_id + " (logged in)"}[/]'
-            url = f"[green]{url}[/]"
+        # in older versions of the SDK, "display_name" field does not exist, so we
+        # add a sanity check.
+        name = info.get("display_name", "")
         role = "user"
         if info["terraform_dir"] is not None:
             role = "creator"
         token = info.get("auth_token", "")
         if token:
-            token = f"{token[:2]}***{token[-2:]}" if len(token) > 4 else "*****"
-        table.add_row(workspace_id, url, role, token)
+            token = f"{token[:2]}****{token[-2:]}" if len(token) > 8 else "******"
+        # Mark current workspace as green.
+        if workspace_id == current_workspace:
+            name = f"[green]{name}[/]"
+            workspace_id = f"[green]{workspace_id}[/]"
+            url = f"[green]{url}[/]"
+            role = f"[green]{role}[/]"
+            token = f"[green]{token}[/]"
+        table.add_row(workspace_id, name, url, role, token)
     console.print(table)
 
 
@@ -199,7 +207,8 @@ def status():
             " contact us by sharing the error message above."
         ),
     )
-    console.print(f"name:       {info['workspace_name']}")
+    console.print(f"id:         {info['workspace_name']}")
+    console.print(f"state:      {info['workspace_state']}")
     console.print(f"build time: {info['build_time']}")
     console.print(f"version:    {info['git_commit']}")
     console.print("quota usage:")
