@@ -5,7 +5,7 @@ from leptonai.registry import Registry
 pipeline_registry = Registry()
 
 
-def create_diffusion_pipeline(task, model, revision, torch_compile=True):
+def create_diffusion_pipeline(task, model, revision, torch_compile=False):
     from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
     import torch
 
