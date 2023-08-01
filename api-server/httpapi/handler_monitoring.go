@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/api"
@@ -268,7 +268,7 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 // as it's been deprecated
 func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 	// get the GPU memory util for the past 1 hour
-	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"} / DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("rid") + "\"})[1h:1m]"
+	query := "(DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"} / (DCGM_FI_DEV_FB_USED{pod=\"" + c.Param("rid") + "\"} + DCGM_FI_DEV_FB_FREE{pod=\"" + c.Param("rid") + "\"}))[1h:1m]"
 	result, err := h.queryMetrics(c, query, "gpu_memory_util", "gpu")
 	if err != nil {
 		goutil.Logger.Errorw("failed to get GPU memory util",
