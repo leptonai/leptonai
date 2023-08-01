@@ -1,10 +1,27 @@
 package quota
 
+// TODO: consider moving this to go-pkg/quota
+
 import (
+	"fmt"
+	"math"
+
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/deploymentutil"
+	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
+)
+
+const (
+	sysQuotaLimitOverheadCPU        = 1
+	sysQuotaLimitOverheadMemoryInGi = 1
+	sysQuotaLimitOverheadGPU        = 0
+
+	operatorUsageOverheadCPU         = 0.1
+	operatorUsageOverheadMemoryInGi  = 0.125
+	apiServerUsageOverheadCPU        = 0.05
+	apiServerUsageOverheadMemoryInGi = 0.125
 )
 
 // TotalResource is a list of aggergated resource for workspaces.
@@ -92,4 +109,52 @@ func GetTotalResource(ql v1.ResourceList) TotalResource {
 	}
 
 	return q
+}
+
+// RemoveSystemLimitOverhead removes system limit overhead from the given quota.
+func RemoveSystemLimitOverhead(q TotalResource) TotalResource {
+	q.CPU -= sysQuotaLimitOverheadCPU
+	q.Memory -= sysQuotaLimitOverheadMemoryInGi * 1024
+	q.AcceleratorNum -= sysQuotaLimitOverheadGPU
+	return q
+}
+
+// RemoveSystemUsageOverhead removes system usage overhead from the given quota.
+func RemoveSystemUsageOverhead(q TotalResource) TotalResource {
+	q.CPU -= (operatorUsageOverheadCPU + apiServerUsageOverheadCPU)
+	q.Memory -= (operatorUsageOverheadMemoryInGi + apiServerUsageOverheadMemoryInGi) * 1024
+	q.CPU = q.CPU / (1 - deploymentutil.RequestSysOverhead)
+	q.Memory = int64(math.Ceil((float64(q.Memory) / (1 - deploymentutil.RequestSysOverhead))))
+	return q
+}
+
+// SetResourceQuotaStatus sets the quota requirement for the given workspace spec.
+func SetQuotaFromQuotaGroup(spec *crdv1alpha1.LeptonWorkspaceSpec) error {
+	switch spec.QuotaGroup {
+	case "small":
+		spec.QuotaCPU = 16
+		spec.QuotaMemoryInGi = 64
+		spec.QuotaGPU = 1
+	case "medium":
+		spec.QuotaCPU = 64
+		spec.QuotaMemoryInGi = 256
+		spec.QuotaGPU = 4
+	case "large":
+		spec.QuotaCPU = 256
+		spec.QuotaMemoryInGi = 1024
+		spec.QuotaGPU = 16
+	case "unlimited":
+		spec.QuotaCPU = 0
+		spec.QuotaMemoryInGi = 0
+		spec.QuotaGPU = 0
+	case "custom":
+	default:
+		return fmt.Errorf("invalid quota group %s", spec.QuotaGroup)
+	}
+	if spec.QuotaGroup != "unlimited" {
+		spec.QuotaCPU += sysQuotaLimitOverheadCPU
+		spec.QuotaMemoryInGi += sysQuotaLimitOverheadMemoryInGi
+		spec.QuotaGPU += sysQuotaLimitOverheadGPU
+	}
+	return nil
 }

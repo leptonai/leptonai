@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/leptonai/lepton/api-server/quota"
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
@@ -214,7 +215,7 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
 	}
 
-	if err := generateQuotaFromQuotaGroup(&ws.Spec); err != nil {
+	if err := quota.SetQuotaFromQuotaGroup(&ws.Spec); err != nil {
 		return nil, fmt.Errorf("invalid quota setting: %w", err)
 	}
 
@@ -291,7 +292,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 		ws.Spec.QuotaCPU = spec.QuotaCPU
 		ws.Spec.QuotaMemoryInGi = spec.QuotaMemoryInGi
 		ws.Spec.QuotaGPU = spec.QuotaGPU
-		if err := generateQuotaFromQuotaGroup(&ws.Spec); err != nil {
+		if err := quota.SetQuotaFromQuotaGroup(&ws.Spec); err != nil {
 			return nil, fmt.Errorf("invalid quota setting: %w", err)
 		}
 	}
@@ -715,40 +716,4 @@ func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorksp
 	ws.Status.State = state
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
 	return DataStore.UpdateStatus(context.Background(), ws.Spec.Name, ws)
-}
-
-const (
-	SysOverheadCPU        = 1
-	SysOverheadMemoryInGi = 1
-	SysOverheadGPU        = 0
-)
-
-func generateQuotaFromQuotaGroup(spec *crdv1alpha1.LeptonWorkspaceSpec) error {
-	switch spec.QuotaGroup {
-	case "small":
-		spec.QuotaCPU = 16
-		spec.QuotaMemoryInGi = 64
-		spec.QuotaGPU = 1
-	case "medium":
-		spec.QuotaCPU = 64
-		spec.QuotaMemoryInGi = 256
-		spec.QuotaGPU = 4
-	case "large":
-		spec.QuotaCPU = 256
-		spec.QuotaMemoryInGi = 1024
-		spec.QuotaGPU = 16
-	case "unlimited":
-		spec.QuotaCPU = 0
-		spec.QuotaMemoryInGi = 0
-		spec.QuotaGPU = 0
-	case "custom":
-	default:
-		return fmt.Errorf("invalid quota group %s", spec.QuotaGroup)
-	}
-	if spec.QuotaGroup != "unlimited" {
-		spec.QuotaCPU += SysOverheadCPU
-		spec.QuotaMemoryInGi += SysOverheadMemoryInGi
-		spec.QuotaGPU += SysOverheadGPU
-	}
-	return nil
 }

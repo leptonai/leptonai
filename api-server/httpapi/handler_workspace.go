@@ -66,8 +66,8 @@ func (wi *WorkspaceInfoHandler) HandleGet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get resource quota: " + err.Error()})
 		return
 	}
-	wi.WorkspaceInfo.ResourceQuota.Limit = quota.GetTotalResource(q.Status.Hard)
-	wi.WorkspaceInfo.ResourceQuota.Used = quota.GetTotalResource(q.Status.Used)
+	wi.WorkspaceInfo.ResourceQuota.Limit = quota.RemoveSystemLimitOverhead(quota.GetTotalResource(q.Status.Hard))
+	wi.WorkspaceInfo.ResourceQuota.Used = quota.RemoveSystemUsageOverhead(quota.GetTotalResource(q.Status.Used))
 
 	c.JSON(http.StatusOK, wi.WorkspaceInfo)
 }

@@ -10,13 +10,16 @@ import (
 
 const (
 	nvidiaGPUResourceKey = "nvidia.com/gpu"
+
+	// RequestSysOverhead is the overhead of system resources
+	RequestSysOverhead = 0.1
 )
 
 // LeptonResourceToKubeResource converts a LeptonDeploymentResourceRequirement to a corev1.ResourceRequirements
 // TODO: add tests
 func LeptonResourceToKubeResource(lr leptonaiv1alpha1.LeptonDeploymentResourceRequirement) corev1.ResourceRequirements {
 	// we need to set request to a smaller value to account for shared node resources
-	requestFactor := 0.9
+	requestFactor := 1 - RequestSysOverhead
 	cpuValue := lr.CPU
 	memValue := lr.Memory
 	storageValue := lr.EphemeralStorageInGB

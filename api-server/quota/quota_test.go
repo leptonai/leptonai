@@ -112,3 +112,58 @@ func TestGetTotalResource(t *testing.T) {
 		t.Errorf("Ac: %v, want %v", q.AcceleratorNum, 2.8)
 	}
 }
+
+func TestRemoveSystemLimitOverhead(t *testing.T) {
+	rl := v1.ResourceList{
+		v1.ResourceRequestsCPU:    resource.MustParse("17"),
+		v1.ResourceRequestsMemory: resource.MustParse("65Gi"),
+		"requests.nvidia.com/gpu": resource.MustParse("3"),
+	}
+
+	q := RemoveSystemLimitOverhead(GetTotalResource(rl))
+	if q.CPU != 16 {
+		t.Errorf("CPU: %v, want %v", q.CPU, 16)
+	}
+	if q.Memory != 64*1024 {
+		t.Errorf("Memory: %v, want %v", q.Memory, 64*1024)
+	}
+	if q.AcceleratorNum != 3 {
+		t.Errorf("Ac: %v, want %v", q.AcceleratorNum, 3)
+	}
+}
+
+func TestRemoveSystemUsageOverhead(t *testing.T) {
+	rl := v1.ResourceList{
+		v1.ResourceRequestsCPU:    resource.MustParse("0"),
+		v1.ResourceRequestsMemory: resource.MustParse("0"),
+		"requests.nvidia.com/gpu": resource.MustParse("0"),
+	}
+
+	c := rl[v1.ResourceRequestsCPU]
+	m := rl[v1.ResourceRequestsMemory]
+	// for api server
+	c.Add(resource.MustParse("50m"))
+	m.Add(resource.MustParse("128Mi"))
+
+	// for operator
+	c.Add(resource.MustParse("100m"))
+	m.Add(resource.MustParse("128Mi"))
+
+	// for a cpu small
+	c.Add(resource.MustParse("0.9"))
+	m.Add(resource.MustParse("921.6Mi"))
+
+	rl[v1.ResourceRequestsCPU] = c
+	rl[v1.ResourceRequestsMemory] = m
+
+	q := RemoveSystemUsageOverhead(GetTotalResource(rl))
+	if q.CPU != 1 {
+		t.Errorf("CPU: %v, want %v", q.CPU, 1)
+	}
+	if q.Memory != 1*1024 {
+		t.Errorf("Memory: %v, want %v", q.Memory, 1*1024)
+	}
+	if q.AcceleratorNum != 0 {
+		t.Errorf("Ac: %v, want %v", q.AcceleratorNum, 0)
+	}
+}
