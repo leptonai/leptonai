@@ -55,21 +55,14 @@ export const GettingStarted: FC = () => {
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   <CodeBlock
-                    code="pip install leptonai"
-                    copyable={true}
-                    language={LanguageSupports.Bash}
-                  />
-                </Typography.Paragraph>
-                <Typography.Paragraph>
-                  Closed beta users: use the following command to install the
-                  leptonai sdk:
-                </Typography.Paragraph>
-                <Typography.Paragraph>
-                  <CodeBlock
                     code="pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-0.6.0-py3-none-any.whl"
                     copyable={true}
                     language={LanguageSupports.Bash}
                   />
+                </Typography.Paragraph>
+                <Typography.Paragraph>
+                  Closed beta note: this will later be a direct pypi install but
+                  we are hosting on S3 for now for beta testing.
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   You can check that it is installed by running:
@@ -143,6 +136,13 @@ export const GettingStarted: FC = () => {
                   </Typography.Link>{" "}
                   to inspect the docs, and make a call via the web UI.
                 </Typography.Paragraph>
+                <Typography.Paragraph>
+                  For machine learning models, the first run is usually a bit
+                  slower than later runs, as the underlying runtime (in this
+                  case pytorch) may have a few intial setup steps such as memory
+                  allocation and compilation. Subsequent runs would be much
+                  faster - this is a common pattern.
+                </Typography.Paragraph>
               </>
             ),
           },
@@ -152,7 +152,8 @@ export const GettingStarted: FC = () => {
             children: (
               <>
                 <Typography.Paragraph>
-                  To do this, let's first log in to the Lepton cloud. Login with
+                  To do this, let's first log in to the Lepton cloud from CLI.
+                  Login with
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   <CodeBlock
@@ -190,6 +191,18 @@ export const GettingStarted: FC = () => {
                   cloud, instead of locally. For the sake of simplicity we named
                   the deployment the same as the photon, but you can name it
                   anything you want.
+                </Typography.Paragraph>
+                <Typography.Paragraph>
+                  Now, go to the deployment tab on the top of the page, and try
+                  it out! For more details on how to use other features of
+                  Lepton, please refer to the{" "}
+                  <Typography.Link
+                    href="https://lepton.ai/docs"
+                    target="_blank"
+                  >
+                    Lepton documentation
+                  </Typography.Link>
+                  .
                 </Typography.Paragraph>
               </>
             ),

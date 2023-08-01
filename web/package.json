@@ -10,7 +10,7 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:e2e": "cypress run",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "preview": "vite preview --port 3001",
     "cypress:open": "cypress open",
     "cypress:install": "cypress install",
