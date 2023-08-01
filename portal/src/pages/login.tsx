@@ -12,6 +12,7 @@ import { useEffect, useMemo } from "react";
 import { isDev, isProd } from "@/utils/env";
 import { Logo } from "@/components/Logo";
 import { Book, LogoGithub } from "@carbon/icons-react";
+import Head from "next/head";
 const domain = isProd ? ".lepton.ai" : "localhost";
 
 const serverCallback = isProd
@@ -92,6 +93,9 @@ export default function Login({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
+      <Head>
+        <title>Login | Lepton AI</title>
+      </Head>
       {session ? (
         <>
           {isDev && (

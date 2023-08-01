@@ -42,7 +42,14 @@ export class AuthPortalService implements AuthService {
   joinWaitlist(entry: WaitlistEntry): Observable<void> {
     return this.http.post<void>(
       `${this.authServerUrl}/api/auth/waitlist`,
-      entry,
+      {
+        company: entry.company,
+        company_size: entry.companySize,
+        industry: entry.industry,
+        role: entry.role,
+        name: entry.name,
+        work_email: entry.workEmail,
+      },
       {
         withCredentials: true,
       }
