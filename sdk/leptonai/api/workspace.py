@@ -43,6 +43,30 @@ def get_full_workspace_url(workspace_id) -> Optional[str]:
         return response["url"]
 
 
+def get_workspace_display_name(workspace_id) -> Optional[str]:
+    """
+    Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
+    to get the workspace display name.
+
+    :param str workspace_id: the workspace_id of the workspace
+    :return: the workspace display name, or None if the workspace does not exist
+    :raises RuntimeError: if the backend server returns an error
+    """
+    request_body = {"id": workspace_id}
+    response = json_or_error(
+        requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
+    )
+    if isinstance(response, APIError):
+        raise RuntimeError(
+            "Failed to connect to the Lepton server. Did you connect to the internet?"
+        )
+    if response == {}:
+        return None
+    else:
+        # TODO: do we assume that the format returned by the server is always correct?
+        return response["display_name"]
+
+
 def get_full_workspace_api_url(workspace_id) -> Optional[str]:
     """
     Get the full URL for the API of a workspace.
@@ -60,8 +84,15 @@ def save_workspace(workspace_id, url, terraform_dir=None, auth_token=None):
     Saves a workspace by adding it to the workspace info file.
     """
     workspace_info = load_workspace_info()
+    try:
+        display_name = get_workspace_display_name(workspace_id)
+    except RuntimeError:
+        display_name = None
     workspace_info["workspaces"][workspace_id] = {}
     workspace_info["workspaces"][workspace_id]["url"] = url
+    workspace_info["workspaces"][workspace_id]["display_name"] = (
+        display_name if display_name else ""
+    )
     workspace_info["workspaces"][workspace_id]["terraform_dir"] = terraform_dir
     workspace_info["workspaces"][workspace_id]["auth_token"] = auth_token
 
