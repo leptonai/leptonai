@@ -131,6 +131,7 @@ jobs:
       folder: web
       repo: lepton-web
       tag: latest
+      runs-on: ubuntu-latest
 
   deploy-to-dev-latest:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

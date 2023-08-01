@@ -15,10 +15,14 @@ on:
       commit:
         required: false
         type: string
+      runs-on:
+        required: false
+        type: string
+        default: self-hosted
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs-on }}
     steps:
     - uses: actions/checkout@v3
     - name: Set short git commit SHA
