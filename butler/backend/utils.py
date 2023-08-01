@@ -163,9 +163,16 @@ def activate_user(email):
 def add_user_to_workspace(email, workspace_id, token):
     user = get_user_by_email(email)
     user_id = user["id"]
+
+    ws_users = get_workspace_users(workspace_id)
+    if user_id in ws_users:
+        print("User {} already in workspace {}".format(email, workspace_id))
+        return
+
     max_id = get_max_id_for_user_workspace()
     query = "INSERT INTO user_workspace ( id , workspace_id, user_id, token) VALUES ('{}','{}', '{}', '{}')".format(
         max_id + 1, workspace_id, user_id, token
     )
     execute_sql(query)
+    return "User {} successfully added to workspace {}".format(email, workspace_id)
 

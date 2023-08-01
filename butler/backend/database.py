@@ -53,3 +53,11 @@ def get_max_id_for_user_workspace():
     db_cursor.close()
     db_con.close()
     return results
+
+def get_workspace_users(workspace_id:str):
+    db_connection = get_supabase_connection()
+    query = "SELECT * FROM user_workspace WHERE workspace_id = '{}'".format(workspace_id)
+    df = pd.read_sql(query, db_connection)
+    db_connection.close()
+    users = set(df['user_id'].tolist())
+    return users
