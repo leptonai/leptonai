@@ -32,17 +32,6 @@ jobs:
       run: |
         (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
     - name: Create cluster
-
-      # TODO: remove this once EKS service makes cluster creation faster...
-      # TODO: remove this once mothership supports cancel API for ongoing jobs
-      # sometimes it randomly takes over 1-hour
-      # and current mothership job timeout is 120-minute anyways
-      # you can't cancel or delete before the job timeout anyways
-      # without cancel API, the subsequent delete step will fail!
-      # for now just let it timeout so that the following delete can cleanly
-      # delete the failed clusters
-      timeout-minutes: 130
-
       run: |
         ./mothershipctl cluster create \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
@@ -50,11 +39,20 @@ jobs:
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
           --git-ref ${{ steps.vars.outputs.branch }} \
           --deployment-environment TEST
+
+        # TODO: lower the 130min timeout below once EKS service makes cluster creation faster...
+        # TODO: lower the 130min timeout below once mothership supports cancel API for ongoing jobs
+        # sometimes it randomly takes over 1-hour
+        # and current mothership job timeout is 120-minute anyways
+        # you can't cancel or delete before the job timeout anyways
+        # without cancel API, the subsequent delete step will fail!
+        # for now just let it timeout so that the following delete can cleanly
+        # delete the failed clusters
         ./mothershipctl cluster wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token ${{ secrets.MOTHERSHIP_TOKEN }} \
           --cluster-name ${{ steps.vars.outputs.cluster_name }} \
-          --timeout 60 \
+          --timeout 130 \
           --expected-state "ready"
     - name: Create workspace
       run: |
