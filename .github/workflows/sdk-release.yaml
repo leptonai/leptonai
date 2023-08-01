@@ -111,7 +111,7 @@ jobs:
     - name: Upload package to S3
       run: |
         s3_url="s3://lepton-sdk"
-        if {{ github.event_name == "workflow_dispatch" && inputs.is_release == "true" }}; then
+        if [ {{ github.event_name }} == 'workflow_dispatch' && {{ inputs.is_release }} == 'true' ]; then
             s3_url="${s3_url}/release"
         fi
         echo "s3_url=${s3_url}"
