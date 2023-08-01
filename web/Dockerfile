@@ -1,8 +1,7 @@
-# Start from golang v1.20 base image
-FROM node:18.16.0 as builder
+FROM node:lts as builder
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
-COPY . /node/src/github.com/leptonai/lepton/web
+COPY web /node/src/github.com/leptonai/lepton/web
 
 # Set the Current Working Directory inside the container
 WORKDIR /node/src/github.com/leptonai/lepton/web
