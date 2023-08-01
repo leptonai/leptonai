@@ -9,9 +9,14 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    paths-ignore:
-      - "charts/mothership/**"
-      - "infra/terraform/eks-**"
+    paths:
+      - ".github/workflows/build-docker-image.yaml"
+      - ".github/workflows/cicd-workspace.yaml"
+      - ".github/workflows/run-e2e-tests.yaml"
+      - "**.go"
+      - "**.py"
+      - "charts/lepton/**"
+      - "infra/terraform/workspace/**"
     branches: [ "**" ]
 
 jobs:
