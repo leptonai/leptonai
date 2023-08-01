@@ -1,0 +1,32 @@
+name: CI/CD - mothership
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
+
+on:
+  push:
+    paths:
+      - ".github/workflows/cicd-mothership-main.yaml"
+      - ".github/workflows/build-docker-image.yaml"
+      - "mothership/**"
+      - "go-pkg/**"
+    branches: [ "main" ]
+
+jobs:
+  build-mothership:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: mothership
+      repo: lepton-mothership
+      tag: latest
+
+  build-mothershipctl:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: mothership/cmd/mothership
+      repo: lepton-mothershipctl
+      tag: latest

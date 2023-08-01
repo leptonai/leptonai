@@ -12,9 +12,11 @@ on:
       tag:
         required: false
         type: string
+        default: test$(git rev-parse --short HEAD)
       commit:
         required: false
         type: string
+        default: $(git rev-parse --short HEAD)
       runs-on:
         required: false
         type: string
@@ -25,11 +27,6 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     steps:
     - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "sha=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Install awscli
       run: |
         python -m pip install --upgrade pip
@@ -48,27 +45,12 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
         set -x
-        if [[ -n "${{ inputs.tag }}" ]]; then
-          IMAGE_TAG="${{ inputs.tag }}"
-        else
-          IMAGE_TAG="test${{ steps.vars.outputs.sha }}"
-        fi
-
-        if [[ -n "${{ inputs.commit }}" ]]; then
-          COMMIT="${{ inputs.commit }}"
-        else
-          if [[ "$IMAGE_TAG" == "latest" ]]; then
-            COMMIT="${{ steps.vars.outputs.sha }}"
-          else
-            COMMIT="$IMAGE_TAG"
-          fi
-        fi
 
         docker build . --file ${{ inputs.folder }}/Dockerfile \
-          --tag ${{ inputs.repo }}:$IMAGE_TAG \
-          --build-arg GIT_COMMIT=$COMMIT \
+          --tag ${{ inputs.repo }}:${{ inputs.tag }} \
+          --build-arg GIT_COMMIT=${{ inputs.commit }} \
           --build-arg REPO=$ECR_REGISTRY/ecr-public
 
-        echo "tagging container image with ${{ inputs.repo }}:$IMAGE_TAG"
-        docker tag ${{ inputs.repo }}:$IMAGE_TAG $ECR_REGISTRY/${{ inputs.repo }}:$IMAGE_TAG
-        docker push $ECR_REGISTRY/${{ inputs.repo }}:$IMAGE_TAG
+        echo "tagging container image with ${{ inputs.repo }}:${{ inputs.tag }}}"
+        docker tag ${{ inputs.repo }}:${{ inputs.tag }} $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}
+        docker push $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}
