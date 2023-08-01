@@ -12,8 +12,8 @@ on:
     branches: ["**"]
 
 # requires to upload release binaries
-permissions:
-  contents: write
+# permissions:
+#   contents: write
 
 jobs:
   release:
@@ -99,61 +99,63 @@ jobs:
         working-directory: machine-rs
         run: ${{ env.CARGO_CMD }} build --release --target=${{ matrix.job.target }} --bin machine-rs
 
-      - name: Compress binaries
-        id: release_artifacts
-        env:
-          PLATFORM_NAME: ${{ matrix.job.platform }}
-          TARGET: ${{ matrix.job.target }}
-        shell: bash
-        working-directory: machine-rs
-        run: |
-          if [ "$PLATFORM_NAME" == "linux" ]; then
+      # TODO: enable this when we need automated release
+      #
+      # - name: Compress binaries
+      #   id: release_artifacts
+      #   env:
+      #     PLATFORM_NAME: ${{ matrix.job.platform }}
+      #     TARGET: ${{ matrix.job.target }}
+      #   shell: bash
+      #   working-directory: machine-rs
+      #   run: |
+      #     if [ "$PLATFORM_NAME" == "linux" ]; then
 
-            cp ./target/${TARGET}/release/machine-rs machine-rs.${TARGET}
-            echo "file_name_machine_rs=machine-rs.${TARGET}" >> $GITHUB_OUTPUT
-            tar -czvf machine-rs.${TARGET}.tar.gz -C ./target/${TARGET}/release machine-rs
-            echo "file_name_machine_rs_tar_gz=machine-rs.${TARGET}.tar.gz" >> $GITHUB_OUTPUT
+      #       cp ./target/${TARGET}/release/machine-rs machine-rs.${TARGET}
+      #       echo "file_name_machine_rs=machine-rs.${TARGET}" >> $GITHUB_OUTPUT
+      #       tar -czvf machine-rs.${TARGET}.tar.gz -C ./target/${TARGET}/release machine-rs
+      #       echo "file_name_machine_rs_tar_gz=machine-rs.${TARGET}.tar.gz" >> $GITHUB_OUTPUT
 
-          elif [ "$PLATFORM_NAME" == "darwin" ]; then
+      #     elif [ "$PLATFORM_NAME" == "darwin" ]; then
 
-            cp ./target/${TARGET}/release/machine-rs machine-rs.${TARGET}
-            echo "file_name_machine_rs=machine-rs.${TARGET}" >> $GITHUB_OUTPUT
-            gtar -czvf machine-rs.${TARGET}.tar.gz -C ./target/${TARGET}/release machine-rs
-            echo "file_name_machine_rs_tar_gz=machine-rs.${TARGET}.tar.gz" >> $GITHUB_OUTPUT
+      #       cp ./target/${TARGET}/release/machine-rs machine-rs.${TARGET}
+      #       echo "file_name_machine_rs=machine-rs.${TARGET}" >> $GITHUB_OUTPUT
+      #       gtar -czvf machine-rs.${TARGET}.tar.gz -C ./target/${TARGET}/release machine-rs
+      #       echo "file_name_machine_rs_tar_gz=machine-rs.${TARGET}.tar.gz" >> $GITHUB_OUTPUT
 
-          else
+      #     else
 
-            echo "skipping $PLATFORM_NAME"
+      #       echo "skipping $PLATFORM_NAME"
 
-          fi
+      #     fi
 
       # release tip from latest commits
       # https://github.com/softprops/action-gh-release
       # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
-      - name: Release latest
-        uses: softprops/action-gh-release@v1
-        if: ${{ github.ref == 'refs/heads/main' }}
-        with:
-          name: Latest release
-          tag_name: latest
-          prerelease: true
-          body: Latest builds from the last commit.
-          files: |
-            ${{ steps.release_artifacts.outputs.file_name_machine_rs }}
-            ${{ steps.release_artifacts.outputs.file_name_machine_rs_tar_gz }}
+      # - name: Release latest
+      #   uses: softprops/action-gh-release@v1
+      #   if: ${{ github.ref == 'refs/heads/main' }}
+      #   with:
+      #     name: Latest release
+      #     tag_name: latest
+      #     prerelease: true
+      #     body: Latest builds from the last commit.
+      #     files: |
+      #       ${{ steps.release_artifacts.outputs.file_name_machine_rs }}
+      #       ${{ steps.release_artifacts.outputs.file_name_machine_rs_tar_gz }}
 
       # release only for tags
       # https://github.com/softprops/action-gh-release
       # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
-      - name: Release tag
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          draft: true
-          prerelease: true
-          body: Release builds for ${{ github.ref_name }}.
-          files: |
-            ${{ steps.release_artifacts.outputs.file_name_machine_rs }}
-            ${{ steps.release_artifacts.outputs.file_name_machine_rs_tar_gz }}
+      # - name: Release tag
+      #   uses: softprops/action-gh-release@v1
+      #   if: startsWith(github.ref, 'refs/tags/')
+      #   with:
+      #     name: ${{ github.ref_name }}
+      #     tag_name: ${{ github.ref_name }}
+      #     draft: true
+      #     prerelease: true
+      #     body: Release builds for ${{ github.ref_name }}.
+      #     files: |
+      #       ${{ steps.release_artifacts.outputs.file_name_machine_rs }}
+      #       ${{ steps.release_artifacts.outputs.file_name_machine_rs_tar_gz }}
