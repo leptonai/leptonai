@@ -2,6 +2,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 
 from celery import shared_task, Task
@@ -73,7 +74,12 @@ def cook(data_path, model_name_or_path, output_dir):
     model_path_in_container = "/model"
     gcp_key_on_host = os.path.join(settings.BASE_DIR, ".google_application_credentials")
     gcp_key_in_container = "/google_application_credentials"
-    per_device_train_batch_size = 8
+    per_device_train_batch_size = 16
+    torch_ext_cache_on_host = os.path.join(
+        tempfile.gettempdir(), "cache", "torch_extensions"
+    )
+    os.makedirs(torch_ext_cache_on_host, exist_ok=True)
+    torch_ext_cache_in_container = "/root/.cache/torch_extensions"
     cmd = [
         "docker",
         "run",
@@ -86,6 +92,8 @@ def cook(data_path, model_name_or_path, output_dir):
         f"{model_path_on_host}:{model_path_in_container}:ro",
         "-v",
         f"{gcp_key_on_host}:{gcp_key_in_container}:ro",
+        "-v",
+        f"{torch_ext_cache_on_host}:{torch_ext_cache_in_container}",
         "-e",
         f"GOOGLE_APPLICATION_CREDENTIALS={gcp_key_in_container}",
         "-w",
