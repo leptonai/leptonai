@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	e2eutil "github.com/leptonai/lepton/e2e-tests/e2e-util"
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 )
 
 var (
@@ -25,8 +25,9 @@ var (
 	mainTestPhotonID       string
 	mainTestDeploymentName string
 
-	lepton *goclient.Lepton
-	client *e2eutil.CliWrapper
+	lepton  *goclient.Lepton
+	rawhttp *goclient.HTTP
+	client  *e2eutil.CliWrapper
 )
 
 func TestMain(m *testing.M) {
@@ -53,6 +54,7 @@ func prepare() {
 	}
 	// Prepare the test
 	lepton = goclient.New(*workspaceURL, *authToken)
+	rawhttp = goclient.NewHTTP(*workspaceURL, *authToken)
 	client = e2eutil.NewCliWrapper(*workspaceURL, *authToken)
 	mainTestPhotonName = newName("main-test-photon")
 	mainTestDeploymentName = newName("main-test-deploy")

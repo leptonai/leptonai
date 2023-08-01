@@ -25,7 +25,7 @@ func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 		ingress.HTTPHeaderNameForDeployment: mainTestDeploymentName,
 	}
 	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		out, err := lepton.HTTP.RequestURL(http.MethodGet, u, header, nil)
+		out, err := rawhttp.RequestURL(http.MethodGet, u, header, nil)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
 		t.Fatalf("Expected DNS to propagate for %s, got %v", u.Hostname(), err)
 	}
 	err = retryUntilNoErrorOrTimeout(time.Minute, func() error {
-		out, err := lepton.HTTP.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
+		out, err := rawhttp.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
 		if err != nil {
 			return err
 		}

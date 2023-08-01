@@ -12,7 +12,7 @@ type Readiness struct {
 }
 
 func (l *Readiness) GetDeploymentReadinessIssue(id string) (httpapi.DeploymentReadinessIssue, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+id+"/readiness", nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+id+"/readiness", nil, nil)
 	if err != nil {
 		return nil, err
 	}

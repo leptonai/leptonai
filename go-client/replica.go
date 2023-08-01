@@ -16,7 +16,7 @@ type Replica struct {
 }
 
 func (l *Replica) List(deploymentID string) ([]httpapi.Replica, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func (l *Replica) List(deploymentID string) ([]httpapi.Replica, error) {
 // TODO: refactor this to return a meaningful message instead of a single byte
 // quick implementation to test the websocket connection
 func (l *Replica) Shell(deploymentID, replicaID string) ([]byte, error) {
-	shellURL := l.HTTP.RemoteURL + deploymentsPath + "/" + deploymentID + replicasPath + "/" + replicaID + "/shell"
+	shellURL := l.http.RemoteURL + deploymentsPath + "/" + deploymentID + replicasPath + "/" + replicaID + "/shell"
 	u, err := url.Parse(shellURL)
 	if err != nil {
 		return nil, err
@@ -48,8 +48,8 @@ func (l *Replica) Shell(deploymentID, replicaID string) ([]byte, error) {
 		return nil, err
 	}
 
-	for k := range l.HTTP.Header {
-		wsConfig.Header.Add(k, l.HTTP.Header.Get(k))
+	for k := range l.http.Header {
+		wsConfig.Header.Add(k, l.http.Header.Get(k))
 	}
 
 	ws, err := websocket.DialConfig(wsConfig)
@@ -73,7 +73,7 @@ func (l *Replica) Shell(deploymentID, replicaID string) ([]byte, error) {
 
 // Log returns the logs of a replica with a max response length. 0 means no length limit.
 func (l *Replica) Log(deploymentID, replicaID string, expectedBytes, timeoutInSeconds int) ([]byte, error) {
-	return l.HTTP.RequestURLUntil(http.MethodGet,
-		l.HTTP.RemoteURL+deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+"/log",
+	return l.http.RequestURLUntil(http.MethodGet,
+		l.http.RemoteURL+deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+"/log",
 		nil, nil, expectedBytes, timeoutInSeconds)
 }

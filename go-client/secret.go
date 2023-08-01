@@ -19,7 +19,7 @@ func (s *Secret) Create(secrets []secret.SecretItem) error {
 	header := map[string]string{
 		"Content-Type": "application/json",
 	}
-	_, err = s.HTTP.RequestPath(http.MethodPost, "/secrets", header, body)
+	_, err = s.http.RequestPath(http.MethodPost, "/secrets", header, body)
 	if err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func (s *Secret) Create(secrets []secret.SecretItem) error {
 }
 
 func (s *Secret) List() ([]string, error) {
-	output, err := s.HTTP.RequestPath(http.MethodGet, "/secrets", nil, nil)
+	output, err := s.http.RequestPath(http.MethodGet, "/secrets", nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (s *Secret) List() ([]string, error) {
 }
 
 func (s *Secret) Delete(name string) error {
-	_, err := s.HTTP.RequestPath(http.MethodDelete, "/secrets/"+name, nil, nil)
+	_, err := s.http.RequestPath(http.MethodDelete, "/secrets/"+name, nil, nil)
 	if err != nil {
 		return err
 	}

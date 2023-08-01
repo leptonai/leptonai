@@ -22,7 +22,7 @@ func (l *Deployment) Create(d *leptonaiv1alpha1.LeptonDeploymentUserSpec) (*http
 	header := map[string]string{
 		"Content-Type": "application/json",
 	}
-	output, err := l.HTTP.RequestPath(http.MethodPost, deploymentsPath, header, body)
+	output, err := l.http.RequestPath(http.MethodPost, deploymentsPath, header, body)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (l *Deployment) Create(d *leptonaiv1alpha1.LeptonDeploymentUserSpec) (*http
 }
 
 func (l *Deployment) List() ([]httpapi.LeptonDeployment, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (l *Deployment) List() ([]httpapi.LeptonDeployment, error) {
 }
 
 func (l *Deployment) Get(id string) (*httpapi.LeptonDeployment, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+id, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+id, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (l *Deployment) Get(id string) (*httpapi.LeptonDeployment, error) {
 }
 
 func (l *Deployment) Delete(id string) error {
-	_, err := l.HTTP.RequestPath(http.MethodDelete, deploymentsPath+"/"+id, nil, nil)
+	_, err := l.http.RequestPath(http.MethodDelete, deploymentsPath+"/"+id, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (l *Deployment) Update(d *leptonaiv1alpha1.LeptonDeploymentUserSpec) (*http
 	header := map[string]string{
 		"Content-Type": "application/json",
 	}
-	output, err := l.HTTP.RequestPath(http.MethodPatch, deploymentsPath+"/"+d.Name, header, body)
+	output, err := l.http.RequestPath(http.MethodPatch, deploymentsPath+"/"+d.Name, header, body)
 	if err != nil {
 		return nil, err
 	}

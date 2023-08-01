@@ -21,7 +21,7 @@ type Storage struct {
 
 func (s *Storage) Ls(filePath string) ([]map[string]string, error) {
 	fullPath := filepath.Join(storagePath, filePath)
-	output, err := s.HTTP.RequestPath(http.MethodGet, fullPath, nil, nil)
+	output, err := s.http.RequestPath(http.MethodGet, fullPath, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (s *Storage) Ls(filePath string) ([]map[string]string, error) {
 
 func (s *Storage) Mkdir(filePath string) error {
 	fullPath := filepath.Join(storagePath, filePath)
-	_, err := s.HTTP.RequestPath(http.MethodPut, fullPath, nil, nil)
+	_, err := s.http.RequestPath(http.MethodPut, fullPath, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -43,14 +43,14 @@ func (s *Storage) Mkdir(filePath string) error {
 
 func (s *Storage) PathExists(filePath string) bool {
 	fullPath := filepath.Join(storagePath, filePath)
-	_, err := s.HTTP.RequestPath(http.MethodHead, fullPath, nil, nil)
+	_, err := s.http.RequestPath(http.MethodHead, fullPath, nil, nil)
 	// HTTP.RequestPath returns error if the status code is not 2xx
 	return err == nil
 }
 
 func (s *Storage) Rm(filePath string) error {
 	fullPath := filepath.Join(storagePath, filePath)
-	_, err := s.HTTP.RequestPath(http.MethodDelete, fullPath, nil, nil)
+	_, err := s.http.RequestPath(http.MethodDelete, fullPath, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (s *Storage) Upload(absLocalFilePath string, remotePath string) error {
 
 	ct_header := map[string]string{"Content-Type": ct}
 
-	_, err = s.HTTP.RequestPath(http.MethodPost, fullPath, ct_header, body)
+	_, err = s.http.RequestPath(http.MethodPost, fullPath, ct_header, body)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *Storage) Upload(absLocalFilePath string, remotePath string) error {
 
 func (s *Storage) Download(remoteFilePath string, absLocalFilePath string) error {
 	fullPath := filepath.Join(storagePath, remoteFilePath)
-	body, err := s.HTTP.RequestPath(http.MethodGet, fullPath, nil, nil)
+	body, err := s.http.RequestPath(http.MethodGet, fullPath, nil, nil)
 	if err != nil {
 		return err
 	}

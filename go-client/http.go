@@ -7,12 +7,16 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/leptonai/lepton/api-server/util"
 )
 
 type HTTP struct {
 	RemoteURL     string
 	SkipVerifyTLS bool
 	Header        http.Header
+
+	verifyCORS bool
 }
 
 func newHeader(authToken string) http.Header {
@@ -28,6 +32,15 @@ func NewHTTP(remoteURL string, authToken string) *HTTP {
 		RemoteURL:     remoteURL,
 		Header:        newHeader(authToken),
 		SkipVerifyTLS: false,
+	}
+}
+
+func NewHTTPWithCORS(remoteURL string, authToken string) *HTTP {
+	return &HTTP{
+		RemoteURL:     remoteURL,
+		Header:        newHeader(authToken),
+		SkipVerifyTLS: false,
+		verifyCORS:    true,
 	}
 }
 
@@ -103,6 +116,14 @@ func (h *HTTP) RequestURLUntil(method, url string, headers map[string]string, da
 	if !(200 <= resp.StatusCode && resp.StatusCode < 300) {
 		return nil, fmt.Errorf("unexpected HTTP status code %v with body %s", resp.StatusCode, string(body))
 	}
+
+	if h.verifyCORS {
+		err = util.CheckCORSForDashboard(resp.Header)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return body, nil
 }
 

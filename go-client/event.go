@@ -12,7 +12,7 @@ type Event struct {
 }
 
 func (l *Event) GetDeploymentEvents(id string) ([]httpapi.LeptonDeploymentEvent, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+id+"/events", nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+id+"/events", nil, nil)
 	if err != nil {
 		return nil, err
 	}

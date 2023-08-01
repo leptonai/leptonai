@@ -14,7 +14,7 @@ type Workspace struct {
 }
 
 func (l *Workspace) Info() (*httpapi.WorkspaceInfo, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, workspacePath, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, workspacePath, nil, nil)
 	if err != nil {
 		return nil, err
 	}

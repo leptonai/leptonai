@@ -1,12 +1,12 @@
 package goclient
 
 type Lepton struct {
-	HTTP *HTTP
+	http *HTTP
 }
 
 func New(remoteURL string, authToken string) *Lepton {
 	return &Lepton{
-		HTTP: NewHTTP(remoteURL, authToken),
+		http: NewHTTPWithCORS(remoteURL, authToken),
 	}
 }
 

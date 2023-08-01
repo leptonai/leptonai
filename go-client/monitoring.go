@@ -11,7 +11,7 @@ type Monitoring struct {
 }
 
 func (l *Monitoring) GetDeploymentRaw(metricName, deploymentID string) (string, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+monitoringPath+"/"+metricName, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+monitoringPath+"/"+metricName, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -19,7 +19,7 @@ func (l *Monitoring) GetDeploymentRaw(metricName, deploymentID string) (string, 
 }
 
 func (l *Monitoring) GetReplicaRaw(metricName, deploymentID, replicaID string) (string, error) {
-	output, err := l.HTTP.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+monitoringPath+"/"+metricName, nil, nil)
+	output, err := l.http.RequestPath(http.MethodGet, deploymentsPath+"/"+deploymentID+replicasPath+"/"+replicaID+monitoringPath+"/"+metricName, nil, nil)
 	if err != nil {
 		return "", err
 	}

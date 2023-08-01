@@ -1,23 +1,26 @@
 package util
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
 )
 
+var corsHeaders = map[string]string{
+	"Access-Control-Allow-Credentials": "true",
+	"Access-Control-Allow-Origin":      "https://dashboard.lepton.ai",
+	"Access-Control-Allow-Methods":     "POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS",
+	"Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, " +
+		"Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, " +
+		ingress.HTTPHeaderNameForAuthorization + ", " + ingress.HTTPHeaderNameForDeployment,
+}
+
 // SetCORSForDashboard sets the CORS headers for the response for dashboard.lepton.ai.
 func SetCORSForDashboard(h http.Header) {
-	// Add the CORS headers after the request is handled to avoid duplication.
-	h.Set("Access-Control-Allow-Credentials", "true")
-	h.Set("Access-Control-Allow-Origin", "https://dashboard.lepton.ai")
-	h.Set("Access-Control-Allow-Methods",
-		"POST, PUT, HEAD, PATCH, GET, DELETE, OPTIONS")
-	h.Set("Access-Control-Allow-Headers",
-		"X-CSRF-Token, X-Requested-With, Accept, Accept-Version, "+
-			"Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, "+
-			ingress.HTTPHeaderNameForAuthorization+", "+
-			ingress.HTTPHeaderNameForDeployment)
+	for k, v := range corsHeaders {
+		h.Set(k, v)
+	}
 }
 
 // UnsetCORSForDashboard unsets the CORS headers for the response for dashboard.lepton.ai.
@@ -27,4 +30,20 @@ func UnsetCORSForDashboard(h http.Header) {
 	h.Del("Access-Control-Allow-Origin")
 	h.Del("Access-Control-Allow-Methods")
 	h.Del("Access-Control-Allow-Headers")
+}
+
+// CheckCORSForDashboard checks the CORS headers for the response for dashboard.lepton.ai.
+func CheckCORSForDashboard(h http.Header) error {
+	for k, v := range corsHeaders {
+		vs := h.Values(k)
+		if len(vs) != 1 {
+			return fmt.Errorf("CORS header %s is unepxected %s", k, vs)
+		}
+
+		if h.Get(k) != v {
+			return fmt.Errorf("CORS header %s is not %s", k, v)
+		}
+	}
+
+	return nil
 }
