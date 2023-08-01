@@ -91,9 +91,11 @@ resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g52xlarge" {
   # we may disable GPU AL2 node groups for CI testing
   count = var.al2_x86_64_ac_g52xlarge_max_size > 0 ? 1 : 0
 
-  # need "*" to work around the error
-  # "attributes must be accessed on specific instances."
-  autoscaling_group_name = aws_eks_node_group.al2_x86_64_ac_g52xlarge.*.resources[0].autoscaling_groups[0].name
+  # "*" spat expression doesn't work...
+  # "resources[0].autoscaling_groups[0].name" doesn't work...
+  # "*.resources[0].autoscaling_groups[0].name" doesn't work...
+  # manually parse the ARN
+  autoscaling_group_name = "eks-${aws_eks_node_group.al2_x86_64_ac_g52xlarge[0].node_group_name}-${split("/", aws_eks_node_group.al2_x86_64_ac_g52xlarge[0].arn)[length(split("/", aws_eks_node_group.al2_x86_64_ac_g52xlarge[0].arn)) - 1]}"
 
   # add extra label in case we run cluster-autoscaler in parallel with others
   # e.g., karpenter
