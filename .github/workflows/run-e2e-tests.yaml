@@ -1,0 +1,85 @@
+name: Run e2e tests
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: false
+        type: string
+        default: test$(git rev-parse --short HEAD)
+      git_ref:
+        required: false
+        type: string
+        default: ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+      workspace_name:
+        required: false
+        type: string
+        default: testws$(git rev-parse --short HEAD)
+      api_token:
+        required: false
+        type: string
+        default: token-testws$(git rev-parse --short HEAD)
+
+jobs:
+  e2e-tests:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
+    - name: Install Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Build mothership cli
+      run: |
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
+    - name: Find the latest CI cluster to run tests
+      id: find_ci_cluster
+      run: |
+        latest_ready_cluster=$(./mothershipctl cluster list -o rawjson -u https://mothership.cloud.lepton.ai/api/v1 -t ${{ secrets.MOTHERSHIP_TOKEN }} 2>/dev/null | \
+        jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
+        echo "latest ready cluster: $latest_ready_cluster"
+        if [ -z "$latest_ready_cluster" ]; then
+          echo "no ready cluster found"
+          exit 1
+        fi
+        echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
+    - name: Create ci workspace
+      run: |
+        ./mothershipctl workspace create \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --api-token "${{ inputs.api_token }}" \
+          --cluster-name "${{ steps.find_ci_cluster.outputs.cluster }}" \
+          --workspace-name "${{ inputs.workspace_name }}" \
+          --git-ref "${{ inputs.git_ref }}" \
+          --image-tag "${{ inputs.image_tag }}"
+        ./mothershipctl workspace wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ inputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "ready"
+    - name: Run tests
+      run: |
+        pip install -e ./sdk
+        go test -timeout 3600s -v ./e2e-tests/... \
+          --workspace-url https://${{ inputs.workspace_name }}.cloud.lepton.ai/api/v1 \
+          --auth-token ${{ inputs.api_token }}
+    - name: Delete ci workspace
+      if: always()
+      run: |
+        ./mothershipctl workspace delete \
+          --auto-approve \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ inputs.workspace_name }}"
+        ./mothershipctl workspace wait \
+          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+          --workspace-name "${{ inputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "deleted"

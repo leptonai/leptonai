@@ -35,77 +35,9 @@ jobs:
       repo: lepton-deployment-operator
 
   e2e-tests:
-    runs-on: self-hosted
     needs: [build-api-server, build-deployment-operator]
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "sha=$calculatedSha" >> $GITHUB_OUTPUT
-        echo "image_tag=test$calculatedSha" >> $GITHUB_OUTPUT
-        echo "workspace_name=testws$calculatedSha" >> $GITHUB_OUTPUT
-        echo "api_token=token-$calculatedSha" >> $GITHUB_OUTPUT
-        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.19.x
-    - name: Install Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - name: Build mothership cli
-      run: |
-        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
-    - name: Find the latest CI cluster to run tests
-      id: find_ci_cluster
-      run: |
-        latest_ready_cluster=$(./mothershipctl cluster list -o rawjson -u https://mothership.cloud.lepton.ai/api/v1 -t ${{ secrets.MOTHERSHIP_TOKEN }} 2>/dev/null | \
-        jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
-        echo "latest ready cluster: $latest_ready_cluster"
-        if [ -z "$latest_ready_cluster" ]; then
-          echo "no ready cluster found"
-          exit 1
-        fi
-        echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
-    - name: Create ci workspace
-      run: |
-        ./mothershipctl workspace create \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --api-token "${{ steps.vars.outputs.api_token }}" \
-          --cluster-name "${{ steps.find_ci_cluster.outputs.cluster }}" \
-          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
-          --git-ref "${{ steps.vars.outputs.branch }}" \
-          --image-tag "${{ steps.vars.outputs.image_tag }}"
-        ./mothershipctl workspace wait \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
-          --timeout 10 \
-          --expected-state "ready"
-    - name: Run tests
-      run: |
-        pip install -e ./sdk
-        go test -timeout 3600s -v ./e2e-tests/... \
-          --workspace-url https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1 \
-          --auth-token ${{ steps.vars.outputs.api_token }}
-    - name: Delete ci workspace
-      if: always()
-      run: |
-        ./mothershipctl workspace delete \
-          --auto-approve \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --workspace-name "${{ steps.vars.outputs.workspace_name }}"
-        ./mothershipctl workspace wait \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
-          --timeout 10 \
-          --expected-state "deleted"
+    uses: ./.github/workflows/run-e2e-tests.yaml
+    secrets: inherit
 
   build-api-server-latest:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
