@@ -11,6 +11,7 @@ from .util import (
     click_group,
     get_workspace_and_token_or_die,
     check,
+    guard_api,
 )
 
 console = Console(highlight=False)
@@ -179,6 +180,44 @@ def token():
     """
     _, auth_token = get_workspace_and_token_or_die()
     console.print(auth_token, end="")
+
+
+@workspace.command()
+def status():
+    """
+    Prints the status of the current workspace.
+    """
+    url, auth_token = get_workspace_and_token_or_die()
+    info = api.get_workspace_info(url, auth_token)
+    guard_api(
+        info,
+        detail=True,
+        msg=(
+            "Cannot properly obtain info for the current workspace."
+            " This should usually not happen - it might be a transient"
+            " network issue. If you encounter this persistently, please"
+            " contact us by sharing the error message above."
+        ),
+    )
+    console.print(f"name:       {info['workspace_name']}")
+    console.print(f"build time: {info['build_time']}")
+    console.print(f"version:    {info['git_commit']}")
+    console.print("quota usage:")
+    quota = info["resource_quota"]
+    quota_limit = quota["limit"]
+    quota_used = quota["used"]
+    table = Table()
+    table.add_column("Resource")
+    table.add_column("Limit")
+    table.add_column("Used")
+    table.add_row("cpu (cores)", str(quota_limit["cpu"]), str(quota_used["cpu"]))
+    table.add_row("memory (MiB)", str(quota_limit["memory"]), str(quota_used["memory"]))
+    table.add_row(
+        "gpu (cards)",
+        str(quota_limit["accelerator_num"]),
+        str(quota_used["accelerator_num"]),
+    )
+    console.print(table)
 
 
 def add_command(cli_group):
