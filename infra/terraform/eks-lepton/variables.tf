@@ -231,13 +231,14 @@ variable "ubuntu_amis" {
 }
 
 variable "mothership_rds_aurora_secret_arn" {
-  description = "RDS Aurora secret ARN from mothership"
+  description = "RDS Aurora secret ARN that is set up by mothership (single region for now)"
   type        = string
   default     = null
 }
 
-variable "mothership_supabase_credential_secret_arn" {
-  description = "Supabase auth secret ARN from mothership"
-  type        = string
-  default     = null
+# maps each region to its ARN
+variable "supabase_credential_secret_arns" {
+  description = "Supabase credential secret ARNs that are manually set up at AWS account level (can be multi-region)"
+  type        = map(any)
+  default     = {}
 }

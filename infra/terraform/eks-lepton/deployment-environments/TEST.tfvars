@@ -53,5 +53,7 @@ ubuntu_x86_64_ac_g52xlarge_max_size  = 0
 ubuntu_x86_64_cpu_min_size           = 3 # run more nodes since we are using small instance types
 ubuntu_x86_64_cpu_max_size           = 10
 
-mothership_rds_aurora_secret_arn          = "arn:aws:secretsmanager:us-east-1:605454121064:secret:rds!cluster-5c3ae354-076a-444b-bad8-4214608dc4c0-oaIJmh"
-mothership_supabase_credential_secret_arn = "arn:aws:secretsmanager:us-east-1:605454121064:secret:supabase_credential-4TgO0e"
+mothership_rds_aurora_secret_arn = "arn:aws:secretsmanager:us-east-1:605454121064:secret:rds!cluster-5c3ae354-076a-444b-bad8-4214608dc4c0-oaIJmh"
+supabase_credential_secret_arns = {
+  "us-east-1" : "arn:aws:secretsmanager:us-east-1:605454121064:secret:supabase_credential-4TgO0e"
+}

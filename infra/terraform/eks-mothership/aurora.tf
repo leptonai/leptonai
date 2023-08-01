@@ -1,3 +1,8 @@
+# NOTE
+# for RDS aurora root password, it's ok for mothership to generate here
+# and store them in AWS Secrets Manager, share them across multiple
+# eks-lepton clusters, since it's already protected with an IAM policy, etc.
+
 # https://github.com/terraform-aws-modules/terraform-aws-rds-aurora
 module "aurora" {
   source = "terraform-aws-modules/rds-aurora/aws"

@@ -127,7 +127,6 @@ resource "kubernetes_service_account" "metering" {
   ]
 }
 
-
 # applies to all namespaces
 resource "kubernetes_cluster_role" "metering" {
   metadata {
@@ -194,6 +193,11 @@ resource "kubernetes_cluster_role_binding" "metering" {
   ]
 }
 
+# NOTE
+# for RDS aurora root password, it's ok for mothership to generate here
+# and store them in AWS Secrets Manager, share them across multiple
+# eks-lepton clusters, since it's already protected with an IAM policy, etc.
+
 data "aws_secretsmanager_secret" "mothership_rds_aurora_secret" {
   arn = var.mothership_rds_aurora_secret_arn
 }
@@ -216,22 +220,37 @@ resource "kubernetes_secret" "mothership_rds_aurora_secret" {
   type = "Opaque"
 }
 
-data "aws_secretsmanager_secret" "mothership_supabase_credential_secret" {
-  arn = var.mothership_supabase_credential_secret_arn
+# NOTE
+# DO NOT pass Supabase credentials to terraform workflow
+# as it may leak into terraform logging, etc.
+#
+# here, we assume the secrets are ALREADY stored in AWS Secrets Manager
+# manually in all required regions, in all required AWS accounts,
+# and just read them from there
+#
+# TODO: use AWS Secrets Manager "Replicate secret" feature
+# if we need access from multiple regions within the same account
+
+locals {
+  supabase_credential_secret = lookup(var.supabase_credential_secret_arns, var.region, null)
 }
 
-data "aws_secretsmanager_secret_version" "mothership_supabase_credential_secret" {
-  secret_id = data.aws_secretsmanager_secret.mothership_supabase_credential_secret.id
+data "aws_secretsmanager_secret" "supabase_credential_secret" {
+  arn = local.supabase_credential_secret
 }
 
-resource "kubernetes_secret" "mothership_supabase_credential_secret" {
+data "aws_secretsmanager_secret_version" "supabase_credential_secret" {
+  secret_id = data.aws_secretsmanager_secret.supabase_credential_secret.id
+}
+
+resource "kubernetes_secret" "supabase_credential_secret" {
   metadata {
-    name      = "mothership-supabase-credential-secret"
+    name      = "supabase-credential-secret"
     namespace = kubernetes_namespace.metering.metadata[0].name
   }
 
   data = {
-    password = jsondecode(data.aws_secretsmanager_secret_version.mothership_supabase_credential_secret.secret_string)["password"]
+    password = jsondecode(data.aws_secretsmanager_secret_version.supabase_credential_secret.secret_string)["password"]
   }
 
   type = "Opaque"
