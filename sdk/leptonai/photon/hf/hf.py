@@ -154,6 +154,11 @@ class HuggingfacePhoton(Photon):
         )
         return pipeline
 
+    def init(self):
+        super().init()
+        # access pipeline here to trigger download and load
+        self.pipeline
+
     def run(self, *args, **kwargs):
         return self.pipeline(*args, **kwargs)
 
