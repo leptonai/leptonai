@@ -28,4 +28,4 @@
 - Click "Run workflow" button on the top right corner, it will pop up a drop down menu
   - In the "Use workflow from" field, choose "tags" (instead of "branches"), and enter the version number that is being released (e.g. 0.5.0)
   - Check the "Whether publish to S3" and "Is this a release package" checkboxes, and click "Run workflow"
-- The workflow will go through "build-package", "test-package" and "publish-package" jobs. Once all done, you can find the corresponding `.whl` file at the `lepton-sdk` s3 bucket under "release" subdirectory
+- The workflow will go through "build-package", "test-package" and "publish-package" jobs. Once all done, you can find the corresponding `.whl` file at the `lepton-sdk` s3 bucket under "release" subdirectory: https://s3.console.aws.amazon.com/s3/buckets/lepton-sdk?region=us-east-1&tab=objects
