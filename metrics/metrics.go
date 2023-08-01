@@ -13,8 +13,8 @@ import (
 var (
 	httpReqsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "http",
-			Subsystem: "requests",
+			Namespace: "lepton",
+			Subsystem: "http_requests",
 			Name:      "total",
 			Help:      "Tracks all HTTP requests",
 		},
@@ -22,8 +22,8 @@ var (
 	)
 	httpReqsLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "http",
-			Subsystem: "requests",
+			Namespace: "lepton",
+			Subsystem: "http_requests",
 			Name:      "latency_seconds",
 
 			// lowest bucket start of upper bound 0.001 sec (1 ms) with factor 2
