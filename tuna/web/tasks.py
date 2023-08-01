@@ -73,6 +73,7 @@ def cook(data_path, model_name_or_path, output_dir):
     model_path_in_container = "/model"
     gcp_key_on_host = os.path.join(settings.BASE_DIR, ".google_application_credentials")
     gcp_key_in_container = "/google_application_credentials"
+    per_device_train_batch_size = 8
     cmd = [
         "docker",
         "run",
@@ -91,6 +92,8 @@ def cook(data_path, model_name_or_path, output_dir):
         "/app",
         image,
         "./run_training.sh",
+        "--low_mem_mode",
+        f"--per_device_train_batch_size={per_device_train_batch_size}",
         f"--model_name_or_path={model_path_in_container}",
         f"--data_path={data_path}",
         f"--output_dir={output_dir}",
