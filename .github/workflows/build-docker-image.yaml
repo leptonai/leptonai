@@ -20,7 +20,7 @@ on:
       runs-on:
         required: false
         type: string
-        default: self-hosted
+        default: ubuntu-latest
 
 jobs:
   build:
