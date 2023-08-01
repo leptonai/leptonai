@@ -7,7 +7,7 @@ env:
 
 on:
   push:
-    branches: [ "main", "release-*" ]
+    branches: [ "main" ]
   pull_request:
     paths-ignore:
       - "charts/mothership/**"
@@ -16,174 +16,18 @@ on:
 
 jobs:
   build-api-server:
-    runs-on: self-hosted
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
-    - name: Install awscli
-      run: |
-        python -m pip install --upgrade pip
-        pip install awscli
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    - name: Build Lepton API server Docker image
-      env:
-        ECR_REPOSITORY: lepton-api-server
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
-        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file api-server/Dockerfile \
-          --tag $ECR_REPOSITORY:$IMAGE_TAG \
-          --build-arg GIT_COMMIT=$RELEASE_TAG \
-          --build-arg REPO=$ECR_REGISTRY/ecr-public
-
-        echo "tagging with $ECR_REPOSITORY:$IMAGE_TAG"
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-    - name: Push Docker image to latest
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      env:
-        ECR_REPOSITORY: lepton-api-server
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    - name: Push Docker image with git tag
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
-      env:
-        ECR_REPOSITORY: lepton-api-server
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
-        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: api-server
+      repo: lepton-api-server
 
   build-deployment-operator:
-    runs-on: self-hosted
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
-    - name: Install awscli
-      run: |
-        python -m pip install --upgrade pip
-        pip install awscli
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    - name: Build LeptonDeployment operator Docker image
-      env:
-        ECR_REPOSITORY: lepton-deployment-operator
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
-        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker build . --file deployment-operator/Dockerfile \
-          --tag $ECR_REPOSITORY:$IMAGE_TAG \
-          --build-arg GIT_COMMIT=$RELEASE_TAG \
-          --build-arg REPO=$ECR_REGISTRY/ecr-public
-
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-    - name: Push Docker image to latest
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      env:
-        ECR_REPOSITORY: lepton-deployment-operator
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    - name: Push Docker image with git tag
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
-      env:
-        ECR_REPOSITORY: lepton-deployment-operator
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
-        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
-
-  build-web:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
-    - name: Install awscli
-      run: |
-        python -m pip install --upgrade pip
-        pip install awscli
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    - name: Build Lepton web Docker image
-      env:
-        ECR_REPOSITORY: lepton-web
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        docker build web --file web/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-    - name: Push Docker image to latest
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      env:
-        ECR_REPOSITORY: lepton-web
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    - name: Push Docker image with git tag
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-')
-      env:
-        ECR_REPOSITORY: lepton-web
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-      run: |
-        # https://stackoverflow.com/questions/58033366/how-to-get-the-current-branch-within-github-actions
-        RELEASE_TAG=$(echo ${GITHUB_REF##*/} | sed 's/release-/v/')-$IMAGE_TAG
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$RELEASE_TAG
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: deployment-operator
+      repo: lepton-deployment-operator
 
   e2e-tests:
     runs-on: self-hosted
@@ -194,7 +38,8 @@ jobs:
       id: vars
       run: |
         calculatedSha=$(git rev-parse --short HEAD)
-        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "sha=$calculatedSha" >> $GITHUB_OUTPUT
+        echo "image_tag=test$calculatedSha" >> $GITHUB_OUTPUT
         echo "workspace_name=testws$calculatedSha" >> $GITHUB_OUTPUT
         echo "api_token=token-$calculatedSha" >> $GITHUB_OUTPUT
         echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
@@ -257,17 +102,42 @@ jobs:
           --timeout 10 \
           --expected-state "deleted"
 
+  build-api-server-latest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [e2e-tests]
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: api-server
+      repo: lepton-api-server
+      tag: latest
+
+  build-deployment-operator-latest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [e2e-tests]
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: deployment-operator
+      repo: lepton-deployment-operator
+      tag: latest
+
+  build-web-latest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [e2e-tests]
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: web
+      repo: lepton-web
+      tag: latest
+
   deploy-to-dev-latest:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    needs: [e2e-tests]
+    runs-on: self-hosted
+    needs: [build-api-server-latest, build-deployment-operator-latest, build-web-latest]
     steps:
     - uses: actions/checkout@v3
-    - name: Set short git commit SHA
-      id: vars
-      run: |
-        calculatedSha=$(git rev-parse --short HEAD)
-        echo "image_tag=$calculatedSha" >> $GITHUB_OUTPUT
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
@@ -284,7 +154,7 @@ jobs:
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
           --workspace-name "$WORKSPACE_NAME" \
-          --image-tag "${{ steps.vars.outputs.image_tag }}"
+          --image-tag latest
         ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \

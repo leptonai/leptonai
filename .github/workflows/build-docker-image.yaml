@@ -1,0 +1,70 @@
+name: Build Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      folder:
+        required: true
+        type: string
+      repo:
+        required: true
+        type: string
+      tag:
+        required: false
+        type: string
+      commit:
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "sha=$calculatedSha" >> $GITHUB_OUTPUT
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Build and push the Docker image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        set -x
+        if [[ -n "${{ inputs.tag }}" ]]; then
+          IMAGE_TAG="${{ inputs.tag }}"
+        else
+          IMAGE_TAG="test${{ steps.vars.outputs.sha }}"
+        fi
+
+        if [[ -n "${{ inputs.commit }}" ]]; then
+          COMMIT="${{ inputs.commit }}"
+        else
+          if [[ "$IMAGE_TAG" == "latest" ]]; then
+            COMMIT="${{ steps.vars.outputs.sha }}"
+          else
+            COMMIT="$IMAGE_TAG"
+          fi
+        fi
+
+        docker build . --file ${{ inputs.folder }}/Dockerfile \
+          --tag ${{ inputs.repo }}:$IMAGE_TAG \
+          --build-arg GIT_COMMIT=$COMMIT \
+          --build-arg REPO=$ECR_REGISTRY/ecr-public
+
+        echo "tagging container image with ${{ inputs.repo }}:$IMAGE_TAG"
+        docker tag ${{ inputs.repo }}:$IMAGE_TAG $ECR_REGISTRY/${{ inputs.repo }}:$IMAGE_TAG
+        docker push $ECR_REGISTRY/${{ inputs.repo }}:$IMAGE_TAG
