@@ -19,4 +19,6 @@ RUN pip install /tmp/lepton/sdk
 RUN pip install -U uvicorn[standard] gradio!=3.31.0
 RUN rm -rf /tmp/lepton
 
+RUN sudo apt-get update && sudo apt-get install -y libgl1 ffmpeg
+
 WORKDIR /workspace
