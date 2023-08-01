@@ -25,6 +25,7 @@ from leptonai.photon import Photon, HTTPException
 class Whisper(Photon):
     requirement_dependency = [
         "git+https://github.com/sanchit-gandhi/whisper-jax.git@0d3bc54",
+        "cached_property",
         "nvidia-cudnn-cu11==8.6.0.163",
         "-f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html",
         "jax==0.4.13",
