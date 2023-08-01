@@ -2,10 +2,13 @@ name: web
 
 on:
   push:
+    paths:
+      - .github/workflows/frontend.yaml
+      - web/**
     branches: [ "main" ]
   pull_request:
     paths:
-      - .github/**
+      - .github/workflows/frontend.yaml
       - web/**
     branches: [ "**" ]
 
