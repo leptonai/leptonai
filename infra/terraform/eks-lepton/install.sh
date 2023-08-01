@@ -105,10 +105,20 @@ ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
 if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
   # this is not running via mothership, thus requiring manual copy
   echo "copying lepton charts from ../../../charts"
-  rm -rf ./charts || true
-  cp -r ../../../charts .
+  rm -rf ./charts && mkdir -p ./charts
+  cp -r ../../../charts/lepton ./charts/
 else
   echo "skipping copying lepton charts"
+fi
+
+# only copy CRDs if INSTALL_CRDS is true
+# this is also done in mothership side
+# so only needed for local installation
+# e.g., during cluster creation
+INSTALL_CRDS=${INSTALL_CRDS:-false}
+if [[ "$INSTALL_CRDS" == "true" ]]; then
+  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
+  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
 fi
 
 # Final apply to catch any remaining resources

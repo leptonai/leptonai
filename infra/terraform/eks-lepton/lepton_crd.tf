@@ -8,11 +8,6 @@ resource "helm_release" "lepton_crd" {
   namespace = "default"
 
   set {
-    name  = "crd.install"
-    value = true
-  }
-
-  set {
     name  = "apiServer.enabled"
     value = false
   }

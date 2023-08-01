@@ -47,6 +47,11 @@ var (
 	)
 
 	Worker = worker.New()
+
+	crdSrcsToCopy = []string{
+		"/deployment-operator/config/crd/bases/lepton.ai_leptondeployments.yaml",
+		"/deployment-operator/config/crd/bases/lepton.ai_photons.yaml",
+	}
 )
 
 // Init initializes the cluster and retore any ongoing operations
@@ -339,7 +344,7 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
 
-	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef, crdSrcsToCopy...)
 	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference not found") {
@@ -354,7 +359,7 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 			"error", err,
 		)
 
-		dir, err = util.PrepareTerraformWorkingDir(tfws, "eks-lepton", "")
+		dir, err = util.PrepareTerraformWorkingDir(tfws, "eks-lepton", "", crdSrcsToCopy...)
 		if err != nil {
 			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
 		}
@@ -494,7 +499,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 	}()
 
 	tfws := terraformWorkspaceName(clusterName)
-	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef, crdSrcsToCopy...)
 	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
 	if err != nil {
 		return fmt.Errorf("failed to prepare working dir: %w", err)

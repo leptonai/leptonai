@@ -98,11 +98,6 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name  = "crd.install"
-    value = false
-  }
-
-  set {
     name  = "apiServer.serviceAccountRoleArn"
     value = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.api-server-role.name}"
   }

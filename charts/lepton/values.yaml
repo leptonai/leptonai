@@ -71,10 +71,6 @@ web:
         memory: "512Mi"
         cpu: "1"
 
-crd:
-  install: true
-  keep: true
-
 env:
   provider: aws
   name: dev

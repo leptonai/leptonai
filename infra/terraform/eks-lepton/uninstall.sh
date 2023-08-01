@@ -51,6 +51,13 @@ else
   exit 1
 fi
 
+# only copy CRDs if UNINSTALL_CRDS is true
+UNINSTALL_CRDS=${UNINSTALL_CRDS:-false}
+if [[ "$UNINSTALL_CRDS" == "true" ]]; then
+  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
+  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
+fi
+
 DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-TEST}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"

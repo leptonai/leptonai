@@ -15,7 +15,9 @@ const (
 	leptonRepoURL = "https://github.com/leptonai/lepton.git"
 )
 
-func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, error) {
+// PrepareTerraformWorkingDir prepares terraform directory for installation.
+// Specify non-empty CRD paths to copy CRD YAML files for installation (e.g., during cluster creation).
+func PrepareTerraformWorkingDir(dirName, moduleName, version string, crdSrcs ...string) (string, error) {
 	gitDir, err := DeleteTerraformWorkingDir(dirName)
 	if err != nil {
 		return "", err
@@ -43,11 +45,23 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to copy charts to terraform directory: %s", err)
 	}
-
 	goutil.Logger.Infow("Copied charts to terraform directory",
 		"src", src,
 		"dest", dest,
 	)
+
+	for _, crdSrc := range crdSrcs {
+		src = gitDir + crdSrc
+		dest = gitDir + "/infra/terraform/" + moduleName + "/charts/lepton/templates/"
+		err = exec.Command("cp", src, dest).Run()
+		if err != nil {
+			return "", fmt.Errorf("failed to copy CRD yaml files to terraform directory: %s", err)
+		}
+		goutil.Logger.Infow("copied CRD yaml files to terraform directory",
+			"src", src,
+			"dest", dest,
+		)
+	}
 
 	return gitDir + "/infra/terraform/" + moduleName, nil
 }
