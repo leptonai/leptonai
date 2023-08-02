@@ -1,4 +1,4 @@
-{{ if or .Values.metering.syncEnabled .Values.metering.syncEnabled }}
+{{ if or .Values.metering.syncEnabled .Values.metering.aggregateEnabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
