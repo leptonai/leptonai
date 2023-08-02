@@ -7,7 +7,7 @@ import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { PopoverDeploymentTable } from "@lepton-dashboard/routers/workspace/components/photon-item/components/popover-deployment-table";
 import { ExtraInfo } from "@lepton-dashboard/routers/workspace/components/photon-item/components/extra-info";
 import { VersionDescription } from "@lepton-dashboard/routers/workspace/components/photon-item/components/version-description";
@@ -24,10 +24,7 @@ export const PhotonItem: FC<{
 }> = ({ photon, versions, showDetail = false, onDeleted = () => void 0 }) => {
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
-  const deployments = useStateFromObservable(
-    () => deploymentService.list(),
-    []
-  );
+  const deployments = useStateFromBehaviorSubject(deploymentService.list());
   const relatedDeployments = deployments.filter((d) => {
     if (versions) {
       return versions.some((v) => v.id === d.photon_id);

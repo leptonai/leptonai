@@ -17,11 +17,6 @@ import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
 export class DeploymentService {
   private list$ = new BehaviorSubject<Deployment[]>([]);
 
-  // TODO(hsuanxyz): implement this
-  static isCreateByTuna(_deployment: Deployment): boolean {
-    return false;
-  }
-
   list(): Observable<Deployment[]> {
     return this.list$;
   }

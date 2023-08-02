@@ -12,7 +12,7 @@ import {
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { useParams } from "react-router-dom";
@@ -24,10 +24,7 @@ import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components
 export const List: FC = () => {
   const { photonName } = useParams();
   const deploymentService = useInject(DeploymentService);
-  const deployments = useStateFromObservable(
-    () => deploymentService.list(),
-    []
-  );
+  const deployments = useStateFromBehaviorSubject(deploymentService.list());
   const theme = useAntdTheme();
   const [search, setSearch] = useState<string>("");
   const [status, setStatus] = useState<string[]>([]);
@@ -35,10 +32,7 @@ export const List: FC = () => {
     photonName ? [photonName] : []
   );
   const photonService = useInject(PhotonService);
-  const photonGroups = useStateFromObservable(
-    () => photonService.listGroups(),
-    []
-  );
+  const photonGroups = useStateFromBehaviorSubject(photonService.listGroups());
   const options = photonGroups.map((g) => {
     return {
       value: g.name,

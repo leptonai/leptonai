@@ -85,7 +85,7 @@ export const Timeline: FC<{
               dot:
                 e.type === "Deployment" ? <DeploymentIcon /> : <PhotonIcon />,
               children: (
-                <Col key={e.id} span={24}>
+                <div key={e.id}>
                   <Typography.Paragraph
                     style={{ paddingTop: "1px" }}
                     type="secondary"
@@ -99,7 +99,7 @@ export const Timeline: FC<{
                     </Typography.Text>
                   </Typography.Paragraph>
                   {e.children}
-                </Col>
+                </div>
               ),
             };
           })}

@@ -21,7 +21,7 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [codeLanguage, setCodeLanguage] = useState<LanguageSupports>(
     LanguageSupports.Python
   );
@@ -50,8 +50,8 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
       ),
     [],
     {
-      next: () => setLoading(false),
-      error: () => setLoading(false),
+      next: () => setInitialized(true),
+      error: () => setInitialized(true),
     }
   );
 
@@ -85,9 +85,8 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
     },
     [APIToken]
   );
-  return (
+  return initialized ? (
     <Card
-      loading={loading}
       shadowless
       borderless
       css={css`
@@ -237,5 +236,5 @@ LEPTON_API_TOKEN = "${APIToken}"`
         <Alert showIcon type="warning" message="No openapi schema found" />
       )}
     </Card>
-  );
+  ) : null;
 };

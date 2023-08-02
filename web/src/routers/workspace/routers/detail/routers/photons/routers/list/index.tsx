@@ -8,7 +8,7 @@ import {
 } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { Card } from "@lepton-dashboard/components/card";
 import { Upload } from "@lepton-dashboard/routers/workspace/routers/detail/routers/photons/components/upload";
 import { PhotonItem } from "../../../../../../components/photon-item";
@@ -18,10 +18,7 @@ import { css } from "@emotion/react";
 export const List: FC = () => {
   const photonService = useInject(PhotonService);
   const storageService = useInject(StorageService);
-  const photonGroups = useStateFromObservable(
-    () => photonService.listGroups(),
-    []
-  );
+  const photonGroups = useStateFromBehaviorSubject(photonService.listGroups());
   const [search, setSearch] = useState<string>("");
   const [view, setView] = useState(
     storageService.get(StorageService.GLOBAL_SCOPE, "PHOTON_LAYOUT") || "card"

@@ -4,7 +4,7 @@ import { FC, useState } from "react";
 import { App, Button, Empty, Modal, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { PlusOutlined } from "@ant-design/icons";
@@ -22,14 +22,8 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
   const refreshService = useInject(RefreshService);
   const hardwareService = useInject(HardwareService);
   const deploymentService = useInject(DeploymentService);
-  const deployments = useStateFromObservable(
-    () => deploymentService.list(),
-    []
-  );
-  const photonGroups = useStateFromObservable(
-    () => photonService.listGroups(),
-    []
-  );
+  const deployments = useStateFromBehaviorSubject(deploymentService.list());
+  const photonGroups = useStateFromBehaviorSubject(photonService.listGroups());
 
   const initialDeployment: Partial<Deployment> = {
     photon_id: photonId,

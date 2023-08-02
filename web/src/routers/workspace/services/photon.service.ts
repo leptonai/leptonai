@@ -6,33 +6,10 @@ import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.ser
 @Injectable()
 export class PhotonService {
   private list$ = new BehaviorSubject<Photon[]>([]);
+  private listGroup$ = new BehaviorSubject<PhotonGroup[]>([]);
 
   listGroups(): Observable<PhotonGroup[]> {
-    return this.list().pipe(
-      map((photons) => {
-        const photonGroups: PhotonGroup[] = [];
-        photons.forEach((photon) => {
-          const target = photonGroups.find((g) => g.name === photon.name);
-          if (target) {
-            target.versions.push({
-              id: photon.id,
-              created_at: photon.created_at,
-            });
-          } else {
-            photonGroups.push({
-              ...photon,
-              versions: [
-                {
-                  id: photon.id,
-                  created_at: photon.created_at,
-                },
-              ],
-            });
-          }
-        });
-        return photonGroups;
-      })
-    );
+    return this.listGroup$;
   }
   list(): Observable<Photon[]> {
     return this.list$;
@@ -72,7 +49,30 @@ export class PhotonService {
   refresh() {
     return this.apiService.listPhotons().pipe(
       map((item) => item.sort((a, b) => b.created_at - a.created_at)),
-      tap((l) => this.list$.next(l))
+      tap((photons) => {
+        this.list$.next(photons);
+        const photonGroups: PhotonGroup[] = [];
+        photons.forEach((photon) => {
+          const target = photonGroups.find((g) => g.name === photon.name);
+          if (target) {
+            target.versions.push({
+              id: photon.id,
+              created_at: photon.created_at,
+            });
+          } else {
+            photonGroups.push({
+              ...photon,
+              versions: [
+                {
+                  id: photon.id,
+                  created_at: photon.created_at,
+                },
+              ],
+            });
+          }
+        });
+        this.listGroup$.next(photonGroups);
+      })
     );
   }
   constructor(private apiService: ApiService) {}

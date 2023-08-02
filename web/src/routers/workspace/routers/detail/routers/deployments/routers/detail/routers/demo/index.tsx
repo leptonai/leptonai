@@ -27,7 +27,7 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
 
-  const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [apis, setApis] = useState<LeptonAPIItem[]>([]);
   const [resolvedSchema, setResolvedSchema] = useState<OpenAPI.Document | null>(
@@ -70,11 +70,11 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
           setOperationId(undefined);
         }
 
-        setLoading(false);
+        setInitialized(true);
       },
       error: (err) => {
         console.error(err);
-        setLoading(false);
+        setInitialized(true);
       },
     }
   );
@@ -88,9 +88,8 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
     return apis.find((i) => i.operationId === operationId);
   }, [apis, operationId]);
 
-  return (
+  return initialized ? (
     <Card
-      loading={loading}
       shadowless
       borderless
       css={css`
@@ -183,5 +182,5 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
         )}
       </Alert.ErrorBoundary>
     </Card>
-  );
+  ) : null;
 };
