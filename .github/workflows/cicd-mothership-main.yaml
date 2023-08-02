@@ -1,10 +1,5 @@
 name: CI/CD - mothership
 
-env:
-  # override in-cluster config
-  KUBECONFIG: /home/runner/.kube/config
-  POD_NAMESPACE: default
-
 on:
   push:
     paths:
