@@ -23,6 +23,8 @@ export const cors =
   async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
 
+    res.setHeader("Cache-Control", "no-store");
+
     if (allowOrigin(req.headers.origin)) {
       res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
     }
