@@ -16,7 +16,7 @@ metering:
       requests:
         memory: "1024Mi"
         cpu: "1"
-  serviceAccountName: "mothership-sa"
+  serviceAccountName: "metering-sa"
   region: ""
   auroraDbHost: ""
   auroraDbPort: 5432
