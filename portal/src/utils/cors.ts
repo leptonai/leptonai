@@ -24,7 +24,7 @@ export const cors =
     res.setHeader("Access-Control-Allow-Credentials", "true");
 
     if (allowOrigin(req.headers.origin)) {
-      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
     }
 
     res.setHeader(
@@ -33,7 +33,7 @@ export const cors =
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "X-CSRF-Token, IF-NONE-MATCH, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
     );
     if (req.method === "OPTIONS") {
       res.status(200).end();
