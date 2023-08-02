@@ -1,4 +1,4 @@
-import { Badge, TabsProps } from "antd";
+import { Badge } from "antd";
 import { FC } from "react";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -43,7 +43,7 @@ const DeploymentLabel: FC = () => {
 export const Nav: FC = () => {
   const { pathname } = useResolvedPath("");
 
-  const menuItems: TabsProps["items"] = [
+  const menuItems = [
     {
       label: (
         <span id="nav-dashboard">
@@ -51,6 +51,7 @@ export const Nav: FC = () => {
           Dashboard
         </span>
       ),
+      prefix: `${pathname}/dashboard`,
       key: `${pathname}/dashboard`,
     },
     {
@@ -59,7 +60,8 @@ export const Nav: FC = () => {
           <PhotonLabel />
         </span>
       ),
-      key: `${pathname}/photons`,
+      prefix: `${pathname}/photons`,
+      key: `${pathname}/photons/list`,
     },
     {
       label: (
@@ -67,7 +69,8 @@ export const Nav: FC = () => {
           <DeploymentLabel />
         </span>
       ),
-      key: `${pathname}/deployments`,
+      prefix: `${pathname}/deployments`,
+      key: `${pathname}/deployments/list`,
     },
 
     {
@@ -86,7 +89,8 @@ export const Nav: FC = () => {
           <CarbonIcon icon={<Settings />} /> Settings
         </span>
       ),
-      key: `${pathname}/settings`,
+      prefix: `${pathname}/settings`,
+      key: `${pathname}/settings/general`,
     },
   ];
 

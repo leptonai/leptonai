@@ -1,13 +1,13 @@
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { FC, useMemo } from "react";
-import { Tabs, TabsProps } from "antd";
+import { FC, ReactNode, useMemo } from "react";
+import { Tabs } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 import { css } from "@emotion/react";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 
 export const TabsNav: FC<
   {
-    menuItems: NonNullable<TabsProps["items"]>;
+    menuItems: Array<{ label: ReactNode; key: string; prefix?: string }>;
     keyActive?: (key: string) => void;
   } & EmotionProps
 > = ({ menuItems, keyActive, className }) => {
@@ -15,8 +15,9 @@ export const TabsNav: FC<
   const location = useLocation();
   const selectedKey = useMemo(() => {
     return (
-      menuItems.find((item) => location.pathname.startsWith(`${item?.key}`))
-        ?.key || "$$never_match_key"
+      menuItems.find((item) =>
+        location.pathname.startsWith(`${item?.prefix || item?.key}`)
+      )?.key || "$$never_match_key"
     );
   }, [location.pathname, menuItems]);
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export const TabsNav: FC<
       className={className}
       css={css`
         .ant-tabs-tab {
+          user-select: none;
           padding: 9px 0 !important;
           &:hover .ant-tabs-tab-btn {
             background: ${theme.colorBgTextHover};
