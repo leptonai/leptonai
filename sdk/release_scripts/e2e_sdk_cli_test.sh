@@ -398,8 +398,10 @@ while ! eval "$command" > /dev/null; do
     fi
     sleep 5
 done
-# sleep for 5 seconds to make sure the deployment is up
-sleep 5
+# Sometimes, it takes a bit longer time to have the photon running in a stable
+# fashion... before we actually look into it, sleep for 10 seconds to make sure
+# things are working.
+sleep 10
 echo "Done"
 echo
 
@@ -417,9 +419,6 @@ else
     echo "Create file failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
-# We need to check if the filesystem has some sort of latencies. For now, just
-# sleep for a bit.
-sleep 1
 echo "Checking file..."
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
@@ -432,7 +431,6 @@ if eval "$command" | grep "${COMMON_NAME}.txt" > /dev/null; then
 else
     echo "File does not exist. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
-    exit 1
 fi
 
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
