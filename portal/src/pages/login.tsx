@@ -13,36 +13,20 @@ import { isDev, isProd } from "@/utils/env";
 import { Logo } from "@/components/Logo";
 import { Book, LogoGithub } from "@carbon/icons-react";
 import Head from "next/head";
+import { allowHost } from "@/utils/allow-host";
 const domain = isProd ? ".lepton.ai" : "localhost";
 
-const serverCallback = isProd
-  ? "https://portal.lepton.ai/api/auth/callback"
-  : "http://localhost:8000/api/auth/callback";
+const portalURL = process.env.PORTAL_URL || "http://localhost:8000";
+const defaultLoginRedirectURL =
+  process.env.DEFAULT_LOGIN_REDIRECT_URL || "http://localhost:3000";
+const serverCallback = portalURL + "/api/auth/callback";
 
 const validateNext = (next: string | string[] | undefined): string => {
-  const defaultNext = isProd
-    ? "https://dashboard.lepton.ai"
-    : "http://localhost:3000";
   const url = Array.isArray(next) ? next[0] : next;
-  if (!url) return defaultNext;
-  try {
-    const parsedURL = new URL(url);
-    const allowedHosts = [
-      "lepton.ai",
-      "www.lepton.ai",
-      "portal.lepton.ai",
-      "dashboard.lepton.ai",
-    ];
-    if (isDev) {
-      allowedHosts.push("localhost");
-    }
-    if (allowedHosts.includes(parsedURL.hostname)) {
-      return url;
-    } else {
-      return defaultNext;
-    }
-  } catch {
-    return defaultNext;
+  if (allowHost(url)) {
+    return url;
+  } else {
+    return defaultLoginRedirectURL;
   }
 };
 

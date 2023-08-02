@@ -1,22 +1,5 @@
 import { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
-
-const allowOrigin = (origin?: string): origin is string => {
-  if (!origin) {
-    return false;
-  }
-
-  // use regex to allow all subdomains of lepton.ai and preview domains on vercel
-  const allowedOrigins = [
-    /^https:\/\/(.+\.)?lepton\.ai$/i,
-    /^https:\/\/lepton-.+-leptonai\.vercel\.app$/i,
-  ];
-
-  if (process.env.NODE_ENV !== "production") {
-    return true;
-  }
-
-  return allowedOrigins.some((allowedOrigin) => allowedOrigin.test(origin));
-};
+import { allowHost } from "@/utils/allow-host";
 
 export const cors =
   (fn: NextApiHandler): NextApiHandler =>
@@ -25,7 +8,7 @@ export const cors =
 
     res.setHeader("Cache-Control", "no-store");
 
-    if (allowOrigin(req.headers.origin)) {
+    if (allowHost(req.headers.origin)) {
       res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
     }
 
