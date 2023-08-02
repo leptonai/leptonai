@@ -8,16 +8,6 @@ env:
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    paths:
-      - ".github/workflows/build-docker-image.yaml"
-      - ".github/workflows/cicd-workspace.yaml"
-      - ".github/workflows/run-e2e-tests.yaml"
-      - "**.go"
-      - "**.py"
-      - "charts/lepton/**"
-      - "infra/terraform/workspace/**"
-    branches: [ "**" ]
 
 jobs:
   build-api-server:
@@ -40,7 +30,6 @@ jobs:
     secrets: inherit
 
   build-api-server-latest:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [e2e-tests]
     uses: ./.github/workflows/build-docker-image.yaml
     secrets: inherit
@@ -50,7 +39,6 @@ jobs:
       tag: latest
 
   build-deployment-operator-latest:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [e2e-tests]
     uses: ./.github/workflows/build-docker-image.yaml
     secrets: inherit
@@ -60,7 +48,6 @@ jobs:
       tag: latest
 
   build-web-latest:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [e2e-tests]
     uses: ./.github/workflows/build-docker-image.yaml
     secrets: inherit
@@ -70,8 +57,7 @@ jobs:
       tag: latest
 
   deploy-to-dev-latest:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [build-api-server-latest, build-deployment-operator-latest, build-web-latest]
     steps:
     - uses: actions/checkout@v3
