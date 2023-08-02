@@ -44,13 +44,6 @@ const Login = lazyErrorWrapper(
     }))
   )
 );
-const Redirect = lazyErrorWrapper(
-  lazy(() =>
-    import("@lepton-dashboard/routers/redirect").then((e) => ({
-      default: e.Redirect,
-    }))
-  )
-);
 const Credentials = lazyErrorWrapper(
   lazy(() =>
     import("@lepton-dashboard/routers/credentials").then((e) => ({
@@ -104,14 +97,6 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <Login />,
-      },
-      {
-        path: "redirect",
-        element: (
-          <OAuthGuard>
-            <Redirect />
-          </OAuthGuard>
-        ),
       },
       {
         path: "credentials",

@@ -29,6 +29,7 @@ const validateNext = (next: string | string[] | undefined): string => {
     const parsedURL = new URL(url);
     const allowedHosts = [
       "lepton.ai",
+      "www.lepton.ai",
       "portal.lepton.ai",
       "dashboard.lepton.ai",
     ];
@@ -101,7 +102,7 @@ export default function Login({
           {isDev && (
             <>
               <p>
-                <Link href={validatedNext}>next</Link>
+                <Link href={validatedNext}>next {validatedNext}</Link>
                 <br />
                 <Link href="/api/auth/user">profile</Link>
                 <br />

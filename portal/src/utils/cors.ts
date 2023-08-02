@@ -11,8 +11,7 @@ const allowOrigin = (origin?: string): origin is string => {
   ];
 
   if (process.env.NODE_ENV !== "production") {
-    allowedOrigins.push("localhost");
-    allowedOrigins.push("leptonai.vercel.app");
+    return true;
   }
 
   return allowedOrigins.indexOf(origin) !== -1;

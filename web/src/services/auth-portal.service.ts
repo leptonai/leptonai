@@ -17,12 +17,16 @@ export class AuthPortalService implements AuthService {
   constructor(private http: HttpClientService) {}
 
   logout() {
-    window.location.href = `${this.authServerUrl}/api/auth/logout?next=${window.location.origin}`;
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.pathname.startsWith("/login")) {
+      currentUrl.pathname = "/";
+    }
+    window.location.href = `${this.authServerUrl}/api/auth/logout?next=${currentUrl.href}`;
     return EMPTY;
   }
 
   getUser(): Observable<User | null> {
-    return this.http.get(`${this.authServerUrl}/api/auth/user`, {
+    return this.http.post(`${this.authServerUrl}/api/auth/user`, null, {
       withCredentials: true,
       context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
         ignoreErrors: [401],
@@ -31,8 +35,9 @@ export class AuthPortalService implements AuthService {
   }
 
   listAuthorizedWorkspaces(): Observable<AuthorizedWorkspace[]> {
-    return this.http.get<AuthorizedWorkspace[]>(
+    return this.http.post<AuthorizedWorkspace[]>(
       `${this.authServerUrl}/api/auth/workspaces`,
+      null,
       {
         withCredentials: true,
       }
