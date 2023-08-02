@@ -24,7 +24,7 @@ export const cors =
     res.setHeader("Access-Control-Allow-Credentials", "true");
 
     if (allowOrigin(req.headers.origin)) {
-      res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+      res.setHeader("Access-Control-Allow-Origin", "*");
     }
 
     res.setHeader(
