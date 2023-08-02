@@ -57,6 +57,15 @@ func (h *HTTP) RequestURL(method, url string, headers map[string]string, data []
 }
 
 func (h *HTTP) RequestURLUntil(method, url string, headers map[string]string, data []byte, expectedBytes, timeoutInSeconds int) ([]byte, error) {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: h.SkipVerifyTLS,
+		},
+	}
+	return h.RequestURLUntilWithCustomTransport(transport, method, url, headers, data, expectedBytes, timeoutInSeconds)
+}
+
+func (h *HTTP) RequestURLUntilWithCustomTransport(transport *http.Transport, method, url string, headers map[string]string, data []byte, expectedBytes, timeoutInSeconds int) ([]byte, error) {
 	var reader *bytes.Reader
 	if data != nil {
 		reader = bytes.NewReader(data)
@@ -75,12 +84,8 @@ func (h *HTTP) RequestURLUntil(method, url string, headers map[string]string, da
 		timeoutInSeconds = 30
 	}
 	httpClient := &http.Client{
-		Timeout: time.Duration(timeoutInSeconds) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: h.SkipVerifyTLS,
-			},
-		},
+		Timeout:   time.Duration(timeoutInSeconds) * time.Second,
+		Transport: transport,
 	}
 
 	resp, err := httpClient.Do(req)

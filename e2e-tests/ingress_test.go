@@ -1,6 +1,9 @@
 package e2etests
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"testing"
@@ -109,16 +112,13 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 	}
 
 	{ // Test host based ingress
-		endpoint := ld.Status.Endpoint.ExternalEndpoint
-		u, err := url.Parse(endpoint)
+		transport, err := getTransportFromURL(*workspaceURL)
 		if err != nil {
-			t.Fatal("Expected the external endpoint to be a valid URL, got ", endpoint)
+			t.Fatal(err)
 		}
-		if err := waitForDNSPropagation(u.Hostname()); err != nil {
-			t.Fatalf("Expected DNS to propagate for %s, got %v", u.Hostname(), err)
-		}
+		endpoint := ld.Status.Endpoint.ExternalEndpoint
 		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
+			out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -198,16 +198,13 @@ func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
 	}
 
 	{ // Test host based ingress
-		endpoint := ld.Status.Endpoint.ExternalEndpoint
-		u, err := url.Parse(endpoint)
+		transport, err := getTransportFromURL(*workspaceURL)
 		if err != nil {
-			t.Fatal("Expected the external endpoint to be a valid URL, got ", endpoint)
+			t.Fatal(err)
 		}
-		if err := waitForDNSPropagation(u.Hostname()); err != nil {
-			t.Fatalf("Expected DNS to propagate for %s, got %v", u.Hostname(), err)
-		}
+		endpoint := ld.Status.Endpoint.ExternalEndpoint
 		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURL(http.MethodGet, endpoint+"/docs", nil, nil)
+			out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -244,4 +241,27 @@ func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func getTransportFromURL(u string) (*http.Transport, error) {
+	host, err := url.Parse(u)
+	if err != nil {
+		return nil, fmt.Errorf("Expected workspace URL to be a valid URL, got %s", u)
+	}
+	port := host.Port()
+	if port == "" {
+		if host.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	addr := host.Hostname() + ":" + port
+	transport := &http.Transport{
+		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+			// Bypass DNS to make the test faster
+			return net.Dial("tcp", addr)
+		},
+	}
+	return transport, nil
 }
