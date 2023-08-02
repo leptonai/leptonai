@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leptonai/lepton/go-pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -48,15 +49,9 @@ func PrometheusMiddlewareForGin(component string) gin.HandlerFunc {
 		c.Next()
 		took := time.Since(start)
 
-		// e.g.,
-		// "c.FullPath" returns "/user/:id"
-		// always use the first element "user"
-		// only use the first 3 elements as we prefix with api groups
-		// /api/v1/...
-		splits := strings.Split(c.FullPath(), "/")
-		api := "/" + splits[0]
-		if len(splits) > 2 {
-			api = "/" + strings.Join(splits[:3], "/")
+		api, componentsN := deriveAPIPrefix(c.FullPath())
+		if componentsN < 3 { // do not log special endpoints
+			return
 		}
 
 		method := c.Request.Method
@@ -65,4 +60,22 @@ func PrometheusMiddlewareForGin(component string) gin.HandlerFunc {
 		httpReqsTotal.WithLabelValues(component, api, method, statusCode).Inc()
 		httpReqsLatency.WithLabelValues(component, api, method, statusCode).Observe(took.Seconds())
 	}
+}
+
+// Returns the up to the first 3 elements of the path.
+// And the number of the elements.
+//
+// e.g.,
+// "c.FullPath" returns "/user/:id"
+// always use the first element "user"
+// only use the first 3 elements as we prefix with api groups
+// /api/v1/...
+func deriveAPIPrefix(fullPath string) (string, int) {
+	splits := util.RemoveEmptyStringFromSlice(strings.Split(fullPath, "/"))
+	n := len(splits)
+	if n > 3 {
+		splits = splits[:3]
+		n = 3
+	}
+	return "/" + strings.Join(splits, "/"), n
 }

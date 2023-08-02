@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -35,6 +36,40 @@ func TestRemoveString(t *testing.T) {
 	}
 	if len(result) != 2 {
 		t.Errorf("RemoveString(slice, \"a\") = %v; want length 2", result)
+	}
+}
+
+func TestRemoveEmptyString(t *testing.T) {
+	tt := []struct {
+		input    []string
+		expected []string
+	}{
+		{
+			input:    []string{"a", "b", "c"},
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			input:    []string{"a", "", "c"},
+			expected: []string{"a", "c"},
+		},
+		{
+			input:    []string{"a", "b", "", "", ""},
+			expected: []string{"a", "b"},
+		},
+		{
+			input:    []string{""},
+			expected: nil,
+		},
+		{
+			input:    []string{"", ""},
+			expected: nil,
+		},
+	}
+	for i, tv := range tt {
+		result := RemoveEmptyStringFromSlice(tv.input)
+		if !reflect.DeepEqual(result, tv.expected) {
+			t.Errorf("#%d: RemoveEmptyString(%v) = %v; want %v", i, tv.input, result, tv.expected)
+		}
 	}
 }
 

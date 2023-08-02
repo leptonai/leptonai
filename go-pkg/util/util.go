@@ -51,6 +51,16 @@ func RemoveString(slice []string, s string) (result []string) {
 	return
 }
 
+func RemoveEmptyStringFromSlice(slice []string) (result []string) {
+	for _, item := range slice {
+		if item == "" {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
 func UniqStringSlice(slice []string) []string {
 	seen := make(map[string]bool)
 	uniq := make([]string, 0)
@@ -74,7 +84,7 @@ func RemovePrefix(msg string, prefix string) string {
 	return strings.Join(words, " ")
 }
 
-// deepCompare compares two files byte by byte without loading them into memory
+// DeepCompareEq compares two files byte by byte without loading them into memory
 func DeepCompareEq(file1, file2 string) bool {
 	sf, err := os.Open(file1)
 	if err != nil {
