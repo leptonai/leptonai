@@ -1,6 +1,12 @@
 name: golangci-lint
 on:
   pull_request:
+    paths:
+      - .github/workflows/golangci-lint.yaml
+      - '**.go'
+      - go.mod
+      - go.sum
+    branches: [ "**" ]
 
 permissions:
   contents: read

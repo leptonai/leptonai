@@ -3,13 +3,13 @@ name: Check terraform file formatting
 on:
   push:
     paths:
-      - .github/**
-      - infra/**
+      - .github/workflows/terraform-fmt.yml
+      - infra/terraform/**
     branches: ["main"]
   pull_request:
     paths:
-      - .github/**
-      - infra/**
+      - .github/workflows/terraform-fmt.yml
+      - infra/terraform/**
     branches: ["**"]
 
 jobs:
@@ -22,4 +22,4 @@ jobs:
       - name: terraform fmt
         uses: dflook/terraform-fmt-check@v1
         with:
-          path: infra/terraform/eks-lepton
+          path: infra/terraform

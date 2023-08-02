@@ -13,7 +13,7 @@ on:
     branches: [ "main" ]
   pull_request:
     paths:
-      - .github/**
+      - .github/workflows/go.yml
       - '**.go'
       - go.mod
       - go.sum

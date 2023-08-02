@@ -2,6 +2,10 @@ name: shellcheck-ci-lint
 
 on:
   pull_request:
+    paths:
+      - .github/workflows/shellcheck-ci-lint.yaml
+      - '**.sh'
+    branches: [ "**" ]
 
 permissions:
     contents: read

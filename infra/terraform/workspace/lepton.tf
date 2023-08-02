@@ -189,7 +189,7 @@ resource "helm_release" "lepton" {
 
   set {
     name  = "forceUpdate"
-    value = "${timestamp()}"
+    value = timestamp()
   }
 
   depends_on = [
