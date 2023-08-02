@@ -210,6 +210,17 @@ export const GettingStarted: FC = () => {
         ]}
         defaultActiveKey={["1"]}
       />
+      <Typography.Paragraph
+        css={css`
+          margin-top: 1em;
+        `}
+      >
+        Congratulations on completing all the tutorials. Learn more by visiting
+        the{" "}
+        <Typography.Link href="https://lepton.ai/docs" target="_blank">
+          documentation page.
+        </Typography.Link>
+      </Typography.Paragraph>
     </div>
   );
 };

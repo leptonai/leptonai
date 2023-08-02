@@ -33,6 +33,7 @@ export const Dashboard: FC = () => {
     return (
       <Container>
         <Timeline deployments={deployments} photonGroups={photonGroups} />
+        <GettingStarted />
       </Container>
     );
   }
