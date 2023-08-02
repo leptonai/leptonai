@@ -16,9 +16,9 @@ import Head from "next/head";
 import { allowHost } from "@/utils/allow-host";
 const domain = isProd ? ".lepton.ai" : "localhost";
 
-const portalURL = process.env.PORTAL_URL || "http://localhost:8000";
+const portalURL = process.env.NEXT_PUBLIC_PORTAL_URL || "http://localhost:8000";
 const defaultLoginRedirectURL =
-  process.env.DEFAULT_LOGIN_REDIRECT_URL || "http://localhost:3000";
+  process.env.NEXT_PUBLIC_DEFAULT_LOGIN_REDIRECT_URL || "http://localhost:3000";
 const serverCallback = portalURL + "/api/auth/callback";
 
 const validateNext = (next: string | string[] | undefined): string => {
@@ -52,14 +52,14 @@ export default function Login({
   const validatedNext = useMemo(() => validateNext(next), [next]);
 
   useEffect(() => {
-    if (session && validatedNext && !isDev) {
+    if (session && validatedNext) {
       router.replace(validatedNext);
     }
   }, [session, validatedNext]);
 
   const redirectTo = useMemo(() => {
     const url = new URL(serverCallback);
-    if (validatedNext && !isDev) {
+    if (validatedNext) {
       url.searchParams.set("next", validatedNext);
     }
     return url.toString();
