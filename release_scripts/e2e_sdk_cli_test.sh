@@ -1,0 +1,502 @@
+#!/bin/bash
+
+################################################################################
+# Scripts that you should run to check that most of the components work from the
+# CLI perspective, when you cut a release.
+#
+# Run the command without any arguments. You will need to have access to at least
+# one workspace.
+# - If you want to test interactive login, do not set LEP_RELEASE_CREDENTIALS,
+#   otherwise set it to a credential string.
+################################################################################
+
+################################################################################
+# Utility functions
+################################################################################
+is_port_occupied() {
+  (echo >/dev/tcp/localhost/"$1") &>/dev/null
+  return $?
+}
+
+find_empty_port() {
+    local port
+    for port in {49152..65535}; do
+        if is_port_occupied "$port"; then
+            continue
+        fi
+        echo "$port"
+        return
+    done
+    echo "This should not happen: all ports are taken."
+    exit 1
+}
+
+echo "################################################################################"
+echo "# Logging out and Logging in."
+echo "################################################################################"
+
+TOTAL_ERRORS=0
+
+# First, log out of any existing workspace.
+echo "Logging out of any existing workspace..."
+if lep logout; then
+    echo "Done"
+else
+    echo "$(lep logout) failed. This should not happen."
+    exit 1
+fi
+
+# Log in to a workspace.
+echo "Logging in..."
+if [ -n "${LEPTON_RELEASE_CREDENTIALS}" ]; then
+    lep login -c "$LEPTON_RELEASE_CREDENTIALS"
+else
+    lep login 
+fi
+echo "Trying to see if thing are working..."
+if lep ws status | grep "build time" > /dev/null; then
+    echo "Verified that workspace login worked."
+else
+    echo "$(lep ws status) failed. This should not happen."
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Obtaining token and workspace id..."
+LEPTON_WS_TOKEN=$(lep workspace token)
+LEPTON_WS_URL=$(lep workspace url)
+echo "Done"
+echo
+
+echo "Obtaining lepton sdk example folder..."
+SCRIPT_PATH=$(realpath "$0")
+SCRIPT_FOLDER=$(dirname "$SCRIPT_PATH")
+LEPTON_EXAMPLE_FOLDER=$SCRIPT_FOLDER/../leptonai/examples
+echo "Path for lepton example folder: $LEPTON_EXAMPLE_FOLDER"
+echo "Done"
+echo
+
+echo "################################################################################"
+echo "# Basic tests: photon, create, push, run"
+echo "################################################################################"
+
+echo "## Generating a common prefix for this round of test..."
+COMMON_NAME=$(uuidgen | tr -dc 'a-zA-Z' | head -c 6)
+echo "Done"
+echo
+
+echo "## Testing creating a local photon..."
+command="lep photon create -n ${COMMON_NAME} -m $LEPTON_EXAMPLE_FOLDER/shell/shell.py"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing running photon locally..."
+PORT=$(find_empty_port)
+echo "Using port $PORT"
+lep photon run -n "${COMMON_NAME}" --local -p "$PORT" &>/dev/null &
+PID=$!
+# sleep just so the photon has time to start up
+echo "Done"
+echo "sleep for 5 seconds to make sure the photon is up..."
+sleep 5
+echo
+
+echo "## Testing calling the local photon..."
+if curl -f -s -X "POST" "http://localhost:$PORT/run" -d '{"query": "echo yes"}' -H 'Content-Type: application/json' | grep "yes" > /dev/null; then
+    echo "Done"
+else
+    echo "Local photon failed. This should not happen."
+    kill $PID
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Cleaning the local photon run..."
+kill $PID
+echo "Done"
+echo
+
+echo "## Testing pushing photon to remote..."
+command="lep photon push -n ${COMMON_NAME}"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing if the photon is pushed by listing remote photons..."
+command="lep photon list --pattern ${COMMON_NAME} | grep ${COMMON_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing running a photon..."
+command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing running a photon with the same name: this should be caught by apiserver..."
+command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Expected command to fail but it passed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+else
+    echo "Done"
+fi
+echo
+
+echo "## Testing running a photon with a different name..."
+command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}-1"
+if eval "$command" > /dev/null ; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing deleting the extra deployment"
+command="lep dep remove -n ${COMMON_NAME}-1"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Basic tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+echo "################################################################################"
+echo "# deployment"
+echo "################################################################################"
+echo "## Testing listing deployments..."
+command="lep deployment list | grep ${COMMON_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Waiting for the deployment to be up..."
+command="lep deployment list | grep ${COMMON_NAME} | grep Running"
+RETRY=0
+while ! eval "$command" > /dev/null; do
+    echo "Deployment is not up yet. Sleep for 5 seconds."
+    RETRY=$((RETRY+1))
+    if [ $RETRY -ge 100 ]; then
+        echo "Too many retries and the deployment is still not up."
+        echo "I am going to give up."
+        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        break
+    fi
+    sleep 5
+done
+echo "Done"
+echo
+
+echo "## Testing deployment status..."
+command="lep deployment status -n ${COMMON_NAME} | grep ${COMMON_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "$(lep deployment status) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing deployment log content..."
+command="lep deployment log -n ${COMMON_NAME}"
+if ! timeout --help > /dev/null; then
+    echo "Cannot find timeout, skipping test."
+else
+    if eval timeout 10 "$command" | grep "Uvicorn running on" > /dev/null; then
+        echo "Done"
+    else
+        echo "$(lep deployment log) failed. Did not find expected log content, or log api is too slow. This should not happen. Reproduce with: $command"
+        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    fi
+fi
+echo
+
+echo "## Testing calling the deployment..."
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"echo yes\"}'"
+if eval "$command" | grep "yes" > /dev/null; then
+    echo "Done"
+else
+    echo "Deployment returned content did not contain expected output. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Deployment tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+echo "################################################################################"
+echo "# Environment variables and Secrets"
+echo "################################################################################"
+
+echo "## Testing creating secrets..."
+SECRET_NAME=${COMMON_NAME}SECRET
+command="lep secret create -n ${SECRET_NAME} -v \"world\""
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep secret create) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing listing secrets..."
+command="lep secret list | grep ${SECRET_NAME}"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "$(lep secret list) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing creating a deployment with env variables and secrets..."
+command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}-with-env -e \"HELLOENV=world\" -s ${SECRET_NAME} -s RENAMEDSECRET=${SECRET_NAME}"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep photon run) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Waiting for the deployment to be up..."
+command="lep deployment list | grep ${COMMON_NAME}-with-env | grep Running"
+RETRY=0
+while ! eval "$command" > /dev/null; do
+    echo "Deployment is not up yet. Sleep for 5 seconds."
+    RETRY=$((RETRY+1))
+    if [ $RETRY -ge 100 ]; then
+        echo "Too many retries and the deployment is still not up."
+        echo "I am going to give up."
+        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        break
+    fi
+    sleep 5
+done
+# sleep for 5 seconds to make sure the deployment is up
+sleep 5
+echo
+
+echo "## Testing if the deployment contains the correct env variables and secrets..."
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"env | grep HELLOENV \"}'"
+if eval "$command" | grep "world" > /dev/null; then
+    echo "Env variable is correct."
+else
+    echo "Did not contain expected env var. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"env | grep ${SECRET_NAME} \"}'"
+if eval "$command" | grep "world" > /dev/null; then
+    echo "Secret value is correct."
+else
+    echo "Did not contain expected secret. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"env | grep RENAMEDSECRET \"}'"
+if eval "$command" | grep "world" > /dev/null; then
+    echo "Renamed secret value is correct."
+else
+    echo "Did not contain expected renamed secret. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing deleting deployment with env variables and secrets..."
+command="lep dep remove -n ${COMMON_NAME}-with-env"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep dep remove) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Testing deleting secrets..."
+command="lep secret remove -n ${COMMON_NAME}"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep secret remove) failed. This should not happen. Reproduce with: $command"
+fi
+echo
+
+echo "Env and secret tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+echo "################################################################################"
+echo "# Storage"
+echo "################################################################################"
+
+echo "## Testing creating a deployment with storage..."
+command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}-with-storage --mount /:/mnt/leptonstore"
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "$(lep photon run) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "## Waiting for the deployment to be up..."
+command="lep deployment list | grep ${COMMON_NAME}-with-storage | grep Running"
+RETRY=0
+while ! eval "$command" > /dev/null; do
+    echo "Deployment is not up yet. Sleep for 5 seconds."
+    RETRY=$((RETRY+1))
+    if [ $RETRY -ge 100 ]; then
+        echo "Too many retries and the deployment is still not up."
+        echo "I am going to give up."
+        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        break
+    fi
+    sleep 5
+done
+# sleep for 5 seconds to make sure the deployment is up
+sleep 5
+echo "Done"
+echo
+
+echo "## Testing if the deployment contains the correct storage..."
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"touch /mnt/leptonstore/${COMMON_NAME}.txt\"}'"
+echo "Creating ${COMMON_NAME}.txt..."
+if eval "$command" > /dev/null; then
+    echo "Create file done"
+else
+    echo "Create file failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+# We need to check if the filesystem has some sort of latencies. For now, just
+# sleep for a bit.
+sleep 1
+echo "Checking file..."
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"ls /mnt/leptonstore/${COMMON_NAME}.txt\"}'"
+if eval "$command" | grep "${COMMON_NAME}.txt" > /dev/null; then
+    echo "File exists."
+else
+    echo "File does not exist. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    exit 1
+fi
+
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"rm /mnt/leptonstore/${COMMON_NAME}.txt\"}'"
+if eval "$command" > /dev/null; then
+    echo "Delete file done"
+else
+    echo "Delete file failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo "Done"
+echo
+
+echo "## Testing deleting deployment with storage..."
+command="lep dep remove -n ${COMMON_NAME}-with-storage"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep dep remove) failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Storage tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+echo "################################################################################"
+echo "# Cleanups"
+echo "################################################################################"
+echo "If you encounter any error above, some of the cleanups may not succeed, but we will still run the whole cleanup script to make sure everything is cleaned up."
+echo
+
+echo "## Testing deleting deployments"
+command="lep dep remove -n ${COMMON_NAME}"
+if eval "$command"; then
+    echo "${COMMON_NAME} Done"
+else
+    echo "Failed. This should not happen. Reproduce with: $command"
+fi
+echo
+
+echo "## Testing deleting remote photons..."
+command="lep photon remove -n ${COMMON_NAME} --all"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep photon remove) failed. This should not happen. Reproduce with: $command"
+fi
+echo
+
+echo "## Testing deleting all local photons..."
+command="lep photon remove -n ${COMMON_NAME} --local --all"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "$(lep photon remove) failed. This should not happen. Reproduce with: $command"
+fi
+echo
+
+echo "All tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+exit $TOTAL_ERRORS
