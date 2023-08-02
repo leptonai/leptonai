@@ -88,10 +88,12 @@ def create_transformers_pipeline(task, model, revision):
 
 
 for task in [
+    "automatic-speech-recognition",
+    "sentiment-analysis",
+    "summarization",
+    "text-classification",
     "text-generation",
     "text2text-generation",
-    "automatic-speech-recognition",
-    "summarization",
 ]:
     pipeline_registry.register(
         task,
