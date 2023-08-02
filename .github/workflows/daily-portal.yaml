@@ -1,4 +1,4 @@
-name: deploy
+name: daily/portal
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BILLING_GATEWAY_PROJECT_ID }}
@@ -7,7 +7,7 @@ on:
     branches:
       - main
 jobs:
-  portal:
+  deploy:
     runs-on: self-hosted
     environment:
       name: Daily - Portal

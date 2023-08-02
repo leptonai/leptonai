@@ -1,4 +1,4 @@
-name: deploy
+name: preview/dashboard
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_DASHBOARD_PROJECT_ID }}
@@ -8,7 +8,7 @@ on:
       - web/**
     branches: [ "**" ]
 jobs:
-  dashboard:
+  deploy:
     runs-on: self-hosted
     environment:
       name: Preview - Dashboard
