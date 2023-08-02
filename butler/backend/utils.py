@@ -111,7 +111,7 @@ def create_workspace_on_cluster(workspace_display_name):
         "name": workspace_name, 
         "cluster_name": cluster_name,
         "api_token" : api_token,
-        "enable_web": True,    
+        "enable_web": False,    
         "quota_group" : "small",
         "description" : description,
         
