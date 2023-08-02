@@ -42,7 +42,7 @@ echo "Logging out of any existing workspace..."
 if lep logout; then
     echo "Done"
 else
-    echo "$(lep logout) failed. This should not happen."
+    echo "lep logout failed. This should not happen."
     exit 1
 fi
 
@@ -57,7 +57,7 @@ echo "Trying to see if thing are working..."
 if lep ws status | grep "build time" > /dev/null; then
     echo "Verified that workspace login worked."
 else
-    echo "$(lep ws status) failed. This should not happen."
+    echo "lep ws status failed. This should not happen."
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -219,7 +219,7 @@ command="lep deployment status -n ${COMMON_NAME} | grep ${COMMON_NAME}"
 if eval "$command" > /dev/null; then
     echo "Done"
 else
-    echo "$(lep deployment status) failed. This should not happen. Reproduce with: $command"
+    echo "lep deployment status failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -232,7 +232,7 @@ else
     if eval timeout 10 "$command" | grep "Uvicorn running on" > /dev/null; then
         echo "Done"
     else
-        echo "$(lep deployment log) failed. Did not find expected log content, or log api is too slow. This should not happen. Reproduce with: $command"
+        echo "lep deployment log failed. Did not find expected log content, or log api is too slow. This should not happen. Reproduce with: $command"
         TOTAL_ERRORS=$((TOTAL_ERRORS+1))
     fi
 fi
@@ -266,7 +266,7 @@ command="lep secret create -n ${SECRET_NAME} -v \"world\""
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep secret create) failed. This should not happen. Reproduce with: $command"
+    echo "lep secret create failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -276,7 +276,7 @@ command="lep secret list | grep ${SECRET_NAME}"
 if eval "$command" > /dev/null; then
     echo "Done"
 else
-    echo "$(lep secret list) failed. This should not happen. Reproduce with: $command"
+    echo "lep secret list failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -286,7 +286,7 @@ command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}-with-env -e \"HELLO
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep photon run) failed. This should not happen. Reproduce with: $command"
+    echo "lep photon run failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -353,7 +353,7 @@ command="lep dep remove -n ${COMMON_NAME}-with-env"
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep dep remove) failed. This should not happen. Reproduce with: $command"
+    echo "lep dep remove failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -363,7 +363,7 @@ command="lep secret remove -n ${COMMON_NAME}"
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep secret remove) failed. This should not happen. Reproduce with: $command"
+    echo "lep secret remove failed. This should not happen. Reproduce with: $command"
 fi
 echo
 
@@ -379,7 +379,7 @@ command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}-with-storage --moun
 if eval "$command" > /dev/null; then
     echo "Done"
 else
-    echo "$(lep photon run) failed. This should not happen. Reproduce with: $command"
+    echo "lep photon run failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
@@ -453,13 +453,54 @@ command="lep dep remove -n ${COMMON_NAME}-with-storage"
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep dep remove) failed. This should not happen. Reproduce with: $command"
+    echo "lep dep remove failed. This should not happen. Reproduce with: $command"
     TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
 echo "Storage tests finished. Errors so far = ${TOTAL_ERRORS}"
 echo
+
+echo "################################################################################"
+echo "# Metrics"
+echo "################################################################################"
+
+echo "## Calling the deployment for 2 minutes to generate metrics..."
+command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+              -H 'Content-Type: application/json' \
+              -H 'accept: application/json' \
+              -H 'X-Lepton-Deployment: ${COMMON_NAME}' \
+              -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
+              -d '{\"query\": \"sleep 1\"}'"
+END_TIME=$((SECONDS+120))
+CALL_COUNT=0
+while [ $SECONDS -lt $END_TIME ]; do
+    eval "$command" > /dev/null
+    CALL_COUNT=$((CALL_COUNT+1))
+done
+echo "2 mins calling done. Total calls: $CALL_COUNT"
+echo
+
+echo "## Testing getting qps..."
+command="lep deployment qps -n ${COMMON_NAME} | grep \"QPS of ${COMMON_NAME}\""
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "lep deployment qps failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+
+echo "## Testing getting latency..."
+command="lep deployment latency -n ${COMMON_NAME} | grep \"Latency (ms) of ${COMMON_NAME}\""
+if eval "$command" > /dev/null; then
+    echo "Done"
+else
+    echo "lep deployment latency failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo "Note that the above work do not verify actual qps and latency values."
+echo
+
 
 echo "################################################################################"
 echo "# Cleanups"
@@ -481,7 +522,7 @@ command="lep photon remove -n ${COMMON_NAME} --all"
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep photon remove) failed. This should not happen. Reproduce with: $command"
+    echo "lep photon remove failed. This should not happen. Reproduce with: $command"
 fi
 echo
 
@@ -490,7 +531,7 @@ command="lep photon remove -n ${COMMON_NAME} --local --all"
 if eval "$command"; then
     echo "Done"
 else
-    echo "$(lep photon remove) failed. This should not happen. Reproduce with: $command"
+    echo "lep photon remove failed. This should not happen. Reproduce with: $command"
 fi
 echo
 
