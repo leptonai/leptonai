@@ -191,6 +191,18 @@ def token():
 
 
 @workspace.command()
+def url():
+    """
+    Prints the url of the current workspace. This is useful when you want to
+    obtain the workspace url in the command line in e.g. a shell script, but
+    do not want to hardcode it in the source file.
+    """
+    workspace_info = api.load_workspace_info()
+    current_workspace = workspace_info["current_workspace"]
+    console.print(api.get_full_workspace_url(current_workspace), end="")
+
+
+@workspace.command()
 def status():
     """
     Prints the status of the current workspace.
