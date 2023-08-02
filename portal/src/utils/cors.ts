@@ -4,17 +4,18 @@ const allowOrigin = (origin?: string): origin is string => {
   if (!origin) {
     return false;
   }
+
+  // use regex to allow all subdomains of lepton.ai and preview domains on vercel
   const allowedOrigins = [
-    "https://dashboard.lepton.ai",
-    "https://lepton.ai",
-    "https://www.lepton.ai",
+    /^https:\/\/(.+\.)?lepton\.ai$/i,
+    /^https:\/\/lepton-.+-leptonai\.vercel\.app$/i,
   ];
 
   if (process.env.NODE_ENV !== "production") {
     return true;
   }
 
-  return allowedOrigins.indexOf(origin) !== -1;
+  return allowedOrigins.some((allowedOrigin) => allowedOrigin.test(origin));
 };
 
 export const cors =

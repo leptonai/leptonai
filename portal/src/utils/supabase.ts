@@ -35,5 +35,15 @@ export const serverClientWithAuthorized =
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (
+      /^https:\/\/lepton-.+-leptonai\.vercel\.app$/i.test(
+        req.headers.origin || "",
+      )
+    ) {
+      if (!session.user.email || !session.user.email.endsWith("@lepton.ai")) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
     return await fn(req, res, supabase, session);
   };
