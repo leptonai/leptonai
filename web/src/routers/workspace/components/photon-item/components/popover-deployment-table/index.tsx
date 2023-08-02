@@ -1,4 +1,4 @@
-import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
+import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
 import { DeploymentMinTable } from "@lepton-dashboard/routers/workspace/components/deployment-min-table";
 import { FC, useMemo } from "react";
 import { Popover, Tag } from "antd";
@@ -25,13 +25,7 @@ export const PopoverDeploymentTable: FC<{
     }
   }, [deployments]);
   return (
-    <ThemeProvider
-      token={{
-        fontSize: 12,
-        paddingXS: 6,
-        colorBorderSecondary: "transparent",
-      }}
-    >
+    <MinThemeProvider>
       <Tag
         color={color}
         css={css`
@@ -62,6 +56,6 @@ export const PopoverDeploymentTable: FC<{
           }
         />
       </Tag>
-    </ThemeProvider>
+    </MinThemeProvider>
   );
 };

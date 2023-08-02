@@ -1,3 +1,6 @@
+import { Link } from "@lepton-dashboard/components/link";
+import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
+import { Popover, Table } from "antd";
 import { FC } from "react";
 import dayjs, { ConfigType } from "dayjs";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
@@ -11,12 +14,43 @@ export const DateParser: FC<
   } & EmotionProps
 > = ({ date, detail, prefix, suffix, className }) => {
   const format = dayjs(date).isSame(new Date(), "year")
-    ? "MMMM D"
-    : "MMMM D, YYYY";
+    ? "MMM D, h:mm A"
+    : "MMM D, YYYY";
+
+  const detailedFormat = "h:mm A, MMM D, YYYY";
 
   return (
-    <span className={className} title={dayjs(date).format("L LT")}>
-      {prefix} {dayjs(date).format(detail ? "LLL" : format)} {suffix}
-    </span>
+    <MinThemeProvider>
+      <Popover
+        title="Time conversion"
+        content={
+          <Table
+            size="small"
+            showHeader={false}
+            pagination={false}
+            rowKey="title"
+            columns={[{ dataIndex: "title" }, { dataIndex: "label" }]}
+            dataSource={[
+              {
+                title: "UTC",
+                label: dayjs(date).utc().format(detailedFormat),
+              },
+              {
+                title: `${dayjs.tz.guess()} · Computer`,
+                label: dayjs(date).format(detailedFormat),
+              },
+            ]}
+          />
+        }
+        placement="bottom"
+      >
+        <span>
+          <Link className={className}>
+            {prefix} {dayjs(date).format(detail ? detailedFormat : format)}{" "}
+            {suffix}
+          </Link>
+        </span>
+      </Popover>
+    </MinThemeProvider>
   );
 };

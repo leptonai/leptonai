@@ -5,9 +5,13 @@ import "xterm/css/xterm.css";
 import dayjs from "dayjs";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { StrictMode } from "react";
 import { Analytics } from "@vercel/analytics/react";
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.extend(LocalizedFormat);
 dayjs.extend(relativeTime);
 

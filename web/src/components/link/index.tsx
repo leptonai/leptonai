@@ -8,7 +8,7 @@ export const Link = forwardRef<
   HTMLAnchorElement,
   PropsWithChildren<{
     underline?: boolean;
-    to: To;
+    to?: To;
     target?: string;
     relative?: RelativeRoutingType;
     icon?: ReactNode;
@@ -28,23 +28,9 @@ export const Link = forwardRef<
     ref
   ) => {
     const theme = useAntdTheme();
-    return (
-      <RouterLink
-        className={className}
-        css={css`
-          color: inherit;
-          display: inline-flex;
-          align-items: center;
-          &:hover {
-            color: ${theme.colorTextHeading};
-            text-decoration: ${underline ? "underline" : "none"};
-          }
-        `}
-        ref={ref}
-        to={to}
-        target={target}
-        relative={relative}
-      >
+    const inner = (
+      <>
+        {" "}
         {icon && (
           <div
             css={css`
@@ -55,7 +41,38 @@ export const Link = forwardRef<
           </div>
         )}
         {children}
-      </RouterLink>
+      </>
     );
+    const cssClassName = css`
+      color: inherit;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      &:hover {
+        color: ${theme.colorTextHeading};
+        text-decoration: ${underline ? "underline" : "none"};
+      }
+    `;
+
+    if (to) {
+      return (
+        <RouterLink
+          className={className}
+          css={cssClassName}
+          ref={ref}
+          to={to}
+          target={target}
+          relative={relative}
+        >
+          {inner}
+        </RouterLink>
+      );
+    } else {
+      return (
+        <span className={className} css={cssClassName} ref={ref}>
+          {inner}
+        </span>
+      );
+    }
   }
 );

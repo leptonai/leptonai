@@ -187,8 +187,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   icon={<CarbonIcon icon={<Time />} />}
                   description={
                     <>
-                      Created at{" "}
-                      <DateParser detail date={deployment.created_at} />
+                      Created at <DateParser date={deployment.created_at} />
                     </>
                   }
                 />
