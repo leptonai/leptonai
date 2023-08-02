@@ -18,7 +18,9 @@ import (
 
 const describeInterval = 5 * time.Second
 
-func ListFileSystems(ctx context.Context, cfg aws.Config) ([]FileSystem, error) {
+// ListFileSystems lists all EFS file systems.
+// If tagFilter is not nil, only file systems with the matching tags will be returned.
+func ListFileSystems(ctx context.Context, cfg aws.Config, tagFilter map[string]string) ([]FileSystem, error) {
 	fss := make([]FileSystem, 0)
 	cli := aws_efs_v2.NewFromConfig(cfg)
 
@@ -46,7 +48,11 @@ func ListFileSystems(ctx context.Context, cfg aws.Config) ([]FileSystem, error) 
 				Tags: make(map[string]string),
 			}
 			for _, tag := range f.Tags {
-				fs.Tags[*tag.Key] = *tag.Value
+				k, v := *tag.Key, *tag.Value
+				fs.Tags[k] = v
+			}
+			if len(tagFilter) > 0 && !goutil.ContainsStringsMap(fs.Tags, tagFilter) {
+				continue
 			}
 
 			out2, err := cli.DescribeMountTargets(ctx, &aws_efs_v2.DescribeMountTargetsInput{

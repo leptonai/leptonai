@@ -19,7 +19,7 @@ type FineGrainStorageData struct {
 	Time        time.Time
 }
 
-func GetFineGrainStorageData(queryTime time.Time, region string) ([]FineGrainStorageData, error) {
+func GetFineGrainStorageData(queryTime time.Time, region string, clusterARN string) ([]FineGrainStorageData, error) {
 	cfg, err := aws.New(&aws.Config{
 		DebugAPICalls: false,
 		Region:        region,
@@ -27,8 +27,16 @@ func GetFineGrainStorageData(queryTime time.Time, region string) ([]FineGrainSto
 	if err != nil {
 		return nil, err
 	}
+
+	var filter map[string]string = nil
+	if len(clusterARN) > 0 {
+		ss := strings.Split(clusterARN, "/")
+		cname := ss[len(ss)-1]
+		filter = map[string]string{"LeptonClusterName": cname}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	fss, err := efs.ListFileSystems(ctx, cfg)
+	fss, err := efs.ListFileSystems(ctx, cfg, filter)
 	cancel()
 	if err != nil {
 		return nil, err

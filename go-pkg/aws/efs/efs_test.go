@@ -21,7 +21,7 @@ func TestEFS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fss, err := ListFileSystems(context.Background(), cfg)
+	fss, err := ListFileSystems(context.Background(), cfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

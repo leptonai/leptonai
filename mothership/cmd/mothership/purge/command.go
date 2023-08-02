@@ -150,7 +150,7 @@ func purgeEFS(cfg aws.Config, wps map[string]bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	fss, err := efs.ListFileSystems(ctx, cfg)
+	fss, err := efs.ListFileSystems(ctx, cfg, nil)
 	if err != nil {
 		log.Fatalf("failed to list EFS %v", err)
 	}

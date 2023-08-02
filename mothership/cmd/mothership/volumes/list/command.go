@@ -62,7 +62,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			fss, err := efs.ListFileSystems(ctx, cfg)
+			fss, err := efs.ListFileSystems(ctx, cfg, nil)
 			cancel()
 			if err != nil {
 				log.Fatalf("failed to list EFS file systems %v", err)

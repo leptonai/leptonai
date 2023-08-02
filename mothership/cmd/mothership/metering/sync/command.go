@@ -216,7 +216,7 @@ func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time
 	if syncStorage {
 		log.Printf("Syncing efs storage data with window query start: (%s -- %s)", start, end)
 
-		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion)
+		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion, clusterARN)
 		if err != nil {
 			log.Fatalf("failed to get storage data %v", err)
 		}

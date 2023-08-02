@@ -90,7 +90,7 @@ func inspectEFSFs(cli *goclient.HTTP, workspace *crdv1alpha1.LeptonWorkspace) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		fss, err := efs.ListFileSystems(ctx, cfg)
+		fss, err := efs.ListFileSystems(ctx, cfg, nil)
 		cancel()
 		if err != nil {
 			log.Fatalf("failed to list EFS file systems %v", err)

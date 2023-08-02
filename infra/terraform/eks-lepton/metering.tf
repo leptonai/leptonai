@@ -31,12 +31,17 @@ resource "aws_iam_policy" "metering" {
           # arn:aws:elasticfilesystem:us-east-1:605454121064:file-system/fs-0e0b7b6b
           "arn:${local.partition}:elasticfilesystem:${var.region}:${local.account_id}:*/*"
         ],
-        "Condition" : {
-          # limit EFS operations to this cluster only
-          "StringEquals" : {
-            "aws:ResourceTag/LeptonClusterName" : "${local.cluster_name}"
-          }
-        }
+
+        # TODO: limit EFS operations to this cluster only
+        #
+        # NOTE: "DescribeFileSystems" does not support filtering by tags
+        # so we need access to all filesystems
+        # otherwise, "not authorized to perform: elasticfilesystem:DescribeFileSystems on the specified resource"
+        # "Condition" : {
+        #   "StringEquals" : {
+        #     "aws:ResourceTag/LeptonClusterName" : "${local.cluster_name}"
+        #   }
+        # }
       },
       {
         # https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html
