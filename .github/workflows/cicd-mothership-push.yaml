@@ -1,4 +1,4 @@
-name: CI/CD - mothership
+name: CI/CD - mothership - push
 
 on:
   push:
