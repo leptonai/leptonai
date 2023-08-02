@@ -64,3 +64,7 @@ mothership_rds_aurora_secret_arn = "arn:aws:secretsmanager:us-west-2:72077114461
 supabase_credential_secret_arns = {
   "us-west-2" : "arn:aws:secretsmanager:us-west-2:720771144610:secret:supabase_credential-MWpY4D"
 }
+
+# aurora host for prod database
+rds_aurora_host = "mothership-prod-aws-us-west-2-aurora-postgresql-1.cym32vh4eh2e.us-west-2.rds.amazonaws.com"
+

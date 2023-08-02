@@ -10,4 +10,4 @@ mothershipctl:
       requests:
         memory: "2048Mi"
         cpu: "1"
-  serviceAccountName: "mothership"
+  serviceAccountName: "mothership-sa"

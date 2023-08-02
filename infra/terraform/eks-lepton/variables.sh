@@ -99,3 +99,7 @@ fi
 if [[ "$SUPABASE_CREDENTIAL_SECRET_ARNS" != "" ]]; then
     APPLY_FLAGS+=("-var=supabase_credential_secret_arns=$SUPABASE_CREDENTIAL_SECRET_ARNS")
 fi
+
+if [[ "$RDS_AURORA_HOST" != "" ]]; then
+    APPLY_FLAGS+=("-var=rds_aurora_host=$RDS_AURORA_HOST")
+fi

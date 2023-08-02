@@ -57,3 +57,7 @@ mothership_rds_aurora_secret_arn = "arn:aws:secretsmanager:us-east-1:60545412106
 supabase_credential_secret_arns = {
   "us-east-1" : "arn:aws:secretsmanager:us-east-1:605454121064:secret:supabase_credential-4TgO0e"
 }
+
+# using dev RDS host
+rds_aurora_host = "mothership-dev-aws-us-east-1-aurora-postgresql-1.cvktuayxjmmy.us-east-1.rds.amazonaws.com"
+

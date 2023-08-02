@@ -242,3 +242,9 @@ variable "supabase_credential_secret_arns" {
   type        = map(any)
   default     = {}
 }
+
+variable "rds_aurora_host" {
+  description = "RDS Aurora host"
+  type        = string
+  default     = null
+}
