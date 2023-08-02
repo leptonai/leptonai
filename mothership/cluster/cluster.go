@@ -339,7 +339,7 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 		return fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	if !tfw.Locked {
+	if tfw.Locked {
 		goutil.Logger.Infow("tf workspace is locked -- force unlocking",
 			"tf-workspace", tfws,
 			"operation", "force-unlock",
