@@ -6,7 +6,7 @@
 #
 # Run the command without any arguments. You will need to have access to at least
 # one workspace.
-# - If you want to test interactive login, do not set LEP_RELEASE_CREDENTIALS,
+# - If you want to test interactive login, do not set LEPTON_RELEASE_CREDENTIALS,
 #   otherwise set it to a credential string.
 ################################################################################
 
