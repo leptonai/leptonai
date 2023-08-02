@@ -17,9 +17,12 @@ var corsHeaders = map[string]string{
 }
 
 // SetCORSForDashboard sets the CORS headers for the response for dashboard.lepton.ai.
-func SetCORSForDashboard(h http.Header) {
+func SetCORSForDashboard(h http.Header, domain string) {
 	for k, v := range corsHeaders {
 		h.Set(k, v)
+	}
+	if domain != "" {
+		h.Set("Access-Control-Allow-Origin", domain)
 	}
 }
 
@@ -33,15 +36,21 @@ func UnsetCORSForDashboard(h http.Header) {
 }
 
 // CheckCORSForDashboard checks the CORS headers for the response for dashboard.lepton.ai.
-func CheckCORSForDashboard(h http.Header) error {
+func CheckCORSForDashboard(h http.Header, domain string) error {
 	for k, v := range corsHeaders {
 		vs := h.Values(k)
 		if len(vs) != 1 {
 			return fmt.Errorf("CORS header %s is unepxected %s", k, vs)
 		}
 
-		if h.Get(k) != v {
-			return fmt.Errorf("CORS header %s is not %s", k, v)
+		if domain != "" && k == "Access-Control-Allow-Origin" {
+			if h.Get(k) != domain {
+				return fmt.Errorf("CORS header %s is not %s", k, domain)
+			}
+		} else {
+			if h.Get(k) != v {
+				return fmt.Errorf("CORS header %s is not %s", k, v)
+			}
 		}
 	}
 

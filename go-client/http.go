@@ -118,7 +118,7 @@ func (h *HTTP) RequestURLUntil(method, url string, headers map[string]string, da
 	}
 
 	if h.verifyCORS {
-		err = util.CheckCORSForDashboard(resp.Header)
+		err = util.CheckCORSForDashboard(resp.Header, "")
 		if err != nil {
 			return nil, err
 		}

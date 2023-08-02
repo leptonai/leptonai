@@ -272,9 +272,20 @@ func main() {
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
+const (
+	dailyOrigin = "https://dashboard.daily.lepton.ai"
+)
+
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		util.SetCORSForDashboard(c.Writer.Header())
+		origin := c.Request.Header.Get("Origin")
+		switch origin {
+		case dailyOrigin:
+			util.SetCORSForDashboard(c.Writer.Header(), dailyOrigin)
+		default:
+			// https://dashboard.lepton.ai is the default value so we don't need to explicitly set it
+			util.SetCORSForDashboard(c.Writer.Header(), "")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
