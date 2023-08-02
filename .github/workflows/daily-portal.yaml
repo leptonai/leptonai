@@ -27,6 +27,6 @@ jobs:
         id: deploy
         run: |
           echo "deploy_url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
-          echo "url=${{ vars.DAILY_DEPLOY_URL_PORTAL }}" >> $GITHUB_OUTPUT
+          echo "url=https://${{ vars.DAILY_DEPLOY_DOMAIN_PORTAL }}" >> $GITHUB_OUTPUT
       - name: Alias Daily Domain
-        run: vercel alias ${{ steps.deploy.outputs.deploy_url }} ${{ vars.DAILY_DEPLOY_URL_PORTAL }} --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }}
+        run: vercel alias ${{ steps.deploy.outputs.deploy_url }} ${{ vars.DAILY_DEPLOY_DOMAIN_PORTAL }} --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }}
