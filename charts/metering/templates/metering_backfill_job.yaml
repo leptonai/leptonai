@@ -1,4 +1,4 @@
-{{ if .Values.backfillEnabled }}
+{{ if .Values.metering.backfillEnabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
