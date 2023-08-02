@@ -187,6 +187,11 @@ resource "helm_release" "lepton" {
     value = var.state
   }
 
+  set {
+    name  = "forceUpdate"
+    value = "${timestamp()}"
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.api-server-role-s3-policy-attachment,
     kubernetes_namespace.lepton,
