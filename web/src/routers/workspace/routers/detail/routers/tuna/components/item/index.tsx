@@ -1,5 +1,5 @@
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { Button, Col, Popconfirm, Row, Space, Tag } from "antd";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
@@ -27,7 +27,7 @@ const SmallTag = ({
   children,
   color,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   color?: string;
 }) => {
   const theme = useAntdTheme();

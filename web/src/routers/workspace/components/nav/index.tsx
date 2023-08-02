@@ -6,7 +6,6 @@ import {
   CarbonIcon,
   DeploymentIcon,
   PhotonIcon,
-  TunaIcon,
 } from "@lepton-dashboard/components/icons";
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
 import { Folder, Settings, Workspace } from "@carbon/icons-react";
@@ -61,14 +60,6 @@ export const Nav: FC = () => {
         </span>
       ),
       key: `${pathname}/photons`,
-    },
-    {
-      label: (
-        <span id="nav-tuna">
-          <TunaIcon /> Tunas
-        </span>
-      ),
-      key: `${pathname}/tuna`,
     },
     {
       label: (

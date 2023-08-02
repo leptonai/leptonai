@@ -14,9 +14,10 @@ export const TabsNav: FC<
   const theme = useAntdTheme();
   const location = useLocation();
   const selectedKey = useMemo(() => {
-    return menuItems.find((item) =>
-      location.pathname.startsWith(`${item?.key}`)
-    )?.key;
+    return (
+      menuItems.find((item) => location.pathname.startsWith(`${item?.key}`))
+        ?.key || "$$never_match_key"
+    );
   }, [location.pathname, menuItems]);
   const navigate = useNavigate();
 

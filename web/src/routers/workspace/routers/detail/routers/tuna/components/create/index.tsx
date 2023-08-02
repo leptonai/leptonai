@@ -80,11 +80,11 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
           requiredMark={false}
         >
           <Form.Item
-            label="Tuna name"
+            label="Name"
             name="name"
-            rules={[{ required: true, message: "Please enter model name" }]}
+            rules={[{ required: true, message: "Please enter tuna name" }]}
           >
-            <Input readOnly={loading} placeholder="Tuna name" />
+            <Input readOnly={loading} autoFocus placeholder="Tuna name" />
           </Form.Item>
           <Form.Item
             label="Training data"
