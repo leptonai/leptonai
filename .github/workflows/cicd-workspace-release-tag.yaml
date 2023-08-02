@@ -1,0 +1,34 @@
+name: CI/CD - workspace
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-api-server-release:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: api-server
+      repo: lepton-api-server
+      tag: ${GITHUB_REF##*/}
+      commit: ${GITHUB_REF##*/}
+
+  build-deployment-operator-release:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: deployment-operator
+      repo: lepton-deployment-operator
+      tag: ${GITHUB_REF##*/}
+      commit: ${GITHUB_REF##*/}
+
+  build-web-release:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: web
+      repo: lepton-web
+      tag: ${GITHUB_REF##*/}
+      commit: ${GITHUB_REF##*/}
