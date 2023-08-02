@@ -32,6 +32,7 @@ sentence_similarity_model = (
     "hf:sentence-transformers/paraphrase-albert-small-v2@b8a76dc"
 )
 text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92"
+sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -135,6 +136,7 @@ class TestPhotonCli(unittest.TestCase):
             (summarization_model,),
             (sentence_similarity_model,),
             (text2text_generation_model,),
+            (sentiment_analysis_model,),
         ]
     )
     def test_photon_run(self, model):

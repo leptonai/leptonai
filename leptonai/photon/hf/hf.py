@@ -1,7 +1,7 @@
 from io import BytesIO
 import os
 import tempfile
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict, Any
 
 from backports.cached_property import cached_property
 from huggingface_hub import model_info
@@ -553,6 +553,27 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
         if res.dim() != 2 or res.size(0) != 1:
             logger.error(f"Unexpected result shape: {res.shape}")
         return res[0].tolist()
+
+
+class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
+    hf_task: str = "sentiment-analysis"
+
+    @Photon.handler(example={"inputs": ["I love you", "I hate you"]})
+    def run_handler(
+        self,
+        inputs: Union[str, List[str]],
+        **kwargs,
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        res = self.run(
+            inputs,
+            **kwargs,
+        )
+        return res
+
+
+# text-classification is an alias of sentiment-analysis
+class HuggingfaceTextClassificationPhoton(HuggingfaceSentimentAnalysisPhoton):
+    hf_task: str = "text-classification"
 
 
 def register_hf_photon():
