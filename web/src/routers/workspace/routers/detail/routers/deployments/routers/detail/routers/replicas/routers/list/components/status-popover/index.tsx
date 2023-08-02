@@ -47,14 +47,14 @@ const ReplicaStatusTable = ({
       dataSource={readiness}
       columns={[
         {
-          title: "status",
+          title: "Status",
           dataIndex: "reason",
           key: "reason",
           width: 150,
           render: (_, record) => <ReadinessStatusTag item={record} />,
         },
         {
-          title: "message",
+          title: "Message",
           dataIndex: "message",
           key: "message",
           render: (message: string) =>
