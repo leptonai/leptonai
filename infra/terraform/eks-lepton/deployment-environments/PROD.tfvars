@@ -45,6 +45,7 @@ ubuntu_amis = {
 
 use_ubuntu_nvidia_gpu_operator = true
 
+# use min size as the desired capacity for AWS EKS node groups
 # create node groups with zero desired capacity as fallback
 al2_x86_64_ac_g4dnxlarge_min_size = 0
 al2_x86_64_ac_g4dnxlarge_max_size = 1
@@ -53,6 +54,9 @@ al2_x86_64_ac_g52xlarge_max_size  = 1
 al2_x86_64_cpu_min_size           = 0
 al2_x86_64_cpu_max_size           = 1
 
+# use min size as the desired capacity for AWS EKS node groups
+# start with 0 nodes for GPU node groups
+# let cluster autoscaler scale up on demand
 ubuntu_x86_64_ac_g4dnxlarge_min_size = 1
 ubuntu_x86_64_ac_g4dnxlarge_max_size = 8
 ubuntu_x86_64_ac_g52xlarge_min_size  = 1
