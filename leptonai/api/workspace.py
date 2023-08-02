@@ -159,7 +159,7 @@ def get_current_workspace_url() -> Optional[str]:
 
 def get_workspace_info(url: str, auth_token: str):
     """
-    List all secrets on a workspace.
+    Gets the runtime information for the given workspace url.
     """
     response = requests.get(url + "/workspace", headers=create_header(auth_token))
     return json_or_error(response)
