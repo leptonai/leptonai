@@ -333,7 +333,7 @@ def _parse_env_and_secret_or_die(env, secret):
         # We provide the user a shorcut: instead of having to specify
         # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
         # if the local env name and the secret name are the same.
-        k, v = s.split("=", 1) if "=" in s else s, s
+        k, v = s.split("=", 1) if "=" in s else (s, s)
         check(
             not k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
             "Secret name cannot start with reserved prefix"
