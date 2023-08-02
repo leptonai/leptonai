@@ -57,11 +57,10 @@ class Dish(BaseModel):
         ]
 
     def to_dict(self):
-        datetime_format = "%Y-%m-%d %H:%M:%S"
         return {
             "id": self.id,
-            "created_at": self.created_at.strftime(datetime_format),
-            "modified_at": self.modified_at.strftime(datetime_format),
+            "created_at": self.created_at.isoformat(),
+            "modified_at": self.modified_at.isoformat(),
             "status": self.status,
             "output_dir": self.output_dir,
         }
