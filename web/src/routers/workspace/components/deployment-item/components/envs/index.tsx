@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { Link } from "@lepton-dashboard/components/link";
 import { FC } from "react";
 import {
   Deployment,
@@ -8,7 +9,6 @@ import {
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Asterisk, Hashtag, ListDropdown } from "@carbon/icons-react";
-import { Hoverable } from "@lepton-dashboard/routers/workspace/components/hoverable";
 import { Descriptions, Popover, Tag } from "antd";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 
@@ -58,12 +58,12 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
         }
       >
         <span>
-          <Hoverable>
+          <Link>
             <Description.Item
               icon={<CarbonIcon icon={<ListDropdown />} />}
               description="Environment variables"
             />
-          </Hoverable>
+          </Link>
         </span>
       </Popover>
     );

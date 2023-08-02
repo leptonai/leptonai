@@ -1,6 +1,7 @@
 import { Chip } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { Link } from "@lepton-dashboard/components/link";
 import { ResourceShape } from "@lepton-dashboard/routers/workspace/components/resource-shape";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useInject } from "@lepton-libs/di";
@@ -28,7 +29,7 @@ export const HardwareIndicator: FC<{ shape?: string }> = ({ shape }) => {
         `}
       >
         <Tag bordered={false} icon={<CarbonIcon icon={<Chip />} />}>
-          {hardwareService.hardwareShapes[shape].DisplayName}
+          <Link>{hardwareService.hardwareShapes[shape].DisplayName}</Link>
         </Tag>
       </span>
     </Popover>

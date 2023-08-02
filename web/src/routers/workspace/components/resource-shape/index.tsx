@@ -1,9 +1,23 @@
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useInject } from "@lepton-libs/di";
 import { Tag } from "antd";
 import { FC } from "react";
+
+const ResourceAccessor: FC<
+  {
+    acceleratorType?: string;
+    acceleratorNum?: number;
+  } & EmotionProps
+> = ({ acceleratorType, acceleratorNum, className }) => {
+  return acceleratorType ? (
+    <Tag className={className} color="lime">
+      {acceleratorType} × {`${acceleratorNum}`}
+    </Tag>
+  ) : null;
+};
 
 export const ResourceShape: FC<{ shape: string }> = ({ shape }) => {
   const hardwareService = useInject(HardwareService);
@@ -19,18 +33,14 @@ export const ResourceShape: FC<{ shape: string }> = ({ shape }) => {
         `}
       >
         {resourceShape.DisplayName}
-        {resourceShape.Resource.AcceleratorType && (
-          <Tag
-            color="lime"
-            css={css`
-              line-height: 16px;
-              margin-left: 6px;
-            `}
-          >
-            {resourceShape.Resource.AcceleratorType} ×{" "}
-            {`${resourceShape.Resource.AcceleratorNum}`}
-          </Tag>
-        )}
+        <ResourceAccessor
+          css={css`
+            line-height: 16px;
+            margin-left: 6px;
+          `}
+          acceleratorNum={resourceShape.Resource.AcceleratorNum}
+          acceleratorType={resourceShape.Resource.AcceleratorType}
+        />
       </div>
       <div
         css={css`

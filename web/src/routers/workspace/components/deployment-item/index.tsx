@@ -145,6 +145,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                         style={{ maxWidth: "280px" }}
                         ellipsis={{ tooltip: true }}
                         copyable={{
+                          tooltips: false,
                           icon: <CarbonIcon icon={<CopyFile />} />,
                         }}
                       >

@@ -36,7 +36,7 @@ export const DateParser: FC<
                 label: dayjs(date).utc().format(detailedFormat),
               },
               {
-                title: `${dayjs.tz.guess()} · Computer`,
+                title: `${dayjs.tz.guess()}`,
                 label: dayjs(date).format(detailedFormat),
               },
             ]}
