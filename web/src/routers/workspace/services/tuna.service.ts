@@ -36,10 +36,9 @@ export class TunaService {
   }
 
   createInference(name: string, outputDir: string): Observable<void> {
-    const slugName = name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
     return this.apiService.createInference({
       metadata: {
-        name: slugName,
+        name,
       },
       spec: {
         tuna_output_dir: outputDir.replace(/^gs:\/\/tuna-dish/, "/tuna"),
@@ -52,8 +51,7 @@ export class TunaService {
   }
 
   getInference(name: string): Observable<TunaInference | null> {
-    const slugName = name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    return this.apiService.getInference(slugName);
+    return this.apiService.getInference(name);
   }
 
   listInferences(): Observable<TunaInference[]> {

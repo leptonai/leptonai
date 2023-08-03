@@ -82,7 +82,14 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
           <Form.Item
             label="Name"
             name="name"
-            rules={[{ required: true, message: "Please enter tuna name" }]}
+            rules={[
+              { required: true, message: "Please enter tuna name" },
+              {
+                pattern: /^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/,
+                message:
+                  "Only letters, numbers and hyphens are allowed, and cannot start or end with a hyphen",
+              },
+            ]}
           >
             <Input readOnly={loading} autoFocus placeholder="Tuna name" />
           </Form.Item>
