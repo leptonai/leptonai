@@ -19,12 +19,12 @@ import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
+from fastapi.responses import Response, JSONResponse, StreamingResponse, FileResponse
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
 import pydantic.decorator
 from pydantic import BaseModel, validator
-from fastapi.responses import Response, JSONResponse, StreamingResponse
 import uvicorn
 
 from leptonai.config import (
@@ -527,6 +527,15 @@ class Photon(BasePhoton):
             @app.get("/healthz", include_in_schema=False)
             def healthz():
                 return {"status": "ok"}
+
+            # /favicon.ico added at this point will be at the end of `app.routes`,
+            # so it will act as a fallback
+            @app.get("/favicon.ico", include_in_schema=False)
+            def favicon():
+                path = os.path.join(os.path.dirname(__file__), "favicon.ico")
+                if not os.path.exists(path):
+                    return Response(status_code=404)
+                return FileResponse(path)
 
             global lepton_uvicorn_restart
             global lepton_uvicorn_server
