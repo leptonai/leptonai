@@ -7,7 +7,7 @@ export const OAuthGuard: FC<PropsWithChildren> = ({ children }) => {
   const profileService = useInject(ProfileService);
   const href = window.location.href;
   if (!profileService.profile?.identification) {
-    return <NavigateTo name="login" query={`callbackURL=${href}`} replace />;
+    return <NavigateTo name="login" query={`next=${href}`} replace />;
   } else {
     return <>{children}</>;
   }

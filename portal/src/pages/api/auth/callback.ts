@@ -1,24 +1,23 @@
 import { NextApiHandler } from "next";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 
 const callback: NextApiHandler = async (req, res) => {
   // Create authenticated Supabase Client
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = createPagesServerClientWithCookieOptions(req, res);
 
   const code = req.query.code;
   const next = req.query.next;
 
   if (typeof code === "string") {
-    await supabase.auth.exchangeCodeForSession(code);
+    try {
+      await supabase.auth.exchangeCodeForSession(code);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   if (typeof next === "string") {
     res.redirect(next);
-    return;
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    res.redirect("http://localhost:3000");
     return;
   }
 

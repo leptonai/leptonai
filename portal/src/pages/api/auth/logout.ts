@@ -1,10 +1,9 @@
 import { NextApiHandler } from "next";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 import { cors } from "@/utils/cors";
+import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 
 const logout: NextApiHandler = async (req, res) => {
-  // Create authenticated Supabase Client
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = createPagesServerClientWithCookieOptions(req, res);
 
   await supabase.auth.signOut();
 

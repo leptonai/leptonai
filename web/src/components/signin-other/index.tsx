@@ -28,7 +28,7 @@ export const SignAsOther: FC<{
         </Typography.Title>
       )}
       {tips && <Typography.Paragraph>{tips}</Typography.Paragraph>}
-      {profileService.profile?.identification?.id ? (
+      {authService.authServerUrl ? (
         <>
           <Typography.Paragraph>
             You are logged in as{" "}
@@ -61,9 +61,11 @@ export const SignAsOther: FC<{
           <Button
             type="primary"
             onClick={() =>
-              navigateService.navigateTo("login", {
-                relative: "route",
-              })
+              authService.logout().subscribe(() =>
+                navigateService.navigateTo("login", {
+                  relative: "route",
+                })
+              )
             }
           >
             Try a different token

@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient, Session } from "@supabase/supabase-js";
+import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
@@ -13,6 +13,27 @@ export const supabaseAdminClient = createClient(
   },
 );
 
+export const getCookieOptions = (domainUrl: URL | string) => {
+  const normalizedDomain =
+    typeof domainUrl === "string" ? domainUrl : domainUrl.hostname;
+  const preview = /^.+-leptonai\.vercel\.app$/i.test(normalizedDomain);
+  const domain =
+    normalizedDomain === "localhost"
+      ? "localhost"
+      : preview
+      ? normalizedDomain
+      : ".lepton.ai";
+  // 10 minutes for preview, 100 years for production
+  const maxAge = preview ? 60 * 10 : 100 * 365 * 24 * 60 * 60;
+  return {
+    domain,
+    maxAge,
+    path: "/",
+    sameSite: preview ? "None" : "Lax",
+    secure: "Strict",
+  };
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type NextApiWithSupabaseHandler<T = any> = (
   req: NextApiRequest,
@@ -21,10 +42,23 @@ export type NextApiWithSupabaseHandler<T = any> = (
   session: Session,
 ) => unknown | Promise<unknown>;
 
+export const createPagesServerClientWithCookieOptions = (
+  req: NextApiRequest,
+  res: NextApiResponse,
+) => {
+  const domainUrl = new URL(`protocol://${req.headers.host}`);
+  return createPagesServerClient(
+    { req, res },
+    {
+      cookieOptions: getCookieOptions(domainUrl),
+    },
+  );
+};
+
 export const serverClientWithAuthorized =
   (fn: NextApiWithSupabaseHandler): NextApiHandler =>
   async (req: NextApiRequest, res: NextApiResponse) => {
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = createPagesServerClientWithCookieOptions(req, res);
 
     const {
       data: { session },
@@ -36,9 +70,7 @@ export const serverClientWithAuthorized =
     }
 
     if (
-      /^https:\/\/lepton-.+-leptonai\.vercel\.app$/i.test(
-        req.headers.origin || "",
-      )
+      /^https:\/\/.+-leptonai\.vercel\.app$/i.test(req.headers.origin || "")
     ) {
       if (!session.user.email || !session.user.email.endsWith("@lepton.ai")) {
         return res.status(403).json({ error: "Forbidden" });

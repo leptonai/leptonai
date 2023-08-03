@@ -79,7 +79,7 @@ export class AppInterceptor implements HTTPInterceptor {
             ignoreErrors === true ||
             (Array.isArray(ignoreErrors) && ignoreErrors.includes(status))
           ) {
-            return throwError(error);
+            return throwError(() => error);
           }
 
           const description = requestId ? (
@@ -99,7 +99,7 @@ export class AppInterceptor implements HTTPInterceptor {
             description,
           });
 
-          return throwError(error);
+          return throwError(() => error);
         })
       );
   }
