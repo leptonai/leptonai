@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     runs-on: self-hosted
+    environment: e2e-cluster
     steps:
     - uses: actions/checkout@v3
     - name: Set short git commit SHA
