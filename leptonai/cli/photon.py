@@ -500,7 +500,11 @@ def run(
         if id is None:
             # look for the latest photon with the given name.
             id = _get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
-            check(id, f"Photon [red]{name}[/] does not exist.")
+            check(
+                id,
+                f"Photon [red]{name}[/] does not exist. Did you intend to run a local"
+                " photon? If so, please specify --local.",
+            )
             console.print(f"Running the most recent version of [green]{name}[/]: {id}")
         else:
             console.print(f"Running the specified version: [green]{id}[/]")
