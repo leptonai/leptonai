@@ -102,7 +102,7 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 		drainChan(ch) // Drain chan to avoid unnecessary reconciles
 		ld, err := r.getLeptonDeployment(ctx, req)
 		if err != nil {
-			goutil.Logger.Errorw("failed to get leptonDeployment ",
+			goutil.Logger.Errorw("failed to get leptonDeployment",
 				"namespace", req.Namespace,
 				"name", req.Name,
 				"error", err,
@@ -153,18 +153,18 @@ func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request
 					"name", req.Name,
 				)
 				return
-			} else {
-				goutil.Logger.Errorw("failed to delete leptonDeployment, retrying...",
-					"namespace", req.Namespace,
-					"name", req.Name,
-				)
 			}
-
+			goutil.Logger.Errorw("failed to delete leptonDeployment",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			r.wg.Add(1)
+			go backoffAndRetry(&r.wg, ch)
 			continue
 		}
 		// Reconcile resources
 		if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
-			goutil.Logger.Errorw("failed to create or update resources, retrying...",
+			goutil.Logger.Warnw("failed to create or update resources, retrying...",
 				"namespace", req.Namespace,
 				"name", req.Name,
 				"error", err,
@@ -270,9 +270,6 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 			"name", req.Name,
 			"error", err,
 		)
-
-		r.wg.Add(1)
-		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
 	} else {
 		goutil.Logger.Infow("service deleted",
@@ -286,9 +283,6 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 			"name", req.Name,
 			"error", err,
 		)
-
-		r.wg.Add(1)
-		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
 	}
 	ld.SetFinalizers(goutil.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
@@ -298,9 +292,6 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 			"name", req.Name,
 			"error", err,
 		)
-
-		r.wg.Add(1)
-		go backoffAndRetry(&r.wg, r.chMap[req.NamespacedName])
 		return false
 	}
 	return true
