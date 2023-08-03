@@ -282,7 +282,9 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	if spec.ImageTag != "" {
 		ws.Spec.ImageTag = spec.ImageTag
 	}
-	ws.Spec.APIToken = spec.APIToken
+	if spec.APIToken != "" {
+		ws.Spec.APIToken = spec.APIToken
+	}
 	ws.Spec.EnableWeb = spec.EnableWeb
 	if spec.GitRef != "" {
 		ws.Spec.GitRef = spec.GitRef
