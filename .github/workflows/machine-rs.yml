@@ -27,15 +27,6 @@ jobs:
             platform: linux
             target: x86_64-unknown-linux-gnu
 
-          # https://github.com/sharkdp/fd/blob/master/.github/workflows/CICD.yml
-          #
-          # may require manual builds without cross-linker for linux
-          # https://users.rust-lang.org/t/cant-cross-compile-project-with-openssl/70922
-          # - os: ubuntu-20.04
-          #   platform: linux
-          #   target: aarch64-unknown-linux-gnu
-          #   use-cross: true
-
           - os: macos-latest
             platform: darwin
             target: x86_64-apple-darwin
@@ -76,28 +67,14 @@ jobs:
           cargo -V
           rustc -V
 
-      - name: Set cargo cmd
-        shell: bash
-        run: echo "CARGO_CMD=cargo" >> $GITHUB_ENV
-
-      - name: Set cargo cmd to cross
-        shell: bash
-        if: ${{ matrix.job.use-cross == true }}
-        run: echo "CARGO_CMD=cross" >> $GITHUB_ENV
-
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.job.os }}-${{ matrix.job.target }}
 
-      - name: Install cross
-        if: ${{ matrix.job.use-cross == true }}
-        working-directory: machine-rs
-        run: cargo install cross
-
       - name: Build
         working-directory: machine-rs
-        run: ${{ env.CARGO_CMD }} build --release --target=${{ matrix.job.target }} --bin machine-rs
+        run: cargo build --release --target=${{ matrix.job.target }} --bin machine-rs
 
       # TODO: enable this when we need automated release
       #
