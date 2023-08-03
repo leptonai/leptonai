@@ -1,3 +1,4 @@
+import { AvailableCoupons } from "@/utils/stripe/available-coupons";
 import { AvailableProducts } from "@/utils/stripe/available-products";
 import { stripeClient } from "@/utils/stripe/stripe-client";
 import { supabaseAdminClient } from "@/utils/supabase";
@@ -36,7 +37,7 @@ export default async function handler(
         reset_billing_cycle_anchor: false,
       },
       items: AvailableProducts,
-      coupon: "NolzLBLL",
+      coupon: AvailableCoupons["10"],
     });
 
     const updated = {
