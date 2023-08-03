@@ -51,7 +51,7 @@ echo "Logging in..."
 if [ -n "${LEPTON_RELEASE_CREDENTIALS}" ]; then
     lep login -c "$LEPTON_RELEASE_CREDENTIALS"
 else
-    lep login 
+    lep login
 fi
 echo "Trying to see if thing are working..."
 if lep ws status | grep "build time" > /dev/null; then
@@ -81,7 +81,7 @@ echo "# Basic tests: photon, create, push, run"
 echo "################################################################################"
 
 echo "## Generating a common prefix for this round of test..."
-COMMON_NAME=$(uuidgen | tr -dc 'a-zA-Z' | head -c 6)
+COMMON_NAME=$(python -c 'import uuid; print(uuid.uuid4().hex)' | tr -dc 'a-zA-Z' | head -c 6)
 echo "Done"
 echo
 
