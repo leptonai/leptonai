@@ -47,7 +47,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("fetched %d workspaces", len(rs))
 
-	colums := []string{"name", "workspace", "deployment-image-tag", "terraform-git-ref", "running-state", "operational-state", "updated at"}
+	colums := []string{"name", "cluster", "deployment-image-tag", "terraform-git-ref", "running-state", "operational-state", "updated at"}
 	rows := make([][]string, 0, len(rs))
 	for _, c := range rs {
 		t := time.Unix(int64(c.Status.UpdatedAt), 0)
