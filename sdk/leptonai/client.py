@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from urllib.parse import urljoin, urlparse
 import warnings
 
@@ -107,6 +107,103 @@ class Workspace:
         )
 
 
+def _json_to_type_string(schema: Dict) -> str:
+    """
+    Internal util function to convert a json to a type string.
+    """
+    if "type" in schema:
+        if "items" in schema:
+            typestr = f"{schema['type']}[{_json_to_type_string(schema['items'])}]"
+        else:
+            typestr = schema["type"]
+    elif "anyOf" in schema:
+        typestr = f"({' | '.join(_json_to_type_string(x) for x in schema['anyOf'])})"
+    else:
+        # If we have no idea waht the type is, we will just return "Any".
+        typestr = "Any"
+    if "default" in schema:
+        typestr += f" (default: {schema['default']})"
+    return typestr
+
+
+def _get_method_docstring(openapi: Dict, name: str) -> str:
+    """
+    Get the docstring for a method from the openapi specification.
+    """
+    try:
+        post_info = openapi["paths"][f"/{name}"]["post"]
+    except KeyError:
+        # No path or post info exists: this is probably a get method, and we do not
+        # support get methods' docstring yet...
+        return ""
+
+    # Add description to docstring. We will use the description, and if not,
+    # the summary as a backup plan, and if not, we will not add a docstring.
+    docstring = post_info.get("description", post_info.get("summary", ""))
+
+    docstring += "\n\nAutomatically inferred parameters from openapi:"
+    # Add schema to the docstring.
+    try:
+        schema_ref = post_info["requestBody"]["content"]["application/json"]["schema"][
+            "$ref"
+        ]
+        schema_name = schema_ref.split("/")[-1]
+        schema = openapi["components"]["schemas"][schema_name]
+        schema_strings = [
+            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
+        ]
+        if len(schema_strings) == 0:
+            docstring += "\n\nInput Schema: None"
+        elif "required" in schema:
+            # We will sort the schema strings to make required fields appear first
+            schema_strings = sorted(
+                schema_strings, key=lambda x: x[0] in schema["required"], reverse=True
+            )
+            docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join(
+                [
+                    f"{k}{'*' if k in schema['required'] else ''}: {v}"
+                    for k, v in schema_strings
+                ]
+            )
+        else:
+            docstring += "\n\nSchema:\n  " + "\n  ".join(
+                [f"{k}: {v}" for k, v in schema_strings]
+            )
+    except KeyError:
+        # If the openapi does not have a schema section, we will just skip.
+        pass
+
+    # Add example input to the docstring if existing.
+    try:
+        example = post_info["requestBody"]["content"]["application/json"]["example"]
+        example_string = "\n  ".join(
+            [str(k) + ": " + str(v) for k, v in example.items()]
+        )
+        docstring += f"\n\nExample input:\n  {example_string}\n"
+    except KeyError:
+        # If the openapi does not have an example section, we will just skip.
+        pass
+
+    # Add output schema to the docstring.
+    try:
+        schema_ref = post_info["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        schema_name = schema_ref.split("/")[-1]
+        schema = openapi["components"]["schemas"][schema_name]
+        schema_strings = [
+            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
+        ]
+        docstring += "\n\nOutput Schema:\n  " + "\n  ".join(
+            [f"{k}: {v}" for k, v in schema_strings]
+        )
+    except KeyError:
+        # If the openapi does not have a schema section, we will just skip.
+        pass
+
+    return docstring
+
+
 class Client:
     """
     The lepton python client that calls a deployment in a workspace.
@@ -187,7 +284,14 @@ class Client:
     def _post(self, path, *args, **kwargs):
         return self._session.post(urljoin(self.url, path), *args, **kwargs)
 
-    def _post_path(self, name):
+    def _post_path(self, name: str):
+        """
+        internal method to create a method that reflects the post path.
+
+        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then
+                    "run" is the name used here.
+        :return: a method that can be called to post to the path.
+        """
         if name not in self._path_cache:
 
             def _method(**kwargs):
@@ -199,6 +303,8 @@ class Client:
                 return res.json()
 
             _method.__name__ = name
+            if self.openapi:
+                _method.__doc__ = _get_method_docstring(self.openapi, name)
             self._path_cache[name] = _method
         return self._path_cache[name]
 
@@ -218,7 +324,7 @@ class Client:
             return self.openapi["paths"].keys()
         return []
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         if f"/{name}" in self.paths():
             return self._post_path(name)
         raise AttributeError(name)
