@@ -10,11 +10,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/leptonai/lepton/api-server/util"
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
-	"github.com/leptonai/lepton/api-server/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +35,8 @@ type TunaInferenceSpec struct {
 type TunaInferenceStatus struct {
 	ChatEndpoint string `json:"chat_endpoint"`
 	APIEndpoint  string `json:"api_endpoint"`
+
+	State leptonaiv1alpha1.LeptonDeploymentState `json:"state"`
 }
 
 type InferenceHandler struct {
@@ -139,6 +141,7 @@ func (ih *InferenceHandler) Get(c *gin.Context) {
 	ti.Spec.PhotonID = ctrl.Spec.LeptonDeploymentUserSpec.PhotonID
 	ti.Status.ChatEndpoint = ctrl.Status.Endpoint.ExternalEndpoint + "/chat"
 	ti.Status.APIEndpoint = ctrl.Status.Endpoint.ExternalEndpoint + "/api/v1"
+	ti.Status.State = ctrl.Status.State
 
 	c.JSON(http.StatusOK, ti)
 }
