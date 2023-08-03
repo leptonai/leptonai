@@ -43,8 +43,9 @@ export const Item: FC<
     icon?: ReactNode;
     term?: ReactNode;
     description?: ReactNode;
+    hideMark?: boolean;
   } & EmotionProps
-> = ({ icon, term, description, className }) => {
+> = ({ icon, term, hideMark, description, className }) => {
   const theme = useAntdTheme();
   return (
     <ItemContainer className={className}>
@@ -58,7 +59,7 @@ export const Item: FC<
         </IconContainer>
       )}
       {term && <TermContainer>{term}</TermContainer>}
-      {term !== undefined && description != undefined && (
+      {term !== undefined && description != undefined && !hideMark && (
         <ColonContainer>:</ColonContainer>
       )}
       {description && (

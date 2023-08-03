@@ -1,6 +1,9 @@
+import { State } from "@lepton-dashboard/interfaces/deployment";
+import { SmallTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/small-tag";
+import { StatusTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/status-tag";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-import { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { Button, Col, Popconfirm, Row, Space, Tag } from "antd";
+import { FC, useCallback, useMemo, useState } from "react";
+import { Button, Col, Popconfirm, Row, Space } from "antd";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
@@ -8,49 +11,23 @@ import {
   FineTuneJob,
   FineTuneJobStatus,
 } from "@lepton-dashboard/interfaces/fine-tune";
-import { Code, PlayFilledAlt, StopFilled, Time } from "@carbon/icons-react";
+import {
+  Carbon,
+  Code,
+  PlayFilledAlt,
+  StopFilled,
+  Time,
+} from "@carbon/icons-react";
 import { useInject } from "@lepton-libs/di";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
-import { StatusTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/status-tag";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
-import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { filter, switchMap, withLatestFrom } from "rxjs";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { ApiModal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/api-modal";
-
-const SmallTag = ({
-  children,
-  color,
-}: {
-  children: ReactNode;
-  color?: string;
-}) => {
-  const theme = useAntdTheme();
-  return (
-    <ThemeProvider
-      token={{
-        fontSize: 12,
-        paddingXS: 6,
-        colorBorderSecondary: "transparent",
-      }}
-    >
-      <Tag
-        color={color}
-        css={css`
-          margin-right: 0;
-          color: ${theme.colorText};
-        `}
-      >
-        {children}
-      </Tag>
-    </ThemeProvider>
-  );
-};
 
 export const JobItem: FC<{
   job: FineTuneJob;
@@ -84,8 +61,30 @@ export const JobItem: FC<{
   );
 
   const deployed = useMemo(() => {
-    return !loading && inference !== null;
+    return !loading && inference;
   }, [inference, loading]);
+
+  const deploymentStatus = useMemo(() => {
+    if (loading || !inference || !inference.status?.state) {
+      return "Not Deployed";
+    }
+    return inference.status.state;
+  }, [inference, loading]);
+
+  const inferenceEnabled = deploymentStatus === State.Running;
+
+  const deploymentColor = useMemo(() => {
+    switch (deploymentStatus) {
+      case State.Running:
+        return "success";
+      case State.NotReady:
+        return "warning";
+      case "Not Deployed":
+        return "default";
+      default:
+        return "processing";
+    }
+  }, [deploymentStatus]);
 
   const deployable = useMemo(() => {
     return (
@@ -139,11 +138,7 @@ export const JobItem: FC<{
                   font-weight: 600;
                   font-size: 16px;
                 `}
-                term={
-                  <>
-                    <StatusTag status={job.status} /> {job.name || "-"}
-                  </>
-                }
+                term={<>{job.name || "-"}</>}
               />
             </Col>
             <Col
@@ -157,7 +152,10 @@ export const JobItem: FC<{
                 {deployed && (
                   <>
                     <ApiModal
-                      disabled={!deployed}
+                      disabled={
+                        !inferenceEnabled ||
+                        workspaceTrackerService.workspace?.isPastDue
+                      }
                       icon={<CarbonIcon icon={<Code />} />}
                       apiUrl={inference?.status?.api_endpoint || ""}
                       name={job.name}
@@ -165,7 +163,10 @@ export const JobItem: FC<{
                       API
                     </ApiModal>
                     <Button
-                      disabled={!deployed}
+                      disabled={
+                        !inferenceEnabled ||
+                        workspaceTrackerService.workspace?.isPastDue
+                      }
                       size="small"
                       key="try"
                       type="text"
@@ -191,30 +192,30 @@ export const JobItem: FC<{
                     >
                       Deploy
                     </Button>
-                    <Popconfirm
-                      disabled={
-                        !cancelable ||
-                        canceling ||
-                        workspaceTrackerService.workspace?.isPastDue
-                      }
-                      title="Cancel this training job"
-                      description="Are you sure to cancel this training job?"
-                      onConfirm={cancelJob}
-                    >
-                      <Button
+                    {cancelable ? (
+                      <Popconfirm
                         disabled={
-                          !cancelable ||
+                          canceling ||
                           workspaceTrackerService.workspace?.isPastDue
                         }
-                        loading={canceling}
-                        size="small"
-                        key="cancel"
-                        type="text"
-                        icon={<CarbonIcon icon={<StopFilled />} />}
+                        title="Cancel this training job"
+                        description="Are you sure to cancel this training job?"
+                        onConfirm={cancelJob}
                       >
-                        Cancel
-                      </Button>
-                    </Popconfirm>
+                        <Button
+                          disabled={
+                            workspaceTrackerService.workspace?.isPastDue
+                          }
+                          loading={canceling}
+                          size="small"
+                          key="cancel"
+                          type="text"
+                          icon={<CarbonIcon icon={<StopFilled />} />}
+                        >
+                          Cancel
+                        </Button>
+                      </Popconfirm>
+                    ) : null}
                   </>
                 )}
               </Space>
@@ -229,30 +230,32 @@ export const JobItem: FC<{
                   font-size: 12px;
                 `}
               >
-                <SmallTag color={deployed ? "success" : ""}>
-                  <Description.Item
-                    icon={<DeploymentIcon />}
-                    description={deployed ? "Deployed" : "Not Deployed"}
-                  />
-                </SmallTag>
                 <Description.Item
-                  icon={<CarbonIcon icon={<Time />} />}
+                  hideMark
+                  term="Training"
+                  icon={<CarbonIcon icon={<Carbon />} />}
+                  description={<StatusTag status={job.status} />}
+                />
+                <Description.Item
+                  hideMark
+                  term="Inference"
+                  icon={<DeploymentIcon />}
                   description={
-                    <DateParser
-                      detail
-                      prefix="Created at"
-                      date={job.created_at}
-                    />
+                    <SmallTag color={deploymentColor}>
+                      {deploymentStatus.toUpperCase()}
+                    </SmallTag>
                   }
                 />
                 <Description.Item
                   icon={<CarbonIcon icon={<Time />} />}
                   description={
-                    <DateParser
-                      detail
-                      prefix="Modified at"
-                      date={job.modified_at}
-                    />
+                    <DateParser prefix="Created at" date={job.created_at} />
+                  }
+                />
+                <Description.Item
+                  icon={<CarbonIcon icon={<Time />} />}
+                  description={
+                    <DateParser prefix="Modified at" date={job.modified_at} />
                   }
                 />
               </Description.Container>

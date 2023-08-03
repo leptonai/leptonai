@@ -27,6 +27,7 @@ export interface TunaInferenceMetadata {
 export interface TunaInferenceStatus {
   chat_endpoint: string;
   api_endpoint: string;
+  state: string;
 }
 
 export interface TunaInference {

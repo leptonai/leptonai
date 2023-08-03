@@ -1,3 +1,4 @@
+import { State } from "@lepton-dashboard/interfaces/deployment";
 import { Injectable } from "injection-js";
 import { forkJoin, map, mergeMap, Observable } from "rxjs";
 import {
@@ -54,7 +55,7 @@ export class TunaService {
     return this.apiService.getInference(name);
   }
 
-  listInferences(): Observable<TunaInference[]> {
+  listAvailableInferences(): Observable<TunaInference[]> {
     return this.listJobs(FineTuneJobStatus.SUCCESS).pipe(
       mergeMap((jobs) => {
         const observables = jobs.map((job) => this.getInference(job.name));
@@ -62,7 +63,8 @@ export class TunaService {
       }),
       map((inferences) => [
         ...inferences.filter(
-          (inference): inference is TunaInference => inference !== null
+          (inference): inference is TunaInference =>
+            inference !== null && inference?.status?.state === State.Running
         ),
       ])
     );

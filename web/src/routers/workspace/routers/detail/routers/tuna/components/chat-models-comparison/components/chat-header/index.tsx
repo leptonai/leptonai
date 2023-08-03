@@ -26,7 +26,7 @@ export const ChatHeader: FC<{
   const [loading, setLoading] = useState(true);
   const models = useStateFromObservable(
     () =>
-      tunaService.listInferences().pipe(
+      tunaService.listAvailableInferences().pipe(
         map((inference) => {
           return [
             benchmarkModel,
