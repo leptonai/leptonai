@@ -68,7 +68,8 @@ export const WorkspaceSwitch: FC = () => {
               color: ${theme.colorText};
             `}
           >
-            {workspaceTrackerService.id}
+            {workspaceTrackerService.workspace?.auth.displayName ||
+              workspaceTrackerService.id}
           </div>
         )}
       </div>
