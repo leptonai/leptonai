@@ -14,7 +14,19 @@ spec:
       template:
         spec:
           containers:
-          - args: 
+          - name: {{ .Values.metering.name }}-{{ .Values.metering.backfillName }}-container
+            env:
+            - name: AURORA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mothership-rds-aurora-secret
+                  key: username
+            - name: AURORA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mothership-rds-aurora-secret
+                  key: password
+            args: 
             - "metering"
             - "backfill"
             - "--db-driver-name={{ .Values.metering.auroraDbDriver }}"
@@ -27,7 +39,6 @@ spec:
             - "--opencost-service-port=9090"
             - "--in-cluster"
             - "--duration=12h"
-            name: {{ .Values.metering.name }}-{{ .Values.metering.backfillName }}-container
             image: {{ .Values.metering.image.repository }}:{{ .Values.metering.image.tag }}
             imagePullPolicy: {{ .Values.metering.image.pullPolicy }}
             resources:
