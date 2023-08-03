@@ -1,6 +1,7 @@
 import { State } from "@lepton-dashboard/interfaces/deployment";
 import { SmallTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/small-tag";
 import { StatusTag } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/status-tag";
+import { Terminate } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/terminate";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Button, Col, Popconfirm, Row, Space } from "antd";
@@ -175,6 +176,7 @@ export const JobItem: FC<{
                     >
                       Try it out
                     </Button>
+                    <Terminate name={job.name} />
                   </>
                 )}
                 {!deployed && (
