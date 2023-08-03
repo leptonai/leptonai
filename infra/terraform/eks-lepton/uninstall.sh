@@ -58,6 +58,10 @@ if [[ "$UNINSTALL_CRDS" == "true" ]]; then
   cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
 fi
 
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
+export TF_LOG_PATH="tf.uninstall.log"
+
 DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-TEST}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"

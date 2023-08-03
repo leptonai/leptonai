@@ -34,6 +34,10 @@ else
   exit 1
 fi
 
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
+export TF_LOG_PATH="tf.uninstall.log"
+
 DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-DEV}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"

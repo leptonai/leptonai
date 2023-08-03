@@ -21,8 +21,9 @@ terraform init --upgrade
 # shellcheck source=/dev/null
 source ./variables.sh
 
-export TF_LOG="DEBUG"
-export TF_LOG_PATH="tf.log"
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
+export TF_LOG_PATH="tf.install.log"
 
 terraform apply "${APPLY_FLAGS[@]}"
 

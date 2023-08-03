@@ -51,6 +51,10 @@ else
   exit 1
 fi
 
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
+export TF_LOG_PATH="tf.uninstall.log"
+
 echo "Deleting resources..."
 if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="region=$REGION" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="create_efs=$CREATE_EFS" \

@@ -45,7 +45,8 @@ fi
 # shellcheck source=/dev/null
 source ./variables.sh
 
-export TF_LOG="DEBUG"
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
 export TF_LOG_PATH="tf.install.log"
 
 CHECK_TERRAFORM_APPLY_OUTPUT="${CHECK_TERRAFORM_APPLY_OUTPUT:-true}"

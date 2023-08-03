@@ -15,6 +15,10 @@ terraform init --upgrade
 # shellcheck source=/dev/null
 source ./variables.sh
 
+# ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
+export TF_LOG="INFO"
+export TF_LOG_PATH="tf.uninstall.log"
+
 ARGS=("apply" "-destroy" "$APPLY_FLAGS")
 # shellcheck disable=SC2068
 terraform ${ARGS[@]}
