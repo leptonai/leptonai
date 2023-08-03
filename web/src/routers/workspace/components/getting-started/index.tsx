@@ -1,4 +1,6 @@
+import { CheckCircleFilled } from "@ant-design/icons";
 import { css } from "@emotion/react";
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   CodeBlock,
   LanguageSupports,
@@ -8,7 +10,7 @@ import { useInject } from "@lepton-libs/di";
 import { Collapse, Typography } from "antd";
 import { FC } from "react";
 
-export const GettingStarted: FC = () => {
+export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const credential = [
     workspaceTrackerService.id,
@@ -16,6 +18,16 @@ export const GettingStarted: FC = () => {
   ]
     .filter((x) => x)
     .join(":");
+
+  const theme = useAntdTheme();
+
+  const extra = finished ? (
+    <CheckCircleFilled
+      css={css`
+        color: ${theme.colorSuccess};
+      `}
+    />
+  ) : null;
   const maskCredential = (content: string) => {
     if (
       content.includes(credential) &&
@@ -46,6 +58,7 @@ export const GettingStarted: FC = () => {
         items={[
           {
             key: "1",
+            extra,
             label: "Install Python client",
             children: (
               <>
@@ -79,6 +92,7 @@ export const GettingStarted: FC = () => {
           },
           {
             key: "2",
+            extra,
             label: "Build and run locally",
             children: (
               <>
@@ -148,6 +162,7 @@ export const GettingStarted: FC = () => {
           },
           {
             key: "3",
+            extra,
             label: "Deploy in the cloud",
             children: (
               <>
@@ -208,7 +223,7 @@ export const GettingStarted: FC = () => {
             ),
           },
         ]}
-        defaultActiveKey={["1"]}
+        defaultActiveKey={finished ? ["3"] : ["1"]}
       />
       <Typography.Paragraph
         css={css`

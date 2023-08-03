@@ -18,13 +18,13 @@ export const Dashboard: FC = () => {
   const deploymentService = useInject(DeploymentService);
   const photonGroups = useStateFromBehaviorSubject(photonService.listGroups());
   const deployments = useStateFromBehaviorSubject(deploymentService.list());
-  if (photonGroups.length === 0 && deployments.length === 0) {
+  if (deployments.length === 0) {
     return <GettingStarted />;
   } else {
     return (
       <Container>
         <Timeline deployments={deployments} photonGroups={photonGroups} />
-        <GettingStarted />
+        <GettingStarted finished />
       </Container>
     );
   }
