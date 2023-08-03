@@ -68,7 +68,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   <CodeBlock
-                    code="pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-0.6.0-py3-none-any.whl"
+                    code="pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-0.7.0-py3-none-any.whl"
                     copyable={true}
                     language={LanguageSupports.Bash}
                   />
