@@ -14,6 +14,7 @@ export const Card: FC<
       borderless?: boolean;
       radiusless?: boolean;
       overflowShow?: boolean;
+      titleOverflowHidden?: boolean;
       shadowless?: boolean;
       paddingless?: boolean;
     } & EmotionProps
@@ -27,6 +28,7 @@ export const Card: FC<
   radiusless = false,
   borderless = false,
   overflowShow = false,
+  titleOverflowHidden = false,
   shadowless = true,
   paddingless = false,
   className,
@@ -66,6 +68,8 @@ export const Card: FC<
             css={css`
               width: 100%;
               display: ${icon ? "flex" : "block"};
+              flex: 0 1 auto;
+              overflow: ${titleOverflowHidden ? "hidden" : "visible"};
             `}
           >
             {icon && (

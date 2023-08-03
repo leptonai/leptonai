@@ -149,6 +149,7 @@ export const Storage: FC = () => {
             refresh={() => refreshRef.current.next(null)}
           />
         }
+        titleOverflowHidden
         title={
           <Breadcrumb
             css={css`
@@ -159,6 +160,34 @@ export const Storage: FC = () => {
               }
               .ant-breadcrumb-link > .anticon + span {
                 margin-inline-start: 8px !important;
+              }
+              & > ol {
+                flex-wrap: nowrap;
+                & > li {
+                  flex: 0 1 auto;
+                  overflow: hidden;
+
+                  .ant-breadcrumb-overlay-link,
+                  a {
+                    margin-inline: 0;
+                    display: flex;
+                  }
+
+                  &.ant-breadcrumb-separator {
+                    flex: 0 0 auto;
+                  }
+                  .ant-breadcrumb-link {
+                    white-space: nowrap;
+                  }
+                  & > .ant-dropdown-trigger {
+                    .ant-breadcrumb-link {
+                      overflow: hidden;
+                    }
+                  }
+                  & > .ant-breadcrumb-overlay-link {
+                    flex-wrap: nowrap;
+                  }
+                }
               }
             `}
             items={
