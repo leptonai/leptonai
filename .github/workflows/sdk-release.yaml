@@ -21,6 +21,10 @@ on:
         description: "Is this a release package"
         type: boolean
         default: false
+      run_e2e:
+        description: "Whether run end to end testing"
+        type: boolean
+        default: false
 
 jobs:
 
@@ -81,6 +85,11 @@ jobs:
 
         echo "Run unittests"
         pytest sdk
+    - name: Run End-To-End Tests
+      if: inputs.run_e2e
+      env:
+        LEPTON_RELEASE_CREDENTIALS: ${{ secrets.LEPTON_STAGING_WORKSPACE_CREDENTIALS }}
+      run: bash sdk/release_scripts/e2e_sdk_cli_test.sh
 
   publish-s3:
     if: github.event_name == 'push' || inputs.publish_s3
