@@ -3,21 +3,51 @@ package ecr
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ecr_v2 "github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/smithy-go"
 )
 
 type Repository struct {
-	AccountID string
-	Name      string
-	ARN       string
-	URI       string
-	Images    []Image
+	AccountID       string
+	Name            string
+	ARN             string
+	URI             string
+	LifecyclePolicy LifecyclePolicy
+	Images          []Image
+}
+
+func parsePolicyText(b string) (LifecyclePolicy, error) {
+	p := LifecyclePolicy{}
+	err := json.Unmarshal([]byte(b), &p)
+	return p, err
+}
+
+type LifecyclePolicy struct {
+	Rules           []LifecyclePolicyRule `json:"rules"`
+	LastEvaluatedAt time.Time
+}
+
+type LifecyclePolicyRule struct {
+	RulePriority int    `json:"rulePriority,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Selection    struct {
+		TagStatus   string `json:"tagStatus,omitempty"`
+		CountType   string `json:"countType,omitempty"`
+		CountUnit   string `json:"countUnit,omitempty"`
+		CountNumber int    `json:"countNumber,omitempty"`
+	} `json:"selection,omitempty"`
+	Action struct {
+		Type string `json:"type,omitempty"`
+	} `json:"action,omitempty"`
 }
 
 type Image struct {
@@ -46,17 +76,43 @@ func ListRepositories(ctx context.Context, cfg aws.Config, repoLimit int, imgLim
 		}
 
 		for _, repo := range out.Repositories {
-			imgs, err := listImages(ctx, cfg, *repo.RepositoryName, *repo.RegistryId, imgLimit)
+			policy, err := cli.GetLifecyclePolicy(ctx, &aws_ecr_v2.GetLifecyclePolicyInput{
+				RepositoryName: repo.RepositoryName,
+				RegistryId:     repo.RegistryId,
+			})
+
+			lifecyclePolicy := LifecyclePolicy{}
+			if err != nil {
+				// returns "github.com/aws/aws-sdk-go/aws/awserr.Error" for SDK v1
+				// returns "github.com/aws/smithy-go.OperationError" for SDK v2
+				awsErr, ok := err.(*smithy.OperationError)
+				if !ok {
+					return nil, err
+				}
+				if !strings.Contains(awsErr.Error(), ecr.ErrCodeLifecyclePolicyNotFoundException) {
+					return nil, err
+				}
+				log.Printf("repository %q has no lifecycle policy (error code %v)", *repo.RepositoryName, awsErr.Err)
+			} else {
+				lifecyclePolicy, err = parsePolicyText(*policy.LifecyclePolicyText)
+				if err != nil {
+					return nil, err
+				}
+				lifecyclePolicy.LastEvaluatedAt = *policy.LastEvaluatedAt
+			}
+
+			imgs, err := listImages(ctx, cli, *repo.RepositoryName, *repo.RegistryId, imgLimit)
 			if err != nil {
 				return nil, err
 			}
 
 			r := Repository{
-				AccountID: *repo.RegistryId,
-				Name:      *repo.RepositoryName,
-				ARN:       *repo.RepositoryArn,
-				URI:       *repo.RepositoryUri,
-				Images:    imgs,
+				AccountID:       *repo.RegistryId,
+				Name:            *repo.RepositoryName,
+				ARN:             *repo.RepositoryArn,
+				URI:             *repo.RepositoryUri,
+				LifecyclePolicy: lifecyclePolicy,
+				Images:          imgs,
 			}
 
 			repositories = append(repositories, r)
@@ -81,8 +137,7 @@ func ListRepositories(ctx context.Context, cfg aws.Config, repoLimit int, imgLim
 	return repositories, nil
 }
 
-func listImages(ctx context.Context, cfg aws.Config, repoName string, registryID string, imgLimit int) ([]Image, error) {
-	cli := aws_ecr_v2.NewFromConfig(cfg)
+func listImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, registryID string, imgLimit int) ([]Image, error) {
 	images := make([]Image, 0)
 
 	var nextToken *string = nil
@@ -101,7 +156,7 @@ func listImages(ctx context.Context, cfg aws.Config, repoName string, registryID
 			break
 		}
 
-		imgs, err := describeImages(ctx, cfg, repoName, registryID, out.ImageIds)
+		imgs, err := describeImages(ctx, cli, repoName, registryID, out.ImageIds)
 		if err != nil {
 			return nil, err
 		}
@@ -132,8 +187,7 @@ func listImages(ctx context.Context, cfg aws.Config, repoName string, registryID
 	return images, nil
 }
 
-func describeImages(ctx context.Context, cfg aws.Config, repoName string, registryID string, imgIDs []types.ImageIdentifier) ([]Image, error) {
-	cli := aws_ecr_v2.NewFromConfig(cfg)
+func describeImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, registryID string, imgIDs []types.ImageIdentifier) ([]Image, error) {
 	images := make([]Image, 0)
 
 	var nextToken *string = nil
