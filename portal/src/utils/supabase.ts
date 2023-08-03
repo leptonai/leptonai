@@ -13,7 +13,7 @@ export const supabaseAdminClient = createClient(
   },
 );
 
-export const getCookieOptions = (domainUrl: URL | string) => {
+export const getCookieOptions = (domainUrl: URL | string, clear = false) => {
   const normalizedDomain =
     typeof domainUrl === "string" ? domainUrl : domainUrl.hostname;
   const preview = /^.+-leptonai\.vercel\.app$/i.test(normalizedDomain);
@@ -27,7 +27,7 @@ export const getCookieOptions = (domainUrl: URL | string) => {
   const maxAge = preview ? 60 * 10 : 100 * 365 * 24 * 60 * 60;
   return {
     domain,
-    maxAge,
+    maxAge: clear ? 0 : maxAge,
     path: "/",
     sameSite: preview ? "None" : "Lax",
     secure: "Strict",
@@ -45,12 +45,13 @@ export type NextApiWithSupabaseHandler<T = any> = (
 export const createPagesServerClientWithCookieOptions = (
   req: NextApiRequest,
   res: NextApiResponse,
+  clearCookies?: boolean,
 ) => {
   const domainUrl = new URL(`protocol://${req.headers.host}`);
   return createPagesServerClient(
     { req, res },
     {
-      cookieOptions: getCookieOptions(domainUrl),
+      cookieOptions: getCookieOptions(domainUrl, clearCookies),
     },
   );
 };

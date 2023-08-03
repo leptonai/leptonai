@@ -3,7 +3,7 @@ import { cors } from "@/utils/cors";
 import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 
 const logout: NextApiHandler = async (req, res) => {
-  const supabase = createPagesServerClientWithCookieOptions(req, res);
+  const supabase = createPagesServerClientWithCookieOptions(req, res, true);
 
   await supabase.auth.signOut();
 
