@@ -41,6 +41,9 @@ dependencies = {file = ["leptonai/requirements.txt"]}
 [tool.setuptools.packages]
 find = {}
 
+[tool.setuptools.package-data]
+leptonai = ["photon/favicon.ico"]
+
 [tool.black]
 preview = true
 
