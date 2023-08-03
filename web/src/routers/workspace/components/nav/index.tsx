@@ -96,9 +96,9 @@ export const Nav: FC = () => {
 
   const notificationService = useInject(IndicatorService);
   const keyActive = (key: string) => {
-    if (key === `${pathname}/deployments`) {
+    if (key === `${pathname}/deployments/list`) {
       notificationService.updateDeploymentNotify();
-    } else if (key === `${pathname}/photons`) {
+    } else if (key === `${pathname}/photons/list`) {
       notificationService.updatePhotonNotify();
     }
   };
