@@ -44,18 +44,25 @@ if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   exit 1
 fi
 
+# here, we assume the running script or mothership(controller)
+# copies the whole directory in the same directory tree
+ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
+if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
+  # this is not running via mothership, thus requiring manual copy
+  echo "copying eks-lepton charts from ../../../charts"
+  rm -rf ./charts && mkdir -p ./charts
+  cp -r ../../../charts/eks-lepton ./charts/
+  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
+  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
+else
+  echo "skipping copying lepton charts"
+fi
+
 if terraform init --upgrade ; then
   echo "SUCCESS: Terraform init completed successfully"
 else
   echo "ERROR: Terraform init failed"
   exit 1
-fi
-
-# only copy CRDs if UNINSTALL_CRDS is true
-UNINSTALL_CRDS=${UNINSTALL_CRDS:-false}
-if [[ "$UNINSTALL_CRDS" == "true" ]]; then
-  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
-  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
 fi
 
 # ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables

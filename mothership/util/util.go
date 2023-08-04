@@ -50,9 +50,12 @@ func PrepareTerraformWorkingDir(dirName, moduleName, version string, crdSrcs ...
 		"dest", dest,
 	)
 
+	dest = gitDir + "/infra/terraform/" + moduleName + "/charts/" + moduleName + "/templates/"
+	if _, err := os.Stat(dest); os.IsNotExist(err) { // TODO: handle backward compatibility, will delete
+		dest = gitDir + "/infra/terraform/" + moduleName + "/charts/lepton/templates/"
+	}
 	for _, crdSrc := range crdSrcs {
 		src = gitDir + crdSrc
-		dest = gitDir + "/infra/terraform/" + moduleName + "/charts/lepton/templates/"
 		err = exec.Command("cp", src, dest).Run()
 		if err != nil {
 			return "", fmt.Errorf("failed to copy CRD yaml files to terraform directory: %s", err)

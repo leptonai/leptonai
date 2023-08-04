@@ -1,0 +1,9 @@
+apiVersion: v2
+name: lepton-cluster-chart
+description: Lepton Cluster Helm Chart
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+- email: dev@lepton.ai
+  name: Lepton AI

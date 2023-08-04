@@ -72,23 +72,23 @@ echo "Creating Workspace $WORKSPACE_NAME at Cluster $CLUSTER_NAME..."
 
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
-if terraform init --upgrade ; then
-  echo "SUCCESS: Terraform init completed successfully"
-else
-  echo "ERROR: Terraform init failed"
-  exit 1
-fi
-
 # here, we assume the running script or mothership(controller)
 # copies the whole directory in the same directory tree
 ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
 if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
   # this is not running via mothership, thus requiring manual copy
-  echo "copying lepton charts from ../../../charts"
+  echo "copying lepton workspace charts from ../../../charts"
   rm -rf ./charts && mkdir -p ./charts
-  cp -r ../../../charts/lepton ./charts/
+  cp -r ../../../charts/workspace ./charts/
 else
-  echo "skipping copying lepton charts"
+  echo "skipping copying lepton workspace charts"
+fi
+
+if terraform init --upgrade ; then
+  echo "SUCCESS: Terraform init completed successfully"
+else
+  echo "ERROR: Terraform init failed"
+  exit 1
 fi
 
 # loads additional flags and values for the following "terraform apply" commands

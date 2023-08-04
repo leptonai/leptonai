@@ -72,6 +72,20 @@ export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 echo "creating terraform workspace ${TF_WORKSPACE}"
 must_create_workspace "$TF_WORKSPACE" "$TF_API_TOKEN"
 
+# here, we assume the running script or mothership(controller)
+# copies the whole directory in the same directory tree
+ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
+if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
+  # this is not running via mothership, thus requiring manual copy
+  echo "copying eks-lepton charts from ../../../charts"
+  rm -rf ./charts && mkdir -p ./charts
+  cp -r ../../../charts/eks-lepton ./charts/
+  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
+  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
+else
+  echo "skipping copying lepton charts"
+fi
+
 terraform init --upgrade
 
 # loads additional flags and values for the following "terraform apply" commands
@@ -99,28 +113,6 @@ do
     fi
   fi
 done
-
-# here, we assume the running script or mothership(controller)
-# copies the whole directory in the same directory tree
-ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
-if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
-  # this is not running via mothership, thus requiring manual copy
-  echo "copying lepton charts from ../../../charts"
-  rm -rf ./charts && mkdir -p ./charts
-  cp -r ../../../charts/lepton ./charts/
-else
-  echo "skipping copying lepton charts"
-fi
-
-# only copy CRDs if INSTALL_CRDS is true
-# this is also done in mothership side
-# so only needed for local installation
-# e.g., during cluster creation
-INSTALL_CRDS=${INSTALL_CRDS:-false}
-if [[ "$INSTALL_CRDS" == "true" ]]; then
-  echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
-  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
-fi
 
 # Final apply to catch any remaining resources
 echo "Applying remaining resources..."

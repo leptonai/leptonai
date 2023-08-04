@@ -78,7 +78,7 @@ resource "helm_release" "lepton" {
 
   # here, we assume the running script or mothership(controller)
   # copies the whole directory in the same directory tree
-  chart = "charts/lepton"
+  chart = "charts/workspace"
 
   namespace = var.namespace
 
