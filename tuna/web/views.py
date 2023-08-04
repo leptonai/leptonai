@@ -23,6 +23,7 @@ class AddView(View):
               <select id="model" name="model">
                 <option value="llama2/7b-chat" selected>llama2/7b-chat</option>
                 <option value="vicuna/7B">vicuna/7B</option>
+                <option value="vicuna/7B_v1.3">vicuna/7B_v1.3</option>
                 <option value="baichuan">baichuan</option>
               </select>
               <button type="submit">Submit</button>

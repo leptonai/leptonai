@@ -36,7 +36,7 @@ echo "Done"
 echo "Checking model weights"
 if [[ ! -d "lepton-llm" ]]; then
     echo "Downloading letpton-llm models"
-    for model in "llama2/7b-chat" "vicuna/7B" "baichuan"; do
+    for model in "llama2/7b-chat" "vicuna/7B" "vicuna/7B_v1.3" "baichuan"; do
         if [[ -d "lepton-llm/${model}" ]]; then
             echo "lepton-llm/${model} already exists"
             continue
