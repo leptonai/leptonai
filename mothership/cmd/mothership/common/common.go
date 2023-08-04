@@ -133,7 +133,7 @@ func ReadContext(cmd *cobra.Command) Context {
 		log.Fatalf("current context is empty or not found in context file %q", cpath)
 	}
 
-	fmt.Printf("using context %q\n", ctx.Current)
+	log.Printf("using context %q\n", ctx.Current)
 
 	return ctx.Contexts[ctx.Current]
 }

@@ -3,18 +3,20 @@ package list
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
-	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/mothership/cmd/mothership/util"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+)
+
+var (
+	output string
 )
 
 func init() {
@@ -28,23 +30,33 @@ func NewCommand() *cobra.Command {
 		Short: "List all the workspaces",
 		Run:   listFunc,
 	}
+	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
 	return cmd
 }
 
 func listFunc(cmd *cobra.Command, args []string) {
 	mctx := common.ReadContext(cmd)
 	token, mothershipURL := mctx.Token, mctx.URL
+	if output != "rawjson" && output != "table" {
+		log.Fatalf("invalid output format %q, only 'rawjson' and 'table' are supported", output)
+	}
 
 	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/workspaces", nil, nil)
+
+	if output == "rawjson" {
+		b, err := util.ListWorkspacesRaw(cli)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(string(b))
+		return
+	}
+
+	rs, err := util.ListWorkspaces(cli)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var rs []*crdv1alpha1.LeptonWorkspace
-	if err = json.Unmarshal(b, &rs); err != nil {
-		log.Fatalf("failed to decode %v", err)
-	}
 	log.Printf("fetched %d workspaces", len(rs))
 
 	colums := []string{"name", "cluster", "deployment-image-tag", "terraform-git-ref", "running-state", "operational-state", "updated at"}
