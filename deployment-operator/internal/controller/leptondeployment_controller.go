@@ -199,19 +199,15 @@ func (r *LeptonDeploymentReconciler) getDeployment(ctx context.Context, req ctrl
 func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context, req ctrl.Request,
 	ld *leptonaiv1alpha1.LeptonDeployment) error {
 	ldOr := getOwnerRefFromLeptonDeployment(ld)
-	// Attaches all resources to the service using owner reference, so that they
-	// are deleted when the service is deleted. The only exception is the PV,
-	// which has to be deleted separately.
-	service, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
+	_, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
 		return errors.New("failed to create or update Service: " + err.Error())
 	}
-	svcOr := getOwnerRefFromService(service)
-	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr})
+	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
 		return errors.New("failed to create or update Deployment: " + err.Error())
 	}
-	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr}); err != nil {
+	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr}); err != nil {
 		return errors.New("failed to create or update Ingress: " + err.Error())
 	}
 
@@ -264,19 +260,6 @@ func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.Lepto
 }
 
 func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
-	if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-		goutil.Logger.Errorw("failed to delete service",
-			"namespace", req.Namespace,
-			"name", req.Name,
-			"error", err,
-		)
-		return false
-	} else {
-		goutil.Logger.Infow("service deleted",
-			"namespace", req.Namespace,
-			"name", req.Name,
-		)
-	}
 	if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
 		goutil.Logger.Errorw("failed to delete pv",
 			"namespace", req.Namespace,
