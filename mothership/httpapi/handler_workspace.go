@@ -104,7 +104,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 		"workspace", spec.Name,
 	)
 
-	c.JSON(http.StatusCreated, lw)
+	c.JSON(http.StatusCreated, formatWorkspaceOutput(lw))
 }
 
 func HandleWorkspaceDelete(c *gin.Context) {

@@ -129,7 +129,7 @@ func HandleClusterCreate(c *gin.Context) {
 		"cluster", spec.Name,
 	)
 
-	c.JSON(http.StatusCreated, cl)
+	c.JSON(http.StatusCreated, formatClusterOutput(cl))
 }
 
 func HandleClusterDelete(c *gin.Context) {
