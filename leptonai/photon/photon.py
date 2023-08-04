@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import asyncio
 import base64
 import copy
 import functools
@@ -17,6 +18,7 @@ import zipfile
 
 import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body
+from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import Response, JSONResponse, StreamingResponse, FileResponse
@@ -261,6 +263,16 @@ class Photon(BasePhoton):
         self._routes = self._gather_routes()
         self._init_called = False
         self._init_res = None
+        self._background_tasks = set()
+
+    def _on_background_task_done(self, task):
+        self._background_tasks.remove(task)
+
+    def add_background_task(self, func, *args, **kwargs):
+        co = BackgroundTask(func, *args, **kwargs)
+        task = asyncio.create_task(co())
+        self._background_tasks.add(task)
+        task.add_done_callback(self._on_background_task_done)
 
     @classmethod
     def _gather_routes(cls):

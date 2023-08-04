@@ -26,6 +26,7 @@ except ImportError:
 else:
     has_hnsqlite = True
 
+import asyncio
 import concurrent.futures
 from io import BytesIO
 import inspect
@@ -902,6 +903,34 @@ class CustomPhoton2(Photon):
             client.openapi["paths"]["/greet"]["post"]["description"],
             DocStrPhoton.greet.__doc__,
         )
+
+    @async_test
+    async def test_background_task(self):
+        class BackgroundTaskPhoton(Photon):
+            def init(self):
+                self.counter = 0
+
+            def increment(self, x: int):
+                self.counter += x
+
+            @Photon.handler()
+            def val(self):
+                return self.counter
+
+            @Photon.handler()
+            def add_later(self, x: int) -> int:
+                self.add_background_task(self.increment, x)
+                return self.counter
+
+        ph = BackgroundTaskPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.val(), 0)
+        self.assertEqual(client.add_later(x=3), 0)
+        await asyncio.sleep(0.1)
+        self.assertEqual(client.val(), 3)
 
 
 if __name__ == "__main__":
