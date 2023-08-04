@@ -60,6 +60,7 @@ def _register_and_set(
 @click.option(
     "--auth-token", "-t", help="Authentication token for the workspace.", default=None
 )
+@click.option("--display-name", "-n", help="The workspace display name to log in to.")
 @click.option(
     "--test-only-workspace-url",
     hidden=True,
@@ -67,15 +68,44 @@ def _register_and_set(
     default=None,
 )
 def login(
-    workspace_id: str,
-    auth_token: Optional[str],
+    workspace_id: Optional[str] = None,
+    auth_token: Optional[str] = None,
+    display_name: Optional[str] = None,
     test_only_workspace_url: Optional[str] = None,
 ):
     """
     Logs in to a workspace. This also verifies that the workspace is accessible.
     """
-    check(workspace_id, "Must specify --workspace-id.")
+    check(workspace_id or display_name, "Must specify --workspace-id.")
+    if workspace_id is None:
+        check(display_name, "You have not specified workspace id or display name.")
+        # We will try to find the workspace id from the display name.
+        workspaces = api.load_workspace_info()["workspaces"]
+        matching_ids = []
+        for workspace_id, info in workspaces.items():
+            if info.get("display_name", None) == display_name:
+                matching_ids.append(workspace_id)
+        check(
+            len(matching_ids) > 0,
+            f"No workspace with the given display name [red]{display_name}[/] exists."
+            " Please first log in to the workspace using `lep workspace login -i"
+            " <workspace-id>`.",
+        )
+        check(
+            len(matching_ids) == 1,
+            f"Multiple workspaces with the given display name [red]{display_name}[/]"
+            " exists. Note that display names may not be unique - in this case, please"
+            " log in with the workspace id using `lep workspace login -i"
+            " <workspace-id>`.",
+        )
+        workspace_id = matching_ids[0]
     if test_only_workspace_url:
+        check(
+            workspace_id,
+            "Must specify --workspace-id if using --test-only-workspace-url. This will"
+            " create a new workspace login with the given workspace url. Also, you"
+            " should only use this if you are running unit tests for the Lepton SDK.",
+        )
         console.print("Using test-only workspace url for internal testing purposes.")
         console.print("Do not use this option unless you know what you are doing.")
         workspace_url = test_only_workspace_url
@@ -176,6 +206,10 @@ def id():
     """
     workspace_info = api.load_workspace_info()
     current_workspace = workspace_info["current_workspace"]
+    check(
+        current_workspace,
+        "It seems that you are not logged in. Please run `lep workspace login` first.",
+    )
     console.print(current_workspace, end="")
 
 
@@ -199,6 +233,10 @@ def url():
     """
     workspace_info = api.load_workspace_info()
     current_workspace = workspace_info["current_workspace"]
+    check(
+        current_workspace,
+        "It seems that you are not logged in. Please run `lep workspace login` first.",
+    )
     console.print(api.get_full_workspace_url(current_workspace), end="")
 
 
