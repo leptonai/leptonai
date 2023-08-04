@@ -81,11 +81,19 @@ export default function Login() {
             />
             <p className="text-center text-xs	mt-6 leading-6">
               By continuing, you agree to&nbsp;
-              <a target="_blank" href="https://www.lepton.ai/policies/tos">
+              <a
+                className="hover:underline"
+                target="_blank"
+                href="https://www.lepton.ai/policies/tos"
+              >
                 Lepton AI's Terms of Service
               </a>
               &nbsp;and&nbsp;
-              <a target="_blank" href="https://www.lepton.ai/policies/privacy">
+              <a
+                className="hover:underline"
+                target="_blank"
+                href="https://www.lepton.ai/policies/privacy"
+              >
                 Privacy Policy
               </a>
               .
