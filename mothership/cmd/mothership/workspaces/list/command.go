@@ -23,6 +23,10 @@ func init() {
 	cobra.EnablePrefixMatching = true
 }
 
+var (
+	checkReadiness bool
+)
+
 // NewCommand implements "mothership workspace list" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -31,6 +35,8 @@ func NewCommand() *cobra.Command {
 		Run:   listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
+	cmd.PersistentFlags().BoolVarP(&checkReadiness, "check-readiness", "", false, "true to check if the workspace is ready")
+
 	return cmd
 }
 
@@ -44,7 +50,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 	cli := goclient.NewHTTP(mothershipURL, token)
 
 	if output == "rawjson" {
-		b, err := util.ListWorkspacesRaw(cli)
+		b, err := util.ListWorkspacesRaw(cli, checkReadiness)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -52,7 +58,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	rs, err := util.ListWorkspaces(cli)
+	rs, err := util.ListWorkspaces(cli, checkReadiness)
 	if err != nil {
 		log.Fatal(err)
 	}

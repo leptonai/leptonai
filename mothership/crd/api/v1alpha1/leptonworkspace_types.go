@@ -64,6 +64,7 @@ const (
 	WorkspaceOperationalStateCreating LeptonWorkspaceOperationalState = "creating"
 	WorkspaceOperationalStateUpdating LeptonWorkspaceOperationalState = "updating"
 	WorkspaceOperationalStateReady    LeptonWorkspaceOperationalState = "ready"
+	WorkspaceOperationalStateNotReady LeptonWorkspaceOperationalState = "not ready"
 	WorkspaceOperationalStateFailed   LeptonWorkspaceOperationalState = "failed"
 	WorkspaceOperationalStateDeleting LeptonWorkspaceOperationalState = "deleting"
 	WorkspaceOperationalStateDeleted  LeptonWorkspaceOperationalState = "deleted"

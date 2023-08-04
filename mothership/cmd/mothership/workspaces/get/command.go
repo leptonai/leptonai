@@ -21,6 +21,7 @@ import (
 var (
 	workspaceName  string
 	inspectVolumes bool
+	checkReadiness bool
 )
 
 func init() {
@@ -35,6 +36,7 @@ func NewCommand() *cobra.Command {
 		Run:   getFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to get")
+	cmd.PersistentFlags().BoolVarP(&checkReadiness, "check-readiness", "", false, "true to check if the workspace is ready")
 	cmd.PersistentFlags().BoolVarP(&inspectVolumes, "inspect-volumes", "v", false, "true to show all the mounted volumes")
 	return cmd
 }
@@ -47,8 +49,13 @@ func getFunc(cmd *cobra.Command, args []string) {
 	mctx := common.ReadContext(cmd)
 	token, mothershipURL := mctx.Token, mctx.URL
 
+	checkReadinessQuery := "check_readiness=false"
+	if checkReadiness {
+		checkReadinessQuery = "check_readiness=true"
+	}
+
 	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)
+	b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName+"?"+checkReadinessQuery, nil, nil)
 	if err != nil {
 		log.Fatal("error sending request: ", err)
 	}

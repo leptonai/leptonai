@@ -53,6 +53,7 @@ func main() {
 	workspace.RootDomain = *rootDomainFlag
 	cluster.RootDomain = *rootDomainFlag
 	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
+	httpapi.RootDomain = *rootDomainFlag
 
 	terraform.MustInit()
 

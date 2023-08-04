@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
@@ -11,6 +12,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
+var (
+	// TODO: get from the config. Stop using global variables.
+	RootDomain string
+)
+
+const (
+	// Add this query parameter key to check if the workspace is ready.
+	CheckReadinessQueryKey = "check_readiness"
 )
 
 func HandleWorkspaceGet(c *gin.Context) {
@@ -31,7 +42,11 @@ func HandleWorkspaceGet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get workspace: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, formatWorkspaceOutput(lw))
+
+	ws := formatWorkspaceOutput(lw)
+	maybeUpdateWorkspaceReadiness(c, ws)
+
+	c.JSON(http.StatusOK, ws)
 }
 
 func HandleWorkspaceGetLogs(c *gin.Context) {
@@ -68,7 +83,9 @@ func HandleWorkspaceList(c *gin.Context) {
 	ret := make([]*crdv1alpha1.LeptonWorkspace, len(lws))
 	for i, lw := range lws {
 		ret[i] = formatWorkspaceOutput(lw)
+		maybeUpdateWorkspaceReadiness(c, ret[i])
 	}
+
 	c.JSON(http.StatusOK, ret)
 }
 
@@ -162,5 +179,20 @@ func formatWorkspaceOutput(lw *crdv1alpha1.LeptonWorkspace) *crdv1alpha1.LeptonW
 	return &crdv1alpha1.LeptonWorkspace{
 		Spec:   lw.Spec,
 		Status: lw.Status,
+	}
+}
+
+func maybeUpdateWorkspaceReadiness(c *gin.Context, ws *crdv1alpha1.LeptonWorkspace) {
+	if c.Query(CheckReadinessQueryKey) != "true" {
+		return
+	}
+
+	if ws.Status.State == crdv1alpha1.WorkspaceOperationalStateReady {
+		remoteURL := fmt.Sprintf("https://%s.%s/api/v1", ws.Spec.Name, RootDomain)
+		c := goclient.New(remoteURL, ws.Spec.APIToken)
+		_, err := c.Workspace().Info()
+		if err != nil {
+			ws.Status.State = crdv1alpha1.WorkspaceOperationalStateNotReady
+		}
 	}
 }

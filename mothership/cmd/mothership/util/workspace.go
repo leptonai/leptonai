@@ -9,8 +9,8 @@ import (
 )
 
 // ListWorkspaces lists all the lepton workspaces.
-func ListWorkspaces(c *goclient.HTTP) ([]*crdv1alpha1.LeptonWorkspace, error) {
-	b, err := ListWorkspacesRaw(c)
+func ListWorkspaces(c *goclient.HTTP, checkReadiness bool) ([]*crdv1alpha1.LeptonWorkspace, error) {
+	b, err := ListWorkspacesRaw(c, checkReadiness)
 	if err != nil {
 		return nil, err
 	}
@@ -24,8 +24,13 @@ func ListWorkspaces(c *goclient.HTTP) ([]*crdv1alpha1.LeptonWorkspace, error) {
 }
 
 // ListWorkspacesRaw lists all the lepton workspaces in raw json.
-func ListWorkspacesRaw(c *goclient.HTTP) ([]byte, error) {
-	b, err := c.RequestPath(http.MethodGet, "/workspaces", nil, nil)
+func ListWorkspacesRaw(c *goclient.HTTP, checkReadiness bool) ([]byte, error) {
+	checkReadinessQuery := "check_readiness=false"
+	if checkReadiness {
+		checkReadinessQuery = "check_readiness=true"
+	}
+
+	b, err := c.RequestPath(http.MethodGet, "/workspaces?"+checkReadinessQuery, nil, nil)
 	if err != nil {
 		return nil, err
 	}
