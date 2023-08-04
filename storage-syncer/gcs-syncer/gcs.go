@@ -10,6 +10,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,6 +71,16 @@ func CreateSyncerForDefaultEFS(ctx context.Context, ns, name string, gcsURL, pat
 					},
 					SecurityContext: k8s.DefaultContainerSecurityContext(),
 					WorkingDir:      k8s.HomePathNonRoot,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("0.5"),
+							corev1.ResourceMemory: resource.MustParse("512MiB"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("2"),
+							corev1.ResourceMemory: resource.MustParse("2GiB"),
+						},
+					},
 				},
 			},
 			Volumes: []corev1.Volume{
