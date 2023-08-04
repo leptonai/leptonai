@@ -18,6 +18,7 @@ import (
 var (
 	workspaceName string
 	gitRef        string
+	apiToken      string
 	imageTag      string
 	quotaGroup    string
 	quotaCPU      int
@@ -40,6 +41,7 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to update")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "", "Git ref to use for the workspace terraform")
+	cmd.PersistentFlags().StringVarP(&apiToken, "api-token", "a", "", "API token to use for the workspace")
 	cmd.PersistentFlags().StringVarP(&imageTag, "image-tag", "i", "", "Image tag to use for the workspace deployments")
 	cmd.PersistentFlags().StringVarP(&state, "state", "", "", "Workspace running state (normal, paused, terminated)")
 	cmd.PersistentFlags().StringVarP(&quotaGroup, "quota-group", "", "", "Quota group for the workspace (small, medium, large, unlimited, custom)")
@@ -81,6 +83,10 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	workspaceSpec := workspace.Spec
 	if gitRef != "" {
 		workspaceSpec.GitRef = gitRef
+		updated = true
+	}
+	if apiToken != "" {
+		workspaceSpec.APIToken = apiToken
 		updated = true
 	}
 	if imageTag != "" {
