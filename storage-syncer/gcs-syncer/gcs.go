@@ -25,7 +25,7 @@ func CreateSyncerForDefaultEFS(ctx context.Context, ns, name string, gcsURL, pat
 	claimName := ns + "-efs-default-pvc"
 	encoded := base64.StdEncoding.EncodeToString([]byte(credJSON))
 
-	command := fmt.Sprintf("credFilePath=$(mktemp) && echo '%s' | base64 --decode > \"$credFilePath\" && gcloud auth login --cred-file=$credFilePath && while true; do gsutil -m rsync -r %s %s; sleep 1; done",
+	command := fmt.Sprintf("credFilePath=$(mktemp) && echo '%s' | base64 --decode > \"$credFilePath\" && gcloud auth login --cred-file=$credFilePath && while true; do gsutil -m rsync -r -d %s %s; sleep 1; done",
 		encoded, gcsURL, "/mnt/efs/default"+path)
 	appName := "gcs-syncer"
 
