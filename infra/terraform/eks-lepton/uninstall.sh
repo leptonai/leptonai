@@ -68,6 +68,19 @@ fi
 export TF_LOG="INFO"
 export TF_LOG_PATH="tf.uninstall.log"
 
+# force destroy in case terraform plan fails due to CR not found
+# e.g., install failed before CRs were created
+# ref. https://github.com/leptonai/lepton/issues/2191
+DELETE_TF_STATE_NETWORK_POLICY=${DELETE_TF_STATE_NETWORK_POLICY:-false}
+if [[ "$DELETE_TF_STATE_NETWORK_POLICY" == "true" ]]; then
+  echo "deleting terraform state for network policy resources"
+  terraform state rm kubernetes_manifest.allow_user_pod_to_external
+  terraform state rm kubernetes_manifest.allow_user_pod_to_kube_dns
+  terraform state rm kubernetes_manifest.allow_node_to_all_policy
+  terraform state rm kubernetes_manifest.allow_lepton_to_systems_as_dest_policy
+  terraform state rm kubernetes_manifest.allow_lepton_to_k8s_service_policy
+fi
+
 DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-TEST}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"

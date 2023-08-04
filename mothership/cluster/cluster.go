@@ -377,23 +377,65 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 
 	dpEnv := cl.Spec.DeploymentEnvironment
 
-	command := "sh"
-	args := []string{"-c", "cd " + dir + " && ./uninstall.sh"}
+	command := "./uninstall.sh"
+	uninstallCmd := func(needDeleteNetworkPolicyTF bool) (*exec.Cmd, *chanwriter.Writer) {
+		cmd := exec.Command(command)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			DeploymentEnvironmentKey+"="+dpEnv,
+			"REGION="+cl.Spec.Region,
+			"CLUSTER_NAME="+clusterName,
+			"TF_WORKSPACE="+tfws,
+			"TF_API_TOKEN="+terraform.TempToken,
+		)
+		if needDeleteNetworkPolicyTF {
+			goutil.Logger.Warnw("retrying uninstall with DELETE_TF_STATE_NETWORK_POLICY=true",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
+			cmd.Env = append(cmd.Env, "DELETE_TF_STATE_NETWORK_POLICY=true")
+		}
 
-	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(),
-		DeploymentEnvironmentKey+"="+dpEnv,
-		"REGION="+cl.Spec.Region,
-		"CLUSTER_NAME="+clusterName,
-		"TF_WORKSPACE="+tfws,
-		"TF_API_TOKEN="+terraform.TempToken,
-	)
+		cw := chanwriter.New(logCh)
+		cmd.Stdout = cw
+		cmd.Stderr = cw
 
-	cw := chanwriter.New(logCh)
-	cmd.Stdout = cw
-	cmd.Stderr = cw
+		return cmd, cw
+	}
+
+	cmd, cw := uninstallCmd(false)
 	err = cmd.Run()
 	if err != nil {
+		// retry only once
+		goutil.Logger.Warnw("checking command run failure logs to decide retries",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
+		out := cw.Tail(-1)
+
+		// this is a temporary workaround for the following issue
+		// c.f., https://github.com/hashicorp/terraform-provider-kubernetes-alpha/issues/235
+		needDeleteNetworkPolicyTF := strings.Contains(out, "Failed to determine GroupVersionResource for manifest") ||
+			strings.Contains(out, "failed to determine resource GVK: no matches for kind")
+
+		// failed for some other reasons, don't retry (for now)
+		if needDeleteNetworkPolicyTF {
+			goutil.Logger.Infow("uninstall failed with retriable errors",
+				"cluster", clusterName,
+				"operation", "delete",
+				"error", cw.Tail(5),
+			)
+			cmd, cw = uninstallCmd(true)
+			err = cmd.Run()
+		}
+	}
+	if err != nil {
+		goutil.Logger.Errorw("uninstall failed",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", cw.Tail(5),
+		)
 		return fmt.Errorf("failed to run uninstall: %s", err)
 	}
 	exitCode := cmd.ProcessState.ExitCode()
