@@ -113,7 +113,17 @@ def _json_to_type_string(schema: Dict) -> str:
     """
     if "type" in schema:
         if "items" in schema:
+            # items defines the type of items in an array.
             typestr = f"{schema['type']}[{_json_to_type_string(schema['items'])}]"
+        elif "prefixItems" in schema:
+            # repeateditems defines the type of the first few items in an array, and
+            # then the min and max of the array.
+            min_items = schema.get("minItems", "?")
+            max_items = schema.get("maxItems", "?")
+            typestr = (
+                f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])},"
+                f" ...] (min={min_items},max={max_items})"
+            )
         else:
             typestr = schema["type"]
     elif "anyOf" in schema:
