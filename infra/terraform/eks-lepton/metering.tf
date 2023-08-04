@@ -1,7 +1,7 @@
 locals {
-  metering_namespace                = "metering"
-  metering_app_name                 = "metering"
-  metering_k8s_service_account_name = "metering-sa"
+  metering_namespace = "metering"
+  metering_app_name  = "metering"
+  metering_k8s_sa    = "metering-sa"
 }
 
 resource "kubernetes_namespace" "metering" {
@@ -81,7 +81,7 @@ resource "aws_iam_role" "metering" {
 
             # NOTE: do not use "kubernetes_service_account.metering.metadata[0].name"
             # it will fail due to cyclic dependency
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.metering.metadata[0].name}:${local.metering_k8s_service_account_name}"
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.metering.metadata[0].name}:${local.metering_k8s_sa}"
           }
         }
       },
@@ -106,13 +106,12 @@ resource "aws_iam_role_policy_attachment" "metering" {
 
 resource "kubernetes_service_account" "metering" {
   metadata {
-    name      = local.metering_k8s_service_account_name
+    name      = local.metering_k8s_sa
     namespace = kubernetes_namespace.metering.metadata[0].name
 
     # make sure exact match these
     # otherwise, IRSA would not work
     labels = {
-      # TODO: make this consistent with the actual metering job
       "app.kubernetes.io/instance" = local.metering_app_name
       "app.kubernetes.io/name"     = local.metering_app_name
     }

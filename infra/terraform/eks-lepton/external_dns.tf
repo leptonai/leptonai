@@ -1,3 +1,18 @@
+locals {
+  external_dns_namespace = "external-dns"
+  external_dns_app_name  = "external-dns"
+  external_dns_sa        = "external-dns-sa"
+}
+
+resource "kubernetes_namespace" "external_dns" {
+  metadata {
+    annotations = {
+      name = local.external_dns_namespace
+    }
+    name = local.external_dns_namespace
+  }
+}
+
 # https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md
 resource "aws_iam_policy" "external_dns" {
   name        = "${local.cluster_name}-external-dns-policy"
@@ -43,7 +58,7 @@ resource "aws_iam_role" "external_dns" {
         Condition : {
           StringEquals : {
             "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:external-dns:external-dns-sa"
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.external_dns.metadata[0].name}:${local.external_dns_sa}"
           }
         }
       }
@@ -66,26 +81,17 @@ resource "aws_iam_role_policy_attachment" "external_dns" {
   ]
 }
 
-resource "kubernetes_namespace" "external_dns" {
-  metadata {
-    annotations = {
-      name = "external-dns"
-    }
-    name = "external-dns"
-  }
-}
-
 # "helm_release.external_dns" creates default service accounts
 # but without amazon managed prometheus remote write enabled service accounts
 # overwrite here
 resource "kubernetes_service_account" "external_dns" {
   metadata {
-    name      = "external-dns-sa"
-    namespace = "external-dns"
+    name      = local.external_dns_sa
+    namespace = kubernetes_namespace.external_dns.metadata[0].name
 
     labels = {
-      "app.kubernetes.io/instance" = "external-dns"
-      "app.kubernetes.io/name"     = "external-dns"
+      "app.kubernetes.io/instance" = local.external_dns_app_name
+      "app.kubernetes.io/name"     = local.external_dns_app_name
     }
 
     annotations = {
@@ -107,8 +113,8 @@ resource "kubernetes_service_account" "external_dns" {
 
 # https://github.com/kubernetes-sigs/external-dns
 resource "helm_release" "external_dns" {
-  name             = "external-dns"
-  namespace        = "external-dns"
+  name             = local.external_dns_app_name
+  namespace        = kubernetes_namespace.external_dns.metadata[0].name
   create_namespace = false
 
   chart      = "external-dns"
@@ -134,7 +140,7 @@ resource "helm_release" "external_dns" {
 
     serviceAccount = {
       create = false
-      name   = "external-dns-sa"
+      name   = local.external_dns_sa
     }
 
     rbac = {
