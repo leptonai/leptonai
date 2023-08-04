@@ -1,3 +1,20 @@
+locals {
+  kube_prometheus_stack_namespace            = "kube-prometheus-stack"
+  kube_prometheus_stack_app_name             = "kube-prometheus-stack"
+  kube_prometheus_stack_sa_prometheus_server = "kube-prometheus-stack-prometheus"
+  kube_prometheus_stack_sa_grafana           = "kube-prometheus-stack-grafana"
+}
+
+# manually create here for manual service account creation
+resource "kubernetes_namespace" "kube_prometheus_stack" {
+  metadata {
+    annotations = {
+      name = local.kube_prometheus_stack_namespace
+    }
+    name = local.kube_prometheus_stack_namespace
+  }
+}
+
 # TODO: once alert manager is enabled, enable the log group
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group
 # resource "aws_cloudwatch_log_group" "kube_prometheus_stack" {
@@ -7,7 +24,7 @@
 #
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/prometheus_workspace
 resource "aws_prometheus_workspace" "kube_prometheus_stack" {
-  alias = "${var.cluster_name}-kube-prometheus-stack"
+  alias = "${var.cluster_name}-${local.kube_prometheus_stack_app_name}"
 
   # TODO: once alert manager is enabled, enable the log group
   # but with more limited arn (no wildcard)
@@ -15,47 +32,6 @@ resource "aws_prometheus_workspace" "kube_prometheus_stack" {
   # logging_configuration {
   #   log_group_arn = "${aws_cloudwatch_log_group.kube_prometheus_stack.arn}:*"
   # }
-}
-
-# manually create here for manual service account creation
-resource "kubernetes_namespace" "kube_prometheus_stack" {
-  metadata {
-    annotations = {
-      name = "kube-prometheus-stack"
-    }
-    name = "kube-prometheus-stack"
-  }
-}
-
-# role for prometheus-server
-resource "aws_iam_role" "kube_prometheus_stack_prometheus_server" {
-  # iam role name cannot be >64
-  name = "${var.cluster_name}-prom-server"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Sid    = ""
-        Principal = {
-          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
-        }
-        Condition = {
-          StringEquals = {
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:kube-prometheus-stack:kube-prometheus-stack-prometheus"
-          }
-        }
-      },
-    ]
-  })
-
-  depends_on = [
-    module.eks,
-    module.vpc,
-  ]
 }
 
 # policy for prometheus-server with write-only access
@@ -97,6 +73,37 @@ resource "aws_iam_policy" "kube_prometheus_stack_prometheus_server" {
   ]
 }
 
+# role for prometheus-server
+resource "aws_iam_role" "kube_prometheus_stack_prometheus_server" {
+  # iam role name cannot be >64
+  name = "${var.cluster_name}-prom-server"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Federated : "arn:${local.partition}:iam::${local.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}"
+        }
+        Condition = {
+          StringEquals = {
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.kube_prometheus_stack.metadata[0].name}:${local.kube_prometheus_stack_sa_prometheus_server}"
+          }
+        }
+      },
+    ]
+  })
+
+  depends_on = [
+    module.eks,
+    module.vpc,
+  ]
+}
+
 resource "aws_iam_role_policy_attachment" "kube_prometheus_stack_prometheus_server" {
   policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.kube_prometheus_stack_prometheus_server.name}"
   role       = aws_iam_role.kube_prometheus_stack_prometheus_server.name
@@ -112,16 +119,16 @@ resource "aws_iam_role_policy_attachment" "kube_prometheus_stack_prometheus_serv
 # overwrite here
 resource "kubernetes_service_account" "kube_prometheus_stack_prometheus_server" {
   metadata {
-    name      = "kube-prometheus-stack-prometheus"
-    namespace = "kube-prometheus-stack"
+    name      = local.kube_prometheus_stack_sa_prometheus_server
+    namespace = kubernetes_namespace.kube_prometheus_stack.metadata[0].name
 
     # this is copied from the original helm-created service account
     # ref. https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/templates/_helpers.tpl
     labels = {
       "app.kubernetes.io/component" = "prometheus"
-      "app.kubernetes.io/instance"  = "kube-prometheus-stack"
+      "app.kubernetes.io/instance"  = local.kube_prometheus_stack_app_name
       "app.kubernetes.io/name"      = "kube-prometheus-stack-prometheus"
-      "app.kubernetes.io/part-of"   = "kube-prometheus-stack"
+      "app.kubernetes.io/part-of"   = local.kube_prometheus_stack_app_name
     }
 
     annotations = {
@@ -160,8 +167,8 @@ resource "aws_iam_role" "kube_prometheus_stack_grafana" {
       },
       "Condition" : {
         "StringEquals": {
-          "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud": "sts.amazonaws.com",
-          "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub": "system:serviceaccount:kube-prometheus-stack:kube-prometheus-stack-grafana"
+          "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
+          "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.kube_prometheus_stack.metadata[0].name}:${local.kube_prometheus_stack_sa_grafana}"
         }
       }
     }
@@ -263,7 +270,7 @@ data "aws_iam_policy_document" "kube_prometheus_stack_grafana_update_assume_role
     }
     condition {
       test     = "StringEquals"
-      values   = ["system:serviceaccount:kube-prometheus-stack:kube-prometheus-stack-grafana"]
+      values   = ["system:serviceaccount:${kubernetes_namespace.kube_prometheus_stack.metadata[0].name}:${local.kube_prometheus_stack_sa_grafana}"]
       variable = "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub"
     }
   }
@@ -301,13 +308,13 @@ resource "null_resource" "kube_prometheus_stack_grafana_update_assume_role_polic
 # overwrite here
 resource "kubernetes_service_account" "kube_prometheus_stack_grafana" {
   metadata {
-    name      = "kube-prometheus-stack-grafana"
-    namespace = "kube-prometheus-stack"
+    name      = local.kube_prometheus_stack_sa_grafana
+    namespace = kubernetes_namespace.kube_prometheus_stack.metadata[0].name
 
     # this is copied from the original helm-created service account
     # ref. https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/templates/_helpers.tpl
     labels = {
-      "app.kubernetes.io/instance" = "kube-prometheus-stack"
+      "app.kubernetes.io/instance" = local.kube_prometheus_stack_app_name
       "app.kubernetes.io/name"     = "grafana"
     }
 
@@ -353,8 +360,8 @@ resource "aws_secretsmanager_secret_version" "grafana" {
 # https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
 # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
 resource "helm_release" "kube_prometheus_stack" {
-  name      = "kube-prometheus-stack"
-  namespace = "kube-prometheus-stack"
+  name      = local.kube_prometheus_stack_app_name
+  namespace = kubernetes_namespace.kube_prometheus_stack.metadata[0].name
 
   # pre-create namespace in order to pre-create service account
   # in this specific namespace and to map IAM role/policy to
@@ -439,7 +446,7 @@ resource "helm_release" "kube_prometheus_stack" {
       serviceAccount = {
         # use the one created above that maps IRSA for IAM permissions
         create = false
-        name   = "kube-prometheus-stack-prometheus"
+        name   = local.kube_prometheus_stack_sa_prometheus_server
       }
 
       prometheusSpec = {
@@ -690,7 +697,7 @@ resource "helm_release" "kube_prometheus_stack" {
       serviceAccount = {
         # use the one created above that maps IRSA for IAM permissions
         create = false
-        name   = "kube-prometheus-stack-grafana"
+        name   = local.kube_prometheus_stack_sa_grafana
       }
 
       sidecar = {
