@@ -50,8 +50,7 @@ ENABLE_COPY_LEPTON_CHARTS=${ENABLE_COPY_LEPTON_CHARTS:-false}
 if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
   # this is not running via mothership, thus requiring manual copy
   echo "copying eks-lepton charts from ../../../charts"
-  rm -rf ./charts && mkdir -p ./charts
-  cp -r ../../../charts/eks-lepton ./charts/
+  rm -rf ./charts && cp -r ../../../charts .
   echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
   cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
 else
