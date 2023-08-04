@@ -5,10 +5,22 @@ import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 const logout: NextApiHandler = async (req, res) => {
   const supabase = createPagesServerClientWithCookieOptions(req, res, true);
 
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } catch (e) {
+    console.error(e);
+  }
+
+  const cookies =
+    typeof res.getHeader === "function" ? [] : res.getHeader("Set-Cookie");
+  const presetCookies = Array.isArray(cookies)
+    ? cookies
+    : cookies !== undefined
+    ? [`${cookies}`]
+    : [];
 
   res.setHeader("Set-Cookie", [
-    ...(res.getHeader("Set-Cookie") as string[]),
+    ...presetCookies,
     // Remove cookies from previous versions
     `sb-oauth-auth-token-code-verifier=; Max-Age=0; Domain=${req.headers.host}; Path=/;`,
     `sb-oauth-auth-token=; Max-Age=0; Domain=${req.headers.host}; Path=/;`,
