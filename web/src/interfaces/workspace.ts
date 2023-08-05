@@ -8,6 +8,7 @@ export interface AuthorizedWorkspace {
   id: string;
   token: string;
   status: string;
+  paymentMethodAttached: boolean;
   displayName: string;
 }
 

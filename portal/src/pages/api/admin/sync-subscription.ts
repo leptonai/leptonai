@@ -17,14 +17,15 @@ export default async function handler(
   try {
     const { data: workspaces } = await supabaseAdminClient
       .from("workspaces")
-      .select("subscription_id");
+      .select("subscription_id")
+      .not("subscription_id", "is", null);
 
     if (!workspaces || workspaces.length === 0) {
       res.status(412).send("No workspace found");
     } else {
       await Promise.all(
         workspaces.map(
-          async (s) => await updateSubscriptionItems(s.subscription_id),
+          async (s) => await updateSubscriptionItems(s.subscription_id!),
         ),
       );
       res.status(200).send("All workspace updated");

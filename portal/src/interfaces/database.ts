@@ -65,7 +65,7 @@ export interface Database {
             columns: ["workspace_id"];
             referencedRelation: "workspaces";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       users: {
@@ -117,7 +117,7 @@ export interface Database {
             columns: ["auth_user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       workspaces: {
@@ -222,7 +222,7 @@ export interface Database {
             columns: ["owner"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       migrations: {
@@ -289,7 +289,7 @@ export interface Database {
             columns: ["bucket_id"];
             referencedRelation: "buckets";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
     };

@@ -9,11 +9,12 @@ export const retrieveSubscriptionItem = async (
   const { data: subscriptionId } = await supabaseAdminClient
     .from("workspaces")
     .select("subscription_id")
+    .not("subscription_id", "is", null)
     .eq("id", workspaceId);
 
   if (subscriptionId && subscriptionId.length > 0) {
     const subscription = await stripeClient.subscriptions.retrieve(
-      subscriptionId[0].subscription_id,
+      subscriptionId[0].subscription_id!,
     );
 
     return (

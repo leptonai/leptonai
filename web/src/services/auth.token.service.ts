@@ -27,7 +27,14 @@ export class AuthTokenService implements AuthService {
     const token = this.getTokenMapFromStorage();
     const id = url.hostname.split(".")[0];
     return of([
-      { url: url.toString(), token, id, displayName: id, status: "" },
+      {
+        url: url.toString(),
+        token,
+        id,
+        displayName: id,
+        status: "",
+        paymentMethodAttached: false,
+      },
     ]);
   }
 

@@ -1,5 +1,6 @@
 import { supabaseAdminClient } from "@/utils/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "@/interfaces/database";
 
 async function getWorkspace(id: string, client: SupabaseClient) {
   const { data: workspaces } = await client
@@ -12,6 +13,17 @@ async function getWorkspace(id: string, client: SupabaseClient) {
   } else {
     return null;
   }
+}
+
+export async function updateWorkspaceByConsumerId(
+  consumerId: string,
+  data: Partial<Database["public"]["Tables"]["workspaces"]["Row"]>,
+  supabaseClient: SupabaseClient,
+) {
+  return supabaseClient
+    .from("workspaces")
+    .update(data)
+    .eq("consumer_id", consumerId);
 }
 
 export async function getWorkspaceById(

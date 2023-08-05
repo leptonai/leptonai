@@ -1,9 +1,10 @@
 import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { Database } from "@/interfaces/database";
 
 // Caution: this is the admin supabase client, should not expose it directly
-export const supabaseAdminClient = createClient(
+export const supabaseAdminClient = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SECRET_KEY || "invalid",
   {
@@ -48,7 +49,7 @@ export const createPagesServerClientWithCookieOptions = (
   clearCookies?: boolean,
 ) => {
   const domainUrl = new URL(`protocol://${req.headers.host}`);
-  return createPagesServerClient(
+  return createPagesServerClient<Database>(
     { req, res },
     {
       cookieOptions: getCookieOptions(domainUrl, clearCookies),
