@@ -152,19 +152,8 @@ func (ih *InferenceHandler) Delete(c *gin.Context) {
 		ih.forwardToSysWorkspace(c)
 		return
 	}
-
 	name := c.Param("tiname")
-	err := ih.deleteFromName(c, tunaDeploymentName(name))
-	if err != nil {
-		goutil.Logger.Errorw("failed to delete tuna deployment",
-			"operation", "deleteTunaDeployment",
-			"deployment", name,
-			"error", err,
-		)
-		return
-	}
-
-	c.Status(http.StatusOK)
+	ih.deleteFromName(c, tunaDeploymentName(name), "deleteTunaDeployment")
 }
 
 func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInference) error {

@@ -191,36 +191,34 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
+	h.deleteFromName(c, did, "delete")
+}
 
-	if err := h.deleteFromName(c, did); err != nil {
+func (h *DeploymentHandler) deleteFromName(c *gin.Context, name string, op string) {
+	if err := h.ldDB.Delete(c, name); err != nil {
+		if _, err := h.ldDB.Get(c, name); err != nil && apierrors.IsNotFound(err) {
+			goutil.Logger.Debugw("requested to delete deployment that does not exist",
+				"deployment", name,
+				"operation", op,
+			)
+			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
+			return
+		}
+
 		goutil.Logger.Errorw("failed to delete deployment",
-			"deployment", did,
-			"operation", "delete",
+			"deployment", name,
+			"operation", op,
 			"error", err,
 		)
-		// already write http response in deleteFromName
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + name + ": " + err.Error()})
 		return
 	}
 
-	goutil.Logger.Infow("deleted deployment",
-		"deployment", did,
-		"operation", "delete",
+	goutil.Logger.Infow("successfully deleted deployment",
+		"deployment", name,
+		"operation", op,
 	)
-
 	c.Status(http.StatusOK)
-}
-
-func (h *DeploymentHandler) deleteFromName(c *gin.Context, name string) error {
-	if err := h.ldDB.Delete(c, name); err != nil {
-		if _, err := h.ldDB.Get(c, name); err != nil && apierrors.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
-			return err
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + name + ": " + err.Error()})
-		return err
-	}
-
-	return nil
 }
 
 func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
