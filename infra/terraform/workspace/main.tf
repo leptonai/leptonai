@@ -22,7 +22,7 @@ provider "aws" {
       # https://registry.terraform.io/providers/hashicorp/time/latest/docs
       # do not "time_static.activation_date.unix" since it may diverge between plan/apply
       # truncate the seconds here, since it's only used for resource garbage collection
-      LeptonClusterCreatedUnixTimeRFC3339 = formatdate("YYYY-MM-DD_hh-mm", time_static.activation_date.rfc3339)
+      LeptonWorkspaceCreatedUnixTimeRFC3339 = var.created_unix_time_rfc3339
     }
   }
 }

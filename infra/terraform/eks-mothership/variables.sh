@@ -43,3 +43,7 @@ fi
 if [[ "$MOTHERSHIP_ROLE_NAME" != "" ]]; then
     APPLY_FLAGS+=("-var=mothership_role_name=$MOTHERSHIP_ROLE_NAME")
 fi
+
+if [[ "$CREATED_UNIX_TIME_RFC3339" != "" ]]; then
+    APPLY_FLAGS+=("-var=created_unix_time_rfc3339=$CREATED_UNIX_TIME_RFC3339")
+fi

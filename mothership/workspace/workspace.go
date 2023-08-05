@@ -566,7 +566,10 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 	return ws, nil
 }
 
-const DeploymentEnvironmentKey = "DEPLOYMENT_ENVIRONMENT"
+const (
+	CreatedUnixTimeRFC3339Key = "CREATED_UNIX_TIME_RFC3339"
+	DeploymentEnvironmentKey  = "DEPLOYMENT_ENVIRONMENT"
+)
 
 func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace, logCh chan<- string) error {
 	start := time.Now()
@@ -626,6 +629,7 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(),
+		CreatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,

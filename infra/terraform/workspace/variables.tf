@@ -1,3 +1,10 @@
+# overwrites "LeptonClusterCreatedUnixTimeRFC3339" for AWS resource tagging
+variable "created_unix_time_rfc3339" {
+  description = "Cluster created unix time in RFC3339 format with hour precision"
+  type        = string
+  default     = "2023-08-05T00"
+}
+
 # TEST: may be destroyed within hours of creation
 # DEV: may be destroyed within 10 days of creation (with notice)
 # PROD: destroy should never be automated

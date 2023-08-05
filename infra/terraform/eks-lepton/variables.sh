@@ -103,3 +103,7 @@ fi
 if [[ "$RDS_AURORA_HOST" != "" ]]; then
     APPLY_FLAGS+=("-var=rds_aurora_host=$RDS_AURORA_HOST")
 fi
+
+if [[ "$CREATED_UNIX_TIME_RFC3339" != "" ]]; then
+    APPLY_FLAGS+=("-var=created_unix_time_rfc3339=$CREATED_UNIX_TIME_RFC3339")
+fi

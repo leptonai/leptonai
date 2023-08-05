@@ -518,6 +518,7 @@ func idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv
 }
 
 const (
+	CreatedUnixTimeRFC3339Key      = "CREATED_UNIX_TIME_RFC3339"
 	DeploymentEnvironmentKey       = "DEPLOYMENT_ENVIRONMENT"
 	DeploymentEnvironmentValueTest = "TEST"
 	DeploymentEnvironmentValueDev  = "DEV"
@@ -564,6 +565,7 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(),
+		CreatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"REGION="+cl.Spec.Region,
 		"CLUSTER_NAME="+clusterName,
