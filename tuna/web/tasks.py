@@ -2,6 +2,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -107,10 +108,18 @@ def cook(data_path, model_name_or_path, output_dir):
         f"--output_dir={output_dir}",
     ]
     logger.info(f"Docker command: {shlex.join(cmd)}")
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error when running docker command: {e}")
-        raise
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    log_lines = []
+    for line in proc.stdout:
+        line = line.decode("utf-8")
+        sys.stdout.write(line)
+        log_lines.append(line)
+    returncode = proc.wait()
+    if returncode:
+        logger.error(f"returncode={returncode}")
+        raise RuntimeError(
+            "Failed to run"
+            f" docker:\ncmd:\n{shlex.join(cmd)}\nreturncode:\n{returncode}\nlog:\n{''.join(log_lines)}"
+        )
     else:
         logger.info("Tuna Dish is ready")
