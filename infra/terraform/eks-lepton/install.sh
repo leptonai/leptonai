@@ -80,7 +80,7 @@ if [[ "$ENABLE_COPY_LEPTON_CHARTS" == "true" ]]; then
   echo "copying eks-lepton charts from ../../../charts"
   rm -rf ./charts && cp -r ../../../charts .
   echo "copying lepton CRDs from ../../../deployment-operator/config/crd/bases"
-  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/lepton/templates/
+  cp ../../../deployment-operator/config/crd/bases/*.yaml ./charts/eks-lepton/templates/
 else
   echo "skipping copying lepton charts"
 fi
