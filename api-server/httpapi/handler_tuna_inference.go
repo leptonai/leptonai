@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -85,7 +84,7 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 
 	if !ih.isSysWorkspace {
 		ti.Metadata.Name = ih.workspaceName + "-" + ti.Metadata.Name
-		r := c.Request.Clone(context.Background())
+		r := c.Request.Clone(c)
 
 		jti, err := json.Marshal(ti)
 		if err != nil {
@@ -187,7 +186,7 @@ func tunaDeploymentName(name string) string {
 }
 
 func (ih *InferenceHandler) forwardToSysWorkspace(c *gin.Context) {
-	r := c.Request.Clone(context.Background())
+	r := c.Request.Clone(c)
 	r.URL.Path = strings.Replace(r.URL.Path, "/tuna/inference/", "/tuna/inference/"+ih.workspaceName+"-", 1)
 	ih.sysProxy.ServeHTTP(c.Writer, r)
 }

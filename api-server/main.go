@@ -110,8 +110,9 @@ func main() {
 		)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutInternalDur)
 	pbu := goutil.MustOpenAndAccessBucket(
-		context.Background(),
+		ctx,
 		*bucketTypeFlag,
 		*bucketNameFlag,
 		*regionFlag,
@@ -119,12 +120,13 @@ func main() {
 	)
 	backupPrefix := "workspace-backups"
 	bbu := goutil.MustOpenAndAccessBucket(
-		context.Background(),
+		ctx,
 		*bucketTypeFlag,
 		*bucketNameFlag,
 		*regionFlag,
 		backupPrefix,
 	)
+	cancel()
 
 	workspaceState := httpapi.WorkspaceState(*stateFlag)
 

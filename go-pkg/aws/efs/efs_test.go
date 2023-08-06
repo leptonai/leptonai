@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
 )
@@ -21,7 +22,9 @@ func TestEFS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fss, err := ListFileSystems(context.Background(), cfg, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	fss, err := ListFileSystems(ctx, cfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

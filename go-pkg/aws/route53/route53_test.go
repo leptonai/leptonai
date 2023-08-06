@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
 )
@@ -22,7 +23,9 @@ func TestRoute53(t *testing.T) {
 	}
 
 	cloudZone := "Z007822916VK7B4DFVMP7"
-	records, err := ListRecords(context.Background(), cfg, cloudZone)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	records, err := ListRecords(ctx, cfg, cloudZone)
 	if err != nil {
 		t.Fatal(err)
 	}

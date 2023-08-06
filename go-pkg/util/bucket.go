@@ -26,7 +26,7 @@ func MustOpenAndAccessBucket(ctx context.Context, typ, name, region, prefix stri
 		)
 	}
 
-	ok, err := bu.IsAccessible(context.Background())
+	ok, err := bu.IsAccessible(ctx)
 	if err != nil {
 		Logger.Fatalw("failed to access bucket",
 			"operation", "openBucket",
