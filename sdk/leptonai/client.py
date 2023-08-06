@@ -71,21 +71,30 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
     """
     Get the docstring for a method from the openapi specification.
     """
+    is_post = False
     try:
-        post_info = openapi["paths"][f"{path_name}"]["post"]
+        api_info = openapi["paths"][f"{path_name}"]["post"]
+        is_post = True
     except KeyError:
-        # No path or post info exists: this is probably a get method, and we do not
-        # support get methods' docstring yet...
-        return ""
+        # No path or post info exists: this is probably a get method.
+        try:
+            api_info = openapi["paths"][f"{path_name}"]["get"]
+        except KeyError:
+            # No path or get info exists: we will just return an empty docstring.
+            return ""
 
     # Add description to docstring. We will use the description, and if not,
     # the summary as a backup plan, and if not, we will not add a docstring.
-    docstring = post_info.get("description", post_info.get("summary", ""))
+    docstring = api_info.get("description", api_info.get("summary", ""))
+
+    if not is_post:
+        # TODO: add support to parse get methods' parameters.
+        return docstring
 
     docstring += "\n\nAutomatically inferred parameters from openapi:"
     # Add schema to the docstring.
     try:
-        schema_ref = post_info["requestBody"]["content"]["application/json"]["schema"][
+        schema_ref = api_info["requestBody"]["content"]["application/json"]["schema"][
             "$ref"
         ]
         schema_name = schema_ref.split("/")[-1]
@@ -116,7 +125,7 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
 
     # Add example input to the docstring if existing.
     try:
-        example = post_info["requestBody"]["content"]["application/json"]["example"]
+        example = api_info["requestBody"]["content"]["application/json"]["example"]
         example_string = "\n  ".join(
             [str(k) + ": " + str(v) for k, v in example.items()]
         )
@@ -127,7 +136,7 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
 
     # Add output schema to the docstring.
     try:
-        schema_ref = post_info["responses"]["200"]["content"]["application/json"][
+        schema_ref = api_info["responses"]["200"]["content"]["application/json"][
             "schema"
         ]["$ref"]
         schema_name = schema_ref.split("/")[-1]
@@ -272,7 +281,17 @@ class Client(object):
                 # For the sake of avoiding confusions, we will clear the path cache.
                 self._path_cache = {}
                 break
-            self._post_path(path_name, function_name)
+            if "post" in self.openapi["paths"][path_name]:
+                self._post_path(path_name, function_name)
+            elif "get" in self.openapi["paths"][path_name]:
+                self._get_path(path_name, function_name)
+            else:
+                warnings.warn(
+                    f"Endpoint {path_name} does not have a post or get method."
+                    " Currently we only support post and get methods.\n\n"
+                    + _fallback_api_call_message,
+                    RuntimeWarning,
+                )
 
     # Normal usages will go through then `__getattr__` path (which triggers
     # `_post_path` and `_post`). Directly using `_post` and `_get` is
@@ -288,18 +307,48 @@ class Client(object):
         """
         internal method to create a method that reflects the post path.
 
-        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then
-                    "run" is the name used here.
+        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then "run" is the name used here.
         :param function_name: the name of the function.
-        :return: a method that can be called to post to the path.
+        :return: a method that can be called to call post to the path.
         """
         if function_name not in self._path_cache:
 
-            def _method(**kwargs):
+            def _method(*args, **kwargs):
+                if args:
+                    raise RuntimeError(
+                        "Photon methods do not support positional arguments - did you"
+                        " forget to pass in a keyword argument?"
+                    )
                 res = self._post(
                     path_name,
                     json=jsonable_encoder(kwargs),
                 )
+                res.raise_for_status()
+                return res.json()
+
+            _method.__name__ = function_name
+            if self.openapi:
+                _method.__doc__ = _get_method_docstring(self.openapi, path_name)
+            self._path_cache[function_name] = _method
+        return self._path_cache[function_name]
+
+    def _get_path(self, path_name: str, function_name: str) -> Callable:
+        """
+        internal method to create a method that reflects the get path.
+
+        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then "run" is the name used here.
+        :param function_name: the name of the function.
+        :return: a method that can be called to call get to the path.
+        """
+        if function_name not in self._path_cache:
+
+            def _method(*args, **kwargs):
+                if args:
+                    raise RuntimeError(
+                        "Photon methods do not support positional arguments - did you"
+                        " forget to pass in a keyword argument?"
+                    )
+                res = self._get(path_name, params=kwargs)
                 res.raise_for_status()
                 return res.json()
 
