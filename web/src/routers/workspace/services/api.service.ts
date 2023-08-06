@@ -96,5 +96,6 @@ export abstract class ApiService {
     upcoming?: Stripe.UpcomingInvoice;
     open?: Stripe.Invoice;
     products: Stripe.Product[];
+    list: Stripe.Invoice[];
   }>;
 }

@@ -1,4 +1,3 @@
-import { Tag } from "antd";
 import Decimal from "decimal.js";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
@@ -21,8 +20,8 @@ export const ProductUnitPrice: FC<{
   }, [product]);
 
   return (
-    <Tag bordered={false}>
+    <>
       ${unit} {product?.name === "storage" ? "/ GB / hour" : "/ minutes"}
-    </Tag>
+    </>
   );
 };

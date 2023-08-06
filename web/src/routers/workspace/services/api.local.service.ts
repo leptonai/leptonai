@@ -273,7 +273,8 @@ export class ApiLocalService implements ApiService {
     products: Stripe.Product[];
     upcoming?: Stripe.UpcomingInvoice;
     open?: Stripe.Invoice;
+    list: Stripe.Invoice[];
   }> {
-    return of({ products: [] });
+    return of({ products: [], list: [] });
   }
 }

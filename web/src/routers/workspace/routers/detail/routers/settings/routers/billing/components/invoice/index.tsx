@@ -1,143 +1,161 @@
+import { DocumentDownload, Launch } from "@carbon/icons-react";
 import { css } from "@emotion/react";
-import { Card } from "@lepton-dashboard/components/card";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import { DateParser } from "@lepton-dashboard/components/date-parser";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { InvoiceTable } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/invoice-table";
-import { BillingService } from "@lepton-dashboard/routers/workspace/services/billing.service";
-import { useInject } from "@lepton-libs/di";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Collapse, Descriptions, Progress, Tag, Typography } from "antd";
+import { Button, Collapse, Divider, Space, Table, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import Decimal from "decimal.js";
-import { FC, useMemo, useState } from "react";
+import { ItemType } from "rc-collapse/es/interface";
+import { FC, useMemo } from "react";
+import Stripe from "stripe";
 
-export const Invoice: FC = () => {
-  const [invoiceLoading, setInvoiceLoading] = useState(true);
-  const billingService = useInject(BillingService);
-  const { upcoming, open, products } = useStateFromObservable(
-    () => billingService.getInvoice(),
-    { products: [] },
-    {
-      next: () => {
-        setInvoiceLoading(false);
-      },
-    }
-  );
-  const invoice = useMemo(() => {
-    if (open) {
-      return {
-        name: "Invoice",
-        data: open,
-      };
-    }
-    if (upcoming) {
-      return {
-        name: "Upcoming invoice",
-        data: upcoming,
-      };
-    } else {
-      return null;
-    }
-  }, [upcoming, open]);
-  const creditGranted = invoice?.data?.discount?.coupon.amount_off;
-  const creditReason = invoice?.data?.discount?.coupon.name;
-  const creditUsed = invoice?.data?.total_discount_amounts?.[0].amount;
-  const creditExpired = (invoice?.data?.period_end || 0) * 1000;
-  const theme = useAntdTheme();
-  const percentage = useMemo(() => {
-    if (!creditGranted || creditUsed === undefined) {
-      return null;
-    } else {
-      return new Decimal(creditUsed).mul(100).div(creditGranted).toNumber();
-    }
-  }, [creditUsed, creditGranted]);
+const Period: FC<{ start: number; end: number }> = ({ start, end }) => {
   return (
-    <Card borderless shadowless paddingless loading={invoiceLoading}>
-      {invoice && (
-        <Collapse
+    <Tag>
+      {dayjs(start * 1000).format("LL")} - {dayjs(end * 1000).format("LL")}
+    </Tag>
+  );
+};
+
+const colorMap: { [key: string]: string } = {
+  paid: "success",
+  draft: "default",
+  open: "processing",
+  void: "danger",
+  uncollectible: "error",
+};
+
+export const Invoice: FC<{
+  upcoming?: Stripe.UpcomingInvoice;
+  open?: Stripe.Invoice;
+  list: Stripe.Invoice[];
+  products: Stripe.Product[];
+}> = ({ upcoming, open, list, products }) => {
+  const items: ItemType[] = useMemo(() => {
+    const upcomingItem = upcoming && {
+      key: "upcoming",
+      label: <Typography.Text strong>Upcoming invoice</Typography.Text>,
+      extra: <Period start={upcoming.period_start} end={upcoming.period_end} />,
+      children: <InvoiceTable invoice={upcoming} products={products} />,
+    };
+    const openItem = open && {
+      key: "open",
+      label: <Typography.Text strong>Open invoice</Typography.Text>,
+      extra: (
+        <Space size={0} split={<Divider type="vertical" />}>
+          <Button
+            icon={<CarbonIcon icon={<Launch />} />}
+            size="small"
+            href={open.hosted_invoice_url!}
+            onClick={(e) => e.stopPropagation()}
+            target="_blank"
+          >
+            Make payment
+          </Button>
+          <Button
+            icon={<CarbonIcon icon={<DocumentDownload />} />}
+            onClick={(e) => e.stopPropagation()}
+            size="small"
+            href={open.invoice_pdf!}
+            target="_blank"
+          >
+            Download
+          </Button>
+          <Period start={open.period_start} end={open.period_end} />
+        </Space>
+      ),
+      children: <InvoiceTable invoice={open} products={products} />,
+    };
+    const invoiceList = {
+      key: "list",
+      label: <Typography.Text strong>Invoices</Typography.Text>,
+      children: (
+        <Table
+          scroll={{ x: "100%" }}
           size="small"
-          css={css`
-            .ant-collapse-content {
-              overflow: hidden;
-            }
-            .ant-collapse-content-box {
-              padding: 0 !important;
-            }
-          `}
-          defaultActiveKey={["credits"]}
-          items={[
+          bordered={false}
+          columns={[
             {
-              key: "credits",
-              label: <Typography.Text strong>Credits</Typography.Text>,
-              children:
-                creditGranted &&
-                creditUsed !== undefined &&
-                percentage !== null ? (
-                  <Descriptions
-                    css={css`
-                      .ant-descriptions-view {
-                        border: none !important;
-                      }
-                      .ant-descriptions-item-label {
-                        font-weight: 600;
-                        color: ${theme.colorTextHeading} !important;
-                      }
-                    `}
-                    bordered
-                    layout="vertical"
-                    column={{ xxl: 4, xl: 4, lg: 4, md: 4, sm: 2, xs: 1 }}
-                    size="small"
-                  >
-                    <Descriptions.Item label="GRANTED">
-                      <Tag>
-                        ${new Decimal(creditGranted).div(100).toFixed()}
-                      </Tag>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="REASON">
-                      {creditReason}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="EXPIRES">
-                      {dayjs(creditExpired).format("LL")}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="USED">
-                      <Progress
-                        css={css`
-                          margin: 0;
-                          .ant-progress-text {
-                            width: auto;
-                          }
-                        `}
-                        format={() => (
-                          <>
-                            ${new Decimal(creditUsed).div(100).toFixed()} / $
-                            {new Decimal(creditGranted).div(100).toFixed()}
-                          </>
-                        )}
-                        size={[200, 8]}
-                        percent={percentage}
-                        status="normal"
-                      />
-                    </Descriptions.Item>
-                  </Descriptions>
-                ) : (
-                  <Typography.Paragraph>No credit granted</Typography.Paragraph>
-                ),
+              dataIndex: "status",
+              title: "STATUS",
+              render: (status) => (
+                <Tag bordered={false} color={colorMap[status]}>
+                  {status.toUpperCase()}
+                </Tag>
+              ),
             },
             {
-              key: "invoice",
-              label: <Typography.Text strong>{invoice.name}</Typography.Text>,
-              extra: (
-                <>
-                  {dayjs(invoice.data.period_start * 1000).format("LL")} -{" "}
-                  {dayjs(invoice.data.period_end * 1000).format("LL")}
-                </>
+              dataIndex: "created",
+              title: "DATE",
+              render: (time) => <DateParser detail date={time * 1000} />,
+            },
+            {
+              dataIndex: "total",
+              title: "AMOUNT",
+              render: (total) => (
+                <Tag bordered={false}>
+                  ${new Decimal(total).dividedBy(100).toFixed()}
+                </Tag>
               ),
-              children: (
-                <InvoiceTable invoice={invoice.data} products={products} />
+            },
+            {
+              dataIndex: "id",
+              title: (
+                <div
+                  css={css`
+                    margin-left: 8px;
+                  `}
+                >
+                  ACTIONS
+                </div>
+              ),
+              render: (_, record) => (
+                <Space size={0} split={<Divider type="vertical" />}>
+                  <Button
+                    icon={<CarbonIcon icon={<Launch />} />}
+                    type="text"
+                    size="small"
+                    href={record.hosted_invoice_url!}
+                    target="_blank"
+                  >
+                    Detail
+                  </Button>
+                  <Button
+                    icon={<CarbonIcon icon={<DocumentDownload />} />}
+                    type="text"
+                    size="small"
+                    href={record.invoice_pdf!}
+                    target="_blank"
+                  >
+                    Download
+                  </Button>
+                </Space>
               ),
             },
           ]}
+          rowKey="id"
+          dataSource={list}
+          pagination={false}
         />
-      )}
-    </Card>
+      ),
+    };
+    return [openItem, upcomingItem, invoiceList].filter(Boolean) as ItemType[];
+  }, [upcoming, open, products, list]);
+  return (
+    <Collapse
+      size="small"
+      css={css`
+        background: transparent;
+        .ant-collapse-content {
+          overflow: hidden;
+        }
+        .ant-collapse-content-box {
+          padding: 0 !important;
+        }
+      `}
+      defaultActiveKey={[open ? "open" : "upcoming"]}
+      items={items}
+    />
   );
 };

@@ -1,4 +1,3 @@
-import { Tag } from "antd";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
 
@@ -14,8 +13,8 @@ export const ProductQuantity: FC<{
   }, [products, priceId]);
 
   return (
-    <Tag bordered={false}>
+    <>
       {quantity} {product?.name === "storage" ? "GB * hour" : "minutes"}
-    </Tag>
+    </>
   );
 };

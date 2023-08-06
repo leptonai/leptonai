@@ -28,10 +28,6 @@ export const InvoiceTable: FC<{
             border-bottom: none;
           }
         }
-        th.ant-table-cell,
-        .ant-table-row td {
-          padding: 8px 16px !important;
-        }
       `}
       dataSource={dataSource}
       rowKey="id"

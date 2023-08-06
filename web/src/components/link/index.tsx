@@ -47,6 +47,7 @@ export const Link = forwardRef<
       color: inherit;
       display: inline-flex;
       align-items: center;
+      white-space: nowrap;
       cursor: pointer;
       &:hover {
         color: ${theme.colorTextHeading};

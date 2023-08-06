@@ -31,13 +31,15 @@ export const General: FC = () => {
             {workspaceTrackerService.workspace?.auth.id}
           </Typography.Text>
         </Descriptions.Item>
-        <Descriptions.Item label="Name">
-          <Typography.Text
-            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
-          >
-            {workspaceTrackerService.workspace?.auth.displayName}
-          </Typography.Text>
-        </Descriptions.Item>
+        {workspaceTrackerService.workspace?.auth.displayName && (
+          <Descriptions.Item label="Name">
+            <Typography.Text
+              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
+            >
+              {workspaceTrackerService.workspace?.auth.displayName}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
         <Descriptions.Item label="Release date">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
@@ -45,7 +47,7 @@ export const General: FC = () => {
             {workspaceTrackerService.workspace?.data?.build_time}
           </Typography.Text>
         </Descriptions.Item>
-        <Descriptions.Item label="Version hash">
+        <Descriptions.Item label="Version">
           <Typography.Text
             copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
           >

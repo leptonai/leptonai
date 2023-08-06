@@ -416,6 +416,7 @@ export class ApiServerService implements ApiService {
       products: Stripe.Product[];
       upcoming?: Stripe.UpcomingInvoice;
       open?: Stripe.Invoice;
+      list: Stripe.Invoice[];
     }>(
       `${this.portalUrl}/api/billing/invoice`,
       {

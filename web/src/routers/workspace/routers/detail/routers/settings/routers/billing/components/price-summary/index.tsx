@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { Tag } from "antd";
 import Decimal from "decimal.js";
 import { FC } from "react";
 
@@ -10,6 +11,7 @@ export const PriceSummary: FC<{
   return (
     <div
       css={css`
+        margin-top: 2px;
         justify-content: end;
         display: flex;
       `}
@@ -29,7 +31,9 @@ export const PriceSummary: FC<{
           flex: 0 0 150px;
         `}
       >
-        {prefix} ${new Decimal(amount).dividedBy(100).toFixed()}
+        <Tag bordered={false}>
+          {prefix} ${new Decimal(amount).dividedBy(100).toFixed()}
+        </Tag>
       </span>
     </div>
   );
