@@ -104,16 +104,12 @@ func HandleWorkspaceCreate(c *gin.Context) {
 
 	lw, err := workspace.Create(c, spec)
 	if err != nil {
-		msg, kvs := "failed to create workspace", []interface{}{"workspace", spec.Name,
+		goutil.Logger.Infow("failed to create workspace",
+			"workspace", spec.Name,
 			"operation", "create",
-			"error", err}
-		if apierrors.IsNotFound(err) {
-			goutil.Logger.Infow(msg, kvs)
-		} else {
-			goutil.Logger.Errorw(msg, kvs)
-		}
+			"error", err,
+		)
 
-		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return
 	}
 

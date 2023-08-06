@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -12,9 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/leptonai/lepton/api-server/quota"
 	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
 	"github.com/leptonai/lepton/go-pkg/datastore"
+	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/worker"
 	"github.com/leptonai/lepton/mothership/cluster"
@@ -180,16 +183,25 @@ func monitorTotalNumberOfWorkspaces() {
 	}
 }
 
-func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
+func Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	workspaceName := spec.Name
 	if !util.ValidateWorkspaceName(workspaceName) {
-		return nil, fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.WorkspaceNameInvalidMessage)
+		err := fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.WorkspaceNameInvalidMessage)
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
+		return nil, err
 	}
 
 	totalWorkspaces := metrics.GetTotalWorkspaces(prometheus.DefaultGatherer)
 	log.Printf("currently total %d workspaces... creating one more", totalWorkspaces)
 	if totalWorkspaces >= maxWorkspaces {
-		return nil, fmt.Errorf("max workspace size limit exceeded (up to %d)", maxWorkspaces)
+		err := fmt.Errorf("max workspace size limit exceeded (up to %d)", maxWorkspaces)
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", workspaceName,
+			"operation", "create",
+			"error", err,
+		)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
+		return nil, err
 	}
 
 	ws := &crdv1alpha1.LeptonWorkspace{
@@ -212,11 +224,16 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	case crdv1alpha1.WorkspaceStatePaused:
 	case crdv1alpha1.WorkspaceStateTerminated:
 	default:
-		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
+		err := fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
+		return nil, err
+
 	}
 
 	if err := quota.SetQuotaFromQuotaGroup(&ws.Spec); err != nil {
-		return nil, fmt.Errorf("invalid quota setting: %w", err)
+		userErr := fmt.Errorf("invalid quota setting: %w", err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + userErr.Error()})
+		return nil, userErr
 	}
 
 	// TODO: data race: if another call concurrently creates a ws with the same name under
@@ -224,9 +241,17 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	// ws is not created.
 	_, err := DataStore.Get(ctx, workspaceName)
 	if err == nil {
-		return nil, fmt.Errorf("workspace %s already exists", workspaceName)
+		conflictErr := fmt.Errorf("workspace %s already exists", workspaceName)
+		ctx.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeResourceConflict, "message": "failed to create workspace: " + conflictErr.Error()})
+		return nil, conflictErr
 	}
 	if !apierrors.IsNotFound(err) {
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", workspaceName,
+			"operation", "create",
+			"error", err,
+		)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return nil, fmt.Errorf("unknown error: %w", err)
 	}
 
@@ -234,21 +259,56 @@ func Create(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	// between Get and Update, the update will fail. Users will see the error and retry.
 	cl, err := cluster.DataStore.Get(ctx, spec.ClusterName)
 	if err != nil {
-		return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
+		if apierrors.IsNotFound(err) {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "failed to create workspace: " + err.Error()})
+			return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
+		} else {
+			goutil.Logger.Errorw("failed to create workspace",
+				"workspace", workspaceName,
+				"operation", "create",
+				"error", err,
+			)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
+			return nil, fmt.Errorf("unknown error: %w", err)
+		}
 	}
 	cl.Status.Workspaces = append(cl.Status.Workspaces, workspaceName)
 	if err := cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", workspaceName,
+			"operation", "create",
+			"error", err,
+		)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 
 	if err := DataStore.Create(ctx, workspaceName, ws); err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %w", err)
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", spec.Name,
+			"operation", "create",
+			"error", err,
+		)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
+		return nil, fmt.Errorf("DataStore error: %w", err)
 	}
 	if err := updateState(ws, crdv1alpha1.WorkspaceOperationalStateCreating); err != nil {
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", workspaceName,
+			"operation", "create",
+			"error", err,
+		)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
-	return idempotentCreate(ctx, ws)
+	ws, err = idempotentCreate(ctx, ws)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
+		return nil, err
+	}
+
+	return ws, nil
 }
 
 func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
@@ -527,6 +587,11 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 	err = terraform.CreateWorkspace(ctx, terraformWorkspaceName(workspaceName))
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
+			goutil.Logger.Errorw("failed to create workspace",
+				"workspace", workspaceName,
+				"operation", "create",
+				"error", err,
+			)
 			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
 		} else {
 			goutil.Logger.Infow("terraform workspace already exists",
@@ -560,6 +625,11 @@ func idempotentCreate(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace) (*cr
 		tryUpdatingStateToFailed(workspaceName)
 	})
 	if err != nil {
+		goutil.Logger.Errorw("failed to create workspace",
+			"workspace", workspaceName,
+			"operation", "create",
+			"error", err,
+		)
 		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
