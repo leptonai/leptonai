@@ -6,7 +6,11 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/conditions.mothership-service: '[{"field":"http-header","httpHeaderConfig":{"httpHeaderName": "Authorization","values":["Bearer {{ .Values.mothership.apiToken }}"]}}]'
     alb.ingress.kubernetes.io/certificate-arn: {{ .Values.mothership.certificateArn }}
-    external-dns.alpha.kubernetes.io/hostname: "mothership.{{ .Values.mothership.rootDomain }}"
+{{ if eq .Release.Namespace "default" }}
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.mothership.name }}.{{ .Values.mothership.rootDomain }}"
+{{ else }}
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.mothership.name }}-{{ .Release.Namespace }}.{{ .Values.mothership.rootDomain }}"
+{{ end }}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
