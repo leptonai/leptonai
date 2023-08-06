@@ -29,8 +29,26 @@ class WeirdlyNamedPhoton(Photon):
         return "hello world"
 
 
+class PostAndGet(Photon):
+    def init(self):
+        pass
+
+    @handler("run_post", method="POST")
+    def run_post(self, query: str):
+        return f"hello world ({query})"
+
+    @handler("run_get", method="GET")
+    def run_get(self, query: str):
+        return f"hello world ({query})"
+
+
 def weirdly_named_photon_wrapper(port):
     photon = WeirdlyNamedPhoton()
+    photon.launch(port=port)
+
+
+def post_and_get_wrapper(port):
+    photon = PostAndGet()
     photon.launch(port=port)
 
 
@@ -60,11 +78,29 @@ class TestClient(unittest.TestCase):
         time.sleep(1)
         url = f"http://localhost:{port}"
         client = Client(url)
+        print(client.openapi)
         # Tests if run_with_slashes and run_with_dashes are both registered
         res = client.run_with_slashes()
         self.assertTrue(res == "hello world")
         res = client.run_with_dashes()
         self.assertTrue(res == "hello world")
+        proc.terminate()
+
+    def test_client_with_post_and_get(self):
+        port = find_free_port()
+        proc = multiprocessing.Process(target=post_and_get_wrapper, args=(port,))
+        proc.start()
+        time.sleep(1)
+        url = f"http://localhost:{port}"
+        client = Client(url)
+        # Tests if run_post and run_get are both registered
+        res = client.run_post(query="post")
+        self.assertTrue(res == "hello world (post)")
+        res = client.run_get(query="get")
+        self.assertTrue(res == "hello world (get)")
+        # Tests if we are guarding args - users should use kwargs.
+        self.assertRaises(RuntimeError, client.run_post, "post")
+        self.assertRaises(RuntimeError, client.run_get, "get")
         proc.terminate()
 
     def test_client_with_token(self):
