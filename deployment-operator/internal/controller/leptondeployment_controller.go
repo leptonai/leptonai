@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
@@ -514,7 +515,10 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "status.phase", func(rawObj client.Object) []string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, "status.phase", func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return []string{string(pod.Status.Phase)}
 	}); err != nil {
