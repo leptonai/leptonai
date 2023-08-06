@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict
+from typing import Callable, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 import warnings
 
@@ -10,18 +10,18 @@ from leptonai.api.workspace import get_full_workspace_url, get_full_workspace_ap
 from .api import deployment, APIError
 
 
-def _is_valid_url(candidate_str):
+def _is_valid_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     return parsed.scheme != "" and parsed.netloc != ""
 
 
-def _is_local_url(candidate_str):
+def _is_local_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
     return parsed.netloc.lower() in local_hosts
 
 
-def local(port=8080):
+def local(port: int = 8080) -> str:
     """
     Create a connection string for a local deployment. This is useful for testing
     purposes, and does not require you to type the local IP address repeatedly.
@@ -36,75 +36,6 @@ def local(port=8080):
         str: The connection string.
     """
     return f"http://localhost:{port}"
-
-
-class Workspace:
-    """
-    The lepton python class that holds necessary info to access a workspace.
-
-    A workspace allows one to access a set of deployments under this workspace.
-    Currently, we do not support local workspaces - all workspaces are remote.
-    """
-
-    def __init__(self, workspace_id: str, token: Optional[str] = None):
-        """
-        Creates a Lepton workspace.
-
-        Args:
-            workspace_id (str): The workspace id.
-            token (str, optional): The token to use for authentication. Defaults to None.
-        """
-        self.workspace_id = workspace_id
-        self.workspace_url = get_full_workspace_api_url(workspace_id)
-        if self.workspace_url is None:
-            raise ValueError(
-                f"Workspace {workspace_id} does not seem to exist. Did you specify the"
-                " right id?"
-            )
-        self.token = token if token else ""
-
-    @cached_property
-    def _workspace_deployments(self):
-        deployments = deployment.list_deployment(self.workspace_url, self.token)
-        if isinstance(deployments, APIError):
-            raise ValueError(
-                f"Failed to list deployments for workspace {self.workspace_id}"
-            )
-        else:
-            return deployments
-
-    @cached_property
-    def _workspace_deployments_names(self):
-        return [deployment["name"] for deployment in self._workspace_deployments]
-
-    def list_deployments(self):
-        """
-        List all deployments on this workspace.
-        """
-        return self._workspace_deployments_names
-
-    def client(self, deployment_name, token=None):
-        """
-        Get the client to call a deployment in this workspace. Note that this
-        does not actually start a deployment - it only creates a client that
-        can call the currently active deployment.
-
-        Args:
-            deployment_name (str): The deployment name.
-            token (str, optional): The token to use for authentication. If None,
-                the default is to use the token passed in when the workspace was
-                created. Defaults to None.
-        Returns:
-            client: The client to call the deployment.
-        """
-        if deployment_name not in self._workspace_deployments_names:
-            raise ValueError(
-                f"Deployment {deployment_name} not found in workspace"
-                f" {self.workspace_id}."
-            )
-        return Client(
-            self.workspace_id, deployment_name, token if token else self.token
-        )
 
 
 def _json_to_type_string(schema: Dict) -> str:
@@ -136,12 +67,12 @@ def _json_to_type_string(schema: Dict) -> str:
     return typestr
 
 
-def _get_method_docstring(openapi: Dict, name: str) -> str:
+def _get_method_docstring(openapi: Dict, path_name: str) -> str:
     """
     Get the docstring for a method from the openapi specification.
     """
     try:
-        post_info = openapi["paths"][f"/{name}"]["post"]
+        post_info = openapi["paths"][f"{path_name}"]["post"]
     except KeyError:
         # No path or post info exists: this is probably a get method, and we do not
         # support get methods' docstring yet...
@@ -214,7 +145,18 @@ def _get_method_docstring(openapi: Dict, name: str) -> str:
     return docstring
 
 
-class Client:
+_fallback_api_call_message = (
+    "If you are the producer of the deployment, please make sure that the deployment"
+    " has an openapi specification at '/openapi.json'. This is usually guaranteed if"
+    " you are using the standard Photon class. Also kindly ensure that every endpoint"
+    " is uniquely named (note that we will try to convert '-' and '/' in URL strings to"
+    " underscores). If you are the consumer of the deployment, and do not have control"
+    " over the endpoint design, a workaround is to use the `_post` method to call the"
+    " endpoints directly, instead of using the pythonic method name."
+)
+
+
+class Client(object):
     """
     The lepton python client that calls a deployment in a workspace.
 
@@ -234,6 +176,9 @@ class Client:
     or via a full URL if you are managing Lepton photons yourself:
         client = Client("https://my-custom-lepton-deployment.com/")
     """
+
+    _path_cache: Dict[str, Callable] = {}
+    openapi: Optional[Dict] = None
 
     # TODO: add support for creating client with name/id
     def __init__(
@@ -284,62 +229,171 @@ class Client:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
 
+        # At load time, we will also load the openapi specification.
+        try:
+            raw_openapi = self._get("/openapi.json")
+            raw_openapi.raise_for_status()
+            try:
+                self.openapi = raw_openapi.json()
+            except requests.JSONDecodeError:
+                warnings.warn(
+                    "OpenAPI spec failed to be json decoded. This is not an issue of"
+                    " the client, but a corrupted openapi spec.\n\n"
+                    + _fallback_api_call_message,
+                    RuntimeWarning,
+                )
+        except requests.ConnectionError as e:
+            raise requests.ConnectionError(
+                "Cannot connect to server for openapi.json. This is not an issue of the"
+                f" client, but a network error. More details:\n\n{e}"
+            )
+        except requests.HTTPError:
+            warnings.warn(
+                "OpenAPI spec does not exist. This is not a client bug, but the"
+                " deployment does not have an openapi specification.\n\n"
+                + _fallback_api_call_message,
+                RuntimeWarning,
+            )
+
+        # At load time, we will also set up all path caches.
+        for path_name in self.paths():
+            function_name = path_name.strip("/")
+            # Replace the slashes and dashes in function_name with underscore
+            # to make it a valid python function name.
+            function_name = function_name.replace("/", "_").replace("-", "_")
+            if function_name in self._path_cache:
+                warnings.warn(
+                    "Multiple endpoints with the same name detected. This is not"
+                    " an issue of the runtime - it is caused by the deployment giving"
+                    " multiple endpoints that maps to the same python name.\n\n"
+                    + _fallback_api_call_message,
+                    RuntimeWarning,
+                )
+                # For the sake of avoiding confusions, we will clear the path cache.
+                self._path_cache = {}
+                break
+            self._post_path(path_name, function_name)
+
     # Normal usages will go through then `__getattr__` path (which triggers
     # `_post_path` and `_post`). Directly using `_post` and `_get` is
     # discouraged, only when accessing endpoints that are not defined via
     # Photon.
-    def _get(self, path, *args, **kwargs):
+    def _get(self, path: str, *args, **kwargs) -> requests.models.Response:
         return self._session.get(urljoin(self.url, path), *args, **kwargs)
 
-    def _post(self, path, *args, **kwargs):
+    def _post(self, path: str, *args, **kwargs) -> requests.models.Response:
         return self._session.post(urljoin(self.url, path), *args, **kwargs)
 
-    def _post_path(self, name: str):
+    def _post_path(self, path_name: str, function_name: str) -> Callable:
         """
         internal method to create a method that reflects the post path.
 
         :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then
                     "run" is the name used here.
+        :param function_name: the name of the function.
         :return: a method that can be called to post to the path.
         """
-        if name not in self._path_cache:
+        if function_name not in self._path_cache:
 
             def _method(**kwargs):
                 res = self._post(
-                    name,
+                    path_name,
                     json=jsonable_encoder(kwargs),
                 )
                 res.raise_for_status()
                 return res.json()
 
-            _method.__name__ = name
+            _method.__name__ = function_name
             if self.openapi:
-                _method.__doc__ = _get_method_docstring(self.openapi, name)
-            self._path_cache[name] = _method
-        return self._path_cache[name]
+                _method.__doc__ = _get_method_docstring(self.openapi, path_name)
+            self._path_cache[function_name] = _method
+        return self._path_cache[function_name]
 
-    @cached_property
-    def openapi(self):
+    def paths(self) -> List[str]:
         """
-        Returns the OpenAPI specification of the deployment, or None if the
-        deployment does not have an openapi specified.
-        """
-        try:
-            return self._get("/openapi.json").json()
-        except requests.exceptions.ConnectionError:
-            return None
+        Returns a list of paths that are defined in the openapi specification.
+        If the openapi specification does not exist, returns an empty list.
 
-    def paths(self):
+        :return: a list of paths, each of which is a string.
+        """
         if self.openapi is not None:
             return self.openapi["paths"].keys()
         return []
 
     def __getattr__(self, name: str):
-        if f"/{name}" in self.paths():
-            return self._post_path(name)
-        raise AttributeError(name)
+        try:
+            return self._path_cache[name]
+        except KeyError:
+            raise AttributeError(f"No such endpoint named {name} found.")
 
-    def __dir__(self) -> List[str]:
-        # Note: self.paths() returns the paths with the '/' prefix, so we will
-        # remove that part.
-        return list(super().__dir__()) + list(p.strip("/") for p in self.paths())
+    def __dir__(self):
+        return self._path_cache.keys()
+
+
+class Workspace(object):
+    """
+    The lepton python class that holds necessary info to access a workspace.
+
+    A workspace allows one to access a set of deployments under this workspace.
+    Currently, we do not support local workspaces - all workspaces are remote.
+    """
+
+    def __init__(self, workspace_id: str, token: Optional[str] = None):
+        """
+        Creates a Lepton workspace.
+
+        Args:
+            workspace_id (str): The workspace id.
+            token (str, optional): The token to use for authentication. Defaults to None.
+        """
+        self.workspace_id = workspace_id
+        self.workspace_url = get_full_workspace_api_url(workspace_id)
+        if self.workspace_url is None:
+            raise ValueError(
+                f"Workspace {workspace_id} does not seem to exist. Did you specify the"
+                " right id?"
+            )
+        self.token = token if token else ""
+
+    @cached_property
+    def _workspace_deployments(self) -> List:
+        deployments = deployment.list_deployment(self.workspace_url, self.token)
+        if isinstance(deployments, APIError):
+            raise ValueError(
+                f"Failed to list deployments for workspace {self.workspace_id}"
+            )
+        else:
+            return deployments
+
+    @cached_property
+    def _workspace_deployments_names(self) -> List[str]:
+        return [deployment["name"] for deployment in self._workspace_deployments]
+
+    def list_deployments(self) -> List:
+        """
+        List all deployments on this workspace.
+        """
+        return self._workspace_deployments_names
+
+    def client(self, deployment_name: str, token: Optional[str] = None) -> Client:
+        """
+        Get the client to call a deployment in this workspace. Note that this
+        does not actually start a deployment - it only creates a client that
+        can call the currently active deployment.
+
+        Args:
+            deployment_name (str): The deployment name.
+            token (str, optional): The token to use for authentication. If None,
+                the default is to use the token passed in when the workspace was
+                created. Defaults to None.
+        Returns:
+            client: The client to call the deployment.
+        """
+        if deployment_name not in self._workspace_deployments_names:
+            raise ValueError(
+                f"Deployment {deployment_name} not found in workspace"
+                f" {self.workspace_id}."
+            )
+        return Client(
+            self.workspace_id, deployment_name, token if token else self.token
+        )
