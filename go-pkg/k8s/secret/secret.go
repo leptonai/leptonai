@@ -80,9 +80,8 @@ func (s *SecretSet) Put(ctx context.Context, secrets []SecretItem) error {
 	}
 	if exist {
 		return k8s.MustLoadDefaultClient().Update(ctx, secret)
-	} else {
-		return k8s.MustLoadDefaultClient().Create(ctx, secret)
 	}
+	return k8s.MustLoadDefaultClient().Create(ctx, secret)
 }
 
 // Delete deletes the specified keys from the secret set.

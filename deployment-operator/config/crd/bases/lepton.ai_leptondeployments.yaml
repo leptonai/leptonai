@@ -101,6 +101,10 @@ spec:
                 type: string
               photon_prefix:
                 type: string
+              pull_image_secrets:
+                items:
+                  type: string
+                type: array
               resource_requirement:
                 description: LeptonDeploymentResourceRequirement defines the resource
                   requirement of the deployment.
@@ -110,11 +114,15 @@ spec:
                   accelerator_type:
                     type: string
                   cpu:
+                    description: CPU is the number of CPU cores required for each
+                      replica.
                     type: number
                   ephemeral_storage_in_gb:
                     format: int64
                     type: integer
                   memory:
+                    description: Memory is the amount of memory in MiB required for
+                      each replica.
                     format: int64
                     type: integer
                   min_replicas:

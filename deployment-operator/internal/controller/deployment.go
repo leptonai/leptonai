@@ -361,5 +361,9 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		SecurityContext:              k8s.DefaultPodSecurityContext(),
 	}
 
+	for _, sn := range ld.Spec.ImagePullSecrets {
+		spec.ImagePullSecrets = append(spec.ImagePullSecrets, corev1.LocalObjectReference{Name: sn})
+	}
+
 	return spec
 }

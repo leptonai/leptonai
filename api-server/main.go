@@ -269,6 +269,9 @@ func main() {
 		// TODO: add list and get
 	}
 
+	ipsh := httpapi.NewImagePullSecretHandler(*handler)
+	ipsh.AddToRoute(v1)
+
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 

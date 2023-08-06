@@ -60,6 +60,8 @@ type LeptonDeploymentUserSpec struct {
 	Envs []EnvVar `json:"envs"`
 	// +optional
 	Mounts []Mount `json:"mounts"`
+	// +optional
+	ImagePullSecrets []string `json:"pull_image_secrets"`
 }
 
 // GetSpecName returns the name of the deployment.

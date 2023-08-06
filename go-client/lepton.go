@@ -63,3 +63,9 @@ func (l *Lepton) Storage() *Storage {
 		Lepton: *l,
 	}
 }
+
+func (l *Lepton) ImagePullSecret() *ImagePullSecret {
+	return &ImagePullSecret{
+		Lepton: *l,
+	}
+}

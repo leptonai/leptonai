@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/go-pkg/k8s/service"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
