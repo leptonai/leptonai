@@ -20,3 +20,7 @@ func init() {
 	VersionInfo.BuildTime = BuildTime
 	VersionInfo.GitCommit = GitCommit
 }
+
+// Release is the version of the lepton-api-server
+// TODO: read from branch name or tag
+var Release = "0.7.0"
