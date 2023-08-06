@@ -3,7 +3,7 @@ import { cors } from "@/utils/cors";
 import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 
 const logout: NextApiHandler = async (req, res) => {
-  const supabase = createPagesServerClientWithCookieOptions(req, res, true);
+  const supabase = createPagesServerClientWithCookieOptions(req, res);
 
   try {
     await supabase.auth.signOut();
@@ -12,7 +12,7 @@ const logout: NextApiHandler = async (req, res) => {
   }
 
   const cookies =
-    typeof res.getHeader === "function" ? [] : res.getHeader("Set-Cookie");
+    typeof res.getHeader !== "function" ? [] : res.getHeader("Set-Cookie");
   const presetCookies = Array.isArray(cookies)
     ? cookies
     : cookies !== undefined
@@ -22,8 +22,6 @@ const logout: NextApiHandler = async (req, res) => {
   res.setHeader("Set-Cookie", [
     ...presetCookies,
     // Remove cookies from previous versions
-    `sb-oauth-auth-token-code-verifier=; Max-Age=0; Domain=${req.headers.host}; Path=/;`,
-    `sb-oauth-auth-token=; Max-Age=0; Domain=${req.headers.host}; Path=/;`,
     `sb-oauth-auth-token-code-verifier=; Max-Age=0; Path=/;`,
     `sb-oauth-auth-token=; Max-Age=0; Path=/;`,
   ]);
