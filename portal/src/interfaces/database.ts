@@ -123,6 +123,7 @@ export interface Database {
       workspaces: {
         Row: {
           consumer_id: string | null;
+          coupon_id: string | null;
           created_at: string | null;
           display_name: string | null;
           id: string;
@@ -134,6 +135,7 @@ export interface Database {
         };
         Insert: {
           consumer_id?: string | null;
+          coupon_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
           id: string;
@@ -145,6 +147,7 @@ export interface Database {
         };
         Update: {
           consumer_id?: string | null;
+          coupon_id?: string | null;
           created_at?: string | null;
           display_name?: string | null;
           id?: string;
