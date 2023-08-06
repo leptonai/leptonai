@@ -22,7 +22,7 @@ const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
         data: [open],
       } = await stripeClient.invoices.list({
         subscription,
-        status: "paid",
+        status: "open",
       });
       const { data: invoiceList } = await stripeClient.invoices.list({
         subscription,
