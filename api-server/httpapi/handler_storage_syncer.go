@@ -30,7 +30,6 @@ func (h *StorageSyncerHandler) Create(c *gin.Context) {
 			"storageSyncer", s.Metadata.Name,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create storage syncer: " + err.Error()})
 		return
 	}
@@ -39,7 +38,6 @@ func (h *StorageSyncerHandler) Create(c *gin.Context) {
 		"operation", "createStorageSyncer",
 		"storageSyncer", s.Metadata.Name,
 	)
-
 	c.Status(http.StatusCreated)
 }
 
@@ -53,7 +51,6 @@ func (h *StorageSyncerHandler) Delete(c *gin.Context) {
 			"storageSyncer", name,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete storage syncer: " + err.Error()})
 		return
 	}

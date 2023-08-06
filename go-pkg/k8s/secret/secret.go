@@ -40,11 +40,11 @@ func New(namespace, secretSetName string, backupBucket *blob.Bucket) *SecretSet 
 func (s *SecretSet) List(ctx context.Context) ([]string, error) {
 	secret := &corev1.Secret{}
 	err := k8s.MustLoadDefaultClient().Get(ctx, s.namespacedName, secret)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
+	if apierrors.IsNotFound(err) {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	ret := make([]string, 0, len(secret.Data))
 	for key := range secret.Data {

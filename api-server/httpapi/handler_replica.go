@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -30,8 +31,21 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 	clientset := k8s.MustInitK8sClientSet()
 
 	ld, err := h.ldDB.Get(c, did)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("deployment not found",
+			"operation", "getReplicas",
+			"deployment", did,
+		)
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+		return
+	}
+	if err != nil {
+		goutil.Logger.Errorw("failed to get deployment",
+			"operation", "getReplicas",
+			"deployment", did,
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + did + ": " + err.Error()})
 		return
 	}
 
@@ -42,7 +56,6 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 			"deployment", did,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -63,7 +76,6 @@ func (h *ReplicaHandler) List(c *gin.Context) {
 			"deployment", did,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get replicas for deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
@@ -93,7 +105,6 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 			"operation", "shell",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get in cluster config for shell"})
 		return
 	}
@@ -106,7 +117,6 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 			"replica", rid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create client for shell"})
 		return
 	}
@@ -119,7 +129,6 @@ func (h *ReplicaHandler) Shell(c *gin.Context) {
 			"url", inClusterConfig.Host,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create connection for shell"})
 		return
 	}
@@ -174,7 +183,6 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 			"replica", rid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot get logs for replica " + rid + ": " + err.Error()})
 		return
 	}
@@ -200,7 +208,6 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 			"replica", rid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "cannot stream logs for replica " + rid + ": " + err.Error()})
 		return
 	}

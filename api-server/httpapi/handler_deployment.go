@@ -26,12 +26,20 @@ type DeploymentHandler struct {
 func (h *DeploymentHandler) Create(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		goutil.Logger.Warnw("failed to read request body",
+			"operation", "createDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	userSpec := leptonaiv1alpha1.LeptonDeploymentUserSpec{}
 	if err := json.Unmarshal(body, &userSpec); err != nil {
+		goutil.Logger.Debugw("failed to unmarshal request body",
+			"operation", "createDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
@@ -43,14 +51,17 @@ func (h *DeploymentHandler) Create(c *gin.Context) {
 
 	goutil.Logger.Infow("created deployment",
 		"deployment", userSpec.Name,
-		"operation", "create",
+		"operation", "createDeployment",
 	)
-
 	c.JSON(http.StatusCreated, NewLeptonDeployment(ld).Output())
 }
 
 func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1alpha1.LeptonDeploymentUserSpec) (*leptonaiv1alpha1.LeptonDeployment, error) {
 	if err := h.validateCreateInput(c, &spec); err != nil {
+		goutil.Logger.Debugw("invalid input",
+			"operation", "createDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return nil, err
 	}
@@ -59,8 +70,23 @@ func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1al
 	ld.Spec.LeptonDeploymentUserSpec = spec
 
 	ph, err := h.phDB.Get(c, ld.Spec.PhotonID)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("photon not found",
+			"deployment", spec.Name,
+			"photon", ld.Spec.PhotonID,
+			"operation", "createDeployment",
+		)
+		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
+		return nil, err
+	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployemnt spec: photon " + ld.Spec.PhotonID + " does not exist."})
+		goutil.Logger.Errorw("failed to get photon",
+			"deployment", spec.Name,
+			"photon", ld.Spec.PhotonID,
+			"operation", "createDeployment",
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + ld.Spec.PhotonID + ": " + err.Error()})
 		return nil, err
 	}
 
@@ -88,6 +114,14 @@ func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1al
 	ld.Name = ld.GetSpecName()
 
 	err = h.ldDB.Create(c, ld.Name, ld)
+	if apierrors.IsAlreadyExists(err) {
+		goutil.Logger.Debugw("deployment already exists",
+			"deployment", spec.Name,
+			"operation", "createDeployment",
+		)
+		c.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "deployment " + ld.Name + " already exists"})
+		return nil, err
+	}
 	if err != nil {
 		goutil.Logger.Errorw("failed to create deployment",
 			"deployment", spec.Name,
@@ -107,10 +141,9 @@ func (h *DeploymentHandler) List(c *gin.Context) {
 	lds, err := h.ldDB.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list deployments",
-			"operation", "list",
+			"operation", "listDeployments",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list deployments: " + err.Error()})
 		return
 	}
@@ -125,34 +158,62 @@ func (h *DeploymentHandler) List(c *gin.Context) {
 func (h *DeploymentHandler) Update(c *gin.Context) {
 	did := c.Param("did")
 	ld, err := h.ldDB.Get(c, did)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("deployment not found",
+			"deployment", did,
+			"operation", "updateDeployment",
+		)
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+		return
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + did + ": " + err.Error()})
-		}
+		goutil.Logger.Errorw("failed to get deployment",
+			"deployment", did,
+			"operation", "updateDeployment",
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + did + ": " + err.Error()})
 		return
 	}
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		goutil.Logger.Warnw("failed to read request body",
+			"deployment", did,
+			"operation", "updateDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	spec := &leptonaiv1alpha1.LeptonDeploymentUserSpec{}
 	if err := json.Unmarshal(body, &spec); err != nil {
+		goutil.Logger.Debugw("failed to unmarshal deployment spec",
+			"deployment", did,
+			"operation", "updateDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "malformed deployment spec: " + err.Error()})
 		return
 	}
 	spec.Name = did
 
 	if err := h.validateUpdateInput(c, ld, spec); err != nil {
+		goutil.Logger.Debugw("invalid deployment spec",
+			"deployment", did,
+			"operation", "updateDeployment",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "invalid deployment spec: " + err.Error()})
 		return
 	}
 
 	if !ld.Patch(spec) {
+		goutil.Logger.Debugw("no valid field to update",
+			"deployment", did,
+			"operation", "updateDeployment",
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "no valid field to patch"})
 		return
 	}
@@ -160,30 +221,49 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 	ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateUpdating
 
 	err = h.ldDB.Update(c, ld.Name, ld)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Errorw("deployment not found",
+			"deployment", ld.GetSpecName(),
+			"operation", "updateDeployment",
+		)
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + ld.GetSpecName() + " not found"})
+		return
+	}
 	if err != nil {
 		goutil.Logger.Errorw("failed to update deployment",
 			"deployment", ld.GetSpecName(),
-			"operation", "update",
+			"operation", "updateDeployment",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to update deployment " + ld.GetSpecName() + ": " + err.Error()})
 		return
 	}
 
 	goutil.Logger.Infow("updated deployment",
 		"deployment", ld.GetSpecName(),
-		"operation", "update",
+		"operation", "updateDeployment",
 	)
-
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
 }
 
 func (h *DeploymentHandler) Get(c *gin.Context) {
 	did := c.Param("did")
 	ld, err := h.ldDB.Get(c, did)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("deployment not found",
+			"deployment", did,
+			"operation", "getDeployment",
+		)
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + did + " not found"})
+		return
+	}
+	if err != nil {
+		goutil.Logger.Errorw("failed to get deployment",
+			"deployment", did,
+			"operation", "getDeployment",
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + did + ": " + err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, NewLeptonDeployment(ld).Output())
@@ -191,23 +271,23 @@ func (h *DeploymentHandler) Get(c *gin.Context) {
 
 func (h *DeploymentHandler) Delete(c *gin.Context) {
 	did := c.Param("did")
-	h.deleteFromName(c, did, "delete")
+	h.deleteDeployment(c, did)
 }
 
-func (h *DeploymentHandler) deleteFromName(c *gin.Context, name string, op string) {
-	if err := h.ldDB.Delete(c, name); err != nil {
-		if _, err := h.ldDB.Get(c, name); err != nil && apierrors.IsNotFound(err) {
-			goutil.Logger.Debugw("requested to delete deployment that does not exist",
-				"deployment", name,
-				"operation", op,
-			)
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
-			return
-		}
-
+func (h *DeploymentHandler) deleteDeployment(c *gin.Context, name string) {
+	err := h.ldDB.Delete(c, name)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("requested to delete deployment that does not exist",
+			"deployment", name,
+			"operation", "deleteDeployment",
+		)
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
+		return
+	}
+	if err != nil {
 		goutil.Logger.Errorw("failed to delete deployment",
 			"deployment", name,
-			"operation", op,
+			"operation", "deleteDeployment",
 			"error", err,
 		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete deployment " + name + ": " + err.Error()})
@@ -216,7 +296,7 @@ func (h *DeploymentHandler) deleteFromName(c *gin.Context, name string, op strin
 
 	goutil.Logger.Infow("successfully deleted deployment",
 		"deployment", name,
-		"operation", op,
+		"operation", "deleteDeployment",
 	)
 	c.Status(http.StatusOK)
 }
@@ -271,20 +351,20 @@ func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptona
 	}
 
 	_, err = h.phDB.Get(ctx, ld.PhotonID)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
 		return fmt.Errorf("photon %s does not exist", ld.PhotonID)
 	}
-	return nil
+	return err
 }
 
 // TODO: add test
 func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, old *leptonaiv1alpha1.LeptonDeployment, spec *leptonaiv1alpha1.LeptonDeploymentUserSpec) error {
 	if spec.PhotonID != "" {
 		ph, err := h.phDB.Get(ctx, spec.PhotonID)
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("photon %s does not exist", spec.PhotonID)
+		}
 		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return fmt.Errorf("photon %s does not exist", spec.PhotonID)
-			}
 			return fmt.Errorf("failed to get photon %s: %s", spec.PhotonID, err)
 		}
 		if old.Spec.PhotonName != ph.GetSpecName() {
@@ -311,17 +391,6 @@ func (h *DeploymentHandler) checkQuota(ctx context.Context, spec *leptonaiv1alph
 	}
 
 	q, err := k8s.GetResourceQuota(ctx, h.namespace, "quota-"+h.workspaceName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		goutil.Logger.Errorw("failed to get resource quota",
-			"operation", "check quota",
-			"namespace", h.namespace,
-			"workspace", h.workspaceName,
-			"error", err,
-		)
-
-		return fmt.Errorf("failed to get resource quota: %v", err)
-	}
-
 	// if quota is not found, skip quota check since it is unlimited
 	if apierrors.IsNotFound(err) {
 		goutil.Logger.Warnw("resource quota not found",
@@ -330,6 +399,15 @@ func (h *DeploymentHandler) checkQuota(ctx context.Context, spec *leptonaiv1alph
 			"workspace", h.workspaceName,
 		)
 		return nil
+	}
+	if err != nil {
+		goutil.Logger.Errorw("failed to get resource quota",
+			"operation", "check quota",
+			"namespace", h.namespace,
+			"workspace", h.workspaceName,
+			"error", err,
+		)
+		return fmt.Errorf("failed to get resource quota: %v", err)
 	}
 
 	var cr *leptonaiv1alpha1.LeptonDeploymentResourceRequirement

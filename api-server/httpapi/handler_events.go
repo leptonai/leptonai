@@ -23,7 +23,6 @@ func (h *DeploymentEventHandler) Get(c *gin.Context) {
 			"deployment", name,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get events for " + name + ": " + err.Error()})
 		return
 	}

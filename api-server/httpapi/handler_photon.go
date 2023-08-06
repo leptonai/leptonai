@@ -8,11 +8,11 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/leptonai/lepton/go-pkg/datastore"
-	"github.com/leptonai/lepton/go-pkg/httperrors"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/go-pkg/httperrors"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,8 +24,21 @@ type PhotonHandler struct {
 func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
 	ph, err := h.phDB.Get(c, pid)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("photon not found",
+			"operation", "downloadPhoton",
+			"photon", pid,
+		)
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
+		return
+	}
+	if err != nil {
+		goutil.Logger.Errorw("failed to get photon",
+			"operation", "downloadPhoton",
+			"photon", pid,
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + pid + " from database: " + err.Error()})
 		return
 	}
 	body, err := h.photonBucket.ReadAll(c, ph.GetSpecID())
@@ -35,7 +48,6 @@ func (h *PhotonHandler) Download(c *gin.Context) {
 			"photon", pid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + pid + " from object storage: " + err.Error()})
 		return
 	}
@@ -50,8 +62,20 @@ func (h *PhotonHandler) Get(c *gin.Context) {
 	} else {
 		pid := c.Param("pid")
 		ph, err := h.phDB.Get(c, pid)
-		if err != nil {
+		if apierrors.IsNotFound(err) {
+			goutil.Logger.Debugw("photon not found",
+				"operation", "getPhoton",
+				"photon", pid,
+			)
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
+			return
+		}
+		if err != nil {
+			goutil.Logger.Errorw("failed to get photon",
+				"operation", "getPhoton",
+				"photon", pid,
+				"error", err,
+			)
 			return
 		}
 		c.JSON(http.StatusOK, NewPhoton(ph).Output())
@@ -69,26 +93,39 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 	if err != nil {
 		goutil.Logger.Errorw("failed to list deployments",
 			"operation", "deletePhoton",
+			"photon", pid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the photon is in use: " + err.Error()})
 		return
 	}
 	for _, ld := range list {
 		if ld.Spec.PhotonID == pid {
+			goutil.Logger.Debugw("photon is in use",
+				"operation", "deletePhoton",
+				"photon", pid,
+				"deployment", ld.GetSpecName(),
+			)
 			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "photon " + pid + " is in use: deployment " + ld.GetSpecName()})
 			return
 		}
 	}
 
-	if err := h.phDB.Delete(c, pid); err != nil {
+	err = h.phDB.Delete(c, pid)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("photon not found",
+			"operation", "deletePhoton",
+			"photon", pid,
+		)
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + pid + " not found"})
+		return
+	}
+	if err != nil {
 		goutil.Logger.Errorw("failed to delete photon from database",
 			"operation", "deletePhoton",
 			"photon", pid,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete photon " + pid + " from database: " + err.Error()})
 		return
 	}
@@ -97,7 +134,6 @@ func (h *PhotonHandler) Delete(c *gin.Context) {
 		"operation", "deletePhoton",
 		"photon", pid,
 	)
-
 	c.Status(http.StatusOK)
 }
 
@@ -110,7 +146,6 @@ func (h *PhotonHandler) List(c *gin.Context) {
 			"operation", "listPhotons",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list photons: " + err.Error()})
 		return
 	}
@@ -137,12 +172,20 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 	// Open the zip archive
 	body, err := getContentFromFileOrRawBody(c.Request)
 	if err != nil {
+		goutil.Logger.Warnw("failed to read request body",
+			"operation", "createPhoton",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to read request body: " + err.Error()})
 		return
 	}
 
 	ph, err := h.getPhotonFromMetadata(body)
 	if err != nil {
+		goutil.Logger.Debugw("failed to parse input",
+			"operation", "createPhoton",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
@@ -156,22 +199,26 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 			"photon", ph.GetSpecID(),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to upload photon to object storage: " + err.Error()})
 		return
 	}
 
-	if err := h.phDB.Create(c, ph.GetSpecID(), ph); err != nil {
+	err = h.phDB.Create(c, ph.GetSpecID(), ph)
+	if apierrors.IsAlreadyExists(err) {
+		goutil.Logger.Debugw("photon already exists",
+			"operation", "createPhoton",
+			"photon", ph.GetSpecID(),
+		)
+		c.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeResourceConflict, "message": "failed to create photon: " + err.Error()})
+		return
+	}
+	if err != nil {
 		goutil.Logger.Errorw("failed to create photon in database",
 			"operation", "createPhoton",
 			"photon", ph.GetSpecID(),
 			"error", err,
 		)
-		if datastore.IsErrorAlreadyExist(err) {
-			c.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeResourceConflict, "message": "failed to create photon: " + err.Error()})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create photon: " + err.Error()})
 		return
 	}
 
@@ -179,7 +226,6 @@ func (h *PhotonHandler) Create(c *gin.Context) {
 		"operation", "createPhoton",
 		"photon", ph.GetSpecID(),
 	)
-
 	c.JSON(http.StatusOK, NewPhoton(ph).Output())
 }
 

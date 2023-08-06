@@ -79,7 +79,6 @@ func (jh *JobHandler) AddJob(c *gin.Context) {
 		"operation", "AddJob",
 		"job", j.ID,
 	)
-
 	c.JSON(response.StatusCode, j)
 }
 
@@ -97,7 +96,6 @@ func (jh *JobHandler) CancelJob(c *gin.Context) {
 			"job", id,
 			"error", err,
 		)
-
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -129,7 +127,6 @@ func (jh *JobHandler) checkIDAndForward(c *gin.Context) string {
 				"job", jobID,
 				"error", err,
 			)
-
 			c.Status(http.StatusInternalServerError)
 		}
 		return jobID

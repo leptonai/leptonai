@@ -21,7 +21,6 @@ func (h *SecretHandler) List(c *gin.Context) {
 			"operation", "listSecrets",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to list secret: " + err.Error()})
 		return
 	}
@@ -32,11 +31,19 @@ func (h *SecretHandler) List(c *gin.Context) {
 func (h *SecretHandler) Create(c *gin.Context) {
 	secrets := []secret.SecretItem{}
 	if err := c.BindJSON(&secrets); err != nil {
+		goutil.Logger.Debugw("failed to parse input",
+			"operation", "createSecret",
+			"error", err,
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to parse input: " + err.Error()})
 		return
 	}
 	for _, env := range secrets {
 		if !goutil.ValidateEnvName(env.Name) {
+			goutil.Logger.Debugw("invalid env name",
+				"operation", "createSecret",
+				"name", env.Name,
+			)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    httperrors.ErrorCodeValidationError,
 				"message": goutil.InvalidEnvNameMessage + ":" + env.Name},
@@ -50,7 +57,6 @@ func (h *SecretHandler) Create(c *gin.Context) {
 			"operation", "createSecret",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create secret: " + err.Error()})
 		return
 	}
@@ -58,7 +64,6 @@ func (h *SecretHandler) Create(c *gin.Context) {
 	goutil.Logger.Infow("created secret",
 		"operation", "createSecret",
 	)
-
 	c.Status(http.StatusOK)
 }
 
@@ -75,13 +80,17 @@ func (h *SecretHandler) Delete(c *gin.Context) {
 			"operation", "deleteSecret",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to verify whether or not the secret is in use: " + err.Error()})
 		return
 	}
 	for _, ld := range list {
 		for _, env := range ld.Spec.Envs {
 			if env.ValueFrom.SecretNameRef == key {
+				goutil.Logger.Debugw("secret is in use",
+					"operation", "deleteSecret",
+					"secret", key,
+					"deployment", ld.GetSpecName(),
+				)
 				c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "secret " + key + " is in use: deployment " + ld.GetSpecName()})
 				return
 			}
@@ -93,7 +102,6 @@ func (h *SecretHandler) Delete(c *gin.Context) {
 			"operation", "deleteSecret",
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to delete secret: " + err.Error()})
 		return
 	}
@@ -101,6 +109,5 @@ func (h *SecretHandler) Delete(c *gin.Context) {
 	goutil.Logger.Infow("deleted secret",
 		"operation", "deleteSecret",
 	)
-
 	c.Status(http.StatusOK)
 }

@@ -25,18 +25,20 @@ func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 		Namespace: h.namespace,
 		Name:      name,
 	}, deployment)
+	if apierrors.IsNotFound(err) {
+		goutil.Logger.Debugw("deployment not found",
+			"operation", "getRedinessIssue",
+			"deployment", name,
+		)
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
+		return
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "deployment " + name + " not found"})
-			return
-		}
-
 		goutil.Logger.Errorw("failed to get deployment",
 			"operation", "getRedinessIssue",
 			"deployment", name,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + name + ": " + err.Error()})
 		return
 	}
@@ -48,7 +50,6 @@ func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 			"deployment", name,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get deployment " + name + "readiness issues: " + err.Error()})
 		return
 	}

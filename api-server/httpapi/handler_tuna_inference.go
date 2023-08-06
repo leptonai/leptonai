@@ -153,7 +153,7 @@ func (ih *InferenceHandler) Delete(c *gin.Context) {
 		return
 	}
 	name := c.Param("tiname")
-	ih.deleteFromName(c, tunaDeploymentName(name), "deleteTunaDeployment")
+	ih.deleteDeployment(c, tunaDeploymentName(name))
 }
 
 func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInference) error {

@@ -34,7 +34,6 @@ func (h *MonitorningHandler) ReplicaMemoryUtil(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -51,7 +50,6 @@ func (h *MonitorningHandler) ReplicaMemoryUsage(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -68,7 +66,6 @@ func (h *MonitorningHandler) ReplicaMemoryTotal(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -89,7 +86,6 @@ func (h *MonitorningHandler) ReplicaCPUUtil(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -110,7 +106,6 @@ func (h *MonitorningHandler) ReplicaFastAPIQPS(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -131,7 +126,6 @@ func (h *MonitorningHandler) ReplicaFastAPILatency(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -152,7 +146,6 @@ func (h *MonitorningHandler) ReplicaFastAPIQPSByPath(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -173,7 +166,6 @@ func (h *MonitorningHandler) ReplicaFastAPILatencyByPath(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -194,7 +186,6 @@ func (h *MonitorningHandler) DeploymentFastAPIQPS(c *gin.Context) {
 			"deployment", c.Param("did"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -215,7 +206,6 @@ func (h *MonitorningHandler) DeploymentFastAPILatency(c *gin.Context) {
 			"deployment", c.Param("did"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -236,7 +226,6 @@ func (h *MonitorningHandler) DeploymentFastAPIQPSByPath(c *gin.Context) {
 			"deployment", c.Param("did"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -257,7 +246,6 @@ func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 			"deployment", c.Param("did"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -276,7 +264,6 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUtil(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -296,7 +283,6 @@ func (h *MonitorningHandler) ReplicaGPUUtil(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -313,7 +299,6 @@ func (h *MonitorningHandler) ReplicaGPUMemoryUsage(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
@@ -330,7 +315,6 @@ func (h *MonitorningHandler) ReplicaGPUMemoryTotal(c *gin.Context) {
 			"replica", c.Param("rid"),
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}

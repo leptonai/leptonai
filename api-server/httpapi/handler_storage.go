@@ -58,7 +58,6 @@ func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 			"path", absPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -76,7 +75,6 @@ func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 			"path", absPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -88,7 +86,6 @@ func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 				"path", absPath,
 				"error", err,
 			)
-
 			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 			return
 		}
@@ -115,7 +112,6 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -131,7 +127,6 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -140,7 +135,6 @@ func (sh *StorageHandler) CreateDir(c *gin.Context) {
 		"operation", "createDir",
 		"path", relPath,
 	)
-
 	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("Directory '%s' created successfully", relPath)})
 }
 
@@ -155,7 +149,6 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 			"path", relUploadPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "error": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -172,7 +165,6 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 			"path", relUploadPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -184,7 +176,11 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 	// TODO: validate the request file type, size, etc.
 	err = c.Request.ParseMultipartForm(32 << 20) // 32 MB of request body stored in memory, the rest temporarily on disk
 	if err != nil {
-
+		goutil.Logger.Errorw("failed to parse multipart form",
+			"operation", "createFile",
+			"path", relUploadPath,
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -196,7 +192,6 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 			"path", relUploadPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -209,7 +204,6 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 			"path", relUploadPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -218,7 +212,6 @@ func (sh *StorageHandler) CreateFile(c *gin.Context) {
 		"operation", "createFile",
 		"path", relUploadPath,
 	)
-
 	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("File '%s' uploaded successfully", relUploadPath)})
 }
 
@@ -237,7 +230,6 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "error": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -254,7 +246,6 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -266,7 +257,6 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 				"path", relPath,
 				"error", err,
 			)
-
 			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 			return
 		}
@@ -283,7 +273,6 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -293,14 +282,12 @@ func (sh *StorageHandler) DeleteFileOrDir(c *gin.Context) {
 			"operation", "deleteFileOrDir",
 			"path", relPath,
 		)
-
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Directory '%s' deleted successfully", relPath)})
 	} else {
 		goutil.Logger.Infow("file deleted",
 			"operation", "deleteFileOrDir",
 			"path", relPath,
 		)
-
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("File '%s' deleted successfully", relPath)})
 	}
 }
@@ -316,7 +303,6 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}
@@ -332,7 +318,6 @@ func (sh *StorageHandler) CheckExists(c *gin.Context) {
 			"path", relPath,
 			"error", err,
 		)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": sh.removeMountPathFromError(err)})
 		return
 	}

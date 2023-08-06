@@ -42,7 +42,7 @@ func getDeploymentReadinessIssue(ctx context.Context, deployment *appsv1.Deploym
 	issue := make(DeploymentReadinessIssue)
 	for _, pod := range podList.Items {
 		if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodPending {
-			goutil.Logger.Warnw("pod is not (running, pending), skipping",
+			goutil.Logger.Infow("pod is not (running, pending), skipping",
 				"operation", "getDeploymentReadinessIssue",
 				"pod", pod.Name,
 				"phase", pod.Status.Phase,

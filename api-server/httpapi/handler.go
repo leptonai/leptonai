@@ -2,12 +2,13 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/datastore"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 
 	"gocloud.dev/blob"
 )
@@ -179,21 +180,17 @@ func runBackupsPeriodically(c Backupable) {
 		err := c.Backup(ctx)
 		cancel()
 		if err != nil {
-			goutil.Logger.Errorw("failed to backup",
+			goutil.Logger.Errorw(fmt.Sprintf("failed to backup, retrying in %v", backupRetryInterval),
 				"operation", "backup",
 				"error", err,
-			)
-			goutil.Logger.Infow("retrying backup after 5 minutes",
-				"operation", "backup",
 			)
 			time.Sleep(backupRetryInterval)
 			continue
 		}
 
-		goutil.Logger.Infow("backup successful",
+		goutil.Logger.Infow(fmt.Sprintf("backup successful, next backup after %v", backupPeriod),
 			"operation", "backup",
 		)
-		goutil.Logger.Infof("next backup after %s hours", backupPeriod)
 		time.Sleep(backupPeriod)
 	}
 }
