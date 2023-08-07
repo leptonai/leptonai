@@ -72,3 +72,8 @@ supabase_credential_secret_arns = {
 # aurora host for prod database
 rds_aurora_host = "mothership-prod-aws-us-west-2-aurora-postgresql-1.cym32vh4eh2e.us-west-2.rds.amazonaws.com"
 
+# TODO: change to prod channel
+# ref. https://grafana.com/blog/2020/02/25/step-by-step-guide-to-setting-up-prometheus-alertmanager-with-slack-pagerduty-and-gmail/
+alertmanager_slack_channel     = "#alertmanager-test"
+alertmanager_slack_webhook_url = "https://hooks.slack.com/services/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"
+alertmanager_target_namespaces = ".*"

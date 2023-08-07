@@ -1,0 +1,31 @@
+# no need to monitor managed components in EKS
+kubeEtcd:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+global:
+  rbac:
+    # no need to create rbac resources
+    # just let helm create them all
+    # only need to overwrite service account for IRSA
+    #
+    # e.g.,
+    # roles/kube-prometheus-stack-grafana
+    # rolebindings/kube-prometheus-stack-grafana
+    # clusterroles/kube-prometheus-stack-grafana-clusterrole
+    # clusterroles/kube-prometheus-stack-kube-state-metrics
+    # clusterroles/kube-prometheus-stack-operator
+    # clusterroles/kube-prometheus-stack-prometheus
+    # clusterrolebindings/kube-prometheus-stack-grafana-clusterrolebinding
+    # clusterrolebindings/kube-prometheus-stack-kube-state-metrics
+    # clusterrolebindings/kube-prometheus-stack-operator
+    # clusterrolebindings/kube-prometheus-stack-prometheus
+    create: true

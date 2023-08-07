@@ -368,6 +368,12 @@ resource "helm_release" "kube_prometheus_stack" {
   # the specific service account
   create_namespace = false
 
+  # perform pods restart during helm upgrade/rollback
+  # otherwise, updates to config/values won't take effect
+  recreate_pods = true
+  # no need to force update
+  force_update = false
+
   chart      = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
 
@@ -377,300 +383,54 @@ resource "helm_release" "kube_prometheus_stack" {
 
   # https://prometheus.io/docs/prometheus/latest/configuration/configuration/
   # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
-  values = [yamlencode({
-    global = {
-      rbac = {
-        # no need to create rbac resources
-        # just let helm create them all
-        # only need to overwrite service account for IRSA
-        #
-        # e.g.,
-        # roles/kube-prometheus-stack-grafana
-        # rolebindings/kube-prometheus-stack-grafana
-        # clusterroles/kube-prometheus-stack-grafana-clusterrole
-        # clusterroles/kube-prometheus-stack-kube-state-metrics
-        # clusterroles/kube-prometheus-stack-operator
-        # clusterroles/kube-prometheus-stack-prometheus
-        # clusterrolebindings/kube-prometheus-stack-grafana-clusterrolebinding
-        # clusterrolebindings/kube-prometheus-stack-kube-state-metrics
-        # clusterrolebindings/kube-prometheus-stack-operator
-        # clusterrolebindings/kube-prometheus-stack-prometheus
-        create = true
-      }
-    }
+  values = [
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/defaults.yaml", {
+    }),
 
-    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
-    alertmanager = {
-      enabled = true
+    length(var.alertmanager_slack_webhook_url) > 0 ? templatefile("${path.module}/helm/values/kube-prometheus-stack/alertmanager.yaml", {
+      alertmanager_priorityclass     = ""
+      alertmanager_slack_channel     = var.alertmanager_slack_channel
+      alertmanager_slack_webhook_url = var.alertmanager_slack_webhook_url
+      alertmanager_target_namespaces = var.alertmanager_target_namespaces
+    }) : file("${path.module}/helm/values/kube-prometheus-stack/alertmanager-disabled.yaml"),
 
-      # just use port-forwarding for now
-      ingress = {
-        enabled = false
-      }
-      service = {
-        port       = 9093
-        targetPort = 9093
-      }
-    }
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/alertmanager-rules.yaml", {
+      alertmanager_target_namespaces = var.alertmanager_target_namespaces
+    }),
 
-    # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-    prometheus = {
-      enabled = true
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/prometheus-server.yaml", {
+      kube_prometheus_stack_sa_prometheus_server = local.kube_prometheus_stack_sa_prometheus_server
+      remote_write_name                          = "${var.cluster_name}-kube-prometheus-stack-remote-write-queue"
+      remote_write_url                           = "${aws_prometheus_workspace.kube_prometheus_stack.prometheus_endpoint}api/v1/remote_write"
+      remote_write_region                        = var.region
+    }),
 
-      ingress = {
-        # NOTE: to just use service
-        #
-        # e.g.,
-        # <service-name>.<namespace>.svc.cluster.local:<service-port>
-        # http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
-        #
-        # e.g.,
-        # kubectl -n kube-prometheus-stack port-forward prometheus-kube-prometheus-stack-prometheus-0 3000:9090
-        # http://localhost:3000
-        enabled = false
-      }
-      service = {
-        port       = 9090
-        targetPort = 9090
-      }
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/kubelet.yaml", {
+    }),
 
-      # manually create here to set up IRSA
-      #
-      # e.g.,
-      # serviceaccounts/kube-prometheus-stack-alertmanager
-      # serviceaccounts/kube-prometheus-stack-grafana
-      # serviceaccounts/kube-prometheus-stack-kube-state-metrics
-      # serviceaccounts/kube-prometheus-stack-operator
-      # serviceaccounts/kube-prometheus-stack-prometheus
-      # serviceaccounts/kube-prometheus-stack-prometheus-node-exporter
-      serviceAccount = {
-        # use the one created above that maps IRSA for IAM permissions
-        create = false
-        name   = local.kube_prometheus_stack_sa_prometheus_server
-      }
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/node_exporter.yaml", {
+    }),
 
-      prometheusSpec = {
-        scrapeInterval = "15s"
-        scrapeTimeout  = "5s"
-        retention      = "24h"
-        retentionSize  = "100GB"
-        walCompression = true
-
-        # configure remote write
-        # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/prometheus_workspace
-        # https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#remotewritespec
-        remoteWrite = [
-          {
-            name = "${var.cluster_name}-kube-prometheus-stack-remote-write-queue"
-            url  = "${aws_prometheus_workspace.kube_prometheus_stack.prometheus_endpoint}api/v1/remote_write"
-            sigv4 = {
-              region = var.region
-            }
-          }
-        ]
-
-        storageSpec = {
-          volumeClaimTemplate = {
-            spec = {
-              storageClassName = "gp3"
-              resources = {
-                requests = {
-                  storage = "200Gi"
-                }
-              }
-            }
-          }
-        }
-
-        # the following scrape config is encoded as k8s secret objects
-        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
-        # c.f., https://github.com/leptonai/lepton/pull/1369/files
-        additionalScrapeConfigs = [
-          # NOTE: kube-prometheus-stack already scrapes node-exporter with
-          # "serviceMonitor/kube-prometheus-stack/kube-prometheus-stack-prometheus-node-exporter/0"
-          # with "kubernetes_sd_configs" "role: endpoints"
-          # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
-
-          {
-            job_name = "mothership-service-pods"
-
-            # discovers targets from listed endpoints of a service
-            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
-            kubernetes_sd_configs = [
-              {
-                role = "endpoints"
-                namespaces = {
-                  names = ["default"]
-                }
-              }
-            ]
-
-            # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
-            #
-            # fetches endpoints of this service (basically # of mothership pods)
-            # instead of directly from this service.
-            #
-            # e.g.,
-            # <service-name>.<namespace>.svc.cluster.local:<service-port>
-            # "mothership-service.default.svc.cluster.local:15213"
-            relabel_configs = [
-              {
-                source_labels = ["__meta_kubernetes_service_name"]
-                action        = "keep"
-                regex         = "mothership-service"
-              }
-            ]
-          }
-        ]
-      }
-    }
-
-    # https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
-    kubelet = {
-      enabled = true
-
-      # use the same default value as the helm chart
-      namespace = "kube-system"
-
-      serviceMonitor = {
-        # scraping /metrics/cadvisor from kubelet's service
-        cAdvisor = true
-
-        # upstream kube-prometheus-stack chart by default
-        # drops some metrics they think not useful
-        # add the useful ones back
-        # TODO: remove the ones we don't use to save AMP costs
-        # ref. https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml#L1166-L1218
-        cAdvisorMetricRelabelings = [
-          { # drop less useful container CPU metrics
-            sourceLabels = ["__name__"]
-            action       = "drop"
-            regex        = "container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)"
-          },
-          { # drop less useful, always zero container file system metrics
-            sourceLabels = ["__name__"]
-            action       = "drop"
-            regex        = "container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)"
-          },
-          { # drop less useful, always zero container memory metrics
-            sourceLabels = ["__name__"]
-            action       = "drop"
-            regex        = "container_memory_(mapped_file|swap)"
-          },
-          { # less useful container process metrics
-            sourceLabels = ["__name__"]
-            action       = "drop"
-            regex        = "container_(file_descriptors|tasks_state|threads_max)"
-          },
-
-          # less useful container process metrics
-          # do not drop "container_spec.*"
-          # TODO: drop this when we find the equivalent in kube-state-metrics
-
-          { # cgroup metrics with no pod
-            sourceLabels = ["id", "pod"]
-            action       = "drop"
-            regex        = ".+;"
-          },
-        ]
-      }
-    }
-
-    # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-    nodeExporter = {
-      enabled = true
-    }
-
-    # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-    grafana = {
-      enabled = true
-
-      ingress = {
-        # NOTE: to just use service
-        #
-        # e.g.,
-        # <service-name>.<namespace>.svc.cluster.local:<service-port>
-        # http://kube-prometheus-stack-grafana.kube-prometheus-stack.svc.cluster.local:80
-        #
-        # e.g.,
-        # POD=$(kubectl -n kube-prometheus-stack get pod -l app.kubernetes.io/instance=kube-prometheus-stack -l app.kubernetes.io/name=grafana -o jsonpath="{.items[0].metadata.name}")
-        # kubectl -n kube-prometheus-stack port-forward $POD 3001:3000
-        # http://localhost:3001
-        enabled = false
-      }
-      service = {
-        port       = 3000
-        targetPort = 3000
-      }
-
-      adminPassword = aws_secretsmanager_secret_version.grafana.secret_string
-
-      # manually create here to set up IRSA
-      #
-      # e.g.,
-      # serviceaccounts/kube-prometheus-stack-alertmanager
-      # serviceaccounts/kube-prometheus-stack-grafana
-      # serviceaccounts/kube-prometheus-stack-kube-state-metrics
-      # serviceaccounts/kube-prometheus-stack-operator
-      # serviceaccounts/kube-prometheus-stack-prometheus
-      # serviceaccounts/kube-prometheus-stack-prometheus-node-exporter
-      serviceAccount = {
-        # use the one created above that maps IRSA for IAM permissions
-        create = false
-        name   = local.kube_prometheus_stack_sa_grafana
-      }
-
-      sidecar = {
-        datasources = {
-          enabled = true
-
-          # "Only one datasource per organization can be marked as default"
-          defaultDatasourceEnabled = false
-        }
-      }
-
-      # https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana
-      "grafana.ini" = {
-        auth = {
-          sigv4_auth_enabled = true
-        }
-
-        # https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#assume_role_enabled
-        aws = {
-          assume_role_enabled = true
-        }
-
-        # https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#override-configuration-with-environment-variables
-        # export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/tmp/dashboards/k8s-resources-cluster.json
-        dashboards = {
-          default_home_dashboard_path = "/tmp/dashboards/k8s-resources-cluster.json"
-        }
-      }
-
-      # use additional data sources to configure aws auth (sig v4)
-      additionalDataSources = [
-        # use "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090"
-        # as fallback in case of Amazon Managed Prometheus outages
-        {
-          # default data source
-          name      = "${var.cluster_name}-amp"
-          url       = "${aws_prometheus_workspace.kube_prometheus_stack.prometheus_endpoint}"
-          type      = "prometheus"
-          isDefault = true
-          jsonData = {
-            httpMethod         = "POST"
-            sigV4Auth          = true
-            sigV4AuthType      = "default"
-            sigV4Region        = var.region
-            sigV4AssumeRoleArn = aws_iam_role.kube_prometheus_stack_grafana.arn
-          }
-        },
-      ]
-    }
-  })]
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/grafana.yaml", {
+      admin_password                   = aws_secretsmanager_secret_version.grafana.secret_string
+      kube_prometheus_stack_sa_grafana = local.kube_prometheus_stack_sa_grafana
+      amp_name                         = "${var.cluster_name}-amp"
+      amp_url                          = "${aws_prometheus_workspace.kube_prometheus_stack.prometheus_endpoint}"
+      amp_region                       = var.region
+      amp_role_arn                     = aws_iam_role.kube_prometheus_stack_grafana.arn
+      kubecost_name                    = "${var.cluster_name}-prometheus-server-kubecost"
+      kubecost_url                     = "http://cost-analyzer-prometheus-server.kubecost.svc.cluster.local:80"
+    }),
+  ]
 
   depends_on = [
     module.eks,
+    # k8s object requires access to EKS cluster via aws-auth
+    # also required for deletion
+    # this ensures deleting this object happens before aws-auth
+    kubernetes_config_map_v1_data.aws_auth,
+
+    aws_eks_addon.kubecost,
     kubernetes_service_account.kube_prometheus_stack_prometheus_server,
     kubernetes_service_account.kube_prometheus_stack_grafana,
     aws_prometheus_workspace.kube_prometheus_stack,

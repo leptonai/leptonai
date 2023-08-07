@@ -107,3 +107,11 @@ fi
 if [[ "$CREATED_UNIX_TIME_RFC3339" != "" ]]; then
     APPLY_FLAGS+=("-var=created_unix_time_rfc3339=$CREATED_UNIX_TIME_RFC3339")
 fi
+
+if [[ "$ALERTMANAGER_SLACK_CHANNEL" != "" ]]; then
+    APPLY_FLAGS+=("-var=alertmanager_slack_channel=$ALERTMANAGER_SLACK_CHANNEL")
+fi
+
+if [[ "$ALERTMANAGER_SLACK_WEBHOOK_URL" != "" ]]; then
+    APPLY_FLAGS+=("-var=alertmanager_slack_webhook_url=$ALERTMANAGER_SLACK_WEBHOOK_URL")
+fi
