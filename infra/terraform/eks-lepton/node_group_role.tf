@@ -62,3 +62,10 @@ resource "aws_iam_role_policy_attachment" "mng_AmazonEKS_CNI_Policy" {
   policy_arn = "${local.iam_role_policy_prefix}/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.mng.name
 }
+
+# used for SSM session and remote commands
+# useful for debugging
+resource "aws_iam_role_policy_attachment" "mng_AmazonSSMFullAccess" {
+  policy_arn = "${local.iam_role_policy_prefix}/AmazonSSMFullAccess"
+  role       = aws_iam_role.mng.name
+}

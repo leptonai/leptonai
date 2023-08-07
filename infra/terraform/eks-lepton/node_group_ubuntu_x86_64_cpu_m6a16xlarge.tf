@@ -55,6 +55,7 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
     aws_iam_role_policy_attachment.mng_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.mng_AmazonEC2ContainerRegistryReadOnly,
     aws_iam_role_policy_attachment.mng_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.mng_AmazonSSMFullAccess,
     aws_iam_role_policy_attachment.csi_efs_node,
     module.eks,
     aws_launch_template.ubuntu_x86_64_cpu,
