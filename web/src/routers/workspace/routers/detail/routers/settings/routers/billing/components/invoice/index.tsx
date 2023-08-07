@@ -87,8 +87,13 @@ export const Invoice: FC<{
             },
             {
               dataIndex: "created",
-              title: "DATE",
-              render: (time) => <DateParser detail date={time * 1000} />,
+              title: "PERIOD",
+              render: (_, record) => (
+                <>
+                  <DateParser detail date={record.period_start * 1000} /> -{" "}
+                  <DateParser detail date={record.period_end * 1000} />
+                </>
+              ),
             },
             {
               dataIndex: "total",
@@ -139,7 +144,7 @@ export const Invoice: FC<{
             },
           ]}
           rowKey="id"
-          dataSource={list}
+          dataSource={list.filter((e) => e.subtotal > 0)}
           pagination={false}
         />
       ),

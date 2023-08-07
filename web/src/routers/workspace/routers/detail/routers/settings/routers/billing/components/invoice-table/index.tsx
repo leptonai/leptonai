@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { PriceSummary } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/price-summary";
 import { ProductName } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-name";
 import { ProductQuantity } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-quantity";
@@ -12,6 +13,7 @@ export const InvoiceTable: FC<{
   invoice: Stripe.UpcomingInvoice;
   products: Stripe.Product[];
 }> = ({ invoice, products }) => {
+  const theme = useAntdTheme();
   const dataSource = useMemo(() => {
     if (invoice.lines.data.every((e) => e.amount === 0)) {
       return invoice.lines.data;
@@ -30,6 +32,7 @@ export const InvoiceTable: FC<{
       css={css`
         .ant-table-summary {
           .ant-table-cell {
+            border-top: 1px dashed ${theme.colorBorder};
             border-bottom: none;
           }
         }
@@ -82,7 +85,16 @@ export const InvoiceTable: FC<{
           },
         },
         {
-          title: "AMOUNT",
+          title: (
+            <div
+              css={css`
+                padding-right: 12px;
+              `}
+            >
+              AMOUNT
+            </div>
+          ),
+          align: "right",
           dataIndex: "amount",
           render: (amount) => (
             <Tag bordered={false}>
