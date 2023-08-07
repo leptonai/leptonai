@@ -1,3 +1,6 @@
+import multiprocessing
+import time
+from typing import Any
 import unittest
 
 import numpy as np
@@ -9,7 +12,40 @@ except ImportError:
 else:
     has_torch = True
 
-from leptonai.photon.types import is_pickled, lepton_pickle, lepton_unpickle
+from leptonai.client import Client
+from leptonai.photon.types import (
+    is_pickled,
+    lepton_pickle,
+    lepton_unpickle,
+    LeptonPickled,
+)
+from leptonai.photon import Photon, handler
+
+from utils import find_free_port
+
+
+class PicklePhoton(Photon):
+    @handler("pickle")
+    def pickle(self, obj: Any) -> LeptonPickled:
+        return lepton_pickle(obj)
+
+    @handler("unpickle_and_pickle")
+    def unpickle_and_pickle(self, obj: LeptonPickled) -> LeptonPickled:
+        return lepton_pickle(lepton_unpickle(obj))
+
+
+def pickle_photon_wrapper(port):
+    photon = PicklePhoton()
+    photon.launch(port=port)
+
+
+objects_to_test = [
+    [1, 2, 3],
+    lepton_pickle([1, 2, 3]),  # one shouldn't double-pickle stuff but we'll still test.
+    {"key": "value"},
+    {"key": [1, 2, 3]},
+    [1, "2", 3.0, {"four": 4}],
+]
 
 
 class TestPickle(unittest.TestCase):
@@ -21,18 +57,9 @@ class TestPickle(unittest.TestCase):
         self.assertTrue(is_pickled(lepton_pickle(lepton_pickle([1, 2, 3]))))
 
     def test_pickle(self):
-        self.assertEqual(lepton_unpickle(lepton_pickle([1, 2, 3])), [1, 2, 3])
-        self.assertEqual(
-            lepton_unpickle(lepton_pickle({"key": "value"})), {"key": "value"}
-        )
-        self.assertEqual(
-            lepton_unpickle(lepton_pickle({"key": [1, 2, 3]})), {"key": [1, 2, 3]}
-        )
-        self.assertEqual(lepton_unpickle(lepton_pickle((1, 2, 3))), (1, 2, 3))
-        self.assertEqual(
-            lepton_unpickle(lepton_pickle((1, "2", 3.0, {"four": 4}))),
-            (1, "2", 3.0, {"four": 4}),
-        )
+        for obj in objects_to_test:
+            self.assertTrue(is_pickled(lepton_pickle(obj)))
+            self.assertEqual(lepton_unpickle(lepton_pickle(obj)), obj)
 
     def test_pickle_numpy(self):
         a = np.random.rand(10, 10)
@@ -42,6 +69,39 @@ class TestPickle(unittest.TestCase):
     def test_pickle_torch(self):
         a = torch.rand(10, 10)
         self.assertEqual(lepton_unpickle(lepton_pickle(a)).all(), a.all())
+
+
+class TestPickleWithPhoton(unittest.TestCase):
+    def test_pickle_with_photon(self):
+        port = find_free_port()
+        proc = multiprocessing.Process(target=pickle_photon_wrapper, args=(port,))
+        proc.start()
+        time.sleep(1)
+        url = f"http://localhost:{port}"
+        c = Client(url)
+
+        for obj in objects_to_test:
+            res = c.pickle(obj=obj)
+            self.assertTrue(is_pickled(res))
+            self.assertEqual(lepton_unpickle(res), obj)
+
+        # Test complex classes. Really, one should be very, very careful about
+        # pickling and unpickling complex classes because any minor version mismatch
+        # can cause the unpickling to fail. However, we'll still test it.
+
+        # test numpy
+        a = np.random.rand(10, 10)
+        res = c.unpickle_and_pickle(obj=lepton_pickle(a))
+        self.assertTrue(is_pickled(res))
+        self.assertEqual(lepton_unpickle(res).all(), a.all())
+
+        # test torch
+        a = torch.rand(10, 10)
+        res = c.unpickle_and_pickle(obj=lepton_pickle(a))
+        self.assertTrue(is_pickled(res))
+        self.assertEqual(lepton_unpickle(res).all(), a.all())
+
+        proc.kill()
 
 
 if __name__ == "__main__":

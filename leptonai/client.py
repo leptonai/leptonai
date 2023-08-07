@@ -18,7 +18,7 @@ def _is_valid_url(candidate_str: str) -> bool:
 def _is_local_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
-    return parsed.netloc.lower() in local_hosts
+    return parsed.hostname in local_hosts
 
 
 def local(port: int = 8080) -> str:
