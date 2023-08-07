@@ -85,9 +85,9 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
             rules={[
               { required: true, message: "Please enter tuna name" },
               {
-                pattern: /^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/,
+                pattern: /^[a-z]([-a-z0-9]*[a-z0-9])?$/,
                 message:
-                  "Only letters, numbers and hyphens are allowed, and cannot start or end with a hyphen",
+                  "Name must be lowercase alphanumeric characters or '-', and must start with an alphabetical character and end with a alphanumeric character",
               },
             ]}
           >
