@@ -176,7 +176,14 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 	}
 	req := clientset.CoreV1().Pods(h.namespace).GetLogs(rid, logOptions)
 	podLogs, err := req.Stream(c)
-	// TODO: check if the error is pod not found, which can be user/web interface error
+	if apierrors.IsNotFound(err) {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "replica " + rid + " not found"})
+		return
+	}
+	if k8s.IsPodInitializingError(err) {
+		c.JSON(http.StatusPreconditionFailed, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "replica " + rid + " is initializing"})
+		return
+	}
 	if err != nil {
 		goutil.Logger.Errorw("failed to get logs for replica",
 			"operation", "getLogs",

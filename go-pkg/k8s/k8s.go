@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	goutil "github.com/leptonai/lepton/go-pkg/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 	mothershipv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
