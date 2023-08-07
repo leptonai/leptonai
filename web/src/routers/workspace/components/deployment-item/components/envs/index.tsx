@@ -1,5 +1,4 @@
 import { css } from "@emotion/react";
-import { Link } from "@lepton-dashboard/components/link";
 import { FC } from "react";
 import {
   Deployment,
@@ -57,13 +56,18 @@ export const Envs: FC<{ envs: Deployment["envs"] }> = ({ envs }) => {
           </Descriptions>
         }
       >
-        <span>
-          <Link>
-            <Description.Item
-              icon={<CarbonIcon icon={<ListDropdown />} />}
-              description="Environment variables"
-            />
-          </Link>
+        <span
+          css={css`
+            &:hover {
+              text-decoration: underline;
+              cursor: pointer;
+            }
+          `}
+        >
+          <Description.Item
+            icon={<CarbonIcon icon={<ListDropdown />} />}
+            description="Environment variables"
+          />
         </span>
       </Popover>
     );

@@ -75,6 +75,7 @@ export const Container: FC<PropsWithChildren<EmotionProps>> = ({
 }) => {
   return (
     <Space
+      align="center"
       css={css`
         width: 100%;
         .ant-space-item {

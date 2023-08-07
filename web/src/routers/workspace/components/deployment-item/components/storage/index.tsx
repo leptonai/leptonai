@@ -1,10 +1,10 @@
-import { Link } from "@lepton-dashboard/components/link";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Folder } from "@carbon/icons-react";
 import { Descriptions, Popover, Tag } from "antd";
+import { css } from "@emotion/react";
 
 export const Storage: FC<{ mounts: Deployment["mounts"] }> = ({ mounts }) => {
   if (mounts && mounts.length > 0) {
@@ -30,13 +30,18 @@ export const Storage: FC<{ mounts: Deployment["mounts"] }> = ({ mounts }) => {
           </Descriptions>
         }
       >
-        <span>
-          <Link>
-            <Description.Item
-              icon={<CarbonIcon icon={<Folder />} />}
-              description="Storage mounts"
-            />
-          </Link>
+        <span
+          css={css`
+            &:hover {
+              text-decoration: underline;
+              cursor: pointer;
+            }
+          `}
+        >
+          <Description.Item
+            icon={<CarbonIcon icon={<Folder />} />}
+            description="Storage mounts"
+          />
         </span>
       </Popover>
     );
