@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
@@ -46,10 +45,6 @@ import (
 type LeptonDeploymentReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	chMap     map[types.NamespacedName]chan struct{}
-	chMapLock sync.Mutex
-	wg        sync.WaitGroup
 }
 
 //+kubebuilder:rbac:groups=lepton.ai,resources=leptondeployments,verbs=get;list;watch;create;update;patch;delete
@@ -66,116 +61,80 @@ type LeptonDeploymentReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *LeptonDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	goutil.Logger.Infow("reconciling leptonDeployment...",
+	goutil.Logger.Infow("reconciling LeptonDeployment...",
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
 
-	r.chMapLock.Lock()
-	defer r.chMapLock.Unlock()
-	if r.chMap == nil {
-		r.chMap = make(map[types.NamespacedName]chan struct{})
+	ld, err := r.getLeptonDeployment(ctx, req)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get LeptonDeployment",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	if _, ok := r.chMap[req.NamespacedName]; !ok {
-		ch := make(chan struct{}, 100)
-		go r.watch(ctx, req, ch)
-		r.chMap[req.NamespacedName] = ch
+	// LeptonDeployment has been deleted
+	if ld == nil {
+		goutil.Logger.Infow("LeptonDeployment has been deleted",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		return ctrl.Result{}, nil
 	}
-	r.chMap[req.NamespacedName] <- struct{}{}
-
-	return ctrl.Result{}, nil
-}
-
-// watch watches for changes to LeptonDeployment resources
-func (r *LeptonDeploymentReconciler) watch(ctx context.Context, req ctrl.Request, ch chan struct{}) {
-	goutil.Logger.Infow("starting watch for leptonDeployment...",
-		"namespace", req.Namespace,
-		"name", req.Name,
-	)
-
-	// Listen to the chan for LeptonDeployment updates
-	for range ch {
-		goutil.Logger.Infow("received watch for leptonDeployment",
+	// Check the deployment status
+	if err := r.updateDeploymentStatus(ctx, req, ld); err != nil {
+		goutil.Logger.Errorw("failed to update LeptonDeployment status",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+	// LeptonDeployment is marked for deletion
+	if !ld.DeletionTimestamp.IsZero() {
+		goutil.Logger.Infow("LeptonDeployment marked for deletion",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
 
-		drainChan(ch) // Drain chan to avoid unnecessary reconciles
-		ld, err := r.getLeptonDeployment(ctx, req)
-		if err != nil {
-			goutil.Logger.Errorw("failed to get leptonDeployment",
+		if err := r.finalize(ctx, req, ld); err != nil {
+			goutil.Logger.Errorw("failed to delete LeptonDeployment",
 				"namespace", req.Namespace,
 				"name", req.Name,
 				"error", err,
 			)
-
-			r.wg.Add(1)
-			go backoffAndRetry(&r.wg, ch)
-			continue
+			return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
-
-		// Add our finalizer if it does not exist
-		if ld != nil && !goutil.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
-			ld.SetFinalizers(append(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
-			if err := r.Update(ctx, ld); err != nil {
-				goutil.Logger.Errorw("failed to add finalizer to leptonDeployment",
-					"namespace", req.Namespace,
-					"name", req.Name,
-					"error", err,
-				)
-
-				r.wg.Add(1)
-				go backoffAndRetry(&r.wg, ch)
-				continue
-			}
-		}
-		// Check the deployment status
-		if err := r.updateDeploymentStatus(ctx, req, ld); err != nil {
-			goutil.Logger.Errorw("failed to update leptonDeployment status",
+		goutil.Logger.Infow("LeptonDeployment deleted",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		return ctrl.Result{}, nil
+	}
+	// Add our finalizer if it does not exist
+	if !goutil.ContainsString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName) {
+		ld.SetFinalizers(append(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
+		if err := r.Update(ctx, ld); err != nil {
+			goutil.Logger.Errorw("failed to add finalizer to LeptonDeployment",
 				"namespace", req.Namespace,
 				"name", req.Name,
 				"error", err,
 			)
-
-			r.wg.Add(1)
-			go backoffAndRetry(&r.wg, ch)
-			continue
-		}
-		// LeptonDeployment has been deleted or marked for deletion
-		if ld == nil || !ld.DeletionTimestamp.IsZero() {
-			goutil.Logger.Infow("leptonDeployment marked for deletion",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
-
-			if r.destroy(ctx, req, ld) {
-				goutil.Logger.Infow("leptonDeployment deleted",
-					"namespace", req.Namespace,
-					"name", req.Name,
-				)
-				return
-			}
-			goutil.Logger.Errorw("failed to delete leptonDeployment",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
-			r.wg.Add(1)
-			go backoffAndRetry(&r.wg, ch)
-			continue
-		}
-		// Reconcile resources
-		if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
-			goutil.Logger.Warnw("failed to create or update resources, retrying...",
-				"namespace", req.Namespace,
-				"name", req.Name,
-				"error", err,
-			)
-
-			r.wg.Add(1)
-			go backoffAndRetry(&r.wg, ch)
-			continue
+			return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
 	}
+	// Reconcile resources
+	if err := r.createOrUpdateResources(ctx, req, ld); err != nil {
+		goutil.Logger.Warnw("failed to create or update resources, retrying...",
+			"namespace", req.Namespace,
+			"name", req.Name,
+			"error", err,
+		)
+		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 func (r *LeptonDeploymentReconciler) getLeptonDeployment(ctx context.Context, req ctrl.Request) (*leptonaiv1alpha1.LeptonDeployment, error) {
@@ -200,19 +159,15 @@ func (r *LeptonDeploymentReconciler) getDeployment(ctx context.Context, req ctrl
 func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context, req ctrl.Request,
 	ld *leptonaiv1alpha1.LeptonDeployment) error {
 	ldOr := getOwnerRefFromLeptonDeployment(ld)
-	// Attaches all resources to the service using owner reference, so that they
-	// are deleted when the service is deleted. The only exception is the PV,
-	// which has to be deleted separately.
-	service, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
+	_, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
 		return errors.New("failed to create or update Service: " + err.Error())
 	}
-	svcOr := getOwnerRefFromService(service)
-	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr})
+	_, err = r.createOrUpdateDeployment(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
 		return errors.New("failed to create or update Deployment: " + err.Error())
 	}
-	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr, *svcOr}); err != nil {
+	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr}); err != nil {
 		return errors.New("failed to create or update Ingress: " + err.Error())
 	}
 
@@ -264,60 +219,12 @@ func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.Lepto
 	}
 }
 
-func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
-	if err := r.deleteService(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-		goutil.Logger.Errorw("failed to delete service",
-			"namespace", req.Namespace,
-			"name", req.Name,
-			"error", err,
-		)
-		return false
-	} else {
-		goutil.Logger.Infow("service deleted",
-			"namespace", req.Namespace,
-			"name", req.Name,
-		)
-	}
+func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) error {
 	if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
-		goutil.Logger.Errorw("failed to delete pv",
-			"namespace", req.Namespace,
-			"name", req.Name,
-			"error", err,
-		)
-		return false
+		return err
 	}
 	ld.SetFinalizers(goutil.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
-	if err := r.Update(ctx, ld); err != nil {
-		goutil.Logger.Errorw("failed to remove the finalizer",
-			"namespace", req.Namespace,
-			"name", req.Name,
-			"error", err,
-		)
-		return false
-	}
-	return true
-}
-
-func (r *LeptonDeploymentReconciler) destroy(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment) bool {
-	// Delete resources
-	if ld != nil {
-		if !r.finalize(ctx, req, ld) {
-			return false
-		}
-	}
-	// Remove the chan from the map when the function exits
-	r.chMapLock.Lock()
-	ch := r.chMap[req.NamespacedName]
-	delete(r.chMap, req.NamespacedName)
-	r.chMapLock.Unlock()
-	go func() {
-		for range ch {
-			// Drain the channel
-		}
-	}()
-	r.wg.Wait()
-	close(ch)
-	return true
+	return r.Update(ctx, ld)
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*appsv1.Deployment, error) {
@@ -539,6 +446,14 @@ func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &networkingv1.Ingress{}},
 			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
 		).
+		Watches(
+			&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
+		).
+		Watches(
+			&source.Kind{Type: &corev1.PersistentVolume{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
+		).
 		Complete(r)
 }
 
@@ -602,14 +517,4 @@ func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv
 		)
 	}
 	return nil
-}
-
-func (r *LeptonDeploymentReconciler) deleteService(ctx context.Context, ld *leptonaiv1alpha1.LeptonDeployment) error {
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ld.GetSpecName(),
-			Namespace: ld.Namespace,
-		},
-	}
-	return r.Client.Delete(ctx, service)
 }

@@ -6,18 +6,8 @@ import (
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func getOwnerRefFromService(s *corev1.Service) *metav1.OwnerReference {
-	return &metav1.OwnerReference{
-		APIVersion: "v1",
-		Kind:       "Service",
-		Name:       s.Name,
-		UID:        s.UID,
-	}
-}
 
 func getOwnerRefFromLeptonDeployment(ld *leptonaiv1alpha1.LeptonDeployment) *metav1.OwnerReference {
 	blockOwnerDeletion := true

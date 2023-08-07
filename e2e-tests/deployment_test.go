@@ -245,3 +245,42 @@ func TestDeployWithInvalidEnvVar(t *testing.T) {
 		t.Fatalf("Expected error when deploying with invalid env var, got nil")
 	}
 }
+
+func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
+	dname := newName(t.Name())
+	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dname,
+		PhotonID: mainTestPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
+		},
+	}
+	_, err := lepton.Deployment().Create(d)
+	if err != nil {
+		t.Fatalf("Failed to create deployment: %v", err)
+	}
+	err = waitForDeploymentToRunningState(dname)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+	err = lepton.Deployment().Delete(dname)
+	if err != nil {
+		t.Fatalf("Failed to delete deployment: %v", err)
+	}
+	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
+		_, err := lepton.Deployment().Create(d)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Failed to recreate deployment: %v", err)
+	}
+	err = waitForDeploymentToRunningState(dname)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+	err = lepton.Deployment().Delete(dname)
+	if err != nil {
+		t.Fatalf("Failed to delete deployment: %v", err)
+	}
+}
