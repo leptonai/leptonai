@@ -665,19 +665,19 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
 
-		ctx, cancel := context.WithTimeout(ctx, datastore.DefaultDatastoreOperationTimeout)
-		derr := DataStore.UpdateStatus(ctx, workspaceName, ws)
+		deferCtx, deferCancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+		derr := DataStore.UpdateStatus(deferCtx, workspaceName, ws)
 		if err == nil && derr != nil {
 			err = derr
 		}
-		cancel()
+		deferCancel()
 	}()
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	beforeTFCtx, beforeTFCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer beforeTFCancel()
 
 	var cl *crdv1alpha1.LeptonCluster
-	cl, err = cluster.DataStore.Get(ctx, ws.Spec.ClusterName)
+	cl, err = cluster.DataStore.Get(beforeTFCtx, ws.Spec.ClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -690,7 +690,7 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 		return fmt.Errorf("failed to prepare working dir: %w", err)
 	}
 
-	err = terraform.ForceUnlockWorkspace(ctx, tfws)
+	err = terraform.ForceUnlockWorkspace(beforeTFCtx, tfws)
 	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
 		return fmt.Errorf("failed to force unlock workspace: %w", err)
 	}
