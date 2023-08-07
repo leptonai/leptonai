@@ -19,9 +19,16 @@ import { LinkTo } from "@lepton-dashboard/components/link-to";
 export const PhotonItem: FC<{
   photon?: Photon;
   versions?: PhotonVersion[];
+  allowDeleteAllVersions?: boolean;
   showDetail?: boolean;
   onDeleted?: (name: string) => void;
-}> = ({ photon, versions, showDetail = false, onDeleted = () => void 0 }) => {
+}> = ({
+  photon,
+  versions,
+  showDetail = false,
+  allowDeleteAllVersions,
+  onDeleted = () => void 0,
+}) => {
   const theme = useAntdTheme();
   const deploymentService = useInject(DeploymentService);
   const deployments = useStateFromBehaviorSubject(deploymentService.list());
@@ -79,6 +86,8 @@ export const PhotonItem: FC<{
             <Actions
               relatedDeployments={relatedDeployments}
               photon={photon}
+              allowDeleteAllVersions={allowDeleteAllVersions}
+              versions={versions}
               extraActions={showDetail}
               onDeleted={onDeleted}
             />

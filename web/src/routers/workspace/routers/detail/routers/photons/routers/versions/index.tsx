@@ -18,6 +18,7 @@ import { take } from "rxjs";
 
 export const Versions: FC = () => {
   const { name } = useParams();
+  const theme = useAntdTheme();
   const photonService = useInject(PhotonService);
   const navigateService = useInject(NavigateService);
   const photons = useStateFromObservable(
@@ -27,7 +28,6 @@ export const Versions: FC = () => {
   const versions: PhotonVersion[] = useMemo(() => {
     return photons.map(({ id, created_at }) => ({ id, created_at }));
   }, [photons]);
-  const theme = useAntdTheme();
 
   const onDeleted = () => {
     photonService
@@ -39,6 +39,7 @@ export const Versions: FC = () => {
         }
       });
   };
+
   return (
     <Row gutter={[0, 24]}>
       <Col span={24}>
@@ -62,7 +63,12 @@ export const Versions: FC = () => {
       </Col>
       <Col span={24}>
         <Card>
-          <PhotonItem photon={photons[0]} versions={versions} />
+          <PhotonItem
+            photon={photons[0]}
+            versions={versions}
+            allowDeleteAllVersions
+            onDeleted={onDeleted}
+          />
         </Card>
       </Col>
       <Col span={24}>

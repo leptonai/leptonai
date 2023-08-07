@@ -1,6 +1,6 @@
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import { FC, useCallback } from "react";
-import { Photon } from "@lepton-dashboard/interfaces/photon";
+import { FC, useCallback, useMemo } from "react";
+import { Photon, PhotonVersion } from "@lepton-dashboard/interfaces/photon";
 import { App, Button, Popconfirm, Space, Tooltip } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
@@ -9,16 +9,21 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Download, TrashCan } from "@carbon/icons-react";
 import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
+import { DeleteAllVersions } from "@lepton-dashboard/routers/workspace/components/photon-item/components/actions/components/delete-all-versions";
 
 export const Actions: FC<{
   photon: Photon;
+  allowDeleteAllVersions?: boolean;
   extraActions: boolean;
   relatedDeployments?: Deployment[];
+  versions?: PhotonVersion[];
   onDeleted?: (name: string) => void;
 }> = ({
   photon,
+  allowDeleteAllVersions,
   extraActions = false,
   relatedDeployments = [],
+  versions = [],
   onDeleted = () => void 0,
 }) => {
   const { message } = App.useApp();
@@ -46,22 +51,35 @@ export const Actions: FC<{
     });
   }, [photon, photonService, workspaceTrackerService]);
 
-  const deleteButton = (
-    <Button
-      disabled={
-        relatedDeployments.length > 0 ||
-        workspaceTrackerService.workspace?.isPastDue
-      }
-      size="small"
-      type="text"
-      icon={<CarbonIcon icon={<TrashCan />} />}
-    >
-      Delete
-    </Button>
+  const deleteButton = useMemo(
+    () => (
+      <Button
+        disabled={
+          relatedDeployments.length > 0 ||
+          workspaceTrackerService.workspace?.isPastDue
+        }
+        size="small"
+        type="text"
+        icon={<CarbonIcon icon={<TrashCan />} />}
+      >
+        Delete
+      </Button>
+    ),
+    [relatedDeployments, workspaceTrackerService.workspace?.isPastDue]
   );
+
   return (
     <Space wrap size={[12, 4]}>
       <CreateDeployment photonId={photon.id} min />
+      {allowDeleteAllVersions && (
+        <DeleteAllVersions
+          disabled={workspaceTrackerService.workspace?.isPastDue}
+          photon={photon}
+          relatedDeployments={relatedDeployments}
+          versions={versions}
+          onDeleted={onDeleted}
+        />
+      )}
       {extraActions && (
         <>
           <Button
