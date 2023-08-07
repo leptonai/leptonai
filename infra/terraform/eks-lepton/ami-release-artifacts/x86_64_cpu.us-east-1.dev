@@ -1,0 +1,13 @@
+BASE_AMI_ID=ami-04d64ac76bcedca9c
+BUILD_TIME=Wed Jul 19 08:11:27 UTC 2023
+BUILD_KERNEL=5.15.0-1039-aws
+ARCH=x86_64
+
+OS_RELEASE_ID=ubuntu
+OS_RELEASE_DISTRIBUTION=ubuntu20.04
+
+RUNC_VERSION="runc version 1.1.4-0ubuntu1~20.04.3"
+CONTAINERD_VERSION="containerd github.com/containerd/containerd 1.6.12-0ubuntu1~20.04.3 "
+CTR_VERSION="ctr github.com/containerd/containerd 1.6.12-0ubuntu1~20.04.3"
+
+KUBELET_VERSION=""
