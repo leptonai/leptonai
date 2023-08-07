@@ -1,6 +1,6 @@
 export const AvailableCoupons: { [key: string]: string } = {
-  "10": "NolzLBLL",
-  "100": "yvyzEDg9",
-  "500": "YPIWKazL",
-  "1000": "pKs3ex4Z",
+  "10": "XqK2kAkF",
+  "100": "4xRmxX5x",
+  "500": "LvDu60Lr",
+  "1000": "PdTZ9Apj",
 };

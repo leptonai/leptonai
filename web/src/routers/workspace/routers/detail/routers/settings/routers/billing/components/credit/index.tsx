@@ -6,22 +6,31 @@ import Decimal from "decimal.js";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
 
-export const Credit: FC<{ invoice: Stripe.UpcomingInvoice }> = ({
-  invoice,
-}) => {
-  const creditGranted = invoice.discount?.coupon.amount_off;
-  const creditReason = invoice.discount?.coupon.name;
-  const creditUsed = invoice.total_discount_amounts?.[0].amount;
-  const creditExpired = (invoice.period_end || 0) * 1000;
+export const Credit: FC<{
+  invoice: Stripe.UpcomingInvoice;
+  coupon: Stripe.Coupon;
+  current_period: { start: number; end: number };
+}> = ({ invoice, coupon, current_period }) => {
+  const creditGranted = coupon.amount_off;
+  const creditReason = coupon.name;
+  const creditUsed = invoice.total_discount_amounts
+    ? invoice.total_discount_amounts?.[0]?.amount
+    : coupon.amount_off;
+  const creditExpired = current_period.end;
   const percentage = useMemo(() => {
-    if (!creditGranted || creditUsed === undefined) {
+    if (!creditGranted || creditUsed === undefined || creditUsed === null) {
       return null;
     } else {
       return new Decimal(creditUsed).mul(100).div(creditGranted).toNumber();
     }
   }, [creditUsed, creditGranted]);
 
-  if (creditGranted && creditUsed !== undefined && percentage !== null) {
+  if (
+    creditGranted &&
+    creditUsed !== null &&
+    creditUsed !== undefined &&
+    percentage !== null
+  ) {
     return (
       <Card
         css={css`

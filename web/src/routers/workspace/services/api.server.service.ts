@@ -417,6 +417,8 @@ export class ApiServerService implements ApiService {
       upcoming?: Stripe.UpcomingInvoice;
       open?: Stripe.Invoice;
       list: Stripe.Invoice[];
+      coupon: Stripe.Coupon | null;
+      current_period: { start: number; end: number };
     }>(
       `${this.portalUrl}/api/billing/invoice`,
       {

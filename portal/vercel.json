@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/grant-coupon?key=9dfb1916-374d-4d41-8887-b20422ffc89d",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

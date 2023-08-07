@@ -97,5 +97,7 @@ export abstract class ApiService {
     open?: Stripe.Invoice;
     products: Stripe.Product[];
     list: Stripe.Invoice[];
+    coupon: Stripe.Coupon | null;
+    current_period: { start: number; end: number };
   }>;
 }

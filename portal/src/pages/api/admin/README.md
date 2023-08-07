@@ -27,20 +27,21 @@ Content-Type: application/json
 }
 ```
 
-## Update subscription coupon
+## Update consumer coupon
 
 When we need to issue discounts coupons to customers.
 
-> Note: these coupons will be valid for each cycle. When a new coupon is assigned, the old coupon will automatically become invalid.
+> Note: these coupons will be granted for each month, and immediately take effect when calling the api.
+> When a new coupon is assigned, the old coupon will automatically become invalid.
 
-coupon could be `10`, `100`, `500` or `1000`
+coupon could be `0`, `10`, `100`, `500` or `1000`, when pass `0`, it means remove the consumer's coupon.
 
 ```http request
 POST https://portal.lepton.ai/api/admin/update-subscription-coupon?LEPTON_API_SECRET=${LEPTON_API_SECRET}
 Content-Type: application/json
 
 {
-  "subscription_id": "sub_1NasgNBcUfXYxWWVYOy80jku",
+  "consumer_id": "cus_OOtGLjQzquS1wG",
   "coupon": "10"
 }
 

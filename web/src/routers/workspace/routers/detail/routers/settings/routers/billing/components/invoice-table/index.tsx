@@ -19,6 +19,11 @@ export const InvoiceTable: FC<{
       return invoice.lines.data.filter((e) => e.amount > 0);
     }
   }, [invoice]);
+
+  const amount =
+    invoice.total_discount_amounts &&
+    invoice.total_discount_amounts?.[0]?.amount;
+
   return (
     <Table
       scroll={{ x: "100%" }}
@@ -39,12 +44,8 @@ export const InvoiceTable: FC<{
           <Table.Summary.Row>
             <Table.Summary.Cell index={0} colSpan={4} align="right">
               <PriceSummary name="Subtotal" amount={invoice.subtotal} />
-              {invoice.total_discount_amounts?.[0].amount ? (
-                <PriceSummary
-                  name="Credits"
-                  prefix="-"
-                  amount={invoice.total_discount_amounts?.[0].amount}
-                />
+              {amount ? (
+                <PriceSummary name="Credits" prefix="-" amount={amount} />
               ) : null}
               <PriceSummary name="Total" amount={invoice.total} />
               <PriceSummary name="Amount due" amount={invoice.amount_due} />

@@ -112,24 +112,28 @@ export const Invoice: FC<{
               ),
               render: (_, record) => (
                 <Space size={0} split={<Divider type="vertical" />}>
-                  <Button
-                    icon={<CarbonIcon icon={<Launch />} />}
-                    type="text"
-                    size="small"
-                    href={record.hosted_invoice_url!}
-                    target="_blank"
-                  >
-                    Detail
-                  </Button>
-                  <Button
-                    icon={<CarbonIcon icon={<DocumentDownload />} />}
-                    type="text"
-                    size="small"
-                    href={record.invoice_pdf!}
-                    target="_blank"
-                  >
-                    Download
-                  </Button>
+                  {record.hosted_invoice_url && (
+                    <Button
+                      icon={<CarbonIcon icon={<Launch />} />}
+                      type="text"
+                      size="small"
+                      href={record.hosted_invoice_url}
+                      target="_blank"
+                    >
+                      Detail
+                    </Button>
+                  )}
+                  {record.invoice_pdf && (
+                    <Button
+                      icon={<CarbonIcon icon={<DocumentDownload />} />}
+                      type="text"
+                      size="small"
+                      href={record.invoice_pdf}
+                      target="_blank"
+                    >
+                      Download
+                    </Button>
+                  )}
                 </Space>
               ),
             },

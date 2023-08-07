@@ -18,13 +18,15 @@ export default async function handler(
 
   try {
     const body = req.body;
-
     const workspace_id = body.record.id;
+
+    const coupon = AvailableCoupons["10"];
 
     const consumer = await stripeClient.customers.create({
       metadata: {
         workspace_id,
       },
+      coupon,
     });
 
     const subscription = await stripeClient.subscriptions.create({
@@ -37,7 +39,6 @@ export default async function handler(
         reset_billing_cycle_anchor: false,
       },
       items: AvailableProducts,
-      coupon: AvailableCoupons["10"],
     });
 
     const updated = {
@@ -47,7 +48,11 @@ export default async function handler(
 
     await supabaseAdminClient
       .from("workspaces")
-      .update({ consumer_id: consumer.id, subscription_id: subscription.id })
+      .update({
+        consumer_id: consumer.id,
+        subscription_id: subscription.id,
+        coupon_id: coupon,
+      })
       .eq("id", workspace_id);
 
     res.status(200).json(updated);

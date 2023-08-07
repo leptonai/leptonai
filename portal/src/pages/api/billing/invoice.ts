@@ -24,9 +24,15 @@ const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
         subscription,
         status: "open",
       });
+      const coupon = workspace.coupon_id
+        ? await stripeClient.coupons.retrieve(workspace.coupon_id)
+        : null;
       const { data: invoiceList } = await stripeClient.invoices.list({
         subscription,
       });
+
+      const { current_period_start, current_period_end } =
+        await stripeClient.subscriptions.retrieve(subscription);
 
       const upcoming = await stripeClient.invoices.retrieveUpcoming({
         subscription,
@@ -40,6 +46,11 @@ const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
         upcoming,
         list: invoiceList,
         products,
+        coupon,
+        current_period: {
+          start: current_period_start * 1000,
+          end: current_period_end * 1000,
+        },
       });
     }
   } catch (err) {

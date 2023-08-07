@@ -21,15 +21,21 @@ export const Billing: FC = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(true);
   const billingService = useInject(BillingService);
 
-  const { upcoming, open, list, products } = useStateFromObservable(
-    () => billingService.getInvoice(),
-    { products: [], list: [] },
-    {
-      next: () => {
-        setInvoiceLoading(false);
+  const { upcoming, open, list, products, coupon, current_period } =
+    useStateFromObservable(
+      () => billingService.getInvoice(),
+      {
+        products: [],
+        list: [],
+        coupon: null,
+        current_period: { start: 0, end: 0 },
       },
-    }
-  );
+      {
+        next: () => {
+          setInvoiceLoading(false);
+        },
+      }
+    );
 
   const creditInvoice = open || upcoming;
 
@@ -51,7 +57,13 @@ export const Billing: FC = () => {
             {list && (
               <Row gutter={[0, 16]}>
                 <Col span={24}>
-                  {creditInvoice && <Credit invoice={creditInvoice} />}
+                  {coupon && creditInvoice && (
+                    <Credit
+                      coupon={coupon}
+                      current_period={current_period}
+                      invoice={creditInvoice}
+                    />
+                  )}
                 </Col>
                 <Col span={24}>
                   <Invoice
