@@ -9,4 +9,5 @@ urlpatterns = [
     path("job/list/<str:status>", views.list_dishes, name="list"),
     path("job/list", views.list_dishes, name="list"),
     path("job/cancel/<int:dish_id>", views.cancel_dish, name="cancel"),
+    path("job/rerun", csrf_exempt(views.RerunView.as_view()), name="rerun"),
 ]
