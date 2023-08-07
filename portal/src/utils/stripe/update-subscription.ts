@@ -9,16 +9,14 @@ export async function updateCustomerAmountGTE(
     customer,
   });
   await Promise.all(
-    subscriptions
-      .filter(({ status }) => status === "active")
-      .map(async ({ id }) => {
-        await stripeClient.subscriptions.update(id, {
-          billing_thresholds: {
-            amount_gte: amountGTE,
-            reset_billing_cycle_anchor: false,
-          },
-        });
-      }),
+    subscriptions.map(async ({ id }) => {
+      await stripeClient.subscriptions.update(id, {
+        billing_thresholds: {
+          amount_gte: amountGTE,
+          reset_billing_cycle_anchor: false,
+        },
+      });
+    }),
   );
   return subscriptions.map(({ id }) => id);
 }
