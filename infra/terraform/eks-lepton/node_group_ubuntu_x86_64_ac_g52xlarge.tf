@@ -33,7 +33,7 @@ resource "aws_eks_node_group" "ubuntu_x86_64_ac_g52xlarge" {
   ami_type = "CUSTOM"
   launch_template {
     id      = aws_launch_template.ubuntu_x86_64_ac.id
-    version = aws_launch_template.ubuntu_x86_64_ac.default_version
+    version = aws_launch_template.ubuntu_x86_64_ac.latest_version
   }
 
   # not allow new pods to schedule onto the node unless they tolerate the taint

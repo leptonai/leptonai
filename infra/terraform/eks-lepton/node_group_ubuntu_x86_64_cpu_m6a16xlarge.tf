@@ -34,7 +34,7 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
   ami_type = "CUSTOM"
   launch_template {
     id      = aws_launch_template.ubuntu_x86_64_cpu.id
-    version = aws_launch_template.ubuntu_x86_64_cpu.default_version
+    version = aws_launch_template.ubuntu_x86_64_cpu.latest_version
   }
 
   # set same as "eks-managed-node-group" module
