@@ -54,7 +54,10 @@ def get_workspace_display_name(workspace_id) -> Optional[str]:
     """
     request_body = {"id": workspace_id}
     response = json_or_error(
-        requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
+        requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body),
+        additional_debug_info=(
+            f"url: {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}"
+        ),
     )
     if isinstance(response, APIError):
         raise RuntimeError(
