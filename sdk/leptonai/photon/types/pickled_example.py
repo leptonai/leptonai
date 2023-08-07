@@ -2,7 +2,7 @@
 # that pickle comes with a lot of side effects, and should be used in caution.
 
 from leptonai.photon import Photon, handler
-from leptonai.photon.types import lepton_pickle
+from leptonai.photon.types import lepton_pickle, LeptonPickled
 
 
 class Pickle(Photon):
@@ -10,7 +10,7 @@ class Pickle(Photon):
         pass
 
     @handler("run")
-    def run(self) -> bytes:
+    def run(self) -> LeptonPickled:
         output = [
             "Hello, world!",
             {"key": "value"},

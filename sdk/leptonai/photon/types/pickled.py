@@ -24,8 +24,11 @@ from typing import Any, Dict
 
 _PICKLED_PREFIX = "lepton_pickled"
 
+# Typing alias for python typing hints
+LeptonPickled = Dict[str, str]
 
-def is_pickled(obj: Dict[str, str]) -> bool:
+
+def is_pickled(obj: LeptonPickled) -> bool:
     """
     Checks if a string is a pickled string.
 
@@ -41,7 +44,7 @@ def is_pickled(obj: Dict[str, str]) -> bool:
         return False
 
 
-def lepton_pickle(obj: Any) -> str:
+def lepton_pickle(obj: Any) -> LeptonPickled:
     """
     Pickles an object and returns an objec that will be able to be sent over the
     api.
@@ -60,7 +63,7 @@ def lepton_pickle(obj: Any) -> str:
     }
 
 
-def lepton_unpickle(content: str) -> Any:
+def lepton_unpickle(obj: LeptonPickled) -> Any:
     """
     Unpickles a string to an object.
 
@@ -70,7 +73,7 @@ def lepton_unpickle(content: str) -> Any:
     Returns:
         Any: The unpickled object.
     """
-    content = content["content"]
+    content = obj["content"]
     try:
         return pickle.loads(base64.b64decode(content))
     except Exception as e:
