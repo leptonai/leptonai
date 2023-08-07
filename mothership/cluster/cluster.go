@@ -98,7 +98,9 @@ func Init() {
 					"cluster", cl.Spec.Name,
 					"operation", "update",
 				)
-				_, err := Update(context.Background(), cl.Spec)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_, err := Update(ctx, cl.Spec)
 				if err != nil {
 					goutil.Logger.Errorw("failed to update cluster",
 						"cluster", cl.Spec.Name,
@@ -234,7 +236,7 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alph
 		}
 		return cerr
 	}, func() {
-		tryUpdatingStateToFailed(context.Background(), clusterName)
+		tryUpdatingStateToFailed(clusterName)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -247,7 +249,7 @@ func Delete(clusterName string) error {
 	return Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
 		return delete(clusterName, logCh)
 	}, func() {
-		tryUpdatingStateToFailed(context.Background(), clusterName)
+		tryUpdatingStateToFailed(clusterName)
 	})
 }
 
@@ -263,7 +265,9 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 		metrics.IncrementClusterJobsFailureTotal("delete")
 	}()
 
-	cl, err := DataStore.Get(context.Background(), clusterName)
+	ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	cl, err := DataStore.Get(ctx, clusterName)
+	cancel()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			goutil.Logger.Infow("cluster not found",
@@ -279,14 +283,19 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 
 	cl.Status.LastState = cl.Status.State
 	cl.Status.State = crdv1alpha1.ClusterOperationalStateDeleting
-	if err := DataStore.UpdateStatus(context.Background(), clusterName, cl); err != nil {
+
+	ctx, cancel = context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	if err := DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
+		cancel()
 		return fmt.Errorf("failed to update cluster status: %w", err)
 	}
+	cancel()
 
 	defer func() {
 		success := err == nil
 		if err == nil {
-			if err = DataStore.Delete(context.Background(), clusterName); err != nil {
+			ctx, cancel = context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+			if err = DataStore.Delete(ctx, clusterName); err != nil {
 				goutil.Logger.Errorw("failed to delete cluster from the data store",
 					"cluster", clusterName,
 					"operation", "delete",
@@ -295,6 +304,7 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 
 				success = false
 			}
+			cancel()
 		}
 		if success {
 			goutil.Logger.Infow("successfully deleted cluster",
@@ -508,7 +518,7 @@ func idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv
 		}
 		return cerr
 	}, func() {
-		tryUpdatingStateToFailed(context.Background(), clusterName)
+		tryUpdatingStateToFailed(clusterName)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -621,7 +631,10 @@ func terraformWorkspaceName(clusterName string) string {
 	return "cl-" + clusterName + "-" + domain
 }
 
-func tryUpdatingStateToFailed(ctx context.Context, clusterName string) {
+func tryUpdatingStateToFailed(clusterName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	defer cancel()
+
 	cl, err := DataStore.Get(ctx, clusterName)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get cluster",

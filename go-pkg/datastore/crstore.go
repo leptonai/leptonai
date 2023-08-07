@@ -20,6 +20,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// DefaultDatastoreOperationTimeout is the default timeout for datastore operations
+	DefaultDatastoreOperationTimeout = 30 * time.Second
+)
+
 // TODO: add tests (have to figure out how to mock k8s first)
 type CRStore[T client.Object] struct {
 	namespace string

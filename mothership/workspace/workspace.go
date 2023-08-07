@@ -292,7 +292,7 @@ func Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return nil, fmt.Errorf("DataStore error: %w", err)
 	}
-	if err := updateState(ws, crdv1alpha1.WorkspaceOperationalStateCreating); err != nil {
+	if err := updateState(ctx, ws, crdv1alpha1.WorkspaceOperationalStateCreating); err != nil {
 		goutil.Logger.Errorw("failed to create workspace",
 			"workspace", workspaceName,
 			"operation", "create",
@@ -460,7 +460,9 @@ func delete(workspaceName string, logCh chan<- string) (err error) {
 				"operation", "delete",
 			)
 
-			err = DataStore.Delete(context.Background(), workspaceName)
+			ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+			defer cancel()
+			err = DataStore.Delete(ctx, workspaceName)
 		}
 	}()
 
@@ -536,7 +538,9 @@ func delete(workspaceName string, logCh chan<- string) (err error) {
 	} else {
 		cl.Status.Workspaces = goutil.RemoveString(cl.Status.Workspaces, workspaceName)
 		// TODO: data race: if two goroutines are concurrently updating the cluster, this will fail.
-		if err := cluster.DataStore.UpdateStatus(context.Background(), cl.Name, cl); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+		defer cancel()
+		if err := cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
 			goutil.Logger.Errorw("failed to remove the deleted workspace from cluster",
 				"workspace", workspaceName,
 				"cluster", cl.Name,
@@ -660,13 +664,16 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 		}
 
 		ws.Status.UpdatedAt = uint64(time.Now().Unix())
-		derr := DataStore.UpdateStatus(context.Background(), workspaceName, ws)
+
+		ctx, cancel := context.WithTimeout(ctx, datastore.DefaultDatastoreOperationTimeout)
+		derr := DataStore.UpdateStatus(ctx, workspaceName, ws)
 		if err == nil && derr != nil {
 			err = derr
 		}
+		cancel()
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var cl *crdv1alpha1.LeptonCluster
@@ -771,7 +778,9 @@ func efsMountTargets(privateSubnets []string) string {
 }
 
 func tryUpdatingStateToFailed(workspaceName string) {
-	ws, err := DataStore.Get(context.Background(), workspaceName)
+	ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	defer cancel()
+	ws, err := DataStore.Get(ctx, workspaceName)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get workspace",
 			"workspace", workspaceName,
@@ -779,7 +788,7 @@ func tryUpdatingStateToFailed(workspaceName string) {
 		)
 		return
 	}
-	if err := updateState(ws, crdv1alpha1.WorkspaceOperationalStateFailed); err != nil {
+	if err := updateState(ctx, ws, crdv1alpha1.WorkspaceOperationalStateFailed); err != nil {
 		goutil.Logger.Errorw("failed to update workspace state to failed",
 			"workspace", workspaceName,
 			"error", err,
@@ -787,9 +796,9 @@ func tryUpdatingStateToFailed(workspaceName string) {
 	}
 }
 
-func updateState(ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceOperationalState) error {
+func updateState(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace, state crdv1alpha1.LeptonWorkspaceOperationalState) error {
 	ws.Status.LastState = ws.Status.State
 	ws.Status.State = state
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
-	return DataStore.UpdateStatus(context.Background(), ws.Spec.Name, ws)
+	return DataStore.UpdateStatus(ctx, ws.Spec.Name, ws)
 }
