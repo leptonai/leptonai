@@ -45,10 +45,11 @@ export const Detail: FC = () => {
             return forkJoin([
               deploymentService.refresh(),
               photonService.refresh(),
-            ]);
-          }),
-          map(() => "normal"),
-          catchError(() => of("error"))
+            ]).pipe(
+              map(() => "normal"),
+              catchError(() => of("error"))
+            );
+          })
         ),
         workspaceId$.pipe(map(() => "initializing"))
       ),

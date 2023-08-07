@@ -12,6 +12,7 @@ import {
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
 import { Subset } from "@lepton-dashboard/interfaces/subset";
 import { OpenAPIRequest } from "@lepton-libs/open-api-tool";
+import { retryBackoff } from "@lepton-libs/rxjs/retry-backoff";
 
 @Injectable()
 export class DeploymentService {
@@ -91,6 +92,10 @@ export class DeploymentService {
 
   refresh() {
     return this.apiService.listDeployments().pipe(
+      retryBackoff({
+        count: 5,
+        delay: 1000,
+      }),
       map((item) => item.sort((a, b) => b.created_at - a.created_at)),
       tap((l) => this.list$.next(l))
     );

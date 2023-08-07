@@ -7,15 +7,13 @@ import {
   HTTPResponse,
 } from "@lepton-dashboard/services/http-client.service";
 import { catchError, mergeMap, Observable, tap, throwError } from "rxjs";
-import {
-  AuthService,
-  UnauthorizedError,
-} from "@lepton-dashboard/services/auth.service";
+import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { ReactNode } from "react";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
+import { UnauthorizedError } from "@lepton-libs/erroes/unauthorized";
 
 @Injectable()
 export class AppInterceptor implements HTTPInterceptor {

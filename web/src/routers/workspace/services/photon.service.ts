@@ -2,6 +2,7 @@ import { Injectable } from "injection-js";
 import { BehaviorSubject, map, Observable, tap } from "rxjs";
 import { Photon, PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { ApiService } from "@lepton-dashboard/routers/workspace/services/api.service";
+import { retryBackoff } from "@lepton-libs/rxjs/retry-backoff";
 
 @Injectable()
 export class PhotonService {
@@ -48,6 +49,10 @@ export class PhotonService {
 
   refresh() {
     return this.apiService.listPhotons().pipe(
+      retryBackoff({
+        count: 5,
+        delay: 1000,
+      }),
       map((item) => item.sort((a, b) => b.created_at - a.created_at)),
       tap((photons) => {
         this.list$.next(photons);

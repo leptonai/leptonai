@@ -1,5 +1,14 @@
 import { Injectable } from "injection-js";
-import { catchError, forkJoin, map, mergeMap, Observable, of, tap } from "rxjs";
+import {
+  catchError,
+  forkJoin,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  retry,
+  tap,
+} from "rxjs";
 import { Profile } from "@lepton-dashboard/interfaces/profile";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { HttpClientService, HttpContext } from "./http-client.service";
@@ -30,7 +39,13 @@ export class ProfileService {
                         ignoreErrors: true,
                       }),
                     })
-                    .pipe(catchError(() => of(null)));
+                    .pipe(
+                      retry({
+                        count: 10,
+                        delay: 1000,
+                      }),
+                      catchError(() => of(null))
+                    );
                 }),
               ]).pipe(
                 map((detailWorkspaces) => {
