@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/go-tfe v1.26.0
 	github.com/lib/pq v1.10.7
 	github.com/mholt/archiver/v3 v3.5.1
-	github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
 	github.com/opencost/opencost v1.104.3
