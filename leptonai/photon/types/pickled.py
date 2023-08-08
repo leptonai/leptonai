@@ -21,11 +21,12 @@ order).
 import base64
 import pickle
 from typing import Any, Dict
+import zlib
 
 _PICKLED_PREFIX = "lepton_pickled"
 
 # Typing alias for python typing hints
-LeptonPickled = Dict[str, str]
+LeptonPickled = Dict[str, Any]
 
 
 def is_pickled(obj: LeptonPickled) -> bool:
@@ -44,23 +45,32 @@ def is_pickled(obj: LeptonPickled) -> bool:
         return False
 
 
-def lepton_pickle(obj: Any) -> LeptonPickled:
+def lepton_pickle(obj: Any, compression: int = 0) -> LeptonPickled:
     """
     Pickles an object and returns an objec that will be able to be sent over the
     api.
 
     Args:
         obj (Any): The object to pickle.
+        compression (bool): Whether to compress the pickled string.
 
     Returns:
         content: a dictionary with two keys: "type" and "content". "type" has value
             "lepton_pickled", and "content" is the pickled string. However, do not
             rely on this format as it may change in the future.
     """
-    return {
+    try:
+        content = pickle.dumps(obj)
+    except Exception as e:
+        raise ValueError(f"Object is unpicklable. Detailed error message: {str(e)}.")
+    if compression:
+        content = zlib.compress(content, level=compression)
+    pickled = {
         "type": _PICKLED_PREFIX,
-        "content": base64.b64encode(pickle.dumps(obj)).decode("utf-8"),
+        "compression": compression,
+        "content": base64.b64encode(content).decode("utf-8"),
     }
+    return pickled
 
 
 def lepton_unpickle(obj: LeptonPickled) -> Any:
@@ -73,8 +83,11 @@ def lepton_unpickle(obj: LeptonPickled) -> Any:
     Returns:
         Any: The unpickled object.
     """
-    content = obj["content"]
+    content = base64.b64decode(obj["content"])
+    if obj.get("compression", False):
+        content = zlib.decompress(content)
+
     try:
-        return pickle.loads(base64.b64decode(content))
+        return pickle.loads(content)
     except Exception as e:
         raise ValueError(f"Cannot unpickle content. Detailed error message: {str(e)}")
