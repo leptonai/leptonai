@@ -5,21 +5,12 @@ import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tr
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FC } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
-import {
-  App,
-  Button,
-  Col,
-  Divider,
-  Popconfirm,
-  Row,
-  Space,
-  Typography,
-} from "antd";
+import { App, Button, Col, Divider, Popconfirm, Row, Space } from "antd";
 import { css } from "@emotion/react";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Api, CopyFile, Replicate, Time, TrashCan } from "@carbon/icons-react";
+import { Replicate, Time, TrashCan } from "@carbon/icons-react";
 import { DeploymentStatus } from "@lepton-dashboard/routers/workspace/components/deployment-status";
 import { DateParser } from "../../../../components/date-parser";
 import { useInject } from "@lepton-libs/di";
@@ -30,6 +21,7 @@ import { EditDeployment } from "@lepton-dashboard/routers/workspace/components/d
 import { Envs } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/envs";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
+import { EndpointIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/endpoint-indicator";
 
 export const DeploymentItem: FC<{ deployment: Deployment }> = ({
   deployment,
@@ -137,21 +129,8 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
               </Col>
               <Col span={24}>
                 <Description.Container>
-                  <Description.Item
-                    icon={<CarbonIcon icon={<Api />} />}
-                    term="Endpoint"
-                    description={
-                      <Typography.Text
-                        style={{ maxWidth: "280px" }}
-                        ellipsis={{ tooltip: true }}
-                        copyable={{
-                          tooltips: false,
-                          icon: <CarbonIcon icon={<CopyFile />} />,
-                        }}
-                      >
-                        {deployment.status.endpoint.external_endpoint}
-                      </Typography.Text>
-                    }
+                  <EndpointIndicator
+                    endpoint={deployment.status.endpoint.external_endpoint}
                   />
                 </Description.Container>
               </Col>

@@ -1,6 +1,14 @@
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 import { Injectable } from "injection-js";
-import { BehaviorSubject, forkJoin, map, Observable, tap } from "rxjs";
+import {
+  BehaviorSubject,
+  forkJoin,
+  map,
+  merge,
+  Observable,
+  of,
+  tap,
+} from "rxjs";
 import {
   Deployment,
   Replica,
@@ -16,6 +24,7 @@ import { retryBackoff } from "@lepton-libs/rxjs/retry-backoff";
 
 @Injectable()
 export class DeploymentService {
+  private endpointsHeathCache: Record<string, boolean> = {};
   private list$ = new BehaviorSubject<Deployment[]>([]);
 
   list(): Observable<Deployment[]> {
@@ -97,7 +106,12 @@ export class DeploymentService {
         delay: 1000,
       }),
       map((item) => item.sort((a, b) => b.created_at - a.created_at)),
-      tap((l) => this.list$.next(l))
+      tap((l) => {
+        this.list$.next(l);
+        this.updateHeathCacheKeys(
+          l.map((i) => i.status.endpoint.external_endpoint)
+        );
+      })
     );
   }
 
@@ -135,6 +149,33 @@ export class DeploymentService {
       )
     );
   }
+
+  endpointHealth(endpoint: string): Observable<boolean> {
+    return merge(
+      of(Boolean(this.endpointsHeathCache[endpoint])),
+      this.refreshEndpointHealth(endpoint)
+    );
+  }
+
+  private refreshEndpointHealth(endpoint: string): Observable<boolean> {
+    return this.apiService.getEndpointHealth(endpoint).pipe(
+      tap((health) => {
+        if (Object.hasOwn(this.endpointsHeathCache, endpoint)) {
+          this.endpointsHeathCache[endpoint] = health;
+        }
+      })
+    );
+  }
+
+  private updateHeathCacheKeys(keys: string[]) {
+    this.endpointsHeathCache = keys.reduce((pre, cur) => {
+      return {
+        ...pre,
+        [cur]: this.endpointsHeathCache[cur] || false,
+      };
+    }, {});
+  }
+
   constructor(
     private apiService: ApiService,
     private metricServiceUtil: MetricUtilService

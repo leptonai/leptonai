@@ -209,6 +209,10 @@ export class ApiLocalService implements ApiService {
     ]);
   }
 
+  getEndpointHealth(): Observable<boolean> {
+    return EMPTY;
+  }
+
   createSecret(secret: Secret): Observable<void> {
     console.log(secret);
     return EMPTY;

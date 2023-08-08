@@ -1,6 +1,6 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { Injectable } from "injection-js";
-import { catchError, mergeMap, Observable, of } from "rxjs";
+import { catchError, map, mergeMap, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -275,6 +275,21 @@ export class ApiServerService implements ApiService {
         }),
       }
     );
+  }
+
+  getEndpointHealth(endpoint: string): Observable<boolean> {
+    return this.httpClientService
+      .get<{
+        status: string;
+      }>(pathJoin(endpoint, "healthz"), {
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: true,
+        }),
+      })
+      .pipe(
+        map((d) => d.status === "ok"),
+        catchError(() => of(false))
+      );
   }
 
   createSecret(secret: Secret): Observable<void> {
