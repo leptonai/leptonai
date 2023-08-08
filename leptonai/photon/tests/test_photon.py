@@ -30,14 +30,12 @@ import asyncio
 import concurrent.futures
 from io import BytesIO
 import inspect
-import json
 from textwrap import dedent
 import shutil
 import subprocess
 import sys
 from typing import Dict
 import unittest
-import zipfile
 
 from fastapi import FastAPI
 from loguru import logger
@@ -260,9 +258,7 @@ class Counter(Photon):
         name = random_name()
         ph = CustomPhoton(name=name)
         path = ph.save()
-        with zipfile.ZipFile(path, "r") as photon_file:
-            with photon_file.open("metadata.json") as metadata_file:
-                metadata = json.load(metadata_file)
+        metadata = load_metadata(path)
         self.assertEqual(metadata["name"], name)
         self.assertEqual(metadata["model"], "CustomPhoton")
         self.assertTrue("image" in metadata)
@@ -286,6 +282,11 @@ class Counter(Photon):
         self.assertEqual(raises.exception.args[0], "example")
 
         self.assertEqual(len(metadata["requirement_dependency"]), 0)
+
+        self.assertEqual(
+            metadata["py_obj"]["py_version"],
+            f"{sys.version_info.major}.{sys.version_info.minor}",
+        )
 
     def test_capture_dependency(self):
         name = random_name()
