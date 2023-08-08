@@ -324,7 +324,10 @@ class Client(object):
                     json=jsonable_encoder(kwargs),
                 )
                 res.raise_for_status()
-                return res.json()
+                if res.headers["content-type"] == "application/json":
+                    return res.json()
+                else:
+                    return res.content
 
             _method.__name__ = function_name
             if self.openapi:
@@ -350,7 +353,10 @@ class Client(object):
                     )
                 res = self._get(path_name, params=kwargs)
                 res.raise_for_status()
-                return res.json()
+                if res.headers["content-type"] == "application/json":
+                    return res.json()
+                else:
+                    return res.content
 
             _method.__name__ = function_name
             if self.openapi:
