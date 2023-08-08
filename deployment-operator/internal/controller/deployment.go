@@ -196,7 +196,7 @@ func (k *deployment) newMainContainerCommand() []string {
 }
 
 func (k *deployment) newMainContainerArgs() []string {
-	lepInstallCmd := fmt.Sprintf("command -v lep &> /dev/null || pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-%s-py3-none-any.whl", version.Release)
+	lepInstallCmd := fmt.Sprintf("if ! command -v lep; then pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-%s-py3-none-any.whl; fi", version.Release)
 	leptonCmd := fmt.Sprintf("lep photon prepare -f %s; lep photon run -f %[1]s", k.photonDestPath())
 	return []string{"-c", lepInstallCmd + "; " + leptonCmd}
 }

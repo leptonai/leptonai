@@ -284,3 +284,33 @@ func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 		t.Fatalf("Failed to delete deployment: %v", err)
 	}
 }
+
+func TestCustomizedImage(t *testing.T) {
+	name := newName(t.Name())
+	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	output, err := client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
+	}
+
+	fullArgs = []string{"pho", "push", "-n", name}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to push photon with customized image: %v - %s", err, output)
+	}
+
+	fullArgs = []string{"pho", "run", "-n", name}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to run photon with customized image: %v - %s", err, output)
+	}
+
+	err = waitForDeploymentToRunningState(name)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+	err = lepton.Deployment().Delete(name)
+	if err != nil {
+		t.Fatalf("Failed to delete deployment: %v", err)
+	}
+}
