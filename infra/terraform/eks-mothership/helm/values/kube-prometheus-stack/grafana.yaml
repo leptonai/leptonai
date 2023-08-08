@@ -18,7 +18,7 @@ grafana:
     port: 3000
     targetPort: 3000
 
-  adminPassword: ${admin_password}
+  adminPassword: "${admin_password}"
 
   # manually create to set up IRSA
   #
@@ -57,23 +57,22 @@ grafana:
 
   # use additional data sources to configure aws auth (sig v4)
   additionalDataSources:
+    # use "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090"
+    # as fallback in case of Amazon Managed Prometheus outages
 
-  # use "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090"
-  # as fallback in case of Amazon Managed Prometheus outages
+    # default data source
+    - name: ${amp_name}
+      url: ${amp_url}
+      type: prometheus
+      isDefault: true
+      jsonData:
+        httpMethod: POST
+        sigV4Auth: true
+        sigV4AuthType: default
+        sigV4Region: ${amp_region}
+        sigV4AssumeRoleArn: ${amp_role_arn}
 
-  # default data source
-  - name: ${amp_name}
-    url: ${amp_url}
-    type: prometheus
-    isDefault: true
-    jsonData:
-      httpMethod: POST
-      sigV4Auth: true
-      sigV4AuthType: default
-      sigV4Region: ${amp_region}
-      sigV4AssumeRoleArn: ${amp_role_arn}
-
-  - name: ${kubecost_name}
-    url: ${kubecost_url}
-    type: prometheus
-    isDefault: false
+    - name: ${kubecost_name}
+      url: ${kubecost_url}
+      type: prometheus
+      isDefault: false
