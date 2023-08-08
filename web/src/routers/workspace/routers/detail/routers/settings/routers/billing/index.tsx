@@ -66,7 +66,7 @@ export const Billing: FC = () => {
                       />
                     </Col>
                     {coupon && creditInvoice && (
-                      <Col flex="1 0 400px">
+                      <Col flex="2 0 400px">
                         <Credit
                           coupon={coupon}
                           current_period={current_period}

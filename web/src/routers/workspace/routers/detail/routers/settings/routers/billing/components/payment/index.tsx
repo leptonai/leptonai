@@ -12,7 +12,7 @@ export const Payment: FC<{
 }> = ({ paymentMethodAttached, invoice }) => {
   return (
     <Card>
-      <Row justify="space-between">
+      <Row justify="space-between" gutter={[16, 16]} wrap={false}>
         <Col flex={1}>
           <Typography.Title
             level={4}
@@ -34,6 +34,7 @@ export const Payment: FC<{
               level={2}
               css={css`
                 margin-top: 0;
+                white-space: nowrap;
                 margin-bottom: 4px !important;
               `}
             >
