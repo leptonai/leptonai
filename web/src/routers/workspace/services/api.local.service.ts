@@ -1,4 +1,5 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
+import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { Injectable } from "injection-js";
 import { EMPTY, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -286,6 +287,17 @@ export class ApiLocalService implements ApiService {
       list: [],
       coupon: null,
       current_period: { start: 0, end: 0 },
+    });
+  }
+
+  getWorkspaceDetail(): Observable<WorkspaceDetail> {
+    return of({
+      build_time: "",
+      git_commit: "",
+      resource_quota: {
+        limit: { cpu: 0, memory: 0, accelerator_num: 0 },
+        used: { cpu: 0, memory: 0, accelerator_num: 0 },
+      },
     });
   }
 }

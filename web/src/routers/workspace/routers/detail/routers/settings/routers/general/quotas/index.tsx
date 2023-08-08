@@ -1,13 +1,12 @@
-import { Quota } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/components/quota";
-import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-import { useInject } from "@lepton-libs/di";
+import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
+import { Quota } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/general/quota";
 import { Col, Row } from "antd";
 import { FC } from "react";
 
-export const Quotas: FC = () => {
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
-  const resource_quota =
-    workspaceTrackerService.workspace?.data?.resource_quota;
+export const Quotas: FC<{ workspaceDetail: WorkspaceDetail }> = ({
+  workspaceDetail,
+}) => {
+  const resource_quota = workspaceDetail?.resource_quota;
   return resource_quota ? (
     <Row gutter={[16, 16]}>
       <Col span={24}>

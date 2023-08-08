@@ -1,4 +1,5 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
+import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { Injectable } from "injection-js";
 import { Observable } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -101,4 +102,6 @@ export abstract class ApiService {
     coupon: Stripe.Coupon | null;
     current_period: { start: number; end: number };
   }>;
+
+  abstract getWorkspaceDetail(): Observable<WorkspaceDetail>;
 }

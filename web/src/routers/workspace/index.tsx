@@ -2,6 +2,7 @@ import { Detail } from "@lepton-dashboard/routers/workspace/routers/detail";
 import { BillingService } from "@lepton-dashboard/routers/workspace/services/billing.service";
 import { MetricUtilService } from "@lepton-dashboard/routers/workspace/services/metric-util.service";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
+import { WorkspaceService } from "@lepton-dashboard/routers/workspace/services/workspace.service";
 import { FC, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Loading } from "@lepton-dashboard/components/loading";
@@ -22,6 +23,7 @@ export const Workspace: FC = () => {
       providers={[
         IndicatorService,
         PhotonService,
+        WorkspaceService,
         MetricUtilService,
         DeploymentService,
         SecretService,

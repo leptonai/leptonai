@@ -1,4 +1,5 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
+import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { Injectable } from "injection-js";
 import { catchError, map, mergeMap, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
@@ -441,6 +442,17 @@ export class ApiServerService implements ApiService {
       },
       {
         withCredentials: true,
+      }
+    );
+  }
+
+  getWorkspaceDetail() {
+    return this.httpClientService.get<WorkspaceDetail>(
+      `${this.prefix}/workspace`,
+      {
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: true,
+        }),
       }
     );
   }
