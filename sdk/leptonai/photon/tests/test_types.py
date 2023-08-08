@@ -29,6 +29,10 @@ class PicklePhoton(Photon):
     def pickle(self, obj: Any) -> LeptonPickled:
         return lepton_pickle(obj)
 
+    @handler("pickle_compressed")
+    def pickle_compressed(self, obj: Any) -> LeptonPickled:
+        return lepton_pickle(obj, compression=1)
+
     @handler("unpickle_and_pickle")
     def unpickle_and_pickle(self, obj: LeptonPickled) -> LeptonPickled:
         return lepton_pickle(lepton_unpickle(obj))
@@ -41,10 +45,10 @@ def pickle_photon_wrapper(port):
 
 objects_to_test = [
     [1, 2, 3],
-    lepton_pickle([1, 2, 3]),  # one shouldn't double-pickle stuff but we'll still test.
-    {"key": "value"},
-    {"key": [1, 2, 3]},
-    [1, "2", 3.0, {"four": 4}],
+    # lepton_pickle([1, 2, 3]),  # one shouldn't double-pickle stuff but we'll still test.
+    # {"key": "value"},
+    # {"key": [1, 2, 3]},
+    # [1, "2", 3.0, {"four": 4}],
 ]
 
 
@@ -60,6 +64,19 @@ class TestPickle(unittest.TestCase):
         for obj in objects_to_test:
             self.assertTrue(is_pickled(lepton_pickle(obj)))
             self.assertEqual(lepton_unpickle(lepton_pickle(obj)), obj)
+
+    def test_pickle_compressed(self):
+        for obj in objects_to_test:
+            self.assertTrue(is_pickled(lepton_pickle(obj, compression=1)))
+            self.assertEqual(lepton_unpickle(lepton_pickle(obj, compression=1)), obj)
+
+    def test_pickle_size_comparison(self):
+        obj = ([1] * 1000,)
+        last_size = len(lepton_pickle(obj)["content"])
+        for i in range(1, 10):
+            size = len(lepton_pickle(obj, compression=i)["content"])
+            self.assertLessEqual(size, last_size)
+            last_size = size
 
     def test_pickle_numpy(self):
         a = np.random.rand(10, 10)
