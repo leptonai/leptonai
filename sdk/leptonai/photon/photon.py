@@ -348,6 +348,7 @@ class Photon(BasePhoton):
         res["py_obj"] = {
             "name": self.__class__.__qualname__,
             "obj_pkl_file": self.obj_pkl_filename,
+            "py_version": f"{sys.version_info.major}.{sys.version_info.minor}",
         }
 
         res.update(
@@ -418,6 +419,13 @@ class Photon(BasePhoton):
 
     @classmethod
     def load(cls, photon_file, metadata):
+        py_version = metadata["py_obj"].get("py_version")
+        cur_py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        if py_version is not None and py_version != cur_py_version:
+            logger.warning(
+                f"Photon was created with Python {py_version} but now run with Python"
+                f" {cur_py_version}, which may cause unexpected behavior."
+            )
         obj_pkl_filename = metadata["py_obj"]["obj_pkl_file"]
         with photon_file.open(obj_pkl_filename) as obj_pkl_file:
             py_obj = cloudpickle.loads(obj_pkl_file.read())
