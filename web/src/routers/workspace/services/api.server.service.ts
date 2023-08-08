@@ -1,7 +1,7 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { Injectable } from "injection-js";
-import { catchError, map, mergeMap, Observable, of } from "rxjs";
+import { catchError, mergeMap, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -279,18 +279,19 @@ export class ApiServerService implements ApiService {
   }
 
   getEndpointHealth(endpoint: string): Observable<boolean> {
-    return this.httpClientService
-      .get<{
-        status: string;
-      }>(pathJoin(endpoint, "healthz"), {
-        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
-          ignoreErrors: true,
-        }),
+    return new Observable((subscriber) => {
+      fetch(pathJoin(endpoint, "healthz"), {
+        method: "HEAD",
       })
-      .pipe(
-        map((d) => d.status === "ok"),
-        catchError(() => of(false))
-      );
+        .then((r) => {
+          subscriber.next(r.status !== 404);
+          subscriber.complete();
+        })
+        .catch(() => {
+          subscriber.next(false);
+          subscriber.complete();
+        });
+    });
   }
 
   createSecret(secret: Secret): Observable<void> {

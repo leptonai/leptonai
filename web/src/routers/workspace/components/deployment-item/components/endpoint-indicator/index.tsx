@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Api, CopyFile } from "@carbon/icons-react";
-import { Badge, Tooltip, Typography } from "antd";
+import { Badge, Popover, Typography } from "antd";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { useInject } from "@lepton-libs/di";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
@@ -30,10 +30,18 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
       icon={<CarbonIcon icon={<Api />} />}
       term="Endpoint"
       description={
-        <Tooltip title={healthy ? undefined : "No connection to the endpoint"}>
+        <Popover
+          placement="bottom"
+          content={
+            healthy ? undefined : "Cannot automatically verify connection"
+          }
+        >
           <Typography.Text
+            css={css`
+              max-width: 280px !important;
+              cursor: ${healthy ? "txt" : "default"};
+            `}
             type={healthy ? undefined : "secondary"}
-            style={{ maxWidth: "280px" }}
             ellipsis={{
               tooltip: healthy ? endpoint : false,
             }}
@@ -55,7 +63,7 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
           >
             <Badge status={healthy ? "success" : "default"} /> {endpoint}
           </Typography.Text>
-        </Tooltip>
+        </Popover>
       }
     />
   );
