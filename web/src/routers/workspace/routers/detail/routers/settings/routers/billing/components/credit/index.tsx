@@ -32,11 +32,7 @@ export const Credit: FC<{
     percentage !== null
   ) {
     return (
-      <Card
-        css={css`
-          max-width: 400px;
-        `}
-      >
+      <Card>
         <Row justify="space-between">
           <Col flex={0}>
             <Typography.Title

@@ -3,7 +3,16 @@ import { css } from "@emotion/react";
 import { DateParser } from "@lepton-dashboard/components/date-parser";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { InvoiceTable } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/invoice-table";
-import { Button, Collapse, Divider, Space, Table, Tag, Typography } from "antd";
+import {
+  Button,
+  Col,
+  Collapse,
+  Divider,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from "antd";
 import dayjs from "dayjs";
 import Decimal from "decimal.js";
 import { ItemType } from "rc-collapse/es/interface";
@@ -36,7 +45,11 @@ export const Invoice: FC<{
     const upcomingItem = upcoming && {
       key: "upcoming",
       label: <Typography.Text strong>Upcoming invoice</Typography.Text>,
-      extra: <Period start={upcoming.period_start} end={upcoming.period_end} />,
+      extra: (
+        <Col xs={0} sm={0} md={24}>
+          <Period start={upcoming.period_start} end={upcoming.period_end} />
+        </Col>
+      ),
       children: <InvoiceTable invoice={upcoming} products={products} />,
     };
     const openItem = open && {
@@ -62,7 +75,9 @@ export const Invoice: FC<{
           >
             Download
           </Button>
-          <Period start={open.period_start} end={open.period_end} />
+          <Col xs={0} sm={0} md={24}>
+            <Period start={open.period_start} end={open.period_end} />
+          </Col>
         </Space>
       ),
       children: <InvoiceTable invoice={open} products={products} />,
@@ -106,10 +121,11 @@ export const Invoice: FC<{
             },
             {
               dataIndex: "id",
+              align: "right",
               title: (
                 <div
                   css={css`
-                    margin-left: 8px;
+                    margin-right: 8px;
                   `}
                 >
                   ACTIONS

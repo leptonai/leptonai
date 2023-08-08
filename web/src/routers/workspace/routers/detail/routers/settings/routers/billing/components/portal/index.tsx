@@ -5,7 +5,9 @@ import { useInject } from "@lepton-libs/di";
 import { Button } from "antd";
 import { FC, useState } from "react";
 
-export const Portal: FC = () => {
+export const Portal: FC<{ paymentMethodAttached: boolean }> = ({
+  paymentMethodAttached,
+}) => {
   const [loading, setLoading] = useState(false);
   const billingService = useInject(BillingService);
 
@@ -24,7 +26,9 @@ export const Portal: FC = () => {
       type="primary"
       onClick={() => jumpToPortal()}
     >
-      Manage payment
+      {paymentMethodAttached
+        ? "Manage payment method"
+        : "Add new payment method"}
     </Button>
   );
 };

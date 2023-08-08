@@ -4,7 +4,7 @@ import { Card } from "@lepton-dashboard/components/card";
 import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
 import { Credit } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/credit";
 import { Invoice } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/invoice";
-import { Portal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/portal";
+import { Payment } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/payment";
 import { Status } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/status";
 import { BillingService } from "@lepton-dashboard/routers/workspace/services/billing.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
@@ -18,6 +18,8 @@ export const Billing: FC = () => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const isBillingSupported =
     workspaceTrackerService.workspace?.isBillingSupported;
+  const paymentMethodAttached =
+    !!workspaceTrackerService.workspace?.auth.paymentMethodAttached;
   const [invoiceLoading, setInvoiceLoading] = useState(true);
   const billingService = useInject(BillingService);
 
@@ -43,7 +45,6 @@ export const Billing: FC = () => {
     <Card
       icon={<CarbonIcon icon={<Wallet />} />}
       borderless
-      extra={isBillingSupported ? <Portal /> : null}
       shadowless
       title={
         <Space>
@@ -57,13 +58,20 @@ export const Billing: FC = () => {
             {list && (
               <Row gutter={[0, 16]}>
                 <Col span={24}>
-                  {coupon && creditInvoice && (
-                    <Credit
-                      coupon={coupon}
-                      current_period={current_period}
-                      invoice={creditInvoice}
-                    />
-                  )}
+                  <Row gutter={[16, 16]}>
+                    {coupon && creditInvoice && (
+                      <Col flex="1 0 400px">
+                        <Credit
+                          coupon={coupon}
+                          current_period={current_period}
+                          invoice={creditInvoice}
+                        />
+                      </Col>
+                    )}
+                    <Col flex="1 0 300px">
+                      <Payment paymentMethodAttached={paymentMethodAttached} />
+                    </Col>
+                  </Row>
                 </Col>
                 <Col span={24}>
                   <Invoice
