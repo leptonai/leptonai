@@ -1,13 +1,14 @@
 import json
 import requests
-import pandas as pd
-import psycopg2
-
 import os
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Asm, Email
-
+from sendgrid.helpers.mail import Mail, Asm
+import random
+import string
 import dotenv
+import database
+import workspace
+import user
 
 dotenv.load_dotenv()
 
@@ -17,16 +18,10 @@ if ENV == "PROD":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_PROD")
     mothership_url = os.environ.get("MOTHERSHIP_URL_PROD")
     cluster_name = os.environ.get("MOTHERSHIP_CLUSTER_NAME_PROD")
-elif ENV == "DEV": 
+elif ENV == "DEV":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_DEV")
     mothership_url = os.environ.get("MOTHERSHIP_URL_DEV")
     cluster_name = os.environ.get("MOTHERSHIP_CLUSTER_NAME_DEV")
-
-import random
-import string
-
-from database import *
-from workspace import *
 
 
 def generate_token(length):
@@ -43,7 +38,8 @@ def generate_token(length):
 def send_welcome(destination):
     """
     Input:
-        detination : a tuple contains two elements, eg ('yuze.bob.ma@gmail.com', 'Yuze Ma')
+        detination : a tuple contains two elements, eg:
+            ('yuze.bob.ma@gmail.com', 'Yuze Ma')
     """
     # from address we pass to our Mail object, edit with your name
     FROM_EMAIL = "uz@lepton.ai"
@@ -62,82 +58,49 @@ def send_welcome(destination):
 
     sg = SendGridAPIClient(send_grid_api_key)
     response = sg.send(message)
+
     return response
 
-
-def list_workspaces():
-    url = mothership_url + "/workspaces"
-    headers = {
-        "Authorization": "Bearer {}".format(mothership_key),
-        "Content-Type": "application/json",
-    }
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    return data
-
-
-def get_workspace_status(workspace_name: str) -> dict:
-    url = mothership_url + "/workspaces/{}".format(workspace_name)
-    headers = {
-        "Authorization": "Bearer {}".format(mothership_key),
-    }
-    response = requests.get(url, headers=headers)
-    return response.json()
-
-
-def get_workspace_info(workspace_name: str) -> dict:
-    db_connection = get_supabase_connection().cursor()
-    db_connection.execute(
-        "SELECT * FROM workspaces WHERE display_name = '{}'".format(workspace_name)
-    )
-
-    rows = db_connection.fetchall()
-    res = []
-
-    for row in rows:
-        res.append(json.dumps(row))
-
-    return res
 
 def create_workspace_on_cluster(workspace_display_name):
     workspace_name = generate_token(8)
     api_token = generate_token(32)
     description = workspace_display_name
 
-    url = mothership_url +  "/workspaces"
-    headers = {"Authorization": "Bearer {}".format(mothership_key),}
+    url = mothership_url + "/workspaces"
+    headers = {
+        "Authorization": "Bearer {}".format(mothership_key),
+    }
 
     payload = {
-        "name": workspace_name, 
+        "name": workspace_name,
         "cluster_name": cluster_name,
-        "api_token" : api_token,
-        "enable_web": False,    
-        "quota_group" : "small",
-        "description" : description,
-        
+        "api_token": api_token,
+        "enable_web": False,
+        "quota_group": "small",
+        "description": description,
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response
 
-def insert_workspace_to_db(
-    workspace_name, workspace_display_name
-):
+
+def insert_workspace_to_db(workspace_name, workspace_display_name):
     workspace_url = (
         "https://"
         + workspace_name
         + "."
         + mothership_url[
             mothership_url.find("mothership")
-            + len("mothership ") : mothership_url.find("/api")
+            + len("mothership "): mothership_url.find("/api")
         ]
     )
-    query = "INSERT INTO workspaces (id, display_name, url) VALUES ('{}', '{}', '{}')".format(
-        workspace_name, 
-        workspace_display_name, 
-        workspace_url
+    query = "INSERT INTO workspaces (id, display_name, url) VALUES \
+        ('{}', '{}', '{}')".format(
+        workspace_name, workspace_display_name, workspace_url
     )
-    execute_sql(query)
+    database.execute_sql(query)
+
 
 def create_workspace(workspace_display_name):
     response = create_workspace_on_cluster(workspace_display_name)
@@ -146,33 +109,67 @@ def create_workspace(workspace_display_name):
         return json.loads(response.content)
     else:
         workspace_info = json.loads(response.content)
-    workspace_id = workspace_info['spec']['name']
-    workspace_display_name =  workspace_info['spec']['description']
+    workspace_id = workspace_info["spec"]["name"]
+    workspace_display_name = workspace_info["spec"]["description"]
     insert_workspace_to_db(workspace_id, workspace_display_name)
-    print('Workspace {} successfully created'.format(workspace_display_name))
-    print('Workspace ID: {}'.format(workspace_id))
+    print("Workspace {} successfully created".format(workspace_display_name))
+    print("Workspace ID: {}".format(workspace_id))
     return workspace_info
 
-def activate_user(email):
-    user_id = get_user_by_email(email)["id"]
-    query = "UPDATE users SET enable = TRUE WHERE id = '{}'".format(user_id)
-    execute_sql(query)
-    print("User {} successfully activated".format(email))
-    return get_user_by_email(email)
+
+def list_workspace_users(workspace_id):
+    '''
+    This function is used to list all users in a workspace.
+    '''
+    return workspace.get_workspace_users(workspace_id)
+
+
+def invite_user(email):
+    '''
+    This function is used to invite a user to the platform by email.
+    '''
+    result = user.add_user(email)
+    if result['enable']:
+        send_welcome((email, email))
+    return result
+
+
+def enable_user(email):
+    return user.activate_user(email)
+
 
 def add_user_to_workspace(email, workspace_id, token):
-    user = get_user_by_email(email)
-    user_id = user["id"]
+    target_user = user.get_user_by_email(email)
+    user_id = target_user["id"]
 
-    ws_users = get_workspace_users(workspace_id)
+    ws_users = database.get_workspace_users(workspace_id)
     if user_id in ws_users:
         print("User {} already in workspace {}".format(email, workspace_id))
         return
 
-    max_id = get_max_id_for_user_workspace()
-    query = "INSERT INTO user_workspace ( id , workspace_id, user_id, token) VALUES ('{}','{}', '{}', '{}')".format(
+    max_id = database.get_max_id_for_user_workspace()
+    query = "INSERT INTO user_workspace ( id , workspace_id, user_id, token) \
+        VALUES ('{}','{}', '{}', '{}')".format(
         max_id + 1, workspace_id, user_id, token
     )
-    execute_sql(query)
-    return "User {} successfully added to workspace {}".format(email, workspace_id)
+    database.execute_sql(query)
+    return "User {} successfully added to \
+        workspace {}".format(email, workspace_id)
 
+
+def remove_user_from_workspace(email, workspace_id):
+    target_user = user.get_user_by_email(email)
+    user_id = target_user["id"]
+
+    ws_users = database.get_workspace_users(workspace_id)
+    if user_id not in ws_users:
+        print("User {} not in workspace {}".format(email, workspace_id))
+        return
+
+    query = "DELETE FROM user_workspace WHERE workspace_id = '{}' \
+        AND user_id = '{}'".format(
+        workspace_id, user_id
+    )
+    database.execute_sql(query)
+    return "User {} successfully removed from \
+        workspace {}".format(email, workspace_id)
