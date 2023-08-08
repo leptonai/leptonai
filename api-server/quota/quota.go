@@ -8,6 +8,7 @@ import (
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/deploymentutil"
+	"github.com/leptonai/lepton/go-pkg/util"
 	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
@@ -116,6 +117,8 @@ func RemoveSystemLimitOverhead(q TotalResource) TotalResource {
 	q.CPU -= sysQuotaLimitOverheadCPU
 	q.Memory -= sysQuotaLimitOverheadMemoryInGi * 1024
 	q.AcceleratorNum -= sysQuotaLimitOverheadGPU
+
+	q.CPU = util.RoundToTwoDecimalPlaces(q.CPU)
 	return q
 }
 
@@ -125,6 +128,8 @@ func RemoveSystemUsageOverhead(q TotalResource) TotalResource {
 	q.Memory -= (operatorUsageOverheadMemoryInGi + apiServerUsageOverheadMemoryInGi) * 1024
 	q.CPU = q.CPU / (1 - deploymentutil.RequestSysOverhead)
 	q.Memory = int64(math.Ceil((float64(q.Memory) / (1 - deploymentutil.RequestSysOverhead))))
+
+	q.CPU = util.RoundToTwoDecimalPlaces(q.CPU)
 	return q
 }
 
