@@ -118,7 +118,7 @@ def login(
         # Although the workspace url is actually already stored in workspaces[workspace_id]["url"],
         # it is still a good idea to re-check it in case the system updates the url.
         if auth_token:
-            console.print("Updating auth token for workspace [green]{workspace_id}[/]")
+            console.print(f"Updating auth token for workspace [green]{workspace_id}[/]")
             _register_and_set(workspace_id, workspace_url, auth_token=auth_token)
         api.set_current_workspace(workspace_id)
     else:
