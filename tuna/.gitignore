@@ -7,3 +7,4 @@ model
 flower.db
 *-eval-*.json
 *.log.*
+.google_application_credentials

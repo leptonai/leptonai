@@ -8,6 +8,8 @@ top_dir=$(dirname ${scripts_dir})
 
 cd ${top_dir}
 
+bash ${scripts_dir}/auth_gcp.sh
+
 echo "Checking CUDA installation"
 if ! hash nvidia-smi 2>/dev/null; then
     echo "cuda (nvidia-smi) is not installed"
@@ -23,29 +25,19 @@ fi
 echo "Done"
 
 echo "Checking docker image"
-if [[ ! -e ${top_dir}/.google_application_credentials ]]; then
-    echo "You need to put google application credentials file at ${top_dir}/.google_application_credentials"
-    exit 1
-fi
-gcloud auth activate-service-account --key-file ${top_dir}/.google_application_credentials
-gcloud config set project lepton-dev
-gcloud auth configure-docker us-west1-docker.pkg.dev
-docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.02
-echo "Done"
+docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.03
 
 echo "Checking model weights"
-if [[ ! -d "lepton-llm" ]]; then
-    echo "Downloading letpton-llm models"
-    for model in "llama2/7b-chat" "vicuna/7B" "vicuna/7B_v1.3" "baichuan"; do
-        if [[ -d "lepton-llm/${model}" ]]; then
-            echo "lepton-llm/${model} already exists"
-            continue
-        fi
-        echo "Downloading model ${model} to lepton-llm/${model}"
-        mkdir -p lepton-llm/${model}
-        gsutil -m rsync -r gs://lepton-llm/tuna-ready/${model}/ lepton-llm/${model}
-    done
-fi
+echo "Downloading letpton-llm models"
+for model in "llama2/7b-chat" "vicuna/7B" "vicuna/7B_v1.3" "baichuan"; do
+    if [[ -d "lepton-llm/${model}" ]]; then
+        echo "lepton-llm/${model} already exists"
+        continue
+    fi
+    echo "Downloading model ${model} to lepton-llm/${model}"
+    mkdir -p lepton-llm/${model}
+    gsutil -m rsync -r gs://lepton-llm/tuna-ready/${model}/ lepton-llm/${model}
+done
 echo "Done"
 
 echo "Checking virtual environment"

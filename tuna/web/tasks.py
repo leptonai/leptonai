@@ -63,7 +63,7 @@ def cook(data_path, model_name_or_path, output_dir):
     if not shutil.which("docker"):
         raise RuntimeError("Docker is not installed")
 
-    image = "us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.02"
+    image = "us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.03"
     model_path_on_host = os.path.join(
         settings.BASE_DIR, "lepton-llm", model_name_or_path
     )
