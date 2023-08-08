@@ -281,6 +281,24 @@ def _parse_mount_or_die(url: str, auth: Optional[str], mount: str):
     return mount_parsed
 
 
+# Valid shapes is defined as a list instead of a dict intentionally, because
+# we want to preserve the order of the shapes when printing. Granted, this
+# adds a bit of search time, but the list is small enough that it should not
+# matter.
+# TODO: move the valid shapes and the default valid shape to a common config.
+VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
+DEFAULT_RESOURCE_SHAPE = "cpu.small"
+
+
+def _get_valid_shapes():
+    """
+    Utility function to get the valid shapes as a string.
+    """
+    if len(VALID_SHAPES) > 7:
+        return ", ".join(VALID_SHAPES[:7]) + ", ..."
+    return ", ".join(VALID_SHAPES)
+
+
 def _validate_resource_shape(resource_shape: str):
     """
     Utility function to validate the resource shape and exit if invalid.
@@ -288,13 +306,6 @@ def _validate_resource_shape(resource_shape: str):
     :param resource_shape: The resource shape to validate.
     :return: The resource shape if valid.
     """
-    # Valid shapes is defined as a list instead of a dict intentionally, because
-    # we want to preserve the order of the shapes when printing. Granted, this
-    # adds a bit of search time, but the list is small enough that it should not
-    # matter.
-    # TODO: move the valid shapes and the default valid shape to a common config.
-    VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
-    DEFAULT_RESOURCE_SHAPE = "cpu.small"
     if not resource_shape:
         # In the default case, we want to use cpu.small.
         return DEFAULT_RESOURCE_SHAPE
@@ -407,7 +418,11 @@ def _parse_deployment_tokens_or_die(public, tokens):
 )
 @click.option("--port", "-p", help="Port to run on.", default=8080)
 @click.option("--id", "-i", help="ID of the photon (only required for remote).")
-@click.option("--resource-shape", help="Resource shape required.", default=None)
+@click.option(
+    "--resource-shape",
+    help="Resource shape (valid values are: " + _get_valid_shapes() + ").",
+    default=None,
+)
 @click.option("--min-replicas", help="Number of replicas.", default=1)
 @click.option(
     "--mount",
