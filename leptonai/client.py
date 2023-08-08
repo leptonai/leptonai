@@ -339,7 +339,8 @@ class Client(object):
         """
         internal method to create a method that reflects the get path.
 
-        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then "run" is the name used here.
+        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run",
+            then "run" is the name used here.
         :param function_name: the name of the function.
         :return: a method that can be called to call get to the path.
         """
@@ -374,6 +375,23 @@ class Client(object):
         if self.openapi is not None:
             return self.openapi["paths"].keys()
         return []
+
+    def healthz(self) -> bool:
+        """
+        Returns whether the deployment is healthily running. Note that this function
+        relies on the server side to expose the "/healthz" endpoint. Some deployments
+        such as the flask and gradio mounted deployments may not have this endpoint,
+        so you should treat the return value of this function as a hint, not a
+        guarantee.
+
+        :return: whether the deployment is healthily running.
+        """
+        try:
+            res = self._get("/healthz")
+            res.raise_for_status()
+            return True
+        except requests.HTTPError:
+            return False
 
     def __getattr__(self, name: str):
         try:

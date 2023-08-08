@@ -62,6 +62,7 @@ class TestClient(unittest.TestCase):
         client = Client(url)
         inputs = "hello world"
         res = client.run(inputs=inputs)
+        self.assertTrue(client.healthz())
         self.assertTrue(isinstance(res, str))
         self.assertTrue(res.startswith(inputs))
         res = client.run(inputs="hello world", do_sample=True, max_length=10)
@@ -78,7 +79,7 @@ class TestClient(unittest.TestCase):
         time.sleep(1)
         url = f"http://localhost:{port}"
         client = Client(url)
-        print(client.openapi)
+        self.assertTrue(client.healthz())
         # Tests if run_with_slashes and run_with_dashes are both registered
         res = client.run_with_slashes()
         self.assertTrue(res == "hello world")
@@ -93,6 +94,7 @@ class TestClient(unittest.TestCase):
         time.sleep(1)
         url = f"http://localhost:{port}"
         client = Client(url)
+        self.assertTrue(client.healthz())
         # Tests if run_post and run_get are both registered
         res = client.run_post(query="post")
         self.assertTrue(res == "hello world (post)")
@@ -128,6 +130,12 @@ class TestClient(unittest.TestCase):
                 json={"outputs": outputs},
                 match=matchers,
             )
+            rsps.add(
+                responses.GET,
+                f"{url}/healthz",
+                json={},  # doesn't matter
+                match=matchers,
+            )
 
             try:
                 client = Client(url)
@@ -146,6 +154,7 @@ class TestClient(unittest.TestCase):
                 raise Exception("Should not pass with wrong token")
 
             client = Client(url, token=token)
+            self.assertTrue(client.healthz())
             res = client.run(inputs=inputs)
             self.assertTrue(res == {"outputs": outputs})
 
