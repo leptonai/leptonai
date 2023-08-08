@@ -19,6 +19,8 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+const allHandlersField = "/.*"
+
 type MonitorningHandler struct {
 	Handler
 }
@@ -95,161 +97,264 @@ func (h *MonitorningHandler) ReplicaCPUUtil(c *gin.Context) {
 func (h *MonitorningHandler) ReplicaFastAPIQPS(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum(rate(http_requests_total{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "all", "")
+	result, err := h.queryReplicaFastAPIQPS(c, c.Param("rid"), handlers, "=~", "defined")
 	if err != nil {
-		goutil.Logger.Errorw("failed to get QPS",
-			"operation", "getReplicaFastAPIQPS",
-			"replica", c.Param("rid"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
+	if handlers != allHandlersField {
+		other, err := h.queryReplicaFastAPIQPS(c, c.Param("rid"), handlers, "!~", "others")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+			return
+		}
+		result = append(result, other...)
+	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryReplicaFastAPIQPS(ctx context.Context, rid, handlers, op, name string) ([]map[string]interface{}, error) {
+	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
+	query := "sum(rate(http_requests_total{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_name=\"" + rid + "\", handler" + op + "\"" + handlers + "\"}[2m]))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, name, "")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getReplicaFastAPIQPS",
+			"replica", rid,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) ReplicaFastAPILatency(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "all", "")
+	result, err := h.queryReplicaFastAPILatency(c, c.Param("rid"), handlers, "=~", "defined")
 	if err != nil {
-		goutil.Logger.Errorw("failed to get latency",
-			"operation", "getReplicaFastAPILatency",
-			"replica", c.Param("rid"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
+	if handlers != allHandlersField {
+		other, err := h.queryReplicaFastAPILatency(c, c.Param("rid"), handlers, "!~", "others")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+			return
+		}
+		result = append(result, other...)
+	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryReplicaFastAPILatency(ctx context.Context, rid, handlers, op, name string) ([]map[string]interface{}, error) {
+	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" +
+		h.namespace + "\", kubernetes_pod_name=\"" + rid + "\", handler" + op + "\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, name, "")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getReplicaFastAPILatency",
+			"replica", rid,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) ReplicaFastAPIQPSByPath(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum by (handler) (rate(http_requests_total{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "qps", "handler")
+	result, err := h.queryReplicaFastAPIQPSByPath(c, c.Param("rid"), handlers)
 	if err != nil {
-		goutil.Logger.Errorw("failed to get QPS",
-			"operation", "getReplicaFastAPIQPSByPath",
-			"replica", c.Param("rid"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryReplicaFastAPIQPSByPath(ctx context.Context, rid, handlers string) ([]map[string]interface{}, error) {
+	// get the average QPS over 2 min windows for the past 1 hour, gouped by request paths
+	query := "sum by (handler) (rate(http_requests_total{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_name=\"" + rid + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, "qps", "handler")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getReplicaFastAPIQPSByPath",
+			"replica", rid,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) ReplicaFastAPILatencyByPath(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_name=\"" + c.Param("rid") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "latency_p90", "handler")
+	result, err := h.queryReplicaFastAPILatencyByPath(c, c.Param("rid"), handlers)
 	if err != nil {
-		goutil.Logger.Errorw("failed to get latency",
-			"operation", "getReplicaFastAPILatencyByPath",
-			"replica", c.Param("rid"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryReplicaFastAPILatencyByPath(ctx context.Context, rid, handlers string) ([]map[string]interface{}, error) {
+	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_name=\"" + rid + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, "latency_p90", "handler")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getReplicaFastAPILatencyByPath",
+			"replica", rid,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) DeploymentFastAPIQPS(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the inference QPS over 2 min windows for the past 1 hour
-	query := "sum(rate(http_requests_total{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "all", "")
+	result, err := h.queryDeploymentFastAPIQPS(c, c.Param("did"), handlers, "=~", "defined")
 	if err != nil {
-		goutil.Logger.Errorw("failed to get QPS",
-			"operation", "getDeploymentFastAPIQPS",
-			"deployment", c.Param("did"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
+	if handlers != allHandlersField {
+		other, err := h.queryDeploymentFastAPIQPS(c, c.Param("did"), handlers, "!~", "others")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+			return
+		}
+		result = append(result, other...)
+	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryDeploymentFastAPIQPS(ctx context.Context, did, handlers, op, name string) ([]map[string]interface{}, error) {
+	// get the inference QPS over 2 min windows for the past 1 hour
+	query := "sum(rate(http_requests_total{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_label_lepton_deployment_name=\"" + did + "\", handler" + op + "\"" + handlers + "\"}[2m]))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, name, "")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getDeploymentFastAPIQPS",
+			"deployment", did,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) DeploymentFastAPILatency(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "all", "")
+	result, err := h.queryDeploymentFastAPILatency(c, c.Param("did"), handlers, "=~", "defined")
 	if err != nil {
-		goutil.Logger.Errorw("failed to get latency",
-			"operation", "getDeploymentFastAPILatency",
-			"deployment", c.Param("did"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
+	if handlers != allHandlersField {
+		other, err := h.queryDeploymentFastAPILatency(c, c.Param("did"), handlers, "!~", "others")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+			return
+		}
+		result = append(result, other...)
+	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryDeploymentFastAPILatency(c *gin.Context, did, handlers, op, name string) ([]map[string]interface{}, error) {
+	// get the 90-percentile inference latency over 2 min windows for the past 1 hour
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_label_lepton_deployment_name=\"" + did + "\", handler" + op + "\"" + handlers + "\"}[2m])) by (le))[1h:1m]"
+	result, err := h.queryMetrics(c, query, name, "")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getDeploymentFastAPILatency",
+			"deployment", did,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *MonitorningHandler) DeploymentFastAPIQPSByPath(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
-	query := "sum by (handler) (rate(http_requests_total{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "qps", "handler")
+	result, err := h.queryDeploymentFastAPIQPSByPath(c, c.Param("did"), handlers)
 	if err != nil {
-		goutil.Logger.Errorw("failed to get QPS",
-			"operation", "getDeploymentFastAPIQPSByPath",
-			"deployment", c.Param("did"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *MonitorningHandler) queryDeploymentFastAPIQPSByPath(ctx context.Context, did, handlers string) ([]map[string]interface{}, error) {
+	// get the QPS over 2 min windows for the past 1 hour, gouped by request paths
+	query := "sum by (handler) (rate(http_requests_total{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_label_lepton_deployment_name=\"" + did + "\", handler=~\"" + handlers + "\"}[2m]))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, "qps", "handler")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get QPS",
+			"operation", "getDeploymentFastAPIQPSByPath",
+			"deployment", did,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
+}
+
 func (h *MonitorningHandler) DeploymentFastAPILatencyByPath(c *gin.Context) {
 	handlers, err := h.listHandlersForPrometheusQuery(c, c.Param("did"))
 	if err != nil {
-		handlers = "/.*"
+		handlers = allHandlersField
 	}
-	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
-	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace + "\", kubernetes_pod_label_lepton_deployment_name=\"" + c.Param("did") + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
-	result, err := h.queryMetrics(c, query, "latency_p90", "handler")
+	result, err := h.queryDeploymentFastAPILatencyByPath(c, c.Param("did"), handlers)
 	if err != nil {
-		goutil.Logger.Errorw("failed to get latency",
-			"operation", "getDeploymentFastAPILatencyByPath",
-			"deployment", c.Param("did"),
-			"error", err,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *MonitorningHandler) queryDeploymentFastAPILatencyByPath(ctx context.Context, did, handlers string) ([]map[string]interface{}, error) {
+	// get the 90-percentile latency over 2 min windows for the past 1 hour, gouped by request paths
+	query := "histogram_quantile(0.90, sum(increase(http_request_duration_seconds_bucket{kubernetes_namespace=\"" + h.namespace +
+		"\", kubernetes_pod_label_lepton_deployment_name=\"" + did + "\", handler=~\"" + handlers + "\"}[2m])) by (le, handler))[1h:1m]"
+	result, err := h.queryMetrics(ctx, query, "latency_p90", "handler")
+	if err != nil {
+		goutil.Logger.Errorw("failed to get latency",
+			"operation", "getDeploymentFastAPILatencyByPath",
+			"deployment", did,
+			"error", err,
+		)
+		return nil, err
+	}
+	return result, nil
 }
 
 // for GPU memory utilization, do not use "DCGM_FI_DEV_MEM_COPY_UTIL"
