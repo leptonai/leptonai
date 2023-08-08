@@ -209,7 +209,31 @@ func (h *DeploymentHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if !ld.Patch(spec) {
+	var ph *leptonaiv1alpha1.Photon
+	if spec.PhotonID != "" {
+		ph, err = h.phDB.Get(c, spec.PhotonID)
+		if apierrors.IsNotFound(err) {
+			goutil.Logger.Debugw("photon not found",
+				"deployment", did,
+				"photon", spec.PhotonID,
+				"operation", "updateDeployment",
+			)
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "photon " + spec.PhotonID + " not found"})
+			return
+		}
+		if err != nil {
+			goutil.Logger.Errorw("failed to get photon",
+				"deployment", did,
+				"photon", spec.PhotonID,
+				"operation", "updateDeployment",
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get photon " + spec.PhotonID + ": " + err.Error()})
+			return
+		}
+	}
+
+	if !h.patchDeployment(ld, ph, spec) {
 		goutil.Logger.Debugw("no valid field to update",
 			"deployment", did,
 			"operation", "updateDeployment",
@@ -370,7 +394,6 @@ func (h *DeploymentHandler) validateUpdateInput(ctx context.Context, old *lepton
 		if old.Spec.PhotonName != ph.GetSpecName() {
 			return fmt.Errorf("can only update to a photon with the same name")
 		}
-		// TODO: Handle updating to a photon with a different Image/OpenAPISchema/etc
 	}
 
 	err := h.checkQuota(ctx, spec, &old.Spec.LeptonDeploymentUserSpec)
@@ -420,4 +443,35 @@ func (h *DeploymentHandler) checkQuota(ctx context.Context, spec *leptonaiv1alph
 	}
 
 	return nil
+}
+
+// Patch modifies the deployment with the given user spec.
+func (h *DeploymentHandler) patchDeployment(old *leptonaiv1alpha1.LeptonDeployment, ph *leptonaiv1alpha1.Photon, spec *leptonaiv1alpha1.LeptonDeploymentUserSpec) bool {
+	patched := false
+	if spec.PhotonID != "" {
+		old.Spec.PhotonID = spec.PhotonID
+		old.Spec.PhotonImage = util.UpdateDefaultRegistry(ph.Spec.Image, h.photonImageRegistry)
+		patched = true
+	}
+	if spec.ResourceRequirement.MinReplicas > 0 {
+		old.Spec.ResourceRequirement.MinReplicas = spec.ResourceRequirement.MinReplicas
+		patched = true
+	}
+	if spec.APITokens != nil {
+		old.Spec.APITokens = spec.APITokens
+		patched = true
+	}
+	if spec.Envs != nil {
+		old.Spec.Envs = spec.Envs
+		patched = true
+	}
+	if spec.Mounts != nil {
+		old.Spec.Mounts = spec.Mounts
+		patched = true
+	}
+	if spec.ResourceRequirement.ResourceShape != "" {
+		old.Spec.ResourceRequirement.ResourceShape = spec.ResourceRequirement.ResourceShape
+		patched = true
+	}
+	return patched
 }

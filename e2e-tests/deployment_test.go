@@ -313,4 +313,94 @@ func TestCustomizedImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to delete deployment: %v", err)
 	}
+
+	fullArgs = []string{"pho", "remove", "-n", name}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to delete photon with customized image: %v - %s", err, output)
+	}
+}
+
+func TestUpdatePhotonID(t *testing.T) {
+	dname := newName(t.Name())
+	name := mainTestPhotonName
+	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	output, err := client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
+	}
+
+	fullArgs = []string{"pho", "push", "-n", name}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to push photon with customized image: %v - %s", err, output)
+	}
+
+	phs, err := lepton.Photon().GetByName(name)
+	if err != nil {
+		t.Fatalf("Failed to get photon by name: %v", err)
+	}
+	newPhotonID := ""
+	for _, ph := range phs {
+		if ph.ID != mainTestPhotonID {
+			newPhotonID = ph.ID
+			break
+		}
+	}
+	if newPhotonID == "" {
+		t.Fatalf("Failed to get new photon id")
+	}
+
+	deploy := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dname,
+		PhotonID: mainTestPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
+		},
+	}
+	_, err = lepton.Deployment().Create(deploy)
+	if err != nil {
+		t.Fatalf("Failed to create deployment: %v", err)
+	}
+	err = waitForDeploymentToRunningState(dname)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+
+	newDeploy := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dname,
+		PhotonID: newPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1Small,
+		},
+	}
+	_, err = lepton.Deployment().Update(newDeploy)
+	if err != nil {
+		t.Fatalf("Failed to update deployment: %v", err)
+	}
+	err = waitForDeploymentToRunningState(dname)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+
+	d, err := lepton.Deployment().Get(dname)
+	if err != nil {
+		t.Fatalf("Failed to get deployment: %v", err)
+	}
+	if d.PhotonID != newPhotonID {
+		t.Fatalf("Failed to update photon id, expected %s, got %s", newPhotonID, d.PhotonID)
+	}
+
+	err = lepton.Deployment().Delete(dname)
+	if err != nil {
+		t.Fatalf("Failed to delete deployment: %v", err)
+	}
+
+	err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
+		return lepton.Photon().Delete(newPhotonID)
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete photon: %v", err)
+	}
 }
