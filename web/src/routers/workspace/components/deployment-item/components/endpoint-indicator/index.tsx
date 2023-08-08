@@ -17,11 +17,11 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
   const endpoint$ = useObservableFromState(endpoint);
-  const healthy = useStateFromObservable(
+  const connected = useStateFromObservable(
     () =>
       endpoint$
         .pipe(combineLatestWith(refreshService.refresh$))
-        .pipe(switchMap(([p]) => deploymentService.endpointHealth(p))),
+        .pipe(switchMap(([p]) => deploymentService.endpointConnection(p))),
     false
   );
 
@@ -33,24 +33,24 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
         <Popover
           placement="bottom"
           content={
-            healthy ? undefined : "Cannot automatically verify connection"
+            connected ? undefined : "Cannot automatically verify connection"
           }
         >
           <Typography.Text
             css={css`
               max-width: 280px !important;
-              cursor: ${healthy ? "txt" : "default"};
+              cursor: ${connected ? "txt" : "default"};
             `}
-            type={healthy ? undefined : "secondary"}
+            type={connected ? undefined : "secondary"}
             ellipsis={{
-              tooltip: healthy ? endpoint : false,
+              tooltip: connected ? endpoint : false,
             }}
             copyable={{
               tooltips: false,
               icon: (
                 <span
                   css={css`
-                    color: ${healthy
+                    color: ${connected
                       ? theme.colorText
                       : theme.colorTextTertiary};
                   `}
@@ -61,7 +61,7 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
               text: endpoint,
             }}
           >
-            <Badge status={healthy ? "success" : "default"} /> {endpoint}
+            <Badge status={connected ? "success" : "default"} /> {endpoint}
           </Typography.Text>
         </Popover>
       }

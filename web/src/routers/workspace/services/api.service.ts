@@ -71,7 +71,7 @@ export abstract class ApiService {
     name: string,
     request: OpenAPIRequest
   ): Observable<Response>;
-  abstract getEndpointHealth(endpoint: string): Observable<boolean>;
+  abstract getEndpointConnection(endpoint: string): Observable<boolean>;
 
   abstract createSecret(secret: Secret): Observable<void>;
   abstract listSecrets(): Observable<string[]>;

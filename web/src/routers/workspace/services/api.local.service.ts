@@ -210,7 +210,7 @@ export class ApiLocalService implements ApiService {
     ]);
   }
 
-  getEndpointHealth(): Observable<boolean> {
+  getEndpointConnection(): Observable<boolean> {
     return EMPTY;
   }
 

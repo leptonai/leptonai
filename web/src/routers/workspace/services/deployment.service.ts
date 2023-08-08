@@ -24,7 +24,7 @@ import { retryBackoff } from "@lepton-libs/rxjs/retry-backoff";
 
 @Injectable()
 export class DeploymentService {
-  private endpointsHeathCache: Record<string, boolean> = {};
+  private endpointsConnectionsCache: Record<string, boolean> = {};
   private list$ = new BehaviorSubject<Deployment[]>([]);
 
   list(): Observable<Deployment[]> {
@@ -108,7 +108,7 @@ export class DeploymentService {
       map((item) => item.sort((a, b) => b.created_at - a.created_at)),
       tap((l) => {
         this.list$.next(l);
-        this.updateHeathCacheKeys(
+        this.updateConnectionCacheKeys(
           l.map((i) => i.status.endpoint.external_endpoint)
         );
       })
@@ -150,28 +150,28 @@ export class DeploymentService {
     );
   }
 
-  endpointHealth(endpoint: string): Observable<boolean> {
+  endpointConnection(endpoint: string): Observable<boolean> {
     return merge(
-      of(Boolean(this.endpointsHeathCache[endpoint])),
-      this.refreshEndpointHealth(endpoint)
+      of(Boolean(this.endpointsConnectionsCache[endpoint])),
+      this.refreshEndpointConnection(endpoint)
     );
   }
 
-  private refreshEndpointHealth(endpoint: string): Observable<boolean> {
-    return this.apiService.getEndpointHealth(endpoint).pipe(
+  private refreshEndpointConnection(endpoint: string): Observable<boolean> {
+    return this.apiService.getEndpointConnection(endpoint).pipe(
       tap((health) => {
-        if (Object.hasOwn(this.endpointsHeathCache, endpoint)) {
-          this.endpointsHeathCache[endpoint] = health;
+        if (Object.hasOwn(this.endpointsConnectionsCache, endpoint)) {
+          this.endpointsConnectionsCache[endpoint] = health;
         }
       })
     );
   }
 
-  private updateHeathCacheKeys(keys: string[]) {
-    this.endpointsHeathCache = keys.reduce((pre, cur) => {
+  private updateConnectionCacheKeys(keys: string[]) {
+    this.endpointsConnectionsCache = keys.reduce((pre, cur) => {
       return {
         ...pre,
-        [cur]: this.endpointsHeathCache[cur] || false,
+        [cur]: this.endpointsConnectionsCache[cur] || false,
       };
     }, {});
   }

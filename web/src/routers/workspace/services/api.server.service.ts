@@ -278,10 +278,12 @@ export class ApiServerService implements ApiService {
     );
   }
 
-  getEndpointHealth(endpoint: string): Observable<boolean> {
+  getEndpointConnection(endpoint: string): Observable<boolean> {
     return new Observable((subscriber) => {
-      fetch(pathJoin(endpoint, "healthz"), {
-        method: "HEAD",
+      const abortController = new AbortController();
+      fetch(endpoint, {
+        method: "OPTIONS",
+        signal: abortController.signal,
       })
         .then((r) => {
           subscriber.next(r.status !== 404);
@@ -291,6 +293,9 @@ export class ApiServerService implements ApiService {
           subscriber.next(false);
           subscriber.complete();
         });
+      return () => {
+        abortController.abort();
+      };
     });
   }
 
