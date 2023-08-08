@@ -35,7 +35,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Python Environment
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: "3.10"
     - name: Set up pip
@@ -62,7 +62,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python Environment
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: "${{ matrix.python_version }}"
     - name: Set up pip
@@ -97,7 +97,7 @@ jobs:
     runs-on: self-hosted
     steps:
     - name: Set up Python Environment
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: "3.10"
     - name: Set up pip
@@ -134,7 +134,7 @@ jobs:
     runs-on: self-hosted
     steps:
     - name: Set up Python Environment
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: "3.10"
     - name: Set up pip
