@@ -59,6 +59,12 @@ export const Billing: FC = () => {
               <Row gutter={[0, 16]}>
                 <Col span={24}>
                   <Row gutter={[16, 16]}>
+                    <Col flex="1 0 300px">
+                      <Payment
+                        invoice={creditInvoice}
+                        paymentMethodAttached={paymentMethodAttached}
+                      />
+                    </Col>
                     {coupon && creditInvoice && (
                       <Col flex="1 0 400px">
                         <Credit
@@ -68,9 +74,6 @@ export const Billing: FC = () => {
                         />
                       </Col>
                     )}
-                    <Col flex="1 0 300px">
-                      <Payment paymentMethodAttached={paymentMethodAttached} />
-                    </Col>
                   </Row>
                 </Col>
                 <Col span={24}>

@@ -58,7 +58,7 @@ export const Timeline: FC<{
         <Card>
           <Statistic
             className="total-photons"
-            title="Total Photons"
+            title="Total photons"
             value={photonGroups.length}
           />
         </Card>
@@ -67,7 +67,7 @@ export const Timeline: FC<{
         <Card>
           <Statistic
             className="total-deployments"
-            title="Total Deployments"
+            title="Total deployments"
             value={deployments.length}
           />
         </Card>

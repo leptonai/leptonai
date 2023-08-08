@@ -1,7 +1,9 @@
-import { CopyFile, Settings } from "@carbon/icons-react";
+import { Settings } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Card } from "@lepton-dashboard/components/card";
+import { Quotas } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/components/quotas";
 
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
@@ -19,40 +21,39 @@ export const General: FC = () => {
       title="General"
     >
       <Descriptions
-        bordered
-        size="small"
         column={1}
-        labelStyle={{ fontWeight: 500, color: theme.colorTextHeading }}
+        labelStyle={{
+          fontWeight: 500,
+          width: "120px",
+          color: theme.colorTextHeading,
+        }}
       >
         <Descriptions.Item label="ID">
-          <Typography.Text
-            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
-          >
+          <Typography.Text>
             {workspaceTrackerService.workspace?.auth.id}
           </Typography.Text>
         </Descriptions.Item>
         {workspaceTrackerService.workspace?.auth.displayName && (
           <Descriptions.Item label="Name">
-            <Typography.Text
-              copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
-            >
+            <Typography.Text>
               {workspaceTrackerService.workspace?.auth.displayName}
             </Typography.Text>
           </Descriptions.Item>
         )}
-        <Descriptions.Item label="Release date">
-          <Typography.Text
-            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
-          >
+        <Descriptions.Item label="Version">
+          <Typography.Text>
+            {workspaceTrackerService.workspace?.data?.git_commit}
+          </Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Date">
+          <Typography.Text>
             {workspaceTrackerService.workspace?.data?.build_time}
           </Typography.Text>
         </Descriptions.Item>
-        <Descriptions.Item label="Version">
-          <Typography.Text
-            copyable={{ icon: <CarbonIcon icon={<CopyFile />} /> }}
-          >
-            {workspaceTrackerService.workspace?.data?.git_commit}
-          </Typography.Text>
+        <Descriptions.Item label="Resource">
+          <MinThemeProvider>
+            <Quotas />
+          </MinThemeProvider>
         </Descriptions.Item>
       </Descriptions>
     </Card>
