@@ -385,6 +385,8 @@ assistant:
 class HuggingfaceASRPhoton(HuggingfacePhoton):
     hf_task: str = "automatic-speech-recognition"
 
+    system_dependency = ["ffmpeg"]
+
     @Photon.handler(
         "run",
         example={
@@ -398,6 +400,7 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
             file = tempfile.NamedTemporaryFile()
             with open(file.name, "wb") as f:
                 f.write(inputs.file.read())
+                f.flush()
             inputs = file.name
 
         res = self.run(inputs)
@@ -574,6 +577,51 @@ class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
 # text-classification is an alias of sentiment-analysis
 class HuggingfaceTextClassificationPhoton(HuggingfaceSentimentAnalysisPhoton):
     hf_task: str = "text-classification"
+
+
+class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
+    hf_task: str = "audio-classification"
+
+    system_dependency = ["ffmpeg"]
+
+    @Photon.handler(
+        "run",
+        example={
+            "inputs": (
+                "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+            )
+        },
+    )
+    def run_handler(
+        self,
+        inputs: Union[Union[str, FileParam], List[Union[str, FileParam]]],
+        **kwargs,
+    ) -> Union[
+        List[Dict[str, Union[float, str]]], List[List[Dict[str, Union[float, str]]]]
+    ]:
+        inputs_is_list = isinstance(inputs, list)
+        if not inputs_is_list:
+            inputs = [inputs]
+        inputs_ = []
+        # keep references to NamedTemporaryFile objects so they don't get deleted
+        temp_files = []
+        for inp in inputs:
+            if isinstance(inp, FileParam):
+                file = tempfile.NamedTemporaryFile()
+                with open(file.name, "wb") as f:
+                    f.write(inp.file.read())
+                    f.flush()
+                temp_files.append(file)
+                inputs_.append(file.name)
+            else:
+                inputs_.append(inp)
+        res = self.run(
+            inputs_,
+            **kwargs,
+        )
+        if not inputs_is_list:
+            res = res[0]
+        return res
 
 
 def register_hf_photon():
