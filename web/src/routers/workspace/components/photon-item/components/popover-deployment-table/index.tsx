@@ -16,11 +16,8 @@ export const PopoverDeploymentTable: FC<{
 }> = ({ photon, deployments }) => {
   const color = useMemo(() => {
     const running = deployments.every((d) => d.status.state === "Running");
-    const hasDeployments = deployments.length > 0;
-    if (running) {
-      return "success";
-    } else if (hasDeployments) {
-      return "processing";
+    if (deployments.length > 0) {
+      return running ? "success" : "processing";
     } else {
       return "default";
     }

@@ -25,6 +25,7 @@ export const ProcessingWrapper: FC<
       css={css`
         position: relative;
         overflow: hidden;
+        width: fit-content;
       `}
     >
       <div
