@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { Api, CopyFile } from "@carbon/icons-react";
-import { Badge, Popover, Typography } from "antd";
+import { Cloud, CloudOffline, CopyFile } from "@carbon/icons-react";
+import { Popover, Typography } from "antd";
 import { Description } from "@lepton-dashboard/routers/workspace/components/description";
 import { useInject } from "@lepton-libs/di";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
@@ -27,8 +27,7 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
 
   return (
     <Description.Item
-      icon={<CarbonIcon icon={<Api />} />}
-      term="Endpoint"
+      icon={<CarbonIcon icon={connected ? <Cloud /> : <CloudOffline />} />}
       description={
         <Popover
           placement="bottom"
@@ -38,7 +37,7 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
         >
           <Typography.Text
             css={css`
-              max-width: 280px !important;
+              max-width: 360px !important;
               cursor: ${connected ? "txt" : "default"};
             `}
             type={connected ? undefined : "secondary"}
@@ -61,7 +60,7 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
               text: endpoint,
             }}
           >
-            <Badge status={connected ? "success" : "default"} /> {endpoint}
+            {endpoint}
           </Typography.Text>
         </Popover>
       }
