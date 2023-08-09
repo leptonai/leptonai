@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.200
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
 	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.2.12
+	github.com/aws/aws-sdk-go-v2/service/costexplorer v1.27.2
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.29.0
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.18.14
 	github.com/aws/aws-sdk-go-v2/service/efs v1.20.4
@@ -147,12 +148,12 @@ require (
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/aws/aws-sdk-go-v2 v1.19.0
+	github.com/aws/aws-sdk-go-v2 v1.20.1
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.21 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.35 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.29 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.38 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.32 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.11 // indirect
@@ -163,7 +164,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10
-	github.com/aws/smithy-go v1.13.5
+	github.com/aws/smithy-go v1.14.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-contrib/requestid v0.0.6
 	github.com/gin-contrib/timeout v0.0.3
