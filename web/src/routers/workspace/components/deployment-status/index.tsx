@@ -1,3 +1,4 @@
+import { ProcessingWrapper } from "@lepton-dashboard/components/processing-wrapper";
 import { FC, useMemo } from "react";
 import { Tag } from "antd";
 import { EmotionProps } from "@lepton-dashboard/interfaces/emotion-props";
@@ -21,17 +22,19 @@ export const DeploymentStatus: FC<
   }, [status]);
   return (
     <DeploymentIssuesTip status={status} deploymentName={deploymentName}>
-      <Tag
-        className={className}
-        css={css`
-          margin-inline: 0;
-          font-weight: 500;
-        `}
-        icon={<DeploymentIcon />}
-        color={color}
-      >
-        {status.toUpperCase()}
-      </Tag>
+      <ProcessingWrapper processing={status.toUpperCase() === "STARTING"}>
+        <Tag
+          className={className}
+          css={css`
+            margin-inline: 0;
+            font-weight: 500;
+          `}
+          icon={<DeploymentIcon />}
+          color={color}
+        >
+          {status.toUpperCase()}
+        </Tag>
+      </ProcessingWrapper>
     </DeploymentIssuesTip>
   );
 };

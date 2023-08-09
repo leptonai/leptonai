@@ -1,4 +1,5 @@
 import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
+import { ProcessingWrapper } from "@lepton-dashboard/components/processing-wrapper";
 import { DeploymentMinTable } from "@lepton-dashboard/routers/workspace/components/deployment-min-table";
 import { FC, useMemo } from "react";
 import { Popover, Tag } from "antd";
@@ -14,7 +15,7 @@ export const PopoverDeploymentTable: FC<{
   deployments: Deployment[];
 }> = ({ photon, deployments }) => {
   const color = useMemo(() => {
-    const running = deployments.some((d) => d.status.state === "Running");
+    const running = deployments.every((d) => d.status.state === "Running");
     const hasDeployments = deployments.length > 0;
     if (running) {
       return "success";
@@ -26,36 +27,38 @@ export const PopoverDeploymentTable: FC<{
   }, [deployments]);
   return (
     <MinThemeProvider>
-      <Tag
-        color={color}
-        css={css`
-          margin-right: 0;
-        `}
-      >
-        <Description.Item
-          icon={<DeploymentIcon />}
-          description={
-            <Popover
-              open={deployments.length > 0 ? undefined : false}
-              placement="bottomLeft"
-              content={<DeploymentMinTable deployments={deployments} />}
-            >
-              <span>
-                <LinkTo
-                  name="deploymentsList"
-                  params={{
-                    photonName: photon.name,
-                  }}
-                  relative="route"
-                >
-                  {deployments.length > 0 ? deployments.length : "No"}{" "}
-                  {deployments.length > 1 ? "deployments" : "deployment"}
-                </LinkTo>
-              </span>
-            </Popover>
-          }
-        />
-      </Tag>
+      <ProcessingWrapper processing={color === "processing"}>
+        <Tag
+          color={color}
+          css={css`
+            margin-right: 0;
+          `}
+        >
+          <Description.Item
+            icon={<DeploymentIcon />}
+            description={
+              <Popover
+                open={deployments.length > 0 ? undefined : false}
+                placement="bottomLeft"
+                content={<DeploymentMinTable deployments={deployments} />}
+              >
+                <span>
+                  <LinkTo
+                    name="deploymentsList"
+                    params={{
+                      photonName: photon.name,
+                    }}
+                    relative="route"
+                  >
+                    {deployments.length > 0 ? deployments.length : "No"}{" "}
+                    {deployments.length > 1 ? "deployments" : "deployment"}
+                  </LinkTo>
+                </span>
+              </Popover>
+            }
+          />
+        </Tag>
+      </ProcessingWrapper>
     </MinThemeProvider>
   );
 };
