@@ -24,7 +24,13 @@ export const List: FC = () => {
     storageService.get(StorageService.GLOBAL_SCOPE, "PHOTON_LAYOUT") || "card"
   );
   const filteredPhotonGroups = useMemo(() => {
-    return photonGroups.filter((e) => JSON.stringify(e).indexOf(search) !== -1);
+    return photonGroups.filter(
+      (e) =>
+        [e.id, e.name, e.model, e.entrypoint, e.image]
+          .join("\n")
+          .toUpperCase()
+          .indexOf(search.toUpperCase()) !== -1
+    );
   }, [photonGroups, search]);
   return (
     <Row gutter={[8, 24]}>

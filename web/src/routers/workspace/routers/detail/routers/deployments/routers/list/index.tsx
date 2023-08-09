@@ -62,7 +62,16 @@ export const List: FC = () => {
     return deployments.filter(
       (d) =>
         (status.length === 0 || status.indexOf(d.status.state) !== -1) &&
-        JSON.stringify(d).indexOf(search) !== -1 &&
+        [
+          d.status.state,
+          d.status.endpoint.external_endpoint,
+          d.photon_id,
+          d.name,
+          d.resource_requirement.resource_shape,
+        ]
+          .join("\n")
+          .toUpperCase()
+          .indexOf(search.toUpperCase()) !== -1 &&
         ((ids.length > 0 && ids.indexOf(d.photon_id) !== -1) ||
           ids.length === 0)
     );
