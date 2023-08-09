@@ -13,7 +13,8 @@ export const Credit: FC<{
 }> = ({ invoice, coupon, current_period }) => {
   const creditGranted = coupon.amount_off;
   const creditReason = coupon.name;
-  const creditUsed = invoice.total_discount_amounts
+  // the credit is used up in previous invoice if no discount in current invoice
+  const creditUsed = invoice.total_discount_amounts?.[0]
     ? invoice.total_discount_amounts?.[0]?.amount
     : coupon.amount_off;
   const creditExpired = current_period.end;
