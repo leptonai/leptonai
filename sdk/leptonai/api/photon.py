@@ -176,10 +176,12 @@ def run_remote(
 ):
     # TODO: check if the given id is a valid photon id
     envs_and_secrets = []
-    for k, v in env_list.items():
-        envs_and_secrets.append({"name": k, "value": v})
-    for k, v in secret_list.items():
-        envs_and_secrets.append({"name": k, "value_from": {"secret_name_ref": v}})
+    if env_list is not None:
+        for k, v in env_list.items():
+            envs_and_secrets.append({"name": k, "value": v})
+    if secret_list is not None:
+        for k, v in secret_list.items():
+            envs_and_secrets.append({"name": k, "value_from": {"secret_name_ref": v}})
     deployment = {
         "name": deployment_name,
         "photon_id": id,
