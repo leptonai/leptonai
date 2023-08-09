@@ -13,11 +13,16 @@ type Key = keyof typeof StorageKeys;
 @Injectable()
 export class StorageService {
   static GLOBAL_SCOPE = "lepton-global";
+
+  storageKey(scope: string, key: Key) {
+    return `${scope}-${StorageKeys[key]}`;
+  }
+
   set(scope: string, key: Key, value: string) {
-    localStorage.setItem(`${scope}-${StorageKeys[key]}`, value);
+    localStorage.setItem(this.storageKey(scope, key), value);
   }
 
   get(scope: string, key: Key): string | null {
-    return localStorage.getItem(`${scope}-${StorageKeys[key]}`);
+    return localStorage.getItem(this.storageKey(scope, key));
   }
 }

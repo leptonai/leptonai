@@ -1,7 +1,10 @@
 import { Injectable } from "injection-js";
 import { ReplaySubject } from "rxjs";
 import { theme, ThemeConfig } from "antd";
-import { StorageService } from "@lepton-dashboard/services/storage.service";
+import Cookies from "js-cookie";
+
+// TODO: Need automatic sync with other sites.
+const themeKey = "lepton-theme";
 
 @Injectable()
 export class ThemeService {
@@ -76,21 +79,30 @@ export class ThemeService {
   public theme$ = new ReplaySubject<ThemeConfig>(1);
 
   getValidTheme(): string {
-    const themeIndex =
-      this.storageService.get(StorageService.GLOBAL_SCOPE, "THEME") ||
-      "default";
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "default";
+    const themeFromCookie = Cookies.get(themeKey);
+    const themeIndex = themeFromCookie || systemTheme;
     const isValid = !!this.presetThemes[themeIndex];
-    return isValid ? themeIndex : "default";
+    return isValid ? themeIndex : systemTheme;
   }
 
   toggleTheme() {
     const reverseTheme =
       this.getValidTheme() === "default" ? "dark" : "default";
-    this.storageService.set(StorageService.GLOBAL_SCOPE, "THEME", reverseTheme);
+    Cookies.set(themeKey, reverseTheme, {
+      domain: import.meta.env.DEV ? window.location.hostname : ".lepton.ai",
+      path: "/",
+      expires: 365,
+      secure: true,
+      sameSite: "Lax",
+    });
     this.theme$.next(this.presetThemes[reverseTheme]);
   }
 
-  constructor(private storageService: StorageService) {
+  constructor() {
     this.theme$.next(this.presetThemes[this.getValidTheme()]);
   }
 }
