@@ -88,7 +88,8 @@ resource "aws_eks_node_group" "al2_x86_64_ac_g4dnxlarge" {
   ]
 }
 
-resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge" {
+# ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group_tag
+resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge_autoscaler_kind" {
   # we may disable GPU AL2 node groups for CI testing
   count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
 
@@ -103,6 +104,66 @@ resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge" {
   tag {
     key                 = "autoscaler-kind"
     value               = "cluster-autoscaler"
+    propagate_at_launch = true
+  }
+}
+
+# For AWS, if you are using nodeSelector, you need to tag the ASG with a node-template key "k8s.io/cluster-autoscaler/node-template/label/".
+# Basically, for autoscaler to work, you need to tag the ASG with the node-template key "k8s.io/cluster-autoscaler/node-template/label/".
+# ref. https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#how-can-i-scale-a-node-group-to-0
+# ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group_tag
+resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge_node_selector" {
+  # we may disable GPU AL2 node groups for CI testing
+  count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
+
+  # "*" spat expression doesn't work...
+  # "resources[0].autoscaling_groups[0].name" doesn't work...
+  # "*.resources[0].autoscaling_groups[0].name" doesn't work...
+  # manually parse the ARN
+  autoscaling_group_name = "eks-${aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].node_group_name}-${split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)[length(split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)) - 1]}"
+
+  # for "Node-Selectors:  nvidia.com/gpu.product=Tesla-T4"
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/node-template/label/nvidia.com/gpu.product"
+    value               = "Tesla-T4"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge_taint" {
+  # we may disable GPU AL2 node groups for CI testing
+  count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
+
+  # "*" spat expression doesn't work...
+  # "resources[0].autoscaling_groups[0].name" doesn't work...
+  # "*.resources[0].autoscaling_groups[0].name" doesn't work...
+  # manually parse the ARN
+  autoscaling_group_name = "eks-${aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].node_group_name}-${split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)[length(split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)) - 1]}"
+
+  # ref. "extractTaintsFromAsg" in "cluster-autoscaler/cloudprovider/aws/aws_manager.go"
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/node-template/taint/nvidia.com/gpu"
+    value               = ":NO_SCHEDULE"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_autoscaling_group_tag" "al2_x86_64_ac_g4dnxlarge_ephemeral_storage" {
+  # we may disable GPU AL2 node groups for CI testing
+  count = var.al2_x86_64_ac_g4dnxlarge_max_size > 0 ? 1 : 0
+
+  # "*" spat expression doesn't work...
+  # "resources[0].autoscaling_groups[0].name" doesn't work...
+  # "*.resources[0].autoscaling_groups[0].name" doesn't work...
+  # manually parse the ARN
+  autoscaling_group_name = "eks-${aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].node_group_name}-${split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)[length(split("/", aws_eks_node_group.al2_x86_64_ac_g4dnxlarge[0].arn)) - 1]}"
+
+  # in case pod is requesting ephemeral storage (podRequest.EphemeralStorage > 0)
+  # otherwise, Insufficient ephemeral-storage; predicateName=NodeResourcesFit
+  # ref. "cluster-autoscaler/vendor/k8s.io/kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go" "fitsRequest"
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/node-template/resources/ephemeral-storage"
+    value               = format("%sGi", var.disk_size_in_gb_for_node_groups)
     propagate_at_launch = true
   }
 }

@@ -400,6 +400,8 @@ resource "helm_release" "cluster_autoscaler" {
 
     kubernetes_service_account.cluster_autoscaler,
     kubernetes_role_binding.cluster_autoscaler,
-    kubernetes_cluster_role_binding.cluster_autoscaler
+    kubernetes_cluster_role_binding.cluster_autoscaler,
+
+    aws_autoscaling_group_tag.ubuntu_x86_64_cpu_m6a16xlarge_autoscaler_kind,
   ]
 }

@@ -62,7 +62,9 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
   ]
 }
 
-resource "aws_autoscaling_group_tag" "ubuntu_x86_64_cpu_m6a16xlarge" {
+# For CPU, we do not use node selector thus no need for "k8s.io/cluster-autoscaler/node-template/label/" tags.
+# ref. https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group_tag
+resource "aws_autoscaling_group_tag" "ubuntu_x86_64_cpu_m6a16xlarge_autoscaler_kind" {
   # NOTE: do not set "count" field here since we always want the ubuntu CPU node groups
 
   autoscaling_group_name = aws_eks_node_group.ubuntu_x86_64_cpu_m6a16xlarge.resources[0].autoscaling_groups[0].name
@@ -72,6 +74,21 @@ resource "aws_autoscaling_group_tag" "ubuntu_x86_64_cpu_m6a16xlarge" {
   tag {
     key                 = "autoscaler-kind"
     value               = "cluster-autoscaler"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_autoscaling_group_tag" "ubuntu_x86_64_cpu_m6a16xlarge_ephemeral_storage" {
+  # NOTE: do not set "count" field here since we always want the ubuntu CPU node groups
+
+  autoscaling_group_name = aws_eks_node_group.ubuntu_x86_64_cpu_m6a16xlarge.resources[0].autoscaling_groups[0].name
+
+  # in case pod is requesting ephemeral storage (podRequest.EphemeralStorage > 0)
+  # otherwise, Insufficient ephemeral-storage; predicateName=NodeResourcesFit
+  # ref. "cluster-autoscaler/vendor/k8s.io/kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go" "fitsRequest"
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/node-template/resources/ephemeral-storage"
+    value               = format("%sGi", var.disk_size_in_gb_for_node_groups)
     propagate_at_launch = true
   }
 }
