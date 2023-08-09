@@ -13,7 +13,7 @@ import { SecretService } from "@lepton-dashboard/routers/workspace/services/secr
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { FormListOperation } from "antd/es/form/FormList";
-import { FC, ReactNode, useMemo, useRef } from "react";
+import { FC, ReactNode, useEffect, useMemo, useRef } from "react";
 import { css } from "@emotion/react";
 import {
   Button,
@@ -26,6 +26,7 @@ import {
   Form,
   Input,
   InputNumber,
+  InputRef,
   MenuProps,
   Row,
   Select,
@@ -80,6 +81,13 @@ export const DeploymentForm: FC<{
   const secretService = useInject(SecretService);
   const imagePullSecretService = useInject(ImagePullSecretService);
   const hardwareService = useInject(HardwareService);
+  const nameRef = useRef<InputRef | null>(null);
+
+  useEffect(() => {
+    if (nameRef.current) {
+      nameRef.current.focus();
+    }
+  }, []);
   const shapeOptions = hardwareService.shapes.map((i) => ({
     label: <ResourceShape shape={i} />,
     optionLabelProp: hardwareService.hardwareShapes[i].DisplayName,
@@ -265,7 +273,7 @@ export const DeploymentForm: FC<{
           }),
         ]}
       >
-        <Input disabled={edit} autoFocus placeholder="Deployment name" />
+        <Input disabled={edit} ref={nameRef} placeholder="Deployment name" />
       </Form.Item>
       <Row gutter={16}>
         <Col span={16}>

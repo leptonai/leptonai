@@ -1,7 +1,8 @@
+import { Copy } from "@carbon/icons-react";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { App, Button, Empty, Modal, Space } from "antd";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
@@ -9,14 +10,15 @@ import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-o
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { PlusOutlined } from "@ant-design/icons";
-import { DeploymentIcon } from "@lepton-dashboard/components/icons";
+import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { DeploymentForm } from "@lepton-dashboard/routers/workspace/components/deployment-form";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 
-const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
-  finish,
-  photonId,
-}) => {
+const CreateDeploymentDetail: FC<{
+  finish: () => void;
+  photonId?: string;
+  fork?: Deployment;
+}> = ({ finish, photonId, fork }) => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const photonService = useInject(PhotonService);
@@ -27,15 +29,18 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
   const photonGroups = useStateFromBehaviorSubject(photonService.listGroups());
 
   const initialDeployment: Partial<Deployment> = {
-    photon_id: photonId,
-    resource_requirement: {
+    name: fork?.name || "",
+    photon_id: fork?.photon_id || photonId,
+    resource_requirement: fork?.resource_requirement || {
       min_replicas: 1,
       resource_shape: hardwareService.shapes[0],
     },
-    api_tokens: [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
-    envs: [],
-    mounts: [],
-    pull_image_secrets: [],
+    api_tokens: fork?.api_tokens || [
+      { value_from: { token_name_ref: "WORKSPACE_TOKEN" } },
+    ],
+    envs: fork?.envs || [],
+    mounts: fork?.mounts || [],
+    pull_image_secrets: fork?.pull_image_secrets || [],
   };
   const createDeployment = (deployment: Partial<Deployment>) => {
     setLoading(true);
@@ -84,10 +89,11 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
   );
 };
 
-export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
-  min = false,
-  photonId,
-}) => {
+export const CreateDeployment: FC<{
+  min?: boolean;
+  photonId?: string;
+  fork?: Deployment;
+}> = ({ min = false, photonId, fork }) => {
   const [open, setOpen] = useState(false);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const openLayer = () => {
@@ -97,29 +103,50 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
     setOpen(false);
   };
 
-  return (
-    <>
-      {min ? (
+  const button = useMemo(() => {
+    if (fork) {
+      return (
         <Button
           size="small"
           type="text"
-          icon={<DeploymentIcon />}
+          icon={<CarbonIcon icon={<Copy />} />}
           disabled={workspaceTrackerService.workspace?.isPastDue}
           onClick={openLayer}
         >
-          Deploy
+          Clone
         </Button>
-      ) : (
-        <Button
-          type="primary"
-          block
-          icon={<PlusOutlined />}
-          disabled={workspaceTrackerService.workspace?.isPastDue}
-          onClick={openLayer}
-        >
-          Create deployment
-        </Button>
-      )}
+      );
+    } else {
+      if (min) {
+        return (
+          <Button
+            size="small"
+            type="text"
+            icon={<DeploymentIcon />}
+            disabled={workspaceTrackerService.workspace?.isPastDue}
+            onClick={openLayer}
+          >
+            Deploy
+          </Button>
+        );
+      } else {
+        return (
+          <Button
+            type="primary"
+            block
+            icon={<PlusOutlined />}
+            disabled={workspaceTrackerService.workspace?.isPastDue}
+            onClick={openLayer}
+          >
+            Create deployment
+          </Button>
+        );
+      }
+    }
+  }, [min, fork, workspaceTrackerService.workspace?.isPastDue]);
+  return (
+    <>
+      {button}
       <Modal
         destroyOnClose
         title="Create deployment"
@@ -127,7 +154,11 @@ export const CreateDeployment: FC<{ min?: boolean; photonId?: string }> = ({
         onCancel={close}
         footer={null}
       >
-        <CreateDeploymentDetail photonId={photonId} finish={close} />
+        <CreateDeploymentDetail
+          fork={fork}
+          photonId={photonId}
+          finish={close}
+        />
       </Modal>
     </>
   );

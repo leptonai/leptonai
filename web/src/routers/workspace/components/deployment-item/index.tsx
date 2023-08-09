@@ -1,3 +1,4 @@
+import { CreateDeployment } from "@lepton-dashboard/routers/workspace/components/create-deployment";
 import { DeleteDeployment } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/delete-deployment";
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
@@ -66,6 +67,7 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
           </Col>
           <Col flex="0 0 auto">
             <Space size={0} split={<Divider type="vertical" />}>
+              <CreateDeployment fork={deployment} />
               <EditDeployment deployment={deployment} />
               <DeleteDeployment deployment={deployment} />
             </Space>
