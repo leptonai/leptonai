@@ -18,7 +18,7 @@ from leptonai.photon import FileParam
 from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
 from leptonai.cli import photon as photon_cli
-from leptonai.photon.tests.utils import random_name, photon_run_server, sub_test
+from leptonai.photon.tests.utils import random_name, photon_run_local_server, sub_test
 
 
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
@@ -141,7 +141,7 @@ class TestPhotonCli(unittest.TestCase):
     )
     def test_photon_run(self, model):
         name = random_name()
-        proc, port = photon_run_server(name=name, model=model)
+        proc, port = photon_run_local_server(name=name, model=model)
 
         # test example data
         openapi = requests.get(f"http://127.0.0.1:{port}/openapi.json").json()
@@ -167,7 +167,7 @@ class TestPhotonCli(unittest.TestCase):
 
     def test_hf_embed(self):
         name = random_name()
-        proc, port = photon_run_server(name=name, model=sentence_similarity_model)
+        proc, port = photon_run_local_server(name=name, model=sentence_similarity_model)
 
         # single sentence
         res = requests.post(
@@ -216,7 +216,7 @@ class TestPhotonCli(unittest.TestCase):
         path = find_local_photon(name)
         self.assertIsNotNone(path)
 
-        proc, port = photon_run_server(path=path, model=transformers_model)
+        proc, port = photon_run_local_server(path=path, model=transformers_model)
         res = requests.post(
             f"http://127.0.0.1:{port}/run",
             json={"inputs": "a cat", "max_length": 10},
@@ -232,7 +232,7 @@ class TestPhotonCli(unittest.TestCase):
     def test_photon_run_post_file(self):
         name = random_name()
 
-        proc, port = photon_run_server(name=name, model=whisper_model)
+        proc, port = photon_run_local_server(name=name, model=whisper_model)
 
         url = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
         res_post_url = requests.post(
