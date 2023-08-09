@@ -51,7 +51,7 @@ export const Link = forwardRef<
       cursor: pointer;
       &:hover {
         color: ${theme.colorTextHeading};
-        text-decoration: ${underline ? "underline" : "none"};
+        text-decoration: ${underline ? "underline" : "none"} !important;
       }
     `;
 

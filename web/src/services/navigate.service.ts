@@ -129,6 +129,7 @@ export const RoutersMap = {
   settingsAPITokens: `/workspace/:workspaceId?/settings/api-tokens`,
   settingsBilling: `/workspace/:workspaceId?/settings/billing`,
   settingsSecrets: `/workspace/:workspaceId?/settings/secrets`,
+  settingsRegistries: `/workspace/:workspaceId?/settings/registries`,
   photonsList: `/workspace/:workspaceId?/photons/list`,
   photonVersions: `/workspace/:workspaceId?/photons/versions/:name`,
   photonDetail: `/workspace/:workspaceId?/photons/detail/:photonId`,

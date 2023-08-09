@@ -16,6 +16,7 @@ import { IndicatorService } from "./services/indicator.service";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { FileManagerServerService } from "@lepton-dashboard/routers/workspace/services/file-manager-server.service";
 import { FileManagerService } from "@lepton-dashboard/routers/workspace/services/file-manager.service";
+import { ImagePullSecretService } from "@lepton-dashboard/routers/workspace/services/image-pull-secret.service";
 
 export const Workspace: FC = () => {
   return (
@@ -29,6 +30,7 @@ export const Workspace: FC = () => {
         SecretService,
         TunaService,
         BillingService,
+        ImagePullSecretService,
         { provide: ApiService, useClass: ApiServerService },
         { provide: FileManagerService, useClass: FileManagerServerService },
       ]}

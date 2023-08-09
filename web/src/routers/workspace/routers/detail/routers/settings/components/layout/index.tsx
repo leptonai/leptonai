@@ -1,4 +1,10 @@
-import { Asterisk, Password, Settings, Wallet } from "@carbon/icons-react";
+import {
+  Asterisk,
+  ContainerRegistry,
+  Password,
+  Settings,
+  Wallet,
+} from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
@@ -33,6 +39,11 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         key: `${pathname}/secrets`,
         label: "Secrets",
         icon: <CarbonIcon icon={<Asterisk />} />,
+      },
+      {
+        key: `${pathname}/registries`,
+        label: "Registries",
+        icon: <CarbonIcon icon={<ContainerRegistry />} />,
       },
     ];
     if (workspaceTrackerService?.workspace?.isBillingSupported) {

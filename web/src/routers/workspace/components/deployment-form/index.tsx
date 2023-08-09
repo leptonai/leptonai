@@ -21,6 +21,7 @@ import {
   Checkbox,
   Col,
   Collapse,
+  ConfigProvider,
   Dropdown,
   Form,
   Input,
@@ -29,6 +30,7 @@ import {
   Row,
   Select,
   Space,
+  Typography,
 } from "antd";
 import { DownOutlined, PlusOutlined } from "@ant-design/icons";
 
@@ -42,6 +44,8 @@ import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
 import { StorageSelect } from "@lepton-dashboard/routers/workspace/components/storage-select";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
+import { ImagePullSecretService } from "@lepton-dashboard/routers/workspace/services/image-pull-secret.service";
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 
 interface RawForm {
   name: string;
@@ -52,6 +56,7 @@ interface RawForm {
   envs: { name: string; value: string }[];
   secret_envs: { name: string; value: string }[];
   mounts: DeploymentMount[];
+  pull_image_secrets: string[];
 }
 
 export const DeploymentForm: FC<{
@@ -73,6 +78,7 @@ export const DeploymentForm: FC<{
   const addSecretFnRef = useRef<FormListOperation["add"] | null>(null);
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
   const secretService = useInject(SecretService);
+  const imagePullSecretService = useInject(ImagePullSecretService);
   const hardwareService = useInject(HardwareService);
   const shapeOptions = hardwareService.shapes.map((i) => ({
     label: <ResourceShape shape={i} />,
@@ -122,6 +128,16 @@ export const DeploymentForm: FC<{
     });
     return menus;
   }, [navigateService, secrets]);
+  const imageRegistries = useStateFromObservable(
+    () => imagePullSecretService.listImagePullSecrets(),
+    []
+  );
+  const imageRegistriesOptions = useMemo(() => {
+    return imageRegistries.map((s) => ({
+      label: s.metadata.name,
+      value: s.metadata.name,
+    }));
+  }, [imageRegistries]);
   const [form] = Form.useForm();
   const photon = useMemo(() => {
     const latest =
@@ -154,6 +170,7 @@ export const DeploymentForm: FC<{
           };
         }),
       mounts: initialDeploymentValue.mounts || [],
+      pull_image_secrets: initialDeploymentValue.pull_image_secrets || [],
     };
   }, [initialDeploymentValue, photon]);
 
@@ -207,6 +224,7 @@ export const DeploymentForm: FC<{
           };
         })
         .filter((m) => m.path && m.mount_path),
+      pull_image_secrets: value.pull_image_secrets || [],
     };
   };
   return (
@@ -561,6 +579,32 @@ export const DeploymentForm: FC<{
                       );
                     }}
                   </Form.List>
+                </Form.Item>
+                <Form.Item name="pull_image_secrets" label="Image registries">
+                  <ConfigProvider
+                    renderEmpty={() => (
+                      <div
+                        css={css`
+                          padding: 2px 8px;
+                        `}
+                      >
+                        <Typography.Text type="secondary">
+                          Add image registries in{" "}
+                          <LinkTo underline name="settingsRegistries">
+                            settings
+                          </LinkTo>{" "}
+                          page
+                        </Typography.Text>
+                      </div>
+                    )}
+                  >
+                    <Select
+                      disabled={edit}
+                      mode="multiple"
+                      placeholder="Select image registries"
+                      options={imageRegistriesOptions}
+                    />
+                  </ConfigProvider>
                 </Form.Item>
               </div>
             ),

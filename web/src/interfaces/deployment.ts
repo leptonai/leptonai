@@ -25,6 +25,7 @@ export interface Deployment {
   envs?: Array<DeploymentEnv | DeploymentSecretEnv>;
   mounts?: Array<DeploymentMount>;
   api_tokens?: Token[];
+  pull_image_secrets?: string[];
 }
 
 export interface DeploymentMount {

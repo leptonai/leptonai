@@ -20,6 +20,7 @@ import {
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import Stripe from "stripe";
+import { ImagePullSecret } from "@lepton-dashboard/interfaces/image-pull-secrets";
 @Injectable()
 export abstract class ApiService {
   abstract listPhotons(): Observable<Photon[]>;
@@ -76,6 +77,10 @@ export abstract class ApiService {
   abstract createSecret(secret: Secret): Observable<void>;
   abstract listSecrets(): Observable<string[]>;
   abstract deleteSecret(id: string): Observable<void>;
+
+  abstract createImagePullSecret(secret: ImagePullSecret): Observable<void>;
+  abstract listImagePullSecrets(): Observable<Omit<ImagePullSecret, "spec">[]>;
+  abstract deleteImagePullSecret(name: string): Observable<void>;
 
   abstract listFineTuneJobs(
     status?: FineTuneJobStatus

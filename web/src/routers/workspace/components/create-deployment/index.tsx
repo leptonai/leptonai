@@ -34,6 +34,7 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
     api_tokens: [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
     envs: [],
     mounts: [],
+    pull_image_secrets: [],
   };
   const createDeployment = (deployment: Partial<Deployment>) => {
     setLoading(true);

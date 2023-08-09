@@ -19,6 +19,7 @@ import {
 } from "@lepton-dashboard/interfaces/fine-tune";
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import Stripe from "stripe";
+import { ImagePullSecret } from "@lepton-dashboard/interfaces/image-pull-secrets";
 const mockedPhotons = [
   {
     id: "dd3f54cb-56e4-494d-8e0b-b5a004f373f5",
@@ -299,5 +300,17 @@ export class ApiLocalService implements ApiService {
         used: { cpu: 0, memory: 0, accelerator_num: 0 },
       },
     });
+  }
+
+  createImagePullSecret(): Observable<void> {
+    return EMPTY;
+  }
+
+  deleteImagePullSecret(): Observable<void> {
+    return EMPTY;
+  }
+
+  listImagePullSecrets(): Observable<Omit<ImagePullSecret, "spec">[]> {
+    return EMPTY;
   }
 }

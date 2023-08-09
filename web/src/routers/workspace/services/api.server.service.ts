@@ -29,6 +29,7 @@ import {
 import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 import pathJoin from "@lepton-libs/url/path-join";
+import { ImagePullSecret } from "@lepton-dashboard/interfaces/image-pull-secrets";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -90,6 +91,7 @@ export class ApiServerService implements ApiService {
       api_tokens: deployment.api_tokens || [],
       envs: deployment.envs || [],
       mounts: deployment.mounts || [],
+      pull_image_secrets: deployment.pull_image_secrets || [],
     });
   }
 
@@ -467,4 +469,21 @@ export class ApiServerService implements ApiService {
     private httpClientService: HttpClientService,
     private workspaceTrackerService: WorkspaceTrackerService
   ) {}
+
+  createImagePullSecret(secret: ImagePullSecret): Observable<void> {
+    return this.httpClientService.post(
+      `${this.prefix}/imagepullsecrets`,
+      secret
+    );
+  }
+
+  deleteImagePullSecret(name: string): Observable<void> {
+    return this.httpClientService.delete(
+      `${this.prefix}/imagepullsecrets/${name}`
+    );
+  }
+
+  listImagePullSecrets(): Observable<Omit<ImagePullSecret, "spec">[]> {
+    return this.httpClientService.get(`${this.prefix}/imagepullsecrets`);
+  }
 }

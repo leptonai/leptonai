@@ -4,6 +4,7 @@ import { ApiTokens } from "@lepton-dashboard/routers/workspace/routers/detail/ro
 import { Billing } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing";
 import { General } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/general";
 import { Secrets } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/secrets";
+import { Registries } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/registries";
 import { FC } from "react";
 import { Route, Routes } from "react-router-dom";
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
@@ -17,6 +18,7 @@ export const Settings: FC = () => {
         <Route path="general" element={<General />} />
         <Route path="api-tokens" element={<ApiTokens />} />
         <Route path="secrets" element={<Secrets />} />
+        <Route path="registries" element={<Registries />} />
         <Route path="billing" element={<Billing />} />
         <Route
           path="*"
