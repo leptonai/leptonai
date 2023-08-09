@@ -34,7 +34,7 @@ from textwrap import dedent
 import shutil
 import subprocess
 import sys
-from typing import Dict
+from typing import Dict, List
 import unittest
 
 from fastapi import FastAPI
@@ -681,6 +681,28 @@ from leptonai.photon import Photon
             f.seek(0)
             res = client.last_line(inputs=FileParam(f))
         self.assertEqual(res, "9")
+
+    def test_client_post_multiple_files(self):
+        class MultiFilesPhoton(Photon):
+            @Photon.handler
+            def last_lines(self, inputs: List[FileParam]) -> List[str]:
+                return [f.file.read().splitlines()[-1].decode() for f in inputs]
+
+        ph = MultiFilesPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+
+        with tempfile.NamedTemporaryFile() as f1, tempfile.NamedTemporaryFile() as f2:
+            for i in range(10):
+                f1.write(f"{i}\n".encode())
+                f2.write(f"{2 * i}\n".encode())
+            f1.flush()
+            f2.flush()
+            f1.seek(0)
+            f2.seek(0)
+            res = client.last_lines(inputs=[FileParam(f1), FileParam(f2)])
+        self.assertEqual(res, ["9", "18"])
 
     def test_subclass_photon(self):
         class ParentPhoton(Photon):

@@ -67,7 +67,9 @@ def create_transformers_pipeline(task, model, revision):
     if torch.cuda.is_available():
         kwargs["device"] = 0
 
-    if torch.cuda.is_available():
+    # audio-classification pipeline doesn't support automatically
+    # converting inputs from fp32 to fp16
+    if torch.cuda.is_available() and task != "audio-classification":
         torch_dtype = torch.float16
     else:
         # TODO: check if bfloat16 is well supported
@@ -88,6 +90,7 @@ def create_transformers_pipeline(task, model, revision):
 
 
 for task in [
+    "audio-classification",
     "automatic-speech-recognition",
     "sentiment-analysis",
     "summarization",

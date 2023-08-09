@@ -33,6 +33,7 @@ sentence_similarity_model = (
 )
 text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92"
 sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
+audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -130,9 +131,10 @@ class TestPhotonCli(unittest.TestCase):
         [
             (diffusers_model,),
             (transformers_model,),
-            # FIXME: this model needs ffmpeg, but Github CI currently fails to
+            # FIXME: these models need ffmpeg, but Github CI currently fails to
             # install it
             # (whisper_model,),
+            # (audio_classification_model,),
             (summarization_model,),
             (sentence_similarity_model,),
             (text2text_generation_model,),
@@ -243,6 +245,35 @@ class TestPhotonCli(unittest.TestCase):
         res_post_file = requests.post(
             f"http://127.0.0.1:{port}/run",
             json={"inputs": {"content": FileParam.encode(content)}},
+        )
+        proc.kill()
+        self.assertEqual(res_post_url.status_code, 200)
+        self.assertEqual(res_post_file.status_code, 200)
+        self.assertEqual(res_post_url.json(), res_post_file.json())
+
+    @unittest.skipIf(not shutil.which("ffmpeg"), "ffmpeg not installed")
+    def test_photon_run_post_multi_files(self):
+        name = random_name()
+
+        proc, port = photon_run_server(name=name, model=audio_classification_model)
+
+        url1 = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
+        url2 = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/2.flac"
+        res_post_url = requests.post(
+            f"http://127.0.0.1:{port}/run",
+            json={"inputs": [url1, url2]},
+        )
+
+        content1 = requests.get(url1).content
+        content2 = requests.get(url2).content
+        res_post_file = requests.post(
+            f"http://127.0.0.1:{port}/run",
+            json={
+                "inputs": [
+                    {"content": FileParam.encode(content1)},
+                    {"content": FileParam.encode(content2)},
+                ]
+            },
         )
         proc.kill()
         self.assertEqual(res_post_url.status_code, 200)
