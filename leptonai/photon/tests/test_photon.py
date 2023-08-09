@@ -52,7 +52,7 @@ from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam
 from leptonai.util import switch_cwd
 
 
-from utils import random_name, photon_run_server, async_test
+from utils import random_name, photon_run_local_server, async_test
 
 
 class CustomPhoton(Photon):
@@ -172,7 +172,7 @@ class TestPhoton(unittest.TestCase):
         ph = CustomPhoton(name=name)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
 
         x = 2.0
         res = requests.post(
@@ -195,7 +195,7 @@ class TestPhoton(unittest.TestCase):
         y1 = ph.run(x)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         url = f"http://localhost:{port}"
 
         client = Client(url)
@@ -231,7 +231,7 @@ class Counter(Photon):
 """).encode("utf-8"))
             f.flush()
             for model in [f"py:{f.name}:Counter", f"{f.name}:Counter"]:
-                proc, port = photon_run_server(name="counter", model=model)
+                proc, port = photon_run_local_server(name="counter", model=model)
                 res = requests.post(
                     f"http://127.0.0.1:{port}/add",
                     json={"x": 1},
@@ -314,7 +314,7 @@ class Counter(Photon):
         ph = CustomPhoton(name=name)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
 
         for x in range(5):
             res = requests.post(
@@ -361,7 +361,9 @@ class Counter(Photon):
         ) as vec_db_file:
             f.write(vec_db_file.read())
             f.flush()
-            proc, port = photon_run_server(name="vec-db", model=f"py:{f.name}:VecDB")
+            proc, port = photon_run_local_server(
+                name="vec-db", model=f"py:{f.name}:VecDB"
+            )
 
         dim = 2
         name = "two"
@@ -455,7 +457,7 @@ class Counter(Photon):
         ph = CustomPhotonWithCustomExtraFiles(name=name)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/line",
             json={"n": 1},
@@ -489,7 +491,7 @@ from leptonai.photon import Photon
             f"file://{git_proj}:{custom_py}:CustomPhoton",
         ]:
             name = random_name()
-            proc, port = photon_run_server(name=name, model=model)
+            proc, port = photon_run_local_server(name=name, model=model)
             res = requests.post(
                 f"http://127.0.0.1:{port}/some_path",
                 json={"x": 1.0},
@@ -515,7 +517,7 @@ from leptonai.photon import Photon
             saved_url = metadata[METADATA_VCS_URL_KEY]
             self.assertTrue("${GIT_PROJ_URL}" in saved_url)
             self.assertFalse(git_proj in saved_url)
-            proc, port = photon_run_server(path=path)
+            proc, port = photon_run_local_server(path=path)
             res = requests.post(
                 f"http://127.0.0.1:{port}/some_path",
                 json={"x": 1.0},
@@ -536,7 +538,7 @@ from leptonai.photon import Photon
         model = "py:github.com/leptonai/examples:Counter/counter.py:Counter"
         photon = create_photon(name=name, model=model)
         path = photon.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/add",
             json={"x": 1.0},
@@ -550,7 +552,7 @@ from leptonai.photon import Photon
         ph = CustomPhotonWithPNGResponse(name=name)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/img",
             json={"content": "invalid image"},
@@ -564,7 +566,7 @@ from leptonai.photon import Photon
         ph = CustomPhoton(name=name)
         path = ph.save()
 
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}",
             json={"x": 1.0},
@@ -587,7 +589,7 @@ from leptonai.photon import Photon
     def test_mount_fastapi(self):
         ph = CustomPhotonWithMount(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/myapp/hello",
             json={},
@@ -623,7 +625,7 @@ from leptonai.photon import Photon
 
         ph = FlaskPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://127.0.0.1:{port}/run")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.text, "hello from flask")
@@ -642,7 +644,7 @@ from leptonai.photon import Photon
 
         ph = GradioPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://127.0.0.1:{port}/ui")
         self.assertEqual(res.status_code, 200)
 
@@ -656,7 +658,7 @@ from leptonai.photon import Photon
         with self.assertWarns(UserWarning):
             path = ph.save()
         # still works, just warn during photon creation
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(f"http://127.0.0.1:{port}/run", json={})
         self.assertEqual(res.status_code, 200)
         proc.kill()
@@ -669,7 +671,7 @@ from leptonai.photon import Photon
 
         ph = FilePhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
 
         with tempfile.NamedTemporaryFile() as f:
@@ -703,7 +705,7 @@ from leptonai.photon import Photon
 
         ph = ParentPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.common_name(), ParentPhoton._common_name)
         self.assertEqual(client.override_name(), ParentPhoton._override_name)
@@ -711,7 +713,7 @@ from leptonai.photon import Photon
 
         ph = ChildPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.common_name(), ChildPhoton._common_name)
         self.assertEqual(client.override_name(), ChildPhoton._override_name)
@@ -726,7 +728,7 @@ from leptonai.photon import Photon
 
         ph = NoParenthesisPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
         res = client.hello()
         self.assertEqual(res, "world")
@@ -744,7 +746,7 @@ class CustomPhoton(Photon):
 """.encode())
         custom_py.flush()
 
-        proc, port = photon_run_server(name=random_name(), model=custom_py.name)
+        proc, port = photon_run_local_server(name=random_name(), model=custom_py.name)
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.hello(), unique_answer)
 
@@ -767,7 +769,7 @@ class CustomPhoton2(Photon):
         self.assertRaisesRegex(
             Exception,
             r"multiple.*Photon",
-            photon_run_server,
+            photon_run_local_server,
             name=random_name(),
             model=custom_py.name,
         )
@@ -784,7 +786,7 @@ class CustomPhoton2(Photon):
 
         ph = BatchPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -801,7 +803,7 @@ class CustomPhoton2(Photon):
 
         ph = GetPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://127.0.0.1:{port}/greet")
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"hello": "world"})
@@ -814,7 +816,7 @@ class CustomPhoton2(Photon):
 
         ph = GetPhotonWithQueryParams(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         ans = random_name()
         res = requests.get(f"http://127.0.0.1:{port}/greet", params={"name": ans})
         self.assertEqual(res.status_code, 200, res.text)
@@ -828,7 +830,7 @@ class CustomPhoton2(Photon):
 
         ph = GetPhotonWithUrlParams(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         ans = random_name()
         res = requests.get(f"http://127.0.0.1:{port}/greet/{ans}")
         self.assertEqual(res.status_code, 200, res.text)
@@ -846,7 +848,7 @@ class CustomPhoton2(Photon):
 
         ph = BatchGetPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             xs = [1, 2]
@@ -871,7 +873,7 @@ class CustomPhoton2(Photon):
 
         ph = CustomHealthzPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://127.0.0.1:{port}/healthz")
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"status": customized})
@@ -883,7 +885,7 @@ class CustomPhoton2(Photon):
 
         ph = FallbackHealthzPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://127.0.0.1:{port}/healthz")
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"status": "ok"})
@@ -897,7 +899,7 @@ class CustomPhoton2(Photon):
 
         ph = DocStrPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
 
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(
@@ -925,7 +927,7 @@ class CustomPhoton2(Photon):
 
         ph = BackgroundTaskPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
 
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.val(), 0)

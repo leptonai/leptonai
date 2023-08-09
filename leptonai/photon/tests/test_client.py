@@ -13,7 +13,7 @@ import responses
 
 from leptonai import Client
 from leptonai.photon import Photon, handler
-from utils import random_name, find_free_port, photon_run_server
+from utils import random_name, find_free_port, photon_run_local_server
 
 
 class WeirdlyNamedPhoton(Photon):
@@ -56,7 +56,7 @@ class TestClient(unittest.TestCase):
     def test_client(self):
         # launch server
         name = random_name()
-        proc, port = photon_run_server(name=name, model="hf:gpt2")
+        proc, port = photon_run_local_server(name=name, model="hf:gpt2")
         url = f"http://localhost:{port}"
 
         client = Client(url)
@@ -107,7 +107,7 @@ class TestClient(unittest.TestCase):
 
     def test_client_with_token(self):
         name = random_name()
-        proc, port = photon_run_server(name=name, model="hf:gpt2")
+        proc, port = photon_run_local_server(name=name, model="hf:gpt2")
         url = f"http://localhost:{port}"
         inputs = "hello inputs"
         outputs = "hello outputs"

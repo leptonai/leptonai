@@ -25,7 +25,7 @@ def random_name():
     return "".join(random.choice(string.ascii_lowercase) for _ in range(5))
 
 
-def photon_run_server(name=None, path=None, model=None, port=None):
+def photon_run_local_server(name=None, path=None, model=None, port=None):
     if name is None and path is None:
         raise ValueError("Either name or path must be specified")
     if name is not None and path is not None:
@@ -36,6 +36,7 @@ def photon_run_server(name=None, path=None, model=None, port=None):
         "lep",
         "photon",
         "run",
+        "--local",
     ]
     if name:
         cmd += ["-n", name]
