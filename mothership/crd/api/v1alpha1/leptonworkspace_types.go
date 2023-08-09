@@ -26,11 +26,18 @@ type LeptonWorkspaceSpec struct {
 	// Name is a globally unique name of a workspace within mothership.
 	Name        string `json:"name"`
 	ClusterName string `json:"cluster_name"`
-	ImageTag    string `json:"image_tag,omitempty"`
-	APIToken    string `json:"api_token,omitempty"`
-	EnableWeb   bool   `json:"enable_web,omitempty"`
+
+	Description string `json:"description"`
+	// Basic is the default tier.
+	Tier LeptonWorkspaceTier `json:"tier,omitempty"`
+
 	// Terraform module git ref
 	GitRef string `json:"git_ref"`
+	// Deployment container image tag
+	ImageTag string `json:"image_tag,omitempty"`
+	// API access token
+	APIToken  string `json:"api_token,omitempty"`
+	EnableWeb bool   `json:"enable_web,omitempty"`
 
 	QuotaGroup      string `json:"quota_group,omitempty"`
 	QuotaCPU        int    `json:"quota_cpu,omitempty"`
@@ -38,8 +45,6 @@ type LeptonWorkspaceSpec struct {
 	QuotaGPU        int    `json:"quota_gpu,omitempty"`
 
 	State LeptonWorkspaceState `json:"state,omitempty"`
-
-	Description string `json:"description"`
 }
 
 type LeptonWorkspaceState string
@@ -48,6 +53,14 @@ const (
 	WorkspaceStateNormal     LeptonWorkspaceState = "normal"
 	WorkspaceStatePaused     LeptonWorkspaceState = "paused"
 	WorkspaceStateTerminated LeptonWorkspaceState = "terminated"
+)
+
+type LeptonWorkspaceTier string
+
+const (
+	WorkspaceTierBasic      LeptonWorkspaceTier = "basic"
+	WorkspaceTierStandard   LeptonWorkspaceTier = "standard"
+	WorkspaceTierEnterprise LeptonWorkspaceTier = "enterprise"
 )
 
 // LeptonWorkspaceStatus defines the observed state of LeptonWorkspace

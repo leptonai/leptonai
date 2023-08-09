@@ -39,6 +39,7 @@ spec:
               The deployment environment inherits the one from cluster spec.
             properties:
               api_token:
+                description: API access token
                 type: string
               cluster_name:
                 type: string
@@ -50,6 +51,7 @@ spec:
                 description: Terraform module git ref
                 type: string
               image_tag:
+                description: Deployment container image tag
                 type: string
               name:
                 description: Name is a globally unique name of a workspace within
@@ -64,6 +66,9 @@ spec:
               quota_memory_in_gi:
                 type: integer
               state:
+                type: string
+              tier:
+                description: Basic is the default tier.
                 type: string
             required:
             - cluster_name

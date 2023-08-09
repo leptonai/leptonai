@@ -229,6 +229,11 @@ func Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha
 		return nil, err
 
 	}
+	err := validateTier(ws.Spec)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
+		return nil, err
+	}
 
 	if err := quota.SetQuotaFromQuotaGroup(&ws.Spec); err != nil {
 		userErr := fmt.Errorf("invalid quota setting: %w", err)
@@ -239,7 +244,7 @@ func Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha
 	// TODO: data race: if another call concurrently creates a ws with the same name under
 	// a different cluster, then the cluster will be updated with the new ws name while the
 	// ws is not created.
-	_, err := DataStore.Get(ctx, workspaceName)
+	_, err = DataStore.Get(ctx, workspaceName)
 	if err == nil {
 		conflictErr := fmt.Errorf("workspace %s already exists", workspaceName)
 		ctx.JSON(http.StatusConflict, gin.H{"code": httperrors.ErrorCodeResourceConflict, "message": "failed to create workspace: " + conflictErr.Error()})
@@ -370,6 +375,13 @@ func Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1al
 	case crdv1alpha1.WorkspaceStateTerminated:
 	default:
 		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
+	}
+	err = validateTier(spec)
+	if err != nil {
+		return nil, err
+	}
+	if spec.Tier != "" { // do not allow update back to empty
+		ws.Spec.Tier = spec.Tier
 	}
 
 	if err := DataStore.Update(ctx, workspaceName, ws); err != nil {
@@ -801,4 +813,22 @@ func updateState(ctx context.Context, ws *crdv1alpha1.LeptonWorkspace, state crd
 	ws.Status.State = state
 	ws.Status.UpdatedAt = uint64(time.Now().Unix())
 	return DataStore.UpdateStatus(ctx, ws.Spec.Name, ws)
+}
+
+func validateTier(spec crdv1alpha1.LeptonWorkspaceSpec) error {
+	switch spec.Tier {
+	case crdv1alpha1.WorkspaceTierBasic:
+	case crdv1alpha1.WorkspaceTierStandard:
+	case crdv1alpha1.WorkspaceTierEnterprise:
+	case "":
+		goutil.Logger.Warnw("workspace tier is not set",
+			"workspace ID", spec.Name)
+	default:
+		goutil.Logger.Debugw("invalid workspace tier",
+			"tier", spec.Tier,
+			"workspace ID", spec.Name,
+		)
+		return fmt.Errorf("invalid workspace tier %s: must be one of basic, standard, enterprise", spec.Tier)
+	}
+	return nil
 }
