@@ -1,0 +1,8 @@
+FROM --platform=linux/amd64 centos:7
+
+RUN yum install -y epel-release && \
+    yum install -y python3 python3-pip && \
+    yum clean all
+
+RUN yum install -y gcc gcc-c++ make openssl-devel bzip2-devel libffi-devel && \
+    yum clean all
