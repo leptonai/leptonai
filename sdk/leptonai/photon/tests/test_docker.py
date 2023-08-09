@@ -28,16 +28,24 @@ if has_docker:
         has_docker = False
 
 
+def _resolve_image(image):
+    if image.startswith("default/lepton"):
+        return image.replace(
+            "default/lepton", "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton"
+        )
+    return image
+
+
 @unittest.skipIf(not has_docker, "Docker not installed")
 class TestDocker(unittest.TestCase):
     def test_common_image(self):
-        client.containers.run(BASE_IMAGE, "lep photon -h")
+        client.containers.run(_resolve_image(BASE_IMAGE), "lep photon -h")
 
     def _run_photon(self, path):
         container_path = f"/tmp/{os.path.basename(path)}"
         image = photon.load_metadata(path)["image"]
         container = client.containers.run(
-            image=image,
+            image=_resolve_image(image),
             command=f"lep photon run -f {container_path}",
             volumes=[f"{path}:{container_path}"],
             detach=True,
@@ -76,7 +84,7 @@ class TestDocker(unittest.TestCase):
     def test_run_remote_git_photon(self):
         ph = photon.create(
             random_name(),
-            "py:git+https://github.com/leptonai/lepton.git@bdf8508#subdirectory=sdk/leptonai/examples:counter.py:Counter",
+            "https://github.com/leptonai/lepton.git@bdf8508#subdirectory=sdk/leptonai/examples:counter.py",
         )
         path = photon.save(ph)
         self._run_photon(path)
