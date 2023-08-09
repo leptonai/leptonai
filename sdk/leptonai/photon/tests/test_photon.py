@@ -690,7 +690,7 @@ from leptonai.photon import Photon
 
         ph = MultiFilesPhoton(name=random_name())
         path = ph.save()
-        proc, port = photon_run_server(path=path)
+        proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
 
         with tempfile.NamedTemporaryFile() as f1, tempfile.NamedTemporaryFile() as f2:

@@ -255,7 +255,9 @@ class TestPhotonCli(unittest.TestCase):
     def test_photon_run_post_multi_files(self):
         name = random_name()
 
-        proc, port = photon_run_server(name=name, model=audio_classification_model)
+        proc, port = photon_run_local_server(
+            name=name, model=audio_classification_model
+        )
 
         url1 = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac"
         url2 = "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/2.flac"
