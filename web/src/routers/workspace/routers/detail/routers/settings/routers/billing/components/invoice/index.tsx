@@ -102,11 +102,10 @@ export const Invoice: FC<{
             },
             {
               dataIndex: "created",
-              title: "PERIOD",
-              render: (_, record) => (
+              title: "DATE",
+              render: (_, record: Stripe.Invoice) => (
                 <>
-                  <DateParser detail date={record.period_start * 1000} /> -{" "}
-                  <DateParser detail date={record.period_end * 1000} />
+                  <DateParser detail date={record.created * 1000} />
                 </>
               ),
             },
