@@ -80,7 +80,7 @@ export class ApiServerService implements ApiService {
     });
   }
 
-  createDeployment(deployment: Partial<Deployment>): Observable<void> {
+  createDeployment(deployment: Partial<Deployment>): Observable<Deployment> {
     return this.httpClientService.post(`${this.prefix}/deployments`, {
       name: deployment.name,
       photon_id: deployment.photon_id,

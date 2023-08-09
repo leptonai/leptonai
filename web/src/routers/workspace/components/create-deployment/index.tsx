@@ -1,3 +1,4 @@
+import { LinkTo } from "@lepton-dashboard/components/link-to";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useState } from "react";
@@ -44,9 +45,16 @@ const CreateDeploymentDetail: FC<{ finish: () => void; photonId?: string }> = ({
       duration: 0,
     });
     deploymentService.create(deployment).subscribe({
-      next: () => {
+      next: (deployment) => {
         message.destroy("create-deployment-deployment");
-        void message.success("Create deployment success");
+        void message.success(
+          <LinkTo
+            name="deploymentDetail"
+            params={{ deploymentName: deployment.name }}
+          >
+            Create deployment success
+          </LinkTo>
+        );
         refreshService.refresh();
         finish();
         setLoading(false);

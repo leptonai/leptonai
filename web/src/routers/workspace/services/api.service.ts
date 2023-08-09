@@ -62,7 +62,9 @@ export abstract class ApiService {
     replicaId: string,
     metricName: string
   ): Observable<Metric[]>;
-  abstract createDeployment(deployment: Partial<Deployment>): Observable<void>;
+  abstract createDeployment(
+    deployment: Partial<Deployment>
+  ): Observable<Deployment>;
   abstract deleteDeployment(name: string): Observable<void>;
   abstract updateDeployment(
     name: string,

@@ -128,7 +128,7 @@ export class ApiLocalService implements ApiService {
     return of(mockedDeployments);
   }
 
-  createDeployment(deployment: Partial<Deployment>): Observable<void> {
+  createDeployment(deployment: Partial<Deployment>): Observable<Deployment> {
     console.log(deployment);
     return EMPTY;
   }

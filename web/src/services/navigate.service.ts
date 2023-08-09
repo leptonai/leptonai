@@ -3,7 +3,6 @@ import { matchPath } from "react-router-dom";
 import type { NavigateOptions, To } from "react-router-dom";
 import { Observable, Subject } from "rxjs";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-
 type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
 
 /**
@@ -199,7 +198,10 @@ export class NavigateService {
 
   isActive<T extends keyof Routers>(name: T, pathname: string): boolean {
     const path = RoutersMap[name];
-    return matchPath({ path, end: false }, pathname) !== null;
+    return (
+      // https://github.com/remix-run/react-router/discussions/9862
+      matchPath({ path, end: false }, pathname) !== null
+    );
   }
 
   getPath<T extends keyof Routers>(

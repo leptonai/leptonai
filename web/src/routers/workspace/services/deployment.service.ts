@@ -115,7 +115,7 @@ export class DeploymentService {
     );
   }
 
-  create(deployment: Partial<Deployment>): Observable<void> {
+  create(deployment: Partial<Deployment>): Observable<Deployment> {
     return this.apiService.createDeployment(deployment);
   }
 
