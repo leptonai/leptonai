@@ -159,6 +159,7 @@ export const JobItem: FC<{
                       }
                       icon={<CarbonIcon icon={<Code />} />}
                       apiUrl={inference?.status?.api_endpoint || ""}
+                      apiKey={workspaceTrackerService.workspace?.auth.token}
                       name={job.name}
                     >
                       API

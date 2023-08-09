@@ -17,6 +17,35 @@ import { CopyFile } from "@carbon/icons-react";
 
 setCDN("/shiki/");
 
+// eslint-disable-next-line react-refresh/only-export-components
+export const createDoubleQuoteSecretTokenMasker = (
+  secret = "",
+  option?: {
+    startAt?: number;
+    endAt?: number;
+  }
+) => {
+  return (content: string) => {
+    if (secret.length === 0) {
+      return false;
+    }
+    const startAt = option?.startAt ?? 0;
+    const endAt = option?.endAt ?? secret.length;
+    if (content.includes(secret)) {
+      const startSubstring = secret.substring(0, startAt);
+      const endSubstring = secret.substring(
+        secret.length - endAt,
+        secret.length
+      );
+      return `"${startSubstring}${"*".repeat(
+        secret.length - startAt - endAt
+      )}${endSubstring}"`;
+    } else {
+      return false;
+    }
+  };
+};
+
 export enum LanguageSupports {
   Bash = "bash",
   Python = "python",
@@ -96,7 +125,17 @@ export const CodeBlock: FC<{
   return (
     <div
       css={css`
+        max-width: 100%;
+        max-height: 100%;
         position: relative;
+        display: flex;
+        overflow: hidden;
+        & > div {
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+        }
+
         .ant-typography-copy {
           position: absolute;
           top: 12px;
@@ -112,9 +151,12 @@ export const CodeBlock: FC<{
         }
 
         pre {
+          flex: 1;
+          overflow: auto;
           min-height: 35px;
           font-size: 12px;
           padding: 12px;
+          margin: 0;
         }
         .mask-token {
           .mask-content {

@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   CodeBlock,
+  createDoubleQuoteSecretTokenMasker,
   LanguageSupports,
 } from "@lepton-dashboard/routers/workspace/components/code-block";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -110,12 +111,18 @@ sys.stdout.write("\\n")`;
         <div
           css={css`
             height: 400px;
-            overflow: auto;
             border: 1px solid ${theme.colorBorderSecondary};
             border-radius: ${theme.borderRadius};
           `}
         >
-          <CodeBlock code={pythonCode} language={LanguageSupports.Python} />
+          <CodeBlock
+            tokenMask={createDoubleQuoteSecretTokenMasker(apiKey || "", {
+              startAt: 3,
+              endAt: 3,
+            })}
+            code={pythonCode}
+            language={LanguageSupports.Python}
+          />
         </div>
       </Modal>
     </>

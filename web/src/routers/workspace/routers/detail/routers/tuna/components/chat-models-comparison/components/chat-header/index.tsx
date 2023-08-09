@@ -15,6 +15,7 @@ import {
   ModelOption,
 } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
+import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 export const ChatHeader: FC<{
   modelName: string;
   onModelChange: (option: ModelOption) => void;
@@ -22,6 +23,7 @@ export const ChatHeader: FC<{
 }> = ({ modelName, onModelChange, chat }) => {
   const theme = useAntdTheme();
   const tunaService = useInject(TunaService);
+  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const [value, setValue] = useState(benchmarkModel.name);
   const [loading, setLoading] = useState(true);
   const models = useStateFromObservable(
@@ -37,6 +39,7 @@ export const ChatHeader: FC<{
                   name: i.metadata.name,
                   apiOption: {
                     api_url: i.status?.api_endpoint,
+                    api_key: workspaceTrackerService.workspace?.auth.token,
                   },
                 };
               }),

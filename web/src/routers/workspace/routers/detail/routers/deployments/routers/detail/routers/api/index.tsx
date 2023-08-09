@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
@@ -10,6 +10,7 @@ import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { from, of, switchMap } from "rxjs";
 import {
   CodeBlock,
+  createDoubleQuoteSecretTokenMasker,
   LanguageSupports,
 } from "@lepton-dashboard/routers/workspace/components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
@@ -68,23 +69,6 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
     return workspaceTrackerService.workspace?.auth.token ?? "";
   }, [workspaceTrackerService.workspace?.auth.token]);
 
-  const maskToken = useCallback(
-    (content: string) => {
-      if (APIToken && content.includes(APIToken)) {
-        const startSubstring = APIToken.substring(0, 3);
-        const endSubstring = APIToken.substring(
-          APIToken.length - 3,
-          APIToken.length
-        );
-        return `"${startSubstring}${"*".repeat(
-          APIToken.length - 6
-        )}${endSubstring}"`;
-      } else {
-        return false;
-      }
-    },
-    [APIToken]
-  );
   return initialized ? (
     <Card
       shadowless
@@ -155,7 +139,13 @@ LEPTON_API_TOKEN = "${APIToken}"`
                       : `from leptonai.client import Client`
                   }
                   language={LanguageSupports.Python}
-                  tokenMask={maskToken}
+                  tokenMask={createDoubleQuoteSecretTokenMasker(
+                    APIToken || "",
+                    {
+                      startAt: 3,
+                      endAt: 3,
+                    }
+                  )}
                   copyable
                 />
               </Typography.Paragraph>
@@ -170,7 +160,13 @@ LEPTON_API_TOKEN = "${APIToken}"`
                 <CodeBlock
                   code={`export LEPTON_API_TOKEN="${APIToken}"`}
                   language={LanguageSupports.Bash}
-                  tokenMask={maskToken}
+                  tokenMask={createDoubleQuoteSecretTokenMasker(
+                    APIToken || "",
+                    {
+                      startAt: 3,
+                      endAt: 3,
+                    }
+                  )}
                   copyable
                 />
               </Typography.Paragraph>
