@@ -28,6 +28,10 @@ jobs:
     - name: Test with pytest
       run: |
         cd sdk
+        if ! hash nvidia-smi 2>/dev/null; then
+           echo "nvidia-smi not found on host, installing cpu version of torch"
+           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        fi
         pip install .
         pip install -r leptonai/examples/requirements.txt
         pip install .[test]
