@@ -30,11 +30,13 @@ var (
 	certificateARNFlag        *string
 	rootDomainFlag            *string
 	deploymentEnvironmentFlag *string
+	namespaceFlag             *string
 
 	requestTimeoutInternal *string
 )
 
 func main() {
+	namespaceFlag = flag.String("namespace", "default", "namespace of the mothership deployment")
 	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
 	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
 	deploymentEnvironmentFlag = flag.String("deployment-environment", "DEV", "deployment environment of the cluster")
@@ -51,8 +53,10 @@ func main() {
 	// TODO: create a workspace struct to pass them in
 	workspace.CertificateARN = *certificateARNFlag
 	workspace.RootDomain = *rootDomainFlag
+	workspace.StoreNamespace = *namespaceFlag
 	cluster.RootDomain = *rootDomainFlag
 	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
+	cluster.StoreNamespace = *namespaceFlag
 	httpapi.RootDomain = *rootDomainFlag
 
 	terraform.MustInit()

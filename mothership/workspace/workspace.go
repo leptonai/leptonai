@@ -34,11 +34,10 @@ import (
 var (
 	CertificateARN string
 	RootDomain     string
+	StoreNamespace = "default"
 )
 
 const (
-	storeNamespace = "default"
-
 	// NOTE: adjust based on per-account EKS quota
 	maxWorkspaces = 300
 )
@@ -46,16 +45,17 @@ const (
 // Make workspace a struct and do not use global variables
 // TODO: do we want to backup the workspaces?
 var (
-	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonWorkspace](
-		storeNamespace,
-		&crdv1alpha1.LeptonWorkspace{},
-		nil,
-	)
+	DataStore *datastore.CRStore[*crdv1alpha1.LeptonWorkspace]
 
 	Worker = worker.New()
 )
 
 func Init() {
+	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonWorkspace](
+		StoreNamespace,
+		&crdv1alpha1.LeptonWorkspace{},
+		nil,
+	)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	wss, err := DataStore.List(ctx)

@@ -28,6 +28,7 @@ spec:
               cpu: {{ .Values.mothership.service.resources.requests.cpu }}
           command: [ "/mothership" ]
           args:
+            - --namespace={{ .Release.Namespace }}
             - --root-domain={{ .Values.mothership.rootDomain }}
             - --certificate-arn={{ .Values.mothership.certificateArn }}
             - --deployment-environment={{ .Values.mothership.deploymentEnvironment }}

@@ -28,11 +28,10 @@ import (
 var (
 	RootDomain            string
 	DeploymentEnvironment string
+	StoreNamespace        = "default"
 )
 
 const (
-	storeNamespace = "default"
-
 	// NOTE: adjust based on per-account EKS quota
 	maxClusters = 100
 )
@@ -40,11 +39,7 @@ const (
 // Make cluster a struct and do not use global variables
 // TODO: do we want to backup the cluster state?
 var (
-	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
-		storeNamespace,
-		&crdv1alpha1.LeptonCluster{},
-		nil,
-	)
+	DataStore *datastore.CRStore[*crdv1alpha1.LeptonCluster]
 
 	Worker = worker.New()
 
@@ -56,6 +51,11 @@ var (
 
 // Init initializes the cluster and retore any ongoing operations
 func Init() {
+	DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
+		StoreNamespace,
+		&crdv1alpha1.LeptonCluster{},
+		nil,
+	)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	clusters, err := DataStore.List(ctx)
