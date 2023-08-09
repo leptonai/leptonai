@@ -79,6 +79,8 @@ def create_workspace_on_cluster(workspace_display_name):
         "enable_web": False,
         "quota_group": "small",
         "description": description,
+        "image_tag": "0.7.1",
+        "git_ref": "0.7.1",
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
