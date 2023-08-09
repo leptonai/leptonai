@@ -5,10 +5,7 @@ import os
 from pathlib import Path
 import sys
 
-from dotenv import load_dotenv
 import pydantic.version
-
-load_dotenv()
 
 # Cache directory for Lepton's local databases etc.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
