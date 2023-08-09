@@ -2,6 +2,7 @@ package e2etests
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -318,6 +319,58 @@ func TestCustomizedImage(t *testing.T) {
 	output, err = client.Run(fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to delete photon with customized image: %v - %s", err, output)
+	}
+}
+
+func TestPrivateContainerRegistry(t *testing.T) {
+	name := newName(t.Name())
+	pullSecretName := name + "-pull-secret"
+	err := lepton.ImagePullSecret().Create(pullSecretName, "https://index.docker.io/v1/", "leptonai", "mfv-xyj9fvt_EPG.tgf", "uz@lepton.ai")
+	if err != nil {
+		t.Fatalf("Failed to create image pull secret: %v", err)
+	}
+
+	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/private_docker_image/counter.py"}
+	output, err := client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to create photon with private image: %v - %s", err, output)
+	}
+
+	fullArgs = []string{"pho", "push", "-n", name}
+	output, err = client.Run(fullArgs...)
+	if err != nil {
+		t.Fatalf("Failed to push photon with private image: %v - %s", err, output)
+	}
+
+	ph, err := lepton.Photon().GetByName(name)
+	if err != nil {
+		log.Fatal("Failed to get photon by name: ", err)
+	}
+	if len(ph) != 1 {
+		log.Fatal("Expected 1 photon, got ", len(ph))
+	}
+	phoid := ph[0].ID
+
+	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     name,
+		PhotonID: phoid,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
+		},
+		ImagePullSecrets: []string{pullSecretName},
+	}
+	_, err = lepton.Deployment().Create(d)
+	if err != nil {
+		t.Fatalf("Failed to create deployment: %v", err)
+	}
+	err = waitForDeploymentToRunningState(name)
+	if err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+	err = lepton.Deployment().Delete(name)
+	if err != nil {
+		t.Fatalf("Failed to delete deployment: %v", err)
 	}
 }
 

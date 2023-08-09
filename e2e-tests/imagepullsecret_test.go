@@ -3,7 +3,9 @@ package e2etests
 import "testing"
 
 func TestImagePullSecret(t *testing.T) {
-	err := lepton.ImagePullSecret().Create("test-imagepull-secret",
+	ipsname := "test-imagepull-secret"
+
+	err := lepton.ImagePullSecret().Create(ipsname,
 		"test-registry",
 		"test-username",
 		"test-password",
@@ -18,12 +20,19 @@ func TestImagePullSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(ips) != 1 {
-		t.Fatal("Expected 1 image pull secret, got 0")
+	found := false
+	for i := range ips {
+		if ips[i].Metadata.Name == ipsname {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected image pull secret %s, got %v", ipsname, ips)
 	}
 	t.Logf("Got image pull secret: %s", ips[0].Metadata.Name)
 
-	err = lepton.ImagePullSecret().Delete("test-imagepull-secret")
+	err = lepton.ImagePullSecret().Delete(ipsname)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,10 +41,14 @@ func TestImagePullSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ips) != 0 {
-		t.Errorf("Expected 0 image pull secret, got %d", len(ips))
-		for i := range ips {
-			t.Errorf("	Got Image pull secret %s", ips[i].Metadata.Name)
+	found = false
+	for i := range ips {
+		if ips[i].Metadata.Name == ipsname {
+			found = true
+			break
 		}
+	}
+	if found {
+		t.Errorf("Not expected image pull secret %s, got %v", ipsname, ips)
 	}
 }

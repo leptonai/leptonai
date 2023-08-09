@@ -9,6 +9,7 @@ import (
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/deploymentutil"
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/version"
 
@@ -364,7 +365,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	}
 
 	for _, sn := range ld.Spec.ImagePullSecrets {
-		spec.ImagePullSecrets = append(spec.ImagePullSecrets, corev1.LocalObjectReference{Name: sn})
+		spec.ImagePullSecrets = append(spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.ImagePullSecretPrefix + sn})
 	}
 
 	return spec

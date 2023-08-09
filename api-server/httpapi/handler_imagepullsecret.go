@@ -11,10 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	imagePullSecretPrefix = "lepton-image-pull-secret-"
-)
-
 // ImagePullSecret is a secret for pulling images from private registry.
 type ImagePullSecret struct {
 	Metadata Metadata            `json:"metadata"`
@@ -67,13 +63,13 @@ func (h *ImagePullSecretHandler) List(c *gin.Context) {
 
 	iss := []ImagePullSecret{}
 	for _, s := range ss {
-		if !strings.HasPrefix(s, imagePullSecretPrefix) {
+		if !strings.HasPrefix(s, secret.ImagePullSecretPrefix) {
 			continue
 		}
 
 		iss = append(iss, ImagePullSecret{
 			Metadata: Metadata{
-				Name: s[len(imagePullSecretPrefix):],
+				Name: s[len(secret.ImagePullSecretPrefix):],
 			},
 		})
 	}
@@ -95,7 +91,7 @@ func (h *ImagePullSecretHandler) Create(c *gin.Context) {
 		return
 	}
 
-	s := secret.New(h.namespace, imagePullSecretPrefix+ip.Metadata.Name, nil)
+	s := secret.New(h.namespace, secret.ImagePullSecretPrefix+ip.Metadata.Name, nil)
 
 	items, err := s.List(c)
 	if err != nil {
@@ -118,27 +114,8 @@ func (h *ImagePullSecretHandler) Create(c *gin.Context) {
 		return
 	}
 
-	si := []secret.SecretItem{
-		{
-			Name:  "docker-server",
-			Value: ip.Spec.RegistryServer,
-		},
-		{
-			Name:  "docker-username",
-			Value: ip.Spec.Username,
-		},
-		{
-			Name:  "docker-password",
-			Value: ip.Spec.Password,
-		},
-		{
-			Name:  "docker-email",
-			Value: ip.Spec.Email,
-		},
-	}
-
 	// TODO: add lock to avoid race condition on concurrent creation
-	err = s.Put(c, si)
+	err = s.PutPrivateRegistry(c, ip.Spec.RegistryServer, ip.Spec.Username, ip.Spec.Password, ip.Spec.Email)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create secret",
 			"operation", "CreateImagePullSecret",
@@ -157,7 +134,7 @@ func (h *ImagePullSecretHandler) Create(c *gin.Context) {
 func (h *ImagePullSecretHandler) Delete(c *gin.Context) {
 	ssname := c.Param("ssname")
 
-	err := secret.New(h.namespace, imagePullSecretPrefix+ssname, nil).Destroy(c)
+	err := secret.New(h.namespace, secret.ImagePullSecretPrefix+ssname, nil).Destroy(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to delete secret",
 			"operation", "DeleteImagePullSecret",
