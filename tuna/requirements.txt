@@ -7,3 +7,4 @@ psycopg2-binary
 google-cloud-storage
 cryptography
 django-cors-headers
+logtail-python

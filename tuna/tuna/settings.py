@@ -29,7 +29,11 @@ DEBUG = os.environ.get("DEBUG", "False") == "True"
 PRODUCTION = os.environ.get("PRODUCTION", "False") == "True"
 
 ALLOWED_HOSTS = ["*"]
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://tuna-dev.vercel.app",
+    "https://tuna-prod.vercel.app",
+    "https://tuna-web.bddppq.com",
+]
 
 # Application definition
 
@@ -160,3 +164,39 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+
+
+if "LOGTAIL_TOKEN" not in os.environ:
+    if os.path.exists(".env.logtail"):
+        load_dotenv(".env.logtail")
+
+if "LOGTAIL_TOKEN" in os.environ:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "logtail": {
+                "class": "logtail.LogtailHandler",
+                "source_token": os.environ["LOGTAIL_TOKEN"],
+            },
+        },
+        "loggers": {
+            "": {
+                "handlers": [
+                    "logtail",
+                ],
+                "level": "INFO",
+            },
+        },
+    }
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": os.environ.get("POSTGRES_DB"),
+        "USER": os.environ.get("POSTGRES_USER"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+        "HOST": os.environ.get("POSTGRES_HOST"),
+        "PORT": os.environ.get("POSTGRES_PORT"),
+    }
+}

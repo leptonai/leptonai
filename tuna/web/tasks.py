@@ -2,12 +2,12 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 
 from celery import shared_task, Task
 from django.conf import settings
+from django.db import connection
 from loguru import logger
 
 from .models import Dish
@@ -109,17 +109,15 @@ def cook(data_path, model_name_or_path, output_dir):
     ]
     logger.info(f"Docker command: {shlex.join(cmd)}")
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    log_lines = []
     for line in proc.stdout:
-        line = line.decode("utf-8")
-        sys.stdout.write(line)
-        log_lines.append(line)
+        logger.opt(raw=True).info(line.decode("utf-8"))
     returncode = proc.wait()
     if returncode:
-        logger.error(f"returncode={returncode}")
         raise RuntimeError(
-            "Failed to run"
-            f" docker:\ncmd:\n{shlex.join(cmd)}\nreturncode:\n{returncode}\nlog:\n{''.join(log_lines)}"
+            f"Training failed with return code {returncode} (see logs above)"
         )
     else:
         logger.info("Tuna Dish is ready")
+
+    # closing the connection to force django to reconnect to the db
+    connection.close()
