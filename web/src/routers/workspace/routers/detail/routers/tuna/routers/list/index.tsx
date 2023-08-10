@@ -62,7 +62,7 @@ export const List: FC = () => {
                 style={{ width: "100%" }}
                 mode="multiple"
                 value={status}
-                placeholder="Tuna status"
+                placeholder="Status"
                 onChange={(v) => setStatus(v)}
                 maxTagCount={1}
                 options={[

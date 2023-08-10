@@ -64,7 +64,7 @@ export const RegistryForm: FC<{
           },
         ]}
       >
-        <Input ref={nameRef} placeholder="Registry name" />
+        <Input ref={nameRef} />
       </Form.Item>
 
       <Form.Item
@@ -72,7 +72,7 @@ export const RegistryForm: FC<{
         name={["spec", "registry_server"]}
         rules={[{ required: true, message: "Please input registry URL" }]}
       >
-        <Input placeholder="E.g. https://index.docker.io" />
+        <Input placeholder="Eg. https://index.docker.io/v1/ if using dockerhub" />
       </Form.Item>
 
       <Form.Item
@@ -80,7 +80,7 @@ export const RegistryForm: FC<{
         name={["spec", "username"]}
         rules={[{ message: "Please input username" }]}
       >
-        <Input placeholder="Username" />
+        <Input />
       </Form.Item>
 
       <Form.Item
@@ -88,7 +88,7 @@ export const RegistryForm: FC<{
         name={["spec", "password"]}
         rules={[{ message: "Please input password" }]}
       >
-        <Input.Password placeholder="Password" />
+        <Input.Password />
       </Form.Item>
 
       <Form.Item
@@ -96,7 +96,7 @@ export const RegistryForm: FC<{
         name={["spec", "email"]}
         rules={[{ message: "Please input email" }]}
       >
-        <Input placeholder="Email" />
+        <Input />
       </Form.Item>
       <Button type="primary" htmlType="submit" loading={loading}>
         Submit

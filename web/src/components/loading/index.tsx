@@ -47,7 +47,7 @@ export const Loading: FC = () => {
             css={css`
               stroke-dasharray: 500 100;
               stroke-dashoffset: 50;
-              animation: ${dash} 0.5s ease-in-out infinite;
+              animation: ${dash} 0.5s linear infinite;
             `}
             d="M112.1,76.3l42.8,24.7c5.3,3,8.5,8.6,8.5,14.7v49.4c0,6.1-3.2,11.7-8.5,14.7l-42.8,24.7c-5.3,3-11.7,3-17,0
 		l-42.8-24.7c-5.3-3-8.5-8.6-8.5-14.7v-49.4c0-6.1,3.2-11.7,8.5-14.7l42.8-24.7C100.4,73.3,106.8,73.3,112.1,76.3z"
@@ -71,7 +71,7 @@ export const Loading: FC = () => {
             css={css`
               stroke-dasharray: 500 100;
               stroke-dashoffset: 50;
-              animation: ${dash} 0.5s ease-in-out infinite;
+              animation: ${dash} 0.5s linear infinite;
               animation-delay: 0.25s;
             `}
             d="M188.4,79l42.8,24.7c5.3,3,8.5,8.6,8.5,14.7v49.4c0,6.1-3.2,11.7-8.5,14.7l-42.8,24.7c-5.3,3-11.7,3-17,0

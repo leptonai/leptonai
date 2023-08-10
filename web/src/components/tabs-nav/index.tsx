@@ -55,7 +55,7 @@ export const TabsNav: FC<
         }
       `}
       moreIcon={null}
-      tabBarGutter={16}
+      tabBarGutter={12}
       tabBarStyle={{ marginBottom: 0 }}
       activeKey={selectedKey}
       items={menuItems}

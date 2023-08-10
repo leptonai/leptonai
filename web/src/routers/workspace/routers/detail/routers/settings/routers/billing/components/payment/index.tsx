@@ -31,7 +31,7 @@ export const Payment: FC<{
         {invoice && (
           <Col flex={0}>
             <Typography.Title
-              level={2}
+              level={3}
               css={css`
                 margin-top: 0;
                 white-space: nowrap;

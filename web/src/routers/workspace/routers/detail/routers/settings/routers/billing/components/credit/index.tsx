@@ -65,11 +65,11 @@ export const Credit: FC<{
             margin: 4px 0 0 0;
             .ant-progress-inner,
             .ant-progress-bg {
-              border-radius: 2px !important;
+              border-radius: 0 !important;
             }
           `}
           showInfo={false}
-          size={["100%", 8]}
+          size={["100%", 4]}
           percent={percentage}
           status="normal"
         />

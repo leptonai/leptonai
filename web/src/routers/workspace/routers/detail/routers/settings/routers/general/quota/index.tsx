@@ -48,7 +48,7 @@ export const Quota: FC<{
           margin: 0;
           .ant-progress-inner,
           .ant-progress-bg {
-            border-radius: 2px !important;
+            border-radius: 0 !important;
           }
         `}
         showInfo={false}

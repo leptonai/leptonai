@@ -1,4 +1,4 @@
-import { CopyFile, Settings, Upgrade } from "@carbon/icons-react";
+import { CopyFile, Settings, Upgrade, WordCloud } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
@@ -53,6 +53,13 @@ export const General: FC = () => {
                   margin-top: 0;
                 `}
               >
+                <span
+                  css={css`
+                    margin-right: 8px;
+                  `}
+                >
+                  <CarbonIcon icon={<WordCloud />} />
+                </span>{" "}
                 Basic plan
               </Typography.Title>
               <Typography.Text type="secondary">
@@ -66,7 +73,7 @@ export const General: FC = () => {
                 href="mailto:info@lepton.ai"
                 icon={<CarbonIcon icon={<Upgrade />} />}
               >
-                Contact Us to upgrade
+                Contact us to upgrade
               </Button>
             </Col>
           </Row>
@@ -94,7 +101,7 @@ export const General: FC = () => {
           items={[
             {
               key: 0,
-              label: "Workspace Info",
+              label: "Settings",
               children: (
                 <Descriptions
                   column={1}
@@ -107,9 +114,8 @@ export const General: FC = () => {
                   `}
                   labelStyle={{
                     fontWeight: 500,
-                    width: "80px",
+                    width: "70px",
                     color: theme.colorTextHeading,
-                    background: "transparent",
                   }}
                 >
                   <Descriptions.Item label="ID">
