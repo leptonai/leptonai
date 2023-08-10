@@ -56,6 +56,7 @@ func updateFunc(cmd *cobra.Command, args []string) {
 
 	// update cluster spec
 	spec := crdv1alpha1.LeptonClusterSpec{}
+	spec.Name = clusterName
 	if gitRef != "" {
 		spec.GitRef = gitRef
 	}

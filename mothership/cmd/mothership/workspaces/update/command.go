@@ -71,6 +71,7 @@ func updateFunc(cmd *cobra.Command, args []string) {
 
 	// update workspace spec
 	spec := crdv1alpha1.LeptonWorkspaceSpec{}
+	spec.Name = workspaceName
 	if gitRef != "" {
 		spec.GitRef = gitRef
 	}
