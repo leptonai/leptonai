@@ -1,3 +1,5 @@
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+# https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1alpha1/prometheusagent_types.go
 prometheus:
   enabled: true
 
@@ -46,16 +48,24 @@ prometheus:
       sigv4:
         region: ${remote_write_region}
 
+    # do not use "emptyDir" as it counts towards pod memory usage
+    #
+    # do not use "volumeClaimTemplate" as AWS EBS is AZ bound, and
+    # recreated pod cannot rebind the volume from different AZ
+    #
+    # use use "ephemeral" "EphemeralVolumeSource" as we use remote write
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/prometheus_types.go#L855
+    #
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/prometheus_types.go#L855
     storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: gp3
-          accessModes:
-          - ReadWriteOnce
-          volumeMode: Filesystem
-          resources:
-            requests:
-              storage: 200Gi
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 200Gi
 
     # the following scrape config is encoded as k8s secret objects
     # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
