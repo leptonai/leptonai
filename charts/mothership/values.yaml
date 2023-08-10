@@ -16,4 +16,5 @@ mothership:
   certificateArn: "arn:aws:acm:us-east-1:605454121064:certificate/d8d5e0e1-ecc5-4716-aa79-01625e60704d"
   apiToken: "cd17aef833bb660da98e7235b57ffe8d"
   rootDomain: "cloud.lepton.ai"
+  sharedAlbRootDomain: "dev.lepton.ai"
   deploymentEnvironment: "DEV"

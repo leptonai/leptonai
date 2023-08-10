@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	clusterName string
-	gitRef      string
-	autoApprove bool
+	clusterName      string
+	gitRef           string
+	autoApprove      bool
+	clusterSubdomain string
 )
 
 func init() {
@@ -33,6 +34,7 @@ func NewCommand() *cobra.Command {
 		Run:   updateFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to update")
+	cmd.PersistentFlags().StringVarP(&clusterSubdomain, "cluster-subdomain", "", "", "Subdomain alias for the cluster. Leave out the flag to leave the field unchanged")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "", "Git ref to use for the cluster")
 	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
@@ -66,7 +68,12 @@ func updateFunc(cmd *cobra.Command, args []string) {
 
 	// update cluster spec
 	clusterspec := cluster.Spec
-	clusterspec.GitRef = gitRef
+	if gitRef != "" {
+		clusterspec.GitRef = gitRef
+	}
+	if clusterSubdomain != "" {
+		clusterspec.Subdomain = clusterSubdomain
+	}
 
 	b, err = json.Marshal(clusterspec)
 	if err != nil {

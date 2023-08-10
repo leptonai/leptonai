@@ -16,7 +16,8 @@ import (
 
 var (
 	// TODO: get from the config. Stop using global variables.
-	RootDomain string
+	RootDomain          string
+	SharedAlbRootDomain string
 )
 
 const (

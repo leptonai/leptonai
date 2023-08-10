@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	clusterName string
-	region      string
-	gitRef      string
-	description string
-	dpEnv       string
+	clusterName      string
+	region           string
+	gitRef           string
+	description      string
+	dpEnv            string
+	clusterSubdomain string
 )
 
 func init() {
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 		Run:   createFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to create")
+	cmd.PersistentFlags().StringVarP(&clusterSubdomain, "cluster-subdomain", "", "", "Subdomain alias for the cluster, default to clusterName")
 	cmd.PersistentFlags().StringVarP(&region, "region", "r", "us-east-1", "Set region for cluster spec")
 	cmd.PersistentFlags().StringVarP(&gitRef, "git-ref", "g", "main", "Git ref to use for the cluster")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the cluster")
@@ -55,6 +57,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		Name:                  clusterName,
 		GitRef:                gitRef,
 		Description:           description,
+		Subdomain:             clusterSubdomain,
 	}
 
 	b, err := json.Marshal(cluster)

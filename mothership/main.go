@@ -29,6 +29,7 @@ import (
 var (
 	certificateARNFlag        *string
 	rootDomainFlag            *string
+	sharedAlbRootDomainFlag   *string
 	deploymentEnvironmentFlag *string
 	namespaceFlag             *string
 
@@ -39,6 +40,7 @@ func main() {
 	namespaceFlag = flag.String("namespace", "default", "namespace of the mothership deployment")
 	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
 	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
+	sharedAlbRootDomainFlag = flag.String("shared-alb-root-domain", "", "root domain for the routing rules sharing a cluster-wide ALB")
 	deploymentEnvironmentFlag = flag.String("deployment-environment", "DEV", "deployment environment of the cluster")
 	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
 	flag.Parse()
@@ -54,10 +56,13 @@ func main() {
 	workspace.CertificateARN = *certificateARNFlag
 	workspace.RootDomain = *rootDomainFlag
 	workspace.StoreNamespace = *namespaceFlag
+	workspace.SharedAlbRootDomain = *sharedAlbRootDomainFlag
 	cluster.RootDomain = *rootDomainFlag
+	cluster.SharedAlbRootDomain = *sharedAlbRootDomainFlag
 	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
 	cluster.StoreNamespace = *namespaceFlag
 	httpapi.RootDomain = *rootDomainFlag
+	httpapi.SharedAlbRootDomain = *sharedAlbRootDomainFlag
 
 	terraform.MustInit()
 

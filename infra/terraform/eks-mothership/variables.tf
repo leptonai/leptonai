@@ -52,6 +52,12 @@ variable "root_hostname" {
   default     = "cloud.lepton.ai"
 }
 
+variable "shared_alb_root_hostname" {
+  description = "Root hostname for shared alb based routing"
+  type        = string
+  default     = "dev.lepton.ai"
+}
+
 # d8d5e0e1-ecc5-4716-aa79-01625e60704d in DEV account (cloud.lepton.ai, account# 605454121064)
 # 6767482b-dfe1-4802-afe4-408df40a264a in PROD account (app.lepton.ai, account# 720771144610)
 variable "tls_cert_arn_id" {

@@ -8,8 +8,16 @@ if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then
     APPLY_FLAGS+=("-var-file=deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars")
 fi
 
+if [[ "$CLUSTER_SUBDOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=cluster_subdomain=$CLUSTER_SUBDOMAIN")
+fi
+
 if [[ "$AUTH_USERS_IAM_GROUP_NAME" != "" ]]; then
     APPLY_FLAGS+=("-var=auth_users_iam_group_name=$AUTH_USERS_IAM_GROUP_NAME")
+fi
+
+if [[ "$SHARED_ALB_ROOT_DOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=shared_alb_root_domain=$SHARED_ALB_ROOT_DOMAIN")
 fi
 
 if [[ "$REGION" != "" ]]; then

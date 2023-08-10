@@ -29,6 +29,7 @@ var (
 	RootDomain            string
 	DeploymentEnvironment string
 	StoreNamespace        = "default"
+	SharedAlbRootDomain   string
 )
 
 const (
@@ -579,8 +580,11 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"REGION="+cl.Spec.Region,
 		"CLUSTER_NAME="+clusterName,
+		"CLUSTER_SUBDOMAIN="+cl.Spec.Subdomain,
 		"TF_WORKSPACE="+tfws,
-		"TF_API_TOKEN="+terraform.TempToken)
+		"TF_API_TOKEN="+terraform.TempToken,
+		"SHARED_ALB_ROOT_DOMAIN="+SharedAlbRootDomain,
+	)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw
 	cmd.Stderr = cw

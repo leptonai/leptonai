@@ -22,6 +22,10 @@ if [[ "$ENABLE_QUOTA" != "" ]]; then
     APPLY_FLAGS+=("-var=enable_quota=$ENABLE_QUOTA")
 fi
 
+if [[ "$CLUSTER_SUBDOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=cluster_subdomain=$CLUSTER_SUBDOMAIN")
+fi
+
 if [[ "$QUOTA_CPU" != "" ]]; then
     APPLY_FLAGS+=("-var=quota_cpu=$QUOTA_CPU")
 fi
@@ -44,6 +48,10 @@ fi
 
 if [[ "$ROOT_DOMAIN" != "" ]]; then
     APPLY_FLAGS+=("-var=root_domain=$ROOT_DOMAIN")
+fi
+
+if [[ "$SHARED_ALB_ROOT_DOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=shared_alb_root_domain=$SHARED_ALB_ROOT_DOMAIN")
 fi
 
 if [[ "$STATE" != "" ]]; then

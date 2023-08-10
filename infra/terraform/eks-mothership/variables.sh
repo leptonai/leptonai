@@ -24,6 +24,10 @@ if [[ "$ROOT_HOSTNAME" != "" ]]; then
     APPLY_FLAGS+=("-var=root_hostname=$ROOT_HOSTNAME")
 fi
 
+if [[ "$SHARED_ALB_ROOT_HOSTNAME" != "" ]]; then
+    APPLY_FLAGS+=("-var=shared_alb_root_hostname=$SHARED_ALB_ROOT_HOSTNAME")
+fi
+
 if [[ "$TLS_CERT_ARN_ID" != "" ]]; then
     APPLY_FLAGS+=("-var=tls_cert_arn_id=$TLS_CERT_ARN_ID")
 fi

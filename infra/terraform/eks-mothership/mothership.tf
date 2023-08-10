@@ -78,6 +78,11 @@ resource "helm_release" "mothership" {
   }
 
   set {
+    name  = "mothership.sharedAlbRootDomain"
+    value = var.shared_alb_root_hostname
+  }
+
+  set {
     name  = "mothership.deploymentEnvironment"
     value = var.deployment_environment
   }

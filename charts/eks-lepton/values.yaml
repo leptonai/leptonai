@@ -1,4 +1,5 @@
 clusterName: ""
+sharedAlbRootDomain: ""
 
 env:
   provider: aws

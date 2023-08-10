@@ -35,6 +35,8 @@ type LeptonClusterSpec struct {
 	GitRef string `json:"git_ref"`
 
 	Description string `json:"description"`
+
+	Subdomain string `json:"subdomain,omitempty"`
 }
 
 // LeptonClusterStatus defines the observed state of LeptonCluster

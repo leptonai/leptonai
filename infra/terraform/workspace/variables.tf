@@ -31,6 +31,12 @@ variable "cluster_name" {
   default     = "dev-ci"
 }
 
+variable "cluster_subdomain" {
+  description = "Subdomain alias for the cluster, e.g. `prod` in domain `prod.app.lepton.ai`"
+  type        = string
+  default     = ""
+}
+
 variable "oidc_id" {
   description = "OIDC ID"
   type        = string
@@ -47,6 +53,12 @@ variable "root_domain" {
   description = "Root domain"
   type        = string
   default     = "cloud.lepton.ai"
+}
+
+variable "shared_alb_root_domain" {
+  description = "Root domain for workspaces on a ALB shared aross the cluster"
+  type        = string
+  default     = "dev.lepton.ai"
 }
 
 variable "workspace_name" {

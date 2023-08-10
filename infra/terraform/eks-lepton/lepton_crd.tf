@@ -12,6 +12,11 @@ resource "helm_release" "lepton_crd" {
     value = timestamp()
   }
 
+  set {
+    name  = "sharedAlbRootDomain"
+    value = var.cluster_subdomain == "" ? "${var.cluster_name}.${var.shared_alb_root_domain}" : "${var.cluster_subdomain}.${var.shared_alb_root_domain}"
+  }
+
   depends_on = [
     module.eks,
 

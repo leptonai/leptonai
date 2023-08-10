@@ -39,6 +39,18 @@ variable "cluster_name" {
   default     = null
 }
 
+variable "shared_alb_root_domain" {
+  description = "Root domain for workspaces on a ALB shared aross the cluster"
+  type        = string
+  default     = "dev.lepton.ai"
+}
+
+variable "cluster_subdomain" {
+  description = "Subdomain alias for the cluster, e.g. `prod` in domain `prod.app.lepton.ai`"
+  type        = string
+  default     = ""
+}
+
 variable "default_capacity_type" {
   description = "Capacity type for nodes; ON_DEMAND or SPOT"
   type        = string

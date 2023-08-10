@@ -25,6 +25,8 @@ apiServer:
   region: ""
   efsID: ""
   rootDomain: ""
+  # used for shared ALB + envoy routing URL
+  sharedAlbRootDomain: ""
   certificateArn: ""
   apiToken: ""
   photonPrefix: ""
