@@ -5,6 +5,7 @@ import {
   NextApiWithSupabaseHandler,
   serverClientWithAuthorized,
 } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 // Get the invoice data for a workspace
 const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
@@ -56,8 +57,9 @@ const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
+    res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
 };
 
-export default cors(serverClientWithAuthorized(handler));
+export default withLogging(cors(serverClientWithAuthorized(handler)));

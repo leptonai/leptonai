@@ -3,6 +3,7 @@ import {
   NextApiWithSupabaseHandler,
   serverClientWithAuthorized,
 } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 const waitlist: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   if (req.method !== "POST") {
@@ -20,10 +21,11 @@ const waitlist: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   });
 
   if (error) {
+    res.statusMessage = error.message;
     return res.status(500).json({ error: error.message });
   }
 
   return res.json(data);
 };
 
-export default cors(serverClientWithAuthorized(waitlist));
+export default withLogging(cors(serverClientWithAuthorized(waitlist)));

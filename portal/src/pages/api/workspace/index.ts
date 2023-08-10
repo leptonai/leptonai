@@ -1,10 +1,8 @@
 import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withLogging } from "@/utils/logging";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const body = req.body;
     const id = body.id;
@@ -19,6 +17,9 @@ export default async function handler(
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
+    res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
 }
+
+export default withLogging(handler);

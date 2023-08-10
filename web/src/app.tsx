@@ -1,7 +1,7 @@
 import { lazyErrorWrapper } from "@lepton-dashboard/components/lazy-error-wrapper";
 import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
 import { AuthPortalService } from "@lepton-dashboard/services/auth-portal.service";
-import { EventTrackerService } from "@lepton-dashboard/services/event-tracker.service";
+import { TrackerService } from "@lepton-dashboard/services/tracker.service";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
 import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
 import { DIContainer } from "@lepton-libs/di";
@@ -36,6 +36,7 @@ import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
+import "./log";
 
 const Login = lazyErrorWrapper(
   lazy(() =>
@@ -171,7 +172,7 @@ function App() {
         WorkspaceTrackerService,
         NotificationService,
         HardwareService,
-        EventTrackerService,
+        TrackerService,
         {
           provide: HTTPInterceptorToken,
           useClass: AppInterceptor,

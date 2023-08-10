@@ -3,6 +3,7 @@ import {
   NextApiWithSupabaseHandler,
   serverClientWithAuthorized,
 } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 const nullity = <T>(value: T | null | undefined): value is null | undefined =>
   value === null || value === undefined;
@@ -16,6 +17,7 @@ const workspaces: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   );
 
   if (error) {
+    res.statusMessage = error.message;
     return res.status(500).json({ error: error.message });
   }
 
@@ -56,4 +58,4 @@ const workspaces: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   return res.json(workspaces);
 };
 
-export default cors(serverClientWithAuthorized(workspaces));
+export default withLogging(cors(serverClientWithAuthorized(workspaces)));

@@ -3,6 +3,7 @@ import {
   NextApiWithSupabaseHandler,
   serverClientWithAuthorized,
 } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 const user: NextApiWithSupabaseHandler = async (_, res, supabase, session) => {
   const { data, error } = await supabase
@@ -12,6 +13,7 @@ const user: NextApiWithSupabaseHandler = async (_, res, supabase, session) => {
     .single();
 
   if (error) {
+    res.statusMessage = error.message;
     return res.status(500).json({ error: error.message });
   }
 
@@ -30,4 +32,4 @@ const user: NextApiWithSupabaseHandler = async (_, res, supabase, session) => {
   return res.json(user);
 };
 
-export default cors(serverClientWithAuthorized(user));
+export default withLogging(cors(serverClientWithAuthorized(user)));

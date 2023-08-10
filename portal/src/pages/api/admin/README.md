@@ -4,10 +4,10 @@ All interface calls require the use of LEPTON_API_SECRET, which can be found in 
 
 ## Sync subscription
 
-When we add a new product and need to update the subscriptions of all workspaces. The current interface will automatically add subscriptions for new products and keep existing subscriptions unchanged.
+When we add a new product and need to update the subscriptions of all workspaces. The current interface will
+automatically add subscriptions for new products and keep existing subscriptions unchanged.
 
 > The current product list: `src/utils/stripe/available-products.ts`
-
 
 ```http request
 POST https://portal.lepton.ai/api/admin/sync-subscription?LEPTON_API_SECRET=${LEPTON_API_SECRET}

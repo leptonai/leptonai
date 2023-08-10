@@ -1,5 +1,6 @@
 import { NextApiHandler } from "next";
 import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 const callback: NextApiHandler = async (req, res) => {
   // Create authenticated Supabase Client
@@ -24,4 +25,4 @@ const callback: NextApiHandler = async (req, res) => {
   res.redirect("/login");
 };
 
-export default callback;
+export default withLogging(callback);

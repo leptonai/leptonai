@@ -1,4 +1,4 @@
-import { EventTrackerService } from "@lepton-dashboard/services/event-tracker.service";
+import { TrackerService } from "@lepton-dashboard/services/tracker.service";
 import { Injectable } from "injection-js";
 import {
   HttpHandler,
@@ -19,7 +19,7 @@ import { UnauthorizedError } from "@lepton-libs/erroes/unauthorized";
 export class AppInterceptor implements HTTPInterceptor {
   constructor(
     private navigateService: NavigateService,
-    private eventTrackerService: EventTrackerService,
+    private eventTrackerService: TrackerService,
     private notificationService: NotificationService,
     private profileService: ProfileService,
     private authService: AuthService
@@ -42,7 +42,6 @@ export class AppInterceptor implements HTTPInterceptor {
       })
       .pipe(
         catchError((error) => {
-          console.error(error);
           const status = error.status || error.response?.status;
           const ignoreErrors =
             req.context?.get(INTERCEPTOR_CONTEXT).ignoreErrors;
@@ -52,9 +51,10 @@ export class AppInterceptor implements HTTPInterceptor {
           const errorMessage = error.response?.data?.message || error.message;
           const time = new Date();
 
-          this.eventTrackerService.track("API_ERROR", {
+          this.eventTrackerService.error(error, "API_ERROR", {
             requestId,
             errorMessage,
+            body: req.data,
             timestamp: time.toUTCString(),
           });
 

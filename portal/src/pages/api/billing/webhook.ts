@@ -5,13 +5,12 @@ import { buffer } from "micro";
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { updateWorkspaceByConsumerId } from "@/utils/workspace";
+import { withLogging } from "@/utils/logging";
+
 export const config = { api: { bodyParser: false } };
 
 // Update workspace status based on subscription status
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sig = req.headers["stripe-signature"]!;
   let event;
 
@@ -66,6 +65,7 @@ export default async function handler(
         );
 
         if (updateError) {
+          res.statusMessage = updateError.message;
           res.status(500).send(`Error: ${updateError.message}`);
           return;
         }
@@ -94,6 +94,7 @@ export default async function handler(
           );
 
           if (updateError) {
+            res.statusMessage = updateError.message;
             res.status(500).send(`Error: ${updateError.message}`);
             return;
           }
@@ -117,7 +118,10 @@ export default async function handler(
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
+    res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
     return;
   }
 }
+
+export default withLogging(handler);

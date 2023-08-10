@@ -3,12 +3,10 @@ import { stripeClient } from "@/utils/stripe/stripe-client";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { updateWorkspaceByConsumerId } from "@/utils/workspace";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withLogging } from "@/utils/logging";
 
 // Update consumer coupon
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (
     req.method !== "POST" ||
     req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
@@ -29,6 +27,7 @@ export default async function handler(
         supabaseAdminClient,
       );
       if (updateError) {
+        res.statusMessage = updateError.message;
         res.status(500).send(`Error: ${updateError.message}`);
         return;
       }
@@ -44,6 +43,7 @@ export default async function handler(
           supabaseAdminClient,
         );
         if (updateError) {
+          res.statusMessage = updateError.message;
           res.status(500).send(`Error: ${updateError.message}`);
           return;
         }
@@ -55,6 +55,9 @@ export default async function handler(
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
+    res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
 }
+
+export default withLogging(handler);

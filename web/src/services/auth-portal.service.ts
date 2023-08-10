@@ -26,7 +26,7 @@ export class AuthPortalService implements AuthService {
   }
 
   getUser(): Observable<User | null> {
-    return this.http.post(`${this.authServerUrl}/api/auth/user`, null, {
+    return this.http.post<User>(`${this.authServerUrl}/api/auth/user`, null, {
       withCredentials: true,
       context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
         ignoreErrors: [401],

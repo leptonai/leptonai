@@ -1,6 +1,7 @@
 import { NextApiHandler } from "next";
 import { cors } from "@/utils/cors";
 import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
+import { withLogging } from "@/utils/logging";
 
 const logout: NextApiHandler = async (req, res) => {
   const supabase = createPagesServerClientWithCookieOptions(req, res);
@@ -36,4 +37,4 @@ const logout: NextApiHandler = async (req, res) => {
   res.redirect("/login");
 };
 
-export default cors(logout);
+export default withLogging(cors(logout));

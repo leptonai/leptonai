@@ -1,16 +1,14 @@
 import { stripeClient } from "@/utils/stripe/stripe-client";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { NextApiRequest, NextApiResponse } from "next";
+import { withLogging } from "@/utils/logging";
 
 const datesAreOnSameDay = (first: Date, second: Date) =>
   first.getFullYear() === second.getFullYear() &&
   first.getMonth() === second.getMonth() &&
   first.getDate() === second.getDate();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.query.key !== "9dfb1916-374d-4d41-8887-b20422ffc89d") {
     res.status(401).end();
     return;
@@ -27,6 +25,7 @@ export default async function handler(
       .not("subscription_id", "is", null);
 
     if (error) {
+      res.statusMessage = error.message;
       return res.status(500).json({ error: error.message });
     }
 
@@ -66,6 +65,9 @@ export default async function handler(
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Internal server error";
+    res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
 }
+
+export default withLogging(handler);
