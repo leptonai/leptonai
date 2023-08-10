@@ -9,7 +9,12 @@ from leptonai.photon import Photon, PNGResponse
 
 
 class If(Photon):
-    requirement_dependency = ["diffusers", "torch", "gradio"]
+    requirement_dependency = [
+        "diffusers==0.16.1",
+        "torch==2.0.0",
+        "torchvision==0.15.1",
+        "gradio",
+    ]
 
     def init(self):
         # stage 1
