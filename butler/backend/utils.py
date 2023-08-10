@@ -140,7 +140,7 @@ def enable_user(email):
     return user.activate_user(email)
 
 
-def add_user_to_workspace(email, workspace_id, token):
+def add_user_to_workspace(email, workspace_id):
     target_user = user.get_user_by_email(email)
     user_id = target_user["id"]
 
@@ -148,6 +148,8 @@ def add_user_to_workspace(email, workspace_id, token):
     if user_id in ws_users:
         print("User {} already in workspace {}".format(email, workspace_id))
         return
+
+    token = workspace.get_workspace_info_from_mothership(workspace_id)['spec']['api_token']
 
     max_id = database.get_max_id_for_user_workspace()
     query = "INSERT INTO user_workspace ( id , workspace_id, user_id, token) \
