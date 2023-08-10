@@ -38,18 +38,25 @@ export const withLogging =
           secureSessionId,
           requestId,
         );
-        console.error(`SERVER_ERROR ${pathname} ${method} ${statusMessage}`, {
-          requestId,
-          secureSessionId,
-          delta,
-          status,
-          method,
-          origin,
-          pathname,
-          statusMessage,
-          reqHeaders: JSON.stringify(reqHeaders, null, 2),
-          reqBody: JSON.stringify(reqBody, null, 2),
-        });
+        console.error(
+          `SERVER_ERROR ${pathname} ${method} ${statusMessage}`,
+          JSON.stringify(
+            {
+              requestId,
+              secureSessionId,
+              delta,
+              status,
+              method,
+              origin,
+              pathname,
+              statusMessage,
+              reqHeaders: JSON.stringify(reqHeaders, null, 2),
+              reqBody: JSON.stringify(reqBody, null, 2),
+            },
+            null,
+            2,
+          ),
+        );
         await H.flush();
       }
       if (secureSessionId) {

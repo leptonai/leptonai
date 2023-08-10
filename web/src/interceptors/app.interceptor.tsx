@@ -51,13 +51,6 @@ export class AppInterceptor implements HTTPInterceptor {
           const errorMessage = error.response?.data?.message || error.message;
           const time = new Date();
 
-          this.eventTrackerService.error(error, "API_ERROR", {
-            requestId,
-            errorMessage,
-            body: req.data,
-            timestamp: time.toUTCString(),
-          });
-
           const ignore401 =
             Array.isArray(ignoreErrors) && ignoreErrors.includes(401);
 
@@ -79,6 +72,13 @@ export class AppInterceptor implements HTTPInterceptor {
           ) {
             return throwError(() => error);
           }
+
+          this.eventTrackerService.error(error, "API_ERROR", {
+            requestId,
+            errorMessage,
+            body: req.data,
+            timestamp: time.toUTCString(),
+          });
 
           const description = requestId ? (
             <>
