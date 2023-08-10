@@ -69,43 +69,25 @@ func updateFunc(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// get the existing workspace
-	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/workspaces/"+workspaceName, nil, nil)
-	if err != nil {
-		log.Fatal("error sending workspace get request: ", err)
-	}
-	workspace := crdv1alpha1.LeptonWorkspace{}
-	err = json.Unmarshal(b, &workspace)
-	if err != nil {
-		log.Fatal("error unmarshalling workspace: ", err)
-	}
-
 	// update workspace spec
-	updated := false
-	workspaceSpec := workspace.Spec
+	spec := crdv1alpha1.LeptonWorkspaceSpec{}
 	if gitRef != "" {
-		workspaceSpec.GitRef = gitRef
-		updated = true
+		spec.GitRef = gitRef
 	}
 	if apiToken != "" {
-		workspaceSpec.APIToken = apiToken
-		updated = true
+		spec.APIToken = apiToken
 	}
 	if imageTag != "" {
-		workspaceSpec.ImageTag = imageTag
-		updated = true
+		spec.ImageTag = imageTag
 	}
 	if state != "" {
-		workspaceSpec.State = crdv1alpha1.LeptonWorkspaceState(state)
-		updated = true
+		spec.State = crdv1alpha1.LeptonWorkspaceState(state)
 	}
 	if tier != "" {
-		workspaceSpec.Tier = crdv1alpha1.LeptonWorkspaceTier(tier)
-		updated = true
+		spec.Tier = crdv1alpha1.LeptonWorkspaceTier(tier)
 	}
 	if quotaGroup != "" {
-		workspaceSpec.QuotaGroup = quotaGroup
+		spec.QuotaGroup = quotaGroup
 		if quotaGroup == "custom" {
 			if quotaCPU == 0 {
 				log.Fatal("quota cpu is required when quota group is custom")
@@ -116,9 +98,9 @@ func updateFunc(cmd *cobra.Command, args []string) {
 			if quotaGPU == 0 {
 				log.Fatal("quota gpu is required when quota group is custom")
 			}
-			workspaceSpec.QuotaCPU = quotaCPU
-			workspaceSpec.QuotaMemoryInGi = quotaMemory
-			workspaceSpec.QuotaGPU = quotaGPU
+			spec.QuotaCPU = quotaCPU
+			spec.QuotaMemoryInGi = quotaMemory
+			spec.QuotaGPU = quotaGPU
 		} else {
 			if quotaCPU != 0 {
 				log.Fatal("quota cpu is not allowed when quota group is not custom")
@@ -129,23 +111,19 @@ func updateFunc(cmd *cobra.Command, args []string) {
 			if quotaGPU != 0 {
 				log.Fatal("quota gpu is not allowed when quota group is not custom")
 			}
-			workspaceSpec.QuotaCPU = 0
-			workspaceSpec.QuotaMemoryInGi = 0
-			workspaceSpec.QuotaGPU = 0
+			spec.QuotaCPU = 0
+			spec.QuotaMemoryInGi = 0
+			spec.QuotaGPU = 0
 		}
-		updated = true
-	}
-	if !updated {
-		log.Println("no updates to workspace spec")
-		return
 	}
 
-	b, err = json.Marshal(workspaceSpec)
+	b, err := json.Marshal(spec)
 	if err != nil {
 		log.Fatal("failed to marshal workspace spec: ", err)
 	}
 	log.Printf("updating workspace spec: %s", b)
 
+	cli := goclient.NewHTTP(mothershipURL, token)
 	b, err = cli.RequestPath(http.MethodPatch, "/workspaces", nil, b)
 	if err != nil {
 		log.Fatal("error sending HTTP Patch request: ", err)

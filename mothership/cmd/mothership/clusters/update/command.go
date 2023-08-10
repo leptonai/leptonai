@@ -54,33 +54,22 @@ func updateFunc(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// get the existing cluster
-	cli := goclient.NewHTTP(mothershipURL, token)
-	b, err := cli.RequestPath(http.MethodGet, "/clusters/"+clusterName, nil, nil)
-	if err != nil {
-		log.Fatal("error sending cluster get request: ", err)
-	}
-	cluster := crdv1alpha1.LeptonCluster{}
-	err = json.Unmarshal(b, &cluster)
-	if err != nil {
-		log.Fatal("error unmarshalling cluster: ", err)
-	}
-
 	// update cluster spec
-	clusterspec := cluster.Spec
+	spec := crdv1alpha1.LeptonClusterSpec{}
 	if gitRef != "" {
-		clusterspec.GitRef = gitRef
+		spec.GitRef = gitRef
 	}
 	if clusterSubdomain != "" {
-		clusterspec.Subdomain = clusterSubdomain
+		spec.Subdomain = clusterSubdomain
 	}
 
-	b, err = json.Marshal(clusterspec)
+	b, err := json.Marshal(spec)
 	if err != nil {
 		log.Fatal("failed to marshal cluster spec: ", err)
 	}
 	log.Printf("updating cluster spec: %s", b)
 
+	cli := goclient.NewHTTP(mothershipURL, token)
 	b, err = cli.RequestPath(http.MethodPatch, "/clusters", nil, b)
 	if err != nil {
 		log.Fatal("error sending HTTP Patch request: ", err)
