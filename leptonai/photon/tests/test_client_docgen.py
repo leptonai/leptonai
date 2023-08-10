@@ -87,25 +87,30 @@ class TestClientDocgen(unittest.TestCase):
         self.assertIn("query: hello", client.run3.__doc__)
 
         self.assertIn("Run4", client.run4.__doc__)
-        self.assertIn("query*: string", client.run4.__doc__)
+        self.assertIn("query*: str", client.run4.__doc__)
 
         self.assertIn("Run5", client.run5.__doc__)
-        self.assertIn("query*: string", client.run5.__doc__)
-        self.assertIn("query2*: integer", client.run5.__doc__)
+        self.assertIn("query*: str", client.run5.__doc__)
+        self.assertIn("query2*: int", client.run5.__doc__)
 
         self.assertIn("Run6", client.run6.__doc__)
-        self.assertIn("query*: string", client.run6.__doc__)
-        self.assertIn("Output Schema:\n  output: string", client.run6.__doc__)
+        self.assertIn("query*: str", client.run6.__doc__)
+        self.assertIn("Output Schema:\n  output: str", client.run6.__doc__)
 
         self.assertIn("Run7", client.run7.__doc__)
-        self.assertIn("query*: string", client.run7.__doc__)
-        self.assertIn("query2: string", client.run7.__doc__)
-        self.assertIn("Output Schema:\n  output: string", client.run7.__doc__)
+        self.assertIn("query*: str", client.run7.__doc__)
+        # different fastapi versions different typestr for Optional[str], sometimes it's str, sometimes it's (str | None)
+        self.assertTrue(
+            "query2: str" in client.run7.__doc__
+            or "query2: (str | None)" in client.run7.__doc__,
+            client.run7.__doc__,
+        )
+        self.assertIn("Output Schema:\n  output: str", client.run7.__doc__)
 
         self.assertIn("Run8", client.run8.__doc__)
-        self.assertIn("query*: string", client.run8.__doc__)
-        self.assertIn("query2: string (default: test)", client.run8.__doc__)
-        self.assertIn("Output Schema:\n  output: string", client.run8.__doc__)
+        self.assertIn("query*: str", client.run8.__doc__)
+        self.assertIn("query2: str (default: test)", client.run8.__doc__)
+        self.assertIn("Output Schema:\n  output: str", client.run8.__doc__)
 
         proc.terminate()
 
