@@ -30,6 +30,7 @@ import { FileInfo } from "@lepton-dashboard/interfaces/storage";
 import { INTERCEPTOR_CONTEXT } from "@lepton-dashboard/interceptors/app.interceptor.context";
 import pathJoin from "@lepton-libs/url/path-join";
 import { ImagePullSecret } from "@lepton-dashboard/interfaces/image-pull-secrets";
+import stripAnsi from "strip-ansi";
 
 @Injectable()
 export class ApiServerService implements ApiService {
@@ -221,7 +222,7 @@ export class ApiServerService implements ApiService {
             subscriber.complete();
             return record;
           }
-          record += value;
+          record += stripAnsi(value);
           subscriber.next(record);
           return reader.read().then(pushToReader);
         };
