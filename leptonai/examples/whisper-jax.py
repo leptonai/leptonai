@@ -69,7 +69,7 @@ class Whisper(Photon):
     def run(self, inputs: str, task: Optional[str] = None):
         return self.pipeline(inputs, task=task)["text"]
 
-    def _slack_process_task(self, channel: str, thread_ts: str, url: str):
+    async def _slack_process_task(self, channel: str, thread_ts: str, url: str):
         last_processed_time = self._processed_slack_tasks.get((channel, url))
         if last_processed_time and datetime.now() - last_processed_time < timedelta(
             seconds=20
@@ -95,13 +95,23 @@ class Whisper(Photon):
             f.seek(0)
             logger.info(f"Saved audio file to: {f.name}")
             logger.info(f"Running inference on audio file: {f.name}")
-            text = self.run(f.name)
+            try:
+                text = self.run(f.name)
+            except Exception as e:
+                logger.error(f"Failed to run inference on audio file (f.name): {e}")
+                return
             logger.info(f"Finished inference on audio file: {f.name}")
         self._slack_bot_client.chat_postMessage(
             channel=channel,
             thread_ts=thread_ts,
             text=text,
         )
+        if len(self._processed_slack_tasks) > 100:
+            self._processed_slack_tasks = {
+                k: v
+                for k, v in self._processed_slack_tasks.items()
+                if datetime.now() - v < timedelta(seconds=20)
+            }
         self._processed_slack_tasks[(channel, url)] = datetime.now()
 
     @Photon.handler
@@ -132,8 +142,11 @@ class Whisper(Photon):
             file_info = self._slack_bot_client.files_info(file=file_id)
             if not file_info["ok"]:
                 raise HTTPException(500, "Failed to get file info")
-            self._slack_process_task(
-                channel, thread_ts, file_info["file"]["url_private"]
+            self.add_background_task(
+                self._slack_process_task,
+                channel,
+                thread_ts,
+                file_info["file"]["url_private"],
             )
             return "ok"
 
