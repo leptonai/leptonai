@@ -43,10 +43,10 @@ prometheus:
     # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/prometheus_workspace
     # https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#remotewritespec
     remoteWrite:
-    - name: ${remote_write_name}
-      url: ${remote_write_url}
-      sigv4:
-        region: ${remote_write_region}
+      - name: ${remote_write_name}
+        url: ${remote_write_url}
+        sigv4:
+          region: ${remote_write_region}
 
     # do not use "emptyDir" as it counts towards pod memory usage
     #
@@ -62,7 +62,7 @@ prometheus:
         volumeClaimTemplate:
           spec:
             accessModes:
-            - ReadWriteOnce
+              - ReadWriteOnce
             resources:
               requests:
                 storage: 200Gi
@@ -76,94 +76,92 @@ prometheus:
       # with "kubernetes_sd_configs" "role: endpoints"
       # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
 
-    - job_name: lepton-api-server-service-pods
+      - job_name: lepton-api-server-service-pods
 
-      # discovers targets from listed endpoints of a service
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
-      kubernetes_sd_configs:
-      - role: endpoints
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: endpoints
 
-        # Optional namespace discovery. If omitted, all namespaces are used.
-        # namespaces:
+            # Optional namespace discovery. If omitted, all namespaces are used.
+            # namespaces:
 
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
-      #
-      # fetches endpoints of this service (basically # of mothership pods)
-      # instead of directly from this service.
-      #
-      # e.g.,
-      # <service-name>.<namespace>.svc.cluster.local:<service-port>
-      # "lepton-api-server-service.*.svc.cluster.local:20863"
-      relabel_configs:
-      - source_labels:
-        - __meta_kubernetes_service_name
-        action: keep
-        regex: lepton-api-server-service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        #
+        # fetches endpoints of this service (basically # of mothership pods)
+        # instead of directly from this service.
+        #
+        # e.g.,
+        # <service-name>.<namespace>.svc.cluster.local:<service-port>
+        # "lepton-api-server-service.*.svc.cluster.local:20863"
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_service_name
+            action: keep
+            regex: lepton-api-server-service
 
-    - job_name: lepton-deployment-pods
+      - job_name: lepton-deployment-pods
 
-      # List of Kubernetes service discovery configurations.
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
-      kubernetes_sd_configs:
-      - role: pod
+        # List of Kubernetes service discovery configurations.
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
 
-        # for all namespaces
+            # for all namespaces
 
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
-      relabel_configs:
-      - source_labels:
-        - __meta_kubernetes_pod_label_photon_id
-        action: keep
-        regex: .+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_photon_id
+            action: keep
+            regex: .+
 
-      - source_labels:
-        - __meta_kubernetes_pod_label_lepton_deployment_name
-        action: keep
-        regex: .+
+          - source_labels:
+              - __meta_kubernetes_pod_label_lepton_deployment_name
+            action: keep
+            regex: .+
 
-      - source_labels:
-        - __meta_kubernetes_pod_label_photon_id
-        target_label: kubernetes_pod_label_photon_id
-        action: replace
+          - source_labels:
+              - __meta_kubernetes_pod_label_photon_id
+            target_label: kubernetes_pod_label_photon_id
+            action: replace
 
-      - source_labels:
-        - __meta_kubernetes_pod_label_lepton_deployment_name
-        target_label: kubernetes_pod_label_lepton_deployment_name
-        action: replace
+          - source_labels:
+              - __meta_kubernetes_pod_label_lepton_deployment_name
+            target_label: kubernetes_pod_label_lepton_deployment_name
+            action: replace
 
-      - source_labels:
-        - __meta_kubernetes_pod_name
-        target_label: kubernetes_pod_name
-        action: replace
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
 
-      - source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-        action: replace
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
 
+      # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+      - job_name: nvidia-dcgm-exporter
 
-    # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-    - job_name: nvidia-dcgm-exporter
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - gpu-operator
 
-      # discovers targets from listed endpoints of a service
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-            - gpu-operator
-
-      # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
-      #
-      # fetches endpoints of this service (basically # of nodes with DCGM installed)
-      # instead of directly from this service.
-      #
-      # e.g.,
-      # <service-name>.<namespace>.svc.cluster.local:<service-port>
-      # "nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"
-      relabel_configs:
-      - source_labels:
-        - __meta_kubernetes_service_name
-        action: keep
-        regex: nvidia-dcgm-exporter
-
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        #
+        # fetches endpoints of this service (basically # of nodes with DCGM installed)
+        # instead of directly from this service.
+        #
+        # e.g.,
+        # <service-name>.<namespace>.svc.cluster.local:<service-port>
+        # "nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_service_name
+            action: keep
+            regex: nvidia-dcgm-exporter

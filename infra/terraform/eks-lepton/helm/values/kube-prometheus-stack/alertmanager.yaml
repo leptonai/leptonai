@@ -23,7 +23,6 @@ alertmanager:
     logFormat: logfmt
 
   config:
-
     global:
       resolve_timeout: 5m
 
@@ -36,24 +35,24 @@ alertmanager:
       repeat_interval: 12h
 
       routes:
-      - receiver: 'slack-notifications'
-        group_wait: 10s
-        matchers:
-        - service=~"lepton-api-server-service"
+        - receiver: "slack-notifications"
+          group_wait: 10s
+          matchers:
+            - service=~"lepton-api-server-service"
 
     # https://prometheus.io/docs/alerting/latest/configuration/#receiver
     receivers:
-    - name: "slack-notifications"
+      - name: "slack-notifications"
 
-      # https://prometheus.io/docs/alerting/latest/configuration/#slack_config
-      slack_configs:
-      - send_resolved: true
+        # https://prometheus.io/docs/alerting/latest/configuration/#slack_config
+        slack_configs:
+          - send_resolved: true
 
-        # make sure to add " in the beginning of the channel name is '#'
-        channel: "${alertmanager_slack_channel}"
-        api_url: ${alertmanager_slack_webhook_url}
-        title: '{{ template "slack.default.title" . }}'
-        text: '{{ template "slack.default.titlelink" . }}'
+            # make sure to add " in the beginning of the channel name is '#'
+            channel: "${alertmanager_slack_channel}"
+            api_url: ${alertmanager_slack_webhook_url}
+            title: '{{ template "slack.default.title" . }}'
+            text: '{{ template "slack.default.titlelink" . }}'
 
     templates:
-    - '/etc/alertmanager/config/*.tmpl'
+      - "/etc/alertmanager/config/*.tmpl"
