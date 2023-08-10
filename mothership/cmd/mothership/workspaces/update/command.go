@@ -26,6 +26,7 @@ var (
 	quotaGPU      int
 	autoApprove   bool
 	state         string
+	tier          string
 )
 
 func init() {
@@ -48,6 +49,8 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().IntVarP(&quotaCPU, "quota-cpu", "", 0, "Quota CPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaMemory, "quota-memory", "", 0, "Quota memory in Gi for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaGPU, "quota-gpu", "", 0, "Quota GPU for the workspace if quota group is custom")
+	cmd.PersistentFlags().StringVarP(&tier, "tier", "", "", "Tier of the workspace")
+
 	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
 }
@@ -95,6 +98,10 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	}
 	if state != "" {
 		workspaceSpec.State = crdv1alpha1.LeptonWorkspaceState(state)
+		updated = true
+	}
+	if tier != "" {
+		workspaceSpec.Tier = crdv1alpha1.LeptonWorkspaceTier(tier)
 		updated = true
 	}
 	if quotaGroup != "" {

@@ -26,6 +26,7 @@ var (
 	quotaGPU      int
 	enableWeb     bool
 	description   string
+	tier          string
 )
 
 func init() {
@@ -50,6 +51,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().IntVarP(&quotaGPU, "quota-gpu", "", 0, "Quota GPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().BoolVarP(&enableWeb, "enable-web", "e", false, "Enable web for the workspace")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the workspace")
+	cmd.PersistentFlags().StringVarP(&tier, "tier", "", "basic", "Tier of the workspace")
 	return cmd
 }
 
@@ -76,6 +78,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		QuotaGroup:  quotaGroup,
 		EnableWeb:   enableWeb,
 		State:       crdv1alpha1.WorkspaceStateNormal,
+		Tier:        crdv1alpha1.LeptonWorkspaceTier(tier),
 
 		Description: description,
 	}

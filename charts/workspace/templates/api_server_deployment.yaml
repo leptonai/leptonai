@@ -96,6 +96,9 @@ spec:
 {{ if .Values.apiServer.state }}
             - "--state={{ .Values.apiServer.state }}"
 {{ end }}
+{{ if .Values.apiServer.tier }}
+            - "--tier={{ .Values.apiServer.tier }}"
+{{ end }}
 {{ if .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}
             - "--s3-read-only-access-k8s-secret-name={{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
 {{ end }}

@@ -158,3 +158,9 @@ variable "state" {
   type        = string
   default     = ""
 }
+
+variable "tier" {
+  description = "Workspace tier (basic, standard, enterprise)"
+  type        = string
+  default     = ""
+}

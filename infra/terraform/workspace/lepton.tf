@@ -193,6 +193,11 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name  = "apiServer.tier"
+    value = var.tier
+  }
+
+  set {
     name  = "forceUpdate"
     value = timestamp()
   }

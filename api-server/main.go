@@ -53,6 +53,7 @@ var (
 	enableStorageFlag    *bool
 
 	stateFlag *string
+	tierFlag  *string
 
 	requestTimeoutInternal *string
 )
@@ -95,7 +96,10 @@ func main() {
 	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
 	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
 
+	tierFlag = flag.String("tier", "", "tier of the workspace (allowed values: basic, standard, enterprise)")
+
 	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
+
 	flag.Parse()
 
 	if args := flag.Args(); len(args) > 0 && args[0] == "version" {
@@ -148,7 +152,7 @@ func main() {
 		workspaceState,
 	)
 
-	log.Printf("Starting the Lepton Server on :%d with request timeout %v\n", apiServerPort, requestTimeoutInternalDur)
+	log.Printf("Starting the %s tier Lepton Server on :%d with request timeout %v\n", *tierFlag, apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
 	router.Use(corsMiddleware())
