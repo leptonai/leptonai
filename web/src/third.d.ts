@@ -32,9 +32,7 @@ declare module "swagger-client/es/execute" {
     method?: string;
   };
 
-  export function buildRequest(
-    options: RequestOptions
-  ): Promise<OpenAPIRequest>;
+  export function buildRequest(options: RequestOptions): OpenAPIRequest;
 
   export function execute<T>(options: ExecuteRequestOptions): Promise<T>;
 }

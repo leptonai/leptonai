@@ -21,8 +21,8 @@ export const EndpointIndicator: FC<{ endpoint: string }> = ({ endpoint }) => {
     () =>
       endpoint$
         .pipe(combineLatestWith(refreshService.refresh$))
-        .pipe(switchMap(([p]) => deploymentService.endpointConnection(p))),
-    false
+        .pipe(switchMap(([p]) => deploymentService.testEndpointConnection(p))),
+    deploymentService.getEndpointConnectionFromCache(endpoint)
   );
 
   return (

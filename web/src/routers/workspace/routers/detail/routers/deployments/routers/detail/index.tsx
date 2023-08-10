@@ -1,13 +1,13 @@
 import { Card } from "@lepton-dashboard/components/card";
 import { Metrics } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/metrics";
 import { Empty } from "antd";
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Route, Routes, useParams } from "react-router-dom";
 import { Container } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/components/container";
 import { Demo } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/demo";
 import { useInject } from "@lepton-libs/di";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { Api } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api";
 import { List as ReplicaList } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/list";
 import { Detail as ReplicaDetail } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/replicas/routers/detail";
@@ -17,9 +17,11 @@ import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 export const Detail: FC = () => {
   const { name } = useParams();
   const deploymentService = useInject(DeploymentService);
-  const deployment = useStateFromObservable(
-    () => deploymentService.name(name!),
-    undefined
+  const deployments = useStateFromBehaviorSubject(deploymentService.list());
+
+  const deployment = useMemo(
+    () => deployments.find((d) => d.name === name),
+    [deployments, name]
   );
   return deployment ? (
     <Routes>

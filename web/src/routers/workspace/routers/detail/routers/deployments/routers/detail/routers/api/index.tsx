@@ -1,13 +1,15 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { Card } from "@lepton-dashboard/components/card";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { PhotonService } from "@lepton-dashboard/routers/workspace/services/photon.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { Alert, Col, Row, Segmented, Space, Typography } from "antd";
 import { css } from "@emotion/react";
-import { OpenApiService } from "@lepton-dashboard/services/open-api.service";
-import { from, of, switchMap } from "rxjs";
+import {
+  LeptonAPIItem,
+  OpenApiService,
+} from "@lepton-dashboard/services/open-api.service";
 import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
@@ -26,35 +28,30 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const [codeLanguage, setCodeLanguage] = useState<LanguageSupports>(
     LanguageSupports.Python
   );
-  const apis = useStateFromObservable(
-    () =>
-      photonService.id(deployment.photon_id).pipe(
-        switchMap((p) => {
-          if (p?.openapi_schema) {
-            const url = deployment.status.endpoint.external_endpoint;
-            return from(
-              openApiService
-                .parse({
-                  ...p.openapi_schema,
-                  servers:
-                    p.openapi_schema?.servers?.length > 0
-                      ? p.openapi_schema.servers
-                      : [{ url }],
-                })
-                .then((res) =>
-                  res ? openApiService.convertToLeptonAPIItems(res) : []
-                )
-            );
-          }
-          return of([]);
-        })
-      ),
-    [],
-    {
-      next: () => setInitialized(true),
-      error: () => setInitialized(true),
-    }
-  );
+  const [apis, setApis] = useState<LeptonAPIItem[]>([]);
+  const photons = useStateFromBehaviorSubject(photonService.list());
+  const photon = useMemo(() => {
+    return photons.find((p) => p.id === deployment.photon_id);
+  }, [deployment.photon_id, photons]);
+
+  useEffect(() => {
+    const parseSchema = async () => {
+      if (photon?.openapi_schema) {
+        const url = deployment.status.endpoint.external_endpoint;
+        const res = await openApiService.parse({
+          ...photon.openapi_schema,
+          servers:
+            photon.openapi_schema?.servers?.length > 0
+              ? photon.openapi_schema.servers
+              : [{ url }],
+        });
+        const apis = res ? openApiService.convertToLeptonAPIItems(res) : [];
+        setApis(apis);
+      }
+      setInitialized(true);
+    };
+    parseSchema().then();
+  }, [deployment, openApiService, photon, setApis]);
 
   const isPublic = useMemo(() => {
     return !deployment.api_tokens?.length;

@@ -150,7 +150,11 @@ export class DeploymentService {
     );
   }
 
-  endpointConnection(endpoint: string): Observable<boolean> {
+  getEndpointConnectionFromCache(endpoint: string): boolean {
+    return Boolean(this.endpointsConnectionsCache[endpoint]);
+  }
+
+  testEndpointConnection(endpoint: string): Observable<boolean> {
     return merge(
       of(Boolean(this.endpointsConnectionsCache[endpoint])),
       this.refreshEndpointConnection(endpoint)

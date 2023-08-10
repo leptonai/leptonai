@@ -1,6 +1,7 @@
 import { Injectable } from "injection-js";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import { buildRequest } from "swagger-client/es/execute";
+import resolve from "swagger-client/es/resolver";
 import type { OpenAPI, OpenAPIV3_1, OpenAPIV3 } from "openapi-types";
 import {
   sampleFromSchema,
@@ -36,9 +37,6 @@ export interface LeptonAPIItem {
 @Injectable()
 export class OpenApiService {
   async parse(schema: SafeAny): Promise<OpenAPI.Document | null> {
-    const resolve = await import("swagger-client/es/resolver").then(
-      (m) => m.default
-    );
     const resolved = await resolve({
       spec: schema,
     });
@@ -50,13 +48,11 @@ export class OpenApiService {
     }
   }
 
-  async convertToLeptonAPIItems(
-    resolvedSchema: OpenAPI.Document
-  ): Promise<LeptonAPIItem[]> {
+  convertToLeptonAPIItems(resolvedSchema: OpenAPI.Document): LeptonAPIItem[] {
     const operations = this.listOperations(resolvedSchema);
     const apiItems = operations
       .filter((operation) => operation.operationId)
-      .map(async (operation) => {
+      .map((operation) => {
         const contents = this.listMediaTypeObjects(operation);
         let requestBody: OpenAPIRequest["body"] = null;
         let schema: SchemaObject | null = null;
@@ -76,7 +72,7 @@ export class OpenApiService {
           schema =
             (contents["multipart/form-data"].schema as SchemaObject) || null;
         }
-        request = await this.buildRequest(
+        request = this.buildRequest(
           resolvedSchema,
           operation.operationId!,
           requestBody
@@ -89,7 +85,7 @@ export class OpenApiService {
         };
       });
 
-    return Promise.all(apiItems);
+    return apiItems;
   }
 
   listOperations(schema: OpenAPI.Document): OperationWithPath[] {
@@ -148,7 +144,7 @@ export class OpenApiService {
    * From https://github.com/swagger-api/swagger-js/blob/63cced01d4d8d1e47ccd19010ef972fd6dc2bfad/src/execute/index.js#L249
    * Input Swagger, OpenAPI 2-3 and operationId, output request object.
    */
-  async buildRequest(
+  buildRequest(
     spec: OpenAPI.Document,
     operationId: string,
     requestBody?: SafeAny,

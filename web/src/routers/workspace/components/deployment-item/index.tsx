@@ -3,8 +3,8 @@ import { DeleteDeployment } from "@lepton-dashboard/routers/workspace/components
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
 import { Storage } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/storage";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { FC } from "react";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
+import { FC, useMemo } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { Col, Divider, Row, Space } from "antd";
 import { css } from "@emotion/react";
@@ -26,10 +26,10 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
 }) => {
   const theme = useAntdTheme();
   const photonService = useInject(PhotonService);
-  const photon = useStateFromObservable(
-    () => photonService.id(deployment.photon_id),
-    undefined
-  );
+  const photons = useStateFromBehaviorSubject(photonService.list());
+  const photon = useMemo(() => {
+    return photons.find((p) => p.id === deployment.photon_id);
+  }, [deployment.photon_id, photons]);
 
   return (
     <Row gutter={[16, 8]}>
