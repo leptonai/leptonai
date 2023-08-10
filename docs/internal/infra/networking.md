@@ -1,6 +1,6 @@
 ## Networking Policy
 
-TODO: add the link to the actual networking policy definition
+[networking policy definitions](https://github.com/leptonai/lepton/blob/main/infra/terraform/eks-lepton/network_policy.tf)
 
 ### Do not allow direct communication between user workloads.
 
