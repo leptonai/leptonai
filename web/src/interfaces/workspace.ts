@@ -1,6 +1,7 @@
 export interface WorkspaceDetail {
   build_time: string;
   git_commit: string;
+  workspace_state: string;
   resource_quota: {
     limit: { memory: number; accelerator_num: number; cpu: number };
     used: { memory: number; accelerator_num: number; cpu: number };

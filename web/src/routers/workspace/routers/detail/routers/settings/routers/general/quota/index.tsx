@@ -11,7 +11,14 @@ export const Quota: FC<{
 }> = ({ used, limit, name, unit }) => {
   const progress = (used / limit) * 100;
   return (
-    <Card shadowless borderless paddingless>
+    <Card
+      shadowless
+      borderless
+      paddingless
+      css={css`
+        background: transparent;
+      `}
+    >
       <Row
         justify="space-between"
         css={css`
@@ -47,7 +54,7 @@ export const Quota: FC<{
         showInfo={false}
         size={["100%", 2]}
         percent={progress}
-        status="normal"
+        status={progress > 80 ? "exception" : "success"}
       />
     </Card>
   );

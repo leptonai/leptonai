@@ -8,8 +8,8 @@ export const Quotas: FC<{ workspaceDetail: WorkspaceDetail }> = ({
 }) => {
   const resource_quota = workspaceDetail?.resource_quota;
   return resource_quota ? (
-    <Row gutter={[16, 16]}>
-      <Col span={24}>
+    <Row gutter={[64, 16]}>
+      <Col flex="1 0 auto">
         <Quota
           used={resource_quota?.used.cpu}
           limit={resource_quota?.limit.cpu}
@@ -18,7 +18,7 @@ export const Quotas: FC<{ workspaceDetail: WorkspaceDetail }> = ({
         />
       </Col>
 
-      <Col span={24}>
+      <Col flex="1 0 auto">
         <Quota
           used={resource_quota?.used.accelerator_num}
           limit={resource_quota?.limit.accelerator_num}
@@ -26,7 +26,7 @@ export const Quotas: FC<{ workspaceDetail: WorkspaceDetail }> = ({
           unit="card"
         />
       </Col>
-      <Col span={24}>
+      <Col flex="1 0 auto">
         <Quota
           used={resource_quota?.used.memory}
           limit={resource_quota?.limit.memory}

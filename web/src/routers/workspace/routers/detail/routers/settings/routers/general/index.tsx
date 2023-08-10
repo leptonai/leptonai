@@ -1,4 +1,5 @@
-import { Settings } from "@carbon/icons-react";
+import { CopyFile, Settings, Upgrade } from "@carbon/icons-react";
+import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { MinThemeProvider } from "@lepton-dashboard/components/min-theme-provider";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
@@ -9,7 +10,7 @@ import { WorkspaceService } from "@lepton-dashboard/routers/workspace/services/w
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { Descriptions, Typography } from "antd";
+import { Button, Col, Collapse, Descriptions, Row, Typography } from "antd";
 import { FC, useState } from "react";
 
 export const General: FC = () => {
@@ -23,50 +24,154 @@ export const General: FC = () => {
   );
   const theme = useAntdTheme();
   return (
-    <Card
-      loading={loading}
-      icon={<CarbonIcon icon={<Settings />} />}
-      borderless
-      shadowless
-      title="General"
-    >
-      <Descriptions
-        column={1}
-        labelStyle={{
-          fontWeight: 500,
-          width: "120px",
-          color: theme.colorTextHeading,
-        }}
+    <MinThemeProvider hideBorder={false}>
+      <Card
+        loading={loading}
+        icon={<CarbonIcon icon={<Settings />} />}
+        borderless
+        shadowless
+        title="General"
       >
-        <Descriptions.Item label="ID">
-          <Typography.Text>
-            {workspaceTrackerService.workspace?.auth.id}
-          </Typography.Text>
-        </Descriptions.Item>
-        {workspaceTrackerService.workspace?.auth.displayName && (
-          <Descriptions.Item label="Name">
-            <Typography.Text>
-              {workspaceTrackerService.workspace?.auth.displayName}
-            </Typography.Text>
-          </Descriptions.Item>
-        )}
+        <Card
+          shadowless
+          paddingless
+          css={css`
+            margin-bottom: 16px;
+          `}
+        >
+          <Row
+            css={css`
+              padding: 16px 16px 12px 16px;
+            `}
+            gutter={[16, 16]}
+            justify="space-between"
+          >
+            <Col flex={0}>
+              <Typography.Title
+                level={4}
+                css={css`
+                  margin-top: 0;
+                `}
+              >
+                Basic plan
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                For individuals and small teams who are just getting started
+              </Typography.Text>
+            </Col>
+            <Col flex={0}>
+              <Button
+                type="primary"
+                size="small"
+                href="mailto:info@lepton.ai"
+                icon={<CarbonIcon icon={<Upgrade />} />}
+              >
+                Contact Us to upgrade
+              </Button>
+            </Col>
+          </Row>
+          {workspaceDetail && (
+            <div
+              css={css`
+                padding: 12px 16px 16px 16px;
+                border-top: 1px dashed ${theme.colorBorderSecondary};
+              `}
+            >
+              <Quotas workspaceDetail={workspaceDetail} />
+            </div>
+          )}
+        </Card>
 
-        {workspaceDetail && (
-          <>
-            <Descriptions.Item label="Version">
-              <Typography.Text>{workspaceDetail?.git_commit}</Typography.Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Date">
-              <Typography.Text>{workspaceDetail?.build_time}</Typography.Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Resource">
-              <MinThemeProvider>
-                <Quotas workspaceDetail={workspaceDetail} />
-              </MinThemeProvider>
-            </Descriptions.Item>
-          </>
-        )}
-      </Descriptions>
-    </Card>
+        <Collapse
+          defaultActiveKey={[0]}
+          size="small"
+          css={css`
+            background: transparent;
+            .ant-collapse-content-box {
+              padding: 0 !important;
+            }
+          `}
+          items={[
+            {
+              key: 0,
+              label: "Workspace Info",
+              children: (
+                <Descriptions
+                  column={1}
+                  bordered
+                  size="small"
+                  css={css`
+                    .ant-descriptions-view {
+                      border: none !important;
+                    }
+                  `}
+                  labelStyle={{
+                    fontWeight: 500,
+                    width: "80px",
+                    color: theme.colorTextHeading,
+                    background: "transparent",
+                  }}
+                >
+                  <Descriptions.Item label="ID">
+                    <Typography.Text
+                      copyable={{
+                        icon: <CarbonIcon icon={<CopyFile />} />,
+                      }}
+                    >
+                      {workspaceTrackerService.workspace?.auth.id}
+                    </Typography.Text>
+                  </Descriptions.Item>
+                  {workspaceTrackerService.workspace?.auth.displayName && (
+                    <Descriptions.Item label="Name">
+                      <Typography.Text
+                        copyable={{
+                          icon: <CarbonIcon icon={<CopyFile />} />,
+                        }}
+                      >
+                        {workspaceTrackerService.workspace?.auth.displayName}
+                      </Typography.Text>
+                    </Descriptions.Item>
+                  )}
+
+                  {workspaceDetail && (
+                    <>
+                      <Descriptions.Item label="Version">
+                        <Typography.Text
+                          copyable={{
+                            icon: <CarbonIcon icon={<CopyFile />} />,
+                          }}
+                        >
+                          {workspaceDetail?.git_commit}
+                        </Typography.Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Date">
+                        <Typography.Text
+                          copyable={{
+                            icon: <CarbonIcon icon={<CopyFile />} />,
+                          }}
+                        >
+                          {workspaceDetail?.build_time}
+                        </Typography.Text>
+                      </Descriptions.Item>
+                      {workspaceDetail?.workspace_state && (
+                        <Descriptions.Item label="State">
+                          <Typography.Text
+                            copyable={{
+                              icon: <CarbonIcon icon={<CopyFile />} />,
+                            }}
+                          >
+                            {workspaceDetail?.workspace_state}
+                          </Typography.Text>
+                        </Descriptions.Item>
+                      )}
+                    </>
+                  )}
+                </Descriptions>
+              ),
+            },
+          ]}
+        />
+      </Card>
+    </MinThemeProvider>
   );
 };
