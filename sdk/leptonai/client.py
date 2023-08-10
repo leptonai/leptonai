@@ -56,7 +56,14 @@ def _json_to_type_string(schema: Dict) -> str:
                 f" ...] (min={min_items},max={max_items})"
             )
         else:
-            typestr = schema["type"]
+            typestr = {
+                "integer": "int",
+                "number": "float",
+                "boolean": "bool",
+                "string": "str",
+                "null": "None",
+            }.get(schema["type"], schema["type"])
+
     elif "anyOf" in schema:
         typestr = f"({' | '.join(_json_to_type_string(x) for x in schema['anyOf'])})"
     else:
