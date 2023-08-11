@@ -725,6 +725,7 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 		"CLUSTER_SUBDOMAIN="+cl.Spec.Subdomain,
 		"TF_API_TOKEN="+terraform.TempToken,
 		"WORKSPACE_NAME="+workspaceName,
+		"WORKSPACE_TIER="+string(ws.Spec.Tier),
 		"TF_WORKSPACE="+tfws,
 		"REGION="+cl.Spec.Region,
 		"IMAGE_TAG="+ws.Spec.ImageTag,

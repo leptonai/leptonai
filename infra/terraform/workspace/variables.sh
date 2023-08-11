@@ -7,6 +7,7 @@ APPLY_FLAGS=(
     "-var=cluster_name=$CLUSTER_NAME"
     "-var=namespace=ws-$WORKSPACE_NAME"
     "-var=workspace_name=$WORKSPACE_NAME"
+    "-var=tier=$WORKSPACE_TIER"
     "-var=oidc_id=$OIDC_ID"
     "-var=api_token=$API_TOKEN"
     "-var=image_tag_web=$IMAGE_TAG"

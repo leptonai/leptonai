@@ -16,6 +16,7 @@ import (
 type WorkspaceInfo struct {
 	version.Info   `json:",inline"`
 	WorkspaceName  string         `json:"workspace_name"`
+	WorkspaceTier  string         `json:"workspace_tier"`
 	WorkspaceState WorkspaceState `json:"workspace_state"`
 
 	ResourceQuota ResourceQuota `json:"resource_quota"`
@@ -42,12 +43,14 @@ type WorkspaceInfoHandler struct {
 	WorkspaceInfo *WorkspaceInfo
 }
 
-func NewWorkspaceInfoHandler(h Handler, workspaceName string, workspaceState WorkspaceState) *WorkspaceInfoHandler {
+// NewWorkspaceInfoHandler creates a new WorkspaceInfoHandler
+func NewWorkspaceInfoHandler(h Handler, workspaceName string, tier string, workspaceState WorkspaceState) *WorkspaceInfoHandler {
 	cih := &WorkspaceInfoHandler{
 		Handler: h,
 		WorkspaceInfo: &WorkspaceInfo{
 			Info:           version.VersionInfo,
 			WorkspaceName:  workspaceName,
+			WorkspaceTier:  tier,
 			WorkspaceState: workspaceState,
 		},
 	}

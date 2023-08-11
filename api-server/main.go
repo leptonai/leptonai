@@ -183,7 +183,7 @@ func main() {
 
 	v1 := api.Group("/v1")
 
-	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, workspaceState)
+	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, *tierFlag, workspaceState)
 	v1.GET("/workspace", wih.HandleGet)
 
 	v1.GET("/photons", handler.PhotonHanlder().List)

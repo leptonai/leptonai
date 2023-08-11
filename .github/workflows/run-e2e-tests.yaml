@@ -57,7 +57,8 @@ jobs:
           --cluster-name "${{ steps.find_ci_cluster.outputs.cluster }}" \
           --workspace-name "${{ inputs.workspace_name }}" \
           --git-ref "${{ inputs.git_ref }}" \
-          --image-tag "${{ inputs.image_tag }}"
+          --image-tag "${{ inputs.image_tag }}" \
+          --tier "basic"
         ./mothershipctl workspace wait \
           --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
           --token "${{ secrets.MOTHERSHIP_TOKEN }}" \

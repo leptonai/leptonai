@@ -16,6 +16,9 @@ func TestWorkspaceInfo(t *testing.T) {
 	if info.WorkspaceName == "" {
 		t.Error("WorkspaceName is empty")
 	}
+	if info.WorkspaceTier == "" {
+		t.Error("WorkspaceTier is empty")
+	}
 	if info.ResourceQuota.Limit.CPU == 0 {
 		t.Error("ResourceQuota.Limit is empty")
 	}
