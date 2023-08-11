@@ -1,11 +1,11 @@
 [
   {
-    "id": "mk9klb9f",
-    "created_at": 1686627998000,
+    "id": "gpt2-ckmih4o6",
+    "created_at": 1691500906000,
     "name": "gpt2",
-    "model": "hf:gpt2@e7da7f22",
+    "model": "hf:gpt2@11c5a3d5",
     "requirement_dependency": [],
-    "image": "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11-runner-0.1.2",
+    "image": "default/lepton:photon-py3.10-runner-0.1.12",
     "entrypoint": "",
     "exposed_ports": null,
     "container_args": null,
@@ -26,6 +26,7 @@
             "type": "object"
           },
           "RunInput": {
+            "additionalProperties": true,
             "properties": {
               "do_sample": {
                 "default": true,
@@ -47,12 +48,26 @@
                 "title": "Inputs"
               },
               "max_new_tokens": {
-                "title": "Max New Tokens",
-                "type": "integer"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Max New Tokens"
               },
               "max_time": {
-                "title": "Max Time",
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Max Time"
               },
               "num_return_sequences": {
                 "default": 1,
@@ -60,8 +75,15 @@
                 "type": "integer"
               },
               "repetition_penalty": {
-                "title": "Repetition Penalty",
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Repetition Penalty"
               },
               "return_full_text": {
                 "default": true,
@@ -69,17 +91,38 @@
                 "type": "boolean"
               },
               "temperature": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
                 "default": 1,
-                "title": "Temperature",
-                "type": "number"
+                "title": "Temperature"
               },
               "top_k": {
-                "title": "Top K",
-                "type": "integer"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Top K"
               },
               "top_p": {
-                "title": "Top P",
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Top P"
               }
             },
             "required": [
@@ -147,11 +190,11 @@
         "title": "gpt2",
         "version": "0.1.0"
       },
-      "openapi": "3.0.2",
+      "openapi": "3.1.0",
       "paths": {
         "/run": {
           "post": {
-            "operationId": "typed_handler_run_post",
+            "operationId": "run_run_post",
             "requestBody": {
               "content": {
                 "application/json": {
@@ -191,11 +234,10 @@
                 "description": "Validation Error"
               }
             },
-            "summary": "Typed Handler"
+            "summary": "Run"
           }
         }
       }
-    },
-    "status": {}
+    }
   }
 ]

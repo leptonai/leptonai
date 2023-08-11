@@ -1,22 +1,44 @@
 [
   {
-    "id": "gpt2",
-    "created_at": 1686628028000,
+    "created_at": 1691500959000,
     "name": "gpt2",
-    "photon_id": "mk9klb9f",
+    "photon_id": "gpt2-ckmih4o6",
     "resource_requirement": {
-      "cpu": 1,
-      "memory": 2048,
+      "cpu": 0,
+      "memory": 0,
       "accelerator_type": "",
       "accelerator_num": 0,
+      "ephemeral_storage_in_gb": 0,
+      "resource_shape": "cpu.small",
       "min_replicas": 1
     },
-    "envs": [],
+    "api_tokens": [
+      {
+        "value_from": {
+          "token_name_ref": "WORKSPACE_TOKEN"
+        }
+      }
+    ],
+    "envs": [
+      {
+        "name": "HUGGING_FACE_HUB_TOKEN",
+        "value_from": {
+          "secret_name_ref": "HUGGING_FACE_HUB_TOKEN"
+        }
+      }
+    ],
+    "mounts":[
+      {
+        "path": "/hsuanxyz",
+        "mount_path": "/user"
+      }
+    ],
+    "pull_image_secrets": ["registry-1"],
     "status": {
       "state": "Running",
       "endpoint": {
-        "internal_endpoint": "http://gpt2.default.svc.cluster.local:8080",
-        "external_endpoint": "https://gpt2.dev-ci.cloud.lepton.ai"
+        "internal_endpoint": "",
+        "external_endpoint": "https://latest-gpt2.cloud.lepton.ai"
       }
     }
   }

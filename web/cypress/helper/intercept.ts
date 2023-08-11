@@ -6,6 +6,8 @@ export enum alias {
   getFastAPIQPSByPath = "getFastAPIQPSByPath",
   getFastAPILatency = "getFastAPILatency",
   getFastAPILatencyByPath = "getFastAPILatencyByPath",
+  getImagePullSecrets = "getImagePullSecrets",
+  getSecrets = "getSecrets",
 }
 
 export const intercept = () => {
@@ -43,4 +45,14 @@ export const intercept = () => {
   cy.intercept("GET", "api/v1/deployments/*/monitoring/FastAPILatencyByPath", {
     fixture: "api/v1/deployments/[id]/monitoring/FastAPILatencyByPath.json",
   }).as(alias.getFastAPILatencyByPath);
+
+  // intercept the imagePullSecrets request
+  cy.intercept("GET", "/api/v1/imagepullsecrets", {
+    fixture: "api/v1/imagepullsecrets.json",
+  }).as(alias.getImagePullSecrets);
+
+  // intercept the secrets request
+  cy.intercept("GET", "/api/v1/secrets", {
+    fixture: "api/v1/secrets.json",
+  }).as(alias.getSecrets);
 };
