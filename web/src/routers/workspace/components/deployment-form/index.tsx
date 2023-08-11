@@ -203,37 +203,39 @@ export const DeploymentForm: FC<{
     };
   });
   const transformValue = (value: RawForm): Partial<Deployment> => {
-    return {
-      name: value.name,
+    let transformed: Partial<Deployment> = {
       photon_id: value.photon[value.photon.length - 1],
       resource_requirement: {
         min_replicas: value.min_replicas,
         resource_shape: value.shape,
       },
-      api_tokens: value.enable_public
-        ? []
-        : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
-      envs: [
-        ...(value.envs || []),
-        ...(value.secret_envs || []).map((e) => {
-          return {
-            name: e.name,
-            value_from: {
-              secret_name_ref: e.value,
-            },
-          };
-        }),
-      ],
-      mounts: (value.mounts || [])
-        .map((m) => {
-          return {
-            path: m.path?.trim(),
-            mount_path: m.mount_path?.trim(),
-          };
-        })
-        .filter((m) => m.path && m.mount_path),
-      pull_image_secrets: value.pull_image_secrets || [],
     };
+    if (!edit) {
+      transformed = {
+        ...transformed,
+        name: value.name,
+        api_tokens: value.enable_public
+          ? []
+          : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
+        envs: [
+          ...(value.envs || []),
+          ...(value.secret_envs || []).map(({ name, value }) => ({
+            name: name,
+            value_from: {
+              secret_name_ref: value,
+            },
+          })),
+        ],
+        mounts: (value.mounts || [])
+          .map(({ path, mount_path }) => ({
+            path: path?.trim(),
+            mount_path: mount_path?.trim(),
+          }))
+          .filter(({ path, mount_path }) => path && mount_path),
+        pull_image_secrets: value.pull_image_secrets || [],
+      };
+    }
+    return transformed;
   };
   return (
     <Form
