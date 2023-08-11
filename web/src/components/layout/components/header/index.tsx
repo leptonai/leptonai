@@ -5,7 +5,7 @@ import { FC, ReactNode } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Button, Space } from "antd";
+import { Button, Grid, Space } from "antd";
 import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
@@ -13,7 +13,7 @@ const Container = styled.div`
   padding: 0 32px;
   display: flex;
   flex: 0 0 50px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   overflow: hidden;
   z-index: 2;
 `;
@@ -37,6 +37,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
   className,
 }) => {
   const theme = useAntdTheme();
+  const { xs } = Grid.useBreakpoint();
 
   return (
     <Container
@@ -49,6 +50,8 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
         css={css`
           height: 100%;
           display: flex;
+          flex: 0 1 auto;
+          overflow: hidden;
         `}
       >
         <Logo />
@@ -65,7 +68,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
             size="small"
             icon={<CarbonIcon icon={<Book />} />}
           >
-            Docs
+            {xs ? null : <span>Docs</span>}
           </Button>
           {actions}
         </Space>

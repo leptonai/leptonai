@@ -21,7 +21,13 @@ export const PastDueBanner: FC = () => {
         type="warning"
         banner
         message={
-          <LinkTo name="settingsBilling" relative="route">
+          <LinkTo
+            css={css`
+              white-space: break-spaces;
+            `}
+            name="settingsBilling"
+            relative="route"
+          >
             Your current workspace is overdue. Please proceed to the billing
             page to make a payment.
           </LinkTo>

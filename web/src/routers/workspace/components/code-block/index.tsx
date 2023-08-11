@@ -62,7 +62,8 @@ export const CodeBlock: FC<{
   language: LanguageSupports;
   copyable?: boolean;
   tokenMask?: (content: string, token: IThemedToken) => boolean | string;
-}> = ({ code, language, copyable, tokenMask }) => {
+  transparentBg?: boolean;
+}> = ({ code, language, copyable, tokenMask, transparentBg }) => {
   const [highlightedCode, setHighlightedCode] = useState(
     "<pre><code></code></pre>"
   );
@@ -91,7 +92,7 @@ export const CodeBlock: FC<{
         const _theme = highlighter.getTheme(themeName);
         const codeString = renderToHtml(tokens, {
           fg: _theme.fg,
-          bg: _theme.bg,
+          bg: transparentBg ? "transparent" : _theme.bg,
           themeName,
           elements: {
             token({ style, children, token }) {
@@ -120,7 +121,7 @@ export const CodeBlock: FC<{
     return () => {
       inThisTake = false;
     };
-  }, [language, code, currentTheme, tokenMask]);
+  }, [language, code, currentTheme, tokenMask, transparentBg]);
 
   return (
     <div
