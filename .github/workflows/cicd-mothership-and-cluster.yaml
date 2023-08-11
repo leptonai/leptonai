@@ -1,0 +1,161 @@
+name: CI/CD - mothership+cluster
+
+# Note:
+#  1. This e2e test uses the CI mothership (living in the ci namespace of the dev mothership cluster) to create the test cluster/workspace.
+#  2. To see clusters failing to delete etc, we must switch mothershipctl context to the CI mothership.
+#  3. We must guarantee up to one test concurrently running.
+#  4. We must wait for "CI/CD - mothership / build-mothership / build (pull_request)" to finish before approving this test.
+#  5. This test uses the latest image for api-server and operator so it won't test their changes in the PR.
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cicd-mothership-and-cluster.yaml
+      - "infra/terraform/eks-lepton/**"
+      - "mothership/**"
+      - "charts/mothership/**"
+    branches: [ "**" ]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    environment: e2e-cluster
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set short git commit SHA
+      id: vars
+      run: |
+        calculatedSha=$(git rev-parse --short HEAD)
+        echo "image_tag=test$calculatedSha" >> $GITHUB_OUTPUT
+        echo "cluster_name=testcl$calculatedSha" >> $GITHUB_OUTPUT
+        echo "workspace_name=testws$calculatedSha" >> $GITHUB_OUTPUT
+        echo "api_token=token-$calculatedSha" >> $GITHUB_OUTPUT
+        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.x
+    - name: Build mothership cli
+      run: |
+        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
+    - name: Make sure no concurrently running tests
+      run: |
+        cluster_list=$(./mothershipctl cluster list --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} --token ${{ secrets.MOTHERSHIP_CI_TOKEN }} -o rawjson 2>/dev/null)
+        if [[ "$cluster_list" != "[]" ]]; then
+          echo "There are still clusters running in the CI mothership, please wait for them to finish before approving this test."
+          ./mothershipctl cluster list --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} --token ${{ secrets.MOTHERSHIP_CI_TOKEN }}
+          exit 1
+        fi
+    - name: Install Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install awscli
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.11.3'
+      id: install
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+    - name: Switch to the proper k8s context
+      run: |
+        aws eks update-kubeconfig \
+          --name ${{ vars.MOTHERSHIP_EKS }} \
+          --region ${{ vars.AWS_REGION }}
+    - name: Upgrade CI mothership
+      run: |
+        # TODO: do we want to use `tf apply` to update the whole mothership
+        # cluster in the future? for now just use helm upgrade because multiple
+        # mothership servers are in the same eks
+        helm upgrade mothership-ci charts/mothership \
+          --wait \
+          --timeout 10m \
+          --namespace ci \
+          --set=mothership.image.tag=${{ steps.vars.outputs.image_tag }}
+        # sleep for a while to let the server be ready
+        sleep 120
+    - name: Create cluster
+      run: |
+        ./mothershipctl cluster create \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token ${{ secrets.MOTHERSHIP_CI_TOKEN }} \
+          --cluster-name ${{ steps.vars.outputs.cluster_name }} \
+          --git-ref ${{ steps.vars.outputs.branch }} \
+          --deployment-environment TEST
+
+        # TODO: lower the 130min timeout below once EKS service makes cluster creation faster...
+        # TODO: lower the 130min timeout below once mothership supports cancel API for ongoing jobs
+        # sometimes it randomly takes over 1-hour
+        # and current mothership job timeout is 120-minute anyways
+        # you can't cancel or delete before the job timeout anyways
+        # without cancel API, the subsequent delete step will fail!
+        # for now just let it timeout so that the following delete can cleanly
+        # delete the failed clusters
+        ./mothershipctl cluster wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token ${{ secrets.MOTHERSHIP_CI_TOKEN }} \
+          --cluster-name ${{ steps.vars.outputs.cluster_name }} \
+          --timeout 130 \
+          --expected-state "ready"
+    - name: Create workspace
+      run: |
+        ./mothershipctl workspace create \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --api-token "${{ steps.vars.outputs.api_token }}" \
+          --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --git-ref "${{ steps.vars.outputs.branch }}"
+        ./mothershipctl workspace wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "ready"
+    - name: Run e2e tests
+      run: |
+        pip install -e ./sdk
+        go test -timeout 3600s -v ./e2e-tests/... \
+          --workspace-url https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1 \
+          --auth-token ${{ steps.vars.outputs.api_token }}
+    - name: Delete workspace
+      if: always()
+      run: |
+        ./mothershipctl workspace delete \
+          --auto-approve \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}"
+        ./mothershipctl workspace wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "deleted"
+    - name: Delete cluster
+      if: always()
+      run: |
+        ./mothershipctl cluster delete \
+          --auto-approve \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --cluster-name "${{ steps.vars.outputs.cluster_name }}"
+        ./mothershipctl cluster wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
+          --timeout 60 \
+          --expected-state "deleted"

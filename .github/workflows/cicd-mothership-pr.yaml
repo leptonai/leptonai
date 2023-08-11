@@ -5,8 +5,11 @@ on:
     paths:
       - ".github/workflows/cicd-mothership-pr.yaml"
       - ".github/workflows/build-docker-image.yaml"
+      - .github/workflows/cicd-mothership-and-cluster.yaml
       - "mothership/**"
       - "go-pkg/**"
+      - "infra/terraform/eks-lepton/**"
+      - "charts/mothership/**"
     branches: [ "**" ]
 
 jobs:
