@@ -41,6 +41,7 @@ from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
 from .batcher import batch
+import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
 
@@ -372,12 +373,22 @@ class Photon(BasePhoton):
         with zipfile.ZipFile(path, "a") as photon_file:
             with photon_file.open(self.obj_pkl_filename, "w") as obj_pkl_file:
                 pickler = cloudpickle.CloudPickler(obj_pkl_file, protocol=4)
+
+                def pickler_dump(obj):
+                    # internal logger opens keeps the log file opened
+                    # in append mode, which is not supported to
+                    # pickle, so needs to close it first before
+                    # pickling
+                    internal_logging.disable()
+                    pickler.dump(obj)
+                    internal_logging.enable()
+
                 try:
                     from cloudpickle.cloudpickle import _extract_code_globals
 
                     orig_function_getnewargs = pickler._function_getnewargs
                 except (ImportError, AttributeError):
-                    pickler.dump(self)
+                    pickler_dump(self)
                 else:
 
                     def _function_getnewargs(func):
@@ -414,7 +425,7 @@ class Photon(BasePhoton):
                         with patch(
                             pickler, "_function_getnewargs", _function_getnewargs
                         ):
-                            pickler.dump(self)
+                            pickler_dump(self)
         return path
 
     @classmethod
