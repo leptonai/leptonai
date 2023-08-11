@@ -186,7 +186,9 @@ func updateImageTag(imageTag string) error {
 	// TODO: remove the hardcoded name and namespace
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	err := k8s.MustLoadDefaultClient().Get(ctx, types.NamespacedName{Name: "mothership", Namespace: "default"}, &deployment)
+	err := k8s.MustLoadDefaultClient().Get(ctx,
+		types.NamespacedName{Name: "mothership", Namespace: *namespaceFlag},
+		&deployment)
 	if err != nil {
 		return err
 	}
