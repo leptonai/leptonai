@@ -54,6 +54,8 @@ spec:
                 type: string
               region:
                 type: string
+              subdomain:
+                type: string
             required:
             - description
             - git_ref
