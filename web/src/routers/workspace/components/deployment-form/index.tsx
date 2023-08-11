@@ -590,38 +590,37 @@ export const DeploymentForm: FC<{
                     }}
                   </Form.List>
                 </Form.Item>
-                <Form.Item name="pull_image_secrets" label="Image registries">
-                  <ConfigProvider
-                    renderEmpty={() => (
-                      <div
-                        css={css`
-                          padding: 2px 8px;
-                        `}
-                      >
-                        <Typography.Text type="secondary">
-                          Add image registries in{" "}
-                          <LinkTo underline name="settingsRegistries">
-                            settings
-                          </LinkTo>{" "}
-                          page
-                        </Typography.Text>
-                      </div>
-                    )}
-                  >
+                <ConfigProvider
+                  renderEmpty={() => (
+                    <div
+                      css={css`
+                        padding: 2px 8px;
+                      `}
+                    >
+                      <Typography.Text type="secondary">
+                        Add image registries in{" "}
+                        <LinkTo underline name="settingsRegistries">
+                          settings
+                        </LinkTo>{" "}
+                        page
+                      </Typography.Text>
+                    </div>
+                  )}
+                >
+                  <Form.Item name="pull_image_secrets" label="Image registries">
                     <Select
                       disabled={edit}
                       mode="multiple"
                       placeholder="Select image registries"
                       options={imageRegistriesOptions}
                     />
-                  </ConfigProvider>
-                </Form.Item>
+                  </Form.Item>
+                </ConfigProvider>
               </div>
             ),
           },
         ]}
       />
-
       <Form.Item noStyle>
         <div>{buttons}</div>
       </Form.Item>
