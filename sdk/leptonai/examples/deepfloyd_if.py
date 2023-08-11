@@ -1,7 +1,10 @@
 from io import BytesIO
+import os
 
 from diffusers import DiffusionPipeline
+from diffusers.pipelines.deepfloyd_if import fast27_timesteps, smart27_timesteps
 from diffusers.utils import pt_to_pil
+from loguru import logger
 import gradio as gr
 import torch
 
@@ -17,19 +20,48 @@ class If(Photon):
     ]
 
     def init(self):
+        s1_model_size = os.environ.get("STAGE1_MODEL_SIZE", "M")
+        if s1_model_size not in ["M", "L", "XL"]:
+            raise ValueError(
+                "STAGE1_MODEL_SIZE must be one of 'M', 'L', or 'XL', but got"
+                f" {s1_model_size}"
+            )
+        s1_model = f"DeepFloyd/IF-I-{s1_model_size}-v1.0"
+        logger.info(f"Using stage 1 model: {s1_model}")
+        s2_model_size = os.environ.get("STAGE2_MODEL_SIZE", "M")
+        if s2_model_size not in ["M", "L"]:
+            raise ValueError(
+                f"STAGE2_MODEL_SIZE must be one of 'M' or 'L', but got {s2_model_size}"
+            )
+        s2_model = f"DeepFloyd/IF-II-{s2_model_size}-v1.0"
+        logger.info(f"Using stage 2 model: {s2_model}")
+
+        enable_cpu_offload = os.environ.get("ENABLE_CPU_OFFLOAD", "1").lower() in [
+            "true",
+            "1",
+        ]
+        logger.info(f"Enable CPU offload: {enable_cpu_offload}")
+
         # stage 1
         self.stage_1 = DiffusionPipeline.from_pretrained(
-            "DeepFloyd/IF-I-XL-v1.0", variant="fp16", torch_dtype=torch.float16
+            s1_model, variant="fp16", torch_dtype=torch.float16
         )
-        self.stage_1.enable_model_cpu_offload()
+        if enable_cpu_offload:
+            self.stage_1.enable_model_cpu_offload()
+        else:
+            self.stage_1.to("cuda")
+
         # stage 2
         self.stage_2 = DiffusionPipeline.from_pretrained(
-            "DeepFloyd/IF-II-L-v1.0",
+            s2_model,
             text_encoder=None,
             variant="fp16",
             torch_dtype=torch.float16,
         )
-        self.stage_2.enable_model_cpu_offload()
+        if enable_cpu_offload:
+            self.stage_2.enable_model_cpu_offload()
+        else:
+            self.stage_2.to("cuda")
         # stage 3
         safety_modules = {
             "feature_extractor": self.stage_1.feature_extractor,
@@ -39,9 +71,12 @@ class If(Photon):
         self.stage_3 = DiffusionPipeline.from_pretrained(
             "stabilityai/stable-diffusion-x4-upscaler",
             **safety_modules,
-            torch_dtype=torch.float16
+            torch_dtype=torch.float16,
         )
-        self.stage_3.enable_model_cpu_offload()
+        if enable_cpu_offload:
+            self.stage_3.enable_model_cpu_offload()
+        else:
+            self.stage_3.to("cuda")
 
     def _run(self, prompt: str, seed=0):
         res = []
@@ -55,6 +90,7 @@ class If(Photon):
             negative_prompt_embeds=negative_embeds,
             generator=generator,
             output_type="pt",
+            timesteps=fast27_timesteps,
         ).images
         res.append(pt_to_pil(images)[0])
         # stage 2
@@ -64,11 +100,16 @@ class If(Photon):
             negative_prompt_embeds=negative_embeds,
             generator=generator,
             output_type="pt",
+            timesteps=smart27_timesteps,
         ).images
         res.append(pt_to_pil(images)[0])
         # stage 3
         images = self.stage_3(
-            prompt=prompt, image=images, generator=generator, noise_level=100
+            prompt=prompt,
+            image=images,
+            generator=generator,
+            noise_level=100,
+            num_inference_steps=30,
         ).images
         res.append(images[0])
 
