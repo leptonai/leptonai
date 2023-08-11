@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button, Col, Row, Space, Typography } from "antd";
@@ -208,45 +208,69 @@ const ImageDisplay: ResultDisplay = ({ content }) => {
 };
 
 const AudioDisplay: ResultDisplay = ({ content }) => {
-  if (isBlob(content)) {
-    try {
-      return (
-        <audio controls>
-          <source src={URL.createObjectURL(content)} />
-        </audio>
-      );
-    } catch (e) {
-      return <ErrorTextDisplay content={e} />;
+  const [blobError, setBlobError] = useState<unknown | null>(null);
+  const url = useMemo(() => {
+    if (isBlob(content)) {
+      try {
+        return URL.createObjectURL(content);
+      } catch (e) {
+        setBlobError(e);
+        return "";
+      }
+    } else {
+      return "";
     }
-  } else {
-    return (
-      <ErrorTextDisplay
-        content="The result is not a valid binary, cannot play as an audio."
-        mime="text/plain"
-      />
-    );
-  }
+  }, [content]);
+
+  return (
+    <>
+      {blobError ? (
+        <ErrorTextDisplay content={blobError} />
+      ) : url ? (
+        <audio controls src={url}>
+          <source src={url} />
+        </audio>
+      ) : (
+        <ErrorTextDisplay
+          content="The result is not a valid binary, cannot play as an audio."
+          mime="text/plain"
+        />
+      )}
+    </>
+  );
 };
 
 export const VideoDisplay: ResultDisplay = ({ content }) => {
-  if (isBlob(content)) {
-    try {
-      return (
-        <video controls width="100%">
-          <source src={URL.createObjectURL(content)} />
-        </video>
-      );
-    } catch (e) {
-      return <ErrorTextDisplay content={e} />;
+  const [blobError, setBlobError] = useState<unknown | null>(null);
+  const url = useMemo(() => {
+    if (isBlob(content)) {
+      try {
+        return URL.createObjectURL(content);
+      } catch (e) {
+        setBlobError(e);
+        return "";
+      }
+    } else {
+      return "";
     }
-  } else {
-    return (
-      <ErrorTextDisplay
-        content="The result is not a valid binary, cannot play as a video."
-        mime="text/plain"
-      />
-    );
-  }
+  }, [content]);
+
+  return (
+    <>
+      {blobError ? (
+        <ErrorTextDisplay content={blobError} />
+      ) : url ? (
+        <video controls src={url} width="100%">
+          <source src={url} />
+        </video>
+      ) : (
+        <ErrorTextDisplay
+          content="The result is not a valid binary, cannot play as a video."
+          mime="text/plain"
+        />
+      )}
+    </>
+  );
 };
 
 const DisplayMap: ContentDisplayMap = {
