@@ -7,10 +7,14 @@ import sys
 
 import pydantic.version
 
-# Cache directory for Lepton's local databases etc.
+# Cache directory for Lepton's local storage: database, logs, etc.
+# To change the cache directory, set the environment variable LEPTON_CACHE_DIR before importing leptonai.
+# User note: cache directory is not directly created, and this is by design - in some cases such as
+# function compute, you may not have a directory to write cache into. As a result, we create the cache
+# directory when we need to write to it.
+#
+# If you are in need of accessing the cache directory, use the functions `create_cached_dir_if_needed()` in `leptonai.utils`.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
-if not CACHE_DIR.exists():
-    CACHE_DIR.mkdir(parents=True)
 DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
 

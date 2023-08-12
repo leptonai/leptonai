@@ -5,6 +5,7 @@ import zipfile
 
 from leptonai.config import CACHE_DIR
 from leptonai._internal.db import DB
+from leptonai.util import create_cached_dir_if_needed
 from leptonai.registry import Registry
 
 schema_registry = Registry()
@@ -52,6 +53,9 @@ class BasePhoton:
         Saves the photon to a local zip file.
         """
         if path is None:
+            # If the user has not explicitly specified a path, we will be using the
+            # cache directory to store the photon.
+            create_cached_dir_if_needed()
             # assuming maximum 1000 versions for now
             for version in range(1000):
                 if version == 0:
@@ -160,22 +164,26 @@ class BasePhoton:
 
 
 def add_photon(id: str, name: str, model: str, path: str):
-    DB.cursor().execute(
+    DB().cursor().execute(
         """INSERT INTO photon (id, name, model, path, creation_time) VALUES (?, ?, ?, ?, strftime('%s','now'))""",
         (id, name, model, path),
     )
-    DB.commit()
+    DB().commit()
 
 
 def find_all_local_photons():
-    res = DB.cursor().execute("SELECT * FROM photon ORDER BY creation_time DESC")
+    res = DB().cursor().execute("SELECT * FROM photon ORDER BY creation_time DESC")
     records = res.fetchall()
     return records
 
 
 def find_local_photon(name):
-    res = DB.cursor().execute(
-        "SELECT * FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
+    res = (
+        DB()
+        .cursor()
+        .execute(
+            "SELECT * FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
+        )
     )
     record_or_none = res.fetchone()
     if record_or_none is None:
@@ -185,8 +193,13 @@ def find_local_photon(name):
 
 
 def remove_local_photon(name: str, remove_all: bool = False):
-    res = DB.cursor().execute(
-        "SELECT path FROM photon WHERE name = ? ORDER BY creation_time DESC", (name,)
+    res = (
+        DB()
+        .cursor()
+        .execute(
+            "SELECT path FROM photon WHERE name = ? ORDER BY creation_time DESC",
+            (name,),
+        )
     )
     if remove_all:
         path_or_none = res.fetchone()
@@ -195,8 +208,8 @@ def remove_local_photon(name: str, remove_all: bool = False):
             if os.path.exists(path):
                 os.remove(path)
             path_or_none = res.fetchone()
-        DB.cursor().execute("DELETE FROM photon WHERE name = ?", (name,))
-        DB.commit()
+        DB().cursor().execute("DELETE FROM photon WHERE name = ?", (name,))
+        DB().commit()
     else:
         path_or_none = res.fetchone()
         if path_or_none is None:
@@ -204,7 +217,7 @@ def remove_local_photon(name: str, remove_all: bool = False):
         path = path_or_none[0]
         if os.path.exists(path):
             os.remove(path)
-        DB.cursor().execute(
+        DB().cursor().execute(
             "DELETE FROM photon WHERE name = ? AND path = ?", (name, path)
         )
-        DB.commit()
+        DB().commit()

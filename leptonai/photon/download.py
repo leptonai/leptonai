@@ -18,7 +18,7 @@ def fetch_code_from_vcs(url, target_dir=None):
             split_auth_netloc_from_url,
             parse_netloc,
         )
-        from pip._internal.vcs import vcs
+        from pip._internal.vcs import vcs  # type: ignore
     except ImportError:
         raise RuntimeError(
             f"VCS functionality is not available in this version ({pip.__version__}) of"
