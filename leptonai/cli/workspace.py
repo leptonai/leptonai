@@ -254,7 +254,12 @@ def status():
             " contact us by sharing the error message above."
         ),
     )
-    console.print(f"id:         {info['workspace_name']}")
+    # Note: in our backend, right now the "workspace_name" item is actually
+    # the workspace id in the frontend definition. If we decide to consolidate
+    # naming, consider changing it.
+    id = info["workspace_name"]
+    console.print(f"id:         {id}")
+    console.print(f"name:       {api.get_workspace_display_name(id)}")
     console.print(f"state:      {info['workspace_state']}")
     console.print(f"build time: {info['build_time']}")
     console.print(f"version:    {info['git_commit']}")
