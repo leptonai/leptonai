@@ -1,0 +1,177 @@
+# https://github.com/kubecost/cost-analyzer-helm-chart/blob/develop/cost-analyzer/values.yaml
+# https://github.com/kubecost/cost-analyzer-helm-chart/blob/develop/cost-analyzer/values-eks-cost-monitoring.yaml
+# https://github.com/kubecost/cost-analyzer-helm-chart/blob/develop/cost-analyzer/values-amp.yaml
+
+global:
+  prometheus:
+    enabled: true # If false, Prometheus will not be installed -- Warning: Before changing this setting, please read to understand this setting https://docs.kubecost.com/install-and-configure/install/custom-prom
+    fqdn: http://kubecost-prometheus-server.default.svc
+
+  grafana:
+    enabled: false
+    proxy: false
+
+  amp:
+    enabled: true
+
+    # The prometheus service endpoint used by kubecost. The calls are forwarded through the SigV4Proxy side car to the AMP workspace.
+    prometheusServerEndpoint: http://localhost:8005/workspaces/${workspace_id}
+    remoteWriteService: ${remote_write_url}
+
+    sigv4:
+      region: ${remote_write_region}
+
+sigV4Proxy:
+  region: ${remote_write_region}
+  host: aps-workspaces.${remote_write_region}.amazonaws.com
+
+pricingCsv:
+  enabled: false
+
+kubecostProductConfigs:
+  clusterName: "${cluster_name}"
+
+kubecostFrontend:
+  image: public.ecr.aws/kubecost/frontend
+  imagePullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 1024Mi
+
+kubecostModel:
+  image: public.ecr.aws/kubecost/cost-model
+  imagePullPolicy: Always
+  warmCache: true
+  warmSavingsCache: true
+  etl: true
+  # The total number of days the ETL storage will build
+  # default: 120, we only need 30 since we store in aurora anyways
+  etlStoreDurationDays: 30
+
+  # default is 5
+  # bump it to 10 to work around the following error:
+  # "CostModel.ComputeAllocation: query context error"
+  # "X-Amzn-Errortype: [ ThrottlingException ]"
+  # '{"message":"Rate exceeded"}'
+  maxQueryConcurrency: 10
+
+  # utcOffset represents a timezone in hours and minutes east (+) or west (-)
+  # of UTC, itself, which is defined as +00:00.
+  # See the tz database of timezones to look up your local UTC offset:
+  # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  utcOffset: "+00:00"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1096Mi
+
+serviceAccount:
+  create: false
+  # EKS add-on default is "cost-analyzer"
+  name: "${kubecost_sa_cost_analyzer}"
+
+ingress:
+  enabled: false
+
+# consistent with EKS add-on
+service:
+  type: ClusterIP
+  port: 9090
+  targetPort: 9090
+
+# we are persisting time series data in AMP anyways
+# prom server here is only used for scraping metrics
+# kubecost strongly recommends against sharing prom server with others
+# as kubecost comes with default prometheus scrape config
+# ref. https://docs.kubecost.com/install-and-configure/install/custom-prom
+#
+# https://github.com/kubecost/cost-analyzer-helm-chart/blob/develop/cost-analyzer/charts/prometheus/values.yaml
+prometheus:
+  serviceAccounts:
+    alertmanager:
+      create: false
+    nodeExporter:
+      create: false
+    pushgateway:
+      create: false
+
+    server:
+      create: true
+      name: "${kubecost_sa_prometheus_server}"
+      ## Prometheus server ServiceAccount annotations.
+      ## Can be used for AWS IRSA annotations when using Remote Write mode with Amazon Managed Prometheus.
+      annotations:
+        eks.amazonaws.com/role-arn: "${kubecost_sa_prometheus_server_arn}"
+
+  server:
+    enabled: true
+
+    image:
+      repository: public.ecr.aws/kubecost/prometheus
+      tag: v2.35.0
+
+    global:
+      scrape_interval: 1m
+      scrape_timeout: 10s
+      evaluation_interval: 1m
+      external_labels:
+        cluster_id: "${cluster_name}"
+
+    # "global.amp" enables remote writes/reads to/from AMP
+    # we don't need to retain much data in prometheus server
+    retention: 24h
+    extraFlags:
+      - web.enable-lifecycle
+      - storage.tsdb.retention.size=3GB
+      - storage.tsdb.wal-compression
+
+    # ref. https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+        ephemeral-storage: 5Gi # for emptyDir
+      limits:
+        cpu: 1500m
+        memory: 3Gi
+        ephemeral-storage: 6Gi # for emptyDir
+
+    # emptyDir writes data to local disk by default
+    # emptyDir.medium field controls where emptyDir volumes are stored
+    # by default emptyDir volumes are stored on whatever medium that backs the node such as disk
+    # emptyDir.medium "Memory" mounts a tmpfs (RAM-backed filesystem)
+    # storage is allocated from node ephemeral storage.
+    # ref. https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
+    # ref. https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage
+    # TODO: make prom server volume ephemeral storage
+    emptyDir:
+      sizeLimit: 4Gi
+    persistentVolume:
+      enabled: false
+
+    service:
+      servicePort: 9090
+
+  configmapReload:
+    prometheus:
+      enabled: false
+
+  kubeStateMetrics:
+    enabled: false
+  kube-state-metrics:
+    disabled: true
+  nodeExporter:
+    enabled: false
+
+networkCosts:
+  enabled: false
+
+reporting:
+  productAnalytics: false

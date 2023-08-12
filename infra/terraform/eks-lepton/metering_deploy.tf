@@ -42,6 +42,6 @@ resource "helm_release" "lepton_metering" {
     module.vpc,
     kubernetes_config_map_v1_data.aws_auth,
     helm_release.alb_controller,
-    aws_eks_addon.kubecost,
+    helm_release.kubecost,
   ]
 }

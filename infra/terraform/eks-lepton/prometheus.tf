@@ -429,7 +429,6 @@ resource "helm_release" "kube_prometheus_stack" {
     # this ensures deleting this object happens before aws-auth
     kubernetes_config_map_v1_data.aws_auth,
 
-    aws_eks_addon.kubecost,
     kubernetes_service_account.kube_prometheus_stack_prometheus_server,
     kubernetes_service_account.kube_prometheus_stack_grafana,
     aws_prometheus_workspace.kube_prometheus_stack,

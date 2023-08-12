@@ -43,7 +43,6 @@ targets=(
   # need to apply this first to avoid network policy CRD creation error, [depend on] does not work
   "helm_release.calico"
 
-  "aws_eks_addon.kubecost"
   "helm_release.kube_prometheus_stack"
   "helm_release.gloo_edge"
 )
