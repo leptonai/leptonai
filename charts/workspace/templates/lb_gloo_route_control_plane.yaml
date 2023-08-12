@@ -1,0 +1,77 @@
+{{ if .Values.lbGlooRules.enabled }}
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+  namespace: {{ .Values.lbGlooRules.glooNamespace }}
+spec:
+  healthChecks:
+  # https://docs.solo.io/gloo-edge/latest/guides/traffic_management/request_processing/upstream_health_checks/
+  - httpHealthCheck:
+      path: {{ .Values.lbGlooRules.upstreamHealthCheckPath }}
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    interval: 30s
+    timeout: 10s
+  kube:
+    serviceName: {{ .Values.apiServer.name }}-service
+    serviceNamespace: {{ .Release.Namespace }}
+    servicePort: {{ .Values.apiServer.service.port }}
+
+---
+
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-virtual-service
+  namespace: {{ .Values.lbGlooRules.glooNamespace }}
+spec:
+  virtualHost:
+    # Assuming ALB have handled domain matching for us
+    domains:
+    - {{ .Values.workspaceName }}.{{ .Values.apiServer.sharedAlbMainDomain }}
+    routes:
+    # routes for options, needs to put before other routes to take the priority
+    - matchers:
+      - prefix: /
+        methods:
+          - OPTIONS
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace:  {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for api server
+    - matchers:
+      - prefix: /api/
+        headers:
+        - name: Authorization
+          value: Bearer {{ .Values.apiServer.apiToken }}
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for api-server query-based auth
+    - matchers:
+      - prefix: /api/
+        queryParameters:
+        - name: access_token
+          value: {{ .Values.apiServer.apiToken }}
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for unauthorized control plane traffic
+    - matchers:
+      - prefix: /api/
+      directResponseAction:
+        status: 401
+        body: "Not Authorized!"
+    # catchall
+    - matchers:
+      - prefix: /
+      directResponseAction:
+        status: 404
+{{ end }}

@@ -128,8 +128,8 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name  = "apiServer.sharedAlbRootDomain"
-    value = var.cluster_subdomain == "" ? "${var.cluster_name}.${var.shared_alb_root_domain}" : "${var.cluster_subdomain}.${var.shared_alb_root_domain}"
+    name  = "apiServer.sharedAlbMainDomain"
+    value = var.shared_alb_main_domain
   }
 
   set {

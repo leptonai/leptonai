@@ -13,8 +13,23 @@ resource "helm_release" "lepton_crd" {
   }
 
   set {
-    name  = "sharedAlbRootDomain"
-    value = var.cluster_subdomain == "" ? "${var.cluster_name}.${var.shared_alb_root_domain}" : "${var.cluster_subdomain}.${var.shared_alb_root_domain}"
+    name  = "sharedAlbMainDomain"
+    value = var.shared_alb_main_domain
+  }
+
+  set {
+    name  = "clusterName"
+    value = var.cluster_name
+  }
+
+  set {
+    name  = "lbGlooAlbIngress.certificateArn"
+    value = aws_acm_certificate.cert.arn
+  }
+
+  set {
+    name  = "lbGlooAlbIngress.namespace"
+    value = local.gloo_namespace
   }
 
   depends_on = [
@@ -26,5 +41,7 @@ resource "helm_release" "lepton_crd" {
     kubernetes_config_map_v1_data.aws_auth,
 
     helm_release.alb_controller,
+
+    helm_release.gloo_edge,
   ]
 }

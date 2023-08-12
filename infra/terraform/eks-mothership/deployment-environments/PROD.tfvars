@@ -13,4 +13,7 @@ lepton_cloud_route53_zone_id = "Z0305788EACPTSFEJARC"
 root_hostname                = "app.lepton.ai"
 tls_cert_arn_id              = "6767482b-dfe1-4802-afe4-408df40a264a"
 
+shared_alb_route53_zone_id = "Z08261432QC9RN8752CXF"
+shared_alb_root_hostname   = "edr.lepton.ai"
+
 aurora_master_username = "root"

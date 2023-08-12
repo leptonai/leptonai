@@ -21,6 +21,8 @@ var (
 	workspaceURL = flag.String("workspace-url", "", "URL for the Lepton API server")
 	authToken    = flag.String("auth-token", "", "Auth token for the Lepton API server")
 
+	testDataPlaneRouting = flag.Bool("test-data-plane-routing", true, "If should skip tests involving data plane routing")
+
 	mainTestPhotonName     string
 	mainTestPhotonID       string
 	mainTestDeploymentName string

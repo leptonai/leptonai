@@ -26,10 +26,11 @@ import (
 )
 
 var (
-	RootDomain            string
-	DeploymentEnvironment string
-	StoreNamespace        = "default"
-	SharedAlbRootDomain   string
+	RootDomain             string
+	DeploymentEnvironment  string
+	StoreNamespace         = "default"
+	SharedAlbRootDomain    string
+	SharedALBRoute53ZoneID string
 )
 
 const (
@@ -398,6 +399,8 @@ func delete(clusterName string, logCh chan<- string) (err error) {
 			"CLUSTER_NAME="+clusterName,
 			"TF_WORKSPACE="+tfws,
 			"TF_API_TOKEN="+terraform.TempToken,
+			"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(clusterName, cl.Spec.Subdomain, SharedAlbRootDomain),
+			"SHARED_ALB_ROUTE53_ZONE_ID="+SharedALBRoute53ZoneID,
 		)
 		if needDeleteNetworkPolicyTF {
 			goutil.Logger.Warnw("retrying uninstall with DELETE_TF_STATE_NETWORK_POLICY=true",
@@ -580,10 +583,10 @@ func createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, l
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"REGION="+cl.Spec.Region,
 		"CLUSTER_NAME="+clusterName,
-		"CLUSTER_SUBDOMAIN="+cl.Spec.Subdomain,
 		"TF_WORKSPACE="+tfws,
 		"TF_API_TOKEN="+terraform.TempToken,
-		"SHARED_ALB_ROOT_DOMAIN="+SharedAlbRootDomain,
+		"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(clusterName, cl.Spec.Subdomain, SharedAlbRootDomain),
+		"SHARED_ALB_ROUTE53_ZONE_ID="+SharedALBRoute53ZoneID,
 	)
 	cw := chanwriter.New(logCh)
 	cmd.Stdout = cw

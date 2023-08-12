@@ -1,0 +1,32 @@
+{{ if .Values.lbGlooAlbIngress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: {{ .Values.lbGlooAlbIngress.healthCheckPath }}
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: {{.Values.lbGlooAlbIngress.ingressGroupName}}
+{{ if ne .Values.sharedAlbMainDomain "" }}
+{{ if ne .Values.lbGlooAlbIngress.certificateArn "" }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.lbGlooAlbIngress.certificateArn }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    external-dns.alpha.kubernetes.io/hostname: '*.{{ .Values.sharedAlbMainDomain }}'
+{{ end }}
+{{ end }}
+  name: gloo-alb-ingress
+  namespace: {{.Values.lbGlooAlbIngress.namespace}}
+spec: 
+  ingressClassName: alb
+  rules:
+  - host: '*.{{ .Values.sharedAlbMainDomain }}'
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Values.lbGlooAlbIngress.serviceName }}
+            port:
+              number: {{ .Values.lbGlooAlbIngress.gatewayProxy.port }}
+        path: {{ .Values.lbGlooAlbIngress.path }}
+        pathType: Prefix
+{{ end }}

@@ -2,7 +2,7 @@ resource "helm_release" "gloo_edge" {
   name       = "gloo-edge"
   repository = "https://storage.googleapis.com/solo-public-helm"
   chart      = "gloo"
-  namespace  = "gloo-system"
+  namespace  = local.gloo_namespace
 
   # https://github.com/solo-io/gloo/blob/main/install/helm/gloo/Chart-template.yaml
   # https://github.com/solo-io/gloo/blob/main/install/helm/gloo/values-template.yaml

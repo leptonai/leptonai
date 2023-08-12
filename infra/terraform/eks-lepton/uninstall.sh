@@ -27,6 +27,14 @@ if [ -z "$CLUSTER_NAME" ]; then
   CLUSTER_NAME=$(terraform output -json | jq -r '.cluster_name.value')
 fi
 
+if [ -z "$SHARED_ALB_MAIN_DOMAIN" ]; then
+  SHARED_ALB_MAIN_DOMAIN=$(terraform output -json | jq -r '.shared_alb_main_domain.value')
+fi
+
+if [ -z "$SHARED_ALB_ROUTE53_ZONE_ID" ]; then
+  SHARED_ALB_ROUTE53_ZONE_ID=$(terraform output -json | jq -r '.shared_alb_route53_zone_id.value')
+fi
+
 if [[ -z $TF_API_TOKEN ]]; then
   echo "ERROR: Terraform Cloud API token not specified"
   exit 1
@@ -41,6 +49,15 @@ export TF_TOKEN_app_terraform_io=$TF_API_TOKEN
 
 if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   echo "ERROR: Cluster name not specified"
+  exit 1
+fi
+
+if [ -z "$SHARED_ALB_MAIN_DOMAIN" ] || [ "$SHARED_ALB_MAIN_DOMAIN" == "null" ]; then
+  echo "ERROR: SHARED_ALB_MAIN_DOMAIN not specified"
+  exit 1
+fi
+if [ -z "$SHARED_ALB_ROUTE53_ZONE_ID" ] || [ "$SHARED_ALB_ROUTE53_ZONE_ID" == "null" ]; then
+  echo "ERROR: SHARED_ALB_ROUTE53_ZONE_ID not specified"
   exit 1
 fi
 
@@ -86,11 +103,17 @@ REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"
 do
   echo "deleting ${target}"
-  terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" -target="$target"
+  terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" \
+    -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" -target="$target" \
+    -var="shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN" \
+    -var="shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID"
 done
 
 echo "deleting the remaining resources"
-if terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" ; then
+if terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" \
+  -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" \
+  -var="shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN" \
+  -var="shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID" ; then
   echo "SUCCESS: Terraform destroy completed successfully"
 else
   echo "FAILED: Terraform destroy failed"

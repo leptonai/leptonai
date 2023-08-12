@@ -118,3 +118,13 @@ func ValidateClusterName(name string) bool {
 func ValidateWorkspaceName(name string) bool {
 	return validateName(name, nameRegexAlphanumericOnly)
 }
+
+// as an exmaple, the main domain is the "clustername.app.lepton.ai" part of "workspacename.clustername.app.lepton.ai"
+// cluster spec can specify a subdomain aliwas to replace the cluster name
+func CreateSharedALBMainDomain(clusterName string, clusterSubdomain string, sharedAlbRootDomain string) string {
+	sharedAlbMainDomain := clusterName + "." + sharedAlbRootDomain
+	if clusterSubdomain != "" {
+		sharedAlbMainDomain = clusterSubdomain + "." + sharedAlbRootDomain
+	}
+	return sharedAlbMainDomain
+}

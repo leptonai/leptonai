@@ -35,6 +35,8 @@ locals {
 
   # decides partition (i.e., aws, aws-gov, aws-cn)
   partition = one(data.aws_partition.current[*].partition)
+
+  gloo_namespace = "gloo-system"
 }
 
 # authenticated users to EKS cluster

@@ -26,7 +26,7 @@ apiServer:
   efsID: ""
   rootDomain: ""
   # used for shared ALB + envoy routing URL
-  sharedAlbRootDomain: ""
+  sharedAlbMainDomain: ""
   certificateArn: ""
   apiToken: ""
   photonPrefix: ""
@@ -77,3 +77,9 @@ web:
 env:
   provider: aws
   name: dev
+
+lbGlooRules:
+  enabled: true
+  upstreamHealthCheckPath: /healthz
+  glooNamespace: gloo-system
+  routeTableDomain: default

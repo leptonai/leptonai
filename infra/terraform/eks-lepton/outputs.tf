@@ -43,3 +43,11 @@ output "vpc_private_subnets" {
 output "vpc_public_subnets" {
   value = module.vpc.public_subnets
 }
+
+output "shared_alb_route53_zone_id" {
+  value = var.shared_alb_route53_zone_id
+}
+
+output "shared_alb_main_domain" {
+  value = var.shared_alb_main_domain
+}

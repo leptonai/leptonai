@@ -27,7 +27,8 @@ resource "aws_iam_policy" "external_dns" {
           "route53:ChangeResourceRecordSets"
         ],
         "Resource" : [
-          "arn:${local.partition}:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}"
+          "arn:${local.partition}:route53:::hostedzone/${var.lepton_cloud_route53_zone_id}",
+          "arn:${local.partition}:route53:::hostedzone/${var.shared_alb_route53_zone_id}"
         ]
       },
       {

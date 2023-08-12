@@ -37,3 +37,33 @@ func TestValidateName(t *testing.T) {
 		t.Error("validateName failed")
 	}
 }
+
+func TestCreateSharedAlbMainDomain(t *testing.T) {
+	tests := []struct {
+		clusterName         string
+		clusterSubdomain    string
+		sharedAlbRootDomain string
+		expected            string
+	}{
+		{
+			clusterName:         "cl1",
+			clusterSubdomain:    "",
+			sharedAlbRootDomain: "a.lepton.ai",
+			expected:            "cl1.a.lepton.ai",
+		},
+		{
+			clusterName:         "cl1",
+			clusterSubdomain:    "sub",
+			sharedAlbRootDomain: "a.lepton.ai",
+			expected:            "sub.a.lepton.ai",
+		},
+	}
+
+	for _, testcase := range tests {
+		actualMainDomain := CreateSharedALBMainDomain(testcase.clusterName, testcase.clusterSubdomain, testcase.sharedAlbRootDomain)
+		if actualMainDomain != testcase.expected {
+			t.Errorf("expected %s, got %s", testcase.expected, actualMainDomain)
+		}
+	}
+
+}

@@ -30,6 +30,8 @@ spec:
           args:
             - --namespace={{ .Release.Namespace }}
             - --root-domain={{ .Values.mothership.rootDomain }}
+            - --shared-alb-root-domain={{ .Values.mothership.sharedAlbRootDomain }}
+            - --shared-alb-route53-zone-id={{ .Values.mothership.sharedALBRoute53ZoneID }}
             - --certificate-arn={{ .Values.mothership.certificateArn }}
             - --deployment-environment={{ .Values.mothership.deploymentEnvironment }}
           ports:

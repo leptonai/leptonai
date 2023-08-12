@@ -722,7 +722,6 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 		CreatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
-		"CLUSTER_SUBDOMAIN="+cl.Spec.Subdomain,
 		"TF_API_TOKEN="+terraform.TempToken,
 		"WORKSPACE_NAME="+workspaceName,
 		"WORKSPACE_TIER="+string(ws.Spec.Tier),
@@ -736,7 +735,7 @@ func createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1.LeptonWorkspac
 		"VPC_ID="+cl.Status.Properties.VPCID,
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 		"STATE="+string(ws.Spec.State),
-		"SHARED_ALB_ROOT_DOMAIN="+SharedAlbRootDomain,
+		"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(ws.Spec.ClusterName, cl.Spec.Subdomain, SharedAlbRootDomain),
 	)
 	if ws.Spec.QuotaGroup == "unlimited" {
 		cmd.Env = append(cmd.Env,

@@ -34,7 +34,9 @@ jobs:
         echo "image_tag=test$calculatedSha" >> $GITHUB_OUTPUT
         echo "cluster_name=testcl$calculatedSha" >> $GITHUB_OUTPUT
         echo "workspace_name=testws$calculatedSha" >> $GITHUB_OUTPUT
+        echo "workspace_name_01=testws01$calculatedSha" >> $GITHUB_OUTPUT
         echo "api_token=token-$calculatedSha" >> $GITHUB_OUTPUT
+        echo "api_token_01=token-01$calculatedSha" >> $GITHUB_OUTPUT
         echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
     - name: Set up Go
       uses: actions/setup-go@v3
@@ -119,11 +121,29 @@ jobs:
           --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --git-ref "${{ steps.vars.outputs.branch }}"
+
+        # add a second workspace to test against routing rule collision
+        ./mothershipctl workspace create \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --api-token "${{ steps.vars.outputs.api_token_01 }}" \
+          --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name_01 }}" \
+          --git-ref "${{ steps.vars.outputs.branch }}"
+
         ./mothershipctl workspace wait \
           --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
           --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
           --timeout 10 \
+          --expected-state "ready"
+
+        # should need to wait less after first ws is created
+        ./mothershipctl workspace wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name_01 }}" \
+          --timeout 5 \
           --expected-state "ready"
     - name: Run e2e tests
       run: |
@@ -131,6 +151,14 @@ jobs:
         go test -timeout 3600s -v ./e2e-tests/... \
           --workspace-url https://${{ steps.vars.outputs.workspace_name }}.cloud.lepton.ai/api/v1 \
           --auth-token ${{ steps.vars.outputs.api_token }}
+
+    - name: Run e2e tests for restructred control plane urls
+      run: |
+        pip install -e ./sdk
+        go test -timeout 3600s -v ./e2e-tests/... \
+          --workspace-url https://${{ steps.vars.outputs.workspace_name_01 }}.${{ steps.vars.outputs.cluster_name }}.dev.lepton.ai/api/v1 \
+          --auth-token ${{ steps.vars.outputs.api_token_01 }} --test-data-plane-routing=false
+
     - name: Delete workspace
       if: always()
       run: |
@@ -139,10 +167,21 @@ jobs:
           --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
           --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}"
+        ./mothershipctl workspace delete \
+          --auto-approve \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name_01 }}"
         ./mothershipctl workspace wait \
           --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
           --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
           --workspace-name "${{ steps.vars.outputs.workspace_name }}" \
+          --timeout 10 \
+          --expected-state "deleted"
+        ./mothershipctl workspace wait \
+          --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
+          --token "${{ secrets.MOTHERSHIP_CI_TOKEN }}" \
+          --workspace-name "${{ steps.vars.outputs.workspace_name_01 }}" \
           --timeout 10 \
           --expected-state "deleted"
     - name: Delete cluster

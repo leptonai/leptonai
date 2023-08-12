@@ -8,16 +8,12 @@ if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then
     APPLY_FLAGS+=("-var-file=deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars")
 fi
 
-if [[ "$CLUSTER_SUBDOMAIN" != "" ]]; then
-    APPLY_FLAGS+=("-var=cluster_subdomain=$CLUSTER_SUBDOMAIN")
+if [[ "$SHARED_ALB_MAIN_DOMAIN" != "" ]]; then
+    APPLY_FLAGS+=("-var=shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN")
 fi
 
 if [[ "$AUTH_USERS_IAM_GROUP_NAME" != "" ]]; then
     APPLY_FLAGS+=("-var=auth_users_iam_group_name=$AUTH_USERS_IAM_GROUP_NAME")
-fi
-
-if [[ "$SHARED_ALB_ROOT_DOMAIN" != "" ]]; then
-    APPLY_FLAGS+=("-var=shared_alb_root_domain=$SHARED_ALB_ROOT_DOMAIN")
 fi
 
 if [[ "$REGION" != "" ]]; then
@@ -36,6 +32,10 @@ fi
 
 if [[ "$LEPTON_CLOUD_ROUTE53_ZONE_ID" != "" ]]; then
     APPLY_FLAGS+=("-var=lepton_cloud_route53_zone_id=$LEPTON_CLOUD_ROUTE53_ZONE_ID")
+fi
+
+if [[ "$SHARED_ALB_ROUTE53_ZONE_ID" != "" ]]; then
+    APPLY_FLAGS+=("-var=shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID")
 fi
 
 if [[ "$SINGLE_NAT_GATEWAY" != "" ]]; then

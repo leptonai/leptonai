@@ -15,6 +15,9 @@ import (
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
+	if !*testDataPlaneRouting {
+		t.Skip("Dataplane routing not ready")
+	}
 	err := waitForDeploymentToRunningState(mainTestDeploymentName)
 	if err != nil {
 		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
@@ -78,6 +81,9 @@ func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
 }
 
 func TestIngressOfPublicDeployment(t *testing.T) {
+	if !*testDataPlaneRouting {
+		t.Skip("Dataplane routing not ready")
+	}
 	dName := newName(t.Name())
 	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name:     dName,
@@ -158,6 +164,9 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 }
 
 func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
+	if !*testDataPlaneRouting {
+		t.Skip("Dataplane routing not ready")
+	}
 	dName := newName(t.Name())
 	token := newName(t.Name())
 	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{

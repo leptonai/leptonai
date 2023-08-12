@@ -83,6 +83,11 @@ resource "helm_release" "mothership" {
   }
 
   set {
+    name  = "mothership.sharedALBRoute53ZoneID"
+    value = var.shared_alb_route53_zone_id
+  }
+
+  set {
     name  = "mothership.deploymentEnvironment"
     value = var.deployment_environment
   }

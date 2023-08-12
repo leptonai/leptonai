@@ -39,14 +39,8 @@ variable "cluster_name" {
   default     = null
 }
 
-variable "shared_alb_root_domain" {
-  description = "Root domain for workspaces on a ALB shared aross the cluster"
-  type        = string
-  default     = "dev.lepton.ai"
-}
-
-variable "cluster_subdomain" {
-  description = "Subdomain alias for the cluster, e.g. `prod` in domain `prod.app.lepton.ai`"
+variable "shared_alb_main_domain" {
+  description = "Main domain for the cluster, e.g. `prod.app.lepton.ai` in domain `wsname.prod.app.lepton.ai`"
   type        = string
   default     = ""
 }
@@ -72,6 +66,12 @@ variable "lepton_cloud_route53_zone_id" {
   description = "cloud.lepton.ai Route53 zone ID"
   type        = string
   default     = "Z007822916VK7B4DFVMP7"
+}
+
+variable "shared_alb_route53_zone_id" {
+  description = "shared alb root hostname Route53 zone ID"
+  type        = string
+  default     = ""
 }
 
 variable "single_nat_gateway" {

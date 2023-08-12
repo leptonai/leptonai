@@ -30,6 +30,7 @@ var (
 	certificateARNFlag        *string
 	rootDomainFlag            *string
 	sharedAlbRootDomainFlag   *string
+	sharedALBRoute53ZoneID    *string
 	deploymentEnvironmentFlag *string
 	namespaceFlag             *string
 
@@ -41,6 +42,7 @@ func main() {
 	certificateARNFlag = flag.String("certificate-arn", "", "ARN of the ACM certificate")
 	rootDomainFlag = flag.String("root-domain", "", "root domain of the cluster")
 	sharedAlbRootDomainFlag = flag.String("shared-alb-root-domain", "", "root domain for the routing rules sharing a cluster-wide ALB")
+	sharedALBRoute53ZoneID = flag.String("shared-alb-route53-zone-id", "", "host zone id corresponding to the root domain")
 	deploymentEnvironmentFlag = flag.String("deployment-environment", "DEV", "deployment environment of the cluster")
 	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
 	flag.Parse()
@@ -59,6 +61,7 @@ func main() {
 	workspace.SharedAlbRootDomain = *sharedAlbRootDomainFlag
 	cluster.RootDomain = *rootDomainFlag
 	cluster.SharedAlbRootDomain = *sharedAlbRootDomainFlag
+	cluster.SharedALBRoute53ZoneID = *sharedALBRoute53ZoneID
 	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
 	cluster.StoreNamespace = *namespaceFlag
 	httpapi.RootDomain = *rootDomainFlag
