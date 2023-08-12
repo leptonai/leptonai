@@ -28,8 +28,8 @@ export const PastDueBanner: FC = () => {
             name="settingsBilling"
             relative="route"
           >
-            Your current workspace is overdue. Please proceed to the billing
-            page to make a payment.
+            Your current workspace has an outstanding balance. Please proceed to
+            the billing page to enter your payment info.
           </LinkTo>
         }
       />

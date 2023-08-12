@@ -21,10 +21,14 @@ export const Payment: FC<{
               margin-bottom: 4px !important;
             `}
           >
-            NEXT PAYMENT
+            {invoice?.status === "open"
+              ? "OUTSTANDING BALANCE"
+              : "NEXT PAYMENT"}
           </Typography.Title>
           <Typography.Paragraph type="secondary">
-            Change how you pay
+            {invoice?.status === "open"
+              ? "You have an outstanding balance"
+              : "Change how you pay"}
           </Typography.Paragraph>
           <Portal paymentMethodAttached={paymentMethodAttached} />
         </Col>
