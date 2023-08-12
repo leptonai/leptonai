@@ -72,7 +72,7 @@ def get_dish(request, dish_id):
 def cancel_dish(request, dish_id):
     logger.info(f"Canceling dish with id {dish_id}")
     dish = Dish.objects.get(id=dish_id)
-    if dish.is_finished:
+    if dish.is_finished():
         logger.info(
             f"Trying to cancel dish with id {dish_id} but it is already finished"
         )
