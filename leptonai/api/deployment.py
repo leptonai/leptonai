@@ -1,17 +1,21 @@
 import requests
-from typing import Optional
+from typing import List, Union, Optional
 
 from .util import create_header, json_or_error, APIError
 
 
-def list_deployment(url: str, auth_token: Optional[str]):
+def list_deployment(url: str, auth_token: Optional[str]) -> Union[List, APIError]:
     """
     List all deployments in a workspace.
 
     Returns a list of deployments.
     """
     response = requests.get(url + "/deployments", headers=create_header(auth_token))
-    return json_or_error(response)
+    # sanity check that the response is actually a list or APIError
+    content = json_or_error(response)
+    if isinstance(content, dict):
+        return APIError(response, "You hit a programming error: response is not a list")
+    return content
 
 
 def remove_deployment(url: str, auth_token: Optional[str], name: str):

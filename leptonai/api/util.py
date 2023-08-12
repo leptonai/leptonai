@@ -3,7 +3,7 @@ Utility functions for the Lepton AI API.
 """
 import json
 import requests
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 
 class APIError(object):
@@ -21,7 +21,7 @@ class APIError(object):
 
 def json_or_error(
     response: requests.Response, additional_debug_info: str = ""
-) -> Union[Dict, APIError]:
+) -> Union[Dict, List, APIError]:
     """
     A utility function to return json if the response is ok, and otherwise returns an APIError object
     that details the error encountered.
