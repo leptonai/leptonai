@@ -1,3 +1,4 @@
+import functools
 import os
 import shlex
 import shutil
@@ -8,6 +9,7 @@ import time
 from celery import shared_task, Task
 from django.conf import settings
 from django.db import connection
+import logtail
 from loguru import logger
 
 from .models import Dish
@@ -18,42 +20,55 @@ class CookTask(Task):
     max_retries = 3
 
     def before_start(self, task_id, args, kwargs):
-        logger.info(f"Task {task_id} is about to start")
-        dish = None
-        max_tries = 3
-        sleep_time = 1
-        for _ in range(max_tries):
-            try:
-                dish = Dish.objects.get(task_id=task_id)
-            except Dish.DoesNotExist:
-                logger.warning(
-                    f"Can not find dish with task_id {task_id}, will retry in"
-                    f" {sleep_time}s"
+        with logtail.context(task={"id": task_id}):
+            logger.info(f"Task {task_id} is about to start")
+            dish = None
+            max_tries = 3
+            sleep_time = 1
+            for _ in range(max_tries):
+                try:
+                    dish = Dish.objects.get(task_id=task_id)
+                except Dish.DoesNotExist:
+                    logger.warning(
+                        f"Can not find dish with task_id {task_id}, will retry in"
+                        f" {sleep_time}s"
+                    )
+                    time.sleep(sleep_time)
+                else:
+                    break
+            if dish is None:
+                raise RuntimeError(
+                    f"Can not find dish with task_id {task_id} (after {max_tries} tries"
                 )
-                time.sleep(sleep_time)
-            else:
-                break
-        if dish is None:
-            raise RuntimeError(
-                f"Can not find dish with task_id {task_id} (after {max_tries} tries"
-            )
-        dish.start_run()
-        return super().before_start(task_id, args, kwargs)
+            dish.start_run()
+            return super().before_start(task_id, args, kwargs)
 
     def on_success(self, retval, task_id, args, kwargs):
-        logger.info(f"Task {task_id} is done")
-        dish = Dish.objects.get(task_id=task_id)
-        dish.succeed()
-        return super().on_success(retval, task_id, args, kwargs)
+        with logtail.context(task={"id": task_id}):
+            logger.info(f"Task {task_id} is done")
+            dish = Dish.objects.get(task_id=task_id)
+            dish.succeed()
+            return super().on_success(retval, task_id, args, kwargs)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logger.error(f"Task {task_id} failed")
-        dish = Dish.objects.get(task_id=task_id)
-        dish.failed()
-        return super().on_failure(exc, task_id, args, kwargs, einfo)
+        with logtail.context(task={"id": task_id}):
+            logger.error(f"Task {task_id} failed")
+            dish = Dish.objects.get(task_id=task_id)
+            dish.failed()
+            return super().on_failure(exc, task_id, args, kwargs, einfo)
 
 
-@shared_task(base=CookTask)
+def tuna_task(task_fn):
+    @shared_task(base=CookTask, bind=True)
+    @functools.wraps(task_fn)
+    def wrapped_task_fn(task, *args, **kwargs):
+        with logtail.context(task={"id": task.request.id}):
+            return task_fn(*args, **kwargs)
+
+    return wrapped_task_fn
+
+
+@tuna_task
 def cook(data_path, model_name_or_path, output_dir):
     logger.info(
         f"Start cooking Tuna Dish with data_path: {data_path}, model_name_or_path:"
