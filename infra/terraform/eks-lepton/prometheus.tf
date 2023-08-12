@@ -394,15 +394,14 @@ resource "helm_release" "kube_prometheus_stack" {
       alertmanager_target_namespaces = var.alertmanager_target_namespaces
     }) : file("${path.module}/helm/values/kube-prometheus-stack/alertmanager-disabled.yaml"),
 
-    templatefile("${path.module}/helm/values/kube-prometheus-stack/alertmanager-rules.yaml", {
-      alertmanager_target_namespaces = var.alertmanager_target_namespaces
-    }),
-
     templatefile("${path.module}/helm/values/kube-prometheus-stack/prometheus-server.yaml", {
       kube_prometheus_stack_sa_prometheus_server = local.kube_prometheus_stack_sa_prometheus_server
       remote_write_name                          = "${var.cluster_name}-kube-prometheus-stack-remote-write-queue"
       remote_write_url                           = "${aws_prometheus_workspace.kube_prometheus_stack.prometheus_endpoint}api/v1/remote_write"
       remote_write_region                        = var.region
+    }),
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/prometheus-server-rules.yaml", {
+      alertmanager_target_namespaces = var.alertmanager_target_namespaces
     }),
 
     templatefile("${path.module}/helm/values/kube-prometheus-stack/kubelet.yaml", {
