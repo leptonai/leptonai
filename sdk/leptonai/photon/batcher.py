@@ -2,6 +2,7 @@ import asyncio
 from asyncio import Future, Queue, Task, TimeoutError, wait_for
 from functools import wraps
 import time
+from typing import List, Optional
 from uuid import uuid4
 
 from leptonai.util import asyncfy
@@ -26,7 +27,7 @@ def batch(max_batch_size, max_wait_time):
 
         # list of (request_id, args, kwargs)
         # using list here is a hack to make it mutable inside closures
-        _requests = [None]
+        _requests: List[Optional[Queue]] = [None]
 
         def get_requests_queue():
             if _requests[0] is None:
@@ -36,8 +37,8 @@ def batch(max_batch_size, max_wait_time):
         # request_id -> result
         results = {}
 
-        # running task
-        running_task = [None]
+        # running task - same to _requests, using list as a hack
+        running_task: List[Optional[Task]] = [None]
 
         # run a coroutine with a callback. !!caller should keep a reference to
         # the returned task to avoid GC (asyncio loop only keeps a weakref to

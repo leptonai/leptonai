@@ -6,6 +6,7 @@ import functools
 import cloudpickle
 from io import BytesIO
 import importlib
+import importlib.util
 import inspect
 import logging
 import os
@@ -28,6 +29,7 @@ import pydantic
 import pydantic.decorator
 from pydantic import BaseModel, validator
 import uvicorn
+import uvicorn.config
 
 from leptonai.config import (
     BASE_IMAGE,
@@ -141,20 +143,20 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     if varkw:
         if PYDANTIC_MAJOR_VERSION <= 1:
 
-            class config:
+            class config:  # type: ignore
                 extra = "allow"
 
         else:
-            config = pydantic.ConfigDict(extra="allow")
+            config = pydantic.ConfigDict(extra="allow")  # type: ignore
     else:
-        config = None
+        config = None  # type: ignore
 
     func_name = func_name or func.__name__
     request_model = pydantic.create_model(
         f"{func_name.capitalize()}Input",
         **params,
         **keyword_only_params,
-        __config__=config,
+        __config__=config,  # type: ignore
     )
 
     return_type = inspect.signature(func).return_annotation
@@ -172,12 +174,12 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
                 arbitrary_types_allowed = True
 
         else:
-            config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+            config = pydantic.ConfigDict(arbitrary_types_allowed=True)  # type: ignore
 
         response_model = pydantic.create_model(
             f"{func_name.capitalize()}Output",
             output=(return_type, None),
-            __config__=config,
+            __config__=config,  # type: ignore
         )
         response_class = JSONResponse
     return request_model, response_model, response_class
@@ -196,7 +198,7 @@ def get_routes(var):
     if mod_path is None:
         try:
             mod = sys.modules[var.__module__]
-            mod_path = os.path.abspath(mod.__file__)
+            mod_path = os.path.abspath(mod.__file__) if mod.__file__ else ""
         except (KeyError, AttributeError):
             pass
     if mod_path is None:
@@ -299,7 +301,7 @@ class Photon(BasePhoton):
         try:
             from pip._internal.operations import freeze
         except ImportError:  # pip < 10.0
-            from pip.operations import freeze
+            from pip.operations import freeze  # type: ignore
 
         pkgs = freeze.freeze()
 
@@ -634,17 +636,17 @@ class Photon(BasePhoton):
 
         try:
             import gradio as gr
+
+            has_gradio = True
         except ImportError:
             has_gradio = False
-        else:
-            has_gradio = True
 
         try:
             from flask import Flask
+
+            has_flask = True
         except ImportError:
             has_flask = False
-        else:
-            has_flask = True
 
         if not has_gradio and not has_flask:
             logger.warning(
@@ -653,9 +655,9 @@ class Photon(BasePhoton):
             )
             return
 
-        if has_gradio and isinstance(subapp, gr.Blocks):
-            gr.mount_gradio_app(app, subapp, f"/{path}")
-        elif has_flask and isinstance(subapp, Flask):
+        if has_gradio and isinstance(subapp, gr.Blocks):  # type: ignore
+            gr.mount_gradio_app(app, subapp, f"/{path}")  # type: ignore
+        elif has_flask and isinstance(subapp, Flask):  # type: ignore
             app.mount(f"/{path}", WSGIMiddleware(subapp))
         else:
             raise ValueError(
@@ -701,9 +703,9 @@ class Photon(BasePhoton):
                     wa
                     for wa in functools.WRAPPER_ASSIGNMENTS
                     if wa != "__annotations__"
-                ),
+                ),  # type: ignore
             )
-            async def typed_handler(request: request_model):
+            async def typed_handler(request: request_model):  # type: ignore
                 try:
                     res = await vd.execute(request)
                 except Exception as e:

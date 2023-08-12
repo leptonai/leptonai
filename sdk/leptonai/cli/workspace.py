@@ -6,7 +6,6 @@ from rich.console import Console
 from rich.table import Table
 
 from leptonai.api import workspace as api
-from leptonai.config import CACHE_DIR
 from .util import (
     click_group,
     get_workspace_and_token_or_die,
@@ -15,8 +14,6 @@ from .util import (
 )
 
 console = Console(highlight=False)
-
-WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 
 
 @click_group()

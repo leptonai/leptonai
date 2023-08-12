@@ -66,3 +66,8 @@ class Server(Photon):
             )
 
         return blocks
+
+
+if __name__ == "__main__":
+    p = Server()
+    p.launch()

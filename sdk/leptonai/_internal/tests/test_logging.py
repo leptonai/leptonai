@@ -8,10 +8,18 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 import unittest
 
 from leptonai._internal.logging import log as internal_log
-from leptonai._internal.logging import _LOGFILE_BASE
+from leptonai._internal.logging import _LOGFILE_BASE, enable, disable
 
 
 class TestInternalLog(unittest.TestCase):
+    def setUp(self):
+        os.environ["LEPTON_ENABLE_INTERNAL_LOG"] = "1"
+        enable()
+
+    def tearDown(self):
+        disable()
+        del os.environ["LEPTON_ENABLE_INTERNAL_LOG"]
+
     def test_log(self):
         msg = "some random message"
         internal_log(msg)

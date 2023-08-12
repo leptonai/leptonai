@@ -3,6 +3,7 @@ from typing import Optional
 import yaml
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
+from leptonai.util import create_cached_dir_if_needed
 from .util import APIError, create_header, json_or_error
 
 WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
@@ -99,6 +100,7 @@ def save_workspace(workspace_id, url, terraform_dir=None, auth_token=None):
     workspace_info["workspaces"][workspace_id]["terraform_dir"] = terraform_dir
     workspace_info["workspaces"][workspace_id]["auth_token"] = auth_token
 
+    create_cached_dir_if_needed()
     with open(WORKSPACE_FILE, "w") as f:
         yaml.safe_dump(workspace_info, f)
 
@@ -111,6 +113,7 @@ def remove_workspace(workspace_id):
     workspace_info["workspaces"].pop(workspace_id)
     if workspace_info["current_workspace"] == workspace_id:
         workspace_info["current_workspace"] = None
+    create_cached_dir_if_needed()
     with open(WORKSPACE_FILE, "w") as f:
         yaml.safe_dump(workspace_info, f)
 
@@ -123,6 +126,7 @@ def set_current_workspace(workspace_id=None):
     if workspace_id and workspace_id not in workspace_info["workspaces"]:
         raise ValueError(f"Workspace {workspace_id} does not exist.")
     workspace_info["current_workspace"] = workspace_id
+    create_cached_dir_if_needed()
     with open(WORKSPACE_FILE, "w") as f:
         yaml.safe_dump(workspace_info, f)
 
