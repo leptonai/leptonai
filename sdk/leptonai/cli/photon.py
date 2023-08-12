@@ -498,7 +498,7 @@ def run(
     the photon will be run locally.
 
     Refer to the documentation for a more detailed description on the choices
-    among `--name`, `--model`, `--path` and `--id`.
+    among `--name`, `--model`, `--file` and `--id`.
     """
     workspace_url = workspace.get_current_workspace_url()
 
@@ -554,7 +554,7 @@ def run(
         )
     else:
         # local execution
-        check(name or path, "Must specify either --name or --path.")
+        check(name or path, "Must specify either --name or --file.")
         if path is None:
             path = find_local_photon(name)
         if path and os.path.exists(path):
