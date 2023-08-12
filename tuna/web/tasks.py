@@ -11,6 +11,7 @@ from django.conf import settings
 from django.db import connection
 import logtail
 from loguru import logger
+from pynvml.smi import nvidia_smi
 
 from .models import Dish
 
@@ -90,7 +91,25 @@ def cook(data_path, model_name_or_path, output_dir):
     model_path_in_container = "/model"
     gcp_key_on_host = os.path.join(settings.BASE_DIR, ".google_application_credentials")
     gcp_key_in_container = "/google_application_credentials"
-    per_device_train_batch_size = 16
+
+    nvsmi = nvidia_smi.getInstance()
+    gpu0_mem_gb = (
+        nvsmi.DeviceQuery("memory.free, memory.total")["gpu"][0]["fb_memory_usage"][
+            "total"
+        ]
+        / 1024
+    )
+    logger.info(f"GPU0 total memory: {gpu0_mem_gb} GB")
+    if gpu0_mem_gb < 30:
+        # TODO: test whether A10 can train 7B model (and whether it
+        # can do batch size 4)
+        per_device_train_batch_size = 4
+    elif gpu0_mem_gb < 60:
+        per_device_train_batch_size = 8
+    else:
+        per_device_train_batch_size = 16
+    logger.info(f"setting per_device_train_batch_size={per_device_train_batch_size}")
+
     torch_ext_cache_on_host = os.path.join(
         tempfile.gettempdir(), "cache", "torch_extensions"
     )

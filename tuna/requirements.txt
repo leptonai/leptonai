@@ -8,3 +8,4 @@ google-cloud-storage
 cryptography
 django-cors-headers
 logtail-python
+pynmvl
