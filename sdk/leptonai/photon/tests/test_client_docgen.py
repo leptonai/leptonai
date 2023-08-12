@@ -1,8 +1,9 @@
+# flask8: noqa
 import multiprocessing
 import os
 import tempfile
 import time
-from typing import Optional
+from typing import Optional, List, Tuple
 import unittest
 
 
@@ -53,6 +54,14 @@ class PhotonWithDifferentDocs(Photon):
     @handler("run8")
     def run8(self, query: str, query2: str = "test") -> str:
         return f"hello world {query} {query2}"
+
+    @handler("run9")
+    def run9(self, query: List[int], query2: Tuple[str, int]) -> str:
+        return f"hello world {query} {query2}"
+
+    @handler("run10")
+    def run10(self) -> Tuple[str, str, int]:
+        return ("hello", "world", 1)
 
 
 def photon_with_different_docs_wrapper(port):
@@ -111,6 +120,21 @@ class TestClientDocgen(unittest.TestCase):
         self.assertIn("query*: str", client.run8.__doc__)
         self.assertIn("query2: str (default: test)", client.run8.__doc__)
         self.assertIn("Output Schema:\n  output: str", client.run8.__doc__)
+
+        self.assertIn("Run9", client.run9.__doc__)
+        self.assertIn("query*: array[int]", client.run9.__doc__)
+        self.assertTrue(
+            "query2*: array[Any]" in client.run9.__doc__
+            or "query2*: array[str, int]" in client.run9.__doc__,
+            client.run9.__doc__,
+        )
+
+        self.assertIn("Run10", client.run10.__doc__)
+        self.assertTrue(
+            "output: array[Any]" in client.run10.__doc__
+            or "output: array[str, str, int]" in client.run10.__doc__,
+            client.run10.__doc__,
+        )
 
         proc.terminate()
 

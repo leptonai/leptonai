@@ -2,7 +2,6 @@ from typing import Callable, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 import warnings
 
-from backports.cached_property import cached_property
 from fastapi.encoders import jsonable_encoder
 import requests
 
@@ -49,12 +48,19 @@ def _json_to_type_string(schema: Dict) -> str:
         elif "prefixItems" in schema:
             # repeateditems defines the type of the first few items in an array, and
             # then the min and max of the array.
+            # In pythonic term, this is something like Tuple[int, str, ...]
+            # meaning that the first thing is int, the second thing is str, and there are a bunch of others.
             min_items = schema.get("minItems", "?")
             max_items = schema.get("maxItems", "?")
-            typestr = (
-                f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])},"
-                f" ...] (min={min_items},max={max_items})"
-            )
+            if min_items == max_items and min_items != "?":
+                typestr = (
+                    f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])}]"
+                )
+            else:
+                typestr = (
+                    f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])},"
+                    f" ...] (min={min_items},max={max_items})"
+                )
         else:
             typestr = {
                 "integer": "int",
@@ -194,7 +200,7 @@ class Client(object):
     """
 
     _path_cache: Dict[str, Callable] = {}
-    openapi: Optional[Dict] = None
+    openapi: Dict = {}
 
     # TODO: add support for creating client with name/id
     def __init__(
@@ -230,7 +236,13 @@ class Client(object):
                 )
             self.url = workspace_or_url
         else:
-            self.url = get_full_workspace_url(workspace_or_url)
+            url = get_full_workspace_url(workspace_or_url)
+            if not url:
+                raise ValueError(
+                    f"Workspace {workspace_or_url} does not exist or is not accessible."
+                )
+            else:
+                self.url = url
         self._session = requests.Session()
         if deployment is None:
             if not _is_local_url(workspace_or_url):
@@ -244,6 +256,17 @@ class Client(object):
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
+
+        # Check healthz to see if things are properly working
+        if not self.healthz():
+            warnings.warn(
+                "Client is not healthy - healthz() returned False. This might be due"
+                " to:\n- a nonstandard deployment that does not have a healthz"
+                " endpoint. In this case, you may ignore this warning.\n- a network"
+                " error. In this case, please check your network connection. You may"
+                " want to recreate the client for things to work properly.",
+                RuntimeWarning,
+            )
 
         # At load time, we will also load the openapi specification.
         try:
@@ -273,7 +296,7 @@ class Client(object):
 
         # At load time, we will also set up all path caches.
         for path_name in self.paths():
-            function_name = path_name.strip("/")
+            function_name = path_name[1:] if path_name.startswith("/") else path_name
             # Replace the slashes and dashes in function_name with underscore
             # to make it a valid python function name.
             function_name = function_name.replace("/", "_").replace("-", "_")
@@ -282,7 +305,8 @@ class Client(object):
                     "Multiple endpoints with the same name detected. This is not"
                     " an issue of the runtime - it is caused by the deployment giving"
                     " multiple endpoints that maps to the same python name.\n\n"
-                    + _fallback_api_call_message,
+                    + _fallback_api_call_message
+                    + f"\n\ndebug info: found duplicated name {path_name}.",
                     RuntimeWarning,
                 )
                 # For the sake of avoiding confusions, we will clear the path cache.
@@ -369,6 +393,8 @@ class Client(object):
             _method.__name__ = function_name
             if self.openapi:
                 _method.__doc__ = _get_method_docstring(self.openapi, path_name)
+            else:
+                _method.__doc__ = ""
             self._path_cache[function_name] = _method
         return self._path_cache[function_name]
 
@@ -379,7 +405,7 @@ class Client(object):
 
         :return: a list of paths, each of which is a string.
         """
-        if self.openapi is not None:
+        if "paths" in self.openapi:
             return self.openapi["paths"].keys()
         return []
 
@@ -397,7 +423,7 @@ class Client(object):
             res = self._get("/healthz")
             res.raise_for_status()
             return True
-        except requests.HTTPError:
+        except (requests.ConnectionError, requests.HTTPError):
             return False
 
     def __getattr__(self, name: str):
@@ -427,17 +453,18 @@ class Workspace(object):
             token (str, optional): The token to use for authentication. Defaults to None.
         """
         self.workspace_id = workspace_id
-        self.workspace_url = get_full_workspace_api_url(workspace_id)
-        if self.workspace_url is None:
+        api_url = get_full_workspace_api_url(workspace_id)
+        if not api_url:
             raise ValueError(
                 f"Workspace {workspace_id} does not seem to exist. Did you specify the"
                 " right id?"
             )
+        else:
+            self.workspace_api_url = api_url
         self.token = token if token else ""
 
-    @cached_property
     def _workspace_deployments(self) -> List:
-        deployments = deployment.list_deployment(self.workspace_url, self.token)
+        deployments = deployment.list_deployment(self.workspace_api_url, self.token)
         if isinstance(deployments, APIError):
             raise ValueError(
                 f"Failed to list deployments for workspace {self.workspace_id}"
@@ -445,15 +472,8 @@ class Workspace(object):
         else:
             return deployments
 
-    @cached_property
-    def _workspace_deployments_names(self) -> List[str]:
-        return [deployment["name"] for deployment in self._workspace_deployments]
-
-    def list_deployments(self) -> List:
-        """
-        List all deployments on this workspace.
-        """
-        return self._workspace_deployments_names
+    def list_deployments(self) -> List[str]:
+        return [deployment["name"] for deployment in self._workspace_deployments()]
 
     def client(self, deployment_name: str, token: Optional[str] = None) -> Client:
         """
@@ -469,7 +489,7 @@ class Workspace(object):
         Returns:
             client: The client to call the deployment.
         """
-        if deployment_name not in self._workspace_deployments_names:
+        if deployment_name not in self.list_deployments():
             raise ValueError(
                 f"Deployment {deployment_name} not found in workspace"
                 f" {self.workspace_id}."

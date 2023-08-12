@@ -37,10 +37,14 @@ def get_full_workspace_url(workspace_id) -> Optional[str]:
         raise RuntimeError(
             "Failed to connect to the Lepton server. Did you connect to the internet?"
         )
-    if response == {}:
-        return None
+    elif isinstance(response, list) or "url" not in response:
+        raise RuntimeError(
+            "You hit a programming error: response is not a dictionary. Please report"
+            " this and include the following information: url:"
+            f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}, response:"
+            f" {response}"
+        )
     else:
-        # TODO: do we assume that the format returned by the server is always correct?
         return response["url"]
 
 
@@ -64,10 +68,14 @@ def get_workspace_display_name(workspace_id) -> Optional[str]:
         raise RuntimeError(
             "Failed to connect to the Lepton server. Did you connect to the internet?"
         )
-    if response == {}:
-        return None
+    elif isinstance(response, list) or "display_name" not in response:
+        raise RuntimeError(
+            "You hit a programming error: response is not a dictionary. Please report"
+            " this and include the following information: url:"
+            f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}, response:"
+            f" {response}"
+        )
     else:
-        # TODO: do we assume that the format returned by the server is always correct?
         return response["display_name"]
 
 
