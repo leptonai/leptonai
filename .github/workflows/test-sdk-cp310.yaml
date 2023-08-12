@@ -44,4 +44,4 @@ jobs:
         pip install -r leptonai/examples/requirements.txt
         pip install .[test]
         cd -
-        pytest sdk/
+        pytest -x sdk
