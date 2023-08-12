@@ -16,7 +16,11 @@ cpu_node_group_instance_types = ["t3.xlarge", "c5.xlarge"]
 single_nat_gateway = true
 
 # must be >= AMI snapshot size
-disk_size_in_gb_for_node_groups = 100
+# change this back to smaller
+# once we migrate to smaller AMIs
+# right now, it's big because we had to support
+# old images that had no common base layers
+disk_size_in_gb_for_node_groups = 400
 
 lepton_cloud_route53_zone_id = "Z007822916VK7B4DFVMP7"
 
@@ -25,13 +29,13 @@ lepton_cloud_route53_zone_id = "Z007822916VK7B4DFVMP7"
 ubuntu_amis = {
   "us-east-1" : {
     # custom built with pre-fetched Lepton images
-    x86_64_cpu = "ami-0fb2155d0930fa381",
+    x86_64_cpu = "ami-02b84469855034b61",
 
     # custom built to install NVIDIA drivers with pre-fetched Lepton images
     # image is built using g4dn instance with NVIDIA T4 chip
     # but works with other instance types
     # since upstream NVIDIA driver is the same
-    x86_64_gpu = "ami-0f5cfba4a72f3af0d"
+    x86_64_gpu = "ami-06a3d0a4109189f64"
   }
 }
 

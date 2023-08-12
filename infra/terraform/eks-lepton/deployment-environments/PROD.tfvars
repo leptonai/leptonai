@@ -27,13 +27,13 @@ lepton_cloud_route53_zone_id = "Z0305788EACPTSFEJARC"
 ubuntu_amis = {
   "us-west-2" : {
     # custom built with pre-fetched Lepton images
-    x86_64_cpu = "ami-0dfcb28cf6bf4142f",
+    x86_64_cpu = "ami-086eaf7fcdadfa0f8",
 
     # custom built to install NVIDIA drivers with pre-fetched Lepton images
     # image is built using g4dn instance with NVIDIA T4 chip
     # but works with other instance types
     # since upstream NVIDIA driver is the same
-    x86_64_gpu = "ami-0525c008f4e0dee62"
+    x86_64_gpu = "ami-072faa66fd0b86a90"
   },
 
   # TODO: remove this after us-east-1 is cleaned up
