@@ -299,7 +299,7 @@ def _get_valid_shapes():
     return ", ".join(VALID_SHAPES)
 
 
-def _validate_resource_shape(resource_shape: str):
+def _validate_resource_shape(resource_shape: Optional[str]):
     """
     Utility function to validate the resource shape and exit if invalid.
 

@@ -1,5 +1,6 @@
 import requests
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
+import warnings
 
 from .util import create_header, json_or_error, APIError
 
@@ -98,18 +99,36 @@ def get_log(url: str, auth_token: Optional[str], name: str, replica: str):
         return APIError(response)
 
 
-def update_deployment(url: str, auth_token: Optional[str], name: str, replicas: int):
+def update_deployment(
+    url: str,
+    auth_token: Optional[str],
+    name: str,
+    photon_id: Optional[str] = None,
+    min_replicas: Optional[int] = None,
+    api_tokens: Optional[List[Dict[str, Union[str, Dict[str, str]]]]] = None,
+):
     """
     Update a deployment in a workspace.
 
-    Currently only supports updating the replicas. We may support photon id
-    in the future.
+    Currently only supports updating the photon id, the min replicas, and the api tokens.
+    For any more complex changes, consider re-run the deployment.
     """
-    deployment_body = {
-        "resource_requirement": {
-            "min_replicas": replicas,
-        },
-    }
+    deployment_body = {}
+    if photon_id:
+        deployment_body["photon_id"] = photon_id
+    if min_replicas:
+        deployment_body["resource_requirement"] = {}
+        deployment_body["resource_requirement"]["min_replicas"] = min_replicas
+    # Note that if the user passed in an empty list, it is still different from "None":
+    # None means the user did not want to update the api tokens, while an empty list means
+    # the user wants to remove api tokens and make it public.
+    if api_tokens is not None:
+        deployment_body["api_tokens"] = api_tokens
+    if not deployment_body:
+        # If nothing is updated...
+        warnings.warn(
+            "There is nothing to update - did you forget to pass in any arguments?"
+        )
     response = requests.patch(
         url + "/deployments/" + name,
         headers=create_header(auth_token),

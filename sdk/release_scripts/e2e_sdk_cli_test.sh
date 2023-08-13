@@ -371,6 +371,98 @@ echo "Env and secret tests finished. Errors so far = ${TOTAL_ERRORS}"
 echo
 
 echo "################################################################################"
+echo "# Deployment manipulation: update replicas and authentication tokens"
+echo "################################################################################"
+echo "Testing updating the deployment replicas to 2..."
+command="lep dep update -n ${COMMON_NAME} --min-replicas 2"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "update to 2 replicas. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+# Verify if things are actually correct
+command="lep dep status -n ${COMMON_NAME}"
+if eval "$command" | grep "out of 2 replicas ready" > /dev/null; then
+    echo "Replicas are correct."
+else
+    echo "Replicas are not correct. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+# scale back to 1 replica
+echo "Testing reducing the deployment replicas to 1..."
+command="lep dep update -n ${COMMON_NAME} --min-replicas 1"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "reduce to 1 replica. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+# Verify if things are actually correct
+command="lep dep status -n ${COMMON_NAME}"
+if eval "$command" | grep "out of 2 replicas ready" > /dev/null; then
+    echo "Replicas are correct."
+else
+    echo "Replicas are not correct. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Testing updating the deployment to public..."
+command="lep dep update -n ${COMMON_NAME} --public"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "lep dep update failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+command="lep dep status -n ${COMMON_NAME}"
+if eval "$command" | grep "Is Public:" | grep "Yes" > /dev/null; then
+    echo "Authentication tokens are correct."
+else
+    echo "Authentication tokens are not correct. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo "Testing updating the deployment to private..."
+command="lep dep update -n ${COMMON_NAME} --no-public"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "lep dep update failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+command="lep dep status -n ${COMMON_NAME}"
+if eval "$command" | grep "Is Public:" | grep "No" > /dev/null; then
+    echo "Authentication tokens are correct."
+else
+    echo "Authentication tokens are not correct. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+
+echo "Testing updating the deployment with additional tokens..."
+command="lep dep update -n ${COMMON_NAME} --tokens ncc1701"
+if eval "$command"; then
+    echo "Done"
+else
+    echo "lep dep update failed. This should not happen. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+command="lep dep status -n ${COMMON_NAME} --show-tokens"
+if eval "$command" | grep "ncc1701" > /dev/null; then
+    echo "Authentication tokens are correct."
+else
+    echo "Authentication tokens are not correct. Reproduce with: $command"
+    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+fi
+echo
+
+echo "Deployment manipulation tests finished. Errors so far = ${TOTAL_ERRORS}"
+echo
+
+echo "################################################################################"
 echo "# Storage"
 echo "################################################################################"
 
