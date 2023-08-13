@@ -14,9 +14,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+var Cluster *cluster.Cluster
+
 func HandleClusterGet(c *gin.Context) {
 	clname := c.Param("clname")
-	cl, err := cluster.Get(c, clname)
+	cl, err := Cluster.Get(c, clname)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + clname + " doesn't exist"})
@@ -37,7 +39,7 @@ func HandleClusterGet(c *gin.Context) {
 
 func HandleClusterGetLogs(c *gin.Context) {
 	cname := c.Param("clname")
-	job := cluster.Worker.GetJob(cname)
+	job := Cluster.Worker.GetJob(cname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the cluster is not running"})
 		return
@@ -47,7 +49,7 @@ func HandleClusterGetLogs(c *gin.Context) {
 
 func HandleClusterGetFailureLog(c *gin.Context) {
 	cname := c.Param("clname")
-	job := cluster.Worker.GetLastFailedJob(cname)
+	job := Cluster.Worker.GetLastFailedJob(cname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("job %s has no failure", cname)})
 		return
@@ -56,7 +58,7 @@ func HandleClusterGetFailureLog(c *gin.Context) {
 }
 
 func HandleClusterList(c *gin.Context) {
-	cls, err := cluster.List(c)
+	cls, err := Cluster.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list clusters",
 			"operation", "list",
@@ -102,7 +104,7 @@ func HandleClusterCreate(c *gin.Context) {
 		spec.GitRef = string(plumbing.Main)
 	}
 	if spec.DeploymentEnvironment == "" {
-		spec.DeploymentEnvironment = cluster.DeploymentEnvironment
+		spec.DeploymentEnvironment = Cluster.DeploymentEnvironment
 	}
 
 	switch spec.DeploymentEnvironment {
@@ -114,7 +116,7 @@ func HandleClusterCreate(c *gin.Context) {
 		return
 	}
 
-	cl, err := cluster.Create(c, spec)
+	cl, err := Cluster.Create(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to create cluster",
 			"cluster", spec.Name,
@@ -135,7 +137,7 @@ func HandleClusterCreate(c *gin.Context) {
 func HandleClusterDelete(c *gin.Context) {
 	force := c.DefaultQuery("force", "false")
 	clName := c.Param("clname")
-	lc, err := cluster.Get(c, clName)
+	lc, err := Cluster.Get(c, clName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + c.Param("clname") + " doesn't exist"})
@@ -158,7 +160,7 @@ func HandleClusterDelete(c *gin.Context) {
 		return
 	}
 
-	if err := cluster.Delete(c.Param("clname")); err != nil {
+	if err := Cluster.Delete(c.Param("clname")); err != nil {
 		goutil.Logger.Errorw("failed to delete cluster",
 			"cluster", clName,
 			"operation", "delete",
@@ -186,7 +188,7 @@ func HandleClusterUpdate(c *gin.Context) {
 		return
 	}
 
-	cl, err := cluster.Update(c, spec)
+	cl, err := Cluster.Update(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to update cluster",
 			"cluster", spec.Name,

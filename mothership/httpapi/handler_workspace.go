@@ -14,6 +14,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+var Workspace *workspace.Workspace
+
 var (
 	// TODO: get from the config. Stop using global variables.
 	RootDomain          string
@@ -27,7 +29,7 @@ const (
 
 func HandleWorkspaceGet(c *gin.Context) {
 	wsname := c.Param("wsname")
-	lw, err := workspace.Get(c, wsname)
+	lw, err := Workspace.Get(c, wsname)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "workspace " + wsname + " doesn't exist"})
@@ -52,7 +54,7 @@ func HandleWorkspaceGet(c *gin.Context) {
 
 func HandleWorkspaceGetLogs(c *gin.Context) {
 	wname := c.Param("wsname")
-	job := workspace.Worker.GetJob(wname)
+	job := Workspace.Worker.GetJob(wname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the workspace is not running"})
 		return
@@ -62,7 +64,7 @@ func HandleWorkspaceGetLogs(c *gin.Context) {
 
 func HandleWorkspaceGetFailureLog(c *gin.Context) {
 	wname := c.Param("wsname")
-	job := workspace.Worker.GetLastFailedJob(wname)
+	job := Workspace.Worker.GetLastFailedJob(wname)
 	if job == nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("workspace %s has no failure", wname)})
 		return
@@ -71,7 +73,7 @@ func HandleWorkspaceGetFailureLog(c *gin.Context) {
 }
 
 func HandleWorkspaceList(c *gin.Context) {
-	lws, err := workspace.List(c)
+	lws, err := Workspace.List(c)
 	if err != nil {
 		goutil.Logger.Errorw("failed to list workspaces",
 			"operation", "list",
@@ -103,7 +105,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 		return
 	}
 
-	lw, err := workspace.Create(c, spec)
+	lw, err := Workspace.Create(c, spec)
 	if err != nil {
 		goutil.Logger.Infow("failed to create workspace",
 			"workspace", spec.Name,
@@ -122,7 +124,7 @@ func HandleWorkspaceCreate(c *gin.Context) {
 }
 
 func HandleWorkspaceDelete(c *gin.Context) {
-	err := workspace.Delete(c.Param("wsname"))
+	err := Workspace.Delete(c.Param("wsname"))
 	if err != nil {
 		goutil.Logger.Errorw("failed to delete workspace",
 			"workspace", c.Param("wsname"),
@@ -153,7 +155,7 @@ func HandleWorkspaceUpdate(c *gin.Context) {
 		return
 	}
 
-	lw, err := workspace.Update(c, spec)
+	lw, err := Workspace.Update(c, spec)
 	if err != nil {
 		goutil.Logger.Errorw("failed to update workspace",
 			"workspace", spec.Name,

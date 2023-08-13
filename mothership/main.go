@@ -35,6 +35,9 @@ var (
 	namespaceFlag             *string
 
 	requestTimeoutInternal *string
+
+	clusterInstance   *cluster.Cluster
+	workspaceInstance *workspace.Workspace
 )
 
 func main() {
@@ -55,22 +58,16 @@ func main() {
 	}
 
 	// TODO: create a workspace struct to pass them in
-	workspace.CertificateARN = *certificateARNFlag
-	workspace.RootDomain = *rootDomainFlag
-	workspace.StoreNamespace = *namespaceFlag
-	workspace.SharedAlbRootDomain = *sharedAlbRootDomainFlag
-	cluster.RootDomain = *rootDomainFlag
-	cluster.SharedAlbRootDomain = *sharedAlbRootDomainFlag
-	cluster.SharedALBRoute53ZoneID = *sharedALBRoute53ZoneID
-	cluster.DeploymentEnvironment = *deploymentEnvironmentFlag
-	cluster.StoreNamespace = *namespaceFlag
+	clusterInstance = cluster.New(*rootDomainFlag, *deploymentEnvironmentFlag, *namespaceFlag, *sharedAlbRootDomainFlag, *sharedALBRoute53ZoneID)
+	workspaceInstance = workspace.New(*rootDomainFlag, *namespaceFlag, *certificateARNFlag, *sharedAlbRootDomainFlag, clusterInstance)
+
+	httpapi.Cluster = clusterInstance
+	httpapi.Workspace = workspaceInstance
+
 	httpapi.RootDomain = *rootDomainFlag
 	httpapi.SharedAlbRootDomain = *sharedAlbRootDomainFlag
 
 	terraform.MustInit()
-
-	cluster.Init()
-	workspace.Init()
 
 	router := gin.Default()
 	router.Use(timeoutMiddleware(requestTimeoutInternalDur))
@@ -148,10 +145,10 @@ func waitForIdlingAndUpdateImageTag(imageTag string) {
 	)
 	// wait until no jobs are running
 	for {
-		cluster.Worker.Lock()
-		workspace.Worker.Lock()
-		clusterJobsCount := cluster.Worker.CountJobs()
-		workspaceJobsCount := workspace.Worker.CountJobs()
+		clusterInstance.Worker.Lock()
+		workspaceInstance.Worker.Lock()
+		clusterJobsCount := clusterInstance.Worker.CountJobs()
+		workspaceJobsCount := workspaceInstance.Worker.CountJobs()
 		goutil.Logger.Infow("Checking if any jobs are running",
 			"operation", "updateImageTag",
 			"cluster_jobs_count", clusterJobsCount,
@@ -178,8 +175,8 @@ func waitForIdlingAndUpdateImageTag(imageTag string) {
 				return
 			}
 		}
-		workspace.Worker.Unlock()
-		cluster.Worker.Unlock()
+		workspaceInstance.Worker.Unlock()
+		clusterInstance.Worker.Unlock()
 		time.Sleep(time.Minute)
 	}
 }
