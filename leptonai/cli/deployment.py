@@ -14,6 +14,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
+from .photon import _parse_deployment_tokens_or_die
 
 
 @click_group()
@@ -248,32 +249,65 @@ def log(name, replica):
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to update.", required=True)
+@click.option("--id", "-i", help="ID of the photon.", default=None)
+@click.option("--min-replicas", help="Number of replicas.", type=int, default=None)
 @click.option(
-    "--replica",
-    "-r",
-    help="The number of replicas to update to.",
-    type=int,
+    "--public/--no-public",
+    is_flag=True,
     default=None,
+    help=(
+        "If --public is specified, the deployment will be made public. If --no-public"
+        " is specified, the deployment will be made non-public, with access tokens"
+        " being the workspace token and the tokens specified by --tokens. If neither is"
+        " specified, no change will be made to the access control of the deployment."
+    ),
 )
-def update(name, replica):
+@click.option(
+    "--tokens",
+    help=(
+        "Additional tokens that can be used to access the deployment. See docs for"
+        " details on access control."
+    ),
+    multiple=True,
+)
+def update(name, min_replicas, public, tokens, id):
     """
     Updates a deployment. Currently, only adjustment of the number of replicas is
     supported.
     """
-    check(replica is not None, "Number of replicas not specified.")
-    check(replica > 0, f"Invalid number of replicas: {replica}")
-    # Just to avoid stupid errors right now, we will limit the number of replicas
-    # to 100 for now.
-    check(replica <= 100, f"Invalid number of replicas: {replica}")
+    if id:
+        # TODO: We should probably check if the id is valid.
+        pass
+    if min_replicas is not None:
+        check(min_replicas > 0, f"Invalid number of replicas: {min_replicas}")
+        # Just to avoid stupid errors right now, we will limit the number of replicas
+        # to 100 for now.
+        check(
+            min_replicas <= 100,
+            f"Invalid number of replicas: {min_replicas} is too big.",
+        )
+    check(not (public and tokens), "Cannot specify both --public and --tokens.")
+    if public:
+        final_tokens = []
+    else:
+        if tokens or (public is not None):
+            # If tokens is set, or public is explicitly set to be false, we know
+            # that we want to change the access control of the deployment.
+            final_tokens = _parse_deployment_tokens_or_die(public, tokens)
+        else:
+            # Note that None is different from [] here. None means that the tokens are not
+            # changed, while [] means that the tokens are cleared (aka, public deployment)
+            final_tokens = None
+
     workspace_url, auth_token = get_workspace_and_token_or_die()
     guard_api(
-        api.update_deployment(workspace_url, auth_token, name, replica),
+        api.update_deployment(
+            workspace_url, auth_token, name, id, min_replicas, final_tokens
+        ),
         detail=True,
         msg=f"Cannot update deployment [red]{name}[/]. See error above.",
     )
-    console.print(
-        f"Deployment [green]{name}[/] updated to replica=[green]{replica}[/]."
-    )
+    console.print(f"Deployment [green]{name}[/] updated.")
 
 
 @deployment.command()
