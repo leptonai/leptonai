@@ -27,7 +27,13 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
   # Force version update if existing pods are unable to be drained due to a pod disruption budget issue.
   force_update_version = false
 
-  capacity_type  = var.default_capacity_type
+  capacity_type = var.default_capacity_type
+
+  # NOTE
+  # update to this field is not supported by EKS API
+  # https://docs.aws.amazon.com/sdk-for-go/api/service/eks/#UpdateNodegroupVersionInput
+  # https://docs.aws.amazon.com/sdk-for-go/api/service/eks/#UpdateNodegroupConfigInput
+  # https://github.com/hashicorp/terraform-provider-aws/issues/22499
   instance_types = var.cpu_node_group_instance_types
 
   # https://docs.aws.amazon.com/eks/latest/APIReference/API_Nodegroup.html
