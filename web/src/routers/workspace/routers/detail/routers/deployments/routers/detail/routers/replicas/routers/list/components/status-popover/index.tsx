@@ -23,6 +23,7 @@ const ReadinessStatusTag = ({ item }: { item: DeploymentReadinessItem }) => {
         return "processing";
       case ReadinessReason.ReadinessReasonNoCapacity:
         return "warning";
+      case ReadinessReason.ReadinessReasonDeploymentConfigError:
       case ReadinessReason.ReadinessReasonUserCodeError:
       case ReadinessReason.ReadinessReasonSystemError:
         return "error";

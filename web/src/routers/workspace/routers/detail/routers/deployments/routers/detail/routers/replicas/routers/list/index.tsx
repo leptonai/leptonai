@@ -73,6 +73,7 @@ const ReplicaStatusTag = ({
           break;
         case ReadinessReason.ReadinessReasonUserCodeError:
         case ReadinessReason.ReadinessReasonSystemError:
+        case ReadinessReason.ReadinessReasonDeploymentConfigError:
           errorCount++;
           break;
         case ReadinessReason.ReadinessReasonUnknown:
@@ -95,7 +96,7 @@ const ReplicaStatusTag = ({
       setText(`Ready`);
       setColor("success");
     } else {
-      setText(`Unknown`);
+      setText(readiness?.[0]?.reason || "Unknown");
       setColor("default");
     }
   }, [readiness, terminated]);

@@ -71,6 +71,7 @@ export enum ReadinessReason {
   ReadinessReasonInProgress = "InProgress",
   ReadinessReasonNoCapacity = "NoCapacity",
   ReadinessReasonUserCodeError = "UserCodeError",
+  ReadinessReasonDeploymentConfigError = "DeploymentConfigError",
   ReadinessReasonSystemError = "SystemError",
   ReadinessReasonUnknown = "Unknown",
 }
