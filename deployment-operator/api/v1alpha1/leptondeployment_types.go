@@ -44,9 +44,11 @@ type LeptonDeploymentSystemSpec struct {
 	ServiceAccountName            string `json:"service_account_name,omitempty"`
 	S3ReadOnlyAccessK8sSecretName string `json:"s3_read_only_access_k8s_secret_name,omitempty"`
 	RootDomain                    string `json:"root_domain,omitempty"`
-	WorkspaceName                 string `json:"workspace_name,omitempty"`
-	WorkspaceToken                string `json:"workspace_token,omitempty"`
-	CertificateARN                string `json:"certificate_arn,omitempty"`
+	// SharedALBMainDomain is used to construct deployment url, e.g. `adn.app.lepton.ai` in `stable-gpt.adn.app.lepton.ai`
+	SharedALBMainDomain string `json:"shared_alb_main_domain,omitempty"`
+	WorkspaceName       string `json:"workspace_name,omitempty"`
+	WorkspaceToken      string `json:"workspace_token,omitempty"`
+	CertificateARN      string `json:"certificate_arn,omitempty"`
 }
 
 // LeptonDeploymentStatus defines the user-controlled spec.

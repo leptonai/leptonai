@@ -106,6 +106,7 @@ func (h *DeploymentHandler) createFromUserSpec(c *gin.Context, spec leptonaiv1al
 		PhotonPrefix:                  h.photonPrefix,
 		S3ReadOnlyAccessK8sSecretName: h.s3ReadOnlyAccessK8sSecretName,
 		RootDomain:                    h.rootDomain,
+		SharedALBMainDomain:           h.sharedALBMainDomain,
 		WorkspaceName:                 h.workspaceName,
 		CertificateARN:                h.certARN,
 	}

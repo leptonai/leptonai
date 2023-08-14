@@ -28,6 +28,7 @@ type Handler struct {
 	photonImageRegistry           string
 	s3ReadOnlyAccessK8sSecretName string
 	rootDomain                    string
+	sharedALBMainDomain           string
 	workspaceName                 string
 	certARN                       string
 	apiToken                      string
@@ -39,7 +40,7 @@ type Handler struct {
 }
 
 func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
-	rootDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
+	rootDomain, sharedALBMainDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
 	workspaceState WorkspaceState) *Handler {
 	h := &Handler{
 		clusterName:                   clusterName,
@@ -51,6 +52,7 @@ func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix,
 		photonImageRegistry:           photonImageRegistry,
 		s3ReadOnlyAccessK8sSecretName: s3ReadOnlyAccessK8sSecretName,
 		rootDomain:                    rootDomain,
+		sharedALBMainDomain:           sharedALBMainDomain,
 		workspaceName:                 workspaceName,
 		certARN:                       certARN,
 		apiToken:                      apiToken,

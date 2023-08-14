@@ -145,6 +145,10 @@ spec:
                 description: 'TODO: delete ServiceAccountName at some point, which
                   is only used for backward compatibility.'
                 type: string
+              shared_alb_main_domain:
+                description: SharedALBMainDomain is used to construct deployment url,
+                  e.g. `adn.app.lepton.ai` in `stable-gpt.adn.app.lepton.ai`
+                type: string
               workspace_name:
                 type: string
               workspace_token:

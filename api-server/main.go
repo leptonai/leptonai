@@ -27,11 +27,12 @@ import (
 )
 
 var (
-	certificateARNFlag *string
-	rootDomainFlag     *string
-	clusterNameFlag    *string
-	workspaceNameFlag  *string
-	apiTokenFlag       *string
+	certificateARNFlag      *string
+	rootDomainFlag          *string
+	sharedALBMainDomainFlag *string
+	clusterNameFlag         *string
+	workspaceNameFlag       *string
+	apiTokenFlag            *string
 
 	// Workspace level Cloud Resources Flags
 	regionFlag                     *string
@@ -75,6 +76,7 @@ func main() {
 	s3ReadOnlyAccessK8sSecretNameFlag = flag.String("s3-read-only-access-k8s-secret-name", "s3-ro-key", "S3 read only access k8s secret name")
 	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
 	rootDomainFlag = flag.String("root-domain", "", "root domain")
+	sharedALBMainDomainFlag = flag.String("shared-alb-main-domain", "", "main domain for shared alb")
 
 	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
 	regionFlag = flag.String("region", "us-east-1", "cluster region")
@@ -144,6 +146,7 @@ func main() {
 		*photonImageRegistryFlag,
 		*s3ReadOnlyAccessK8sSecretNameFlag,
 		*rootDomainFlag,
+		*sharedALBMainDomainFlag,
 		*workspaceNameFlag,
 		*certificateARNFlag,
 		*apiTokenFlag,

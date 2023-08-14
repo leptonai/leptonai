@@ -73,6 +73,9 @@ spec:
 {{ if .Values.apiServer.rootDomain }}
             - "--root-domain={{ .Values.apiServer.rootDomain }}"
 {{ end }}
+{{ if .Values.apiServer.sharedAlbMainDomain }}
+            - "--shared-alb-main-domain={{ .Values.apiServer.sharedAlbMainDomain }}"
+{{ end }}
 {{ if .Values.apiServer.apiToken }}
             - "--api-token={{ .Values.apiServer.apiToken }}"
 {{ end }}
