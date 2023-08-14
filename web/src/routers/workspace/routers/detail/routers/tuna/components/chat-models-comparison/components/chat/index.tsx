@@ -256,9 +256,8 @@ export const Chat = forwardRef<ChatRef, ChatProps>(
           <Row
             css={css`
               border: 1px solid ${theme.colorBorder};
-              border-radius: ${theme.borderRadiusLG}px;
+              border-radius: ${theme.borderRadius}px;
               transition: border-color 0.18s ease-in-out;
-              background: ${theme.colorFillTertiary};
               &:hover,
               &:focus-within {
                 border-color: ${theme.colorPrimaryBorderHover};
@@ -283,6 +282,7 @@ export const Chat = forwardRef<ChatRef, ChatProps>(
                 placeholder="Send a message"
                 autoSize={{ minRows: 1, maxRows: 5 }}
                 value={input}
+                autoFocus
                 onChange={(e) => onInnerInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {

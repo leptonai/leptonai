@@ -27,6 +27,7 @@ export const PopoverDeploymentTable: FC<{
       <ProcessingWrapper processing={color === "processing"}>
         <Tag
           color={color}
+          bordered={false}
           css={css`
             margin-right: 0;
           `}

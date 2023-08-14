@@ -1,3 +1,7 @@
+import {
+  FullLayoutWidth,
+  LimitedLayoutWidth,
+} from "@lepton-dashboard/components/layout";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { List } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/routers/list";
 import { ModelComparison } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/routers/model-comparison";
@@ -19,8 +23,22 @@ export const Tuna: FC = () => {
       <Container>
         <Routes>
           <Route>
-            <Route path="list" element={<List />} />
-            <Route path="chat/:name" element={<ModelComparison />} />
+            <Route
+              path="list"
+              element={
+                <LimitedLayoutWidth>
+                  <List />
+                </LimitedLayoutWidth>
+              }
+            />
+            <Route
+              path="chat/:name"
+              element={
+                <FullLayoutWidth>
+                  <ModelComparison />
+                </FullLayoutWidth>
+              }
+            />
             <Route path="*" element={<NavigateTo name="tunaList" replace />} />
           </Route>
         </Routes>

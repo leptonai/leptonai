@@ -10,7 +10,7 @@ import { Card } from "@lepton-dashboard/components/card";
 export const ModelComparison: FC = () => {
   const { name } = useParams();
   return (
-    <Row gutter={[0, 24]}>
+    <Row gutter={[0, 16]}>
       <Col span={24}>
         <BreadcrumbHeader
           items={[

@@ -49,6 +49,7 @@ export const Registries: FC = () => {
 
   return (
     <Card
+      loading={loading}
       borderless
       shadowless
       icon={<CarbonIcon icon={<ContainerRegistry />} />}
@@ -56,7 +57,6 @@ export const Registries: FC = () => {
       extra={<NewRegistry afterAction={() => refreshService.refresh()} />}
     >
       <Table
-        loading={loading}
         bordered
         pagination={false}
         size="small"

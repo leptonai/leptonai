@@ -122,14 +122,7 @@ export const Detail: FC = () => {
                   </FullLayoutWidth>
                 }
               />
-              <Route
-                path="tuna/*"
-                element={
-                  <LimitedLayoutWidth>
-                    <Tuna />
-                  </LimitedLayoutWidth>
-                }
-              />
+              <Route path="tuna/*" element={<Tuna />} />
               <Route
                 path="*"
                 element={<NavigateTo name="dashboard" replace />}

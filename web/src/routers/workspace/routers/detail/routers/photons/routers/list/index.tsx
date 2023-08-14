@@ -33,7 +33,7 @@ export const List: FC = () => {
     );
   }, [photonGroups, search]);
   return (
-    <Row gutter={[8, 24]}>
+    <Row gutter={[8, 16]}>
       <Col flex={1}>
         <Row gutter={[8, 24]}>
           <Col flex="1 1 auto">

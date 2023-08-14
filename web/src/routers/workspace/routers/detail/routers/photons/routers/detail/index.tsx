@@ -34,7 +34,7 @@ export const Detail: FC = () => {
   };
 
   return photon ? (
-    <Row gutter={[0, 24]}>
+    <Row gutter={[0, 16]}>
       <Col span={24}>
         <BreadcrumbHeader
           items={[

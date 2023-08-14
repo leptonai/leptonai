@@ -1,7 +1,8 @@
 import { FineTuneJobStatus } from "@lepton-dashboard/interfaces/fine-tune";
+import { TunaItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/tuna-item";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { FC, useMemo, useState } from "react";
-import { Col, Row, Button, Empty, Spin, Modal, Select, Input } from "antd";
+import { Col, Row, Button, Empty, Modal, Select, Input } from "antd";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
@@ -9,7 +10,6 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { switchMap } from "rxjs";
 import { Card } from "@lepton-dashboard/components/card";
-import { JobItem } from "../../components/item";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { CreateJob } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/create";
 
@@ -21,6 +21,7 @@ export const List: FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [search, setSearch] = useState<string>("");
   const [status, setStatus] = useState<string[]>([]);
+
   const models = useStateFromObservable(
     () =>
       refreshService.refresh$.pipe(switchMap(() => fineTuneService.listJobs())),
@@ -45,10 +46,10 @@ export const List: FC = () => {
 
   return (
     <>
-      <Row gutter={[8, 24]}>
+      <Row gutter={[8, 16]}>
         <Col span={24}>
           <Row gutter={[8, 8]} justify="space-between">
-            <Col flex="1 1 300px">
+            <Col flex="1 1 auto">
               <Input
                 autoFocus
                 value={search}
@@ -57,12 +58,12 @@ export const List: FC = () => {
                 placeholder="Search"
               />
             </Col>
-            <Col flex="0 1 300px">
+            <Col flex="0 1 200px">
               <Select
                 style={{ width: "100%" }}
                 mode="multiple"
                 value={status}
-                placeholder="Status"
+                placeholder="Traning status"
                 onChange={(v) => setStatus(v)}
                 maxTagCount={1}
                 options={[
@@ -102,26 +103,22 @@ export const List: FC = () => {
           </Row>
         </Col>
         <Col span={24}>
-          <Spin spinning={loading}>
-            {filteredModels.length > 0 ? (
-              <Row gutter={[16, 16]} wrap>
-                {filteredModels.map((model) => (
-                  <Col span={24} key={`${model.id}`}>
-                    <Card className="photon-item">
-                      <JobItem job={model} />
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            ) : (
-              <Card>
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No tuna found"
-                />
-              </Card>
-            )}
-          </Spin>
+          {filteredModels.length > 0 ? (
+            <Row gutter={[16, 16]}>
+              {filteredModels.map((model) => (
+                <Col span={24} md={12} lg={8} key={model.id}>
+                  <TunaItem tuna={model} key={model.id} />
+                </Col>
+              ))}
+            </Row>
+          ) : (
+            <Card loading={loading}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No tuna found"
+              />
+            </Card>
+          )}
         </Col>
       </Row>
       <Modal

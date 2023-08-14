@@ -140,6 +140,7 @@ export const Storage: FC = () => {
   return (
     <>
       <Card
+        loading={loading}
         extra={
           <Actions
             disabled={loading || workspaceTrackerService.workspace?.isPastDue}
@@ -284,7 +285,6 @@ export const Storage: FC = () => {
               />
             ),
           }}
-          loading={loading}
           pagination={false}
           showHeader={false}
           size="small"

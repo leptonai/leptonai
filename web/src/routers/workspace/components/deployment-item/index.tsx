@@ -125,9 +125,10 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                 <Description.Item
                   icon={<CarbonIcon icon={<Time />} />}
                   description={
-                    <>
-                      Created at <DateParser date={deployment.created_at} />
-                    </>
+                    <DateParser
+                      prefix="Created at "
+                      date={deployment.created_at}
+                    />
                   }
                 />
               </Col>

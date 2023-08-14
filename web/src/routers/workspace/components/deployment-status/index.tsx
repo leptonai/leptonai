@@ -25,6 +25,7 @@ export const DeploymentStatus: FC<
       <ProcessingWrapper processing={status.toUpperCase() === "STARTING"}>
         <Tag
           className={className}
+          bordered={false}
           css={css`
             margin-inline: 0;
             font-weight: 500;

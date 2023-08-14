@@ -55,6 +55,7 @@ export const Secrets: FC = () => {
 
   return (
     <Card
+      loading={loading}
       borderless
       shadowless
       icon={<CarbonIcon icon={<Asterisk />} />}
@@ -62,7 +63,6 @@ export const Secrets: FC = () => {
       extra={<NewSecret afterAction={() => refreshService.refresh()} />}
     >
       <Table
-        loading={loading}
         bordered
         pagination={false}
         size="small"

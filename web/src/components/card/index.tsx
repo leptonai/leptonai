@@ -105,7 +105,7 @@ export const Card: FC<
           padding: ${paddingless ? 0 : "16px"};
         `}
       >
-        {loading ? <Skeleton /> : children}
+        {loading ? <Skeleton active /> : children}
       </div>
     </div>
   );

@@ -77,7 +77,7 @@ export const List: FC = () => {
     );
   }, [deployments, search, status, photonFilters, photonGroups]);
   return (
-    <Row gutter={[8, 24]}>
+    <Row gutter={[8, 16]}>
       <Col flex="1 0 auto">
         <Input
           autoFocus

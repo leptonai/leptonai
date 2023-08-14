@@ -21,3 +21,8 @@ html {
 .ant-tooltip {
   max-width: 50vw !important;
 }
+
+.ant-modal-mask {
+  background-color: transparent !important;
+  backdrop-filter: blur(8px);
+}
