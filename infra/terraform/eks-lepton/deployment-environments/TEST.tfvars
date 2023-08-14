@@ -8,9 +8,16 @@
 deployment_environment    = "TEST"
 auth_users_iam_group_name = "dev"
 
+# default region with the most capacity
 region = "us-east-1"
 
-default_capacity_type         = "SPOT"
+default_capacity_type = "SPOT"
+
+# 4 vCPUs + 16 GiB RAM
+# ref. https://aws.amazon.com/ec2/instance-types/t3/
+#
+# 4 vCPUs + 8 GiB RAM
+# ref. https://aws.amazon.com/ec2/instance-types/c5/
 cpu_node_group_instance_types = ["t3.xlarge", "c5.xlarge"]
 
 single_nat_gateway = true

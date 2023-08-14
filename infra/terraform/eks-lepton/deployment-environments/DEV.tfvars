@@ -8,10 +8,14 @@
 deployment_environment    = "DEV"
 auth_users_iam_group_name = "dev"
 
+# default region with the most capacity
 region = "us-east-1"
 
-default_capacity_type         = "ON_DEMAND"
-cpu_node_group_instance_types = ["m6a.16xlarge"]
+default_capacity_type = "ON_DEMAND"
+
+# 16 vCPUs + 64 GiB RAM
+# ref. https://aws.amazon.com/ec2/instance-types/m6a/
+cpu_node_group_instance_types = ["m6a.4xlarge"]
 
 single_nat_gateway = true
 

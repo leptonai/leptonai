@@ -8,9 +8,14 @@
 deployment_environment    = "PROD"
 auth_users_iam_group_name = "prod-admins"
 
+# different AWS account for prod: 720771144610
+# default region with the most capacity
 region = "us-west-2"
 
-default_capacity_type         = "ON_DEMAND"
+default_capacity_type = "ON_DEMAND"
+
+# 64 vCPUs + 256 GiB RAM
+# ref. https://aws.amazon.com/ec2/instance-types/m6a/
 cpu_node_group_instance_types = ["m6a.16xlarge"]
 
 # for maximum availability
