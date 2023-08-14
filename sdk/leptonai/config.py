@@ -39,6 +39,7 @@ WORKSPACE_API_PATH = "/api/v1"
 LEPTON_RESERVED_ENV_PREFIX = "lepton_"
 # Dashboard URL
 LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
+LEPTON_DASHBOARD_DAILY_URL = "https://dashboard.daily.lepton.ai"
 
 if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1

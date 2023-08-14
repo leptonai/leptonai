@@ -46,7 +46,7 @@ import torch
 import leptonai
 from leptonai import Client
 from leptonai.api.photon import create as create_photon, load_metadata
-from leptonai.config import LEPTON_DASHBOARD_URL
+from leptonai.config import LEPTON_DASHBOARD_URL, LEPTON_DASHBOARD_DAILY_URL
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam
 from leptonai.util import switch_cwd
@@ -567,15 +567,15 @@ from leptonai.photon import Photon
         path = ph.save()
 
         proc, port = photon_run_local_server(path=path)
-        res = requests.post(
-            f"http://127.0.0.1:{port}",
-            json={"x": 1.0},
-            headers={"Origin": LEPTON_DASHBOARD_URL},
-        )
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(
-            res.headers["Access-Control-Allow-Origin"], LEPTON_DASHBOARD_URL
-        )
+
+        for url in [LEPTON_DASHBOARD_URL, LEPTON_DASHBOARD_DAILY_URL]:
+            res = requests.post(
+                f"http://127.0.0.1:{port}",
+                json={"x": 1.0},
+                headers={"Origin": url},
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.headers["Access-Control-Allow-Origin"], url)
 
         res = requests.post(
             f"http://127.0.0.1:{port}",
