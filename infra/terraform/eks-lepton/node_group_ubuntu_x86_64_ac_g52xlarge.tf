@@ -7,7 +7,7 @@ resource "aws_eks_node_group" "ubuntu_x86_64_ac_g52xlarge" {
   count = var.ubuntu_x86_64_ac_g52xlarge_max_size > 0 ? 1 : 0
 
   cluster_name    = module.eks.cluster_name
-  node_group_name = "${var.cluster_name}-ubuntu-x86_64-g52xlarge"
+  node_group_name = "${var.cluster_name}-ubuntu-x86_64-g52xlarge-v1"
   node_role_arn   = aws_iam_role.mng.arn
 
   # no need to be in public subnets

@@ -10,7 +10,7 @@ resource "aws_eks_node_group" "al2_x86_64_cpu_m6a16xlarge" {
   count = var.al2_x86_64_cpu_max_size > 0 ? 1 : 0
 
   cluster_name    = module.eks.cluster_name
-  node_group_name = "${var.cluster_name}-al2-x86_64-m6a16xlarge"
+  node_group_name = "${var.cluster_name}-al2-x86_64-m6a16xlarge-v1"
   node_role_arn   = aws_iam_role.mng.arn
 
   # no need to be in public subnets

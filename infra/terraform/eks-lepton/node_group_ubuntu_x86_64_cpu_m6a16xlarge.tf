@@ -8,7 +8,7 @@ resource "aws_eks_node_group" "ubuntu_x86_64_cpu_m6a16xlarge" {
   # NOTE: do not set "count" field here since we always want the ubuntu CPU node groups
 
   cluster_name    = module.eks.cluster_name
-  node_group_name = "${var.cluster_name}-ubuntu-x86_64-m6a16xlarge"
+  node_group_name = "${var.cluster_name}-ubuntu-x86_64-m6a16xlarge-v1"
   node_role_arn   = aws_iam_role.mng.arn
 
   # no need to be in public subnets
