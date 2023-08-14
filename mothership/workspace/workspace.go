@@ -340,6 +340,7 @@ func (w *Workspace) Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspace
 		goutil.Logger.Warnw("updating a non-ready workspace",
 			"workspace", workspaceName,
 			"operation", "update",
+			"state", ws.Status.State,
 		)
 	}
 	// temporarily allow updating cluster name for testing
