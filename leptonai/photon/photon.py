@@ -36,6 +36,7 @@ from leptonai.config import (
     BASE_IMAGE_ARGS,
     DEFAULT_PORT,
     LEPTON_DASHBOARD_URL,
+    LEPTON_DASHBOARD_DAILY_URL,
     PYDANTIC_MAJOR_VERSION,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
@@ -463,6 +464,7 @@ class Photon(BasePhoton):
             CORSMiddleware,
             allow_origins=[
                 LEPTON_DASHBOARD_URL,
+                LEPTON_DASHBOARD_DAILY_URL,
             ],
             allow_credentials=True,
             allow_methods=["*"],
