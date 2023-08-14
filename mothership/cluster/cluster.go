@@ -561,6 +561,16 @@ func (c *Cluster) createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.Lep
 	defer func() {
 		metrics.ObserveClusterJobsLatency(jkind, err == nil, time.Since(start))
 
+		cl, gerr := c.DataStore.Get(ctx, clusterName)
+		if gerr != nil {
+			goutil.Logger.Errorw("failed to get cluster",
+				"cluster", clusterName,
+				"operation", "createOrUpdateCluster",
+				"error", gerr,
+			)
+			return
+		}
+
 		if err == nil {
 			// if err != nil, the state will be updated in the failure handler
 			cl.Status.LastState = cl.Status.State

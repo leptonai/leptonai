@@ -677,6 +677,16 @@ func (w *Workspace) createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1
 	defer func() {
 		metrics.ObserveClusterJobsLatency(jkind, err == nil, time.Since(start))
 
+		ws, gerr := w.DataStore.Get(ctx, workspaceName)
+		if gerr != nil {
+			goutil.Logger.Errorw("failed to get workspace",
+				"workspace", workspaceName,
+				"operation", "createOrUpdateWorkspace",
+				"error", gerr,
+			)
+			return
+		}
+
 		if err == nil {
 			ws.Status.LastState = ws.Status.State
 			ws.Status.State = crdv1alpha1.WorkspaceOperationalStateReady
