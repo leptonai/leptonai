@@ -2,42 +2,41 @@ name: tum
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
     paths:
       - .github/workflows/tum.yaml
       - tum/**
-    branches: [ "**" ]
+    branches: ["**"]
 
 permissions:
   contents: read
 
 jobs:
   test:
-
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-        cache: 'pip' # caching pip dependencies
-    - name: Install dependencies
-      run: |
-        pip install -U pip setuptools
-    - name: Python-Lint
-      run: |
-        cd tum
-        pip install black ruff
-        ruff .
-        black --preview --check .
-        cd -
-    - name: Cpp-Lint
-      run: |
-        set -x
-        cd tum
-        sudo apt-get update
-        sudo apt-get install -y clang-format
-        find -type f \( -name '*.h' -o -name '*.cc' \) -exec clang-format --dry-run --Werror {} +;
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          pip install -U pip setuptools
+      - name: Python-Lint
+        run: |
+          cd tum
+          pip install black ruff
+          ruff .
+          black --preview --check .
+          cd -
+      - name: Cpp-Lint
+        run: |
+          set -x
+          cd tum
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+          find -type f \( -name '*.h' -o -name '*.cc' \) -exec clang-format --dry-run --Werror {} +;

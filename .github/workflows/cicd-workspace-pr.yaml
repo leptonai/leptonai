@@ -10,7 +10,7 @@ on:
       - "**.py"
       - "charts/lepton/**"
       - "infra/terraform/workspace/**"
-    branches: [ "**" ]
+    branches: ["**"]
 
 jobs:
   build-api-server:

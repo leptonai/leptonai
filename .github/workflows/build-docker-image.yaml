@@ -26,31 +26,31 @@ jobs:
   build:
     runs-on: ${{ inputs.runs-on }}
     steps:
-    - uses: actions/checkout@v3
-    - name: Install awscli
-      run: |
-        python -m pip install --upgrade pip
-        pip install awscli
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    - name: Build and push the Docker image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      run: |
-        set -x
+      - uses: actions/checkout@v3
+      - name: Install awscli
+        run: |
+          python -m pip install --upgrade pip
+          pip install awscli
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Build and push the Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          set -x
 
-        docker build . --file ${{ inputs.folder }}/Dockerfile \
-          --tag ${{ inputs.repo }}:${{ inputs.tag }} \
-          --build-arg GIT_COMMIT=${{ inputs.commit }} \
-          --build-arg REPO=$ECR_REGISTRY/ecr-public
+          docker build . --file ${{ inputs.folder }}/Dockerfile \
+            --tag ${{ inputs.repo }}:${{ inputs.tag }} \
+            --build-arg GIT_COMMIT=${{ inputs.commit }} \
+            --build-arg REPO=$ECR_REGISTRY/ecr-public
 
-        echo "tagging container image with ${{ inputs.repo }}:${{ inputs.tag }}}"
-        docker tag ${{ inputs.repo }}:${{ inputs.tag }} $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}
-        docker push $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}
+          echo "tagging container image with ${{ inputs.repo }}:${{ inputs.tag }}}"
+          docker tag ${{ inputs.repo }}:${{ inputs.tag }} $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}
+          docker push $ECR_REGISTRY/${{ inputs.repo }}:${{ inputs.tag }}

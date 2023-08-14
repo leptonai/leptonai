@@ -2,11 +2,11 @@ name: sdk-release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
     paths:
       - .github/workflows/sdk-release.yaml
-    branches: [ "**" ]
+    branches: ["**"]
   workflow_dispatch:
     inputs:
       publish_s3:
@@ -27,31 +27,30 @@ on:
         default: false
 
 jobs:
-
   build-package:
     runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Set up Python Environment
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Set up pip
-      run: |
-        pip install -U pip setuptools
-    - name: Build Package
-      id: build-package
-      run: |
-        cd sdk
-        pip wheel --no-deps .
-        cd -
-    - name: Upload to Github Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: sdk-package
-        path: sdk/leptonai*.whl
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up pip
+        run: |
+          pip install -U pip setuptools
+      - name: Build Package
+        id: build-package
+        run: |
+          cd sdk
+          pip wheel --no-deps .
+          cd -
+      - name: Upload to Github Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sdk-package
+          path: sdk/leptonai*.whl
 
   test-package:
     needs: build-package
@@ -60,109 +59,109 @@ jobs:
       matrix:
         python_version: ["3.7", "3.10"]
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python Environment
-      uses: actions/setup-python@v4
-      with:
-        python-version: "${{ matrix.python_version }}"
-    - name: Set up pip
-      run: |
-        pip install -U pip setuptools
-    - uses: actions/download-artifact@v3
-      with:
-        name: sdk-package
-    - name: Install Package
-      run: |
-        pip install leptonai*.whl
-        pip install pytest pytest-cov responses flask gradio
-    - name: Run Tests
-      run: |
-        echo "leptonai package version:"
-        lep -v
+      - uses: actions/checkout@v3
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "${{ matrix.python_version }}"
+      - name: Set up pip
+        run: |
+          pip install -U pip setuptools
+      - uses: actions/download-artifact@v3
+        with:
+          name: sdk-package
+      - name: Install Package
+        run: |
+          pip install leptonai*.whl
+          pip install pytest pytest-cov responses flask gradio
+      - name: Run Tests
+        run: |
+          echo "leptonai package version:"
+          lep -v
 
-        echo "leptonai package path:"
-        python -c "import leptonai; print(leptonai)"
+          echo "leptonai package path:"
+          python -c "import leptonai; print(leptonai)"
 
-        echo "Run unittests"
-        pytest -x sdk
-    - name: Run End-To-End Tests
-      if: inputs.run_e2e
-      env:
-        LEPTON_RELEASE_CREDENTIALS: ${{ secrets.LEPTON_STAGING_WORKSPACE_CREDENTIALS }}
-      run: bash sdk/release_scripts/e2e_sdk_cli_test.sh
+          echo "Run unittests"
+          pytest -x sdk
+      - name: Run End-To-End Tests
+        if: inputs.run_e2e
+        env:
+          LEPTON_RELEASE_CREDENTIALS: ${{ secrets.LEPTON_STAGING_WORKSPACE_CREDENTIALS }}
+        run: bash sdk/release_scripts/e2e_sdk_cli_test.sh
 
   publish-s3:
     if: github.event_name == 'push' || inputs.publish_s3
     needs: test-package
     runs-on: self-hosted
     steps:
-    - name: Set up Python Environment
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Set up pip
-      run: |
-        pip install -U pip setuptools
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Install awscli
-      run: |
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-        unzip awscliv2.zip
-        sudo ./aws/install
-    - uses: actions/download-artifact@v3
-      with:
-        name: sdk-package
-    - name: Upload package to S3
-      run: |
-        s3_url="s3://lepton-sdk"
-        echo "github.event_name = ${{ github.event_name }}"
-        echo "inputs.is_release = ${{ inputs.is_release }}"
-        if [ "${{ github.event_name }}" == 'workflow_dispatch' ] && [ "${{ inputs.is_release }}" == 'true' ]; then
-            s3_url="${s3_url}/release"
-        fi
-        echo "s3_url=${s3_url}"
-        aws s3 cp leptonai*.whl "${s3_url}/"
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up pip
+        run: |
+          pip install -U pip setuptools
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Install awscli
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+      - uses: actions/download-artifact@v3
+        with:
+          name: sdk-package
+      - name: Upload package to S3
+        run: |
+          s3_url="s3://lepton-sdk"
+          echo "github.event_name = ${{ github.event_name }}"
+          echo "inputs.is_release = ${{ inputs.is_release }}"
+          if [ "${{ github.event_name }}" == 'workflow_dispatch' ] && [ "${{ inputs.is_release }}" == 'true' ]; then
+              s3_url="${s3_url}/release"
+          fi
+          echo "s3_url=${s3_url}"
+          aws s3 cp leptonai*.whl "${s3_url}/"
 
   publish-pypi:
     if: inputs.publish_pypi
     needs: test-package
     runs-on: self-hosted
     steps:
-    - name: Set up Python Environment
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Set up pip
-      run: |
-        pip install -U pip setuptools
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
-    - name: Install awscli
-      run: |
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-        unzip awscliv2.zip
-        sudo ./aws/install
-    - name: Login to AWS CodeArtifact (twine)
-      env:
-        AWS_CODE_ARTIFACT_REPO: lepton-dev
-        AWS_CODE_ARTIFACT_DOMAIN: lepton-dev
-        AWS_CODE_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
-        AWS_CODE_ARTIFACT_DOMAIN_OWNER: ${{ secrets.AWS_CODE_ARTIFACT_DOMAIN_OWNER }}
-      run: |
-        pip install twine
-        aws codeartifact login --tool twine --repository ${AWS_CODE_ARTIFACT_REPO} --domain ${AWS_CODE_ARTIFACT_DOMAIN} --domain-owner ${AWS_CODE_ARTIFACT_DOMAIN_OWNER} --region ${AWS_CODE_ARTIFACT_REGION}
-    - uses: actions/download-artifact@v3
-      with:
-        name: sdk-package
-    - name: Upload Package to PyPI
-      run: |
-        twine upload --verbose --repository codeartifact leptonai*.whl
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up pip
+        run: |
+          pip install -U pip setuptools
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Install awscli
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+      - name: Login to AWS CodeArtifact (twine)
+        env:
+          AWS_CODE_ARTIFACT_REPO: lepton-dev
+          AWS_CODE_ARTIFACT_DOMAIN: lepton-dev
+          AWS_CODE_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
+          AWS_CODE_ARTIFACT_DOMAIN_OWNER: ${{ secrets.AWS_CODE_ARTIFACT_DOMAIN_OWNER }}
+        run: |
+          pip install twine
+          aws codeartifact login --tool twine --repository ${AWS_CODE_ARTIFACT_REPO} --domain ${AWS_CODE_ARTIFACT_DOMAIN} --domain-owner ${AWS_CODE_ARTIFACT_DOMAIN_OWNER} --region ${AWS_CODE_ARTIFACT_REGION}
+      - uses: actions/download-artifact@v3
+        with:
+          name: sdk-package
+      - name: Upload Package to PyPI
+        run: |
+          twine upload --verbose --repository codeartifact leptonai*.whl

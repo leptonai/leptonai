@@ -3,7 +3,7 @@ name: CI/CD - mothership - release
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 jobs:
   build-mothership:

@@ -2,30 +2,30 @@ name: weekly-delete-ci-cluster
 
 on:
   schedule:
-  # delete stale ci clusters on Sunday at 11:00 UTC, 4 hours after creation,
-  # to allow for some time to run cicd-clean-test-workspaces
-  - cron: "0 12 * * 0"
+    # delete stale ci clusters on Sunday at 11:00 UTC, 4 hours after creation,
+    # to allow for some time to run cicd-clean-test-workspaces
+    - cron: "0 12 * * 0"
 
 jobs:
   delete:
     runs-on: ubuntu-latest
     steps:
-    - run: |
-        # TODO: use mothershp cli to delete clusters
-        latest_ready_cluster=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-        https://mothership.cloud.lepton.ai/api/v1/clusters | \
-        jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
-        echo "latest ready cluster: $latest_ready_cluster"
-        if [ -z "$latest_ready_cluster" ]; then
-          echo "no ready cluster found"
-          exit 1
-        fi
-        curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
-        https://mothership.cloud.lepton.ai/api/v1/clusters | \
-        jq -r '.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$"))) | .spec.name' | \
-        grep -v $latest_ready_cluster | \
-        while read cluster; do
-          echo "deleting cluster $cluster"
-          curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X DELETE \
-          https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster
-        done
+      - run: |
+          # TODO: use mothershp cli to delete clusters
+          latest_ready_cluster=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+          https://mothership.cloud.lepton.ai/api/v1/clusters | \
+          jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
+          echo "latest ready cluster: $latest_ready_cluster"
+          if [ -z "$latest_ready_cluster" ]; then
+            echo "no ready cluster found"
+            exit 1
+          fi
+          curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+          https://mothership.cloud.lepton.ai/api/v1/clusters | \
+          jq -r '.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$"))) | .spec.name' | \
+          grep -v $latest_ready_cluster | \
+          while read cluster; do
+            echo "deleting cluster $cluster"
+            curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X DELETE \
+            https://mothership.cloud.lepton.ai/api/v1/clusters/$cluster
+          done

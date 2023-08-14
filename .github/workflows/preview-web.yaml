@@ -6,7 +6,7 @@ on:
     paths:
       - web/**
       - portal/**
-    branches: [ "**" ]
+    branches: ["**"]
 jobs:
   portal:
     runs-on: self-hosted
@@ -35,7 +35,7 @@ jobs:
     runs-on: self-hosted
     needs: portal
     env:
-     VERCEL_PROJECT_ID: ${{ secrets.VERCEL_DASHBOARD_PROJECT_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_DASHBOARD_PROJECT_ID }}
     environment:
       name: Preview - Dashboard
       url: ${{ steps.deploy.outputs.url }}

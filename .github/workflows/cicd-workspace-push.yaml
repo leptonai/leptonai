@@ -2,7 +2,7 @@ name: CI/CD - workspace - push
 
 on:
   push:
-    branches: [ "main", "release-*" ]
+    branches: ["main", "release-*"]
 
 jobs:
   build-api-server:
@@ -57,29 +57,34 @@ jobs:
   deploy-to-dev-latest:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: [build-api-server-latest, build-deployment-operator-latest, build-web-latest]
+    needs:
+      [
+        build-api-server-latest,
+        build-deployment-operator-latest,
+        build-web-latest,
+      ]
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.19.x
-    - name: Build mothership cli
-      run: |
-        (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
-    - name: Update the latest workspace
-      env:
-        WORKSPACE_NAME: latest
-      run: |
-        ./mothershipctl workspace update \
-          --auto-approve \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --workspace-name "$WORKSPACE_NAME" \
-          --image-tag latest
-        ./mothershipctl workspace wait \
-          --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
-          --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
-          --workspace-name "$WORKSPACE_NAME" \
-          --timeout 10 \
-          --expected-state "ready"
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19.x
+      - name: Build mothership cli
+        run: |
+          (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
+      - name: Update the latest workspace
+        env:
+          WORKSPACE_NAME: latest
+        run: |
+          ./mothershipctl workspace update \
+            --auto-approve \
+            --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+            --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+            --workspace-name "$WORKSPACE_NAME" \
+            --image-tag latest
+          ./mothershipctl workspace wait \
+            --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+            --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
+            --workspace-name "$WORKSPACE_NAME" \
+            --timeout 10 \
+            --expected-state "ready"

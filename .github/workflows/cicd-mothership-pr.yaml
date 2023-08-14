@@ -10,7 +10,7 @@ on:
       - "go-pkg/**"
       - "infra/terraform/eks-lepton/**"
       - "charts/mothership/**"
-    branches: [ "**" ]
+    branches: ["**"]
 
 jobs:
   build-mothership:

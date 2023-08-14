@@ -2,35 +2,34 @@ name: tuna
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
     paths:
       - .github/workflows/tuna.yaml
       - tuna/**
-    branches: [ "**" ]
+    branches: ["**"]
 
 permissions:
   contents: read
 
 jobs:
   test:
-
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-        cache: 'pip' # caching pip dependencies
-    - name: Install dependencies
-      run: |
-        pip install -U pip setuptools
-    - name: Python-Lint
-      run: |
-        cd tuna
-        pip install black ruff
-        ruff .
-        black --check .
-        cd -
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          pip install -U pip setuptools
+      - name: Python-Lint
+        run: |
+          cd tuna
+          pip install black ruff
+          ruff .
+          black --check .
+          cd -
