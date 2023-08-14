@@ -17,11 +17,11 @@ provider "aws" {
 
       LeptonClusterName = local.cluster_name
 
-      # created time
+      # created/updated time
       # https://registry.terraform.io/providers/hashicorp/time/latest/docs
       # do not "time_static.activation_date.unix" since it may diverge between plan/apply
       # truncate the seconds here, since it's only used for resource garbage collection
-      LeptonClusterCreatedUnixTimeRFC3339 = var.created_unix_time_rfc3339
+      LeptonClusterUpdatedUnixTimeRFC3339 = var.updated_unix_time_rfc3339
     }
   }
 }

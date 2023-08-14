@@ -61,6 +61,6 @@ if [[ "$DEPLOYMENT_ENVIRONMENT" != "" ]]; then
     APPLY_FLAGS+=("-var-file=deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars")
 fi
 
-if [[ "$CREATED_UNIX_TIME_RFC3339" != "" ]]; then
-    APPLY_FLAGS+=("-var=created_unix_time_rfc3339=$CREATED_UNIX_TIME_RFC3339")
+if [[ "$UPDATED_UNIX_TIME_RFC3339" != "" ]]; then
+    APPLY_FLAGS+=("-var=updated_unix_time_rfc3339=$UPDATED_UNIX_TIME_RFC3339")
 fi

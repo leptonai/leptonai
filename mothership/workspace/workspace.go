@@ -662,7 +662,7 @@ func (w *Workspace) idempotentCreate(ctx context.Context, ws *crdv1alpha1.Lepton
 }
 
 const (
-	CreatedUnixTimeRFC3339Key = "CREATED_UNIX_TIME_RFC3339"
+	UpdatedUnixTimeRFC3339Key = "UPDATED_UNIX_TIME_RFC3339"
 	DeploymentEnvironmentKey  = "DEPLOYMENT_ENVIRONMENT"
 )
 
@@ -727,7 +727,7 @@ func (w *Workspace) createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1
 
 	cmd := exec.Command(command, args...)
 	cmd.Env = append(os.Environ(),
-		CreatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
+		UpdatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
 		DeploymentEnvironmentKey+"="+dpEnv,
 		"CLUSTER_NAME="+ws.Spec.ClusterName,
 		"TF_API_TOKEN="+terraform.TempToken,

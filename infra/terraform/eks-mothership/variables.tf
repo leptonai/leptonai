@@ -1,5 +1,5 @@
-# overwrites "LeptonClusterCreatedUnixTimeRFC3339" for AWS resource tagging
-variable "created_unix_time_rfc3339" {
+# overwrites "LeptonClusterUpdatedUnixTimeRFC3339" for AWS resource tagging
+variable "updated_unix_time_rfc3339" {
   description = "Cluster created unix time in RFC3339 format with hour precision"
   type        = string
   default     = "2023-08-05T00"
