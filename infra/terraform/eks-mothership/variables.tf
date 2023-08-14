@@ -95,3 +95,21 @@ variable "mothership_role_name" {
   type        = string
   default     = "mothership-role"
 }
+
+variable "alertmanager_slack_channel" {
+  description = "Name of the Slack channel to send alertmanager notifications to"
+  type        = string
+  default     = null
+}
+
+variable "alertmanager_slack_webhook_url" {
+  description = "Webhook URL of the Slack channel for alertmanager notifications"
+  type        = string
+  default     = null
+}
+
+variable "alertmanager_target_namespaces" {
+  type        = string
+  description = "alertmanager target namespaces filter"
+  default     = ".*"
+}

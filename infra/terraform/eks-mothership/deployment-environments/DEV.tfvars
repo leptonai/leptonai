@@ -17,3 +17,8 @@ shared_alb_route53_zone_id = "Z07918881RBIVGJY04WCJ"
 shared_alb_root_hostname   = "dev.lepton.ai"
 
 aurora_master_username = "root"
+
+# ref. https://grafana.com/blog/2020/02/25/step-by-step-guide-to-setting-up-prometheus-alertmanager-with-slack-pagerduty-and-gmail/
+alertmanager_slack_channel     = "#alertmanager-test"
+alertmanager_slack_webhook_url = "https://hooks.slack.com/services/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"
+alertmanager_target_namespaces = ".*"
