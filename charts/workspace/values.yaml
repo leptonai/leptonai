@@ -82,4 +82,3 @@ lbGlooRules:
   enabled: true
   upstreamHealthCheckPath: /healthz
   glooNamespace: gloo-system
-  routeTableDomain: default

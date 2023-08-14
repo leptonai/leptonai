@@ -41,6 +41,17 @@ spec:
           upstream:
             name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
             namespace:  {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for dataplane requests using header-based routing
+    - matchers:
+      - prefix: /
+      # https://docs.solo.io/gloo-edge/latest/guides/traffic_management/destination_types/delegation
+      # Gloo dynamically link RouteTables corresponding to each deployment, with the workspace name as label
+      delegateAction:
+        selector:
+          namespaces:
+          - {{ .Release.Namespace }}
+          labels:
+            domain: {{ .Values.workspaceName }}-deployments-header-based-routing
     # routes for api server
     - matchers:
       - prefix: /api/
