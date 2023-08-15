@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 )
 
@@ -18,11 +19,12 @@ type Annotation struct {
 }
 
 // NewAnnotation returns a new Annotation
-func NewAnnotation(domainName, certificateARN string) *Annotation {
+func NewAnnotation(domainName, certificateARN string, idleTimeoutSec int) *Annotation {
 	annotation := map[string]string{
-		"alb.ingress.kubernetes.io/scheme":           "internet-facing",
-		"alb.ingress.kubernetes.io/target-type":      "ip",
-		"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+		"alb.ingress.kubernetes.io/scheme":                   "internet-facing",
+		"alb.ingress.kubernetes.io/target-type":              "ip",
+		"alb.ingress.kubernetes.io/healthcheck-path":         "/healthz",
+		"alb.ingress.kubernetes.io/load-balancer-attributes": fmt.Sprintf("idle_timeout.timeout_seconds=%d", idleTimeoutSec),
 	}
 	if domainName != "" && certificateARN != "" {
 		annotation["alb.ingress.kubernetes.io/listen-ports"] = `[{"HTTPS":443}]`

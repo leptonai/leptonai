@@ -3,11 +3,15 @@ package ingress
 import "testing"
 
 func TestAnnotation(t *testing.T) {
-	NewAnnotation("domain", "cert").
+	annotation := NewAnnotation("domain", "cert", 300).
 		SetDomainNameAndSSLCert().
 		SetGroup("group", 100).
 		Add("key", "value")
 	// TODO: add more tests
+	val, ok := annotation.annotations["alb.ingress.kubernetes.io/load-balancer-attributes"]
+	if !ok || val != "idle_timeout.timeout_seconds=300" {
+		t.Errorf(" wrong alb timeout attributes: %s, %t", val, ok)
+	}
 }
 
 func TestAddBearerToTokens(t *testing.T) {

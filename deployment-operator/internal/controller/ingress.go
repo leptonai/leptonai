@@ -14,6 +14,9 @@ type Ingress struct {
 	leptonDeployment *leptonaiv1alpha1.LeptonDeployment
 }
 
+// temporarily set ALB timeout to 5 minutes since some inference requests would take longer time when the service is busy 
+const albTimeoutSec = 300
+
 func newIngress(ld *leptonaiv1alpha1.LeptonDeployment) *Ingress {
 	return &Ingress{
 		leptonDeployment: ld,
@@ -29,7 +32,7 @@ func (k *Ingress) createHostBasedDeploymentIngress(or []metav1.OwnerReference) *
 		return nil
 	}
 
-	annotation := ingress.NewAnnotation(domain.GetDeployment(ld.GetSpecName()), k.leptonDeployment.Spec.CertificateARN)
+	annotation := ingress.NewAnnotation(domain.GetDeployment(ld.GetSpecName()), k.leptonDeployment.Spec.CertificateARN, albTimeoutSec)
 	annotation.SetGroup(ingress.IngressGroupNameDeployment(ld.Namespace), ingress.IngressGroupOrderDeployment)
 	annotation.SetAPITokenConditions(service.ServiceName(ld.GetSpecName()), k.leptonDeployment.GetTokens())
 	annotation.SetDomainNameAndSSLCert()
@@ -40,7 +43,7 @@ func (k *Ingress) createHostBasedDeploymentIngress(or []metav1.OwnerReference) *
 func (k *Ingress) createHeaderBasedDeploymentIngress(or []metav1.OwnerReference) *networkingv1.Ingress {
 	ld := k.leptonDeployment
 
-	annotation := ingress.NewAnnotation(ld.Spec.RootDomain, k.leptonDeployment.Spec.CertificateARN)
+	annotation := ingress.NewAnnotation(ld.Spec.RootDomain, k.leptonDeployment.Spec.CertificateARN, albTimeoutSec)
 	annotation.SetGroup(ingress.IngressGroupNameControlPlane(ld.Namespace), ingress.IngressGroupOrderDeployment)
 	annotation.SetDeploymentAndAPITokenConditions(service.ServiceName(ld.GetSpecName()), ld.GetSpecName(), k.leptonDeployment.GetTokens())
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetSpecName()), service.Port, service.RootPath)
