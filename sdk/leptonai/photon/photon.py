@@ -245,16 +245,6 @@ class Photon(BasePhoton):
     `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
     """
 
-    capture_requirement_dependency: bool = False
-    """
-    Experimental feature: whether to automatically capture dependencies automaticlaly from the
-    local environment. This is not recommended, as in many cases, we observe that local dependencies
-    may be polluted by different installation approaches (e.g. pip vs conda), and may result in
-    unexpected behavior when running remotely. If you do want to use this feature, please make sure
-    that you have a clean environment with only the dependencies you want to capture. We encourage
-    you to use `requirement_dependency` instead.
-    """
-
     system_dependency: Optional[List[str]] = None
     vcs_url: Optional[str] = None
 
@@ -287,13 +277,9 @@ class Photon(BasePhoton):
 
         res = {}
 
-        for base in cls.__bases__:
-            if base == BasePhoton:
-                # BasePhoton should not have any routes
-                continue
+        for base in cls._iter_ancestors():
             update_routes(res, get_routes(base))
 
-        update_routes(res, get_routes(cls))
         return res
 
     @staticmethod
@@ -317,31 +303,34 @@ class Photon(BasePhoton):
             filtered_pkgs.append(pkg)
         return filtered_pkgs
 
+    @classmethod
+    def _iter_ancestors(cls):
+        yield cls
+        for base in cls.__bases__:
+            if base == BasePhoton:
+                # BasePhoton should not have any routes
+                continue
+            if not issubclass(base, BasePhoton):
+                continue
+            yield from base._iter_ancestors()
+
     @property
     def _requirement_dependency(self):
-        # If users have specified the requirement_dependency, use it and do not
-        # try to infer
-        if self.requirement_dependency is not None:
-            if self.capture_requirement_dependency:
-                raise ValueError(
-                    "Should not set `capture_requirement_dependency` to True when"
-                    f" `requirement_dependency` is set ({self.requirement_dependency})"
-                )
-            return self.requirement_dependency
+        deps = []
+        for base in self._iter_ancestors():
+            if base.requirement_dependency is not None:
+                deps.extend(base.requirement_dependency)
+        # Do not sort or uniq pip deps lines, as order matters
+        return deps
 
-        if not self.capture_requirement_dependency:
-            return []
-
-        logger.info(
-            "Auto capturing pip dependencies (note this could result in a large list of"
-            " dependencies)"
-        )
-        try:
-            requirement_dependency = self._infer_requirement_dependency()
-        except Exception as e:
-            logger.warning(f"Failed to auto capture pip dependencies: {e}")
-            requirement_dependency = []
-        return requirement_dependency
+    @property
+    def _system_dependency(self):
+        deps = []
+        for base in self._iter_ancestors():
+            if base.system_dependency is not None:
+                deps.extend(base.system_dependency)
+        # NB: maybe we can sort and uniq system deps lines
+        return deps
 
     @property
     def metadata(self):
@@ -355,11 +344,8 @@ class Photon(BasePhoton):
             "py_version": f"{sys.version_info.major}.{sys.version_info.minor}",
         }
 
-        res.update(
-            {"capture_requirement_dependency": self.capture_requirement_dependency}
-        )
         res.update({"requirement_dependency": self._requirement_dependency})
-        res.update({"system_dependency": self.system_dependency})
+        res.update({"system_dependency": self._system_dependency})
         res.update({METADATA_VCS_URL_KEY: self.vcs_url})
 
         res.update(
