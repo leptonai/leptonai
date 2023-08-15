@@ -376,6 +376,19 @@ resource "helm_release" "cluster_autoscaler" {
       # "How often cluster is reevaluated for scale up or down"
       # Default "10s"
       scan-interval = "8s"
+
+      # Maximum number of nodes that can be tainted/untainted PreferNoSchedule at the same time.
+      # Unneeded nodes are tainted with PreferNoSchedule during scale down.
+      # But, possibly taint the new node in "scale-down-delay-after-add" period,
+      # while the old node is still being drained/terminated.
+      # Can be problematic if the new node is tainted and the old node is not yet drained.
+      # Can be problematic if the EKS node group drain operation is slow.
+      # Default 10.
+      #
+      # USE WITH CAUTION
+      # Set to 0 to turn off such tainting.
+      # Could be helpful to schedule new pods right after AMI rollouts.
+      max-bulk-soft-taint-count = 10
     }
 
     rbac = {
