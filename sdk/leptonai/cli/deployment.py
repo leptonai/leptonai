@@ -245,6 +245,15 @@ def log(name, replica):
     except Exception:
         console.print("Connection stopped.")
         return
+    else:
+        console.print(
+            "End of log. It seems that the deployment has not started, or already"
+            " finished."
+        )
+        console.print(
+            f"Use `lep deployment status -n {name}` to check the status of the"
+            " deployment."
+        )
 
 
 @deployment.command()
