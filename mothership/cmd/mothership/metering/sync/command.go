@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,7 +35,8 @@ var (
 	enableStorage bool
 	enableCompute bool
 
-	inCluster bool
+	inCluster   bool
+	clusterName string
 )
 
 func NewCommand() *cobra.Command {
@@ -56,7 +58,7 @@ and recommended to be at least 5 minutes.
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")
 	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost-cost-analyzer", "Namespace where opencost/kubecost is running")
 	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "kubecost-cost-analyzer", "Service name of opencost/kubecost to port-forward")
-	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost")
+	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost (use 9090 for in cluster)")
 
 	cmd.PersistentFlags().StringVar(&mothershipRegion, "mothership-region", "", "AWS region of mothership")
 
@@ -69,10 +71,14 @@ and recommended to be at least 5 minutes.
 	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "skips efs storage data sync (default false)")
 	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "skips compute data sync (default false)")
 	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run sync on cluster (default false)")
+	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to run sync on")
 	return cmd
 }
 
 func syncFunc(cmd *cobra.Command, args []string) {
+	if len(clusterName) == 0 {
+		log.Fatal("No cluster name provided")
+	}
 	if 60%syncInterval != 0 {
 		log.Fatalf("Invalid sync interval (must be a factor of 60, eg. 5, 10, etc): %d", syncInterval)
 	}
@@ -106,6 +112,10 @@ func syncFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("failed to build rest config %v", err)
 		}
+
+		if strings.Split(clusterARN, "/")[1] != clusterName {
+			log.Fatalf("--cluster-name flag %s does not match the cluster name %s specified in the provided KUBECONFIG", clusterName, strings.Split(clusterARN, "/")[1])
+		}
 		// build k8s clientset
 		clientset, err = kubernetes.NewForConfig(restConfig)
 		if err != nil {
@@ -114,7 +124,7 @@ func syncFunc(cmd *cobra.Command, args []string) {
 
 		// set timeout for querying pods to get the service information
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		fwd, err := service.NewPortForwardQuerier(
+		fwd, err = service.NewPortForwardQuerier(
 			ctx,
 			clientset,
 			restConfig,
@@ -133,7 +143,6 @@ func syncFunc(cmd *cobra.Command, args []string) {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
-
 	syncDuration := time.Duration(syncInterval) * time.Minute
 	ticker := time.NewTicker(10 * time.Second)
 	for range ticker.C {
@@ -142,13 +151,13 @@ func syncFunc(cmd *cobra.Command, args []string) {
 			ticker.Stop()
 			return
 		default:
-			_, lastComputeSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
+			_, lastComputeSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain, clusterName)
 			if err != nil {
 				log.Fatalf("failed to get most recent query time %v", err)
 			}
 			lastComputeSyncExists := !lastComputeSync.IsZero()
 
-			_, lastStorageSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
+			_, lastStorageSync, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain, clusterName)
 			if err != nil {
 				log.Fatalf("failed to get most recent query time %v", err)
 			}
@@ -170,25 +179,27 @@ func syncFunc(cmd *cobra.Command, args []string) {
 				if enableStorage {
 					canSyncStorage = timeSinceLastStorageSync > syncDuration || !lastStorageSyncExists
 				}
-
-				syncOnce(canSyncCompute, canSyncStorage, queryStart, queryEnd, aurora, clientset, fwd, clusterARN, cmd)
+				if !(canSyncCompute || canSyncStorage) {
+					log.Printf("Cannot sync compute or storage: waiting until next cycle")
+				}
+				syncOnce(canSyncCompute, canSyncStorage, clusterName, queryStart, queryEnd, aurora, clientset, fwd, cmd)
 			} else {
 				timeUntilNextSync := now.Truncate(syncDuration).Add(syncDuration).Sub(now)
 				// print every minute
 				if now.Second() < 10 {
-					log.Printf("Next sync in %s", timeUntilNextSync.Round(time.Second))
+					log.Printf("Next sync in %s", timeUntilNextSync.Round(time.Minute))
 				}
 			}
 		}
 	}
 }
 
-func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, clusterARN string, cmd *cobra.Command) {
+func syncOnce(syncCompute bool, syncStorage bool, clusterName string, start time.Time, end time.Time, aurora metering.AuroraDB, clientset *kubernetes.Clientset, fwd *service.PortForwardQuerier, cmd *cobra.Command) {
 	qp := metering.OcQueryParams{
 		OCSvcName:          opencostSvcName,
 		OCNamespace:        opencostNamespace,
 		OCPort:             opencostSvcPort,
-		ClusterARN:         clusterARN,
+		ClusterName:        clusterName,
 		QueryPath:          queryPath,
 		QueryAgg:           queryAgg,
 		QueryAcc:           false,
@@ -216,7 +227,7 @@ func syncOnce(syncCompute bool, syncStorage bool, start time.Time, end time.Time
 	if syncStorage {
 		log.Printf("Syncing efs storage data with window query start: (%s -- %s)", start, end)
 
-		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion, clusterARN)
+		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion, clusterName)
 		if err != nil {
 			log.Fatalf("failed to get storage data %v", err)
 		}

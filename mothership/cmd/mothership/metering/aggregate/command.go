@@ -29,6 +29,8 @@ var (
 
 	runBackground   bool
 	runBackgroundOn int
+
+	clusterName string
 )
 
 func NewCommand() *cobra.Command {
@@ -78,6 +80,7 @@ mothership metering aggregate --start-time "7/11/2023 8:00PM" --table hourly
 
 	cmd.PersistentFlags().BoolVar(&runBackground, "run-background", false, "run hourly aggregate in background indefinitely, ignoring --start-time, --end-time, --table flags")
 	cmd.PersistentFlags().IntVar(&runBackgroundOn, "run-background-on", 5, "minute of hour to run aggregate each hour, must be between 0-59")
+	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to aggregate data on")
 	return cmd
 }
 
@@ -86,6 +89,9 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 		log.Fatal("Neither storage nor compute aggregation enabled. Doing nothing.")
 	}
 
+	if len(clusterName) == 0 {
+		log.Fatal("No cluster name provided")
+	}
 	// create aurora connection
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 	db, err := auroraCfg.NewHandler()
@@ -143,6 +149,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 					aggregateOneWindowIntoTables(
 						aurora,
 						supabaseDB,
+						clusterName,
 						startTime,
 						endTime,
 						"hourly",
@@ -228,7 +235,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 
 	// compare start and end times to the most recent fine grain entries
 	if enableCompute {
-		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain)
+		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableComputeFineGrain, clusterName)
 		if err != nil {
 			log.Fatalf("couldn't get most recent compute data fine grain entry: %v", err)
 		}
@@ -241,7 +248,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 		}
 	}
 	if enableStorage {
-		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain)
+		_, lastQueryEnd, err := metering.GetMostRecentFineGrainEntry(aurora, metering.MeteringTableStorageFineGrain, clusterName)
 		if err != nil {
 			log.Fatalf("couldn't get most recent storage data fine grain entry: %v", err)
 		}
@@ -262,6 +269,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 		aggregateOneWindowIntoTables(
 			aurora,
 			supabaseDB,
+			clusterName,
 			startTimes[i],
 			endTimes[i],
 			tableFlag,
@@ -277,6 +285,7 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 func aggregateOneWindowIntoTables(
 	aurora metering.AuroraDB,
 	supabaseDB *sql.DB,
+	clusterName string,
 	startTime time.Time,
 	endTime time.Time,
 	tableFlag string,
@@ -286,7 +295,7 @@ func aggregateOneWindowIntoTables(
 	maxRetries int,
 ) {
 	if enableCompute {
-		computeAggregate, err := metering.GetComputeAggregate(aurora, startTime, endTime)
+		computeAggregate, err := metering.GetComputeAggregate(aurora, clusterName, startTime, endTime)
 		if err != nil {
 			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
 				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)

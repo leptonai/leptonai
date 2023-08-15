@@ -36,10 +36,11 @@ spec:
             - "--db-name={{ .Values.metering.auroraDbName }}"
             - "--db-user=$(AURORA_USERNAME)"
             - "--db-password=$(AURORA_PASSWORD)"
-            - "--opencost-namespace=kubecost-cost-analyzer"
-            - "--opencost-service-name=kubecost-cost-analyzer"
-            - "--opencost-service-port=9090"
+            - "--opencost-namespace={{ .Values.metering.kubecostNamespace }}"
+            - "--opencost-service-name={{ .Values.metering.kubecostServiceName }}"
+            - "--opencost-service-port={{ .Values.metering.kubecostPort}}"
             - "--in-cluster"
+            - "--cluster-name={{ .Values.metering.clusterName }}"
             - "--duration=12h"
             image: {{ .Values.metering.image.repository }}:{{ .Values.metering.image.tag }}
             imagePullPolicy: {{ .Values.metering.image.pullPolicy }}

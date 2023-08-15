@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,8 +35,9 @@ var (
 	queryRounds   uint
 	queryInterval time.Duration
 
-	syncToDB  bool
-	inCluster bool
+	syncToDB    bool
+	inCluster   bool
+	clusterName string
 )
 
 func init() {
@@ -66,8 +68,8 @@ to query on cluster, use --opencost-service-port 9090
 	}
 
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")
-	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost", "Namespace where opencost/kubecost is running")
-	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "cost-analyzer-cost-analyzer", "Service name of opencost/kubecost to port-forward")
+	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost-cost-analyzer", "Namespace where opencost/kubecost is running")
+	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "kubecost-cost-analyzer", "Service name of opencost/kubecost to port-forward")
 	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost")
 
 	// ref. https://docs.kubecost.com/apis/apis-overview/allocation#querying
@@ -83,6 +85,7 @@ to query on cluster, use --opencost-service-port 9090
 	// aurora db related flags
 	cmd.PersistentFlags().BoolVar(&syncToDB, "sync-to-db", false, "Must be set true to enable sync to backend database")
 	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "Toggles between running on cluster or locally")
+	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to get data from")
 	return cmd
 }
 
@@ -109,7 +112,9 @@ func getFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("error building config from kubeconfig %v", err)
 		}
-
+		if strings.Split(clusterARN, "/")[1] != clusterName {
+			log.Fatalf("--cluster-name flag %s does not match the cluster name %s specified in the provided KUBECONFIG", clusterName, strings.Split(clusterARN, "/")[1])
+		}
 		// Create a Kubernetes client
 		clientset, err = kubernetes.NewForConfig(restConfig)
 		if err != nil {
@@ -139,7 +144,7 @@ func getFunc(cmd *cobra.Command, args []string) {
 		OCSvcName:          opencostSvcName,
 		OCNamespace:        opencostNamespace,
 		OCPort:             opencostSvcPort,
-		ClusterARN:         clusterARN,
+		ClusterName:        clusterName,
 		QueryPath:          queryPath,
 		QueryAgg:           queryAgg,
 		QueryAcc:           queryAccumulate,

@@ -66,7 +66,7 @@ const (
 )
 
 // GetComputeAggregate aggregates fine grain usage data for the specified hourly time window
-func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggregateRow, error) {
+func GetComputeAggregate(aurora AuroraDB, cluster string, start, end time.Time) ([]ComputeAggregateRow, error) {
 	// check start and end times valid
 	if start.IsZero() || end.IsZero() || start.Equal(end) || start.After(end) {
 		return nil, fmt.Errorf("start time, end time invalid: %s | %s", start.Format(time.ANSIC), end.Format(time.ANSIC))
@@ -75,15 +75,15 @@ func GetComputeAggregate(aurora AuroraDB, start, end time.Time) ([]ComputeAggreg
 	diff := end.Sub(start)
 	switch diff {
 	case time.Hour:
-		return queryHourlyComputeAgg(db, start, end)
+		return queryHourlyComputeAgg(db, cluster, start, end)
 	case time.Hour * 24, time.Hour * 168:
-		return queryDailyOrWeeklyComputeAgg(db, start, end)
+		return queryDailyOrWeeklyComputeAgg(db, cluster, start, end)
 	default:
 		return nil, fmt.Errorf("time window does not match hourly, daily, or weekly: %s", diff.String())
 	}
 }
 
-func queryHourlyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+func queryHourlyComputeAgg(db *sql.DB, cluster string, start, end time.Time) ([]ComputeAggregateRow, error) {
 	// all user workspaces are prefixed with 'ws-'
 	// REGEXP_REPLACE removes 'ws-' prefix from workspaces
 	// LENGTH(deployment_name) > 0 filters out pods not associated with a lepton deployment
@@ -93,11 +93,13 @@ func queryHourlyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregate
 			deployment_name,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s' 
+			where cluster='%s' and
+			query_start >= '%s' and query_end <= '%s' 
 			and namespace ilike 'ws-%%'
 			and LENGTH(deployment_name) > 0
 			GROUP BY namespace, deployment_name, shape`,
 		MeteringTableComputeFineGrain,
+		cluster,
 		start.Format(time.RFC3339),
 		end.Format(time.RFC3339),
 	))
@@ -120,7 +122,7 @@ func queryHourlyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregate
 	return res, nil
 }
 
-func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAggregateRow, error) {
+func queryDailyOrWeeklyComputeAgg(db *sql.DB, cluster string, start, end time.Time) ([]ComputeAggregateRow, error) {
 	// all user workspaces are prefixed with 'ws-'
 	// REGEXP_REPLACE removes 'ws-' prefix from workspaces
 	// LENGTH(deployment_name) > 0 filters out pods not associated with a lepton deployment
@@ -129,11 +131,13 @@ func queryDailyOrWeeklyComputeAgg(db *sql.DB, start, end time.Time) ([]ComputeAg
 			shape,
 			ROUND(SUM(minutes)) as usage
 			from %s
-			where query_start >= '%s' and query_end <= '%s'
+			where cluster='%s' and
+			query_start >= '%s' and query_end <= '%s'
 			and namespace ilike 'ws-%%'
 			and LENGTH(deployment_name) > 0
 			GROUP BY namespace, shape`,
 		MeteringTableComputeFineGrain,
+		cluster,
 		start.Format(time.RFC3339),
 		end.Format(time.RFC3339),
 	))

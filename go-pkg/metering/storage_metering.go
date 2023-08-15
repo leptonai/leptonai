@@ -11,7 +11,10 @@ import (
 	efs "github.com/leptonai/lepton/go-pkg/aws/efs"
 )
 
+const VolumePrefix = "efs-lepton-"
+
 type FineGrainStorageData struct {
+	Cluster     string
 	Workspace   string
 	storageID   string
 	SizeInBytes uint64
@@ -19,7 +22,7 @@ type FineGrainStorageData struct {
 	Time        time.Time
 }
 
-func GetFineGrainStorageData(queryTime time.Time, region string, clusterARN string) ([]FineGrainStorageData, error) {
+func GetFineGrainStorageData(queryTime time.Time, region string, clusterName string) ([]FineGrainStorageData, error) {
 	cfg, err := aws.New(&aws.Config{
 		DebugAPICalls: false,
 		Region:        region,
@@ -28,12 +31,7 @@ func GetFineGrainStorageData(queryTime time.Time, region string, clusterARN stri
 		return nil, err
 	}
 
-	var filter map[string]string = nil
-	if len(clusterARN) > 0 {
-		ss := strings.Split(clusterARN, "/")
-		cname := ss[len(ss)-1]
-		filter = map[string]string{"LeptonClusterName": cname}
-	}
+	filter := map[string]string{"LeptonClusterName": clusterName}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	fss, err := efs.ListFileSystems(ctx, cfg, filter)
@@ -44,7 +42,8 @@ func GetFineGrainStorageData(queryTime time.Time, region string, clusterARN stri
 	var data []FineGrainStorageData
 	for _, fs := range fss {
 		data = append(data, FineGrainStorageData{
-			Workspace:   strings.ReplaceAll(fs.Name, "efs-lepton-", ""),
+			Cluster:     clusterName,
+			Workspace:   strings.ReplaceAll(fs.Name, VolumePrefix, ""),
 			storageID:   fs.ID,
 			SizeInBytes: fs.SizeInUseBytes,
 			Size:        fs.SizeInUse,
@@ -57,6 +56,7 @@ func GetFineGrainStorageData(queryTime time.Time, region string, clusterARN stri
 func BatchInsertIntoFineGrainStorage(tx *sql.Tx, data []FineGrainStorageData, batchID string) (int64, error) {
 	cmd := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
+		cluster,
 		workspace,
 		storage_id,
 		size_bytes,
@@ -64,14 +64,14 @@ func BatchInsertIntoFineGrainStorage(tx *sql.Tx, data []FineGrainStorageData, ba
 		time
 	)
 	VALUES `, MeteringTableStorageFineGrain)
-	rowStr := genRowStr(6)
+	rowStr := genRowStr(7)
 	var toInsert []string
 	var vals []interface{}
 	batchSize := 0
 	affected := int64(0)
 	for _, d := range data {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batchID, d.Workspace, d.storageID, d.SizeInBytes, d.Size, d.Time)
+		vals = append(vals, batchID, d.Cluster, d.Workspace, d.storageID, d.SizeInBytes, d.Size, d.Time)
 		batchSize++
 		if batchSize >= insertBatchSize {
 			res, err := sqlInsert(tx, cmd, toInsert, "", vals)

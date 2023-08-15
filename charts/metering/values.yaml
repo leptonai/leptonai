@@ -18,9 +18,13 @@ metering:
         cpu: "1"
   serviceAccountName: "metering-sa"
   region: ""
+  clusterName: ""
   auroraDbHost: ""
   auroraDbPort: 5432
   auroraDbDriver: "postgres"
   auroraDbName: "metering"
   backfillSchedule: "5 0,12 * * *" # backfill at 00:05, 12:05 UTC
   backfillTimezone: "Etc/UTC"
+  kubecostNamespace: "kubecost-cost-analyzer"
+  kubecostServiceName: "kubecost-cost-analyzer"
+  kubecostPort: 9090

@@ -37,6 +37,11 @@ resource "helm_release" "lepton_metering" {
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-mothershipctl"
   }
 
+  set {
+    name  = "metering.clusterName"
+    value = var.cluster_name
+  }
+
   depends_on = [
     module.eks,
     module.vpc,

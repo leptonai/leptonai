@@ -57,7 +57,7 @@ type OcQueryParams struct {
 	OCSvcName       string
 	OCNamespace     string
 	OCPort          int
-	ClusterARN      string
+	ClusterName     string
 	QueryPath       string
 	QueryAgg        string
 	QueryResolution string
@@ -90,7 +90,6 @@ func GetFineGrainComputeDataExternal(clientset *kubernetes.Clientset, fwd *servi
 	if qp.QueryWindow == "" {
 		qp.QueryWindow = fmt.Sprintf("%d", qp.QueryStart.Unix()) + "," + fmt.Sprintf("%d", qp.QueryEnd.Unix())
 	}
-
 	filterString := CreateExludeFilterStringForNamespaces(qp.ExcludedNamespaces)
 	var queryRs []byte
 	var queryErr error
@@ -177,7 +176,7 @@ func fineGrainComputeDataFromResponse(ar AllocationResponse, qp OcQueryParams) (
 				actualQueryEnd = qp.QueryEnd
 			}
 			d := FineGrainComputeData{
-				Cluster:              qp.ClusterARN,
+				Cluster:              qp.ClusterName,
 				Namespace:            v.Properties.Namespace,
 				LeptonDeploymentName: v.Properties.Labels["lepton_deployment_name"],
 				PodName:              v.Properties.Pod,
@@ -236,9 +235,10 @@ func queryKubeCostInCluster(ctx context.Context, opencostSvcName string, opencos
 	return body, nil
 }
 
-func BatchInsertIntoFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID string) (int64, error) {
+func BatchInsertIntoComputeFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID string) (int64, error) {
 	cmd := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
+		cluster,
 		namespace,
 		deployment_name,
 		pod_name,
@@ -250,13 +250,13 @@ func BatchInsertIntoFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID s
 	)
 	VALUES `, MeteringTableComputeFineGrain)
 
-	rowStr := genRowStr(9)
+	rowStr := genRowStr(10)
 	var toInsert []string
 	var vals []interface{}
 	affected := int64(0)
 	for _, d := range data {
 		toInsert = append(toInsert, rowStr)
-		vals = append(vals, batchID, d.Namespace, d.LeptonDeploymentName, d.PodName, d.PodShape, time.Unix(d.Start, 0), time.Unix(d.End, 0), d.Window, d.RunningMinutes)
+		vals = append(vals, batchID, d.Cluster, d.Namespace, d.LeptonDeploymentName, d.PodName, d.PodShape, time.Unix(d.Start, 0), time.Unix(d.End, 0), d.Window, d.RunningMinutes)
 		if len(toInsert) >= insertBatchSize {
 			res, err := sqlInsert(tx, cmd, toInsert, "", vals)
 			if err != nil {
@@ -301,7 +301,7 @@ func SyncToFineGrain(aurora AuroraDB, computeData []FineGrainComputeData, storag
 	batchIDStr := batchID.String()
 	// Insert into fine_grain
 	if len(computeData) > 0 {
-		affected, err := BatchInsertIntoFineGrain(tx, computeData, batchIDStr)
+		affected, err := BatchInsertIntoComputeFineGrain(tx, computeData, batchIDStr)
 		if err != nil {
 			return err
 		}
@@ -317,17 +317,17 @@ func SyncToFineGrain(aurora AuroraDB, computeData []FineGrainComputeData, storag
 	return tx.Commit()
 }
 
-// returns the most recent query's start and end time, or zero time if table is empty
+// returns the most recent query's start and end time, or zero time if no data exists for a cluster
 // case compute fine grain: return query start, end of most recent window
 // case compute storage fine grain: returns one time only, since storage is measured at discrete points.
-func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Time, time.Time, error) {
+func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable, cluster string) (time.Time, time.Time, error) {
 	db := aurora.DB
 	if (table != MeteringTableComputeFineGrain) && (table != MeteringTableStorageFineGrain) {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid table %s", table)
 	}
 	// check if table is empty
 	var count int
-	err := db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s LIMIT 1) AS t", table)).Scan(&count)
+	err := db.QueryRow(fmt.Sprintf("SELECT count(*) FROM (SELECT 1 FROM %s WHERE cluster='%s' LIMIT 1) AS t", table, cluster)).Scan(&count)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
@@ -339,14 +339,14 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	switch table {
 	case MeteringTableComputeFineGrain:
 		err = db.QueryRow(
-			fmt.Sprintf("SELECT query_start, query_end FROM %s ORDER BY query_end DESC LIMIT 1", table)).Scan(&start, &end)
+			fmt.Sprintf("SELECT query_start, query_end FROM %s WHERE cluster='%s' ORDER BY query_end DESC LIMIT 1", table, cluster)).Scan(&start, &end)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}
 		return start, end, nil
 	case MeteringTableStorageFineGrain:
 		err = db.QueryRow(
-			fmt.Sprintf("SELECT time from %s ORDER BY time DESC LIMIT 1", table)).Scan(&end)
+			fmt.Sprintf("SELECT time from %s WHERE cluster='%s' ORDER BY time DESC LIMIT 1", table, cluster)).Scan(&end)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}
@@ -356,15 +356,17 @@ func GetMostRecentFineGrainEntry(aurora AuroraDB, table MeteringTable) (time.Tim
 	}
 }
 
-// Returns true if no entries are found within the given time window.
-func CheckEmptyWindow(auroraDB AuroraDB, start, end time.Time) (bool, error) {
+// Returns true if no entries are found within the given time window, for a given cluster
+func CheckEmptyWindow(auroraDB AuroraDB, cluster string, start, end time.Time) (bool, error) {
 	// check if there are any rows in the table during a given window
 	db := auroraDB.DB
 	row := db.QueryRow(fmt.Sprintf(`SELECT
 		count(*)
 		from %s
-		where query_start >= '%s' and query_end <= '%s'`,
+		where cluster='%s' and 
+		query_start >= '%s' and query_end <= '%s'`,
 		MeteringTableComputeFineGrain,
+		cluster,
 		start.Format(time.RFC3339),
 		end.Format(time.RFC3339),
 	))
@@ -376,12 +378,12 @@ func CheckEmptyWindow(auroraDB AuroraDB, start, end time.Time) (bool, error) {
 	return count == 0, nil
 }
 
-// get all missing fine_grain data between start and end.
-func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time, error) {
+// get all missing fine_grain data between start and end, for a given cluster
+func GetGapsInFineGrain(auroraDB AuroraDB, cluster string, start, end time.Time) ([][]time.Time, error) {
 	db := auroraDB.DB
 	// if table is empty, return the entire window as a gap
 	var count int
-	err := db.QueryRow(fmt.Sprintf(`SELECT count(*) from %s`, MeteringTableComputeFineGrain)).Scan(&count)
+	err := db.QueryRow(fmt.Sprintf(`SELECT count(*) from %s where cluster='%s'`, MeteringTableComputeFineGrain, cluster)).Scan(&count)
 	if err != nil {
 		return nil, err
 	}
@@ -393,9 +395,11 @@ func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time,
 		query_start,
 		query_end
 		from %s
-		where query_start >= '%s' and query_end <= '%s'
+		where cluster='%s' and 
+		query_start >= '%s' and query_end <= '%s'
 		order by query_start asc, query_end asc`,
 		MeteringTableComputeFineGrain,
+		cluster,
 		start.Format(time.RFC3339),
 		end.Format(time.RFC3339),
 	))
@@ -427,7 +431,7 @@ func GetGapsInFineGrain(auroraDB AuroraDB, start, end time.Time) ([][]time.Time,
 	}
 	var lastSyncEnd time.Time
 	retryErr := goutil.Retry(3, 2*time.Second, func() error {
-		_, lastSyncEnd, err = GetMostRecentFineGrainEntry(auroraDB, MeteringTableComputeFineGrain)
+		_, lastSyncEnd, err = GetMostRecentFineGrainEntry(auroraDB, MeteringTableComputeFineGrain, cluster)
 		return err
 	})
 	if retryErr != nil {

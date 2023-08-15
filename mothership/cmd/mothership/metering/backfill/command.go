@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
@@ -35,7 +36,8 @@ var (
 	durationFlag         time.Duration
 	previewBackfill      bool
 
-	inCluster bool
+	inCluster   bool
+	clusterName string
 )
 
 func NewCommand() *cobra.Command {
@@ -68,9 +70,9 @@ $ mothership metering backfill --start '07/11/2023 00:00:00+00' --end '07/14/202
 		Run: backfillFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")
-	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost", "Namespace where opencost/kubecost is running")
-	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "cost-analyzer-cost-analyzer", "Service name of opencost/kubecost to port-forward")
-	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost")
+	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost-cost-analyzer", "Namespace where opencost/kubecost is running")
+	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "kubecost-cost-analyzer", "Service name of opencost/kubecost to port-forward")
+	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost (use 9090 for in cluster)")
 
 	// ref. https://docs.kubecost.com/apis/apis-overview/allocation#querying
 	cmd.PersistentFlags().StringVar(&queryPath, "query-path", "/allocation/compute", "Query path")
@@ -80,14 +82,19 @@ $ mothership metering backfill --start '07/11/2023 00:00:00+00' --end '07/14/202
 	cmd.PersistentFlags().IntVarP(&backfillIntervalFlag, "backfill-interval-minutes", "i", 10, "Interval to sync data to db, in minutes")
 	cmd.PersistentFlags().StringVar(&startFlag, "start-time", "", "Start time for backfill, defaults to most recent query")
 	cmd.PersistentFlags().StringVar(&endFlag, "end-time", "", "End time for backfill, defaults to current time")
-	cmd.PersistentFlags().DurationVar(&durationFlag, "duration", 0, "Duration of backfill, defaults to 12 hours")
+	cmd.PersistentFlags().DurationVar(&durationFlag, "duration", 0, "Duration of backfill (overrides start flag)")
 
 	cmd.PersistentFlags().BoolVar(&previewBackfill, "preview-dry", false, "display all intervals to be backfilled for the current operation. Does not run any database queries.")
 	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run backfill from an in-cluster deployment")
+	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to run backfill on")
 	return cmd
 }
 
 func backfillFunc(cmd *cobra.Command, args []string) {
+	if len(clusterName) == 0 {
+		log.Fatal("No cluster name provided")
+	}
+
 	// connect to aurora
 	auroraCfg := common.ReadAuroraConfigFromFlag(cmd)
 	db, err := auroraCfg.NewHandler()
@@ -120,7 +127,7 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 			log.Fatalf("Failed to parse start time: %v", err)
 		}
 	} else {
-		_, backfillStart, err = metering.GetMostRecentFineGrainEntry(auroraDB, metering.MeteringTableComputeFineGrain)
+		_, backfillStart, err = metering.GetMostRecentFineGrainEntry(auroraDB, metering.MeteringTableComputeFineGrain, clusterName)
 		if err != nil {
 			log.Fatalf("Failed to get latest sync time: %v", err)
 		}
@@ -158,6 +165,9 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to build rest config: %v", err)
 		}
+		if strings.Split(clusterARN, "/")[1] != clusterName {
+			log.Fatalf("--cluster-name flag %s does not match the cluster name %s specified in the provided KUBECONFIG", clusterName, strings.Split(clusterARN, "/")[1])
+		}
 		clientset, err = kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			log.Fatalf("Failed to build clientset: %v", err)
@@ -184,7 +194,7 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 
 	var gaps [][]time.Time
 	retryErr := util.Retry(5, 2*time.Second, func() (err error) {
-		gaps, err = metering.GetGapsInFineGrain(auroraDB, backfillStart, backfillEnd)
+		gaps, err = metering.GetGapsInFineGrain(auroraDB, clusterName, backfillStart, backfillEnd)
 		return
 	})
 	if retryErr != nil {
@@ -218,7 +228,7 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 			OCSvcName:          opencostSvcName,
 			OCNamespace:        opencostNamespace,
 			OCPort:             opencostSvcPort,
-			ClusterARN:         clusterARN,
+			ClusterName:        clusterName,
 			QueryPath:          queryPath,
 			QueryAgg:           queryAgg,
 			QueryAcc:           false,
