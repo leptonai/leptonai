@@ -10,6 +10,9 @@ mothership:
     resources:
       requests:
         memory: "4096Mi"
+        cpu: "1"
+      limit:
+        memory: "8192Mi"
         cpu: "2"
   serviceAccountRoleArn: "arn:aws:iam::605454121064:role/mothership-role"
   certificateArn: "arn:aws:acm:us-east-1:605454121064:certificate/d8d5e0e1-ecc5-4716-aa79-01625e60704d"
