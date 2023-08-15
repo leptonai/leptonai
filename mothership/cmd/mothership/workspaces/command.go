@@ -29,8 +29,10 @@ func init() {
 // TODO: dedup with clusters/common.go
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workspaces",
-		Short: "Implements workspace sub-commands",
+		Use:        "workspaces",
+		Short:      "Implements workspace sub-commands",
+		Aliases:    []string{"workspace", "ws", "w"},
+		SuggestFor: []string{"workspace", "ws", "w"},
 	}
 	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")

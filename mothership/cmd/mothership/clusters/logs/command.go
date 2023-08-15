@@ -25,9 +25,11 @@ func init() {
 // NewCommand implements "mothership clusters logs" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "logs",
-		Short: "Print logs of the give cluster",
-		Run:   logsFunc,
+		Use:        "logs",
+		Short:      "Print logs of the give cluster",
+		Aliases:    []string{"log"},
+		SuggestFor: []string{"log"},
+		Run:        logsFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to fetch logs for")
 	cmd.PersistentFlags().BoolVarP(&failure, "failure", "f", false, "Fetch logs for failed clusters")

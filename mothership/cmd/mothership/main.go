@@ -26,6 +26,7 @@ const appName = "mothership"
 var rootCmd = &cobra.Command{
 	Use:        appName,
 	Short:      "Lepton CLI for " + appName,
+	Aliases:    []string{"mothership"},
 	SuggestFor: []string{"mothership"},
 }
 

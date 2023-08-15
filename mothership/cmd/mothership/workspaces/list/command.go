@@ -30,9 +30,11 @@ var (
 // NewCommand implements "mothership workspace list" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all the workspaces",
-		Run:   listFunc,
+		Use:        "list",
+		Short:      "List all the workspaces",
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"ls"},
+		Run:        listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
 	cmd.PersistentFlags().BoolVarP(&checkReadiness, "check-readiness", "", false, "true to check if the workspace is ready")

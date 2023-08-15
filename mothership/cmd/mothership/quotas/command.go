@@ -14,8 +14,10 @@ func init() {
 // NewCommand implements "mothership quotas" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "quotas",
-		Short: "Sub-commands for Lepton quotas",
+		Use:        "quotas",
+		Short:      "Sub-commands for Lepton quotas",
+		Aliases:    []string{"quota"},
+		SuggestFor: []string{"quota"},
 	}
 	cmd.AddCommand(
 		list.NewCommand(),

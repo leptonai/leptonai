@@ -25,9 +25,11 @@ func init() {
 // NewCommand implements "mothership workspaces logs" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "logs",
-		Short: "Print logs of the give workspace",
-		Run:   logsFunc,
+		Use:        "logs",
+		Short:      "Print logs of the give workspace",
+		Aliases:    []string{"log"},
+		SuggestFor: []string{"log"},
+		Run:        logsFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to get logs")
 	cmd.PersistentFlags().BoolVarP(&failure, "failure", "f", false, "Fetch logs for failed clusters")

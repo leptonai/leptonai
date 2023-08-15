@@ -32,8 +32,10 @@ func init() {
 // NewCommand implements "mothership metering" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "metering",
-		Short: "Prints out Lepton metering",
+		Use:        "metering",
+		Short:      "Prints out Lepton metering",
+		Aliases:    []string{"meter"},
+		SuggestFor: []string{"meter"},
 	}
 
 	// aurora db related flags

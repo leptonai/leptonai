@@ -29,8 +29,10 @@ func init() {
 // NewCommand implements "mothership clusters" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clusters",
-		Short: "Implements clusters sub-commands",
+		Use:        "clusters",
+		Short:      "Implements clusters sub-commands",
+		Aliases:    []string{"cluster", "cs", "c"},
+		SuggestFor: []string{"cluster", "cs", "c"},
 	}
 	cmd.PersistentFlags().StringVarP(&mothershipURL, "mothership-url", "u", "", "Mothership API endpoint URL")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Beaer token for API call (overwrites --token-path)")

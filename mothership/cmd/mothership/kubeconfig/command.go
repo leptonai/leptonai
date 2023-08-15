@@ -14,8 +14,10 @@ func init() {
 // NewCommand implements "mothership clusters kubeconfig" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kubeconfig",
-		Short: "Implements kubeconfig sub-commands",
+		Use:        "kubeconfig",
+		Short:      "Implements kubeconfig sub-commands",
+		Aliases:    []string{"kcfg", "k"},
+		SuggestFor: []string{"kcfg", "k"},
 	}
 	cmd.AddCommand(
 		update_all.NewCommand(),

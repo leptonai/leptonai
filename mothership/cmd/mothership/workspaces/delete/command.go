@@ -31,9 +31,11 @@ func init() {
 // NewCommand implements "mothership workspaces delete" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete the given workspace",
-		Run:   deleteFunc,
+		Use:        "delete",
+		Short:      "Delete the given workspace",
+		Aliases:    []string{"del"},
+		SuggestFor: []string{"del"},
+		Run:        deleteFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&workspaceName, "workspace-name", "w", "", "Name of the workspace to delete")
 	cmd.PersistentFlags().StringVarP(&workspacePrefix, "workspace-prefix", "x", "", "Prefix of the workspaces to delete")

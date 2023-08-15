@@ -26,9 +26,11 @@ func init() {
 // NewCommand implements "mothership clusters get" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all volumes",
-		Run:   listFunc,
+		Use:        "list",
+		Short:      "List all volumes",
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"ls"},
+		Run:        listFunc,
 	}
 	cmd.PersistentFlags().StringSliceVar(&volumeKinds, "volume-kinds", []string{"efs"}, "Volume kinds to list")
 	cmd.PersistentFlags().StringVarP(&region, "region", "r", "us-east-1", "AWS region to query")

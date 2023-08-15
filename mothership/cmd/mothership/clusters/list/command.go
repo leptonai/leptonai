@@ -31,9 +31,11 @@ func init() {
 // NewCommand implements "mothership clusters get" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all the clusters (either EKS/*), use 'inspect' to get individual clusters",
-		Run:   listFunc,
+		Use:        "list",
+		Short:      "List all the clusters (either EKS/*), use 'inspect' to get individual clusters",
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"ls"},
+		Run:        listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")
 	return cmd

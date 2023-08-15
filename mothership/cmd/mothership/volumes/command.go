@@ -14,8 +14,10 @@ func init() {
 // NewCommand implements "mothership volumes" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "volumes",
-		Short: "Sub-commands for Lepton volumes",
+		Use:        "volumes",
+		Short:      "Sub-commands for Lepton volumes",
+		Aliases:    []string{"volume", "vol"},
+		SuggestFor: []string{"volume", "vol"},
 	}
 	cmd.AddCommand(
 		list.NewCommand(),

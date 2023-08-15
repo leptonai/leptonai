@@ -22,7 +22,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "services",
 		Short:      "Implements services sub-commands",
-		SuggestFor: []string{"svcs"},
+		Aliases:    []string{"service", "svc", "svcs"},
+		SuggestFor: []string{"service", "svc", "svcs"},
 	}
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")
 	cmd.AddCommand(

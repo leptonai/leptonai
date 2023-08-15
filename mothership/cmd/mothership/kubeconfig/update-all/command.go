@@ -42,9 +42,11 @@ func init() {
 // NewCommand implements "mothership kubeconfig update-all" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update-all",
-		Short: "Fetches all clusters and write kubeconfig for all",
-		Run:   updateAllFunc,
+		Use:        "update-all",
+		Short:      "Fetches all clusters and write kubeconfig for all",
+		Aliases:    []string{"all", "update", "u"},
+		SuggestFor: []string{"all", "update", "u"},
+		Run:        updateAllFunc,
 	}
 
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")

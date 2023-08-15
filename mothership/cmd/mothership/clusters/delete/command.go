@@ -33,9 +33,11 @@ func init() {
 // NewCommand implements "mothership clusters delete" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete the given cluster",
-		Run:   deleteFunc,
+		Use:        "delete",
+		Short:      "Delete the given cluster",
+		Aliases:    []string{"del"},
+		SuggestFor: []string{"del"},
+		Run:        deleteFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "Name of the cluster to delete")
 	cmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force delete the cluster with its workspaces. Only valid when strategy=mothership")

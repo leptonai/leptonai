@@ -17,8 +17,10 @@ func init() {
 // NewCommand implements "mothership contexts" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "contexts",
-		Short: "Implements context sub-commands",
+		Use:        "contexts",
+		Short:      "Implements context sub-commands",
+		Aliases:    []string{"context"},
+		SuggestFor: []string{"context"},
 	}
 	cmd.AddCommand(
 		forget.NewCommand(),
