@@ -79,10 +79,6 @@ class CustomPhotonWithCustomDeps(Photon):
     system_dependency = ["ffmpeg"]
 
 
-class CustomPhotonAutoCaptureDeps(Photon):
-    capture_requirement_dependency = True
-
-
 test_txt = tempfile.NamedTemporaryFile(suffix=".txt")
 with open(test_txt.name, "w") as f:
     for i in range(10):
@@ -287,13 +283,6 @@ class Counter(Photon):
             metadata["py_obj"]["py_version"],
             f"{sys.version_info.major}.{sys.version_info.minor}",
         )
-
-    def test_capture_dependency(self):
-        name = random_name()
-        ph = CustomPhotonAutoCaptureDeps(name=name)
-        path = ph.save()
-        metadata = load_metadata(path)
-        self.assertGreater(len(metadata["requirement_dependency"]), 0)
 
     def test_custom_dependency(self):
         name = random_name()
@@ -709,6 +698,9 @@ from leptonai.photon import Photon
             _common_name = "common"
             _override_name = "parent"
 
+            requirement_dependency = ["parent_req"]
+            system_dependency = ["parent_sys"]
+
             @Photon.handler()
             def common_name(self) -> str:
                 return self._common_name
@@ -721,12 +713,41 @@ from leptonai.photon import Photon
             _override_name = "child"
             _specific_name = "parent-child"
 
+            requirement_dependency = ["child_req"]
+            system_dependency = ["child_sys"]
+
             @Photon.handler()
             def specific_name(self) -> str:
                 return self._specific_name
 
+        class StepParent(Photon):
+            _step_name = "step"
+
+            requirement_dependency = ["step_req"]
+            system_dependency = ["step_sys"]
+
+            @Photon.handler()
+            def step_name(self) -> str:
+                return self._step_name
+
+        class GrandChildPhoton(ChildPhoton, StepParent):
+            _override_name = "grandchild"
+            _extra_name = "parent-child-grandchild"
+
+            requirement_dependency = ["grandchild_req"]
+            system_dependency = ["grandchild_sys"]
+
+            @Photon.handler()
+            def extra_name(self) -> str:
+                return self._extra_name
+
         ph = ParentPhoton(name=random_name())
         path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(
+            metadata["requirement_dependency"], ParentPhoton.requirement_dependency
+        )
+        self.assertEqual(metadata["system_dependency"], ParentPhoton.system_dependency)
         proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.common_name(), ParentPhoton._common_name)
@@ -735,12 +756,63 @@ from leptonai.photon import Photon
 
         ph = ChildPhoton(name=random_name())
         path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(
+            set(metadata["requirement_dependency"]),
+            set(
+                ChildPhoton.requirement_dependency + ParentPhoton.requirement_dependency
+            ),
+        )
+        self.assertEqual(
+            set(metadata["system_dependency"]),
+            set(ChildPhoton.system_dependency + ParentPhoton.system_dependency),
+        )
         proc, port = photon_run_local_server(path=path)
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.common_name(), ChildPhoton._common_name)
         self.assertEqual(client.override_name(), ChildPhoton._override_name)
         self.assertEqual(client.specific_name(), ChildPhoton._specific_name)
         proc.kill()
+
+        ph = StepParent(name=random_name())
+        path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(
+            metadata["requirement_dependency"], StepParent.requirement_dependency
+        )
+        self.assertEqual(metadata["system_dependency"], StepParent.system_dependency)
+        proc, port = photon_run_local_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.step_name(), StepParent._step_name)
+
+        ph = GrandChildPhoton(name=random_name())
+        path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(
+            set(metadata["requirement_dependency"]),
+            set(
+                GrandChildPhoton.requirement_dependency
+                + ChildPhoton.requirement_dependency
+                + ParentPhoton.requirement_dependency
+                + StepParent.requirement_dependency
+            ),
+        )
+        self.assertEqual(
+            set(metadata["system_dependency"]),
+            set(
+                GrandChildPhoton.system_dependency
+                + ChildPhoton.system_dependency
+                + ParentPhoton.system_dependency
+                + StepParent.system_dependency
+            ),
+        )
+        proc, port = photon_run_local_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        self.assertEqual(client.common_name(), GrandChildPhoton._common_name)
+        self.assertEqual(client.override_name(), GrandChildPhoton._override_name)
+        self.assertEqual(client.specific_name(), GrandChildPhoton._specific_name)
+        self.assertEqual(client.extra_name(), GrandChildPhoton._extra_name)
+        self.assertEqual(client.step_name(), StepParent._step_name)
 
     def test_handler_decorator_no_parenthesis(self):
         class NoParenthesisPhoton(Photon):
