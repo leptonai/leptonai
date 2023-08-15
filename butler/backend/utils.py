@@ -79,6 +79,7 @@ def create_workspace_on_cluster(workspace_display_name):
         "enable_web": False,
         "quota_group": "small",
         "description": description,
+        "tier": "basic",
         "image_tag": "0.7.1",
         "git_ref": "0.7.1",
     }
