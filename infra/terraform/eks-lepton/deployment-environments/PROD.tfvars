@@ -65,9 +65,9 @@ al2_x86_64_cpu_max_size           = 1
 ubuntu_x86_64_ac_g4dnxlarge_min_size = 1
 ubuntu_x86_64_ac_g4dnxlarge_max_size = 8
 ubuntu_x86_64_ac_g52xlarge_min_size  = 1
-ubuntu_x86_64_ac_g52xlarge_max_size  = 8
+ubuntu_x86_64_ac_g52xlarge_max_size  = 16
 ubuntu_x86_64_cpu_min_size           = 1
-ubuntu_x86_64_cpu_max_size           = 4
+ubuntu_x86_64_cpu_max_size           = 6
 
 mothership_rds_aurora_secret_arn = "arn:aws:secretsmanager:us-west-2:720771144610:secret:rds!cluster-ad702e1c-d2ab-4fa2-abdd-44d1849b806c-DZWYM6"
 supabase_credential_secret_arns = {
