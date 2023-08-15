@@ -49,7 +49,6 @@ def enable():
     global _HANDLER_ID
 
     if os.environ.get("LEPTON_ENABLE_INTERNAL_LOG", "0").lower() not in ("1", "true"):
-        print("dddddd not doing anything")
         return
 
     if not _enabled:
