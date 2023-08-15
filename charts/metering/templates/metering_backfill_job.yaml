@@ -36,6 +36,8 @@ spec:
             - "--db-name={{ .Values.metering.auroraDbName }}"
             - "--db-user=$(AURORA_USERNAME)"
             - "--db-password=$(AURORA_PASSWORD)"
+            - "--opencost-namespace=kubecost-cost-analyzer"
+            - "--opencost-service-name=kubecost-cost-analyzer"
             - "--opencost-service-port=9090"
             - "--in-cluster"
             - "--duration=12h"
