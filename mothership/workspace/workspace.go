@@ -360,7 +360,6 @@ func (w *Workspace) Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspace
 	if spec.APIToken != "" {
 		ws.Spec.APIToken = spec.APIToken
 	}
-	ws.Spec.EnableWeb = spec.EnableWeb
 	if spec.GitRef != "" {
 		ws.Spec.GitRef = spec.GitRef
 	}
