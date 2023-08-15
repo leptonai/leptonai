@@ -23,10 +23,7 @@ func convertK8sEventsToLeptonDeploymentEvents(es eventv1.EventList) []LeptonDepl
 			Reason: e.Reason,
 		}
 		leptonEvent.Count = 1
-		leptonEvent.LastObservedTime = e.EventTime.Time
-		if leptonEvent.LastObservedTime.IsZero() {
-			leptonEvent.LastObservedTime = e.DeprecatedLastTimestamp.Time
-		}
+		leptonEvent.LastObservedTime = getEventLastObservedTime(&e)
 
 		if e.Series != nil {
 			leptonEvent.Count = int(e.Series.Count)
