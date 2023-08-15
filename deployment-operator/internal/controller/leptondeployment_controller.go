@@ -300,7 +300,8 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 			"name", req.Name,
 		)
 
-		service = newService(ld).createService(or)
+		svc := newService(ld).createService(or)
+		service.Spec = svc.Spec
 		if err := r.Client.Update(ctx, service); err != nil {
 			return nil, err
 		}
@@ -351,13 +352,15 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 			)
 		}
 	} else {
-		ingress = newIngress(ld).createHeaderBasedDeploymentIngress(or)
-		if ingress != nil {
+		ing := newIngress(ld).createHeaderBasedDeploymentIngress(or)
+		if ing != nil {
 			goutil.Logger.Infow("updating an existing header based ingress",
 				"namespace", req.Namespace,
 				"name", req.Name,
 			)
 
+			ingress.Annotations = ing.Annotations
+			ingress.Spec = ing.Spec
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
 			}
@@ -400,13 +403,15 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 			)
 		}
 	} else {
-		ingress = newIngress(ld).createHostBasedDeploymentIngress(or)
-		if ingress != nil {
+		ing := newIngress(ld).createHostBasedDeploymentIngress(or)
+		if ing != nil {
 			goutil.Logger.Infow("updating an existing host based ingress",
 				"namespace", req.Namespace,
 				"name", req.Name,
 			)
 
+			ingress.Annotations = ing.Annotations
+			ingress.Spec = ing.Spec
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
 			}

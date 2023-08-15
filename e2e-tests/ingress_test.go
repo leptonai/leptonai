@@ -107,63 +107,26 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected deployment %s to be in running state, got %v", dName, err)
 	}
+
 	// access public deployment without an auth token
-	h := goclient.NewHTTP(*workspaceURL, "")
 	ld, err := lepton.Deployment().Get(dName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ld.Status.Endpoint.ExternalEndpoint == "" {
+	endpoint := ld.Status.Endpoint.ExternalEndpoint
+	if endpoint == "" {
 		t.Fatal("Expected deployment to have an external endpoint, got empty string")
 	}
 
-	{ // Test host based ingress
-		transport, err := getTransportFromURL(*workspaceURL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		endpoint := ld.Status.Endpoint.ExternalEndpoint
-		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)
-			if err != nil {
-				return err
-			}
-			if len(out) == 0 {
-				t.Fatal("Expected non-empty response, got empty string")
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+	if err := testHostBasedIngress(dName, "", endpoint, true); err != nil {
+		t.Fatal(err)
 	}
-
-	{ // Test header based ingress
-		endpoint, err := url.Parse(*workspaceURL)
-		if err != nil {
-			t.Fatalf("Expected workspace URL to be a valid URL, got %s", *workspaceURL)
-		}
-		u := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
-		header := map[string]string{
-			ingress.HTTPHeaderNameForDeployment: dName,
-		}
-		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURL(http.MethodGet, u, header, nil)
-			if err != nil {
-				return err
-			}
-			if len(out) == 0 {
-				t.Fatal("Expected non-empty response, got empty string")
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+	if err := testHeaderBasedIngress(dName, "", true); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
+func TestIngressOfDeploymentWithCustomTokenAndUpdatingToken(t *testing.T) {
 	if !*testDataPlaneRouting {
 		t.Skip("Dataplane routing not ready")
 	}
@@ -196,60 +159,126 @@ func TestIngressOfDeploymentWithCustomToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
 	}
-	// access deployment with the custom token
-	h := goclient.NewHTTP(*workspaceURL, token)
+
 	ld, err := lepton.Deployment().Get(dName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ld.Status.Endpoint.ExternalEndpoint == "" {
+	endpoint := ld.Status.Endpoint.ExternalEndpoint
+	if endpoint == "" {
 		t.Fatal("Expected deployment to have an external endpoint, got empty string")
 	}
 
-	{ // Test host based ingress
-		transport, err := getTransportFromURL(*workspaceURL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		endpoint := ld.Status.Endpoint.ExternalEndpoint
-		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)
-			if err != nil {
-				return err
-			}
-			if len(out) == 0 {
-				t.Fatal("Expected non-empty response, got empty string")
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+	if err := testHostBasedIngress(dName, token, endpoint, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := testHeaderBasedIngress(dName, token, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := testHostBasedIngress(dName, "", endpoint, false); err == nil {
+		t.Fatal("Expected host-based ingress to fail with empty token, but got access")
+	}
+	if err := testHeaderBasedIngress(dName, "", false); err == nil {
+		t.Fatal("Expected header-based ingress to fail with empty token, but got access")
+	}
+	if err := testHostBasedIngress(dName, "wrong-token", endpoint, false); err == nil {
+		t.Fatal("Expected host-based ingress to fail with wrong token, but got access")
+	}
+	if err := testHeaderBasedIngress(dName, "wrong-token'", false); err == nil {
+		t.Fatal("Expected header-based ingress to fail with wrong token, but got access")
 	}
 
-	{ // Test header based ingress
-		endpoint, err := url.Parse(*workspaceURL)
-		if err != nil {
-			t.Fatalf("Expected workspace URL to be a valid URL, got %s", *workspaceURL)
-		}
-		u := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
-		header := map[string]string{
-			ingress.HTTPHeaderNameForDeployment: dName,
-		}
-		err = retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-			out, err := h.RequestURL(http.MethodGet, u, header, nil)
-			if err != nil {
-				return err
-			}
-			if len(out) == 0 {
-				t.Fatal("Expected non-empty response, got empty string")
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+	// Update to the new token
+	newToken := newName(t.Name())
+	newD := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name: dName,
+		APITokens: []leptonaiv1alpha1.TokenVar{
+			{
+				Value: newToken,
+			},
+		},
 	}
+	_, err = lepton.Deployment().Update(newD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = waitForDeploymentToRunningState(dName)
+	if err != nil {
+		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
+	}
+
+	if err := testHostBasedIngress(dName, newToken, endpoint, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := testHeaderBasedIngress(dName, newToken, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := testHostBasedIngress(dName, token, endpoint, false); err == nil {
+		t.Fatal("Expected host-based ingress to fail with old token, but got access")
+	}
+	if err := testHeaderBasedIngress(dName, token, false); err == nil {
+		t.Fatal("Expected header-based ingress to fail with old token, but got access")
+	}
+	if err := testHostBasedIngress(dName, "", endpoint, false); err == nil {
+		t.Fatal("Expected host-based ingress to fail with empty token, but got access")
+	}
+	if err := testHeaderBasedIngress(dName, "", false); err == nil {
+		t.Fatal("Expected header-based ingress to fail with empty token, but got access")
+	}
+	if err := testHostBasedIngress(dName, "wrong-token", endpoint, false); err == nil {
+		t.Fatal("Expected host-based ingress to fail with wrong token, but got access")
+	}
+	if err := testHeaderBasedIngress(dName, "wrong-token'", false); err == nil {
+		t.Fatal("Expected header-based ingress to fail with wrong token, but got access")
+	}
+}
+
+func testHostBasedIngress(dName, token, endpoint string, retry bool) error {
+	h := goclient.NewHTTP(*workspaceURL, token)
+	transport, err := getTransportFromURL(*workspaceURL)
+	if err != nil {
+		return err
+	}
+	testFun := func() error {
+		out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)
+		if err != nil {
+			return err
+		}
+		if len(out) == 0 {
+			return fmt.Errorf("Expected non-empty response, got empty string")
+		}
+		return nil
+	}
+	if !retry {
+		return testFun()
+	}
+	return retryUntilNoErrorOrTimeout(2*time.Minute, testFun)
+}
+
+func testHeaderBasedIngress(dName, token string, retry bool) error {
+	h := goclient.NewHTTP(*workspaceURL, token)
+	endpoint, err := url.Parse(*workspaceURL)
+	if err != nil {
+		return fmt.Errorf("Expected workspace URL to be a valid URL, got %s", *workspaceURL)
+	}
+	u := endpoint.Scheme + "://" + endpoint.Hostname() + ":" + endpoint.Port() + "/docs"
+	header := map[string]string{
+		ingress.HTTPHeaderNameForDeployment: dName,
+	}
+	testFun := func() error {
+		out, err := h.RequestURL(http.MethodGet, u, header, nil)
+		if err != nil {
+			return err
+		}
+		if len(out) == 0 {
+			return fmt.Errorf("Expected non-empty response, got empty string")
+		}
+		return nil
+	}
+	if !retry {
+		return testFun()
+	}
+	return retryUntilNoErrorOrTimeout(2*time.Minute, testFun)
 }
 
 func getTransportFromURL(u string) (*http.Transport, error) {
