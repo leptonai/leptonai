@@ -1,1 +1,0 @@
-lep photon create --name pimage -m py:counter.py
