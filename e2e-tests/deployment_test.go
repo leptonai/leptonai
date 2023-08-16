@@ -330,7 +330,7 @@ func TestPrivateContainerRegistry(t *testing.T) {
 		t.Fatalf("Failed to create image pull secret: %v", err)
 	}
 
-	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/private_docker_image/counter.py"}
+	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/tests/private_docker_image_test/foo.py"}
 	output, err := client.Run(fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with private image: %v - %s", err, output)
