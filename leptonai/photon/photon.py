@@ -12,14 +12,13 @@ import logging
 import os
 import re
 import sys
-from typing import Callable, Any, List, Optional
+from typing import Callable, Any, List, Optional, Set
 from typing_extensions import Annotated
 import warnings
 import zipfile
 
 import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body
-from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import Response, JSONResponse, StreamingResponse, FileResponse
@@ -44,6 +43,7 @@ from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
 from .batcher import batch
+from .background import create_limiter, BackgroundTask
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
@@ -258,14 +258,20 @@ class Photon(BasePhoton):
         self._routes = self._gather_routes()
         self._init_called = False
         self._init_res = None
-        self._background_tasks = set()
+
+        self._background_tasks: Set[BackgroundTask] = set()
+        self._background_tasks_limiter = None
 
     def _on_background_task_done(self, task):
         self._background_tasks.remove(task)
 
     def add_background_task(self, func, *args, **kwargs):
+        if self._background_tasks_limiter is None:
+            # NB: Make max_concurrency configurable?
+            self._background_tasks_limiter = create_limiter(max_concurrency=1)
+
         co = BackgroundTask(func, *args, **kwargs)
-        task = asyncio.create_task(co())
+        task = asyncio.create_task(co(limiter=self._background_tasks_limiter))
         self._background_tasks.add(task)
         task.add_done_callback(self._on_background_task_done)
 

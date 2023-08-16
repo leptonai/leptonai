@@ -31,6 +31,7 @@ import concurrent.futures
 from io import BytesIO
 import inspect
 from textwrap import dedent
+import threading
 import shutil
 import subprocess
 import sys
@@ -1029,6 +1030,56 @@ class CustomPhoton2(Photon):
         self.assertEqual(client.add_later(x=3), 0)
         await asyncio.sleep(0.1)
         self.assertEqual(client.val(), 3)
+
+    @async_test
+    async def test_background_max_concurrency(self):
+        class BackgroundTaskPhoton(Photon):
+            def init(self):
+                self._val = 0
+                self._background_thread_id = None
+
+            def background_task(self):
+                cur_thread_id = threading.get_ident()
+                if self._background_thread_id is None:
+                    self._background_thread_id = cur_thread_id
+                if self._background_thread_id != cur_thread_id:
+                    raise RuntimeError(
+                        "background tasks are not running in the same thread:"
+                        f" {self._background_thread_id} vs {cur_thread_id}"
+                    )
+                self._val += 1
+
+            @Photon.handler()
+            def run(self):
+                for _ in range(5):
+                    self.add_background_task(self.background_task)
+                return self._val
+
+            @Photon.handler()
+            def val(self) -> int:
+                return self._val
+
+        ph = BackgroundTaskPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+
+        client = Client(f"http://127.0.0.1:{port}")
+        try:
+            self.assertEqual(client.run(), 0)
+            await asyncio.sleep(1)
+            self.assertEqual(client.val(), 5)
+        except Exception as e:
+            success = False
+            logger.error(f"error: {e}")
+        else:
+            success = True
+        finally:
+            proc.kill()
+
+        if not success:
+            logger.error(f"proc.stdout: {proc.stdout.read().decode()}")
+            logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
+        self.assertTrue(success)
 
     def test_store_py_src_file(self):
         content = """
