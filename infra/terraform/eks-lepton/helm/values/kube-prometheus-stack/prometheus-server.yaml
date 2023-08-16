@@ -33,7 +33,7 @@ prometheus:
     name: ${kube_prometheus_stack_sa_prometheus_server}
 
   prometheusSpec:
-    scrapeInterval: 15s
+    scrapeInterval: 30s
     scrapeTimeout: 5s
     retention: 24h
     retentionSize: 100GB

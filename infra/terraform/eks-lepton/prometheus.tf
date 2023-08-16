@@ -410,6 +410,9 @@ resource "helm_release" "kube_prometheus_stack" {
     templatefile("${path.module}/helm/values/kube-prometheus-stack/node_exporter.yaml", {
     }),
 
+    templatefile("${path.module}/helm/values/kube-prometheus-stack/kube-state-metrics.yaml", {
+    }),
+
     templatefile("${path.module}/helm/values/kube-prometheus-stack/grafana.yaml", {
       admin_password                   = aws_secretsmanager_secret_version.grafana.secret_string
       kube_prometheus_stack_sa_grafana = local.kube_prometheus_stack_sa_grafana
