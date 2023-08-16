@@ -223,6 +223,7 @@ def get_routes(var):
 class Photon(BasePhoton):
     photon_type: str = "photon"
     obj_pkl_filename: str = "obj.pkl"
+    py_src_filename: str = "py.py"
 
     image: str = BASE_IMAGE
     """
@@ -344,6 +345,14 @@ class Photon(BasePhoton):
             "py_version": f"{sys.version_info.major}.{sys.version_info.minor}",
         }
 
+        try:
+            src_file = inspect.getfile(self.__class__)
+        except Exception as e:
+            res["py_obj"]["src_file"] = None
+            res["py_obj"]["src_file_error"] = str(e)
+        else:
+            res["py_obj"]["src_file"] = src_file
+
         res.update({"requirement_dependency": self._requirement_dependency})
         res.update({"system_dependency": self._system_dependency})
         res.update({METADATA_VCS_URL_KEY: self.vcs_url})
@@ -415,6 +424,24 @@ class Photon(BasePhoton):
                             pickler, "_function_getnewargs", _function_getnewargs
                         ):
                             pickler_dump(self)
+
+            src_str = None
+            try:
+                src_file = inspect.getfile(self.__class__)
+            except Exception:
+                pass
+            else:
+                if os.path.exists(src_file):
+                    with open(src_file, "rb") as src_file_in:
+                        src_str = src_file_in.read()
+            if src_str is None:
+                try:
+                    src_str = inspect.getsource(self.__class__)
+                except Exception:
+                    pass
+            if src_str is not None:
+                with photon_file.open(self.py_src_filename, "w") as src_file_out:
+                    src_file_out.write(src_str)
         return path
 
     @classmethod
