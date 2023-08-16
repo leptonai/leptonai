@@ -117,7 +117,7 @@ func (jh *JobHandler) ListJobsByStatus(c *gin.Context) {
 
 func (jh *JobHandler) checkIDAndForward(c *gin.Context) string {
 	jobID := (c.Param("id"))
-	_, err := jh.kv.Get(jobID)
+	name, err := jh.kv.Get(jobID)
 	if err != nil {
 		if err == kv.ErrNotExist {
 			c.Status(http.StatusNotFound)
@@ -132,8 +132,34 @@ func (jh *JobHandler) checkIDAndForward(c *gin.Context) string {
 		return jobID
 	}
 
+	r := httptest.NewRecorder()
 	setForwardURL(c)
-	jh.proxy.ServeHTTP(c.Writer, c.Request)
+	jh.proxy.ServeHTTP(r, c.Request)
+	response := r.Result()
+
+	copyResponseHeader(c, response.Header)
+
+	if response.StatusCode >= 300 {
+		c.Writer.WriteHeader(response.StatusCode)
+		_, err = io.Copy(c.Writer, response.Body)
+		if err != nil {
+			goutil.Logger.Warnw("failed to copy response body",
+				"operation", "checkIDAndForward",
+				"job", jobID,
+				"error", err,
+			)
+		}
+		return jobID
+	}
+
+	var j Job
+	err = json.NewDecoder(response.Body).Decode(&j)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+		return jobID
+	}
+	j.Name = name
+	c.JSON(http.StatusOK, j)
 
 	return jobID
 }
@@ -149,7 +175,13 @@ func (jh *JobHandler) filterByMyJob(c *gin.Context) {
 
 	if response.StatusCode >= 300 {
 		c.Writer.WriteHeader(response.StatusCode)
-		io.Copy(c.Writer, response.Body)
+		_, err := io.Copy(c.Writer, response.Body)
+		if err != nil {
+			goutil.Logger.Warnw("failed to copy response body",
+				"operation", "filterByMyJob",
+				"error", err,
+			)
+		}
 		return
 	}
 
