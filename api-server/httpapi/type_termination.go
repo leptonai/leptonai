@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	exitcode "github.com/leptonai/lepton/go-pkg/exit-code"
 	"github.com/leptonai/lepton/go-pkg/k8s"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,6 +51,7 @@ func getDeploymentTerminations(ctx context.Context, deployment *appsv1.Deploymen
 }
 
 // getReplicaTerminations returns the termination information of all containers within a pod
+// TODO: add tests
 func getReplicaTerminations(pod *corev1.Pod) []ReplicaTermination {
 	terminations := make([]ReplicaTermination, 0)
 
@@ -67,6 +69,13 @@ func getReplicaTerminations(pod *corev1.Pod) []ReplicaTermination {
 				Reason:      t.Reason,
 				Message:     t.Message,
 			}
+			if rt.Message == "" {
+				rt.Message = exitcode.CodeToError(t.ExitCode)
+			}
+			if rt.Reason == "" {
+				rt.Reason = exitcode.CodeToError(t.ExitCode)
+			}
+
 			terminations = append(terminations, rt)
 		}
 	}
