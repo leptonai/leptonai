@@ -492,7 +492,7 @@ class Photon(BasePhoton):
 
     def _create_app(self, load_mount):
         title = self.name.replace(".", "_")
-        app = FastAPI(title=title)
+        app = FastAPI(title=title, description=self.__doc__)
 
         # web hosted cdn and inference api have different domains:
         # https://github.com/leptonai/lepton/issues/358

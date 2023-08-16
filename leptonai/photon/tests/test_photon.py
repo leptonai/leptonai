@@ -1003,6 +1003,30 @@ class CustomPhoton2(Photon):
             DocStrPhoton.greet.__doc__,
         )
 
+    def test_photon_docs(self):
+        class DocPhoton(Photon):
+            """This is a well documented photon"""
+
+            @Photon.handler()
+            def greet(self) -> str:
+                return "hello"
+
+        name = random_name()
+        ph = DocPhoton(name=name)
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+
+        client = Client(f"http://127.0.0.1:{port}")
+        # Technically we should verify doc str shows up in /docs page,
+        # but /docs uses some js code to load description from
+        # /openapi.json on the fly, instead of directly embedding the
+        # description str in source html, so it's more convenient to
+        # test openapi.
+        self.assertEqual(client.openapi["info"]["title"], name)
+        self.assertEqual(
+            client.openapi["info"]["description"], "This is a well documented photon"
+        )
+
     @async_test
     async def test_background_task(self):
         class BackgroundTaskPhoton(Photon):
