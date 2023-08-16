@@ -1,7 +1,33 @@
 import { alias, intercept } from "../helper/intercept";
+import { saveToken } from "../helper/save-token";
+import {
+  removePhoton,
+  uploadPhoton,
+} from "../helper/request";
+import { getRandomPhoton, removePhotonZip } from "../helper/photon";
 
 describe("deployments", () => {
+  let photonName: string;
+  const deploymentName = `e2e-test-${Date.now()}`;
+  before(() => {
+    getRandomPhoton().then((photon) => {
+      photonName = photon.name;
+
+      cy.fixture(photon.path.replace("cypress/fixtures/", "")).then(
+        (fileContent) => {
+          uploadPhoton(fileContent);
+        }
+      );
+    });
+  });
+
+  after(() => {
+    removePhoton(photonName);
+    removePhotonZip(photonName);
+  });
+
   beforeEach(() => {
+    saveToken();
     intercept();
     cy.visit("http://localhost:3001");
 
@@ -13,22 +39,36 @@ describe("deployments", () => {
     cy.wait(200);
   });
 
-  it("should be render deployment list", () => {
-    cy.get("#deployment-list li").should("have.length", 1);
+  it("should be navigate to deployments", () => {
+    cy.url().should("include", "/deployments/list");
+  });
+
+  it("should be create a deployment with photon", () => {
+    cy.get("button").contains("Create deployment").click();
+    cy.wait(200);
+    cy.get(".ant-modal-content").should("be.exist");
+    cy.get(".ant-modal-content input").first().type(deploymentName);
+    cy.get(".ant-modal-content button").contains("Create").click();
+    cy.wait(1000);
+    cy.wait(`@${alias.getPhotons}`);
+    cy.wait(`@${alias.getDeployments}`);
+    cy.get(".deployment-item")
+      .contains(deploymentName)
+      .parentsUntil(".deployment-item")
+      .should("be.exist");
   });
 
   it("should be edit deployment current", () => {
-    cy.get("#deployment-list li button").contains("Edit").click();
+    cy.get(".deployment-item")
+      .contains(deploymentName)
+      .parentsUntil(".deployment-item")
+      .get("button")
+      .contains("Edit")
+      .click();
     cy.wait(300); // modal animation
     cy.wait(`@${alias.getImagePullSecrets}`);
     cy.get("input#min_replicas").as("replicasInput");
     cy.get("@replicasInput").should("have.value", "1");
-    cy.contains("Advanced settings").click();
-    cy.wait(300); //collapse animation
-    cy.get(".ant-collapse").contains("HUGGING_FACE_HUB_TOKEN").should("exist");
-    cy.get(".ant-collapse input[value='/hsuanxyz']").should("exist");
-    cy.get(".ant-collapse input[value='/user']").should("exist");
-    cy.get(".ant-collapse").contains("registry-1").should("exist");
 
     cy.intercept("PATCH", "/api/v1/deployments/*", (req) => {
       expect(req.body?.resource_requirement?.min_replicas).to.eq(2);
@@ -37,11 +77,6 @@ describe("deployments", () => {
       expect(req.body?.mounts).to.be.undefined;
       expect(req.body?.image_pull_secrets).to.be.undefined;
       expect(req.body?.status).to.be.undefined;
-
-      req.reply({
-        statusCode: 200,
-        body: null,
-      });
     });
 
     cy.get("@replicasInput").clear().type("2");
@@ -49,23 +84,43 @@ describe("deployments", () => {
 
     cy.wait(300); // modal animation
     cy.get(".ant-modal-title").should("not.exist");
+    cy.wait(`@${alias.getDeployments}`);
+    cy.get(".deployment-item")
+      .contains(deploymentName)
+      .parentsUntil(".deployment-item")
+      .contains("2 replicas");
   });
 
-  it("should be render deployment detail", () => {
-    cy.get("#deployment-list li a:first()").click();
-    cy.wait(200);
+  describe("deployment detail", () => {
+    beforeEach(() => {
+      cy.get(".deployment-item").contains(deploymentName).click();
+      cy.wait(200);
+    });
 
-    cy.get("#api-form").should("have.length", 1);
+    it("should be navigate to deployment detail", () => {
+      cy.url().should("include", "/deployments/detail");
+    });
 
-    cy.get("form label.ant-checkbox-wrapper")
-      .contains("Show advanced options")
-      .click();
+    it("should be render deployment detail", () => {
+      cy.get("#api-form").should("be.exist");
 
-    cy.wait(200);
+      cy.percySnapshot("Deployment Detail", {
+        minHeight: 1200,
+      });
+    });
 
-    cy.percySnapshot("Deployment API Form", {
-      scope: "#api-form",
-      minHeight: 1800,
+    it("should be delete deployment", () => {
+      cy.intercept("DELETE", "/api/v1/deployments/*", (req) => {
+        expect(req.body).to.be.empty;
+      }).as("deleteDeployment");
+      cy.get("button").contains("Delete").click();
+      cy.wait(200);
+      cy.get(".ant-popover-content button").contains("OK").click();
+      cy.wait(`@deleteDeployment`);
+      cy.wait(1000);
+      cy.url().should("include", "/deployments/list");
+      cy.wait(`@${alias.getDeployments}`);
+      cy.contains(deploymentName).should("not.exist");
     });
   });
 });

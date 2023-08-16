@@ -1,9 +1,0 @@
-[
-  {
-    "metric": {
-      "handler": "/run",
-      "name": "latency_p90"
-    },
-    "values": []
-  }
-]

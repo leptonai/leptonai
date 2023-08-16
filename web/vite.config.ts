@@ -9,6 +9,21 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
+    preview: {
+      port: 3001,
+      host: "0.0.0.0",
+      hmr: false,
+      proxy: {
+        "/api/v1": {
+          target: "https://y90kazsl.app.lepton.ai",
+          changeOrigin: true,
+        },
+        "/run": {
+          target: "https://y90kazsl.app.lepton.ai",
+          changeOrigin: true,
+        },
+      },
+    },
     server: {
       port: 3000,
       host: "0.0.0.0",

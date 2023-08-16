@@ -127,7 +127,8 @@ export class ApiServerService implements ApiService {
       headers.append("X-Lepton-Deployment", name);
 
       const abortController = new AbortController();
-      fetch(`${this.host}${path}`, {
+      console.log(this.host, path);
+      fetch(pathJoin(this.host || "", path), {
         method: request.method,
         headers: headers,
         body: JSON.stringify(data),
