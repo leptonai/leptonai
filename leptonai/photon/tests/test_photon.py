@@ -36,6 +36,7 @@ import subprocess
 import sys
 from typing import Dict, List
 import unittest
+import zipfile
 
 from fastapi import FastAPI
 from loguru import logger
@@ -1028,6 +1029,28 @@ class CustomPhoton2(Photon):
         self.assertEqual(client.add_later(x=3), 0)
         await asyncio.sleep(0.1)
         self.assertEqual(client.val(), 3)
+
+    def test_store_py_src_file(self):
+        content = """
+from leptonai.photon import Photon
+
+class StorePySrcFilePhoton(Photon):
+    @Photon.handler
+    def greet(self) -> str:
+        return "hello"
+"""
+        _, src_file_path = tempfile.mkstemp(dir=tmpdir, suffix=".py")
+        with open(src_file_path, "w") as f:
+            f.write(content)
+
+        photon = create_photon(name=random_name(), model=src_file_path)
+        path = photon.save()
+
+        metadata = load_metadata(path)
+        self.assertEqual(metadata["py_obj"]["src_file"], src_file_path)
+        with zipfile.ZipFile(path, "r") as photon_file:
+            with photon_file.open(Photon.py_src_filename) as f:
+                self.assertEqual(f.read().decode(), content)
 
 
 if __name__ == "__main__":
