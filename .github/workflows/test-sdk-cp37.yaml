@@ -16,6 +16,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Checkout examples repo
+        uses: actions/checkout@v3
+        with:
+          repository: leptonai/examples
+          token: ${{ secrets.EXAMPLES_REPO_GITHUB_TOKEN }}
+          path: sdk/examples
       - name: Set up Python 3.7
         uses: actions/setup-python@v4
         with:
@@ -36,3 +42,5 @@ jobs:
           pip install .[test]
           cd -
           pytest -x sdk
+          # TODO: add tests for running examples
+          ls -l ./sdk/examples
