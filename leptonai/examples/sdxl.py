@@ -29,7 +29,7 @@ class ImageGen(Photon):
         if cuda_available:
             self.base.to("cuda")
             # TODO: enable torch.compile once thie issue is fixed:
-            # https://github.com/huggingface/diffusers/issues/4370
+            # https://github.com/huggingface/diffusers/issues/4375
             # self.base.unet = torch.compile(self.base.unet, mode="reduce-overhead", fullgraph=True)
 
         self._refiner = None
@@ -48,7 +48,7 @@ class ImageGen(Photon):
             if torch.cuda.is_available():
                 pipe.to("cuda")
                 # TODO: enable torch.compile once thie issue is fixed:
-                # https://github.com/huggingface/diffusers/issues/4370
+                # https://github.com/huggingface/diffusers/issues/4375
                 # pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
             self._refiner = pipe
         return self._refiner
