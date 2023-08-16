@@ -55,14 +55,14 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
 
-		time.Sleep(time.Second)
-
-		// same delete should fail, since the deployment is already deleted
-		err = lepton.Deployment().Delete(name)
-		if err == nil {
-			t.Fatal("expected error for second delete request for the same name, got nil")
-		}
+func TestDeploymentDeletion(t *testing.T) {
+	name := newName("do-not-exist")
+	err := lepton.Deployment().Delete(name)
+	if err == nil {
+		t.Fatal("expected error when deleting a non-existing deployment")
 	}
 }
 
