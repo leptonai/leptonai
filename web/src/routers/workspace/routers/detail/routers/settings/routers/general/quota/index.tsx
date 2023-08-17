@@ -12,7 +12,6 @@ export const Quota: FC<{
   const progress = (used / limit) * 100;
   return (
     <Card
-      shadowless
       borderless
       paddingless
       css={css`

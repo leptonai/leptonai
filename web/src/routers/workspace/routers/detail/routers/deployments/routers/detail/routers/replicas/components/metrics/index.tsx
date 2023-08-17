@@ -81,11 +81,11 @@ export const MetricsDetail: FC<{
     [metrics.length]
   );
   return (
-    <Card borderless shadowless>
+    <Card borderless>
       <Row gutter={[16, 32]}>
         {metrics.map((m) => (
           <Col key={m.title} sm={24} xs={24} md={12}>
-            <Card paddingless overflowShow borderless shadowless>
+            <Card paddingless overflowShow borderless>
               <MetricItem
                 onInit={(chart) => onInit(chart, m.title)}
                 deploymentName={deploymentName}

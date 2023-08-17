@@ -15,7 +15,6 @@ export const Card: FC<
       radiusless?: boolean;
       overflowShow?: boolean;
       titleOverflowHidden?: boolean;
-      shadowless?: boolean;
       paddingless?: boolean;
     } & EmotionProps
   >
@@ -29,7 +28,6 @@ export const Card: FC<
   borderless = false,
   overflowShow = false,
   titleOverflowHidden = false,
-  shadowless = true,
   paddingless = false,
   className,
 }) => {
@@ -46,7 +44,6 @@ export const Card: FC<
         border-radius: ${radiusless ? 0 : theme.borderRadius}px;
         border-style: solid;
         border-width: ${borderless ? 0 : "1px"};
-        box-shadow: ${shadowless ? "none" : theme.boxShadowTertiary};
       `}
     >
       {title && (
@@ -61,6 +58,7 @@ export const Card: FC<
             color: ${theme.colorTextHeading};
             font-size: 14px;
             font-weight: 500;
+            white-space: nowrap;
             padding: 0 16px;
           `}
         >

@@ -57,7 +57,6 @@ export const Secrets: FC = () => {
     <Card
       loading={loading}
       borderless
-      shadowless
       icon={<CarbonIcon icon={<Asterisk />} />}
       title="Secrets"
       extra={<NewSecret afterAction={() => refreshService.refresh()} />}

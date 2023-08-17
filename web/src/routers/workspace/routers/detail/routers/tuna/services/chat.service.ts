@@ -26,10 +26,15 @@ export const benchmarkModel: ModelOption = {
   },
 } as const;
 
+export interface ChatOption {
+  temperature: number;
+  top_p: number;
+  max_tokens: number;
+}
 export interface ChatCompletion {
   onGeneratingChanged(): Observable<boolean>;
   onMessagesChanged(): Observable<ChatMessageItem[]>;
-  send(content: string): Observable<string>;
+  send(content: string, option: ChatOption): Observable<string>;
   clear(): void;
 }
 
@@ -47,7 +52,7 @@ class Chat implements ChatCompletion {
     return this.messages$.asObservable();
   }
 
-  send(content: string): Observable<string> {
+  send(content: string, option: ChatOption): Observable<string> {
     this.generating$.next(true);
     const userItem: ChatMessageItem = {
       message: {
@@ -72,6 +77,9 @@ class Chat implements ChatCompletion {
           model: "gpt-3.5-turbo",
           messages,
           stream: true,
+          temperature: option.temperature,
+          top_p: option.top_p,
+          max_tokens: option.max_tokens,
         },
         this.option,
         abortController

@@ -1,4 +1,5 @@
-import { Button, message, Modal, Popover, Space } from "antd";
+import { Button, message, Modal, Space, Tooltip } from "antd";
+import { SizeType } from "antd/lib/config-provider/SizeContext";
 import {
   FC,
   PropsWithChildren,
@@ -17,6 +18,7 @@ import { css } from "@emotion/react";
 
 export interface ApiModalProps {
   name: string;
+  size?: SizeType;
   apiUrl: string;
   apiKey?: string;
   disabled?: boolean;
@@ -26,6 +28,7 @@ export const ApiModal: FC<ApiModalProps & PropsWithChildren> = ({
   name,
   apiUrl,
   apiKey,
+  size,
   disabled,
   icon,
   children,
@@ -67,19 +70,15 @@ sys.stdout.write("\\n")`;
   }, [apiUrl, apiKey]);
 
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(pythonCode);
-    message.success("Copied");
+    void navigator.clipboard.writeText(pythonCode);
+    void message.success("Copied");
   }, [pythonCode]);
   return (
     <>
-      <Popover
-        trigger="hover"
-        placement="top"
-        content="Get the API for this model"
-      >
+      <Tooltip placement="top" title="Get code template for this tuna">
         <Button
           disabled={disabled}
-          size="small"
+          size={size}
           key="deploy"
           type="text"
           icon={icon}
@@ -87,7 +86,7 @@ sys.stdout.write("\\n")`;
         >
           {children}
         </Button>
-      </Popover>
+      </Tooltip>
 
       <Modal
         width={600}
@@ -111,11 +110,14 @@ sys.stdout.write("\\n")`;
         <div
           css={css`
             height: 400px;
-            border: 1px solid ${theme.colorBorderSecondary};
-            border-radius: ${theme.borderRadius};
+            border: 1px solid ${theme.colorBorder};
+            background: ${theme.colorBgLayout};
+            overflow: hidden;
+            border-radius: ${theme.borderRadius}px;
           `}
         >
           <CodeBlock
+            transparentBg
             tokenMask={createDoubleQuoteSecretTokenMasker(apiKey || "", {
               startAt: 3,
               endAt: 3,

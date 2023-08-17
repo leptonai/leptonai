@@ -13,13 +13,14 @@ import {
   Divider,
   Form,
   Input,
+  InputRef,
   Popover,
   Row,
   Spin,
   Typography,
   Upload as AntdUpload,
 } from "antd";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useEffect, useRef, useState } from "react";
 import type { UploadChangeParam } from "antd/es/upload";
 
 export interface CreateProps {
@@ -44,7 +45,12 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
-
+  const inputRef = useRef<InputRef | null>(null);
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
   const submit = useCallback(
     (formData?: FormData) => {
       if (!formData) {
@@ -91,7 +97,7 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
               },
             ]}
           >
-            <Input readOnly={loading} autoFocus placeholder="Tuna name" />
+            <Input readOnly={loading} ref={inputRef} placeholder="Tuna name" />
           </Form.Item>
           <Form.Item
             label="Training data"
@@ -113,7 +119,6 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
                     A list of messages comprising the conversation so far.
                   </Typography.Text>
                   <Card
-                    shadowless
                     paddingless
                     css={css`
                       margin-top: 16px;

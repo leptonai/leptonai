@@ -1,8 +1,8 @@
 import {
-  FC,
-  MutableRefObject,
+  forwardRef,
   PropsWithChildren,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
 } from "react";
@@ -14,30 +14,41 @@ export type ScrollablePosition = "start" | "end";
 
 export interface ScrollableProps {
   position?: "start" | "end" | ["start", "end"];
-  scrollableRef?: MutableRefObject<HTMLDivElement | null>;
   className?: string;
   style?: CSSProperties;
   margin?: string;
   id?: string;
 }
 
-export const Scrollable: FC<ScrollableProps & PropsWithChildren> = ({
-  position = "start",
-  className,
-  id,
-  style,
-  children,
-  margin,
-  scrollableRef,
-}) => {
+export interface ScrollableRef {
+  scrollToBottom: () => void;
+}
+
+export const Scrollable = forwardRef<
+  ScrollableRef,
+  PropsWithChildren<ScrollableProps>
+>(({ position = "start", className, id, style, children, margin }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollableBoxRef = useRef<HTMLDivElement | null>(null);
   const theme = useAntdTheme();
   const [positions, setPositions] = useState<ScrollablePosition[]>([]);
-
+  const scrollHTMLRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     setPositions(Array.isArray(position) ? position : [position]);
   }, [position]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToBottom: () => {
+        scrollHTMLRef.current?.scrollTo({
+          top: scrollHTMLRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -116,8 +127,8 @@ export const Scrollable: FC<ScrollableProps & PropsWithChildren> = ({
     >
       <div
         ref={(ref) => {
-          if (scrollableRef) {
-            scrollableRef.current = ref;
+          if (scrollHTMLRef) {
+            scrollHTMLRef.current = ref;
           }
           scrollableBoxRef.current = ref;
         }}
@@ -129,4 +140,4 @@ export const Scrollable: FC<ScrollableProps & PropsWithChildren> = ({
       </div>
     </div>
   );
-};
+});

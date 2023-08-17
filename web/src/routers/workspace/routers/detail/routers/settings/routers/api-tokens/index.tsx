@@ -59,7 +59,6 @@ export const ApiTokens: FC = () => {
     <Card
       icon={<CarbonIcon icon={<Password />} />}
       borderless
-      shadowless
       title="API Tokens"
     >
       <Table

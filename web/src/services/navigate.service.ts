@@ -123,7 +123,7 @@ export const RoutersMap = {
   gettingStarted: `/workspace/:workspaceId?/getting-started`,
   fineTuneCreate: `/workspace/:workspaceId?/fine-tune/create`,
   tunaList: `/workspace/:workspaceId?/tuna/list`,
-  tunaChat: `/workspace/:workspaceId?/tuna/chat/:inferenceName`,
+  tunaChat: `/workspace/:workspaceId?/tuna/chat/:name`,
   settingsGeneral: `/workspace/:workspaceId?/settings/general`,
   settingsAPITokens: `/workspace/:workspaceId?/settings/api-tokens`,
   settingsBilling: `/workspace/:workspaceId?/settings/billing`,

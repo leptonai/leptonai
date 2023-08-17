@@ -68,7 +68,6 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   return initialized ? (
     <Card
-      shadowless
       borderless
       css={css`
         position: relative;

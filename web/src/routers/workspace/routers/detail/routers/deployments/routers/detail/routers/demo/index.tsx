@@ -78,7 +78,6 @@ export const Demo: FC<{ deployment: Deployment }> = ({ deployment }) => {
 
   return initialized ? (
     <Card
-      shadowless
       borderless
       css={css`
         .ant-alert-description pre {

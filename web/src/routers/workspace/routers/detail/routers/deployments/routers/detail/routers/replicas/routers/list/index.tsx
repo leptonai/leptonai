@@ -191,7 +191,7 @@ export const List: FC<{
   );
 
   return (
-    <Card shadowless borderless>
+    <Card borderless>
       <Table
         scroll={{ y: "800px" }}
         css={css`

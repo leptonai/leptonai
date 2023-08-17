@@ -30,7 +30,7 @@ export const Events: FC<{ deployment: Deployment }> = ({ deployment }) => {
   );
 
   return (
-    <Card shadowless borderless>
+    <Card borderless>
       <ConfigProvider
         renderEmpty={() => (
           <Empty

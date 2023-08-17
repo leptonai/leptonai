@@ -20,6 +20,7 @@ export const SmallTag = ({
         bordered={false}
         css={css`
           margin-inline: 0;
+          cursor: default;
           font-weight: 500;
         `}
       >

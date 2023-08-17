@@ -29,11 +29,9 @@ export const General: FC = () => {
         loading={loading}
         icon={<CarbonIcon icon={<Settings />} />}
         borderless
-        shadowless
         title="General"
       >
         <Card
-          shadowless
           paddingless
           css={css`
             margin-bottom: 16px;

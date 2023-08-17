@@ -89,7 +89,6 @@ export const Versions: FC = () => {
                         position: relative;
                         top: -1px;
                       `}
-                      shadowless
                       paddingless
                       borderless
                     >

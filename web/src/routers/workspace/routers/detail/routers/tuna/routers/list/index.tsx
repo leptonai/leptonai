@@ -1,3 +1,4 @@
+import { css } from "@emotion/react";
 import { FineTuneJobStatus } from "@lepton-dashboard/interfaces/fine-tune";
 import { TunaItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/tuna-item";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
@@ -22,7 +23,7 @@ export const List: FC = () => {
   const [search, setSearch] = useState<string>("");
   const [status, setStatus] = useState<string[]>([]);
 
-  const models = useStateFromObservable(
+  const tunas = useStateFromObservable(
     () =>
       refreshService.refresh$.pipe(switchMap(() => fineTuneService.listJobs())),
     [],
@@ -32,20 +33,24 @@ export const List: FC = () => {
       },
     }
   );
-  const filteredModels = useMemo(() => {
-    return models.filter(
+  const filteredTunas = useMemo(() => {
+    return tunas.filter(
       (d) =>
         (status.length === 0 || status.indexOf(d.status) !== -1) &&
         JSON.stringify(d).indexOf(search) !== -1
     );
-  }, [models, search, status]);
+  }, [tunas, search, status]);
 
   const closeCreateModal = () => {
     setCreateModalOpen(false);
   };
 
   return (
-    <>
+    <div
+      css={css`
+        width: 100%;
+      `}
+    >
       <Row gutter={[8, 16]}>
         <Col span={24}>
           <Row gutter={[8, 8]} justify="space-between">
@@ -103,11 +108,11 @@ export const List: FC = () => {
           </Row>
         </Col>
         <Col span={24}>
-          {filteredModels.length > 0 ? (
+          {filteredTunas.length > 0 ? (
             <Row gutter={[16, 16]}>
-              {filteredModels.map((model) => (
-                <Col span={24} md={12} lg={8} key={model.id}>
-                  <TunaItem tuna={model} key={model.id} />
+              {filteredTunas.map((tuna) => (
+                <Col span={24} md={24} lg={12} key={tuna.id}>
+                  <TunaItem tuna={tuna} key={tuna.id} />
                 </Col>
               ))}
             </Row>
@@ -130,6 +135,6 @@ export const List: FC = () => {
       >
         <CreateJob finish={closeCreateModal} />
       </Modal>
-    </>
+    </div>
   );
 };

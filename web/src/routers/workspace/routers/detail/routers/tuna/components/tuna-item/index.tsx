@@ -20,7 +20,7 @@ import { FC, useState } from "react";
 import { filter, switchMap, withLatestFrom } from "rxjs";
 
 export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
-  const fineTuneService = useInject(TunaService);
+  const tunaService = useInject(TunaService);
   const refreshService = useInject(RefreshService);
   const [loading, setLoading] = useState(
     tuna.status === FineTuneJobStatus.SUCCESS
@@ -31,7 +31,7 @@ export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
       refreshService.refresh$.pipe(
         withLatestFrom(status$),
         filter(([, status]) => status === FineTuneJobStatus.SUCCESS),
-        switchMap(() => fineTuneService.getInference(tuna.name))
+        switchMap(() => tunaService.getInference(tuna.name))
       ),
     null,
     {
@@ -47,50 +47,56 @@ export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
     <Card>
       <Row gutter={[16, 8]}>
         <Col span={24}>
-          <Row gutter={[16, 0]}>
-            <Col span={24}>
-              <Row justify="space-between" wrap={false}>
-                <Col flex="1 1 auto">
-                  <Typography.Text strong>
-                    <span
-                      css={css`
-                        font-size: 16px;
-                        white-space: nowrap;
-                      `}
-                    >
+          <div
+            css={css`
+              min-height: 50px;
+            `}
+          >
+            <Row gutter={[16, 0]}>
+              <Col span={24}>
+                <Row justify="space-between" wrap={false}>
+                  <Col flex="1 1 auto">
+                    <Typography.Text strong>
                       <span
                         css={css`
-                          margin-right: 8px;
-                        `}
-                      >
-                        <TunaIcon />
-                      </span>
-                      <Typography.Text
-                        ellipsis={{ tooltip: true }}
-                        css={css`
                           font-size: 16px;
-                          width: 150px;
-                          margin-right: 8px;
+                          white-space: nowrap;
                         `}
                       >
-                        {tuna.name}
-                      </Typography.Text>
-                    </span>
-                  </Typography.Text>
-                  <MinThemeProvider>
-                    <div>
-                      <Typography.Text type="secondary">
-                        <DateParser prefix="Created" date={tuna.created_at} />
-                      </Typography.Text>
-                    </div>
-                  </MinThemeProvider>
-                </Col>
-                <Col flex="0 4 auto">
-                  {!loading && <Actions tuna={tuna} inference={inference} />}
-                </Col>
-              </Row>
-            </Col>
-          </Row>
+                        <span
+                          css={css`
+                            margin-right: 8px;
+                          `}
+                        >
+                          <TunaIcon />
+                        </span>
+                        <Typography.Text
+                          ellipsis={{ tooltip: true }}
+                          css={css`
+                            font-size: 16px;
+                            width: 250px;
+                            margin-right: 8px;
+                          `}
+                        >
+                          {tuna.name}
+                        </Typography.Text>
+                      </span>
+                    </Typography.Text>
+                    <MinThemeProvider>
+                      <div>
+                        <Typography.Text type="secondary">
+                          <DateParser prefix="Created" date={tuna.created_at} />
+                        </Typography.Text>
+                      </div>
+                    </MinThemeProvider>
+                  </Col>
+                  <Col flex="0 4 auto">
+                    {!loading && <Actions tuna={tuna} inference={inference} />}
+                  </Col>
+                </Row>
+              </Col>
+            </Row>
+          </div>
         </Col>
         <Col span={24}>
           <Row gutter={[16, 8]}>

@@ -51,7 +51,6 @@ export const Registries: FC = () => {
     <Card
       loading={loading}
       borderless
-      shadowless
       icon={<CarbonIcon icon={<ContainerRegistry />} />}
       title="Registries"
       extra={<NewRegistry afterAction={() => refreshService.refresh()} />}

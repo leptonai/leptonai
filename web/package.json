@@ -55,6 +55,7 @@
     "strip-ansi": "^7.1.0",
     "stripe": "^12.13.0",
     "swagger-client": "^3.19.8",
+    "uuid": "^9.0.0",
     "xterm": "^5.1.0",
     "xterm-addon-attach": "^0.8.0",
     "xterm-addon-fit": "^0.7.0"
@@ -72,6 +73,7 @@
     "@types/lodash": "^4.14.195",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
+    "@types/uuid": "^9.0.2",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
     "@typescript-eslint/parser": "^5.57.1",
     "@vitejs/plugin-react": "^4.0.0",

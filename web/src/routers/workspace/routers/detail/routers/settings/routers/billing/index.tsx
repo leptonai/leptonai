@@ -45,7 +45,6 @@ export const Billing: FC = () => {
     <Card
       icon={<CarbonIcon icon={<Wallet />} />}
       borderless
-      shadowless
       title={
         <Space>
           Billing <Status />
@@ -54,7 +53,7 @@ export const Billing: FC = () => {
     >
       {isBillingSupported ? (
         <MinThemeProvider>
-          <Card borderless shadowless paddingless loading={invoiceLoading}>
+          <Card borderless paddingless loading={invoiceLoading}>
             {list && (
               <Row gutter={[0, 16]}>
                 <Col span={24}>

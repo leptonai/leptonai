@@ -1,7 +1,7 @@
 import { Secret } from "@lepton-dashboard/interfaces/secret";
 import { WorkspaceDetail } from "@lepton-dashboard/interfaces/workspace";
 import { Injectable } from "injection-js";
-import { catchError, mergeMap, Observable, of } from "rxjs";
+import { catchError, map, mergeMap, Observable, of } from "rxjs";
 import { Photon } from "@lepton-dashboard/interfaces/photon";
 import {
   Deployment,
@@ -345,9 +345,12 @@ export class ApiServerService implements ApiService {
   }
 
   getFineTuneJob(id: number): Observable<FineTuneJob> {
-    return this.httpClientService.get<FineTuneJob>(
-      `${this.prefix}/tuna/job/${id}`
+    return this.listFineTuneJobs().pipe(
+      map((jobs) => jobs.find((j) => j.id === id)!)
     );
+    // return this.httpClientService.get<FineTuneJob>(
+    //   `${this.prefix}/tuna/job/get/${id}`
+    // );
   }
 
   createInference(tunaInference: TunaInference): Observable<void> {

@@ -1,4 +1,4 @@
-import { ChatBot, StopFilled } from "@carbon/icons-react";
+import { ChatBot, Code, StopFilled } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon, DeploymentIcon } from "@lepton-dashboard/components/icons";
 import { State } from "@lepton-dashboard/interfaces/deployment";
@@ -7,6 +7,7 @@ import {
   FineTuneJobStatus,
   TunaInference,
 } from "@lepton-dashboard/interfaces/fine-tune";
+import { ApiModal } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/api-modal";
 import { Terminate } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/terminate";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
@@ -26,6 +27,8 @@ export const Actions: FC<{
   const refreshService = useInject(RefreshService);
   const inferenceEnabled = inference?.status?.state === State.Running;
 
+  const [deployLoading, setDeployLoading] = useState(false);
+
   const deployed = !!inference;
 
   const deployable = useMemo(() => {
@@ -33,18 +36,21 @@ export const Actions: FC<{
   }, [tuna.status, deployed]);
 
   const gotoModelComparison = useCallback(() => {
-    if (!inference?.metadata.name) {
-      return;
-    }
     navigateService.navigateTo("tunaChat", {
-      inferenceName: inference.metadata.name,
+      name: `${inference!.metadata.name!}`,
     });
   }, [navigateService, inference]);
 
   const createDeployment = useCallback(() => {
+    setDeployLoading(true);
     tunaService.createInference(tuna.name, tuna.output_dir).subscribe({
       next: () => {
         refreshService.refresh();
+        setDeployLoading(false);
+      },
+      error: () => {
+        refreshService.refresh();
+        setDeployLoading(false);
       },
     });
   }, [tunaService, tuna.name, tuna.output_dir, refreshService]);
@@ -94,6 +100,15 @@ export const Actions: FC<{
               >
                 Chat
               </Button>
+              <ApiModal
+                size="small"
+                icon={<CarbonIcon icon={<Code />} />}
+                name={tuna.name}
+                apiUrl={inference?.status?.api_endpoint || ""}
+                apiKey={workspaceTrackerService.workspace?.auth.token}
+              >
+                API
+              </ApiModal>
             </>
           )}
           <Terminate name={tuna.name} />
@@ -108,6 +123,7 @@ export const Actions: FC<{
             size="small"
             key="deploy"
             type="text"
+            loading={deployLoading}
             icon={<CarbonIcon icon={<DeploymentIcon />} />}
             onClick={createDeployment}
           >
