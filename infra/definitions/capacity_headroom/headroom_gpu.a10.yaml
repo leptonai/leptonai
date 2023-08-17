@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-a10-headroom
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: capacity-headroom
+      app.kubernetes.io/component: gpu-a10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: capacity-headroom
+        app.kubernetes.io/component: gpu-a10
+    spec:
+      priorityClassName: capacity-headroom
+      containers:
+      - name: reserve-capacity
+        image: k8s.gcr.io/pause
+        resources:
+          requests:
+            cpu: 1
+            memory: 4Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: 1
+            memory: 4Gi
+            nvidia.com/gpu: "1"
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-A10G
+      tolerations:
+      - effect: NoExecute
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+        tolerationSeconds: 300
+      - effect: NoExecute
+        key: node.kubernetes.io/unreachable
+        operator: Exists
+        tolerationSeconds: 300
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
