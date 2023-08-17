@@ -17,28 +17,28 @@ spec:
     spec:
       priorityClassName: capacity-headroom
       containers:
-      - name: reserve-capacity
-        image: k8s.gcr.io/pause
-        resources:
-          requests:
-            cpu: 1
-            memory: 4Gi
-            nvidia.com/gpu: "1"
-          limits:
-            cpu: 1
-            memory: 4Gi
-            nvidia.com/gpu: "1"
+        - name: reserve-capacity
+          image: k8s.gcr.io/pause
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "1"
+              memory: 4Gi
+              nvidia.com/gpu: "1"
       nodeSelector:
         nvidia.com/gpu.product: NVIDIA-A10G
       tolerations:
-      - effect: NoExecute
-        key: node.kubernetes.io/not-ready
-        operator: Exists
-        tolerationSeconds: 300
-      - effect: NoExecute
-        key: node.kubernetes.io/unreachable
-        operator: Exists
-        tolerationSeconds: 300
-      - effect: NoSchedule
-        key: nvidia.com/gpu
-        operator: Exists
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 300
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 300
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
