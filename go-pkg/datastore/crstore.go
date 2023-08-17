@@ -28,32 +28,50 @@ const (
 // TODO: add tests (have to figure out how to mock k8s first)
 type CRStore[T client.Object] struct {
 	namespace string
+	kind      string
 	example   T
 
 	backupBucket *blob.Bucket
 }
 
 func NewCRStore[T client.Object](namespace string, example T, backupBucket *blob.Bucket) *CRStore[T] {
-	return &CRStore[T]{
+	cs := &CRStore[T]{
 		namespace:    namespace,
 		example:      example,
 		backupBucket: backupBucket,
 	}
+
+	gvk, err := cs.getGVK()
+	if err != nil {
+		panic(err)
+	}
+	cs.kind = gvk.Kind
+
+	return cs
 }
 
 func (s *CRStore[T]) Create(ctx context.Context, name string, t T) error {
+	st := time.Now()
+	defer maybeLogTookTooLong("create", s.kind, s.namespace, st)
+
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.MustLoadDefaultClient().Create(ctx, t)
 }
 
 func (s *CRStore[T]) UpdateStatus(ctx context.Context, name string, t T) error {
+	st := time.Now()
+	defer maybeLogTookTooLong("updateStatus", s.kind, s.namespace, st)
+
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.MustLoadDefaultClient().Status().Update(ctx, t)
 }
 
 func (s *CRStore[T]) Get(ctx context.Context, name string) (T, error) {
+	st := time.Now()
+	defer maybeLogTookTooLong("get", s.kind, s.namespace, st)
+
 	t := s.example.DeepCopyObject().(T)
 	err := k8s.MustLoadDefaultClient().Get(ctx, client.ObjectKey{
 		Namespace: s.namespace,
@@ -63,6 +81,9 @@ func (s *CRStore[T]) Get(ctx context.Context, name string) (T, error) {
 }
 
 func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
+	st := time.Now()
+	defer maybeLogTookTooLong("list", s.kind, s.namespace, st)
+
 	gvk, err := s.getGVK()
 	if err != nil {
 		return nil, err
@@ -86,12 +107,18 @@ func (s *CRStore[T]) List(ctx context.Context) ([]T, error) {
 }
 
 func (s *CRStore[T]) Update(ctx context.Context, name string, t T) error {
+	st := time.Now()
+	defer maybeLogTookTooLong("update", s.kind, s.namespace, st)
+
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
 	return k8s.MustLoadDefaultClient().Update(ctx, t)
 }
 
 func (s *CRStore[T]) Delete(ctx context.Context, name string) error {
+	st := time.Now()
+	defer maybeLogTookTooLong("delete", s.kind, s.namespace, st)
+
 	t := s.example.DeepCopyObject().(T)
 	t.SetNamespace(s.namespace)
 	t.SetName(name)
@@ -109,18 +136,14 @@ func (s *CRStore[T]) BackupAndDeleteAll(ctx context.Context) error {
 	if err := s.Backup(ctx); err != nil {
 		return err
 	}
-	gvk, err := s.getGVK()
-	if err != nil {
-		return err
-	}
-	kind := gvk.Kind
+
 	var lastErr error
 	for _, t := range ts {
 		err := s.Delete(ctx, t.GetName())
 		if err != nil {
 			goutil.Logger.Errorw("failed to delete CR",
 				"operation", "BackupAndDeleteAll",
-				"kind", kind,
+				"kind", s.kind,
 				"name", t.GetName(),
 				"err", err,
 			)
@@ -128,7 +151,7 @@ func (s *CRStore[T]) BackupAndDeleteAll(ctx context.Context) error {
 		} else {
 			goutil.Logger.Infow("deleted CR",
 				"operation", "BackupAndDeleteAll",
-				"kind", kind,
+				"kind", s.kind,
 				"name", t.GetName(),
 			)
 		}
@@ -142,12 +165,6 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 		return fmt.Errorf("backupBucket is not set")
 	}
 
-	gvk, err := s.getGVK()
-	if err != nil {
-		return err
-	}
-	kind := gvk.Kind
-
 	ts, err := s.List(ctx)
 	if err != nil {
 		return err
@@ -155,7 +172,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 	if len(ts) == 0 {
 		goutil.Logger.Infow("no CRs found, skipping backup",
 			"operation", "backup",
-			"kind", kind,
+			"kind", s.kind,
 		)
 		return nil
 	}
@@ -189,7 +206,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 		if err != nil {
 			goutil.Logger.Errorw("failed to close file",
 				"operation", "backup",
-				"kind", kind,
+				"kind", s.kind,
 				"filename", f.Name(),
 				"err", err,
 			)
@@ -202,7 +219,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 		return err
 	}
 
-	uploadFilename := fmt.Sprintf("backup-%s-%s.tar.gz", kind, time.Now().Format("2006-01-02T15:04:05"))
+	uploadFilename := fmt.Sprintf("backup-%s-%s.tar.gz", s.kind, time.Now().Format("2006-01-02T15:04:05"))
 
 	bw, err := s.backupBucket.NewWriter(ctx, uploadFilename, nil)
 	if err != nil {
@@ -223,7 +240,7 @@ func (s *CRStore[T]) Backup(ctx context.Context) error {
 
 	goutil.Logger.Infow("uploaded backup",
 		"operation", "backup",
-		"kind", kind,
+		"kind", s.kind,
 		"filename", uploadFilename,
 		"size", n)
 
