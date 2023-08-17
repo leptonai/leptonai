@@ -2,9 +2,12 @@ import { Workspace } from "@lepton-dashboard/interfaces/workspace";
 import { ProfileService } from "@lepton-dashboard/services/profile.service";
 import { Injectable } from "injection-js";
 import { TrackerService } from "@lepton-dashboard/services/tracker.service";
+import { BehaviorSubject, Observable } from "rxjs";
 
 @Injectable()
 export class WorkspaceTrackerService {
+  private workspace$ = new BehaviorSubject<Workspace | null>(null);
+
   id: string | null = null;
 
   workspace: Workspace | null = null;
@@ -22,6 +25,11 @@ export class WorkspaceTrackerService {
         workspaceId: this.workspace.auth.id,
       });
     }
+    this.workspace$.next(this.workspace);
+  }
+
+  workspaceChanged(): Observable<Workspace | null> {
+    return this.workspace$.asObservable();
   }
 
   constructor(

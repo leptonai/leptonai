@@ -8,17 +8,25 @@ import { Registries } from "@lepton-dashboard/routers/workspace/routers/detail/r
 import { FC } from "react";
 import { Route, Routes } from "react-router-dom";
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
+import { ImagePullSecretService } from "@lepton-dashboard/routers/workspace/services/image-pull-secret.service";
+import { useInject } from "@lepton-libs/di";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 
 export const Settings: FC = () => {
   useDocumentTitle("Settings");
-
+  const imagePullSecretService = useInject(ImagePullSecretService);
+  const registryAvailable = useStateFromBehaviorSubject(
+    imagePullSecretService.available$
+  );
   return (
     <Layout>
       <Routes>
         <Route path="general" element={<General />} />
         <Route path="api-tokens" element={<ApiTokens />} />
         <Route path="secrets" element={<Secrets />} />
-        <Route path="registries" element={<Registries />} />
+        {registryAvailable && (
+          <Route path="registries" element={<Registries />} />
+        )}
         <Route path="billing" element={<Billing />} />
         <Route
           path="*"

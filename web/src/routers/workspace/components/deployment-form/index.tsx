@@ -11,9 +11,12 @@ import { PhotonLabel } from "@lepton-dashboard/routers/workspace/components/phot
 import { ResourceShape } from "@lepton-dashboard/routers/workspace/components/resource-shape";
 import { SecretService } from "@lepton-dashboard/routers/workspace/services/secret.service";
 import { HardwareService } from "@lepton-dashboard/services/hardware.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
+import {
+  useStateFromBehaviorSubject,
+  useStateFromObservable,
+} from "@lepton-libs/hooks/use-state-from-observable";
 import { FormListOperation } from "antd/es/form/FormList";
-import { FC, ReactNode, useEffect, useMemo, useRef } from "react";
+import { FC, ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { css } from "@emotion/react";
 import {
   Button,
@@ -136,6 +139,9 @@ export const DeploymentForm: FC<{
     });
     return menus;
   }, [navigateService, secrets]);
+  const registryAvailable = useStateFromBehaviorSubject(
+    imagePullSecretService.available$
+  );
   const imageRegistries = useStateFromObservable(
     () => imagePullSecretService.listImagePullSecrets(),
     []
@@ -202,41 +208,46 @@ export const DeploymentForm: FC<{
       }),
     };
   });
-  const transformValue = (value: RawForm): Partial<Deployment> => {
-    let transformed: Partial<Deployment> = {
-      photon_id: value.photon[value.photon.length - 1],
-      resource_requirement: {
-        min_replicas: value.min_replicas,
-        resource_shape: value.shape,
-      },
-    };
-    if (!edit) {
-      transformed = {
-        ...transformed,
-        name: value.name,
-        api_tokens: value.enable_public
-          ? []
-          : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
-        envs: [
-          ...(value.envs || []),
-          ...(value.secret_envs || []).map(({ name, value }) => ({
-            name: name,
-            value_from: {
-              secret_name_ref: value,
-            },
-          })),
-        ],
-        mounts: (value.mounts || [])
-          .map(({ path, mount_path }) => ({
-            path: path?.trim(),
-            mount_path: mount_path?.trim(),
-          }))
-          .filter(({ path, mount_path }) => path && mount_path),
-        pull_image_secrets: value.pull_image_secrets || [],
+  const transformValue = useCallback(
+    (value: RawForm): Partial<Deployment> => {
+      let transformed: Partial<Deployment> = {
+        photon_id: value.photon[value.photon.length - 1],
+        resource_requirement: {
+          min_replicas: value.min_replicas,
+          resource_shape: value.shape,
+        },
       };
-    }
-    return transformed;
-  };
+      if (!edit) {
+        transformed = {
+          ...transformed,
+          name: value.name,
+          api_tokens: value.enable_public
+            ? []
+            : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
+          envs: [
+            ...(value.envs || []),
+            ...(value.secret_envs || []).map(({ name, value }) => ({
+              name: name,
+              value_from: {
+                secret_name_ref: value,
+              },
+            })),
+          ],
+          mounts: (value.mounts || [])
+            .map(({ path, mount_path }) => ({
+              path: path?.trim(),
+              mount_path: mount_path?.trim(),
+            }))
+            .filter(({ path, mount_path }) => path && mount_path),
+          pull_image_secrets: registryAvailable
+            ? value.pull_image_secrets || []
+            : undefined,
+        };
+      }
+      return transformed;
+    },
+    [edit, registryAvailable]
+  );
   return (
     <Form
       form={form}
@@ -590,32 +601,37 @@ export const DeploymentForm: FC<{
                     }}
                   </Form.List>
                 </Form.Item>
-                <ConfigProvider
-                  renderEmpty={() => (
-                    <div
-                      css={css`
-                        padding: 2px 8px;
-                      `}
+                {registryAvailable && (
+                  <ConfigProvider
+                    renderEmpty={() => (
+                      <div
+                        css={css`
+                          padding: 2px 8px;
+                        `}
+                      >
+                        <Typography.Text type="secondary">
+                          Add image registries in{" "}
+                          <LinkTo underline name="settingsRegistries">
+                            settings
+                          </LinkTo>{" "}
+                          page
+                        </Typography.Text>
+                      </div>
+                    )}
+                  >
+                    <Form.Item
+                      name="pull_image_secrets"
+                      label="Image registries"
                     >
-                      <Typography.Text type="secondary">
-                        Add image registries in{" "}
-                        <LinkTo underline name="settingsRegistries">
-                          settings
-                        </LinkTo>{" "}
-                        page
-                      </Typography.Text>
-                    </div>
-                  )}
-                >
-                  <Form.Item name="pull_image_secrets" label="Image registries">
-                    <Select
-                      disabled={edit}
-                      mode="multiple"
-                      placeholder="Select image registries"
-                      options={imageRegistriesOptions}
-                    />
-                  </Form.Item>
-                </ConfigProvider>
+                      <Select
+                        disabled={edit}
+                        mode="multiple"
+                        placeholder="Select image registries"
+                        options={imageRegistriesOptions}
+                      />
+                    </Form.Item>
+                  </ConfigProvider>
+                )}
               </div>
             ),
           },

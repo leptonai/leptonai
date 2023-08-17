@@ -92,7 +92,7 @@ export class ApiServerService implements ApiService {
       api_tokens: deployment.api_tokens || [],
       envs: deployment.envs || [],
       mounts: deployment.mounts || [],
-      pull_image_secrets: deployment.pull_image_secrets || [],
+      pull_image_secrets: deployment.pull_image_secrets,
     });
   }
 
@@ -489,6 +489,11 @@ export class ApiServerService implements ApiService {
   }
 
   listImagePullSecrets(): Observable<Omit<ImagePullSecret, "spec">[]> {
-    return this.httpClientService.get(`${this.prefix}/imagepullsecrets`);
+    return this.httpClientService.get(`${this.prefix}/imagepullsecrets`, {
+      // FIXME: remove this when the backend is all ready
+      context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+        ignoreErrors: true,
+      }),
+    });
   }
 }

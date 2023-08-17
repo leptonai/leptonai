@@ -61,7 +61,6 @@ export const General: FC = () => {
           <Row
             css={css`
               padding: 16px 16px 12px 16px;
-              flex-wrap: nowrap;
             `}
             gutter={[16, 16]}
             justify="space-between"
@@ -86,7 +85,7 @@ export const General: FC = () => {
                 {plan?.description}
               </Typography.Text>
             </Col>
-            <Col flex={1}>
+            <Col flex={0}>
               <Button
                 type="primary"
                 size="small"

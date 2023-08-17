@@ -16,6 +16,8 @@ import { useResponsive } from "ahooks";
 import { Menu, MenuProps } from "antd";
 import { FC, PropsWithChildren, useMemo } from "react";
 import { useLocation, useNavigate, useResolvedPath } from "react-router-dom";
+import { ImagePullSecretService } from "@lepton-dashboard/routers/workspace/services/image-pull-secret.service";
+import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 
 export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const theme = useAntdTheme();
@@ -23,6 +25,10 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const location = useLocation();
   const { pathname } = useResolvedPath("");
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
+  const imagePullSecretService = useInject(ImagePullSecretService);
+  const registryAvailable = useStateFromBehaviorSubject(
+    imagePullSecretService.available$
+  );
   const menuItems: MenuProps["items"] = useMemo(() => {
     const menus = [
       {
@@ -44,6 +50,7 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         key: `${pathname}/registries`,
         label: "Registries",
         icon: <CarbonIcon icon={<ContainerRegistry />} />,
+        disabled: !registryAvailable,
       },
     ];
     if (workspaceTrackerService?.workspace?.isBillingSupported) {
@@ -53,8 +60,12 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
         icon: <CarbonIcon icon={<Wallet />} />,
       });
     }
-    return menus;
-  }, [pathname, workspaceTrackerService]);
+    return menus.filter((item) => !item.disabled);
+  }, [
+    pathname,
+    registryAvailable,
+    workspaceTrackerService?.workspace?.isBillingSupported,
+  ]);
   const selectedKeys: string[] = useMemo(() => {
     return menuItems
       .filter((item) => location.pathname.startsWith(`${item?.key}`))
