@@ -3,7 +3,34 @@ import { cors } from "@/utils/cors";
 import { createPagesServerClientWithCookieOptions } from "@/utils/supabase";
 import { withLogging } from "@/utils/logging";
 
-const logout: NextApiHandler = async (req, res) => {
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   get:
+ *     operationId: logout
+ *     summary: Logout
+ *     description: |
+ *       Remove authentication cookies and redirect to `/login` or the `next`
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: next
+ *         schema:
+ *           type: string
+ *           format: uri
+ *         description: Redirect to this URL after logout
+ *         required: false
+ *     responses:
+ *       304:
+ *        description: |
+ *           Remove authentication cookies and redirect to `/login` or the `next`
+ *           query parameter
+ *        headers:
+ *           Set-Cookie:
+ *             type: string
+ *             description: sb-oauth-auth-token-code-verifier=; Max-Age=0; Path=/;
+ */
+const logout: NextApiHandler<void> = async (req, res) => {
   const supabase = createPagesServerClientWithCookieOptions(req, res);
 
   try {

@@ -1,11 +1,96 @@
 import { stripeClient } from "@/utils/stripe/stripe-client";
 import { retrieveSubscriptionItem } from "@/utils/stripe/retrieve-subscription-item";
 import { supabaseAdminClient } from "@/utils/supabase";
-import type { NextApiRequest, NextApiResponse } from "next";
 import { withLogging } from "@/utils/logging";
+import type Stripe from "stripe";
+import { NextApiHandler } from "next";
 
-// Report compute usage to stripe
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+/**
+ * @openapi
+ * definitions:
+ *   UsageRecord:
+ *     type: object
+ *     description: A [usage record](https://stripe.com/docs/api/usage_records/object)
+ */
+type UsageRecord = Stripe.UsageRecord;
+
+/**
+ * @openapi
+ * definitions:
+ *   ReportComputeUsageRecord:
+ *       type: object
+ *       required: [id, workspace_id, shape, usage, end_time]
+ *       properties:
+ *         id:
+ *           type: string
+ *         workspace_id:
+ *           type: string
+ *           description: The workspace ID
+ *         shape:
+ *           type: string
+ *           description: The shape of the compute instance
+ *         usage:
+ *           type: number
+ *           description: The usage quantity for the specified date
+ *           format: float
+ *           minimum: 0
+ *         end_time:
+ *           type: string
+ *           description: The timestamp when this usage occurred
+ *           format: date-time
+ *   ReportComputeUsageBody:
+ *     type: object
+ *     required: [record]
+ *     properties:
+ *       record:
+ *         description: The usage report record
+ *         $ref: '#/definitions/ReportComputeUsageRecord'
+ */
+interface ReportComputeUsageBody {
+  record: {
+    id: string;
+    workspace_id: string;
+    shape: string;
+    usage: number;
+    end_time: string;
+  };
+}
+
+/**
+ * @openapi
+ * /api/billing/report-compute:
+ *   post:
+ *     operationId: reportComputeUsage
+ *     summary: Report compute usage to stripe
+ *     tags: [Billing]
+ *     security:
+ *       - serverAuth: [admin]
+ *     parameters:
+ *       - in: body
+ *         name: body
+ *         description: Usage record
+ *         required: true
+ *         schema:
+ *           $ref: '#/definitions/ReportComputeUsageBody'
+ *     responses:
+ *       200:
+ *         description: The usage record
+ *         schema:
+ *           $ref: '#/definitions/UsageRecord'
+ *       401:
+ *         description: Unauthorized
+ *         schema:
+ *           type: string
+ *       412:
+ *         description: Precondition failed
+ *         schema:
+ *           type: string
+ *       500:
+ *         description: Internal server error
+ *         schema:
+ *           type: string
+ */
+const handler: NextApiHandler<UsageRecord | string> = async (req, res) => {
   if (
     req.method !== "POST" ||
     req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
@@ -14,7 +99,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const body = req.body;
+    const body: ReportComputeUsageBody = req.body;
     const id = body.record.id;
     const workspaceId = body.record.workspace_id;
     const shape = body.record.shape;
@@ -48,6 +133,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
-}
+};
 
 export default withLogging(handler);

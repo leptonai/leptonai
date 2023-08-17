@@ -39,7 +39,7 @@ export const getCookieOptions = (domainUrl: URL | string) => {
 export type NextApiWithSupabaseHandler<T = any> = (
   req: NextApiRequest,
   res: NextApiResponse<T>,
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   session: Session,
 ) => unknown | Promise<unknown>;
 

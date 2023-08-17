@@ -2,15 +2,47 @@ import { stripeClient } from "@/utils/stripe/stripe-client";
 import { updateCustomerAmountGTE } from "@/utils/stripe/update-subscription";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { buffer } from "micro";
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiHandler } from "next";
 import Stripe from "stripe";
 import { updateWorkspaceByConsumerId } from "@/utils/workspace";
 import { withLogging } from "@/utils/logging";
 
 export const config = { api: { bodyParser: false } };
 
-// Update workspace status based on subscription status
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+/**
+ * @openapi
+ * /api/billing/webhook:
+ *   post:
+ *     operationId: billingWebhook
+ *     summary: Stripe webhook
+ *     description: |
+ *       This endpoint is used by Stripe to send events to the server.
+ *
+ *       Events handled:
+ *         - `customer.subscription.updated`
+ *           * Update workspace status based on subscription status
+ *         - `customer.subscription.created`
+ *           * Update workspace status based on subscription status
+ *         - `payment_method.attached`
+ *           * Update workspace payment_method_attached
+ *         - `payment_method.detached`
+ *           * Update workspace payment_method_attached
+ *     tags: [Billing]
+ *     parameters:
+ *       - in: header
+ *         name: stripe-signature
+ *         description: The signature of the event
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         schema:
+ *           - type: string
+ *
+ */
+const handler: NextApiHandler<Stripe.Event | string> = async (req, res) => {
   const sig = req.headers["stripe-signature"]!;
   let event;
 
@@ -122,6 +154,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.status(500).send(`Error: ${errorMessage}`);
     return;
   }
-}
+};
 
 export default withLogging(handler);

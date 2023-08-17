@@ -6,9 +6,112 @@ import {
   serverClientWithAuthorized,
 } from "@/utils/supabase";
 import { withLogging } from "@/utils/logging";
+import type Stripe from "stripe";
 
-// Get the invoice data for a workspace
-const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
+/**
+ * @openapi
+ * definitions:
+ *   Invoice:
+ *     type: object
+ *     required: [open, upcoming, list, products, current_period]
+ *     properties:
+ *       open:
+ *         type: object
+ *         description: Open [invoice](https://stripe.com/docs/api/invoices/object)
+ *       upcoming:
+ *         type: object
+ *         description: Retrieve an [upcoming](https://stripe.com/docs/api/invoices/upcoming) invoice
+ *       list:
+ *         type: array
+ *         description: |
+ *           [Invoices](https://stripe.com/docs/api/invoices/list) for the
+ *           subscription specified by `subscription_id` in the workspace record
+ *         items:
+ *           type: object
+ *           description: |
+ *             [Invoice](https://stripe.com/docs/api/invoices/object)
+ *       products:
+ *         type: array
+ *         description: |
+ *           All active [products](https://stripe.com/docs/api/products/list)
+ *           with their default prices and tiers
+ *         items:
+ *           type: object
+ *           description: |
+ *             [Product](https://stripe.com/docs/api/products/object) with
+ *             default price and tiers
+ *       coupon:
+ *         type: object
+ *         description: |
+ *           [Coupon](https://stripe.com/docs/api/coupons/object) applied to the
+ *           workspace
+ *         nullable: true
+ *       current_period:
+ *         type: object
+ *         description: Current period start and end dates
+ *         properties:
+ *           start:
+ *             type: integer
+ *             description: Current period start date in milliseconds
+ *           end:
+ *             type: integer
+ *             description: Current period end date in milliseconds
+ */
+interface Invoice {
+  open: Stripe.Invoice;
+  upcoming: Stripe.UpcomingInvoice;
+  list: Stripe.Invoice[];
+  products: Stripe.Product[];
+  coupon: Stripe.Coupon | null;
+  current_period: {
+    start: number;
+    end: number;
+  };
+}
+
+/**
+ * @openapi
+ * /api/billing/invoice:
+ *   post:
+ *     operationId: getInvoice
+ *     summary: Get invoice data for a workspace
+ *     tags: [Billing]
+ *     security:
+ *       - cookieAuth: [user]
+ *     parameters:
+ *       - in: body
+ *         name: body
+ *         description: Workspace ID
+ *         required: true
+ *         schema:
+ *           type: object
+ *           required: [workspace_id]
+ *           properties:
+ *             workspace_id:
+ *               type: string
+ *     responses:
+ *       200:
+ *         description: Invoice data
+ *         schema:
+ *           $ref: '#/definitions/Invoice'
+ *       401:
+ *         description: Unauthorized
+ *         schema:
+ *           type: string
+ *       412:
+ *         description: Precondition failed
+ *         schema:
+ *           type: string
+ *       500:
+ *         description: Internal server error
+ *         schema:
+ *           type: string
+ */
+const handler: NextApiWithSupabaseHandler<Invoice | string> = async (
+  req,
+  res,
+  supabase,
+) => {
   try {
     const workspaceId = req.body.workspace_id;
     const workspace = await getWorkspaceById(workspaceId, supabase);

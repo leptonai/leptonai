@@ -8,6 +8,50 @@ import {
 import { withLogging } from "@/utils/logging";
 
 // Get the stripe portal URL for a workspace
+/**
+ * @openapi
+ * /api/billing/portal:
+ *   post:
+ *     operationId: getBillingPortal
+ *     summary: Get billing portal URL
+ *     tags: [Billing]
+ *     security:
+ *       - cookieAuth: [user]
+ *     parameters:
+ *       - in: body
+ *         name: body
+ *         description: Workspace ID
+ *         required: true
+ *         schema:
+ *           type: object
+ *           required: [workspace_id]
+ *           properties:
+ *             workspace_id:
+ *               type: string
+ *     responses:
+ *       200:
+ *         description: Billing portal URL
+ *         schema:
+ *           type: object
+ *           required: [url]
+ *           properties:
+ *             url:
+ *               type: string
+ *               format: url
+ *               description: Billing portal URL
+ *       401:
+ *         description: Unauthorized
+ *         schema:
+ *           type: string
+ *       412:
+ *         description: Precondition failed
+ *         schema:
+ *           type: string
+ *       500:
+ *         description: Internal server error
+ *         schema:
+ *           type: string
+ */
 const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
   try {
     const workspaceId = req.body.workspace_id;

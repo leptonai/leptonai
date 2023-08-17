@@ -1,11 +1,85 @@
 import { stripeClient } from "@/utils/stripe/stripe-client";
 import { retrieveSubscriptionItem } from "@/utils/stripe/retrieve-subscription-item";
 import { supabaseAdminClient } from "@/utils/supabase";
-import type { NextApiRequest, NextApiResponse } from "next";
 import { withLogging } from "@/utils/logging";
+import Stripe from "stripe";
+import { NextApiHandler } from "next";
 
-// Report storage usage to stripe
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+type UsageRecord = Stripe.UsageRecord;
+
+/**
+ * @openapi
+ * definitions:
+ *   ReportStorageUsageRecord:
+ *     type: object
+ *     required: [id, workspace_id, size_gb, end_time]
+ *     properties:
+ *       id:
+ *         type: string
+ *       workspace_id:
+ *         type: string
+ *         description: The workspace ID
+ *       size_gb:
+ *         type: number
+ *         description: The usage quantity(in GB) for the specified date
+ *         format: float
+ *         minimum: 0
+ *       end_time:
+ *         type: string
+ *         description: The timestamp when this usage occurred
+ *         format: date-time
+ *   ReportStorageUsageBody:
+ *     type: object
+ *     required: [record]
+ *     properties:
+ *       record:
+ *         description: The usage report record
+ *         $ref: '#/definitions/ReportStorageUsageRecord'
+ */
+interface ReportStorageUsageBody {
+  record: {
+    id: string;
+    workspace_id: string;
+    size_gb: number;
+    end_time: string;
+  };
+}
+
+/**
+ * @openapi
+ * /api/billing/report-storage:
+ *   post:
+ *     operationId: reportStorageUsage
+ *     summary: Report storage usage to stripe
+ *     tags: [Billing]
+ *     security:
+ *       - serverAuth: [admin]
+ *     parameters:
+ *       - in: body
+ *         name: body
+ *         description: Usage record
+ *         required: true
+ *         schema:
+ *           $ref: '#/definitions/ReportStorageUsageBody'
+ *     responses:
+ *       200:
+ *         description: The usage record
+ *         schema:
+ *           $ref: '#/definitions/UsageRecord'
+ *       401:
+ *         description: Unauthorized
+ *         schema:
+ *           type: string
+ *       412:
+ *         description: Precondition failed
+ *         schema:
+ *           type: string
+ *       500:
+ *         description: Internal server error
+ *         schema:
+ *           type: string
+ */
+const handler: NextApiHandler<UsageRecord | string> = async (req, res) => {
   if (
     req.method !== "POST" ||
     req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
@@ -14,7 +88,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const body = req.body;
+    const body: ReportStorageUsageBody = req.body;
     const id = body.record.id;
     const workspaceId = body.record.workspace_id;
     const usage = body.record.size_gb;
@@ -51,6 +125,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.statusMessage = errorMessage;
     res.status(500).send(`Error: ${errorMessage}`);
   }
-}
+};
 
 export default withLogging(handler);

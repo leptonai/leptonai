@@ -6,7 +6,8 @@
     "dev": "next dev -p 8000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "docs": "node open-api.cjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.23.1",
@@ -23,6 +24,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "stripe": "^12.13.0",
+    "swagger-jsdoc": "^6.2.8",
     "typescript": "5.1.6"
   },
   "devDependencies": {
@@ -33,8 +35,10 @@
     "autoprefixer": "^10.4.14",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^5.0.0",
+    "fs-extra": "^11.1.1",
     "postcss": "^8.4.27",
     "prettier": "^3.0.0",
+    "swagger-markdown": "^2.3.0",
     "tailwindcss": "^3.3.3"
   }
 }
