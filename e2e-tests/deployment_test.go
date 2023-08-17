@@ -133,10 +133,6 @@ func TestDeploymentStatusAndEvents(t *testing.T) {
 
 func TestUpdateDeploymentMinReplicas(t *testing.T) {
 	t.Parallel()
-	output, err := client.Login("")
-	if err != nil {
-		t.Fatal("Login failed", err, output)
-	}
 	// Update deployment to have 2 replicas
 	if err := updateAndVerifyDeploymentMinReplicas(mainTestDeploymentName, 2); err != nil {
 		t.Fatal(err)
@@ -254,10 +250,6 @@ func TestDeployWithInvalidEnvVar(t *testing.T) {
 
 func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 	t.Parallel()
-	output, err := client.Login("")
-	if err != nil {
-		t.Fatal("Login failed", err, output)
-	}
 	dname := newName(t.Name())
 	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name:     dname,
@@ -267,7 +259,7 @@ func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 			MinReplicas:   1,
 		},
 	}
-	_, err = lepton.Deployment().Create(d)
+	_, err := lepton.Deployment().Create(d)
 	if err != nil {
 		t.Fatalf("Failed to create deployment: %v", err)
 	}
@@ -298,25 +290,21 @@ func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 
 func TestCustomizedImage(t *testing.T) {
 	t.Parallel()
-	output, err := client.Login("")
-	if err != nil {
-		t.Fatal("Login failed", err, output)
-	}
 	name := newName(t.Name())
-	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
-	output, err = client.Run(fullArgs...)
+	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	output, err := client.RunLocal("pho", "create", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
 	}
 
-	fullArgs = []string{"pho", "push", "-n", name}
-	output, err = client.Run(fullArgs...)
+	fullArgs = []string{"-n", name}
+	output, err = client.RunRemote("pho", "push", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to push photon with customized image: %v - %s", err, output)
 	}
 
-	fullArgs = []string{"pho", "run", "-n", name}
-	output, err = client.Run(fullArgs...)
+	fullArgs = []string{"-n", name}
+	output, err = client.RunRemote("pho", "run", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to run photon with customized image: %v - %s", err, output)
 	}
@@ -330,8 +318,8 @@ func TestCustomizedImage(t *testing.T) {
 		t.Fatalf("Failed to delete deployment: %v", err)
 	}
 
-	fullArgs = []string{"pho", "remove", "-n", name}
-	output, err = client.Run(fullArgs...)
+	fullArgs = []string{"-n", name}
+	output, err = client.RunRemote("pho", "remove", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to delete photon with customized image: %v - %s", err, output)
 	}
@@ -339,25 +327,21 @@ func TestCustomizedImage(t *testing.T) {
 
 func TestPrivateContainerRegistry(t *testing.T) {
 	t.Parallel()
-	output, err := client.Login("")
-	if err != nil {
-		t.Fatal("Login failed", err, output)
-	}
 	name := newName(t.Name())
 	pullSecretName := name + "-pull-secret"
-	err = lepton.ImagePullSecret().Create(pullSecretName, "https://index.docker.io/v1/", "leptonai", "mfv-xyj9fvt_EPG.tgf", "uz@lepton.ai")
+	err := lepton.ImagePullSecret().Create(pullSecretName, "https://index.docker.io/v1/", "leptonai", "mfv-xyj9fvt_EPG.tgf", "uz@lepton.ai")
 	if err != nil {
 		t.Fatalf("Failed to create image pull secret: %v", err)
 	}
 
-	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/tests/private_docker_image_test/foo.py"}
-	output, err = client.Run(fullArgs...)
+	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/tests/private_docker_image_test/foo.py"}
+	output, err := client.RunLocal("pho", "create", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with private image: %v - %s", err, output)
 	}
 
-	fullArgs = []string{"pho", "push", "-n", name}
-	output, err = client.Run(fullArgs...)
+	fullArgs = []string{"-n", name}
+	output, err = client.RunRemote("pho", "push", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to push photon with private image: %v - %s", err, output)
 	}
@@ -396,20 +380,16 @@ func TestPrivateContainerRegistry(t *testing.T) {
 
 func TestUpdatePhotonID(t *testing.T) {
 	t.Parallel()
-	output, err := client.Login("")
-	if err != nil {
-		t.Fatal("Login failed", err, output)
-	}
 	dname := newName(t.Name())
 	name := mainTestPhotonName
-	fullArgs := []string{"pho", "create", "-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
-	output, err = client.Run(fullArgs...)
+	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	output, err := client.RunLocal("pho", "create", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
 	}
 
-	fullArgs = []string{"pho", "push", "-n", name}
-	output, err = client.Run(fullArgs...)
+	fullArgs = []string{"-n", name}
+	output, err = client.RunRemote("pho", "push", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to push photon with customized image: %v - %s", err, output)
 	}
