@@ -4,6 +4,7 @@ import {
   serverClientWithAuthorized,
 } from "@/utils/supabase";
 import { withLogging } from "@/utils/logging";
+import { Database } from "@/interfaces/database";
 
 /**
  * @openapi
@@ -35,13 +36,18 @@ import { withLogging } from "@/utils/logging";
  *         type: string
  *         description: Workspace access token
  *         nullable: true
+ *       tier:
+ *          type: string
+ *          description: Workspace tier
+ *          enum: [Basic, Standard, Enterprise]
  */
 interface Workspace {
   id: string;
-  url: string;
-  displayName: string;
-  status: string;
+  url: string | null;
+  displayName: string | null;
+  status: string | null;
   paymentMethodAttached: boolean;
+  tier: "Basic" | "Standard" | "Enterprise";
   token: string;
 }
 
@@ -84,7 +90,7 @@ const workspaces: NextApiWithSupabaseHandler<
   const { data, error } = await supabase.from("user_workspace").select(
     `
       token,
-      workspaces(id, url, display_name, status, payment_method_attached)
+      workspaces(id, url, display_name, status, payment_method_attached, tier)
     `,
   );
 
@@ -101,10 +107,11 @@ const workspaces: NextApiWithSupabaseHandler<
           | "display_name"
           | "status"
           | "url"
-          | "payment_method_attached",
+          | "payment_method_attached"
+          | "tier",
       >(
         field: T,
-      ) => {
+      ): Database["public"]["Tables"]["workspaces"]["Row"][T] => {
         const value = Array.isArray(workspace.workspaces)
           ? workspace.workspaces[0][field]
           : workspace.workspaces?.[field];
@@ -116,12 +123,14 @@ const workspaces: NextApiWithSupabaseHandler<
       const paymentMethodAttached = getFieldValue("payment_method_attached");
       const status = getFieldValue("status");
       const url = getFieldValue("url");
+      const tier = getFieldValue("tier") || "Basic";
       return {
         id,
         displayName,
         status,
         paymentMethodAttached,
         url,
+        tier,
         token: workspace.token,
       };
     })

@@ -130,7 +130,7 @@ export interface Database {
           payment_method_attached: boolean;
           status: string | null;
           subscription_id: string | null;
-          type: string | null;
+          tier: Database["public"]["Enums"]["tier"] | null;
           url: string | null;
         };
         Insert: {
@@ -142,7 +142,7 @@ export interface Database {
           payment_method_attached?: boolean;
           status?: string | null;
           subscription_id?: string | null;
-          type?: string | null;
+          tier?: Database["public"]["Enums"]["tier"] | null;
           url?: string | null;
         };
         Update: {
@@ -154,7 +154,7 @@ export interface Database {
           payment_method_attached?: boolean;
           status?: string | null;
           subscription_id?: string | null;
-          type?: string | null;
+          tier?: Database["public"]["Enums"]["tier"] | null;
           url?: string | null;
         };
         Relationships: [];
@@ -177,7 +177,7 @@ export interface Database {
       };
     };
     Enums: {
-      [_ in never]: never;
+      tier: "Basic" | "Standard" | "Enterprise";
     };
     CompositeTypes: {
       [_ in never]: never;

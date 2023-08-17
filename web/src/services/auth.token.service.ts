@@ -34,6 +34,7 @@ export class AuthTokenService implements AuthService {
         displayName: id,
         status: "",
         paymentMethodAttached: false,
+        tier: "Basic",
       },
     ]);
   }

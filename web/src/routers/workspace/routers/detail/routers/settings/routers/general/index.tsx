@@ -11,7 +11,24 @@ import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tr
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Button, Col, Collapse, Descriptions, Row, Typography } from "antd";
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
+
+const planMap = {
+  Basic: {
+    name: "Basic Plan",
+    description:
+      "The Basic Plan is perfect for individuals and small teams who are just getting started.",
+  },
+  Standard: {
+    name: "Standard Plan",
+    description:
+      "Meet the needs of growing businesses and collaborative teams.",
+  },
+  Enterprise: {
+    name: "Enterprise Plan",
+    description: "For organizations with more complex requirements.",
+  },
+} as const;
 
 export const General: FC = () => {
   const [loading, setLoading] = useState(true);
@@ -23,6 +40,10 @@ export const General: FC = () => {
     { next: () => setLoading(false), error: () => setLoading(false) }
   );
   const theme = useAntdTheme();
+  const plan = useMemo(() => {
+    const tier = workspaceTrackerService.workspace?.auth?.tier || "Basic";
+    return planMap[tier];
+  }, [workspaceTrackerService.workspace?.auth.tier]);
   return (
     <MinThemeProvider hideBorder={false}>
       <Card
@@ -40,6 +61,7 @@ export const General: FC = () => {
           <Row
             css={css`
               padding: 16px 16px 12px 16px;
+              flex-wrap: nowrap;
             `}
             gutter={[16, 16]}
             justify="space-between"
@@ -58,13 +80,13 @@ export const General: FC = () => {
                 >
                   <CarbonIcon icon={<WordCloud />} />
                 </span>{" "}
-                Basic plan
+                {plan?.name}
               </Typography.Title>
               <Typography.Text type="secondary">
-                For individuals and small teams who are just getting started
+                {plan?.description}
               </Typography.Text>
             </Col>
-            <Col flex={0}>
+            <Col flex={1}>
               <Button
                 type="primary"
                 size="small"

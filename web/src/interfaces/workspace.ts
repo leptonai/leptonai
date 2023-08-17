@@ -15,6 +15,7 @@ export interface AuthorizedWorkspace {
   status: string;
   paymentMethodAttached: boolean;
   displayName: string;
+  tier: "Basic" | "Standard" | "Enterprise";
 }
 
 export interface Workspace {

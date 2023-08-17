@@ -383,6 +383,7 @@ Get a workspace information
 | status | string | Workspace status | No |
 | paymentMethodAttached | boolean | Workspace payment method attached | No |
 | token | string | Workspace access token | Yes |
+| tier | string | Workspace tier<br>*Enum:* `"Basic"`, `"Standard"`, `"Enterprise"` | No |
 
 #### Invoice
 
