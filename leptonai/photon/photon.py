@@ -19,6 +19,7 @@ import zipfile
 
 import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import Response, JSONResponse, StreamingResponse, FileResponse
@@ -651,7 +652,7 @@ class Photon(BasePhoton):
                 return
             raise
 
-        if isinstance(subapp, FastAPI):
+        if isinstance(subapp, (FastAPI, StaticFiles)):
             app.mount(f"/{path}", subapp)
             return
 
