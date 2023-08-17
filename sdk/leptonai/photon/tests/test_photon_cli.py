@@ -18,7 +18,7 @@ from leptonai.photon import FileParam
 from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
 from leptonai.cli import photon as photon_cli
-from leptonai.photon.tests.utils import random_name, photon_run_local_server, sub_test
+from utils import random_name, photon_run_local_server, sub_test
 
 
 logger.info(f"Using cache dir: {config.CACHE_DIR}")

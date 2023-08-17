@@ -39,8 +39,11 @@ local_scheme="node-and-date"
 [tool.setuptools.dynamic]
 dependencies = {file = ["leptonai/requirements.txt"]}
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+exclude = ["*tests*", "leptoninternal*", "*examples*", "release_scripts*", "*dockerfiles*"]
 
 [tool.setuptools.package-data]
 leptonai = ["photon/favicon.ico"]

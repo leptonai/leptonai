@@ -347,6 +347,10 @@ class Counter(Photon):
         vec_db_path = os.path.join(
             os.path.dirname(leptonai.__file__), "examples", "vec_db.py"
         )
+        if not os.path.exists(vec_db_path):
+            logger.warning(f"Skipping test_vec_db_examples, {vec_db_path} not found")
+            return
+
         with tempfile.NamedTemporaryFile(suffix=".py", dir=tmpdir) as f, open(
             vec_db_path, "rb"
         ) as vec_db_file:
