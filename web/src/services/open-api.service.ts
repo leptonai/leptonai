@@ -11,7 +11,9 @@ import {
 } from "@lepton-libs/open-api-tool";
 
 export type SchemaObject = OpenAPIV3_1.SchemaObject | OpenAPIV3.SchemaObject;
-
+type ArraySchemaObject =
+  | OpenAPIV3.ArraySchemaObject
+  | OpenAPIV3_1.ArraySchemaObject;
 type OperationWithRequestBody = Omit<OpenAPI.Operation, "requestBody"> & {
   requestBody: OpenAPIV3_1.RequestBodyObject | OpenAPIV3.RequestBodyObject;
 };
@@ -72,6 +74,7 @@ export class OpenApiService {
           schema =
             (contents["multipart/form-data"].schema as SchemaObject) || null;
         }
+        this.normalizeSchema(schema);
         request = this.buildRequest(
           resolvedSchema,
           operation.operationId!,
@@ -194,6 +197,84 @@ export class OpenApiService {
     );
     lines.push("print(result)");
     return lines.join("\n");
+  }
+
+  private normalizeSchema(schema: SchemaObject | null) {
+    const visit = (
+      schema: SchemaObject | null,
+      visitor: (item: SchemaObject) => void
+    ) => {
+      if (!schema) {
+        return;
+      }
+      if (!schema.oneOf || !schema.anyOf || !schema.allOf) {
+        if (schema.properties) {
+          for (const key in schema.properties) {
+            visit(schema.properties[key] as SchemaObject, visitor);
+          }
+        } else if ((schema as ArraySchemaObject).items) {
+          const items = (schema as unknown as ArraySchemaObject).items;
+          visit(items as SchemaObject, visitor);
+        }
+      }
+
+      if (Array.isArray(schema.oneOf)) {
+        schema.oneOf.forEach((item) => {
+          visit(item as SchemaObject, visitor);
+        });
+      } else if (Array.isArray(schema.anyOf)) {
+        schema.anyOf.forEach((item) => {
+          visit(item as SchemaObject, visitor);
+        });
+      } else if (Array.isArray(schema.allOf)) {
+        schema.allOf.forEach((item) => {
+          visit(item as SchemaObject, visitor);
+        });
+      }
+
+      visitor(schema);
+    };
+
+    visit(schema, (item) => {
+      const arrayKeys = ["oneOf", "anyOf", "allOf"] as const;
+
+      arrayKeys.forEach((key) => {
+        if (Array.isArray(item[key])) {
+          const types = item[key]!.map((e) => (e as SchemaObject).type);
+          if (item.type && types.includes(item.type)) {
+            delete item.type;
+          }
+          (item[key] as SchemaObject[])!.forEach((e) => {
+            if (e.type && !e.title) {
+              e.title = `${e.type}`;
+            }
+          });
+        }
+      });
+
+      if (
+        Object.hasOwn(item, "default") &&
+        !item.type &&
+        !item.anyOf &&
+        !item.oneOf &&
+        !item.allOf
+      ) {
+        const type = typeof item.default;
+        switch (type) {
+          case "string":
+            item.type = "string";
+            break;
+          case "number":
+            item.type = "number";
+            break;
+          case "boolean":
+            item.type = "boolean";
+            break;
+          default:
+            break;
+        }
+      }
+    });
   }
 
   private objectToPythonNamedArgs(obj: SafeAny, indent = 0) {
