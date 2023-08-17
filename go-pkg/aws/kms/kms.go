@@ -16,7 +16,7 @@ func ListAliases(ctx context.Context, cfg aws.Config) ([]types.AliasListEntry, e
 	client := kms.NewFromConfig(cfg)
 	marker := ""
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		input := &kms.ListAliasesInput{}
 		if marker != "" {

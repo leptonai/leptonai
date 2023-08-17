@@ -24,8 +24,6 @@ import (
 	clientcmd_api_v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
-const describeInterval = 5 * time.Second
-
 func ListClusters(ctx context.Context, region string, cfg aws.Config, limit int) ([]Cluster, error) {
 	cli := aws_eks_v2.NewFromConfig(cfg)
 	return listClusters(ctx, region, cli, "", limit)
@@ -80,7 +78,7 @@ done:
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	sort.SliceStable(clusters, func(i, j int) bool {
@@ -152,7 +150,7 @@ func InspectClusters(ctx context.Context, clusters map[string]crdv1alpha1.Lepton
 				break
 			}
 
-			time.Sleep(describeInterval)
+			// TODO: add wait to prevent api throttle (rate limit)?
 		}
 	}
 

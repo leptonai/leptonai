@@ -131,7 +131,7 @@ func ListRepositories(ctx context.Context, cfg aws.Config, repoLimit int, imgLim
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	return repositories, nil
@@ -173,7 +173,7 @@ func listImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string, re
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	// descending order, latest at first
@@ -220,7 +220,7 @@ func describeImages(ctx context.Context, cli *aws_ecr_v2.Client, repoName string
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	return images, nil

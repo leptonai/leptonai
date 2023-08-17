@@ -21,7 +21,7 @@ func TestListRepositories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	repos, err := ListRepositories(ctx, cfg, 10, 10)
 	cancel()
 	if err != nil {

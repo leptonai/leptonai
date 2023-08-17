@@ -1,17 +1,15 @@
-package eks
+package ec2
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
-	"sigs.k8s.io/yaml"
 )
 
-func TestListClusters(t *testing.T) {
+func TestListVPCs(t *testing.T) {
 	if os.Getenv("RUN_AWS_TESTS") != "1" {
 		t.Skip()
 	}
@@ -24,25 +22,25 @@ func TestListClusters(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	clusters, err := ListClusters(ctx, "us-east-1", cfg, 10)
+	vpcs, err := ListVPCs(ctx, cfg)
 	cancel()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, cl := range clusters {
-		t.Logf("%s %s %s\n%+v\n\n", cl.CertificateAuthority, cl.Endpoint, cl.OIDCIssuer, cl)
+	for i, v := range vpcs {
+		t.Logf("VPC ID: %q (%s)\n", *v.VpcId, v.State)
 
-		kcfg, err := cl.Kubeconfig()
+		if i > 0 {
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		vpc, err := GetVPC(ctx, cfg, *v.VpcId)
+		cancel()
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		kb, err := yaml.Marshal(kcfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Println(string(kb))
+		t.Logf("VPC: %+v\n", vpc)
 	}
 }

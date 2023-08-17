@@ -21,7 +21,7 @@ func TestBilling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	usage, err := GetCostAndUsage(ctx, cfg, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour))
 	cancel()
 	if err != nil {

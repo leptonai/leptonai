@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/olekukonko/tablewriter"
 )
-
-const describeInterval = 5 * time.Second
 
 // ListFileSystems lists all EFS file systems.
 // If tagFilter is not nil, only file systems with the matching tags will be returned.
@@ -85,7 +82,7 @@ func ListFileSystems(ctx context.Context, cfg aws.Config, tagFilter map[string]s
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	goutil.Logger.Debugw("listed EFS filesystems",

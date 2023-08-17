@@ -21,7 +21,7 @@ func TestListRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	roles, err := ListRoles(ctx, cfg, 10)
 	cancel()
 	if err != nil {

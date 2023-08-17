@@ -5,7 +5,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -65,7 +64,7 @@ func ListPolicies(ctx context.Context, cfg aws.Config, limit int) ([]Policy, err
 			break
 		}
 
-		time.Sleep(describeInterval)
+		// TODO: add wait to prevent api throttle (rate limit)?
 	}
 
 	sort.SliceStable(policies, func(i, j int) bool {
