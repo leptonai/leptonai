@@ -50,7 +50,7 @@ from leptonai import Client
 from leptonai.api.photon import create as create_photon, load_metadata
 from leptonai.config import LEPTON_DASHBOARD_URL, LEPTON_DASHBOARD_DAILY_URL
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
-from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam
+from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
 from leptonai.util import switch_cwd
 
 
@@ -1130,6 +1130,24 @@ class StorePySrcFilePhoton(Photon):
         with zipfile.ZipFile(path, "r") as photon_file:
             with photon_file.open(Photon.py_src_filename) as f:
                 self.assertEqual(f.read().decode(), content)
+
+    def test_serve_static_files(self):
+        static_dir = tempfile.mkdtemp(dir=tmpdir)
+        static_fn = "test.txt"
+        content = "hello"
+        with open(os.path.join(static_dir, static_fn), "w") as f:
+            f.write(content)
+
+        class StaticFilePhoton(Photon):
+            @Photon.handler(mount=True)
+            def static(self):
+                return StaticFiles(directory=static_dir)
+
+        ph = StaticFilePhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/static/{static_fn}")
+        self.assertEqual(res.text, content)
 
 
 if __name__ == "__main__":

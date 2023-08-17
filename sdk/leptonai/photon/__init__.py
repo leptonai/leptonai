@@ -9,6 +9,7 @@ from .photon import (  # noqa: F401
     PNGResponse,
     WAVResponse,
     FileParam,
+    StaticFiles,
 )
 import leptonai.photon.hf  # noqa: F401
 
