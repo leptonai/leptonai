@@ -28,8 +28,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "list",
 		Short:      "List all volumes",
-		Aliases:    []string{"ls"},
-		SuggestFor: []string{"ls"},
+		Aliases:    []string{"ls", "l"},
+		SuggestFor: []string{"ls", "l"},
 		Run:        listFunc,
 	}
 	cmd.PersistentFlags().StringSliceVar(&volumeKinds, "volume-kinds", []string{"efs"}, "Volume kinds to list")

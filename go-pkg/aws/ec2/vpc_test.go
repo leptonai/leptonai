@@ -42,5 +42,15 @@ func TestListVPCs(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("VPC: %+v\n", vpc)
+
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		subnets, err := GetVPCSubnets(ctx, cfg, *v.VpcId)
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range subnets {
+			t.Logf("subnet %s in availability zone: %s", *s.SubnetId, *s.AvailabilityZone)
+		}
 	}
 }

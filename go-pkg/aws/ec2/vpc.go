@@ -60,3 +60,42 @@ func GetVPC(ctx context.Context, cfg aws.Config, vpcID string) (aws_ec2_types_v2
 	}
 	return out.Vpcs[0], nil
 }
+
+func GetVPCSubnets(ctx context.Context, cfg aws.Config, vpcID string) ([]aws_ec2_types_v2.Subnet, error) {
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+
+	out, err := cli.DescribeVpcs(ctx,
+		&aws_ec2_v2.DescribeVpcsInput{
+			Filters: []aws_ec2_types_v2.Filter{
+				{
+					Name:   aws.String("vpc-id"),
+					Values: []string{vpcID},
+				},
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(out.Vpcs) != 1 {
+		return nil, fmt.Errorf("expected 1 VPC, got %d", len(out.Vpcs))
+	}
+	vpc := out.Vpcs[0]
+
+	out2, err := cli.DescribeSubnets(ctx,
+		&aws_ec2_v2.DescribeSubnetsInput{
+			Filters: []aws_ec2_types_v2.Filter{
+				{
+					Name:   aws.String("vpc-id"),
+					Values: []string{*vpc.VpcId},
+				},
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return out2.Subnets, nil
+}

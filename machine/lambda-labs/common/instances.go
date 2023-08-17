@@ -20,7 +20,7 @@ type Instance struct {
 
 type Instances []Instance
 
-var InstancesColumes = []string{"id", "instance type", "status", "region", "ssh keys", "file systems", "hostname"}
+var InstancesCols = []string{"id", "instance type", "status", "region", "ssh keys", "file systems", "hostname"}
 
 func (iss Instances) String() string {
 	sort.SliceStable(iss, func(i, j int) bool {
@@ -55,7 +55,7 @@ func (iss Instances) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader(InstancesColumes)
+	tb.SetHeader(InstancesCols)
 	tb.AppendBulk(rows)
 	tb.Render()
 

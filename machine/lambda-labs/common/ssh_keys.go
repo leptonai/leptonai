@@ -14,7 +14,7 @@ type SSHKey struct {
 
 type SSHKeys []SSHKey
 
-var SSHKeysColumes = []string{"id", "name"}
+var SSHKeysCols = []string{"id", "name"}
 
 func (iss SSHKeys) String() string {
 	sort.SliceStable(iss, func(i, j int) bool {
@@ -35,7 +35,7 @@ func (iss SSHKeys) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader(SSHKeysColumes)
+	tb.SetHeader(SSHKeysCols)
 	tb.AppendBulk(rows)
 	tb.Render()
 

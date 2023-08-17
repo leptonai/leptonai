@@ -32,8 +32,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "list",
 		Short:      "List all the workspaces",
-		Aliases:    []string{"ls"},
-		SuggestFor: []string{"ls"},
+		Aliases:    []string{"ls", "l"},
+		SuggestFor: []string{"ls", "l"},
 		Run:        listFunc,
 	}
 	cmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format, either 'rawjson' or 'table'")

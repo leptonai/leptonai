@@ -14,7 +14,7 @@ type Filesystem = openapiclient.FileSystem
 
 type Filesystems []Filesystem
 
-var FilesystemsColumes = []string{"id", "name", "created", "created by", "mount point", "region", "in-use"}
+var FilesystemsCols = []string{"id", "name", "created", "created by", "mount point", "region", "in-use"}
 
 func (iss Filesystems) String() string {
 	sort.SliceStable(iss, func(i, j int) bool {
@@ -39,7 +39,7 @@ func (iss Filesystems) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader(FilesystemsColumes)
+	tb.SetHeader(FilesystemsCols)
 	tb.AppendBulk(rows)
 	tb.Render()
 

@@ -23,8 +23,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "ls",
 		Short:      "Lists Lambda Labs SSH keys",
-		Aliases:    []string{"list"},
-		SuggestFor: []string{"list"},
+		Aliases:    []string{"list", "l"},
+		SuggestFor: []string{"list", "l"},
 		Run:        lsFunc,
 	}
 	return cmd

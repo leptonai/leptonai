@@ -21,7 +21,7 @@ type InstanceType struct {
 
 type InstanceTypes []InstanceType
 
-var InstanceTypesColumes = []string{"name", "description", "regions", "price", "vCPUs", "RAM", "Storage"}
+var InstanceTypesCols = []string{"name", "description", "regions", "price", "vCPUs", "RAM", "Storage"}
 
 func (iss InstanceTypes) String() string {
 	sort.SliceStable(iss, func(i, j int) bool {
@@ -47,7 +47,7 @@ func (iss InstanceTypes) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader(InstanceTypesColumes)
+	tb.SetHeader(InstanceTypesCols)
 	tb.AppendBulk(rows)
 	tb.Render()
 

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/leptonai/lepton/machine/aws"
 	lambdalabs "github.com/leptonai/lepton/machine/lambda-labs"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +16,8 @@ const appName = "machine"
 var rootCmd = &cobra.Command{
 	Use:        appName,
 	Short:      "Lepton CLI for dev " + appName,
-	SuggestFor: []string{"machine", "dev-machine"},
+	Aliases:    []string{"machine", "mc", "m", "dev-machine"},
+	SuggestFor: []string{"machine", "mc", "m", "dev-machine"},
 }
 
 func init() {
@@ -23,6 +26,7 @@ func init() {
 
 func init() {
 	rootCmd.AddCommand(
+		aws.NewCommand(),
 		lambdalabs.NewCommand(),
 	)
 }

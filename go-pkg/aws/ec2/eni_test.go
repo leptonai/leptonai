@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/aws"
+
+	aws_ec2_types_v2 "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 func TestListENIs(t *testing.T) {
@@ -42,5 +44,19 @@ func TestListENIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("ENI: %+v\n", eni)
+
+		ch := PollENI(
+			context.TODO(),
+			make(chan struct{}),
+			cfg,
+			*v.NetworkInterfaceId,
+			aws_ec2_types_v2.NetworkInterfaceStatusInUse,
+			aws_ec2_types_v2.AttachmentStatusAttached,
+			5*time.Second,
+			time.Second,
+		)
+		for ev := range ch {
+			t.Logf("ENI event: %+v", ev)
+		}
 	}
 }
