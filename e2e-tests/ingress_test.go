@@ -15,6 +15,7 @@ import (
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
+	t.Parallel()
 	if !*testDataPlaneRouting {
 		t.Skip("Dataplane routing not ready")
 	}
@@ -46,6 +47,7 @@ func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 }
 
 func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
+	t.Parallel()
 	err := waitForDeploymentToRunningState(mainTestDeploymentName)
 	if err != nil {
 		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
@@ -81,6 +83,7 @@ func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
 }
 
 func TestIngressOfPublicDeployment(t *testing.T) {
+	t.Parallel()
 	if !*testDataPlaneRouting {
 		t.Skip("Dataplane routing not ready")
 	}
@@ -127,6 +130,7 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 }
 
 func TestIngressOfDeploymentWithCustomTokenAndUpdatingToken(t *testing.T) {
+	t.Parallel()
 	if !*testDataPlaneRouting {
 		t.Skip("Dataplane routing not ready")
 	}

@@ -48,8 +48,9 @@ jobs:
             exit 1
           fi
           echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
-      - name: Create ci workspace
+      - name: Create ci workspace and install sdk
         run: |
+          # create ci workspace
           ./mothershipctl workspace create \
             --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
             --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
@@ -58,17 +59,24 @@ jobs:
             --workspace-name "${{ inputs.workspace_name }}" \
             --git-ref "${{ inputs.git_ref }}" \
             --image-tag "${{ inputs.image_tag }}" \
-            --tier "basic"
-          ./mothershipctl workspace wait \
+            --tier "basic" && \
+            ./mothershipctl workspace wait \
             --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
             --token "${{ secrets.MOTHERSHIP_TOKEN }}" \
             --workspace-name "${{ inputs.workspace_name }}" \
             --timeout 10 \
-            --expected-state "ready"
+            --expected-state "ready" &
+          mothership_pid=$!
+          # install sdk
+          if ! hash nvidia-smi 2>/dev/null; then
+             echo "nvidia-smi not found on host, installing cpu version of torch"
+             pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          fi
+          pip install -e ./sdk
+          wait $mothership_pid
       - name: Run tests
         run: |
-          pip install -e ./sdk
-          go test -timeout 3600s -v ./e2e-tests/... \
+          go test -p 8 -timeout 3600s -v ./e2e-tests/... \
             --workspace-url https://${{ inputs.workspace_name }}.cloud.lepton.ai/api/v1 \
             --auth-token ${{ inputs.api_token }}
       - name: Delete ci workspace
