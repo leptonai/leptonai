@@ -110,7 +110,7 @@ func updateAllFunc(cmd *cobra.Command, args []string) {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			cl, err := eks.GetCluster(ctx, c.Spec.Region, eksAPIs[c.Spec.Region], c.Spec.Name)
+			cl, err := eks.GetClusterWithClient(ctx, c.Spec.Region, eksAPIs[c.Spec.Region], c.Spec.Name)
 			cancel()
 			if err != nil {
 				log.Fatalf("failed to get cluster %q (%v)", c.Spec.Name, err)

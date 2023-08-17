@@ -29,7 +29,16 @@ func ListClusters(ctx context.Context, region string, cfg aws.Config, limit int)
 	return listClusters(ctx, region, cli, "", limit)
 }
 
-func GetCluster(ctx context.Context, region string, cli *aws_eks_v2.Client, clusterName string) (Cluster, error) {
+func GetCluster(ctx context.Context, cfg aws.Config, clusterName string) (Cluster, error) {
+	cli := aws_eks_v2.NewFromConfig(cfg)
+	return getClusterWithClient(ctx, cfg.Region, cli, clusterName)
+}
+
+func GetClusterWithClient(ctx context.Context, region string, cli *aws_eks_v2.Client, clusterName string) (Cluster, error) {
+	return getClusterWithClient(ctx, region, cli, clusterName)
+}
+
+func getClusterWithClient(ctx context.Context, region string, cli *aws_eks_v2.Client, clusterName string) (Cluster, error) {
 	cs, err := listClusters(ctx, region, cli, clusterName, 1)
 	if err != nil {
 		return Cluster{}, err
@@ -66,7 +75,7 @@ done:
 			}
 
 			clusters = append(clusters, cl)
-			if limit >= 0 && len(clusters) >= limit {
+			if limit > 0 && len(clusters) >= limit {
 				log.Printf("already listed %d clusters with limit %d -- skipping the rest", len(clusters), limit)
 				break done
 			}

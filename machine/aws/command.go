@@ -2,6 +2,7 @@
 package aws
 
 import (
+	"github.com/leptonai/lepton/machine/aws/eks"
 	"github.com/leptonai/lepton/machine/aws/enis"
 	"github.com/leptonai/lepton/machine/aws/secrets"
 	vpcs_subnets "github.com/leptonai/lepton/machine/aws/vpcs-subnets"
@@ -34,6 +35,7 @@ func NewCommand() *cobra.Command {
 		vpcs_subnets.NewCommand(),
 		secrets.NewCommand(),
 		enis.NewCommand(),
+		eks.NewCommand(),
 	)
 
 	return cmd
