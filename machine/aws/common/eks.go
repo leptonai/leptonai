@@ -8,17 +8,19 @@ import (
 )
 
 type EKSCluster struct {
-	Name    string `json:"name"`
-	Region  string `json:"region"`
-	ARN     string `json:"arn"`
-	Version string `json:"version"`
-	Status  string `json:"status"`
-	Health  string `json:"health"`
+	Name            string `json:"name"`
+	Region          string `json:"region"`
+	ARN             string `json:"arn"`
+	Version         string `json:"version"`
+	PlatformVersion string `json:"platform_version"`
+	Status          string `json:"status"`
+	Health          string `json:"health"`
+	VPCID           string `json:"vpc_id"`
 }
 
 type EKSClusters []EKSCluster
 
-var EKSClustersCols = []string{"name", "region", "arn", "version", "status", "health"}
+var EKSClustersCols = []string{"name", "region", "arn", "version", "platform version", "status", "health", "vpc id"}
 
 func (vss EKSClusters) String() string {
 	sort.SliceStable(vss, func(i, j int) bool {
@@ -41,8 +43,10 @@ func (vss EKSClusters) String() string {
 			v.Region,
 			v.ARN,
 			v.Version,
+			v.PlatformVersion,
 			v.Status,
 			v.Health,
+			v.VPCID,
 		}
 		rows = append(rows, row)
 	}

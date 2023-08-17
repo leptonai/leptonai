@@ -75,6 +75,7 @@ func lsFunc(cmd *cobra.Command, args []string) {
 			Version: v.Version,
 			Status:  v.Status,
 			Health:  v.Health,
+			VPCID:   v.VPCID,
 		})
 	}
 	fmt.Println(rss.String())
