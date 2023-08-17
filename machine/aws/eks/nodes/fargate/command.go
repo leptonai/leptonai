@@ -3,6 +3,7 @@ package fargate
 
 import (
 	"github.com/leptonai/lepton/machine/aws/eks/nodes/fargate/add"
+	"github.com/leptonai/lepton/machine/aws/eks/nodes/fargate/hostname"
 
 	"github.com/spf13/cobra"
 )
@@ -11,7 +12,7 @@ func init() {
 	cobra.EnablePrefixMatching = true
 }
 
-// NewCommand implements "mothership node add" command.
+// NewCommand implements "machine aws eks nodes fargate" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "fargate",
@@ -22,6 +23,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		add.NewCommand(),
+		hostname.NewCommand(),
 	)
 	return cmd
 }

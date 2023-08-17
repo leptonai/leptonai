@@ -29,15 +29,16 @@ var (
 	region      string
 	clusterName string
 
-	eniID string
-	keep  bool
+	eniID        string
+	keep         bool
+	keepInterval time.Duration
 )
 
 func init() {
 	cobra.EnablePrefixMatching = true
 }
 
-// NewCommand implements "mothership node add" command.
+// NewCommand implements "machine aws nodes fargate add" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "add",
@@ -52,6 +53,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.PersistentFlags().StringVarP(&eniID, "eni-id", "e", "", "AWS ENI")
 	cmd.PersistentFlags().BoolVar(&keep, "keep", false, "Set true to keep applying the node object (useful to keep the node alive while kubelet is still being ready)")
+	cmd.PersistentFlags().DurationVar(&keepInterval, "keep-interval", 30*time.Second, "interval to send node apply request")
 
 	return cmd
 }
@@ -104,7 +106,7 @@ func addFunc(cmd *cobra.Command, args []string) {
 	}
 
 	privateDNS := *eni.PrivateDnsName
-	nodeHostname := strings.ReplaceAll(privateDNS, ".ec2.internal", fmt.Sprintf(".%s.compute.internal", region))
+	nodeHostname := "fargate-" + strings.ReplaceAll(privateDNS, ".ec2.internal", fmt.Sprintf(".%s.compute.internal", region))
 	slog.Info("creating a fargate node with ENI",
 		"private-dns", privateDNS,
 		"node-hostname", nodeHostname,
@@ -228,11 +230,22 @@ func addFunc(cmd *cobra.Command, args []string) {
 		)
 		nodeObj.Status.Conditions = generateNodeConditions(now)
 
+		b, err := yaml.Marshal(nodeObj)
+		if err != nil {
+			slog.Error("failed to marshal node object",
+				"error", err,
+			)
+			os.Exit(1)
+		}
+		fmt.Printf("\napplying node:\n\n%s\n\n", string(b))
+
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		node, err := clientset.CoreV1().Nodes().Apply(
+		_, err = clientset.CoreV1().Nodes().Apply(
 			ctx,
 			&nodeObj,
-			metav1.ApplyOptions{},
+			metav1.ApplyOptions{
+				FieldManager: "application/apply-patch",
+			},
 		)
 		cancel()
 		if err != nil {
@@ -242,20 +255,11 @@ func addFunc(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		b, err := yaml.Marshal(node)
-		if err != nil {
-			slog.Error("failed to marshal node object",
-				"error", err,
-			)
-			os.Exit(1)
-		}
-		fmt.Printf("\napplied node:\n\n%s\n\n", string(b))
-
 		if !keep {
 			break
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(keepInterval)
 	}
 }
 
