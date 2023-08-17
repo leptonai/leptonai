@@ -23,6 +23,9 @@ spec:
           effect: NoSchedule
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
+        - key: nvidia.com/gpu 
+          effect: NoSchedule
+          operator: Exists
       serviceAccountName: elastic-agent
       hostNetwork: true
       # 'hostPID: true' enables the Elastic Security integration to observe all process exec events on the host.
@@ -74,10 +77,11 @@ spec:
             #    - SYS_RESOURCE # Allow use of special resources or raising of resource limits. Used by 'Defend for Containers' to modify 'rlimit_memlock'
           resources:
             limits:
+              cpu: "1"
               memory: 700Mi
             requests:
               cpu: 100m
-              memory: 400Mi
+              memory: 128Mi
           volumeMounts:
             - name: proc
               mountPath: /hostfs/proc
