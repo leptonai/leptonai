@@ -2,7 +2,7 @@ name: CI/CD - workspace - push
 
 on:
   push:
-    branches: ["main", "release-*"]
+    branches: ["main"]
 
 jobs:
   build-api-server:
