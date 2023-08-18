@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -131,4 +132,10 @@ const InvalidEnvNameMessage = "environment variable names are not allowed to sta
 
 func ValidateEnvName(name string) bool {
 	return !strings.HasPrefix(strings.ToLower(name), "lepton_")
+}
+
+var ipv4Regex = regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}:\b`)
+
+func MaskIPAddressInReadinessProbeMessage(s string) string {
+	return ipv4Regex.ReplaceAllString(s, "port ")
 }

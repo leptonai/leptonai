@@ -38,21 +38,63 @@ func TestGetConditionByType(t *testing.T) {
 	}
 }
 
-func TestGetEventByReason(t *testing.T) {
+func TestGetEventBy(t *testing.T) {
 	events := []eventsv1.Event{
 		{
-			Reason: "Normal",
+			Type:   "Normal",
+			Reason: "Pulling",
 			Note:   "Created pod: test",
 		},
 		{
-			Reason: "Warning",
+			Type:   "Warning",
+			Reason: "Pulled",
 			Note:   "Failed to create pod: test",
 		},
 	}
-	for _, e := range events {
-		note := getEventByReason(events, e.Reason).Note
-		if note != e.Note {
-			t.Errorf("getEventByReason(%v) = %v, want %v", e.Reason, note, e.Note)
+	tests := []struct {
+		Type        string
+		Reason      string
+		NotePrefix  string
+		ExpectedNil bool
+	}{
+		{
+			Type:        "Normal",
+			Reason:      "Pulling",
+			NotePrefix:  "Created",
+			ExpectedNil: false,
+		},
+		{
+			Type:        "Warning",
+			Reason:      "Pulled",
+			NotePrefix:  "Failed",
+			ExpectedNil: false,
+		},
+		{
+			Type:        "",
+			Reason:      "Pulled",
+			NotePrefix:  "Failed",
+			ExpectedNil: false,
+		},
+		{
+			Type:        "Normal",
+			Reason:      "Pulling",
+			NotePrefix:  "",
+			ExpectedNil: false,
+		},
+		{
+			Type:        "Warning",
+			Reason:      "Pulled",
+			NotePrefix:  "Created",
+			ExpectedNil: true,
+		},
+	}
+	for _, test := range tests {
+		e := getLastEvent(events, test.Type, test.Reason, test.NotePrefix)
+		if e == nil && !test.ExpectedNil {
+			t.Errorf("getLastEventByTypeAndReasonAndNotePrefix(%v, %v, %v) = nil, want non-nil", test.Type, test.Reason, test.NotePrefix)
+		}
+		if e != nil && test.ExpectedNil {
+			t.Errorf("getLastEventByTypeAndReasonAndNotePrefix(%v, %v, %v) != nil, want nil", test.Type, test.Reason, test.NotePrefix)
 		}
 	}
 }

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -79,9 +78,9 @@ func getReplicaReadinessIssue(ctx context.Context, pod *corev1.Pod) ReplicaReadi
 
 	scheduled := getConditionByType(conditions, corev1.PodScheduled)
 	if scheduled != nil && scheduled.Status == corev1.ConditionFalse {
-		failedScheduleEvent := getEventByReason(events.Items, "FailedScheduling")
-		triggeredScaleUp := getEventByReason(events.Items, "TriggeredScaleUp")
-		notTriggerScaleUp := getEventByReason(events.Items, "NotTriggerScaleUp")
+		failedScheduleEvent := getLastEvent(events.Items, "", "FailedScheduling", "")
+		triggeredScaleUp := getLastEvent(events.Items, "", "TriggeredScaleUp", "")
+		notTriggerScaleUp := getLastEvent(events.Items, "", "NotTriggerScaleUp", "")
 		if failedScheduleEvent != nil {
 			if triggeredScaleUp != nil {
 				return ReplicaReadinessIssue{ReadinessReasonInProgress, "Adding capacity for the replica"}
@@ -125,46 +124,42 @@ func getConditionByType(conditions []corev1.PodCondition, conditionType corev1.P
 	return nil
 }
 
-func getEventByReason(events []eventsv1.Event, reason string) *eventsv1.Event {
-	for _, event := range events {
-		if event.Reason == reason {
-			return &event
-		}
-	}
-	return nil
-}
-
 func getReadinessIssueFromEvents(events []eventsv1.Event) ReplicaReadinessIssue {
-	event := findTheLastWarningEvent(events)
-	if event != nil {
-		return getReadinessIssueFromEvent(event)
-	}
-	event = findTheLastEvent(events)
-	if event != nil {
-		return getReadinessIssueFromEvent(event)
-	}
-	return ReplicaReadinessIssue{ReadinessReasonUnknown, ""}
-}
-
-func findTheLastWarningEvent(events []eventsv1.Event) *eventsv1.Event {
-	var lastEvent *eventsv1.Event
-	for i, event := range events {
-		if event.Type == "Warning" &&
-			(lastEvent == nil ||
-				getEventLastObservedTime(&event).After(getEventLastObservedTime(lastEvent))) {
-			lastEvent = &events[i]
+	if lastEvent := getLastEvent(events, "Warning", "Failed", "Failed to pull image \"amazon/aws-cli\""); lastEvent != nil {
+		if strings.Contains(lastEvent.Note, "401 Unauthorized") {
+			return ReplicaReadinessIssue{ReadinessReasonConfigError, "Failed to pull image due to invalid dockerhub credentials"}
 		}
+		return ReplicaReadinessIssue{ReadinessReasonSystemError, "Failed to pull system image"}
 	}
-	return lastEvent
+	if lastEvent := getLastEvent(events, "Warning", "Failed", "Failed to pull image"); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonConfigError, "Failed to pull image: not found"}
+	}
+	if lastEvent := getLastEvent(events, "Warning", "Failed", "Error: couldn't find key non-exist in Secret"); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonConfigError, "Secret not found"}
+	}
+	if lastEvent := getLastEvent(events, "Warning", "FailedMount", ""); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonConfigError, "Mount point not found"}
+	}
+	if lastEvent := getLastEvent(events, "Normal", "Pulling", ""); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonInProgress, "Pulling image"}
+	}
+	if lastEvent := getLastEvent(events, "Warning", "Unhealthy", "Readiness probe failed"); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonInProgress, goutil.MaskIPAddressInReadinessProbeMessage(lastEvent.Note)}
+	}
+	if lastEvent := getLastEvent(events, "Warning", "", ""); lastEvent != nil {
+		return ReplicaReadinessIssue{ReadinessReasonUnknown, ""}
+	}
+	return ReplicaReadinessIssue{ReadinessReasonInProgress, ""}
 }
 
-func findTheLastEvent(events []eventsv1.Event) *eventsv1.Event {
+func getLastEvent(events []eventsv1.Event, eventType, eventReason, eventNotePrefix string) *eventsv1.Event {
 	var lastEvent *eventsv1.Event
 	for i, event := range events {
-		if lastEvent == nil ||
-			getEventLastObservedTime(&event).After(getEventLastObservedTime(lastEvent)) {
+		if (eventType == "" || event.Type == eventType) &&
+			(eventReason == "" || event.Reason == eventReason) &&
+			(eventNotePrefix == "" || strings.HasPrefix(event.Note, eventNotePrefix)) &&
+			(lastEvent == nil || getEventLastObservedTime(&event).After(getEventLastObservedTime(lastEvent))) {
 			lastEvent = &events[i]
-			log.Printf("Last event: %s | %s | %s", lastEvent.Reason, lastEvent.Note, getEventLastObservedTime(lastEvent))
 		}
 	}
 	return lastEvent
@@ -176,20 +171,4 @@ func getEventLastObservedTime(event *eventsv1.Event) time.Time {
 		lastObservedTime = event.DeprecatedLastTimestamp.Time
 	}
 	return lastObservedTime
-}
-
-func getReadinessIssueFromEvent(event *eventsv1.Event) ReplicaReadinessIssue {
-	message := fmt.Sprintf("%s:%s", event.Reason, event.Note)
-	switch event.Type {
-	case "Normal":
-		return ReplicaReadinessIssue{ReadinessReasonInProgress, message}
-	case "Warning":
-		if strings.HasPrefix(event.Reason, "Fail") {
-			// for example, FailMount, Failed (pulling image)
-			return ReplicaReadinessIssue{ReadinessReasonConfigError, message}
-		}
-		return ReplicaReadinessIssue{ReadinessReasonInProgress, message}
-	default:
-		return ReplicaReadinessIssue{ReadinessReasonUnknown, message}
-	}
 }

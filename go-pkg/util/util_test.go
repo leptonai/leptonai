@@ -290,3 +290,22 @@ func TestValidateEnvName(t *testing.T) {
 		}
 	}
 }
+
+func TestMaskIPAddress(t *testing.T) {
+	tests := []struct {
+		input  string
+		output string
+	}{
+		{
+			"Readiness probe failed: dial tcp 10.0.37.1:8080: connect: connection refused",
+			"Readiness probe failed: dial tcp port 8080: connect: connection refused",
+		},
+	}
+	for _, test := range tests {
+		output := MaskIPAddressInReadinessProbeMessage(test.input)
+		if output != test.output {
+			t.Errorf("MaskIPAddress(%s) = %s; want %s", test.input, output, test.output)
+		}
+	}
+
+}
