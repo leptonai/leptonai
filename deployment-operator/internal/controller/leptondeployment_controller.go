@@ -38,7 +38,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // LeptonDeploymentReconciler reconciles a LeptonDeployment object
@@ -437,28 +436,17 @@ func (r *LeptonDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	hd := handler.EnqueueRequestForOwner(mgr.GetScheme(),
+		mgr.GetRESTMapper(),
+		&leptonaiv1alpha1.LeptonDeployment{},
+		handler.OnlyControllerOwner())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&leptonaiv1alpha1.LeptonDeployment{}).
-		Watches(
-			&source.Kind{Type: &appsv1.Deployment{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
-		).
-		Watches(
-			&source.Kind{Type: &corev1.Service{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
-		).
-		Watches(
-			&source.Kind{Type: &networkingv1.Ingress{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
-		).
-		Watches(
-			&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
-		).
-		Watches(
-			&source.Kind{Type: &corev1.PersistentVolume{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &leptonaiv1alpha1.LeptonDeployment{}},
-		).
+		Watches(&appsv1.Deployment{}, hd).
+		Watches(&corev1.Service{}, hd).
+		Watches(&networkingv1.Ingress{}, hd).
+		Watches(&corev1.PersistentVolumeClaim{}, hd).
+		Watches(&corev1.PersistentVolume{}, hd).
 		Complete(r)
 }
 
