@@ -12,5 +12,13 @@ resource "helm_release" "gloo_edge" {
 
   create_namespace = true
 
+  # https://docs.solo.io/gloo-edge/latest/operations/production_deployment/#performance-tips
+  # disable unnecessary options to improve performance; we always create upstreams explicitly, 
+  # and we don't use kube service **directly** as destination, therefore these are not necessary.
+  set {
+    name  = "discovery.udsOptions.enabled"
+    value = false
+  }
+
   depends_on = [module.eks]
 }
