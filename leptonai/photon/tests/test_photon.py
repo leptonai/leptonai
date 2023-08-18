@@ -1149,6 +1149,39 @@ class StorePySrcFilePhoton(Photon):
         res = requests.get(f"http://127.0.0.1:{port}/static/{static_fn}")
         self.assertEqual(res.text, content)
 
+    def test_dynamic_list_static_files(self):
+        static_dir = tempfile.mkdtemp(dir=tmpdir)
+
+        class StaticFilePhoton(Photon):
+            @Photon.handler(mount=True)
+            def static(self):
+                return StaticFiles(directory=static_dir)
+
+            @Photon.handler()
+            def create(self, name, content):
+                with open(os.path.join(static_dir, name), "w") as f:
+                    f.write(content)
+                return "ok"
+
+        ph = StaticFilePhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+
+        name = random_name()
+        content = "some special content"
+
+        # before creating the file, it's not found
+        res = requests.get(f"http://127.0.0.1:{port}/static/{name}")
+        self.assertEqual(res.status_code, 404)
+
+        self.assertEqual(client.create(name=name, content=content), "ok")
+
+        # after creating the file, it's found
+        res = requests.get(f"http://127.0.0.1:{port}/static/{name}")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.text, content)
+
 
 if __name__ == "__main__":
     unittest.main()
