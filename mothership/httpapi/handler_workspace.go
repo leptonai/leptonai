@@ -8,6 +8,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/mothership/metrics"
 	"github.com/leptonai/lepton/mothership/workspace"
 
 	"github.com/gin-gonic/gin"
@@ -59,7 +60,9 @@ func HandleWorkspaceGetLogs(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the workspace is not running"})
 		return
 	}
-	c.String(http.StatusOK, job.GetLog())
+	l := job.GetLog()
+	metrics.TrackWorkspaceLogsResponse(float64(len(l)))
+	c.String(http.StatusOK, l)
 }
 
 func HandleWorkspaceGetFailureLog(c *gin.Context) {
@@ -69,7 +72,9 @@ func HandleWorkspaceGetFailureLog(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("workspace %s has no failure", wname)})
 		return
 	}
-	c.String(http.StatusOK, job.GetLog())
+	l := job.GetLog()
+	metrics.TrackWorkspaceLogsResponse(float64(len(l)))
+	c.String(http.StatusOK, l)
 }
 
 func HandleWorkspaceList(c *gin.Context) {

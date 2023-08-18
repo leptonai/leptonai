@@ -49,6 +49,22 @@ var (
 		},
 		[]string{"job", "success"},
 	)
+	clusterLogsResponseCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "cluster_logs",
+			Name:      "response_count",
+			Help:      "Tracks the response count of cluster logs",
+		},
+	)
+	clusterLogsResponseSum = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "mothership",
+			Subsystem: "cluster_logs",
+			Name:      "response_sum",
+			Help:      "Tracks the total response size of cluster logs",
+		},
+	)
 
 	workspacesTotal = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -88,6 +104,22 @@ var (
 		},
 		[]string{"job", "success"},
 	)
+	workspaceLogsResponseCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace_logs",
+			Name:      "response_count",
+			Help:      "Tracks the response count of workspace logs",
+		},
+	)
+	workspaceLogsResponseSum = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "mothership",
+			Subsystem: "workspace_logs",
+			Name:      "response_sum",
+			Help:      "Tracks the total response size of workspace logs",
+		},
+	)
 )
 
 func init() {
@@ -96,11 +128,15 @@ func init() {
 		clusterJobsSuccessTotal,
 		clusterJobsFailureTotal,
 		clusterJobsLatency,
+		clusterLogsResponseCount,
+		clusterLogsResponseSum,
 
 		workspacesTotal,
 		workspaceJobsSuccessTotal,
 		workspaceJobsFailureTotal,
 		workspaceJobsLatency,
+		workspaceLogsResponseCount,
+		workspaceLogsResponseSum,
 	)
 }
 
@@ -153,6 +189,11 @@ func ObserveClusterJobsLatency(job string, success bool, took time.Duration) {
 	clusterJobsLatency.WithLabelValues(job, strconv.FormatBool(success)).Observe(took.Seconds())
 }
 
+func TrackClusterLogsResponse(size float64) {
+	clusterLogsResponseCount.Inc()
+	clusterLogsResponseSum.Add(size)
+}
+
 // GetTotalWorkspaces returns the total number of workspaces from the default Prometheus gatherer.
 func GetTotalWorkspaces(gatherer prometheus.Gatherer) int {
 	gss, err := gatherer.Gather()
@@ -186,4 +227,9 @@ func IncrementWorkspaceJobsFailureTotal(job string) {
 // ObserveWorkspaceJobsLatency tracks the latency of workspace jobs.
 func ObserveWorkspaceJobsLatency(job string, success bool, took time.Duration) {
 	workspaceJobsLatency.WithLabelValues(job, strconv.FormatBool(success)).Observe(took.Seconds())
+}
+
+func TrackWorkspaceLogsResponse(size float64) {
+	workspaceLogsResponseCount.Inc()
+	workspaceLogsResponseSum.Add(size)
 }

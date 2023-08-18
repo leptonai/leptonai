@@ -8,6 +8,7 @@ import (
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/mothership/cluster"
 	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/mothership/metrics"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -44,7 +45,9 @@ func HandleClusterGetLogs(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "operation of the cluster is not running"})
 		return
 	}
-	c.String(http.StatusOK, job.GetLog())
+	l := job.GetLog()
+	metrics.TrackClusterLogsResponse(float64(len(l)))
+	c.String(http.StatusOK, l)
 }
 
 func HandleClusterGetFailureLog(c *gin.Context) {
@@ -54,7 +57,9 @@ func HandleClusterGetFailureLog(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": fmt.Sprintf("job %s has no failure", cname)})
 		return
 	}
-	c.String(http.StatusOK, job.GetLog())
+	l := job.GetLog()
+	metrics.TrackClusterLogsResponse(float64(len(l)))
+	c.String(http.StatusOK, l)
 }
 
 func HandleClusterList(c *gin.Context) {
