@@ -21,9 +21,8 @@ To sum, using a [fargate-kind node object](https://github.com/leptonai/lepton/is
 - EKS cluster
   - We will modity aws-auth configmap so highly recommend against using the existing one.
   - If we modify wrong, you will be locked out of the cluster access.
-- `machine` CLI
 
-To install `machine` CLI, run:
+`machine` CLI:
 
 ```bash
 cd ${HOME}/lepton
@@ -343,3 +342,8 @@ nginx-pod   1/1     Running   0          4m32s
 Expected error:
 
 > Warning  MissingClusterDNS  8s (x4 over 15s)  kubelet            pod: "nginx-pod_default(ca1526ce-cd18-4a3b-b4a0-70746f96d38f)". kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
+
+## TODOs
+
+- Update taint key to be more consistent.
+- Check IPAMD config.
