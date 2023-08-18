@@ -79,7 +79,7 @@ def create_workspace_on_cluster(workspace_display_name):
         "enable_web": False,
         "quota_group": "small",
         "description": description,
-        "tier": "Basic",  # Could be Basic, Standard, Enterprise
+        "tier": "basic",  # Could be basic, standard, enterprise
         "image_tag": "0.7.1",
         "git_ref": "0.7.1",
     }
@@ -98,8 +98,8 @@ def insert_workspace_to_db(workspace_name, workspace_display_name):
             + len("mothership "): mothership_url.find("/api")
         ]
     )
-    query = "INSERT INTO workspaces (id, display_name, url) VALUES \
-        ('{}', '{}', '{}')".format(
+    query = "INSERT INTO workspaces (id, display_name, url, tier) VALUES \
+        ('{}', '{}', '{}', 'Basic')".format(
         workspace_name, workspace_display_name, workspace_url
     )
     database.execute_sql(query)
