@@ -180,10 +180,10 @@ func addFunc(cmd *cobra.Command, args []string) {
 				"node.alpha.kubernetes.io/ttl": "0",
 			},
 			Labels: map[string]string{
-				"alpha.service-controller.kubernetes.io/exclude-balancer": "true",
-				"beta.kubernetes.io/os":                                   "linux",
-				"kubernetes.io/hostname":                                  nodeHostname,
-				"kubernetes.io/role":                                      "agent",
+				// "alpha.service-controller.kubernetes.io/exclude-balancer": "true",
+				"beta.kubernetes.io/os":  "linux",
+				"kubernetes.io/hostname": nodeHostname,
+				"kubernetes.io/role":     "agent",
 			},
 		},
 		Spec: &apply_core_v1.NodeSpecApplyConfiguration{

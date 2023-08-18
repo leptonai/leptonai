@@ -101,6 +101,12 @@ func kubeconfigFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	if err = os.MkdirAll(filepath.Dir(kubeconfig), 0755); err != nil {
+		slog.Error("failed to mkdir kubeconfig dir",
+			"error", err,
+		)
+		os.Exit(1)
+	}
 	if err = os.WriteFile(kubeconfig, b, 0644); err != nil {
 		slog.Error("failed to write kubeconfig",
 			"error", err,
