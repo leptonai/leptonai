@@ -28,7 +28,8 @@ func (k *Service) createService(or []metav1.OwnerReference) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				labelKeyLeptonDeploymentName: ld.GetSpecName(),
+				labelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
+				labelKeyLeptonDeploymentName:            ld.GetSpecName(),
 			},
 			Ports: []corev1.ServicePort{
 				{
