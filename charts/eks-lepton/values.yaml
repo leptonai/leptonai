@@ -11,6 +11,7 @@ lbGlooAlbIngress:
   serviceName: gateway-proxy # decided by gloo installation
   gatewayProxy:
     port: 80 # gateway-proxy service port is 80 by default;
+  idleTimeout: 300
 
 env:
   provider: aws

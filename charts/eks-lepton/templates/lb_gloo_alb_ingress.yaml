@@ -12,6 +12,7 @@ metadata:
     alb.ingress.kubernetes.io/certificate-arn: {{ .Values.lbGlooAlbIngress.certificateArn }}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     external-dns.alpha.kubernetes.io/hostname: '*.{{ .Values.sharedAlbMainDomain }}'
+    alb.ingress.kubernetes.io/load-balancer-attributes: 'idle_timeout.timeout_seconds={{ .Values.lbGlooAlbIngress.idleTimeout }}',
 {{ end }}
 {{ end }}
   name: gloo-alb-ingress
