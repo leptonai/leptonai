@@ -74,17 +74,6 @@ func newDeploymentNvidia(ld *leptonaiv1alpha1.LeptonDeployment) *deployment {
 	return deployment
 }
 
-func (k *deployment) patchDeployment(d *appsv1.Deployment) {
-	ld := k.leptonDeployment
-	// TODO verify correctness
-	spec := k.createDeploymentPodSpec()
-	d.Spec.Template.Spec = *spec
-	// We have to handle the number of replicas separately because it is not
-	// in the pod spec. We are not able to update the whole deployment spec
-	// because other fields like labelSelector is immutable.
-	d.Spec.Replicas = &ld.Spec.ResourceRequirement.MinReplicas
-}
-
 func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deployment {
 	ld := k.leptonDeployment
 	podSpec := k.createDeploymentPodSpec()

@@ -238,7 +238,11 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			"name", req.Name,
 		)
 
-		deployment, err = r.createDeployment(ctx, ld, or)
+		d, err := r.createDeployment(ctx, ld, or)
+		if err != nil {
+			return nil, err
+		}
+		err = r.Client.Create(ctx, d)
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +257,20 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			"name", req.Name,
 		)
 
-		newDeploymentNvidia(ld).patchDeployment(deployment)
+		d, err := r.createDeployment(ctx, ld, or)
+		if err != nil {
+			return nil, err
+		}
+		deployment.ObjectMeta.Labels = d.ObjectMeta.Labels
+		deployment.ObjectMeta.Annotations = d.ObjectMeta.Annotations
+		deployment.ObjectMeta.OwnerReferences = d.ObjectMeta.OwnerReferences
+		// We only update Spec.Template.Spec because other fields like selector is immutable.
+		deployment.Spec.Template.Spec = d.Spec.Template.Spec
+		// We have to handle the number of replicas separately because it is not
+		// in the pod spec. We are not able to update the whole deployment spec
+		// because other fields like labelSelector is immutable.
+		deployment.Spec.Replicas = d.Spec.Replicas
+
 		if err := r.Client.Update(ctx, deployment); err != nil {
 			return nil, err
 		}
@@ -300,6 +317,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 		)
 
 		svc := newService(ld).createService(or)
+		service.ObjectMeta.Labels = svc.ObjectMeta.Labels
+		service.ObjectMeta.Annotations = svc.ObjectMeta.Annotations
+		service.ObjectMeta.OwnerReferences = svc.ObjectMeta.OwnerReferences
 		service.Spec = svc.Spec
 		if err := r.Client.Update(ctx, service); err != nil {
 			return nil, err
@@ -358,7 +378,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 				"name", req.Name,
 			)
 
-			ingress.Annotations = ing.Annotations
+			ingress.ObjectMeta.Labels = ing.ObjectMeta.Labels
+			ingress.ObjectMeta.Annotations = ing.ObjectMeta.Annotations
+			ingress.ObjectMeta.OwnerReferences = ing.ObjectMeta.OwnerReferences
 			ingress.Spec = ing.Spec
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
@@ -409,7 +431,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 				"name", req.Name,
 			)
 
-			ingress.Annotations = ing.Annotations
+			ingress.ObjectMeta.Labels = ing.ObjectMeta.Labels
+			ingress.ObjectMeta.Annotations = ing.ObjectMeta.Annotations
+			ingress.ObjectMeta.OwnerReferences = ing.ObjectMeta.OwnerReferences
 			ingress.Spec = ing.Spec
 			if err := r.Client.Update(ctx, ingress); err != nil {
 				return err
@@ -478,11 +502,6 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 			"name", ld.Name,
 			"pvcname", pvcname,
 		)
-	}
-
-	err := r.Client.Create(ctx, deployment)
-	if err != nil {
-		return nil, err
 	}
 
 	return deployment, nil
