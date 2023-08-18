@@ -14,7 +14,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
-from .photon import _parse_deployment_tokens_or_die
+from .photon import _parse_deployment_tokens_or_die, _validate_resource_shape
 
 
 @click_group()
@@ -260,6 +260,7 @@ def log(name, replica):
 @click.option("--name", "-n", help="The deployment name to update.", required=True)
 @click.option("--id", "-i", help="ID of the photon.", default=None)
 @click.option("--min-replicas", help="Number of replicas.", type=int, default=None)
+@click.option("--resource-shape", help="Resource shape.", default=None)
 @click.option(
     "--public/--no-public",
     is_flag=True,
@@ -279,7 +280,7 @@ def log(name, replica):
     ),
     multiple=True,
 )
-def update(name, min_replicas, public, tokens, id):
+def update(name, min_replicas, resource_shape, public, tokens, id):
     """
     Updates a deployment. Currently, only adjustment of the number of replicas is
     supported.
@@ -287,6 +288,8 @@ def update(name, min_replicas, public, tokens, id):
     if id:
         # TODO: We should probably check if the id is valid.
         pass
+    if resource_shape:
+        resource_shape = _validate_resource_shape(resource_shape)
     if min_replicas is not None:
         check(min_replicas > 0, f"Invalid number of replicas: {min_replicas}")
         # Just to avoid stupid errors right now, we will limit the number of replicas
@@ -311,7 +314,13 @@ def update(name, min_replicas, public, tokens, id):
     workspace_url, auth_token = get_workspace_and_token_or_die()
     guard_api(
         api.update_deployment(
-            workspace_url, auth_token, name, id, min_replicas, final_tokens
+            workspace_url,
+            auth_token,
+            name,
+            id,
+            min_replicas,
+            resource_shape,
+            final_tokens,
         ),
         detail=True,
         msg=f"Cannot update deployment [red]{name}[/]. See error above.",

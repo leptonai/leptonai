@@ -290,7 +290,7 @@ VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
 DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
 
-def _get_valid_shapes():
+def _get_valid_shapes_printout() -> str:
     """
     Utility function to get the valid shapes as a string.
     """
@@ -299,7 +299,7 @@ def _get_valid_shapes():
     return ", ".join(VALID_SHAPES)
 
 
-def _validate_resource_shape(resource_shape: Optional[str]):
+def _validate_resource_shape(resource_shape: Optional[str]) -> str:
     """
     Utility function to validate the resource shape and exit if invalid.
 
@@ -420,7 +420,7 @@ def _parse_deployment_tokens_or_die(public, tokens):
 @click.option("--id", "-i", help="ID of the photon (only required for remote).")
 @click.option(
     "--resource-shape",
-    help="Resource shape (valid values are: " + _get_valid_shapes() + ").",
+    help="Resource shape (valid values are: " + _get_valid_shapes_printout() + ").",
     default=None,
 )
 @click.option("--min-replicas", help="Number of replicas.", default=1)

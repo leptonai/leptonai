@@ -105,6 +105,7 @@ def update_deployment(
     name: str,
     photon_id: Optional[str] = None,
     min_replicas: Optional[int] = None,
+    resource_shape: Optional[str] = None,
     api_tokens: Optional[List[Dict[str, Union[str, Dict[str, str]]]]] = None,
 ):
     """
@@ -119,6 +120,10 @@ def update_deployment(
     if min_replicas:
         deployment_body["resource_requirement"] = {}
         deployment_body["resource_requirement"]["min_replicas"] = min_replicas
+    if resource_shape:
+        if "resource_requirement" not in deployment_body:
+            deployment_body["resource_requirement"] = {}
+        deployment_body["resource_requirement"]["resource_shape"] = resource_shape
     # Note that if the user passed in an empty list, it is still different from "None":
     # None means the user did not want to update the api tokens, while an empty list means
     # the user wants to remove api tokens and make it public.
