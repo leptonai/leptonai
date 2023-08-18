@@ -56,7 +56,7 @@ export const Credit: FC<{
           </Col>
           <Col flex={0}>
             <Typography.Text type="secondary">
-              Expires at {dayjs(creditExpired).format("LL")}
+              Expires on {dayjs(creditExpired).format("LL")}
             </Typography.Text>
           </Col>
         </Row>
