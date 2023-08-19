@@ -10,12 +10,15 @@ import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
   height: 50px;
-  padding: 0 32px;
   display: flex;
   flex: 0 0 50px;
   flex-wrap: nowrap;
   overflow: hidden;
   z-index: 2;
+  padding: 0 16px;
+  @media (min-width: 600px) {
+    padding: 0 32px;
+  }
 `;
 
 const MenuContainer = styled.div`

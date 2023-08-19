@@ -55,7 +55,7 @@ export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
             <Row gutter={[16, 0]}>
               <Col span={24}>
                 <Row justify="space-between" wrap={false}>
-                  <Col flex="1 1 auto">
+                  <Col flex="1 4 250px">
                     <Typography.Text strong>
                       <span
                         css={css`
@@ -71,12 +71,10 @@ export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
                           <TunaIcon />
                         </span>
                         <Typography.Text
-                          ellipsis={{ tooltip: true }}
                           css={css`
-                            font-size: 16px;
-                            width: 250px;
-                            margin-right: 8px;
+                            width: 80%;
                           `}
+                          ellipsis={{ tooltip: true }}
                         >
                           {tuna.name}
                         </Typography.Text>
@@ -90,7 +88,7 @@ export const TunaItem: FC<{ tuna: FineTuneJob }> = ({ tuna }) => {
                       </div>
                     </MinThemeProvider>
                   </Col>
-                  <Col flex="0 4 auto">
+                  <Col flex="0 1 auto">
                     {!loading && <Actions tuna={tuna} inference={inference} />}
                   </Col>
                 </Row>

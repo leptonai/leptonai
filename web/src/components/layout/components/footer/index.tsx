@@ -13,9 +13,12 @@ const Container = styled.div`
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: 0 32px;
   justify-content: space-between;
   flex-wrap: wrap;
+  padding: 0 16px;
+  @media (min-width: 600px) {
+    padding: 0 32px;
+  }
 `;
 
 const Logo = styled.div`
