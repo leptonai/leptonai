@@ -53,6 +53,11 @@ spec:
               image_tag:
                 description: Deployment container image tag
                 type: string
+              lb_type:
+                description: Need to be explicitly set for now, will be decided on
+                  Tier later. Rely on boolean default value being false to maintain
+                  behavior of existing customer
+                type: string
               name:
                 description: Name is a globally unique name of a workspace within
                   mothership.

@@ -53,12 +53,14 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var namespace string
+	var lbType string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace to watch for LeptonDeployment objects. Defaults to all namespaces.")
+	flag.StringVar(&lbType, "lb-type", string(leptonaiv1alpha1.WorkspaceLBTypeDedicated), "If the deployments should shared LB infra")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -95,6 +97,7 @@ func main() {
 	ldr := &controller.LeptonDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		LBType: leptonaiv1alpha1.LeptonWorkspaceLBType(lbType),
 	}
 	go ldr.CleanupBadPodsPeriodically(namespace)
 

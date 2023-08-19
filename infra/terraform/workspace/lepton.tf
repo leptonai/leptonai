@@ -168,6 +168,11 @@ resource "helm_release" "lepton" {
   }
 
   set {
+    name  = "deploymentOperator.lbType"
+    value = var.lb_type
+  }
+
+  set {
     name  = "web.image.repository"
     value = "${local.account_id}.dkr.ecr.${var.region}.amazonaws.com/lepton-web"
   }

@@ -228,17 +228,10 @@ func (w *Workspace) Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpe
 	if ws.Spec.State == "" {
 		ws.Spec.State = crdv1alpha1.WorkspaceStateNormal
 	}
-	switch ws.Spec.State {
-	case crdv1alpha1.WorkspaceStateNormal:
-	case crdv1alpha1.WorkspaceStatePaused:
-	case crdv1alpha1.WorkspaceStateTerminated:
-	default:
-		err := fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
-		return nil, err
-
+	if ws.Spec.LBType == "" {
+		ws.Spec.LBType = crdv1alpha1.WorkspaceLBTypeDedicated
 	}
-	err := validateTier(ws.Spec)
+	err := validateSpec(ws.Spec)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
 		return nil, err
@@ -378,19 +371,21 @@ func (w *Workspace) Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspace
 	if ws.Spec.State == "" {
 		ws.Spec.State = crdv1alpha1.WorkspaceStateNormal
 	}
-	switch ws.Spec.State {
-	case crdv1alpha1.WorkspaceStateNormal:
-	case crdv1alpha1.WorkspaceStatePaused:
-	case crdv1alpha1.WorkspaceStateTerminated:
-	default:
-		return nil, fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", ws.Spec.State)
-	}
-	err = validateTier(spec)
-	if err != nil {
-		return nil, err
-	}
+
 	if spec.Tier != "" { // do not allow update back to empty
 		ws.Spec.Tier = spec.Tier
+	}
+
+	if spec.LBType != "" {
+		ws.Spec.LBType = spec.LBType
+	}
+	if ws.Spec.LBType == "" {
+		ws.Spec.LBType = crdv1alpha1.WorkspaceLBTypeDedicated
+	}
+
+	err = validateSpec(ws.Spec)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := w.DataStore.Update(ctx, workspaceName, ws); err != nil {
@@ -744,6 +739,7 @@ func (w *Workspace) createOrUpdateWorkspace(ctx context.Context, ws *crdv1alpha1
 		"EFS_MOUNT_TARGETS="+efsMountTargets(cl.Status.Properties.VPCPublicSubnets),
 		"STATE="+string(ws.Spec.State),
 		"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(ws.Spec.ClusterName, cl.Spec.Subdomain, w.SharedAlbRootDomain),
+		"LB_TYPE="+string(ws.Spec.LBType),
 	)
 	if ws.Spec.QuotaGroup == "unlimited" {
 		cmd.Env = append(cmd.Env,
@@ -826,7 +822,7 @@ func (w *Workspace) updateState(ctx context.Context, ws *crdv1alpha1.LeptonWorks
 	return w.DataStore.UpdateStatus(ctx, ws.Spec.Name, ws)
 }
 
-func validateTier(spec crdv1alpha1.LeptonWorkspaceSpec) error {
+func validateSpec(spec crdv1alpha1.LeptonWorkspaceSpec) error {
 	switch spec.Tier {
 	case crdv1alpha1.WorkspaceTierBasic:
 	case crdv1alpha1.WorkspaceTierStandard:
@@ -841,5 +837,25 @@ func validateTier(spec crdv1alpha1.LeptonWorkspaceSpec) error {
 		)
 		return fmt.Errorf("invalid workspace tier %s: must be one of basic, standard, enterprise", spec.Tier)
 	}
+
+	switch spec.LBType {
+	case crdv1alpha1.WorkspaceLBTypeDedicated:
+	case crdv1alpha1.WorkspaceLBTypeShared:
+	default:
+		goutil.Logger.Debugw("invalid workspace lb type",
+			"lbType", spec.LBType,
+			"workspace ID", spec.Name,
+		)
+		return fmt.Errorf("invalid workspace lb type %s: must be one of %s, %s", spec.Tier, crdv1alpha1.WorkspaceLBTypeDedicated, crdv1alpha1.WorkspaceLBTypeShared)
+	}
+
+	switch spec.State {
+	case crdv1alpha1.WorkspaceStateNormal:
+	case crdv1alpha1.WorkspaceStatePaused:
+	case crdv1alpha1.WorkspaceStateTerminated:
+	default:
+		return fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", spec.State)
+	}
+
 	return nil
 }

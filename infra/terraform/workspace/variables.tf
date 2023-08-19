@@ -37,6 +37,12 @@ variable "shared_alb_main_domain" {
   default     = ""
 }
 
+variable "lb_type" {
+  description = "If deployments should use shared lb"
+  type        = string
+  default     = ""
+}
+
 variable "oidc_id" {
   description = "OIDC ID"
   type        = string

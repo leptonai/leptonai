@@ -42,6 +42,7 @@ deploymentOperator:
   enabled: true
   name: lepton-deployment-operator
   replicaCount: 1
+  lbType: ""
   image:
     repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-deployment-operator
     tag: "latest"

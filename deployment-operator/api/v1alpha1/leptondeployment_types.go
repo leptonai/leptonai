@@ -195,6 +195,14 @@ const (
 	LeptonDeploymentStateUnknown  LeptonDeploymentState = ""
 )
 
+// LeptonWorkspaceLBType defines the lb type of workspace
+type LeptonWorkspaceLBType string
+
+const (
+	WorkspaceLBTypeShared    LeptonWorkspaceLBType = "shared"
+	WorkspaceLBTypeDedicated LeptonWorkspaceLBType = "dedicated"
+)
+
 // DeletionFinalizerName is the name of the finalizer for deletion. It is used to
 // prevent the deletion of the LeptonDeployment before cooresponding resources are
 // deleted, including deployment, service, and ingress.

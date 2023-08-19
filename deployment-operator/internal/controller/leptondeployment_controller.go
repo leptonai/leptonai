@@ -44,6 +44,7 @@ import (
 type LeptonDeploymentReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	LBType leptonaiv1alpha1.LeptonWorkspaceLBType
 }
 
 //+kubebuilder:rbac:groups=lepton.ai,resources=leptondeployments,verbs=get;list;watch;create;update;patch;delete

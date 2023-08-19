@@ -23,6 +23,10 @@ if [[ "$ENABLE_QUOTA" != "" ]]; then
     APPLY_FLAGS+=("-var=enable_quota=$ENABLE_QUOTA")
 fi
 
+if [[ "$LB_TYPE" != "" ]]; then
+    APPLY_FLAGS+=("-var=lb_type=$LB_TYPE")
+fi
+
 if [[ "$SHARED_ALB_MAIN_DOMAIN" != "" ]]; then
     APPLY_FLAGS+=("-var=shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN")
 fi

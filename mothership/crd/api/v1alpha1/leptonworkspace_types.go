@@ -30,6 +30,10 @@ type LeptonWorkspaceSpec struct {
 	Description string `json:"description"`
 	// Basic is the default tier.
 	Tier LeptonWorkspaceTier `json:"tier,omitempty"`
+	// Need to be explicitly set for now, will be decided on Tier later.
+	// Rely on boolean default value being false to maintain behavior
+	// of existing customer
+	LBType LeptonWorkspaceLBType `json:"lb_type,omitempty"`
 
 	// Terraform module git ref
 	GitRef string `json:"git_ref"`
@@ -61,6 +65,13 @@ const (
 	WorkspaceTierBasic      LeptonWorkspaceTier = "basic"
 	WorkspaceTierStandard   LeptonWorkspaceTier = "standard"
 	WorkspaceTierEnterprise LeptonWorkspaceTier = "enterprise"
+)
+
+type LeptonWorkspaceLBType string
+
+const (
+	WorkspaceLBTypeShared    LeptonWorkspaceLBType = "shared"
+	WorkspaceLBTypeDedicated LeptonWorkspaceLBType = "dedicated"
 )
 
 // LeptonWorkspaceStatus defines the observed state of LeptonWorkspace

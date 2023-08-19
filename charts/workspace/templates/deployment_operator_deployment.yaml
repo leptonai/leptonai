@@ -45,4 +45,5 @@ spec:
           args:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
+            - "--lb-type={{ .Values.deploymentOperator.lbType }}"
 {{ end }}

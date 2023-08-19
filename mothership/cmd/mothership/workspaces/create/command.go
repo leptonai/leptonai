@@ -27,6 +27,7 @@ var (
 	enableWeb     bool
 	description   string
 	tier          string
+	lbType        string
 )
 
 func init() {
@@ -52,6 +53,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&enableWeb, "enable-web", "e", false, "Enable web for the workspace")
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the workspace")
 	cmd.PersistentFlags().StringVarP(&tier, "tier", "", "basic", "Tier of the workspace")
+	cmd.PersistentFlags().StringVarP(&lbType, "lb-type", "", string(crdv1alpha1.WorkspaceLBTypeDedicated), "If the deployments of workspace should use shared lb infra")
 	return cmd
 }
 
@@ -79,6 +81,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		EnableWeb:   enableWeb,
 		State:       crdv1alpha1.WorkspaceStateNormal,
 		Tier:        crdv1alpha1.LeptonWorkspaceTier(tier),
+		LBType:      crdv1alpha1.LeptonWorkspaceLBType(lbType),
 
 		Description: description,
 	}
