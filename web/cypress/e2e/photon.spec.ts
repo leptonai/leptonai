@@ -1,7 +1,7 @@
 import { alias, intercept } from "../helper/intercept";
 import { saveToken } from "../helper/save-token";
 import { getRandomPhoton, removePhotonZip } from "../helper/photon";
-import { removeDeployment } from "../helper/request";
+import { removeDeployment, removePhoton } from "../helper/request";
 
 describe("photons", () => {
   let photonName: string;
@@ -15,6 +15,7 @@ describe("photons", () => {
   });
 
   after(() => {
+    removePhoton(photonName);
     removePhotonZip(photonName);
   });
 
