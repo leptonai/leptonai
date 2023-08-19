@@ -75,7 +75,7 @@ ma a -r us-east-1 n g eni-06dc93b0a12f532b9
 ```
 
 ```bash
-ma a -r us-east-1 k n f h eni-06dc93b0a12f532b9
+ma a -r us-east-1 k n s h eni-06dc93b0a12f532b9
 # fargate-ip-10-0-5-26.us-east-1.compute.internal
 ```
 
@@ -231,12 +231,13 @@ sudo systemctl restart containerd
 This is required for the satellite node authorization.
 
 ```bash
-ma a -r us-east-1 k n f h eni-06dc93b0a12f532b9
+ma a -r us-east-1 k n s h eni-06dc93b0a12f532b9
 # fargate-ip-10-0-5-26.us-east-1.compute.internal
 
 # that the kubelet will be using to join the cluster as a node
 # if we use mapRoles, the "rolearn" must be able to assumed (if run locally)
 # remember this is the one to be used in remote/satelitte node
+ma a -r us-east-1 k a g --cluster-name gh057
 kubectl -n kube-system get configmap aws-auth -o yaml
 kubectl -n kube-system edit configmap aws-auth
 ```
@@ -264,8 +265,7 @@ data:
 This is only required for the satellite node to be able to join the cluster at the beginning.
 
 ```bash
-ma a k n f a \
---region us-east-1 \
+ma a --region us-east-1 k n s a \
 --cluster-name gh057 \
 --eni-id eni-06dc93b0a12f532b9 \
 --keep=true \
@@ -275,7 +275,7 @@ ma a k n f a \
 ### Step 8. Start kubelet in the satellite node
 
 ```bash
-ma a -r us-east-1 k n f h eni-06dc93b0a12f532b9
+ma a -r us-east-1 k n s h eni-06dc93b0a12f532b9
 # fargate-ip-10-0-5-26.us-east-1.compute.internal
 ```
 

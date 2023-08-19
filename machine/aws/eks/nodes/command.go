@@ -2,7 +2,7 @@
 package nodes
 
 import (
-	"github.com/leptonai/lepton/machine/aws/eks/nodes/fargate"
+	"github.com/leptonai/lepton/machine/aws/eks/nodes/satellite"
 
 	"github.com/spf13/cobra"
 )
@@ -21,7 +21,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		fargate.NewCommand(),
+		satellite.NewCommand(),
 	)
 	return cmd
 }

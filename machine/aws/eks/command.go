@@ -2,6 +2,7 @@
 package eks
 
 import (
+	aws_auth "github.com/leptonai/lepton/machine/aws/eks/aws-auth"
 	"github.com/leptonai/lepton/machine/aws/eks/kubeconfig"
 	"github.com/leptonai/lepton/machine/aws/eks/ls"
 	"github.com/leptonai/lepton/machine/aws/eks/nodes"
@@ -26,6 +27,7 @@ func NewCommand() *cobra.Command {
 		ls.NewCommand(),
 		kubeconfig.NewCommand(),
 		nodes.NewCommand(),
+		aws_auth.NewCommand(),
 	)
 
 	return cmd

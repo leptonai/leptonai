@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	region      string
 	clusterName string
 
 	eniID        string
@@ -48,7 +47,6 @@ func NewCommand() *cobra.Command {
 		Run:        addFunc,
 	}
 
-	cmd.PersistentFlags().StringVarP(&region, "region", "r", "us-east-1", "AWS region")
 	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "AWS EKS cluster name")
 
 	cmd.PersistentFlags().StringVarP(&eniID, "eni-id", "e", "", "AWS ENI")

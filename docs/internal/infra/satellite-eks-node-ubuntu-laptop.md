@@ -103,6 +103,7 @@ ma a n g eni-05a32b9e83ef7ae32
 Required for node authorization with `--hostname-override`:
 
 ```bash
+ma a -r us-east-1 k a g --cluster-name gh055
 kubectl -n kube-system get configmap aws-auth -o yaml
 
 ma a n g eni-05a32b9e83ef7ae32
@@ -263,8 +264,7 @@ registerNode: true
 Only required until the kubelet is successfully registered as a node:
 
 ```bash
-ma a k n f a \
---region us-east-1 \
+ma a --region us-east-1 k n s a \
 --cluster-name gh055 \
 --eni-id eni-05a32b9e83ef7ae32 \
 --keep=true \
