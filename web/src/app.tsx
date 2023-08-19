@@ -80,6 +80,13 @@ const Workspace = lazyErrorWrapper(
     }))
   )
 );
+const Playground = lazyErrorWrapper(
+  lazy(() =>
+    import("@lepton-dashboard/routers/playground").then((e) => ({
+      default: e.Playground,
+    }))
+  )
+);
 
 const router = createBrowserRouter([
   {
@@ -122,6 +129,10 @@ const router = createBrowserRouter([
             <WaitList />
           </OAuthGuard>
         ),
+      },
+      {
+        path: "playground/*",
+        element: <Playground />,
       },
       {
         path: "no-workspace",

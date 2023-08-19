@@ -40,6 +40,9 @@ export class AuthPortalService implements AuthService {
       null,
       {
         withCredentials: true,
+        context: new HttpContext().set(INTERCEPTOR_CONTEXT, {
+          ignoreErrors: [401],
+        }),
       }
     );
   }

@@ -118,6 +118,8 @@ export const RoutersMap = {
   waitlist: `/waitlist`,
   closebeta: `/closebeta`,
   noWorkspace: `/no-workspace`,
+  playground: `/playground`,
+  playgroundSDXL: `/playground/sdxl`,
   workspace: `/workspace/:workspaceId?`,
   dashboard: `/workspace/:workspaceId?/dashboard`,
   gettingStarted: `/workspace/:workspaceId?/getting-started`,

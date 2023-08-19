@@ -54,8 +54,12 @@ export class AppInterceptor implements HTTPInterceptor {
           const ignore401 =
             Array.isArray(ignoreErrors) && ignoreErrors.includes(401);
 
+          const withoutAuth = ["/playground"].some((path) => {
+            return window.location.pathname.startsWith(path);
+          });
+
           // request to ignore 401 errors explicitly
-          if (status === 401 && !ignore401) {
+          if (status === 401 && !ignore401 && !withoutAuth) {
             return this.authService.logout().pipe(
               tap(() => {
                 this.navigateService.navigateTo("login");
