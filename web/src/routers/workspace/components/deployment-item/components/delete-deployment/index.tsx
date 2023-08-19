@@ -4,7 +4,6 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { DeploymentService } from "@lepton-dashboard/routers/workspace/services/deployment.service";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
-import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { App, Button, Popconfirm } from "antd";
 import { FC } from "react";
@@ -17,12 +16,10 @@ export const DeleteDeployment: FC<{ deployment: Deployment }> = ({
   const navigateService = useInject(NavigateService);
   const refreshService = useInject(RefreshService);
   const deploymentService = useInject(DeploymentService);
-  const workspaceTrackerService = useInject(WorkspaceTrackerService);
   return (
     <Popconfirm
       title="Delete the deployment"
       description="Are you sure to delete?"
-      disabled={workspaceTrackerService.workspace?.isPastDue}
       onConfirm={() => {
         void message.loading({
           content: `Deleting deployment ${deployment.name}, please wait...`,
@@ -61,7 +58,6 @@ export const DeleteDeployment: FC<{ deployment: Deployment }> = ({
       <Button
         type="text"
         size="small"
-        disabled={workspaceTrackerService.workspace?.isPastDue}
         icon={<CarbonIcon icon={<TrashCan />} />}
       >
         Delete
