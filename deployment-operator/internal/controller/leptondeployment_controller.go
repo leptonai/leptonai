@@ -263,7 +263,6 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			return nil, err
 		}
 		deployment.ObjectMeta.Labels = d.ObjectMeta.Labels
-		deployment.ObjectMeta.Annotations = d.ObjectMeta.Annotations
 		deployment.ObjectMeta.OwnerReferences = d.ObjectMeta.OwnerReferences
 		// We only update Spec.Template.Spec because other fields like selector is immutable.
 		deployment.Spec.Template.Spec = d.Spec.Template.Spec
