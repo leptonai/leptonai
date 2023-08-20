@@ -20,8 +20,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "instances",
 		Short:      "Lambda Labs instances sub-commands",
-		Aliases:    []string{"instance", "ins", "inst", "hosts", "host"},
-		SuggestFor: []string{"instance", "ins", "inst", "hosts", "host"},
+		Aliases:    []string{"instance", "i", "in", "ins", "inst", "hosts", "host"},
+		SuggestFor: []string{"instance", "i", "in", "ins", "inst", "hosts", "host"},
 	}
 
 	cmd.AddCommand(

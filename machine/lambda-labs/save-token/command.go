@@ -21,8 +21,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "save-token",
 		Short:      "Saves a token to a file",
-		Aliases:    []string{"savetoken", "save", "token"},
-		SuggestFor: []string{"savetoken", "save", "token"},
+		Aliases:    []string{"savetoken", "save", "t", "tk", "token"},
+		SuggestFor: []string{"savetoken", "save", "t", "tk", "token"},
 		Run:        saveTokenFunc,
 	}
 	return cmd

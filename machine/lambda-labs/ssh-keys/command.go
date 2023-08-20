@@ -18,8 +18,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "ssh-keys",
 		Short:      "ssh-keys sub-commands",
-		Aliases:    []string{"ssh-key", "sshkeys", "sshkey", "ssh", "keys"},
-		SuggestFor: []string{"ssh-key", "sshkeys", "sshkey", "ssh", "keys"},
+		Aliases:    []string{"ssh-key", "sshkeys", "sshkey", "ssh", "s", "keys"},
+		SuggestFor: []string{"ssh-key", "sshkeys", "sshkey", "ssh", "s", "keys"},
 	}
 
 	cmd.AddCommand(

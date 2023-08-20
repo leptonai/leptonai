@@ -16,8 +16,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "filesystems",
 		Short:      "filesystems sub-commands",
-		Aliases:    []string{"filesystem", "fs", "file-systems", "fss"},
-		SuggestFor: []string{"filesystem", "fs", "file-systems", "fss"},
+		Aliases:    []string{"filesystem", "f", "fs", "file", "file-systems", "fss"},
+		SuggestFor: []string{"filesystem", "f", "fs", "file", "file-systems", "fss"},
 	}
 
 	cmd.AddCommand(

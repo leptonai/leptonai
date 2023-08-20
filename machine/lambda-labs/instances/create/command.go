@@ -28,8 +28,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "create",
 		Short:      "Creates a Lambda Labs instance",
-		Aliases:    []string{"add", "a", "creates", "c", "launch"},
-		SuggestFor: []string{"add", "a", "creates", "c", "launch"},
+		Aliases:    []string{"add", "a", "creates", "c", "launch", "apply"},
+		SuggestFor: []string{"add", "a", "creates", "c", "launch", "apply"},
 		Run:        createFunc,
 	}
 

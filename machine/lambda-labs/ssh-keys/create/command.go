@@ -26,8 +26,8 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "create",
 		Short:      "Creates a Lambda Labs SSH key",
-		Aliases:    []string{"add", "a", "creates", "c"},
-		SuggestFor: []string{"add", "a", "creates", "c"},
+		Aliases:    []string{"add", "a", "creates", "c", "apply"},
+		SuggestFor: []string{"add", "a", "creates", "c", "apply"},
 		Run:        createFunc,
 	}
 

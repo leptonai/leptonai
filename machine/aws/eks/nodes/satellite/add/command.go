@@ -137,10 +137,6 @@ func addFunc(cmd *cobra.Command, args []string) {
 			"error", err,
 		)
 		os.Exit(1)
-	} else {
-		slog.Info("successfully wrote kubeconfig to a temp file",
-			"path", f.Name(),
-		)
 	}
 	if err = f.Sync(); err != nil {
 		slog.Error("failed to sync kubeconfig to a temp file",
@@ -148,6 +144,9 @@ func addFunc(cmd *cobra.Command, args []string) {
 		)
 		os.Exit(1)
 	}
+	slog.Info("successfully wrote kubeconfig to a temp file",
+		"path", f.Name(),
+	)
 	kubeconfigPath := f.Name()
 
 	restConfig, clusterARN, err := mothership_common.BuildRestConfig(kubeconfigPath)
@@ -178,10 +177,21 @@ func addFunc(cmd *cobra.Command, args []string) {
 				"node.alpha.kubernetes.io/ttl": "0",
 			},
 			Labels: map[string]string{
+				// TODO: do we need this?
 				// "alpha.service-controller.kubernetes.io/exclude-balancer": "true",
+				// "kubernetes.io/role": "agent",
+
 				"beta.kubernetes.io/os":  "linux",
 				"kubernetes.io/hostname": nodeHostname,
-				"kubernetes.io/role":     "agent",
+
+				// aws-vpc-cni plugin does not work for satellite (outside of VPC) node
+				// so we want to disable
+				// add "eks.amazonaws.com/compute-type: fargate" to the node object
+				// as its "requiredDuringSchedulingIgnoredDuringExecution" requires "NotIn"
+				// that way, aws-vpc-cni won't be scheduled
+				// ref. https://github.com/aws/amazon-vpc-cni-k8s/blob/master/config/master/aws-k8s-cni.yaml
+				// ref. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+				"eks.amazonaws.com/compute-type": "fargate",
 			},
 		},
 		Spec: &apply_core_v1.NodeSpecApplyConfiguration{

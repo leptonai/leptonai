@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	clusterName string
-)
-
 func init() {
 	cobra.EnablePrefixMatching = true
 }
@@ -30,23 +26,22 @@ func init() {
 // NewCommand implements "machine aws eks aws-auth get" command.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:        "get",
+		Use:        "get [cluster name]",
 		Short:      "Implements get command",
 		Aliases:    []string{"g", "ge", "read"},
 		SuggestFor: []string{"g", "ge", "read"},
 		Run:        getFunc,
 	}
 
-	cmd.PersistentFlags().StringVarP(&clusterName, "cluster-name", "c", "", "AWS EKS cluster name")
-
 	return cmd
 }
 
 func getFunc(cmd *cobra.Command, args []string) {
-	if len(clusterName) == 0 {
+	if len(args) != 1 {
 		slog.Error("cluster-name is required")
 		os.Exit(1)
 	}
+	clusterName := args[0]
 
 	region, err := common.ReadRegion(cmd)
 	if err != nil {
@@ -103,10 +98,6 @@ func getFunc(cmd *cobra.Command, args []string) {
 			"error", err,
 		)
 		os.Exit(1)
-	} else {
-		slog.Info("successfully wrote kubeconfig to a temp file",
-			"path", f.Name(),
-		)
 	}
 	if err = f.Sync(); err != nil {
 		slog.Error("failed to sync kubeconfig to a temp file",
@@ -114,6 +105,9 @@ func getFunc(cmd *cobra.Command, args []string) {
 		)
 		os.Exit(1)
 	}
+	slog.Info("successfully wrote kubeconfig to a temp file",
+		"path", f.Name(),
+	)
 	kubeconfigPath := f.Name()
 
 	restConfig, clusterARN, err := mothership_common.BuildRestConfig(kubeconfigPath)

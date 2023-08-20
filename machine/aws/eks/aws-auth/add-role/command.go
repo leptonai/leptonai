@@ -131,10 +131,6 @@ func addFunc(cmd *cobra.Command, args []string) {
 			"error", err,
 		)
 		os.Exit(1)
-	} else {
-		slog.Info("successfully wrote kubeconfig to a temp file",
-			"path", f.Name(),
-		)
 	}
 	if err = f.Sync(); err != nil {
 		slog.Error("failed to sync kubeconfig to a temp file",
@@ -142,6 +138,9 @@ func addFunc(cmd *cobra.Command, args []string) {
 		)
 		os.Exit(1)
 	}
+	slog.Info("successfully wrote kubeconfig to a temp file",
+		"path", f.Name(),
+	)
 	kubeconfigPath := f.Name()
 
 	restConfig, clusterARN, err := mothership_common.BuildRestConfig(kubeconfigPath)
