@@ -23,7 +23,7 @@ export const ChatOptions: FC<{
       </Col>
       <Col span={24}>
         <SliderOption
-          title="Maximum length"
+          title="Max length"
           min={16}
           max={972}
           step={64}

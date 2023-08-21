@@ -87,10 +87,20 @@ export const StableDiffusionXl: FC = () => {
       title="Stable Diffusion XL Playground"
       option={<Options value={option} onChange={setOption} />}
       content={
-        <>
+        <div
+          css={css`
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            position: relative;
+          `}
+        >
           <PromptInput
             css={css`
               margin-bottom: 16px;
+              flex: 0 0 auto;
             `}
             submitIcon={<CarbonIcon icon={<MagicWandFilled />} />}
             submitText="Generate"
@@ -108,6 +118,7 @@ export const StableDiffusionXl: FC = () => {
               border-radius: ${theme.borderRadius}px;
               padding: 16px;
               min-height: 350px;
+              flex: 1 1 auto;
               display: flex;
               justify-content: center;
               align-items: center;
@@ -167,7 +178,7 @@ export const StableDiffusionXl: FC = () => {
               </div>
             )}
           </div>
-        </>
+        </div>
       }
     />
   );

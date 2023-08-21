@@ -80,6 +80,7 @@ export const Llama2: FC = () => {
       content={
         <div
           css={css`
+            flex: 1;
             display: flex;
             flex-direction: column;
             width: 100%;
@@ -90,7 +91,8 @@ export const Llama2: FC = () => {
           <div
             css={css`
               border: 1px solid ${theme.colorBorder};
-              height: 500px;
+              flex: 1 1 auto;
+              min-height: 300px;
               overflow: hidden;
               position: relative;
               display: flex;
@@ -101,6 +103,9 @@ export const Llama2: FC = () => {
             <ChatMessages messages={messages} ref={scrollRef} />
           </div>
           <PromptInput
+            css={css`
+              flex: 0 1 auto;
+            `}
             loading={loading}
             value={prompt}
             onChange={setPrompt}

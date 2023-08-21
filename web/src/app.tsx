@@ -1,3 +1,4 @@
+import { AntdRoot } from "@lepton-dashboard/components/antd-root";
 import { lazyErrorWrapper } from "@lepton-dashboard/components/lazy-error-wrapper";
 import { AuthTokenService } from "@lepton-dashboard/services/auth.token.service";
 import { AuthPortalService } from "@lepton-dashboard/services/auth-portal.service";
@@ -21,8 +22,6 @@ import {
   HttpClientService,
   HTTPInterceptorToken,
 } from "@lepton-dashboard/services/http-client.service";
-import { App as AntdApp } from "antd";
-import { css } from "@emotion/react";
 import { lazy } from "react";
 import { StorageService } from "@lepton-dashboard/services/storage.service";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
@@ -90,16 +89,19 @@ const Playground = lazyErrorWrapper(
 
 const router = createBrowserRouter([
   {
+    path: "playground/*",
+    element: (
+      <AntdRoot>
+        <Playground />
+      </AntdRoot>
+    ),
+  },
+  {
     path: "*",
     element: (
-      <AntdApp
-        notification={{ maxCount: 1 }}
-        css={css`
-          height: 100%;
-        `}
-      >
+      <AntdRoot>
         <Root />
-      </AntdApp>
+      </AntdRoot>
     ),
     children: [
       {
@@ -130,10 +132,7 @@ const router = createBrowserRouter([
           </OAuthGuard>
         ),
       },
-      {
-        path: "playground/*",
-        element: <Playground />,
-      },
+
       {
         path: "no-workspace",
         element: (

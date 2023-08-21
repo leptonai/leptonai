@@ -1,9 +1,23 @@
+import { Copy, Share } from "@carbon/icons-react";
 import { css } from "@emotion/react";
+import { css as className } from "@emotion/css";
 import { Card } from "@lepton-dashboard/components/card";
+import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { FullLayoutWidth } from "@lepton-dashboard/components/layout";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Col, Grid, Row, Skeleton } from "antd";
-import { FC, ReactNode } from "react";
+import {
+  App,
+  Button,
+  Col,
+  Grid,
+  Input,
+  Popover,
+  Row,
+  Skeleton,
+  Space,
+  Typography,
+} from "antd";
+import { FC, ReactNode, useCallback } from "react";
 
 export const Container: FC<{
   icon: ReactNode;
@@ -14,19 +28,76 @@ export const Container: FC<{
 }> = ({ icon, title, content, option, loading }) => {
   const theme = useAntdTheme();
   const { md } = Grid.useBreakpoint();
+  const { message } = App.useApp();
+
+  const copy = useCallback(() => {
+    void navigator.clipboard.writeText(location.href);
+    void message.success("Copied");
+  }, [message]);
   return (
     <FullLayoutWidth>
-      <Card paddingless icon={icon} title={title}>
+      <Card
+        css={css`
+          flex: 1;
+        `}
+        bodyClassName={className`
+          display: flex;
+          flex-direction: column;
+        `}
+        paddingless
+        icon={icon}
+        title={title}
+        extra={
+          <Popover
+            placement="bottomRight"
+            trigger={["click"]}
+            content={
+              <div>
+                <Typography.Paragraph type="secondary">
+                  Anyone who has this link will be able to view this
+                </Typography.Paragraph>
+                <Space.Compact
+                  css={css`
+                    width: 350px;
+                  `}
+                >
+                  <Input value={location.href} readOnly />
+                  <Button
+                    onClick={copy}
+                    type="primary"
+                    icon={<CarbonIcon icon={<Copy />} />}
+                  />
+                </Space.Compact>
+              </div>
+            }
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<CarbonIcon icon={<Share />} />}
+            >
+              Share
+            </Button>
+          </Popover>
+        }
+      >
         {loading ? (
           <Card borderless>
             <Skeleton active />
           </Card>
         ) : (
-          <Row gutter={[0, 0]}>
+          <Row
+            gutter={[0, 0]}
+            css={css`
+              flex: 1;
+            `}
+          >
             <Col span={24} sm={24} md={17} xl={19} xxl={20}>
               <div
                 css={css`
                   padding: 16px;
+                  height: 100%;
+                  display: flex;
                 `}
               >
                 {content}

@@ -16,6 +16,7 @@ export const Card: FC<
       overflowShow?: boolean;
       titleOverflowHidden?: boolean;
       paddingless?: boolean;
+      bodyClassName?: string;
     } & EmotionProps
   >
 > = ({
@@ -30,6 +31,7 @@ export const Card: FC<
   titleOverflowHidden = false,
   paddingless = false,
   className,
+  bodyClassName,
 }) => {
   const theme = useAntdTheme();
   return (
@@ -97,6 +99,7 @@ export const Card: FC<
         </div>
       )}
       <div
+        className={bodyClassName}
         css={css`
           flex: 1 1 auto;
           position: relative;

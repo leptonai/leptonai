@@ -60,7 +60,7 @@ export const ChatMessages = forwardRef<
                         css={css`
                           display: block;
                           font-size: ${theme.fontSizeSM}px;
-                          margin-left: 38px;
+                          margin-left: 40px;
                         `}
                       >
                         {loading ? (
