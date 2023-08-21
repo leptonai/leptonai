@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"fmt"
 	"time"
 
 	goutil "github.com/leptonai/lepton/go-pkg/util"
@@ -15,7 +16,7 @@ const (
 
 func maybeLogTookTooLong(op, kind, ns string, st time.Time) {
 	if time.Since(st) > errorDuration {
-		goutil.Logger.Errorw("operation took too long: %v", time.Since(st),
+		goutil.Logger.Errorw(fmt.Sprintf("operation took too long: %v", time.Since(st)),
 			"operation", op,
 			"kind", kind,
 			"namespace", ns,
@@ -23,7 +24,7 @@ func maybeLogTookTooLong(op, kind, ns string, st time.Time) {
 		return
 	}
 	if time.Since(st) > warningDuration {
-		goutil.Logger.Warnw("operation took too long: %v", time.Since(st),
+		goutil.Logger.Warnw(fmt.Sprintf("operation took too long: %v", time.Since(st)),
 			"operation", op,
 			"kind", kind,
 			"namespace", ns,
