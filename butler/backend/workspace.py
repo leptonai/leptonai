@@ -40,13 +40,22 @@ def get_workspace_info_from_mothership(workspace_name):
     return response.json()
 
 
-def get_workspace_status(workspace_name: str) -> dict:
-    url = mothership_url + "/workspaces/{}".format(workspace_name)
+def uppgrade_workspace_version(workspace_name, version):
+    '''
+    Input:
+        workspace_name: str
+        version: str, e.g. '0.8.3'
+    '''
+    url = mothership_url + "/workspaces" 
     headers = {
         "Authorization": "Bearer {}".format(mothership_key),
     }
-    response = requests.get(url, headers=headers)
-    return response.json()
+    workspace_info = get_workspace_info_from_mothership(workspace_name)
+    workspace_info['spec']['git_ref'] = version
+    workspace_info['spec']['image_tag'] = version
+
+    response = requests.patch(url, headers=headers, json=workspace_info['spec'])
+    return response
 
 
 def get_workspace_info(workspace_name: str) -> dict:
