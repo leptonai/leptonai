@@ -93,6 +93,7 @@ export const PromptInput: FC<
         `}
       >
         <Space
+          onClick={(e) => e.stopPropagation()}
           css={css`
             margin: ${theme.marginXS}px;
           `}

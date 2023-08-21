@@ -42,6 +42,7 @@ export const StableDiffusionXl: FC = () => {
     if (!backend) {
       return;
     }
+    setResult(null);
     abortController.current = new AbortController();
     setLoading(true);
     fetch(backend, {
