@@ -104,8 +104,8 @@ describe("deployments", () => {
     it("should be render deployment detail", () => {
       cy.get("#api-form").should("be.exist");
 
-      cy.percySnapshot("Deployment Detail", {
-        minHeight: 1200,
+      cy.percySnapshot("api-form", {
+        scope: "#api-form",
       });
     });
 
