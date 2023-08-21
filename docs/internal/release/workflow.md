@@ -1,6 +1,6 @@
-## Release Workflow
+# Release Workflow
 
-### A new major or minor version release
+## A new major or minor version release
 
 - Create a branch for the release. The branch name should be `release-<major>.<minor>-<date>`.
 
@@ -10,7 +10,7 @@
 
 For individual, uncoordinated releases of infra backend / web frontend / python SDK, the release tag can be created from the latest commit in the master branch, and then do an individual release. However, if you do so, make sure the API interfaces are compatible under the same major and minor version, across the three major components. For API-breakinng changes, always do a coordinated release.
 
-### A new patch release
+## A new patch release
 
 - Cherry-pick the required patches into the target release branch.
 
@@ -50,3 +50,13 @@ Go to github workflows and find the "Build and Deploy Photon Runner Docker Image
 Make a pull request and merge it. Voila!
 
 Note that these changes are backward compatible. Older photons are configured to use older images, which are always preserved.
+
+## Test Process
+
+### Test instructions for CLI
+
+Run the script [here](https://github.com/leptonai/lepton/blob/main/sdk/release_scripts/e2e_sdk_cli_test.sh) and make sure all tests pass as the terminal output shows:
+ 
+```shell
+All tests finished. Errors so far = 0
+```
