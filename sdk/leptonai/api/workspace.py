@@ -172,6 +172,29 @@ def get_current_workspace_url() -> Optional[str]:
     return workspaces[current_workspace]["url"]
 
 
+def get_current_workspace_id() -> Optional[str]:
+    """
+    Gets the current workspace id.
+    """
+    workspace_info = load_workspace_info()
+    current_workspace = workspace_info["current_workspace"]
+    if current_workspace is None:
+        return None
+    return current_workspace
+
+
+def get_current_workspace_display_name() -> Optional[str]:
+    """
+    Gets the current workspace display name.
+    """
+    workspace_info = load_workspace_info()
+    current_workspace = workspace_info["current_workspace"]
+    if current_workspace is None:
+        return None
+    workspaces = workspace_info["workspaces"]
+    return workspaces[current_workspace]["display_name"]
+
+
 def get_workspace_info(url: str, auth_token: str):
     """
     Gets the runtime information for the given workspace url.

@@ -84,24 +84,25 @@ def login(
                 matching_ids.append(workspace_id)
         check(
             len(matching_ids) > 0,
-            f"No workspace with the given display name [red]{display_name}[/] exists."
-            " Please first log in to the workspace using `lep workspace login -i"
-            " <workspace-id>`.",
+            f"No workspace with the given display name [red]{display_name}[/]"
+            " exists. Please first log in to the workspace using `lep workspace"
+            " login -i <workspace-id>`.",
         )
         check(
             len(matching_ids) == 1,
-            f"Multiple workspaces with the given display name [red]{display_name}[/]"
-            " exists. Note that display names may not be unique - in this case, please"
-            " log in with the workspace id using `lep workspace login -i"
-            " <workspace-id>`.",
+            "Multiple workspaces with the given display name"
+            f" [red]{display_name}[/] exists. Note that display names may not be"
+            " unique - in this case, please log in with the workspace id using"
+            " `lep workspace login -i <workspace-id>`.",
         )
         workspace_id = matching_ids[0]
     if test_only_workspace_url:
         check(
             workspace_id,
-            "Must specify --workspace-id if using --test-only-workspace-url. This will"
-            " create a new workspace login with the given workspace url. Also, you"
-            " should only use this if you are running unit tests for the Lepton SDK.",
+            "Must specify --workspace-id if using --test-only-workspace-url. This"
+            " will create a new workspace login with the given workspace url. Also,"
+            " you should only use this if you are running unit tests for the Lepton"
+            " SDK.",
         )
         console.print("Using test-only workspace url for internal testing purposes.")
         console.print("Do not use this option unless you know what you are doing.")
