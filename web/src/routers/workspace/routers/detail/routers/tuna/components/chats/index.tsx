@@ -2,7 +2,7 @@ import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Chat } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat";
 import { ChatRef } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-box";
-import { ModelOption } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+import { ModelOption } from "@lepton-libs/gradio/chat.service";
 import { Empty } from "antd";
 import { FC, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -35,11 +35,7 @@ export const Chats: FC<{ baseName?: string; models: ModelOption[] }> = ({
     const key = uuidv4();
     setCompareChats((ms) => {
       const newModel = models.find((m) => m.name === newName)!;
-      return [
-        ...ms.slice(0, index + 1),
-        { ...newModel, key },
-        ...ms.slice(index + 1),
-      ];
+      return [...ms.slice(0, index), { ...newModel, key }, ...ms.slice(index)];
     });
   };
 

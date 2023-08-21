@@ -9,7 +9,7 @@ import { GithubOutlined, TwitterOutlined } from "@ant-design/icons";
 import { useInject } from "@lepton-libs/di";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
 const Container = styled.div`
-  height: 56px;
+  height: 46px;
   overflow: hidden;
   display: flex;
   align-items: center;

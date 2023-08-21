@@ -26,4 +26,10 @@ export class PlaygroundService {
       map((config) => config["stable-diffusion-xl"].api)
     );
   }
+
+  getLlama2Backend(): Observable<string> {
+    return this.getPlaygroundConfig().pipe(
+      map((config) => config["llama2"].api)
+    );
+  }
 }

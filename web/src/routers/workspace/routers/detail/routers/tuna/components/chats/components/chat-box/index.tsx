@@ -1,6 +1,6 @@
 import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
 import { ChatInput } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-input";
-import { Messages } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/messages";
+import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
 import {
   forwardRef,
   useCallback,
@@ -13,10 +13,7 @@ import { filter, Subscription, switchMap } from "rxjs";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { css } from "@emotion/react";
-import {
-  ChatCompletion,
-  ChatOption,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+import { ChatCompletion, ChatOption } from "@lepton-libs/gradio/chat.service";
 
 interface ChatProps {
   chat?: ChatCompletion | null;
@@ -126,7 +123,7 @@ export const ChatBox = forwardRef<ChatRef, ChatProps>(
           position: relative;
         `}
       >
-        <Messages messages={messages} ref={scrollRef} />
+        <ChatMessages messages={messages} ref={scrollRef} />
         <ChatInput
           disabled={disabled || !chat}
           loading={loading}

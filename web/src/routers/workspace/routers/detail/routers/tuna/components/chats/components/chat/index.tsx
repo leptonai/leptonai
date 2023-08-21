@@ -14,12 +14,12 @@ import {
   ChatBox,
   ChatRef,
 } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-box";
-import { OpenaiSettings } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/openai-settings";
+import { ChatOptions } from "@lepton-libs/gradio/chat-options";
 import {
   ChatOption,
   ChatService,
   ModelOption,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+} from "@lepton-libs/gradio/chat.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import pathJoin from "@lepton-libs/url/path-join";
@@ -128,10 +128,10 @@ export const Chat = forwardRef<
                 content={
                   <div
                     css={css`
-                      width: 200px;
+                      width: 250px;
                     `}
                   >
-                    <OpenaiSettings
+                    <ChatOptions
                       chatOption={option}
                       onChatOptionChanged={setOption}
                     />

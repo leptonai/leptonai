@@ -1,9 +1,6 @@
 import { css } from "@emotion/react";
 import { Chats } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats";
-import {
-  benchmarkModel,
-  ModelOption,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+import { benchmarkModel, ModelOption } from "@lepton-libs/gradio/chat.service";
 import { TunaService } from "@lepton-dashboard/routers/workspace/services/tuna.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
@@ -13,7 +10,7 @@ import { useParams } from "react-router-dom";
 import { Card } from "@lepton-dashboard/components/card";
 import { map } from "rxjs";
 
-export const Playground: FC = () => {
+export const Chat: FC = () => {
   const { name } = useParams();
   const tunaService = useInject(TunaService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);

@@ -9,11 +9,10 @@ import { Button, Grid, Space } from "antd";
 import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
-  height: 50px;
+  height: 46px;
   display: flex;
-  flex: 0 0 50px;
+  flex: 0 0 46px;
   flex-wrap: nowrap;
-  overflow: hidden;
   z-index: 2;
   padding: 0 16px;
   @media (min-width: 600px) {
@@ -32,12 +31,14 @@ const MenuContainer = styled.div`
 export interface HeaderProps {
   menu?: ReactNode;
   actions?: ReactNode;
+  border?: boolean;
 }
 
 export const Header: FC<HeaderProps & EmotionProps> = ({
   menu,
   actions,
   className,
+  border = false,
 }) => {
   const theme = useAntdTheme();
   const { xs } = Grid.useBreakpoint();
@@ -47,6 +48,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
       className={className}
       css={css`
         background: ${theme.colorBgContainer};
+        border-bottom: ${border ? "1px" : 0} solid ${theme.colorBorder};
       `}
     >
       <div

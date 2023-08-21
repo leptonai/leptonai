@@ -1,201 +1,111 @@
-import { FC, PropsWithChildren, useCallback, useMemo, useState } from "react";
-import { Button, Checkbox, Col, Form, Input, Row, Typography } from "antd";
+import { Container } from "@lepton-dashboard/routers/playground/components/container";
+import {
+  Options,
+  SdxlOption,
+} from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
+import { PromptInput } from "@lepton-libs/gradio/prompt-input";
+import { FC, useRef, useState } from "react";
+import { Button, Typography, Image as AntdImage } from "antd";
 import { css } from "@emotion/react";
-import { SliderWithNumberInput } from "@lepton-dashboard/routers/playground/components/slider-with-number-input";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Download, Image as ImageIcon } from "@carbon/icons-react";
-import { Stopwatch } from "@lepton-dashboard/routers/playground/components/stopwatch";
-import { LoadingOutlined } from "@ant-design/icons";
+import { Download, Image, MagicWandFilled } from "@carbon/icons-react";
+import { Stopwatch } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/stopwatch";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-
-const Container: FC<PropsWithChildren> = ({ children }) => {
-  return (
-    <div
-      css={css`
-        padding: 32px;
-        overflow: auto;
-        max-height: 100%;
-      `}
-    >
-      {children}
-    </div>
-  );
-};
-
-interface StableDiffusionXlParams {
-  prompt: string;
-  width: number;
-  height: number;
-  seed: number;
-  num_inference_steps: number;
-  use_refiner: boolean;
-}
 
 export const StableDiffusionXl: FC = () => {
   const theme = useAntdTheme();
-  const [submitting, setSubmitting] = useState(false);
-  const [abortController, setAbortController] =
-    useState<AbortController | null>(null);
+  const [loading, setLoading] = useState(false);
+  const abortController = useRef<AbortController | null>(null);
   const [result, setResult] = useState<string | null>(null);
-  const [altText, setAltText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const playgroundService = useInject(PlaygroundService);
+  const [prompt, setPrompt] = useState(
+    "A majestic lion jumping from a big stone at night"
+  );
+  const [option, setOption] = useState<SdxlOption>({
+    width: 768,
+    height: 768,
+    seed: 245967316,
+    num_inference_steps: 25,
+    use_refiner: true,
+  });
 
   const backend = useStateFromObservable(
     () => playgroundService.getStableDiffusionXlBackend(),
     null
   );
 
-  const initialValues: StableDiffusionXlParams = useMemo(() => {
-    return {
-      prompt: "A majestic lion jumping from a big stone at night",
-      width: 768, // float (numeric value between 768 and 1024)
-      height: 768, // float (numeric value between 768 and 1024)
-      seed: 245967316, // float (numeric value between 0 and 2147483647)
-      num_inference_steps: 25, // float (numeric value between 1 and 50)
-      use_refiner: true,
-    };
-  }, []);
-
-  const onFinish = useCallback(
-    (values: StableDiffusionXlParams) => {
-      if (!backend) {
-        return;
-      }
-      if (abortController) {
-        abortController.abort();
-      }
-      const abort = new AbortController();
-      setAbortController(abort);
-      setSubmitting(true);
-
-      fetch(backend, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-        signal: abort.signal,
-      })
-        .then((res) => {
-          if (res.ok) {
-            return res.blob();
-          } else {
-            setError(`HTTP ${res.status}: ${res.statusText}`);
-          }
-        })
-        .then((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setResult(url);
-            setAltText(values.prompt);
-          } else {
-            setResult(null);
-            setError("No result");
-          }
-        })
-        .finally(() => {
-          setSubmitting(false);
-        });
-    },
-    [abortController, backend]
-  );
-
-  const cancel = useCallback(() => {
-    if (abortController) {
-      abortController.abort();
-      setAbortController(null);
+  const submit = () => {
+    if (!backend) {
+      return;
     }
-  }, [abortController]);
+    abortController.current = new AbortController();
+    setLoading(true);
+    fetch(backend, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...option,
+        prompt,
+      }),
+      signal: abortController.current.signal,
+    })
+      .then((res) => {
+        if (res.ok) {
+          return res.blob();
+        } else {
+          setError(`HTTP ${res.status}: ${res.statusText}`);
+        }
+      })
+      .then((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setResult(url);
+        } else {
+          setResult(null);
+          setError("No result");
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  const cancel = () => {
+    abortController.current?.abort();
+  };
 
   return (
-    <Container>
-      <Typography.Title>Stable Diffusion XL</Typography.Title>
-      <Row gutter={16}>
-        <Col span={24} xl={9}>
-          <Form
-            initialValues={initialValues}
-            onFinish={onFinish}
-            disabled={!backend}
-          >
-            <div
-              css={css`
-                position: relative;
-              `}
-            >
-              <Form.Item name="prompt">
-                <Input.TextArea
-                  css={css`
-                    padding-right: 110px;
-                  `}
-                  autoSize={{
-                    minRows: 2,
-                    maxRows: 6,
-                  }}
-                />
-              </Form.Item>
-              <div
-                css={css`
-                  position: absolute;
-                  right: 8px;
-                  bottom: 11px;
-                  width: 100px;
-                  text-align: center;
-                  button {
-                    width: 100%;
-                  }
-                `}
-              >
-                {submitting ? (
-                  <Button
-                    htmlType="button"
-                    icon={<LoadingOutlined />}
-                    onClick={(e) => {
-                      // htmlType="button" seems not working, so preventDefault manually
-                      e.preventDefault();
-                      cancel();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                ) : (
-                  <Button type="primary" htmlType="submit">
-                    Generate
-                  </Button>
-                )}
-              </div>
-            </div>
-            <Form.Item name="width" label="Width">
-              <SliderWithNumberInput min={768} max={1024} integer />
-            </Form.Item>
-            <Form.Item name="height" label="Height">
-              <SliderWithNumberInput min={768} max={1024} integer />
-            </Form.Item>
-            <Form.Item name="seed" label="Seed">
-              <SliderWithNumberInput min={0} max={2147483647} integer />
-            </Form.Item>
-            <Form.Item name="num_inference_steps" label="Steps">
-              <SliderWithNumberInput min={1} max={50} integer />
-            </Form.Item>
-            <Form.Item
-              name="use_refiner"
-              valuePropName="checked"
-              label="Use Refiner"
-            >
-              <Checkbox />
-            </Form.Item>
-          </Form>
-        </Col>
-        <Col span={24} xl={15}>
+    <Container
+      loading={!backend}
+      icon={<CarbonIcon icon={<Image />} />}
+      title="Stable Diffusion XL Playground"
+      option={<Options value={option} onChange={setOption} />}
+      content={
+        <>
+          <PromptInput
+            css={css`
+              margin-bottom: 16px;
+            `}
+            submitIcon={<CarbonIcon icon={<MagicWandFilled />} />}
+            submitText="Generate"
+            loading={loading}
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={submit}
+            onCancel={cancel}
+          />
           <div
             css={css`
               position: relative;
               border: 1px solid ${theme.colorBorder};
               background: ${theme.colorBgContainer};
-              border-radius: ${theme.borderRadius};
+              border-radius: ${theme.borderRadius}px;
               padding: 16px;
               min-height: 350px;
               display: flex;
@@ -203,7 +113,8 @@ export const StableDiffusionXl: FC = () => {
               align-items: center;
               img {
                 width: auto;
-                max-height: 75vh;
+                max-width: 100%;
+                max-height: calc(max(60vh, 300px));
               }
             `}
           >
@@ -214,15 +125,15 @@ export const StableDiffusionXl: FC = () => {
                     position: absolute;
                     top: 8px;
                     right: 8px;
+                    z-index: 1;
                   `}
                   download
                   href={result}
                   target="_blank"
-                  type="text"
                   size="small"
                   icon={<CarbonIcon icon={<Download />} />}
                 />
-                <img src={result} alt={altText || ""} />
+                <AntdImage width="auto" alt={prompt || ""} src={result} />
               </>
             ) : error ? (
               <Typography.Text type="danger">{error}</Typography.Text>
@@ -232,18 +143,32 @@ export const StableDiffusionXl: FC = () => {
                   color: ${theme.colorTextSecondary};
                 `}
               >
-                {submitting ? (
+                {loading ? (
                   <Typography.Text type="secondary">
                     Generating... (<Stopwatch start />)
                   </Typography.Text>
                 ) : (
-                  <ImageIcon size={32} />
+                  <div
+                    css={css`
+                      display: flex;
+                      flex: 1;
+                      height: 100%;
+                      flex-direction: column;
+                      justify-content: center;
+                      align-items: center;
+                      font-size: 128px;
+                      opacity: 0.3;
+                      color: ${theme.colorBorderSecondary};
+                    `}
+                  >
+                    <CarbonIcon icon={<Image />} />
+                  </div>
                 )}
               </div>
             )}
           </div>
-        </Col>
-      </Row>
-    </Container>
+        </>
+      }
+    />
   );
 };

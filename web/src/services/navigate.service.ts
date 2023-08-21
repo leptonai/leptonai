@@ -120,6 +120,7 @@ export const RoutersMap = {
   noWorkspace: `/no-workspace`,
   playground: `/playground`,
   playgroundSDXL: `/playground/sdxl`,
+  playgroundLLM: `/playground/llama2`,
   workspace: `/workspace/:workspaceId?`,
   dashboard: `/workspace/:workspaceId?/dashboard`,
   gettingStarted: `/workspace/:workspaceId?/getting-started`,

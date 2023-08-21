@@ -27,7 +27,7 @@ const loadingThree = keyframes`
   }
 `;
 
-export const Loading: FC = () => {
+export const MessageLoading: FC = () => {
   const theme = useAntdTheme();
   return (
     <div

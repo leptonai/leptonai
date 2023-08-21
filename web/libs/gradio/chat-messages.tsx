@@ -6,15 +6,12 @@ import {
   ScrollableRef,
 } from "@lepton-dashboard/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Loading } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/loading";
-import {
-  ChatMessageItem,
-  ChatService,
-} from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+import { MessageLoading } from "@lepton-libs/gradio/message-loading";
+import { ChatMessageItem, ChatService } from "@lepton-libs/gradio/chat.service";
 import { Avatar, Space, Typography } from "antd";
 import { forwardRef } from "react";
 
-export const Messages = forwardRef<
+export const ChatMessages = forwardRef<
   ScrollableRef,
   { messages: ChatMessageItem[] }
 >(({ messages }, ref) => {
@@ -116,7 +113,7 @@ export const Messages = forwardRef<
                             line-height: 0;
                           `}
                         >
-                          <Loading />
+                          <MessageLoading />
                         </div>
                       ) : (
                         <Typography.Text
@@ -126,7 +123,20 @@ export const Messages = forwardRef<
                             top: 1px;
                           `}
                         >
-                          {item.error || item.message.content.trim()}
+                          <pre
+                            css={css`
+                              font-family: ${theme.fontFamily} !important;
+                              padding: 0 !important;
+                              margin: 0 !important;
+                              white-space: pre-wrap;
+                              word-wrap: break-word;
+                              background: transparent !important;
+                              border: none !important;
+                              border-radius: 0 !important;
+                            `}
+                          >
+                            {item.error || item.message.content.trim()}
+                          </pre>
                         </Typography.Text>
                       )}
                     </Space>

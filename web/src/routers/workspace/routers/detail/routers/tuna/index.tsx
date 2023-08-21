@@ -4,12 +4,12 @@ import {
 } from "@lepton-dashboard/components/layout";
 import { useDocumentTitle } from "@lepton-dashboard/hooks/use-document-title";
 import { List } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/routers/list";
-import { Playground } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/routers/playground";
+import { Chat } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/routers/chat";
 import { FC } from "react";
 import { Route, Routes } from "react-router-dom";
 import { NavigateTo } from "@lepton-dashboard/components/navigate-to";
 import { DIContainer } from "@lepton-libs/di";
-import { ChatService } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/services/chat.service";
+import { ChatService } from "@lepton-libs/gradio/chat.service";
 
 export const Tuna: FC = () => {
   useDocumentTitle("Tuna");
@@ -29,7 +29,7 @@ export const Tuna: FC = () => {
             path="chat/:name"
             element={
               <FullLayoutWidth>
-                <Playground />
+                <Chat />
               </FullLayoutWidth>
             }
           />
