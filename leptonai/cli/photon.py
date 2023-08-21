@@ -43,7 +43,7 @@ def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
     guard_api(
         photons, msg=f"Failed to list photons in workspace [red]{workspace_url}[/]."
     )
-    target_photons = [p for p in photons if p["name"] == name]
+    target_photons = [p for p in photons if p["name"] == name]  # type: ignore
     if len(target_photons) == 0:
         return None
     target_photons.sort(key=lambda p: p["created_at"], reverse=True)
@@ -170,11 +170,11 @@ def remove(name, local, id_, all_):
             # Remove all versions of the photon.
             ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
             check(ids, f"Cannot find photon with name [yellow]{name}[/].")
-            ids = [ids[0]] if (not all_) else ids
+            ids = [ids[0]] if (not all_) else ids  # type: ignore
         else:
             ids = [id_]
         # Actually remove the ids
-        for id_to_remove in ids:
+        for id_to_remove in ids:  # type: ignore
             explain_response(
                 api.remove_remote(workspace_url, auth_token, id_to_remove),
                 f"Photon id [green]{id_to_remove}[/] removed.",
@@ -224,14 +224,23 @@ def list(local, pattern):
             (photon["name"], photon["model"], photon["id"], photon["created_at"] / 1000)
             for photon in photons
         ]
+        ws_id = workspace.get_current_workspace_id()
+        ws_name = workspace.get_current_workspace_display_name()
+        if ws_name:
+            title = f"Photons in workspace {ws_id}({ws_name})"
+        else:
+            title = f"Photons in workspace {ws_id}"
     else:
         records = find_all_local_photons()
         records = [
             (name, model, id_, creation_time)
             for id_, name, model, _, creation_time in records
         ]
+        # We use current_workspace_id = None to indicate that we are in local mode.
+        ws_id = None
+        title = "Local Photons"
 
-    table = Table(title="Photons", show_lines=True)
+    table = Table(title=title, show_lines=True)
     table.add_column("Name")
     table.add_column("Model")
     table.add_column("ID")
@@ -258,6 +267,8 @@ def list(local, pattern):
             )
         table.add_row(name, model_table, id_table, creation_table)
     console.print(table)
+    if ws_id:
+        console.print("To show local photons, use the `--local` flag.")
 
 
 def _parse_mount_or_die(url: str, auth: Optional[str], mount: str):
@@ -517,8 +528,8 @@ def run(
             id = _get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
             check(
                 id,
-                f"Photon [red]{name}[/] does not exist. Did you intend to run a local"
-                " photon? If so, please specify --local.",
+                f"Photon [red]{name}[/] does not exist. Did you intend to run a"
+                " local photon? If so, please specify --local.",
             )
             console.print(f"Running the most recent version of [green]{name}[/]: {id}")
         else:
@@ -671,7 +682,7 @@ def push(name):
     workspace_url, auth_token = get_workspace_and_token_or_die()
     path = find_local_photon(name)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
-    response = api.push(workspace_url, auth_token, path)
+    response = api.push(workspace_url, auth_token, path)  # type: ignore
     explain_response(
         response,
         f"Photon [green]{name}[/] pushed to workspace.",
