@@ -80,8 +80,8 @@ def create_workspace_on_cluster(workspace_display_name):
         "quota_group": "small",
         "description": description,
         "tier": "basic",  # Could be basic, standard, enterprise
-        "image_tag": "0.7.1",
-        "git_ref": "0.7.1",
+        "image_tag": "0.8.3",
+        "git_ref": "0.8.3",
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
