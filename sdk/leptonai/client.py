@@ -230,8 +230,8 @@ class Client(object):
             if not _is_local_url(workspace_or_url):
                 warnings.warn(
                     "Explicitly passing in a remote URL is deprecated, and may be"
-                    " removed in the future. Explicitly pass in the workspace id and"
-                    " deployment name instead.",
+                    " removed in the future. Explicitly pass in the workspace id"
+                    " and deployment name instead.",
                     DeprecationWarning,
                 )
             self.url = workspace_or_url
@@ -260,11 +260,11 @@ class Client(object):
         # Check healthz to see if things are properly working
         if not self.healthz():
             warnings.warn(
-                "Client is not healthy - healthz() returned False. This might be due"
-                " to:\n- a nonstandard deployment that does not have a healthz"
+                "Client is not healthy - healthz() returned False. This might be"
+                " due to:\n- a nonstandard deployment that does not have a healthz"
                 " endpoint. In this case, you may ignore this warning.\n- a network"
-                " error. In this case, please check your network connection. You may"
-                " want to recreate the client for things to work properly.",
+                " error. In this case, please check your network connection. You"
+                " may want to recreate the client for things to work properly.",
                 RuntimeWarning,
             )
 
@@ -281,9 +281,9 @@ class Client(object):
                     + _fallback_api_call_message,
                     RuntimeWarning,
                 )
-        except requests.ConnectionError as e:
-            raise requests.ConnectionError(
-                "Cannot connect to server for openapi.json. This is not an issue of the"
+        except (ConnectionError, requests.ConnectionError) as e:
+            raise ConnectionError(
+                "Cannot connect to server. This is not an issue of the"
                 f" client, but a network error. More details:\n\n{e}"
             )
         except requests.HTTPError:
