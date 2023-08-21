@@ -40,6 +40,11 @@ LEPTON_RESERVED_ENV_PREFIX = "lepton_"
 # Dashboard URL
 LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
 LEPTON_DASHBOARD_DAILY_URL = "https://dashboard.daily.lepton.ai"
+# LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
+LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
+# LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
+# Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
+LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
 
 if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1

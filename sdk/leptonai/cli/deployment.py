@@ -14,6 +14,8 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
+from leptonai.api.workspace import get_current_workspace_id
+from leptonai.config import LEPTON_DEPLOYMENT_URL
 from .photon import _parse_deployment_tokens_or_die, _validate_resource_shape
 
 
@@ -115,6 +117,7 @@ def status(name, show_tokens):
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
     workspace_url, auth_token = get_workspace_and_token_or_die()
+    workspace_id = get_current_workspace_id()
 
     dep_info = guard_api(
         api.get_deployment(workspace_url, auth_token, name),
@@ -133,7 +136,13 @@ def status(name, show_tokens):
     console.print(f"Created at: {creation_time}")
     console.print(f"Photon ID:  {dep_info['photon_id']}")
     console.print(f"State:      {state}")
-    console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
+    if workspace_id:
+        web_url = LEPTON_DEPLOYMENT_URL.format(
+            workspace_id=workspace_id, deployment_name=name
+        )
+        console.print(f"Web UI:     {web_url}/demo")
+    # Note: endpoint is not quite often used right now, so we will hide it for now.
+    # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if len(dep_info['api_tokens']) else 'Yes'}")
     if show_tokens and len(dep_info["api_tokens"]):
 
