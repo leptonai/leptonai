@@ -100,7 +100,16 @@ export const Llama2: FC = () => {
               border-radius: ${theme.borderRadius}px;
             `}
           >
-            <ChatMessages messages={messages} ref={scrollRef} />
+            <div
+              css={css`
+                position: absolute;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+              `}
+            >
+              <ChatMessages messages={messages} ref={scrollRef} />
+            </div>
           </div>
           <PromptInput
             css={css`
