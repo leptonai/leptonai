@@ -15,6 +15,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Download, Image, MagicWandFilled } from "@carbon/icons-react";
 import { Stopwatch } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/stopwatch";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
+import { TitleService } from "@lepton-dashboard/services/title.service";
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -24,6 +25,8 @@ const presetOptions = presets.map((p) => ({
 
 export const StableDiffusionXl: FC = () => {
   const theme = useAntdTheme();
+  const titleService = useInject(TitleService);
+  titleService.setTitle("🏞️ Stable Diffusion XL", true);
   const [loading, setLoading] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const [result, setResult] = useState<string | null>(presets[0].image);
