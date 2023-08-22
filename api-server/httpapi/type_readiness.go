@@ -140,8 +140,10 @@ func getReadinessIssueFromEvents(events []eventsv1.Event) ReplicaReadinessIssue 
 	if lastEvent := getLastEvent(events, "Warning", "FailedMount", ""); lastEvent != nil {
 		return ReplicaReadinessIssue{ReadinessReasonConfigError, "Mount point not found"}
 	}
-	if lastEvent := getLastEvent(events, "Normal", "Pulling", ""); lastEvent != nil {
-		return ReplicaReadinessIssue{ReadinessReasonInProgress, "Pulling image"}
+	if lastEvent := getLastEvent(events, "Normal", "", ""); lastEvent != nil {
+		if lastEvent.Reason == "Pulling" {
+			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Pulling image"}
+		}
 	}
 	if lastEvent := getLastEvent(events, "Warning", "Unhealthy", "Readiness probe failed"); lastEvent != nil {
 		return ReplicaReadinessIssue{ReadinessReasonInProgress, goutil.MaskIPAddressInReadinessProbeMessage(lastEvent.Note)}
