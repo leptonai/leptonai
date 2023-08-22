@@ -99,10 +99,12 @@ export const PromptInput: FC<
           `}
         >
           {extra}
+
           {!loading ? (
             <Button
+              size="small"
               icon={submitIcon}
-              disabled={!value || disabled}
+              disabled={disabled}
               type="primary"
               onClick={onSubmit}
             >
@@ -110,6 +112,7 @@ export const PromptInput: FC<
             </Button>
           ) : (
             <Button
+              size="small"
               icon={<CarbonIcon icon={<StopFilledAlt />} />}
               type="primary"
               onClick={onCancel}

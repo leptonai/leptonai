@@ -1,4 +1,4 @@
-import { Copy, Share } from "@carbon/icons-react";
+import { Copy } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { css as className } from "@emotion/css";
 import { Card } from "@lepton-dashboard/components/card";
@@ -24,8 +24,9 @@ export const Container: FC<{
   title: ReactNode;
   content: ReactNode;
   option: ReactNode;
+  extra?: ReactNode;
   loading: boolean;
-}> = ({ icon, title, content, option, loading }) => {
+}> = ({ icon, title, extra, content, option, loading }) => {
   const theme = useAntdTheme();
   const { md } = Grid.useBreakpoint();
   const { message } = App.useApp();
@@ -48,37 +49,36 @@ export const Container: FC<{
         icon={icon}
         title={title}
         extra={
-          <Popover
-            placement="bottomRight"
-            trigger={["click"]}
-            content={
-              <div>
-                <Typography.Paragraph type="secondary">
-                  Anyone who has this link will be able to view this
-                </Typography.Paragraph>
-                <Space.Compact
-                  css={css`
-                    width: 350px;
-                  `}
-                >
-                  <Input value={location.href} readOnly />
-                  <Button
-                    onClick={copy}
-                    type="primary"
-                    icon={<CarbonIcon icon={<Copy />} />}
-                  />
-                </Space.Compact>
-              </div>
-            }
-          >
-            <Button
-              type="text"
-              size="small"
-              icon={<CarbonIcon icon={<Share />} />}
+          <Space size={0}>
+            {extra}
+            <Popover
+              placement="bottomRight"
+              trigger={["click"]}
+              content={
+                <div>
+                  <Typography.Paragraph type="secondary">
+                    Anyone who has this link will be able to view this
+                  </Typography.Paragraph>
+                  <Space.Compact
+                    css={css`
+                      width: 350px;
+                    `}
+                  >
+                    <Input value={location.href} readOnly />
+                    <Button
+                      onClick={copy}
+                      type="primary"
+                      icon={<CarbonIcon icon={<Copy />} />}
+                    />
+                  </Space.Compact>
+                </div>
+              }
             >
-              Share
-            </Button>
-          </Popover>
+              <Button type="text" size="small">
+                Share
+              </Button>
+            </Popover>
+          </Space>
         }
       >
         {loading ? (

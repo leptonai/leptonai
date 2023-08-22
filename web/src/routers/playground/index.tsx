@@ -18,7 +18,7 @@ export const Playground: FC = () => {
       <Suspense fallback={<Loading />}>
         <Layout
           footer={<Footer />}
-          header={<Header border actions={<Nav />} />}
+          header={<Header enableLogoHref border actions={<Nav />} />}
         >
           <Routes>
             <Route path="sdxl" element={<StableDiffusionXl />} />

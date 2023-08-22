@@ -32,6 +32,7 @@ export interface HeaderProps {
   menu?: ReactNode;
   actions?: ReactNode;
   border?: boolean;
+  enableLogoHref?: boolean;
 }
 
 export const Header: FC<HeaderProps & EmotionProps> = ({
@@ -39,6 +40,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
   actions,
   className,
   border = false,
+  enableLogoHref = false,
 }) => {
   const theme = useAntdTheme();
   const { xs } = Grid.useBreakpoint();
@@ -59,7 +61,7 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
           overflow: hidden;
         `}
       >
-        <Logo />
+        <Logo enableLogoHref={enableLogoHref} />
         {menu}
       </div>
 

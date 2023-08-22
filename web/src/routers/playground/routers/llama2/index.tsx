@@ -76,7 +76,7 @@ export const Llama2: FC = () => {
     <Container
       loading={!chat}
       icon={<CarbonIcon icon={<ChatBot />} />}
-      title="Llama2 Playground"
+      title="Llama2"
       content={
         <div
           css={css`

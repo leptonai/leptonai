@@ -3,9 +3,10 @@ import {
   Options,
   SdxlOption,
 } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
+import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
 import { PromptInput } from "@lepton-libs/gradio/prompt-input";
-import { FC, useRef, useState } from "react";
-import { Button, Typography, Image as AntdImage } from "antd";
+import { FC, useMemo, useRef, useState } from "react";
+import { Button, Typography, Image as AntdImage, Select } from "antd";
 import { css } from "@emotion/react";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
@@ -15,16 +16,20 @@ import { Download, Image, MagicWandFilled } from "@carbon/icons-react";
 import { Stopwatch } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/stopwatch";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 
+const presetOptions = presets.map((p) => ({
+  label: p.name,
+  value: p.prompt,
+  placeholder: "Load a preset",
+}));
+
 export const StableDiffusionXl: FC = () => {
   const theme = useAntdTheme();
   const [loading, setLoading] = useState(false);
   const abortController = useRef<AbortController | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(presets[0].image);
   const [error, setError] = useState<string | null>(null);
   const playgroundService = useInject(PlaygroundService);
-  const [prompt, setPrompt] = useState(
-    "A majestic lion jumping from a big stone at night"
-  );
+  const [prompt, setPrompt] = useState(presets[0].prompt);
   const [option, setOption] = useState<SdxlOption>({
     width: 768,
     height: 768,
@@ -37,6 +42,14 @@ export const StableDiffusionXl: FC = () => {
     () => playgroundService.getStableDiffusionXlBackend(),
     null
   );
+
+  const presetPrompt = useMemo(() => {
+    if (presets.some((p) => p.prompt === prompt)) {
+      return prompt;
+    } else {
+      return undefined;
+    }
+  }, [prompt]);
 
   const submit = () => {
     if (!backend) {
@@ -85,7 +98,31 @@ export const StableDiffusionXl: FC = () => {
     <Container
       loading={!backend}
       icon={<CarbonIcon icon={<Image />} />}
-      title="Stable Diffusion XL Playground"
+      title="Stable Diffusion XL"
+      extra={
+        <Select
+          css={css`
+            width: 160px;
+            .ant-select-selection-placeholder,
+            .ant-select-arrow {
+              font-weight: normal;
+              color: ${theme.colorText};
+            }
+          `}
+          popupMatchSelectWidth={false}
+          options={presetOptions}
+          optionLabelProp="placeholder"
+          value={presetPrompt}
+          onChange={(v) => {
+            setPrompt(v);
+            setResult(presets.find((p) => p.prompt === v)!.image);
+          }}
+          size="small"
+          showSearch
+          bordered={false}
+          placeholder="Load a preset"
+        />
+      }
       option={<Options value={option} onChange={setOption} />}
       content={
         <div
@@ -117,7 +154,7 @@ export const StableDiffusionXl: FC = () => {
               border: 1px solid ${theme.colorBorder};
               background: ${theme.colorBgContainer};
               border-radius: ${theme.borderRadius}px;
-              padding: 16px;
+              padding: 8px;
               min-height: 350px;
               flex: 1 1 auto;
               display: flex;
@@ -127,11 +164,29 @@ export const StableDiffusionXl: FC = () => {
                 width: auto;
                 max-width: 100%;
                 max-height: calc(max(60vh, 300px));
+                border-radius: ${theme.borderRadius}px;
               }
             `}
           >
             {result ? (
               <>
+                <div
+                  css={css`
+                    position: absolute;
+                    inset: 0;
+                    background-image: url("${result}");
+                    background-repeat: no-repeat;
+                    background-size: cover;
+                    background-position: center;
+                  `}
+                />
+                <div
+                  css={css`
+                    position: absolute;
+                    inset: 0;
+                    backdrop-filter: blur(100px);
+                  `}
+                />
                 <Button
                   css={css`
                     position: absolute;
