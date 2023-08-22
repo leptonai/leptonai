@@ -6,7 +6,6 @@ import time
 from typing import Optional, List, Tuple
 import unittest
 
-
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
@@ -70,14 +69,19 @@ def photon_with_different_docs_wrapper(port):
 
 
 class TestClientDocgen(unittest.TestCase):
-    def test_client_with_unique_names(self):
-        port = find_free_port()
-        proc = multiprocessing.Process(
-            target=photon_with_different_docs_wrapper, args=(port,)
+    def setUp(self) -> None:
+        self.port = find_free_port()
+        self.proc = multiprocessing.Process(
+            target=photon_with_different_docs_wrapper, args=(self.port,)
         )
-        proc.start()
+        self.proc.start()
         time.sleep(1)
-        url = f"http://localhost:{port}"
+
+    def tearDown(self) -> None:
+        self.proc.terminate()
+
+    def test_client_with_unique_names(self):
+        url = f"http://localhost:{self.port}"
         client = Client(url)
         self.assertTrue(client.healthz())
         # Test that the client has the correct documents
@@ -136,7 +140,24 @@ class TestClientDocgen(unittest.TestCase):
             client.run10.__doc__,
         )
 
-        proc.terminate()
+        try:
+            client.run5("hello")
+        except RuntimeError as e:
+            error_str = str(e)
+            self.assertIn(
+                "Did you mean the following?\n    run5(\n        query='hello',\n    )",
+                error_str,
+            )
+
+        try:
+            client.run5("hello", 1)
+        except RuntimeError as e:
+            error_str = str(e)
+            self.assertIn(
+                "Did you mean the following?\n    run5(\n        query='hello',\n      "
+                "  query2=1,\n    )",
+                error_str,
+            )
 
 
 if __name__ == "__main__":
