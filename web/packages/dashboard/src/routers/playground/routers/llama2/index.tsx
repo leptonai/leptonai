@@ -27,7 +27,7 @@ export const Llama2: FC = () => {
     temperature: 0.5,
   });
   const [loading, setLoading] = useState(false);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState("Hi, how are you");
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
   const chatService = useInject(ChatService);
   const theme = useAntdTheme();

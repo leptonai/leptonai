@@ -102,7 +102,7 @@ export const StableDiffusionXl: FC = () => {
       extra={
         <Select
           css={css`
-            width: 160px;
+            width: 130px;
             .ant-select-selection-placeholder,
             .ant-select-arrow {
               font-weight: normal;
@@ -118,7 +118,6 @@ export const StableDiffusionXl: FC = () => {
             setResult(presets.find((p) => p.prompt === v)!.image);
           }}
           size="small"
-          showSearch
           bordered={false}
           placeholder="Load a preset"
         />

@@ -19,7 +19,7 @@ export const Logo: FC<
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${size === "default" ? "26px" : "38px"};
+        font-size: ${size === "default" ? "24px" : "38px"};
       `}
       rel="noreferrer"
     >

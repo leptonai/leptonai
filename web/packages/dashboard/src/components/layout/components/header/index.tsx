@@ -9,9 +9,9 @@ import { Button, Grid, Space } from "antd";
 import { Logo } from "@lepton-dashboard/components/logo";
 
 const Container = styled.div`
-  height: 46px;
+  height: 48px;
   display: flex;
-  flex: 0 0 46px;
+  flex: 0 0 48px;
   flex-wrap: nowrap;
   z-index: 2;
   padding: 0 16px;
@@ -32,6 +32,8 @@ export interface HeaderProps {
   menu?: ReactNode;
   actions?: ReactNode;
   border?: boolean;
+  content?: ReactNode;
+  hideDefaultActions?: boolean;
   enableLogoHref?: boolean;
 }
 
@@ -40,6 +42,8 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
   actions,
   className,
   border = false,
+  content,
+  hideDefaultActions = false,
   enableLogoHref = false,
 }) => {
   const theme = useAntdTheme();
@@ -64,19 +68,21 @@ export const Header: FC<HeaderProps & EmotionProps> = ({
         <Logo enableLogoHref={enableLogoHref} />
         {menu}
       </div>
-
+      {content}
       <MenuContainer>
         <Space>
-          <Button
-            rel="noreferrer"
-            href="https://www.lepton.ai/docs"
-            target="_blank"
-            type="text"
-            size="small"
-            icon={<CarbonIcon icon={<Book />} />}
-          >
-            {xs ? null : <span>Docs</span>}
-          </Button>
+          {!hideDefaultActions && (
+            <Button
+              rel="noreferrer"
+              href="https://www.lepton.ai/docs"
+              target="_blank"
+              type="text"
+              size="small"
+              icon={<CarbonIcon icon={<Book />} />}
+            >
+              {xs ? null : <span>Docs</span>}
+            </Button>
+          )}
           {actions}
         </Space>
       </MenuContainer>

@@ -1,4 +1,4 @@
-import { Copy } from "@carbon/icons-react";
+import { Copy, Share } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { css as className } from "@emotion/css";
 import { Card } from "@lepton-dashboard/components/card";
@@ -74,7 +74,11 @@ export const Container: FC<{
                 </div>
               }
             >
-              <Button type="text" size="small">
+              <Button
+                type="text"
+                size="small"
+                icon={<CarbonIcon icon={<Share />} />}
+              >
                 Share
               </Button>
             </Popover>

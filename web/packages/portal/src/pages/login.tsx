@@ -62,7 +62,7 @@ export default function Login() {
         <title>Login | Lepton AI</title>
       </Head>
       <div className="flex flex-1 flex-col items-center justify-center pb-16 pt-12">
-        <Logo className="h-7" />
+        <Logo className="h-8" />
         <div className="w-full max-w-sm flex items-center justify-center p-8 m-7 border-y border-gray-800">
           <div className="w-full max-w-xs">
             <Auth
