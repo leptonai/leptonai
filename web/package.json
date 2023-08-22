@@ -27,7 +27,7 @@
   "scripts": {
     "pre-commit": "lint-staged",
     "commitlint": "commitlint --edit",
-    "prepare": "cd .. && husky install web-monorepo/.husky",
+    "prepare": "cd .. && husky install web/.husky",
     "preinstall": "npx -y only-allow pnpm",
     "clean": "lerna clean --yes",
     "dev": "lerna run dev",
