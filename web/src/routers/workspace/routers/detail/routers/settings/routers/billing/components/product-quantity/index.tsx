@@ -14,7 +14,7 @@ export const ProductQuantity: FC<{
 
   return (
     <>
-      {quantity} {product?.name === "storage" ? "GB-hour" : "minutes"}
+      {quantity} {product?.name === "storage" ? "GB-hour" : "minute"}
     </>
   );
 };

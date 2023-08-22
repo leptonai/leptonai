@@ -21,7 +21,7 @@ export const ProductUnitPrice: FC<{
 
   return (
     <>
-      ${unit} {product?.name === "storage" ? "/ GB / hour" : "/ minutes"}
+      ${unit} {product?.name === "storage" ? "/ GB / hour" : "/ minute"}
     </>
   );
 };
