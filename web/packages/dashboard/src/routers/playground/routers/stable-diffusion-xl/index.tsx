@@ -31,10 +31,10 @@ export const StableDiffusionXl: FC = () => {
   const playgroundService = useInject(PlaygroundService);
   const [prompt, setPrompt] = useState(presets[0].prompt);
   const [option, setOption] = useState<SdxlOption>({
-    width: 768,
-    height: 768,
+    width: 1024,
+    height: 1024,
     seed: 245967316,
-    num_inference_steps: 25,
+    num_inference_steps: 30,
     use_refiner: true,
   });
 
