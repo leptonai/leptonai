@@ -80,6 +80,8 @@ func getReplicaReadinessIssue(ctx context.Context, pod *corev1.Pod) ReplicaReadi
 	if scheduled != nil && scheduled.Status == corev1.ConditionFalse {
 		failedScheduleEvent := getLastEvent(events.Items, "", "FailedScheduling", "")
 		triggeredScaleUp := getLastEvent(events.Items, "", "TriggeredScaleUp", "")
+		// This usually happens as we have not correctly tainted the newly added node...
+		// And it happens after the triggeredScaleUp event.
 		notTriggerScaleUp := getLastEvent(events.Items, "", "NotTriggerScaleUp", "")
 		if failedScheduleEvent != nil {
 			if triggeredScaleUp != nil {
@@ -88,9 +90,9 @@ func getReplicaReadinessIssue(ctx context.Context, pod *corev1.Pod) ReplicaReadi
 			if notTriggerScaleUp != nil {
 				return ReplicaReadinessIssue{ReadinessReasonNoCapacity, "Waiting to add capacity for the replica"}
 			}
-			return ReplicaReadinessIssue{ReadinessReasonNoCapacity, failedScheduleEvent.Reason + ": " + failedScheduleEvent.Note}
+			return ReplicaReadinessIssue{ReadinessReasonNoCapacity, "Waiting to add capacity for the replica"}
 		}
-		return ReplicaReadinessIssue{ReadinessReasonNoCapacity, scheduled.Reason + ": " + scheduled.Message}
+		return ReplicaReadinessIssue{ReadinessReasonNoCapacity, "Scheduling the replica"}
 	}
 
 	initialized := getConditionByType(conditions, corev1.PodInitialized)
