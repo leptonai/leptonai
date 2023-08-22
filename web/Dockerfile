@@ -6,14 +6,24 @@ COPY web /node/src/github.com/leptonai/lepton/web
 # Set the Current Working Directory inside the container
 WORKDIR /node/src/github.com/leptonai/lepton/web
 
-# Build the Web app
-RUN npm ci && npm run build
+# Install pnpm@8
+RUN npm install -g pnpm@8
+
+# Skip install Cypress binary
+ENV CYPRESS_INSTALL_BINARY=0
+
+# Install dependencies
+RUN pnpm install
+
+# Build the dashboard app
+RUN cd packages/dashboard && \
+    pnpm build
 
 ######## Start a new stage from scratch #######
 FROM amd64/nginx:latest
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /node/src/github.com/leptonai/lepton/web/dist /usr/share/nginx/html/
+COPY --from=builder /node/src/github.com/leptonai/lepton/web/packages/dashboard/dist /usr/share/nginx/html/
 COPY --from=builder /node/src/github.com/leptonai/lepton/web/default.conf /etc/nginx/conf.d/
 
 WORKDIR /app

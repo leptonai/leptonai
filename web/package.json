@@ -1,84 +1,14 @@
 {
-  "name": "lepton-dashboard",
-  "description": "Lepton Dashboard is a general purpose, web-based UI for Lepton clusters. It allows users to manage deployments and troubleshoot them.",
+  "name": "@lepton/web-monorepo",
   "private": true,
-  "version": "0.0.1",
-  "type": "module",
-  "scripts": {
-    "husky": "cd ../ && husky install ./web/.husky",
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "test": "vitest run",
-    "test:e2e": "cypress run",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
-    "preview": "vite preview --port 3001",
-    "cypress:open": "cypress open",
-    "cypress:install": "cypress install",
-    "database:types": "npx supabase gen types typescript --local > src/interfaces/database.ts && eslint src/interfaces/database.ts --fix"
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
   },
-  "dependencies": {
-    "@ant-design/icons": "^5.0.1",
-    "@carbon/icons-react": "^11.19.0",
-    "@emotion/css": "^11.11.0",
-    "@emotion/react": "^11.10.8",
-    "@emotion/styled": "^11.10.8",
-    "@highlight-run/react": "^3.2.1",
-    "@monaco-editor/react": "^4.5.1",
-    "@rjsf/core": "~5.11.2",
-    "@rjsf/utils": "~5.11.2",
-    "@rjsf/validator-ajv8": "~5.11.2",
-    "@supabase/auth-ui-react": "^0.4.2",
-    "@supabase/auth-ui-shared": "^0.1.6",
-    "@supabase/supabase-js": "^2.22.0",
-    "@vercel/analytics": "^1.0.1",
-    "ahooks": "^3.7.7",
-    "antd": "^5.7.3",
-    "axios": "^1.4.0",
-    "dayjs": "^1.11.7",
-    "decimal.js": "^10.4.3",
-    "echarts": "^5.4.2",
-    "eventsource-parser": "^1.0.0",
-    "highlight.run": "^7.4.0",
-    "injection-js": "^2.4.0",
-    "js-cookie": "^3.0.5",
-    "lodash": "^4.17.21",
-    "mime2ext": "^2.0.0",
-    "monaco-editor": ">= 0.25.0 < 1",
-    "observable-hooks": "^4.2.1",
-    "pretty-bytes": "^6.1.0",
-    "randexp": "^0.5.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.11.0",
-    "rxjs": "^7.8.1",
-    "shiki": "^0.14.3",
-    "strip-ansi": "^7.1.0",
-    "stripe": "^12.13.0",
-    "swagger-client": "^3.19.8",
-    "uuid": "^9.0.0",
-    "xterm": "^5.1.0",
-    "xterm-addon-attach": "^0.8.0",
-    "xterm-addon-fit": "^0.7.0"
-  },
+  "packageManager": "pnpm@8.6.12",
   "devDependencies": {
+    "lerna": "^7.1.5",
     "@commitlint/cli": "^17.6.1",
     "@commitlint/config-conventional": "^17.6.1",
-    "@percy/cli": "^1.26.0",
-    "@percy/cypress": "^3.1.2",
-    "@rollup/plugin-typescript": "^11.1.0",
-    "@types/archiver": "^5.3.2",
-    "@types/carbon__icons-react": "^11.16.0",
-    "@types/fs-extra": "^11.0.1",
-    "@types/js-cookie": "^3.0.3",
-    "@types/lodash": "^4.14.195",
-    "@types/react": "^18.0.28",
-    "@types/react-dom": "^18.0.11",
-    "@types/uuid": "^9.0.2",
-    "@typescript-eslint/eslint-plugin": "^5.57.1",
-    "@typescript-eslint/parser": "^5.57.1",
-    "@vitejs/plugin-react": "^4.0.0",
-    "archiver": "^5.3.1",
-    "cypress": "^12.14.0",
     "eslint": "^8.39.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-import": "^2.27.5",
@@ -88,15 +18,110 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.3.4",
     "eslint-plugin-unused-imports": "^2.0.0",
-    "fs-extra": "^11.1.1",
     "husky": "^8.0.3",
-    "openapi-types": "^12.1.3",
     "prettier": "2.8.8",
-    "typescript": "^5.0.2",
-    "vite": "^4.3.2",
-    "vite-plugin-checker": "^0.6.0",
-    "vite-plugin-static-copy": "^0.16.0",
-    "vite-tsconfig-paths": "^4.2.0",
-    "vitest": "^0.31.4"
+    "lint-staged": "^14.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.57.1",
+    "@typescript-eslint/parser": "^5.57.1"
+  },
+  "scripts": {
+    "pre-commit": "lint-staged",
+    "commitlint": "commitlint --edit",
+    "prepare": "cd .. && husky install web-monorepo/.husky",
+    "preinstall": "npx -y only-allow pnpm",
+    "clean": "lerna clean --yes",
+    "dev": "lerna run dev",
+    "build": "lerna run build",
+    "test": "lerna run test",
+    "lint": "eslint . --cache --ext .ts,.js,.tsx,.jsx"
+  },
+  "lint-staged": {
+    "./{*,packages/**/*}.{js,ts,jsx,tsx}": [
+      "prettier --write",
+      "eslint"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module",
+      "modules": true
+    },
+    "plugins": [
+      "react-refresh",
+      "unused-imports"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:prettier/recommended",
+      "plugin:react-hooks/recommended",
+      "plugin:react/recommended"
+    ],
+    "env": {
+      "browser": true,
+      "es2020": true,
+      "node": true
+    },
+    "settings": {
+      "react": {
+        "version": "detect"
+      }
+    },
+    "rules": {
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          "vars": "all",
+          "varsIgnorePattern": "^_",
+          "args": "after-used",
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "@typescript-eslint/ban-types": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-explicit-any": "error"
+    },
+    "overrides": [
+      {
+        "files": [
+          "packages/dashboard/**/*"
+        ],
+        "rules": {
+          "react-refresh/only-export-components": "warn",
+          "react/self-closing-comp": "error",
+          "react/jsx-curly-brace-presence": "error",
+          "react/react-in-jsx-scope": "off",
+          "react/display-name": "off",
+          "react/prop-types": "off",
+          "react/no-unescaped-entities": "off",
+          "react/no-unknown-property": "off",
+          "react-hooks/exhaustive-deps": "error"
+        }
+      },
+      {
+        "files": [
+          "packages/portal/**/*"
+        ],
+        "rules": {
+          "no-case-declarations": "off",
+          "react/jsx-uses-react": "off",
+          "react/react-in-jsx-scope": "off"
+        }
+      }
+    ]
   }
 }

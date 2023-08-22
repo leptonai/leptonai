@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-cd ./web && npx --no -- commitlint --edit ${1}
+cd web-monorepo
+pnpm commitlint ${1}
