@@ -51,7 +51,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().IntVarP(&quotaMemory, "quota-memory", "", 0, "Quota memory in Gi for the workspace if quota group is custom")
 	cmd.PersistentFlags().IntVarP(&quotaGPU, "quota-gpu", "", 0, "Quota GPU for the workspace if quota group is custom")
 	cmd.PersistentFlags().StringVarP(&tier, "tier", "", "", "Tier of the workspace")
-	cmd.PersistentFlags().StringVarP(&lbType, "lb-type", "", string(crdv1alpha1.WorkspaceLBTypeDedicated), "If the deployments of workspace should use shared lb infra")
+	cmd.PersistentFlags().StringVarP(&lbType, "lb-type", "", "", "If the deployments of workspace should use shared lb infra")
 
 	cmd.PersistentFlags().BoolVar(&autoApprove, "auto-approve", false, "Set to auto-approve the action without prompt (if you know what you're doing)")
 	return cmd
@@ -92,6 +92,7 @@ func updateFunc(cmd *cobra.Command, args []string) {
 	if lbType != "" {
 		spec.LBType = crdv1alpha1.LeptonWorkspaceLBType(lbType)
 	}
+
 	if quotaGroup != "" {
 		spec.QuotaGroup = quotaGroup
 		if quotaGroup == "custom" {

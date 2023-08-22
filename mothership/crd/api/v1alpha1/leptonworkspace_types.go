@@ -49,6 +49,8 @@ type LeptonWorkspaceSpec struct {
 	QuotaGPU        int    `json:"quota_gpu,omitempty"`
 
 	State LeptonWorkspaceState `json:"state,omitempty"`
+
+	OwnerType LeptonWorkspaceOwnerType `json:"owner_type,omitempty"`
 }
 
 type LeptonWorkspaceState string
@@ -72,6 +74,13 @@ type LeptonWorkspaceLBType string
 const (
 	WorkspaceLBTypeShared    LeptonWorkspaceLBType = "shared"
 	WorkspaceLBTypeDedicated LeptonWorkspaceLBType = "dedicated"
+)
+
+type LeptonWorkspaceOwnerType string
+
+const (
+	WorkspaceOwnerTypeCustomer LeptonWorkspaceOwnerType = "customer"
+	WorkspaceOwnerTypeSys      LeptonWorkspaceOwnerType = "sys"
 )
 
 // LeptonWorkspaceStatus defines the observed state of LeptonWorkspace

@@ -115,7 +115,7 @@ func ValidateClusterName(name string) bool {
 	return validateName(name, nameRegexDashOrAlphanumeric)
 }
 
-func ValidateWorkspaceName(name string) bool {
+func ValidateWorkspaceNameRegex(name string) bool {
 	return validateName(name, nameRegexAlphanumericOnly)
 }
 

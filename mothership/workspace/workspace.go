@@ -194,11 +194,6 @@ func (w *Workspace) monitorTotalNumberOfWorkspaces() {
 
 func (w *Workspace) Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpec) (*crdv1alpha1.LeptonWorkspace, error) {
 	workspaceName := spec.Name
-	if !util.ValidateWorkspaceName(workspaceName) {
-		err := fmt.Errorf("invalid workspace name %s: %s", workspaceName, util.WorkspaceNameInvalidMessage)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeInvalidRequest, "message": "failed to create workspace: " + err.Error()})
-		return nil, err
-	}
 
 	totalWorkspaces := metrics.GetTotalWorkspaces(prometheus.DefaultGatherer)
 	log.Printf("currently total %d workspaces... creating one more", totalWorkspaces)
@@ -230,6 +225,9 @@ func (w *Workspace) Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpe
 	}
 	if ws.Spec.LBType == "" {
 		ws.Spec.LBType = crdv1alpha1.WorkspaceLBTypeDedicated
+	}
+	if ws.Spec.OwnerType == "" {
+		ws.Spec.OwnerType = crdv1alpha1.WorkspaceOwnerTypeCustomer
 	}
 	err := validateSpec(ws.Spec)
 	if err != nil {
@@ -381,6 +379,10 @@ func (w *Workspace) Update(ctx context.Context, spec crdv1alpha1.LeptonWorkspace
 	}
 	if ws.Spec.LBType == "" {
 		ws.Spec.LBType = crdv1alpha1.WorkspaceLBTypeDedicated
+	}
+
+	if ws.Spec.OwnerType == "" {
+		ws.Spec.OwnerType = crdv1alpha1.WorkspaceOwnerTypeCustomer
 	}
 
 	err = validateSpec(ws.Spec)
@@ -822,7 +824,44 @@ func (w *Workspace) updateState(ctx context.Context, ws *crdv1alpha1.LeptonWorks
 	return w.DataStore.UpdateStatus(ctx, ws.Spec.Name, ws)
 }
 
+var (
+	invalidWSPrefixSuffixForCustomer = []string{
+		"sys",
+	}
+	invalidWSPrefixSuffixForALL = []string{
+		"lepton",
+		"mothership",
+		"default",
+	}
+)
+
+func validateWorkspaceName(spec crdv1alpha1.LeptonWorkspaceSpec) error {
+	specName := spec.Name
+	if !util.ValidateWorkspaceNameRegex(specName) {
+		return fmt.Errorf(util.WorkspaceNameInvalidMessage)
+	}
+
+	for _, word := range invalidWSPrefixSuffixForALL {
+		if strings.HasPrefix(specName, word) || strings.HasSuffix(specName, word) {
+			return fmt.Errorf("Workspace name should not use %s as prefix or suffix", word)
+		}
+	}
+	// See empty owner type as being subject to rules for customer
+	if spec.OwnerType == crdv1alpha1.WorkspaceOwnerTypeCustomer {
+		for _, word := range invalidWSPrefixSuffixForCustomer {
+			if strings.HasPrefix(specName, word) || strings.HasSuffix(specName, word) {
+				return fmt.Errorf("Workspace name should not use %s as prefix or suffix", word)
+			}
+		}
+	}
+	return nil
+}
+
 func validateSpec(spec crdv1alpha1.LeptonWorkspaceSpec) error {
+	if err := validateWorkspaceName(spec); err != nil {
+		return fmt.Errorf("invalid workspace name %s: %s", spec.Name, err)
+	}
+
 	switch spec.Tier {
 	case crdv1alpha1.WorkspaceTierBasic:
 	case crdv1alpha1.WorkspaceTierStandard:
@@ -855,6 +894,13 @@ func validateSpec(spec crdv1alpha1.LeptonWorkspaceSpec) error {
 	case crdv1alpha1.WorkspaceStateTerminated:
 	default:
 		return fmt.Errorf("invalid workspace running state %s: must be one of normal, paused, terminated", spec.State)
+	}
+
+	switch spec.OwnerType {
+	case crdv1alpha1.WorkspaceOwnerTypeCustomer:
+	case crdv1alpha1.WorkspaceOwnerTypeSys:
+	default:
+		return fmt.Errorf("invalid workspace owner type %s: must be one of %s, %s", spec.OwnerType, crdv1alpha1.WorkspaceOwnerTypeCustomer, crdv1alpha1.WorkspaceOwnerTypeSys)
 	}
 
 	return nil

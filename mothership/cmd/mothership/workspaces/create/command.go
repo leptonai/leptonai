@@ -28,6 +28,7 @@ var (
 	description   string
 	tier          string
 	lbType        string
+	ownerType     string
 )
 
 func init() {
@@ -54,6 +55,7 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&description, "description", "d", "From cli for testing", "Description of the workspace")
 	cmd.PersistentFlags().StringVarP(&tier, "tier", "", "basic", "Tier of the workspace")
 	cmd.PersistentFlags().StringVarP(&lbType, "lb-type", "", string(crdv1alpha1.WorkspaceLBTypeDedicated), "If the deployments of workspace should use shared lb infra")
+	cmd.PersistentFlags().StringVarP(&ownerType, "owner-type", "", string(crdv1alpha1.WorkspaceOwnerTypeCustomer), "If the workspace belongs to customer or lepton internal usage (customer, sys)")
 	return cmd
 }
 
@@ -82,7 +84,7 @@ func createFunc(cmd *cobra.Command, args []string) {
 		State:       crdv1alpha1.WorkspaceStateNormal,
 		Tier:        crdv1alpha1.LeptonWorkspaceTier(tier),
 		LBType:      crdv1alpha1.LeptonWorkspaceLBType(lbType),
-
+		OwnerType:   crdv1alpha1.LeptonWorkspaceOwnerType(ownerType),
 		Description: description,
 	}
 

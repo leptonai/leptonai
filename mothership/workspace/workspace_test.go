@@ -19,8 +19,11 @@ func TestEFSMountTarget(t *testing.T) {
 
 func createTestBaseSpec() crdv1alpha1.LeptonWorkspaceSpec {
 	return crdv1alpha1.LeptonWorkspaceSpec{
-		LBType: "dedicated",
-		State:  "normal",
+		LBType:    "dedicated",
+		State:     "normal",
+		OwnerType: "customer",
+		Name:      "goodname",
+		Tier:      "basic",
 	}
 }
 
@@ -95,6 +98,71 @@ func TestValidateSpec(t *testing.T) {
 		}
 		if err == nil && !tc.isValid {
 			t.Errorf("expecting %s to be invalid", tc.state)
+		}
+	}
+}
+
+func TestOwnerType(t *testing.T) {
+	tt := []struct {
+		ownerType string
+		isValid   bool
+	}{
+		{"customer", true},
+		{"sys", true},
+		{"", false},
+		{"invalid", false},
+	}
+
+	for _, tc := range tt {
+		spec := createTestBaseSpec()
+		spec.OwnerType = crdv1alpha1.LeptonWorkspaceOwnerType(tc.ownerType)
+		err := validateSpec(spec)
+		if err != nil && tc.isValid {
+			t.Errorf("expecting %s to be valid: %s", tc.ownerType, err)
+		}
+		if err == nil && !tc.isValid {
+			t.Errorf("expecting %s to be invalid", tc.ownerType)
+		}
+	}
+}
+
+func TestSpecName(t *testing.T) {
+	tt := []struct {
+		ownerType string
+		name      string
+		isValid   bool
+	}{
+		{"customer", "good", true},
+		{"customer", "sysbad", false},
+		{"customer", "badsys", false},
+		{"customer", "leptongood", false},
+		{"customer", "goodlepton", false},
+		{"customer", "mothershipgood", false},
+		{"customer", "goodmothership", false},
+		{"customer", "goodmothershipgood", true},
+		{"customer", "mothershigood", true},
+		{"customer", "goodmothershi", true},
+		{"sys", "good", true},
+		{"sys", "sysbad", true},
+		{"sys", "badsys", true},
+		{"sys", "leptongood", false},
+		{"sys", "goodlepton", false},
+		{"sys", "mothershipgood", false},
+		{"sys", "goodmothership", false},
+		{"sys", "goodmothershipgood", true},
+		{"sys", "mothershigood", true},
+		{"sys", "goodmothershi", true},
+	}
+	for _, tc := range tt {
+		spec := createTestBaseSpec()
+		spec.OwnerType = crdv1alpha1.LeptonWorkspaceOwnerType(tc.ownerType)
+		spec.Name = tc.name
+		err := validateSpec(spec)
+		if err != nil && tc.isValid {
+			t.Errorf("expecting %s to be valid: %s", tc.name, err)
+		}
+		if err == nil && !tc.isValid {
+			t.Errorf("expecting %s to be invalid", tc.name)
 		}
 	}
 }

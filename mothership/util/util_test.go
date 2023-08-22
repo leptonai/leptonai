@@ -23,7 +23,7 @@ func TestValidateName(t *testing.T) {
 			t.Error("validateName failed for cluster name: " + test.name)
 		}
 
-		if ValidateWorkspaceName(test.name) != test.valid {
+		if ValidateWorkspaceNameRegex(test.name) != test.valid {
 			t.Error("validateName failed for workspace name: " + test.name)
 		}
 	}
@@ -33,7 +33,7 @@ func TestValidateName(t *testing.T) {
 		t.Error("validateName failed")
 	}
 
-	if ValidateWorkspaceName("test-123") {
+	if ValidateWorkspaceNameRegex("test-123") {
 		t.Error("validateName failed")
 	}
 }
