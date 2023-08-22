@@ -31,6 +31,9 @@ var (
 	eniID        string
 	keep         bool
 	keepInterval time.Duration
+
+	provider string
+	taintGPU bool
 )
 
 func init() {
@@ -41,7 +44,7 @@ func init() {
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "add",
-		Short:      "Implements add sub-commands (manually add/apply fargate node object)",
+		Short:      "Implements add sub-commands (manually add/apply fargate node object, only required with kubelet registerNode=false)",
 		Aliases:    []string{"a", "ad", "apply", "create"},
 		SuggestFor: []string{"a", "ad", "apply", "create"},
 		Run:        addFunc,
@@ -52,6 +55,9 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&eniID, "eni-id", "e", "", "AWS ENI")
 	cmd.PersistentFlags().BoolVar(&keep, "keep", false, "Set true to keep applying the node object (useful to keep the node alive while kubelet is still being ready)")
 	cmd.PersistentFlags().DurationVar(&keepInterval, "keep-interval", 30*time.Second, "interval to send node apply request")
+
+	cmd.PersistentFlags().StringVar(&provider, "provider", "lambda", "Used for taint (e.g., lambda, ec2)")
+	cmd.PersistentFlags().BoolVar(&taintGPU, "taint-gpu", false, "Set true to taint the node for GPU")
 
 	return cmd
 }
@@ -166,6 +172,20 @@ func addFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	taints := []apply_core_v1.TaintApplyConfiguration{
+		{
+			Key:    newString("lepton.io/provider"),
+			Value:  newString(provider),
+			Effect: &noSchedule,
+		},
+	}
+	if taintGPU {
+		taints = append(taints, apply_core_v1.TaintApplyConfiguration{
+			Key:    newString("nvidia.com/gpu"),
+			Effect: &noSchedule,
+		})
+	}
+
 	nodeObj := apply_core_v1.NodeApplyConfiguration{
 		TypeMetaApplyConfiguration: apply_meta_v1.TypeMetaApplyConfiguration{
 			APIVersion: newString("v1"),
@@ -195,13 +215,7 @@ func addFunc(cmd *cobra.Command, args []string) {
 			},
 		},
 		Spec: &apply_core_v1.NodeSpecApplyConfiguration{
-			Taints: []apply_core_v1.TaintApplyConfiguration{
-				{
-					Key:    newString("virtual-kubelet.io/provider"),
-					Value:  newString("ec2"),
-					Effect: &noSchedule,
-				},
-			},
+			Taints: taints,
 		},
 		Status: &apply_core_v1.NodeStatusApplyConfiguration{
 			Allocatable: &corev1.ResourceList{
