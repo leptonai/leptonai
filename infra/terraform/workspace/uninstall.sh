@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -xe
 
 if [[ -z $TF_API_TOKEN ]]; then
   echo "ERROR: Terraform Cloud API token not specified"

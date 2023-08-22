@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -xe
 
 # List of Terraform modules/resources to destroy in sequence (reverse order of apply)
 # need to delete existing kubernetes resources to avoid dependency conflicts
@@ -13,8 +13,6 @@ set -x
 # so we need to delete the EKS cluster first
 targets=(
   "null_resource.delete_all_lepton_deployments_and_ingresses"
-  "helm_release.lepton_crd"
-  "helm_release.lepton"
 
   # bug https://github.com/tigera/operator/issues/2031
   "null_resource.delete_calico_installation"

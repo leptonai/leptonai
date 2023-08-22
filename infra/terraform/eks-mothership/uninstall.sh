@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -xe
 
 # List of Terraform modules/resources to destroy in sequence (reverse order of apply)
 # need to delete existing kubernetes resources to avoid dependency conflicts
