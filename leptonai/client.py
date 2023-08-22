@@ -1,23 +1,19 @@
 from typing import Callable, Dict, List, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 import warnings
 
 from fastapi.encoders import jsonable_encoder
 import requests
 
+from leptonai._internal.client_utils import (
+    _is_valid_url,
+    _is_local_url,
+    _get_method_docstring,
+    _get_positional_argument_error_message,
+    _fallback_api_call_message,
+)
 from leptonai.api.workspace import get_full_workspace_url, get_full_workspace_api_url
 from .api import deployment, APIError
-
-
-def _is_valid_url(candidate_str: str) -> bool:
-    parsed = urlparse(candidate_str)
-    return parsed.scheme != "" and parsed.netloc != ""
-
-
-def _is_local_url(candidate_str: str) -> bool:
-    parsed = urlparse(candidate_str)
-    local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
-    return parsed.hostname in local_hosts
 
 
 def local(port: int = 8080) -> str:
@@ -35,147 +31,6 @@ def local(port: int = 8080) -> str:
         str: The connection string.
     """
     return f"http://localhost:{port}"
-
-
-def _json_to_type_string(schema: Dict) -> str:
-    """
-    Internal util function to convert a json to a type string.
-    """
-    if "type" in schema:
-        if "items" in schema:
-            # items defines the type of items in an array.
-            typestr = f"{schema['type']}[{_json_to_type_string(schema['items'])}]"
-        elif "prefixItems" in schema:
-            # repeateditems defines the type of the first few items in an array, and
-            # then the min and max of the array.
-            # In pythonic term, this is something like Tuple[int, str, ...]
-            # meaning that the first thing is int, the second thing is str, and there are a bunch of others.
-            min_items = schema.get("minItems", "?")
-            max_items = schema.get("maxItems", "?")
-            if min_items == max_items and min_items != "?":
-                typestr = (
-                    f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])}]"
-                )
-            else:
-                typestr = (
-                    f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])},"
-                    f" ...] (min={min_items},max={max_items})"
-                )
-        else:
-            typestr = {
-                "integer": "int",
-                "number": "float",
-                "boolean": "bool",
-                "string": "str",
-                "null": "None",
-            }.get(schema["type"], schema["type"])
-
-    elif "anyOf" in schema:
-        typestr = f"({' | '.join(_json_to_type_string(x) for x in schema['anyOf'])})"
-    else:
-        # If we have no idea waht the type is, we will just return "Any".
-        typestr = "Any"
-    if "default" in schema:
-        typestr += f" (default: {schema['default']})"
-    return typestr
-
-
-def _get_method_docstring(openapi: Dict, path_name: str) -> str:
-    """
-    Get the docstring for a method from the openapi specification.
-    """
-    is_post = False
-    try:
-        api_info = openapi["paths"][f"{path_name}"]["post"]
-        is_post = True
-    except KeyError:
-        # No path or post info exists: this is probably a get method.
-        try:
-            api_info = openapi["paths"][f"{path_name}"]["get"]
-        except KeyError:
-            # No path or get info exists: we will just return an empty docstring.
-            return ""
-
-    # Add description to docstring. We will use the description, and if not,
-    # the summary as a backup plan, and if not, we will not add a docstring.
-    docstring = api_info.get("description", api_info.get("summary", ""))
-
-    if not is_post:
-        # TODO: add support to parse get methods' parameters.
-        return docstring
-
-    docstring += "\n\nAutomatically inferred parameters from openapi:"
-    # Add schema to the docstring.
-    try:
-        schema_ref = api_info["requestBody"]["content"]["application/json"]["schema"][
-            "$ref"
-        ]
-        schema_name = schema_ref.split("/")[-1]
-        schema = openapi["components"]["schemas"][schema_name]
-        schema_strings = [
-            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
-        ]
-        if len(schema_strings) == 0:
-            docstring += "\n\nInput Schema: None"
-        elif "required" in schema:
-            # We will sort the schema strings to make required fields appear first
-            schema_strings = sorted(
-                schema_strings, key=lambda x: x[0] in schema["required"], reverse=True
-            )
-            docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join(
-                [
-                    f"{k}{'*' if k in schema['required'] else ''}: {v}"
-                    for k, v in schema_strings
-                ]
-            )
-        else:
-            docstring += "\n\nSchema:\n  " + "\n  ".join(
-                [f"{k}: {v}" for k, v in schema_strings]
-            )
-    except KeyError:
-        # If the openapi does not have a schema section, we will just skip.
-        pass
-
-    # Add example input to the docstring if existing.
-    try:
-        example = api_info["requestBody"]["content"]["application/json"]["example"]
-        example_string = "\n  ".join(
-            [str(k) + ": " + str(v) for k, v in example.items()]
-        )
-        docstring += f"\n\nExample input:\n  {example_string}\n"
-    except KeyError:
-        # If the openapi does not have an example section, we will just skip.
-        pass
-
-    # Add output schema to the docstring.
-    try:
-        schema_ref = api_info["responses"]["200"]["content"]["application/json"][
-            "schema"
-        ]["$ref"]
-        schema_name = schema_ref.split("/")[-1]
-        schema = openapi["components"]["schemas"][schema_name]
-        schema_strings = [
-            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
-        ]
-        docstring += "\n\nOutput Schema:\n  " + "\n  ".join(
-            [f"{k}: {v}" for k, v in schema_strings]
-        )
-    except KeyError:
-        # If the openapi does not have a schema section, we will just skip.
-        pass
-
-    return docstring
-
-
-_fallback_api_call_message = (
-    "If you are the producer of the deployment, please make sure that the deployment"
-    " has an openapi specification at '/openapi.json'. This is usually guaranteed if"
-    " you are using the standard Photon class. Also kindly ensure that every endpoint"
-    " is uniquely named (note that we will try to convert '-' and '/' in URL strings to"
-    " underscores). If you are the consumer of the deployment, and do not have control"
-    " over the endpoint design, a workaround is to use the `_post` method to call the"
-    " endpoints directly, instead of using the pythonic method name."
-)
 
 
 class Client(object):
@@ -347,8 +202,9 @@ class Client(object):
             def _method(*args, **kwargs):
                 if args:
                     raise RuntimeError(
-                        "Photon methods do not support positional arguments - did you"
-                        " forget to pass in a keyword argument?"
+                        _get_positional_argument_error_message(
+                            self.openapi, path_name, args
+                        )
                     )
                 res = self._post(
                     path_name,
@@ -380,8 +236,9 @@ class Client(object):
             def _method(*args, **kwargs):
                 if args:
                     raise RuntimeError(
-                        "Photon methods do not support positional arguments - did you"
-                        " forget to pass in a keyword argument?"
+                        _get_positional_argument_error_message(
+                            self.openapi, path_name, args
+                        )
                     )
                 res = self._get(path_name, params=kwargs)
                 res.raise_for_status()
