@@ -10,7 +10,10 @@
   "scripts": {
     "build": "tsc",
     "lint:fix": "eslint . --ext .ts --fix",
-    "build:types": "npm_config_yes=true npx supabase gen types typescript --local > src/database.ts && pnpm lint:fix"
+    "build:types": "npm_config_yes=true npx supabase gen types typescript --local > src/database.ts && pnpm lint:fix",
+    "build:diff": "npx supabase db diff -f",
+    "reset": "npm_config_yes=true npx supabase db reset",
+    "status": "npm_config_yes=true npx supabase status"
   },
   "devDependencies": {
     "typescript": "~5.0.2"

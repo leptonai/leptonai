@@ -122,6 +122,7 @@ export interface Database {
       };
       workspaces: {
         Row: {
+          chargeable: boolean;
           consumer_id: string | null;
           coupon_id: string | null;
           created_at: string | null;
@@ -134,6 +135,7 @@ export interface Database {
           url: string | null;
         };
         Insert: {
+          chargeable: boolean;
           consumer_id?: string | null;
           coupon_id?: string | null;
           created_at?: string | null;
@@ -146,6 +148,7 @@ export interface Database {
           url?: string | null;
         };
         Update: {
+          chargeable?: boolean;
           consumer_id?: string | null;
           coupon_id?: string | null;
           created_at?: string | null;
