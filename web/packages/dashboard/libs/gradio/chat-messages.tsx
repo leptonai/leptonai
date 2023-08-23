@@ -70,11 +70,11 @@ export const ChatMessages = forwardRef<
                             response in{" "}
                             {item.responseTime
                               ? (item.responseTime / 1000).toFixed(2)
-                              : "N/A"}
+                              : "N/A "}
                             s, completion in{" "}
                             {item.completionTime
                               ? (item.completionTime / 1000).toFixed(2)
-                              : "N/A"}
+                              : "N/A "}
                             s
                           </>
                         )}

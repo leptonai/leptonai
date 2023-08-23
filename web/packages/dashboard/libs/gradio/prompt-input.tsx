@@ -72,7 +72,7 @@ export const PromptInput: FC<
           disabled={disabled}
           ref={inputRef}
           placeholder="Send a message"
-          autoSize={{ minRows: 1, maxRows: 5 }}
+          autoSize={{ minRows: 1, maxRows: 2 }}
           value={value}
           onCompositionStart={() => (compositionState.current = true)}
           onCompositionEnd={() => (compositionState.current = false)}

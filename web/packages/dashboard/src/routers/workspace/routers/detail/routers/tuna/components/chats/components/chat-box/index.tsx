@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { filter, Subscription, switchMap } from "rxjs";
+import { filter, Subscription, switchMap, throttleTime } from "rxjs";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { css } from "@emotion/react";
@@ -74,6 +74,7 @@ export const ChatBox = forwardRef<ChatRef, ChatProps>(
       }
       subscriptionRef.current = chat
         .send(input, chatOption)
+        .pipe(throttleTime(100))
         .subscribe(() => scrollRef?.current?.scrollToBottom());
       setInput("");
     }, [loading, input, disabled, chat, chatOption]);

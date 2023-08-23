@@ -8,7 +8,8 @@ export const SliderOption: FC<{
   min: number;
   value: number;
   onChange: (v: number) => void;
-}> = ({ title, value, onChange, min, step, max }) => {
+  disabled?: boolean;
+}> = ({ title, value, onChange, min, step, max, disabled = false }) => {
   return (
     <>
       <Row justify="space-between">
@@ -22,11 +23,13 @@ export const SliderOption: FC<{
             min={min}
             step={step}
             value={value}
+            disabled={disabled}
             onChange={(v) => onChange(v!)}
           />
         </Col>
       </Row>
       <Slider
+        disabled={disabled}
         value={value}
         step={step}
         onChange={(v) => onChange(v)}

@@ -1,12 +1,17 @@
 export const presets = [
   {
+    name: "Photorealistic Astronaut",
+    image:
+      "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-15.png",
+    prompt: "Astronaut on Mars During sunset",
+  },
+  {
     name: "Photorealistic Soft Pink Roses",
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-1-796x1024.png",
     prompt:
       "Soft pink roses, white Chinese peony, tiny apple blossom flowers, eucalyptus leaves, twigs of cranberries, twigs of copper pepper berries all arrangement into a cute beautiful flowers arrangement on a pink nickel mug. The mug is sitting on a thick white book with golden cover image design. Sunny, bright image. Ad copy, huge copy space on top of the image, negative space, hd, 8k, blurry dreamy background, beautiful pictures. Product",
   },
-
   {
     name: "Photorealistic Happy Dog",
     image:
@@ -27,7 +32,7 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-10.png",
     prompt:
-      " A highly photorealistic image of a off road race track, complete with precise replicas of the world&#8217;s most iconic heavy noun, captured at the moment of a sharp turn, with smoke and sparks flying from under the wheels and the noun drifting around the bend. The image captures the excitement of the moment, with happy and noisy fans cheering and waving in the background. (The image is depicted at dusk, with the headlights ",
+      "A highly photorealistic image of a off road race track, complete with precise replicas of the world&#8217;s most iconic heavy noun, captured at the moment of a sharp turn, with smoke and sparks flying from under the wheels and the noun drifting around the bend. The image captures the excitement of the moment, with happy and noisy fans cheering and waving in the background. (The image is depicted at dusk, with the headlights ",
   },
 
   {
@@ -35,16 +40,8 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-14-796x1024.png",
     prompt:
-      " Powerful liquid explosion, Green grapes, Green background, Commercial photography, A bright environment, Studio lighting, OC rendering, Solid color isolated platform, Professional photography, Color classification, Super detail",
+      "Powerful liquid explosion, Green grapes, Green background, Commercial photography, A bright environment, Studio lighting, OC rendering, Solid color isolated platform, Professional photography, Color classification, Super detail",
   },
-
-  {
-    name: "Photorealistic Astronaut",
-    image:
-      "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-15.png",
-    prompt: " Astronaut on Mars During sunset",
-  },
-
   {
     name: "Photorealistic Locomotive",
     image:
@@ -56,7 +53,7 @@ export const presets = [
     name: "Bear Logo",
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-18.png",
-    prompt: " minimalistic bear shaman logo",
+    prompt: "minimalistic bear shaman logo",
   },
 
   {
@@ -71,7 +68,7 @@ export const presets = [
     name: "Futuristic Logo",
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-20.png",
-    prompt: " ”biomorfica” futuristic logo design",
+    prompt: "”biomorfica” futuristic logo design",
   },
 
   {
@@ -103,7 +100,7 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-23.png",
     prompt:
-      " photo of a small cozy modern house in red woods on a mountain, solar panels, garage, driveway, great view, sunshine",
+      "photo of a small cozy modern house in red woods on a mountain, solar panels, garage, driveway, great view, sunshine",
   },
 
   {
@@ -111,7 +108,7 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-24.png",
     prompt:
-      " a architectural drawing of a new town square for Cambridge England, big traditional musuem with columns, fountain in middle, classical design, traditional design, trees",
+      "a architectural drawing of a new town square for Cambridge England, big traditional musuem with columns, fountain in middle, classical design, traditional design, trees",
   },
 
   {
@@ -119,7 +116,7 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-35.png",
     prompt:
-      " a house is reflected in the water of a lake, canon 5d mark iii photo, wlop : :, summer camp, wide shot of a cabin interior, by Henrik Weber, lush landscaping, canon 5d 50 mm lens, baris yesilbas, dramatic photograph, peacefull",
+      "a house is reflected in the water of a lake, canon 5d mark iii photo, wlop : :, summer camp, wide shot of a cabin interior, by Henrik Weber, lush landscaping, canon 5d 50 mm lens, baris yesilbas, dramatic photograph, peacefull",
   },
 
   {
@@ -182,7 +179,7 @@ export const presets = [
     image:
       "https://stablediffusionxl.com/wp-content/uploads/2023/08/image-13-796x1024.png",
     prompt:
-      " steampunk makeup, in the style of vray tracing, colorful impasto, uhd image, indonesian art, fine feather details with bright red and yellow and green and pink and orange colours, intricate patterns and details, dark cyan and amber makeup. Rich colourful plumes. Victorian style.",
+      "steampunk makeup, in the style of vray tracing, colorful impasto, uhd image, indonesian art, fine feather details with bright red and yellow and green and pink and orange colours, intricate patterns and details, dark cyan and amber makeup. Rich colourful plumes. Victorian style.",
   },
 
   {

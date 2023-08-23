@@ -18,7 +18,7 @@ import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-s
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import pathJoin from "@lepton-libs/url/path-join";
 import { FC, useCallback, useRef, useState } from "react";
-import { filter, map, Subscription, switchMap } from "rxjs";
+import { filter, map, Subscription, switchMap, throttleTime } from "rxjs";
 import { TitleService } from "@lepton-dashboard/services/title.service";
 
 export const Llama2: FC = () => {
@@ -54,6 +54,7 @@ export const Llama2: FC = () => {
     }
     subscriptionRef.current = chat
       .send(prompt, option)
+      .pipe(throttleTime(100))
       .subscribe(() => scrollRef?.current?.scrollToBottom());
     setPrompt("");
   }, [loading, prompt, chat, option]);

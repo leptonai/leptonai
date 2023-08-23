@@ -5,7 +5,14 @@ import {
 } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
 import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
 import { PromptInput } from "@lepton-libs/gradio/prompt-input";
-import { FC, useMemo, useRef, useState } from "react";
+import {
+  cloneElement,
+  FC,
+  ReactElement,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button, Typography, Image as AntdImage, Select } from "antd";
 import { css } from "@emotion/react";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
@@ -23,6 +30,10 @@ const presetOptions = presets.map((p) => ({
   placeholder: "Load a preset",
 }));
 
+const getRandom = () => {
+  return Math.floor(Math.random() * 2147483647);
+};
+
 export const StableDiffusionXl: FC = () => {
   const theme = useAntdTheme();
   const titleService = useInject(TitleService);
@@ -36,9 +47,10 @@ export const StableDiffusionXl: FC = () => {
   const [option, setOption] = useState<SdxlOption>({
     width: 1024,
     height: 1024,
-    seed: 245967316,
-    num_inference_steps: 30,
-    use_refiner: true,
+    seed: getRandom(),
+    steps: 30,
+    use_refiner: false,
+    random_seed: true,
   });
 
   const backend = useStateFromObservable(
@@ -61,13 +73,19 @@ export const StableDiffusionXl: FC = () => {
     setResult(null);
     abortController.current = new AbortController();
     setLoading(true);
+    const { random_seed, ...options } = option;
+    let sendOptions = options;
+    if (random_seed) {
+      sendOptions = { ...sendOptions, seed: getRandom() };
+    }
+    setOption({ ...sendOptions, random_seed });
     fetch(backend, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        ...option,
+        ...sendOptions,
         prompt,
       }),
       signal: abortController.current.signal,
@@ -156,85 +174,110 @@ export const StableDiffusionXl: FC = () => {
               border: 1px solid ${theme.colorBorder};
               background: ${theme.colorBgContainer};
               border-radius: ${theme.borderRadius}px;
+              overflow: hidden;
               padding: 8px;
               min-height: 350px;
               flex: 1 1 auto;
               display: flex;
               justify-content: center;
               align-items: center;
-              img {
-                width: auto;
-                max-width: 100%;
-                max-height: calc(max(60vh, 300px));
-                border-radius: ${theme.borderRadius}px;
-              }
             `}
           >
-            {result ? (
-              <>
-                <div
-                  css={css`
-                    position: absolute;
-                    inset: 0;
-                    background-image: url("${result}");
-                    background-repeat: no-repeat;
-                    background-size: cover;
-                    background-position: center;
-                  `}
-                />
-                <div
-                  css={css`
-                    position: absolute;
-                    inset: 0;
-                    backdrop-filter: blur(100px);
-                  `}
-                />
-                <Button
-                  css={css`
-                    position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    z-index: 1;
-                  `}
-                  download
-                  href={result}
-                  target="_blank"
-                  size="small"
-                  icon={<CarbonIcon icon={<Download />} />}
-                />
-                <AntdImage width="auto" alt={prompt || ""} src={result} />
-              </>
-            ) : error ? (
-              <Typography.Text type="danger">{error}</Typography.Text>
-            ) : (
-              <div
-                css={css`
-                  color: ${theme.colorTextSecondary};
-                `}
-              >
-                {loading ? (
-                  <Typography.Text type="secondary">
-                    Generating... (<Stopwatch start />)
-                  </Typography.Text>
-                ) : (
+            <div
+              css={css`
+                position: absolute;
+                inset: 0;
+                background-image: url("${result}");
+                background-repeat: no-repeat;
+                background-size: cover;
+                background-position: center;
+                text-align: center;
+                img {
+                  width: auto;
+                  max-width: 100%;
+                  max-height: 100%;
+                }
+              `}
+            >
+              {result ? (
+                <>
                   <div
                     css={css`
-                      display: flex;
-                      flex: 1;
-                      height: 100%;
-                      flex-direction: column;
-                      justify-content: center;
-                      align-items: center;
-                      font-size: 128px;
-                      opacity: 0.3;
-                      color: ${theme.colorBorderSecondary};
+                      position: absolute;
+                      inset: 0;
+                      backdrop-filter: blur(100px);
                     `}
-                  >
-                    <CarbonIcon icon={<Image />} />
-                  </div>
-                )}
-              </div>
-            )}
+                  />
+                  <Button
+                    css={css`
+                      position: absolute;
+                      top: 8px;
+                      right: 8px;
+                      z-index: 1;
+                      opacity: 0.5;
+                    `}
+                    download
+                    href={result}
+                    target="_blank"
+                    size="small"
+                    icon={<CarbonIcon icon={<Download />} />}
+                  />
+                  <AntdImage
+                    height="100%"
+                    preview={{
+                      imageRender: (node, { transform }) => {
+                        const scale = transform.scale * 1.5;
+                        const style = {
+                          transform: `translate3d(${transform.x}px, ${
+                            transform.y
+                          }px, 0) scale3d(${
+                            transform.flipX ? "-" : ""
+                          }${scale}, ${
+                            transform.flipY ? "-" : ""
+                          }${scale}, 1) rotate(${transform.rotate}deg)`,
+                        };
+                        return cloneElement(node as ReactElement, {
+                          style,
+                        });
+                      },
+                    }}
+                    width="auto"
+                    alt={prompt || ""}
+                    src={result}
+                  />
+                </>
+              ) : error ? (
+                <Typography.Text type="danger">{error}</Typography.Text>
+              ) : (
+                <div
+                  css={css`
+                    color: ${theme.colorTextSecondary};
+                  `}
+                >
+                  {loading ? (
+                    <Typography.Text type="secondary">
+                      Generating... (<Stopwatch start />)
+                    </Typography.Text>
+                  ) : (
+                    <div
+                      css={css`
+                        display: flex;
+                        flex: 1;
+                        height: 100%;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        font-size: 128px;
+                        opacity: 0.3;
+                        color: ${theme.colorBorderSecondary};
+                      `}
+                    >
+                      <CarbonIcon icon={<Image />} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       }

@@ -3,7 +3,7 @@ import { css } from "@emotion/react";
 import { css as className } from "@emotion/css";
 import { Card } from "@lepton-dashboard/components/card";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { FullLayoutWidth } from "@lepton-dashboard/components/layout";
+import { LimitedLayoutWidth } from "@lepton-dashboard/components/layout";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   App,
@@ -36,7 +36,12 @@ export const Container: FC<{
     void message.success("Copied");
   }, [message]);
   return (
-    <FullLayoutWidth>
+    <LimitedLayoutWidth
+      css={css`
+        padding-top: 16px !important;
+        padding-bottom: 16px !important;
+      `}
+    >
       <Card
         css={css`
           flex: 1;
@@ -128,6 +133,6 @@ export const Container: FC<{
           </Row>
         )}
       </Card>
-    </FullLayoutWidth>
+    </LimitedLayoutWidth>
   );
 };
