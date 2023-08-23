@@ -1,26 +1,19 @@
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
+import { ImageResult } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/image-result";
 import {
   Options,
   SdxlOption,
 } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
 import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
 import { PromptInput } from "@lepton-libs/gradio/prompt-input";
-import {
-  cloneElement,
-  FC,
-  ReactElement,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Button, Typography, Image as AntdImage, Select } from "antd";
+import { FC, useMemo, useRef, useState } from "react";
+import { Select } from "antd";
 import { css } from "@emotion/react";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { Download, Image, MagicWandFilled } from "@carbon/icons-react";
-import { Stopwatch } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/stopwatch";
+import { Image, MagicWandFilled } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { TitleService } from "@lepton-dashboard/services/title.service";
 
@@ -39,6 +32,7 @@ export const StableDiffusionXl: FC = () => {
   const titleService = useInject(TitleService);
   titleService.setTitle("🏞️ Stable Diffusion XL", true);
   const [loading, setLoading] = useState(false);
+  const [hasResponse, setHasResponse] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const [result, setResult] = useState<string | null>(presets[0].image);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +67,7 @@ export const StableDiffusionXl: FC = () => {
     setResult(null);
     abortController.current = new AbortController();
     setLoading(true);
+    setHasResponse(false);
     const { random_seed, ...options } = option;
     let sendOptions = options;
     if (random_seed) {
@@ -92,6 +87,7 @@ export const StableDiffusionXl: FC = () => {
     })
       .then((res) => {
         if (res.ok) {
+          setHasResponse(false);
           return res.blob();
         } else {
           setError(`HTTP ${res.status}: ${res.statusText}`);
@@ -103,8 +99,10 @@ export const StableDiffusionXl: FC = () => {
           setResult(url);
         } else {
           setResult(null);
-          setError("No result");
         }
+      })
+      .catch((e) => {
+        setError(e?.message);
       })
       .finally(() => {
         setLoading(false);
@@ -171,7 +169,6 @@ export const StableDiffusionXl: FC = () => {
           <div
             css={css`
               position: relative;
-              border: 1px solid ${theme.colorBorder};
               background: ${theme.colorBgContainer};
               border-radius: ${theme.borderRadius}px;
               overflow: hidden;
@@ -199,84 +196,13 @@ export const StableDiffusionXl: FC = () => {
                 }
               `}
             >
-              {result ? (
-                <>
-                  <div
-                    css={css`
-                      position: absolute;
-                      inset: 0;
-                      backdrop-filter: blur(100px);
-                    `}
-                  />
-                  <Button
-                    css={css`
-                      position: absolute;
-                      top: 8px;
-                      right: 8px;
-                      z-index: 1;
-                      opacity: 0.5;
-                    `}
-                    download
-                    href={result}
-                    target="_blank"
-                    size="small"
-                    icon={<CarbonIcon icon={<Download />} />}
-                  />
-                  <AntdImage
-                    height="100%"
-                    preview={{
-                      imageRender: (node, { transform }) => {
-                        const scale = transform.scale * 1.5;
-                        const style = {
-                          transform: `translate3d(${transform.x}px, ${
-                            transform.y
-                          }px, 0) scale3d(${
-                            transform.flipX ? "-" : ""
-                          }${scale}, ${
-                            transform.flipY ? "-" : ""
-                          }${scale}, 1) rotate(${transform.rotate}deg)`,
-                        };
-                        return cloneElement(node as ReactElement, {
-                          style,
-                        });
-                      },
-                    }}
-                    width="auto"
-                    alt={prompt || ""}
-                    src={result}
-                  />
-                </>
-              ) : error ? (
-                <Typography.Text type="danger">{error}</Typography.Text>
-              ) : (
-                <div
-                  css={css`
-                    color: ${theme.colorTextSecondary};
-                  `}
-                >
-                  {loading ? (
-                    <Typography.Text type="secondary">
-                      Generating... (<Stopwatch start />)
-                    </Typography.Text>
-                  ) : (
-                    <div
-                      css={css`
-                        display: flex;
-                        flex: 1;
-                        height: 100%;
-                        flex-direction: column;
-                        justify-content: center;
-                        align-items: center;
-                        font-size: 128px;
-                        opacity: 0.3;
-                        color: ${theme.colorBorderSecondary};
-                      `}
-                    >
-                      <CarbonIcon icon={<Image />} />
-                    </div>
-                  )}
-                </div>
-              )}
+              <ImageResult
+                hasResponse={hasResponse}
+                error={error}
+                result={result}
+                prompt={prompt}
+                loading={loading}
+              />
             </div>
           </div>
         </div>
