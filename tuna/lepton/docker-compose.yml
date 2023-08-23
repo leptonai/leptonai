@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
     tuna:
-        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-23.03
+        image: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:tuna-23.04
         command: lep ph run -n tuna -m tuna-inference.py
         shm_size: 1gb
         volumes:

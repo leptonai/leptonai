@@ -25,7 +25,7 @@ fi
 echo "Done"
 
 echo "Checking docker image"
-docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.03
+docker pull us-west1-docker.pkg.dev/lepton-dev/tuna/fastchat:23.04
 
 echo "Checking model weights"
 echo "Downloading letpton-llm models"

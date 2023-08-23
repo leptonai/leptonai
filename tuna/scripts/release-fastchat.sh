@@ -13,7 +13,7 @@ dockerfiles_dir="${tuna_top_dir}/dockerfiles"
 
 usage() {
     echo "Usage: $0 -f [fastchat-version]"
-    echo "  -f fastchat version: e.g. 23.03"
+    echo "  -f fastchat version: e.g. 23.04"
     echo "  -h|--help: print this message"
     exit 1
 }

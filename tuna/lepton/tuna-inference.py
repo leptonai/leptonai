@@ -8,7 +8,7 @@ from leptonai.photon import Photon
 
 
 class Server(Photon):
-    image: str = f"{BASE_IMAGE_REPO}:tuna-23.03"
+    image: str = f"{BASE_IMAGE_REPO}:tuna-23.04"
 
     @staticmethod
     def _patch_get_model_list(controller_url):
