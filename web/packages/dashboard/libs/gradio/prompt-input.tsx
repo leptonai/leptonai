@@ -80,7 +80,9 @@ export const PromptInput: FC<
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !compositionState.current) {
               e.preventDefault();
-              onSubmit();
+              if (!loading) {
+                onSubmit();
+              }
             }
           }}
         />
