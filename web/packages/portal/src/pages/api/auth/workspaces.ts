@@ -4,7 +4,7 @@ import {
   serverClientWithAuthorized,
 } from "@/utils/supabase";
 import { withLogging } from "@/utils/logging";
-import { Database } from "@/interfaces/database";
+import { Database } from "@lepton/database";
 
 /**
  * @openapi

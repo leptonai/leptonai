@@ -47,7 +47,7 @@ jobs:
 
       - name: Install Dependencies
         working-directory: web
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
   lint:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
 
       - name: Install Dependencies
         working-directory: web
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Lint
         working-directory: web
@@ -121,7 +121,7 @@ jobs:
 
       - name: Install Dependencies
         working-directory: web
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run test task
         working-directory: web
@@ -159,7 +159,7 @@ jobs:
 
       - name: Install Dependencies
         working-directory: web
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Download cypress binary
         working-directory: web/packages/dashboard

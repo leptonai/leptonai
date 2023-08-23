@@ -32,6 +32,7 @@
     "clean": "lerna clean --yes",
     "dev": "lerna run dev",
     "build": "lerna run build",
+    "build:deploy-deps": "lerna run build --scope @lepton/database",
     "test": "lerna run test",
     "lint": "eslint . --cache --ext .ts,.js,.tsx,.jsx"
   },

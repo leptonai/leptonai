@@ -39,7 +39,12 @@ jobs:
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-
+      - name: Install Dependencies
+        working-directory: web
+        run: pnpm install
+      - name: Build dependencies
+        run: pnpm build:deploy-deps
+        working-directory: web
       - name: Install Vercel CLI
         run: npm install --global vercel@canary
       - name: Pull Vercel Environment Information
@@ -79,7 +84,9 @@ jobs:
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-
+      - name: Install Dependencies
+        working-directory: web
+        run: pnpm install
       - name: Install Vercel CLI
         run: npm install --global vercel@canary
       - name: Pull Vercel Environment Information

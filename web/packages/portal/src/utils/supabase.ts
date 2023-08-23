@@ -1,7 +1,7 @@
 import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
-import { Database } from "@/interfaces/database";
+import { Database } from "@lepton/database";
 
 // Caution: this is the admin supabase client, should not expose it directly
 export const supabaseAdminClient = createClient<Database>(

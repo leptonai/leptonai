@@ -12,8 +12,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "preview": "vite preview --port 3001",
     "cypress:open": "cypress open",
-    "cypress:install": "cypress install",
-    "database:types": "npx supabase gen types typescript --local > src/interfaces/database.ts && eslint src/interfaces/database.ts --fix"
+    "cypress:install": "cypress install"
   },
   "dependencies": {
     "@ant-design/icons": "^5.0.1",

@@ -2,7 +2,8 @@
 
 ## Environment Requirements
 
-- NPM
+- [npm](https://www.npmjs.com/get-npm)
+- [pnpm](https://pnpm.io/installation)
 - Docker
 
 ## Setup
@@ -51,10 +52,10 @@ npx supabase status
 
 And can open the `Studio URL` to view your database in the browser.
 
-### npm run database:types
+### pnpm build:types
 
-Generate types for the database to `src/interfaces/database.ts`.
+Generate types for the database to `src/database.ts`.
 
 ```shell
-npm run database:types
+pnpm build:types
 ```

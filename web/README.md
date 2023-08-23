@@ -8,6 +8,7 @@ This is a monorepo for the lepton web and its packages.
 | ------------------------------------------- | -------------------------------------------------------- |
 | [dashboard](./packages/dashboard/README.md) | Lepton Dashboard, web-based UI for Lepton workspaces.    |
 | [portal](./packages/portal/README.md)       | Includes APIs for authorization, billing, admin and oss. |
+| [database](./packages/database/README.md)   | Database models and migrations.                          |
 
 ## Install Dependencies
 
