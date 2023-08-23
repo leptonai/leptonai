@@ -17,6 +17,9 @@ rules:
 - apiGroups: ["lepton.ai"]
   resources: ["leptondeployments", "leptondeployments/finalizers", "leptondeployments/status"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["gateway.solo.io", "gloo.solo.io"]
+  resources: ["routetables", "virtualservices", "upstreams"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -129,7 +129,8 @@ jobs:
             --api-token "${{ steps.vars.outputs.api_token_01 }}" \
             --cluster-name "${{ steps.vars.outputs.cluster_name }}" \
             --workspace-name "${{ steps.vars.outputs.workspace_name_01 }}" \
-            --git-ref "${{ steps.vars.outputs.branch }}"
+            --git-ref "${{ steps.vars.outputs.branch }}" \
+            --lb-type "shared"
 
           ./mothershipctl workspace wait \
             --mothership-url ${{ vars.MOTHERSHIP_CI_URL }} \
@@ -157,7 +158,7 @@ jobs:
           pip install -e ./sdk
           go test -timeout 3600s -v ./e2e-tests/... \
             --workspace-url https://${{ steps.vars.outputs.workspace_name_01 }}.${{ steps.vars.outputs.cluster_name }}.dev.lepton.ai/api/v1 \
-            --auth-token ${{ steps.vars.outputs.api_token_01 }} --test-data-plane-routing=false
+            --auth-token ${{ steps.vars.outputs.api_token_01 }}
 
       - name: Delete workspace
         if: always()

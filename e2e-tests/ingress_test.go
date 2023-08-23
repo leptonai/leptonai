@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,9 +17,6 @@ import (
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
 	t.Parallel()
-	if !*testDataPlaneRouting {
-		t.Skip("Dataplane routing not ready")
-	}
 	err := waitForDeploymentToRunningState(mainTestDeploymentName)
 	if err != nil {
 		t.Fatalf("Expected deployment %s to be in running state, got %v", mainTestDeploymentName, err)
@@ -84,9 +82,6 @@ func TestIngressWithDeploymentDocsUsingHostBased(t *testing.T) {
 
 func TestIngressOfPublicDeployment(t *testing.T) {
 	t.Parallel()
-	if !*testDataPlaneRouting {
-		t.Skip("Dataplane routing not ready")
-	}
 	dName := newName(t.Name())
 	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name:     dName,
@@ -131,9 +126,6 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 
 func TestIngressOfDeploymentWithCustomTokenAndUpdatingToken(t *testing.T) {
 	t.Parallel()
-	if !*testDataPlaneRouting {
-		t.Skip("Dataplane routing not ready")
-	}
 	dName := newName(t.Name())
 	token := newName(t.Name())
 	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
@@ -242,6 +234,9 @@ func testHostBasedIngress(dName, token, endpoint string, retry bool) error {
 	transport, err := getTransportFromURL(*workspaceURL)
 	if err != nil {
 		return err
+	}
+	if !strings.Contains(endpoint, *externalEndpointMainDomain) {
+		return fmt.Errorf("External endpoint should contain provided withMainDomain, %s, %s", endpoint, *externalEndpointMainDomain)
 	}
 	testFun := func() error {
 		out, err := h.RequestURLUntilWithCustomTransport(transport, http.MethodGet, endpoint+"/docs", nil, nil, 0, 0)

@@ -9,10 +9,10 @@ spec:
   # https://docs.solo.io/gloo-edge/latest/guides/traffic_management/request_processing/upstream_health_checks/
   - httpHealthCheck:
       path: {{ .Values.lbGlooRules.upstreamHealthCheckPath }}
-    healthyThreshold: 1
-    unhealthyThreshold: 3
-    interval: 30s
-    timeout: 10s
+    healthyThreshold: 2
+    unhealthyThreshold: 2
+    interval: 15s
+    timeout: 5s
   kube:
     serviceName: {{ .Values.apiServer.name }}-service
     serviceNamespace: {{ .Release.Namespace }}
@@ -51,7 +51,7 @@ spec:
           namespaces:
           - {{ .Release.Namespace }}
           labels:
-            domain: {{ .Values.workspaceName }}-deployments-header-based-routing
+            lepton.ai/gloo-route-table-domain: {{ .Values.workspaceName }}-deployments-header-based-routing
     # routes for api server
     - matchers:
       - prefix: /api/

@@ -48,9 +48,6 @@ func TestReplicaShell(t *testing.T) {
 }
 
 func TestReplicaShellQueryString(t *testing.T) {
-	if !*testDataPlaneRouting {
-		t.Skip("Dataplane routing not ready")
-	}
 	replicas, err := lepton.Replica().List(mainTestDeploymentName)
 	if err != nil {
 		t.Fatal(err)

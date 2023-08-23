@@ -17,13 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/solo-io/gloo/projects/gloo/cli/pkg/helpers"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -94,10 +97,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	ldr := &controller.LeptonDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		LBType: leptonaiv1alpha1.LeptonWorkspaceLBType(lbType),
+		GlooClients: controller.GlooClients{
+			VirtualServiceClient: helpers.MustNamespacedVirtualServiceClient(ctx, namespace),
+			RouteTableClient:     helpers.MustNamespacedRouteTableClient(ctx, namespace),
+			UpstreamClient:       helpers.MustNamespacedUpstreamClient(ctx, namespace),
+		},
 	}
 	go ldr.CleanupBadPodsPeriodically(namespace)
 

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
@@ -28,6 +29,9 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
+	soloclients "github.com/solo-io/solo-kit/pkg/api/v1/clients"
+	gloocore "github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
+	glooerrors "github.com/solo-io/solo-kit/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -43,6 +47,7 @@ import (
 // LeptonDeploymentReconciler reconciles a LeptonDeployment object
 type LeptonDeploymentReconciler struct {
 	client.Client
+	GlooClients
 	Scheme *runtime.Scheme
 	LBType leptonaiv1alpha1.LeptonWorkspaceLBType
 }
@@ -159,6 +164,7 @@ func (r *LeptonDeploymentReconciler) getDeployment(ctx context.Context, req ctrl
 func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context, req ctrl.Request,
 	ld *leptonaiv1alpha1.LeptonDeployment) error {
 	ldOr := getOwnerRefFromLeptonDeployment(ld)
+	glooOr := getGlooOwnerRefFromLeptonDeployment(ld)
 	_, err := r.createOrUpdateService(ctx, req, ld, []metav1.OwnerReference{*ldOr})
 	if err != nil {
 		return errors.New("failed to create or update Service: " + err.Error())
@@ -169,6 +175,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateResources(ctx context.Context
 	}
 	if err := r.createOrUpdateIngress(ctx, req, ld, []metav1.OwnerReference{*ldOr}); err != nil {
 		return errors.New("failed to create or update Ingress: " + err.Error())
+	}
+	if err := r.createOrUpdateLoadBalancerRules(ctx, req, ld, []*gloocore.Metadata_OwnerReference{glooOr}); err != nil {
+		return errors.New("failed to create or update shared load balancer: " + err.Error())
 	}
 
 	return nil
@@ -192,7 +201,12 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 		} else {
 			ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
 		}
-		ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
+		if r.LBType == leptonaiv1alpha1.WorkspaceLBTypeShared {
+			ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.SharedALBMainDomain).GetDeployment(ld.GetSpecName())
+
+		} else {
+			ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
+		}
 	}
 	return r.Status().Update(ctx, ld)
 }
@@ -526,6 +540,167 @@ func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv
 			"namespace", ld.Namespace,
 			"name", ld.Name,
 			"pvname", pvname,
+		)
+	}
+	return nil
+}
+
+func (r *LeptonDeploymentReconciler) createOrUpdateLoadBalancerRules(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
+	if err := r.createOrUpdateHeaderBasedLoadBalancerRules(ctx, req, ld, or); err != nil {
+		return err
+	}
+	if err := r.createOrUpdateHostBasedLoadBalancerRules(ctx, req, ld, or); err != nil {
+		return err
+	}
+	if err := r.createOrUpdateGlooUpstream(ctx, req, ld, or); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
+	maybeExistingRT, err := r.GlooClients.RouteTableClient.Read(ld.Namespace, createRouteTableName(ld), soloclients.ReadOpts{Ctx: ctx})
+	if err != nil {
+		if !glooerrors.IsNotExist(err) {
+			return fmt.Errorf("failed to get RouteTable, error is not IsNotExist: %w", err)
+		}
+		routeTable := createHeaderBasedDeploymentRouteTable(ld, or)
+		if routeTable == nil {
+			return fmt.Errorf("failed to create new route table, value is nil")
+		}
+
+		goutil.Logger.Infow("creating a new header based routeTable",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
+		if _, err := r.GlooClients.RouteTableClient.Write(routeTable, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+			return fmt.Errorf("failed to create new RouteTable: %w", err)
+		}
+
+		goutil.Logger.Infow("created a new header based routeTable",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+	} else {
+		routeTable := createHeaderBasedDeploymentRouteTable(ld, or)
+		if routeTable == nil {
+			return fmt.Errorf("failed to create new route table, value is nil")
+		}
+
+		goutil.Logger.Infow("updating an existing header based routeTable",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		maybeExistingRT.Routes = routeTable.Routes
+		maybeExistingRT.Metadata.OwnerReferences = routeTable.Metadata.OwnerReferences
+
+		maybeExistingRT.Metadata.Labels[RouteTaleDomainLabelKey] = routeTable.Metadata.Labels[RouteTaleDomainLabelKey]
+		if _, err := r.GlooClients.RouteTableClient.Write(maybeExistingRT, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+			return fmt.Errorf("failed to update existing RouteTable: %w", err)
+		}
+
+		goutil.Logger.Infow("updated an existing header based routeTable",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+	}
+	return nil
+}
+
+func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
+	maybeExistingVS, err := r.GlooClients.VirtualServiceClient.Read(ld.Namespace, createDeploymentVirtualServiceName(ld), soloclients.ReadOpts{Ctx: ctx})
+	if err != nil {
+		if !glooerrors.IsNotExist(err) {
+			return fmt.Errorf("failed to get VirtualService, error is not IsNotExist: %w", err)
+		}
+		virtualService := createHostBasedDeploymentVirtualService(ld, or)
+		if virtualService == nil {
+			return fmt.Errorf("failed to create new virtual service, value is nil")
+
+		}
+		goutil.Logger.Infow("creating a new host based virtual service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
+		if _, err := r.GlooClients.VirtualServiceClient.Write(virtualService, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+			return fmt.Errorf("failed to create new VirtualService: %w", err)
+		}
+
+		goutil.Logger.Infow("created a new host based virtual service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+	} else {
+		virtualService := createHostBasedDeploymentVirtualService(ld, or)
+
+		if virtualService == nil || virtualService.VirtualHost == nil {
+			return fmt.Errorf("failed to create new virtual service, value is nil")
+		}
+
+		goutil.Logger.Infow("updating an existing host based virtual service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		maybeExistingVS.VirtualHost = virtualService.VirtualHost
+		maybeExistingVS.Metadata.OwnerReferences = virtualService.Metadata.OwnerReferences
+		if _, err := r.GlooClients.VirtualServiceClient.Write(maybeExistingVS, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+			return fmt.Errorf("failed to update existing VirtualService: %w", err)
+		}
+
+		goutil.Logger.Infow("updated an existing host based virtual service",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+	}
+	return nil
+}
+
+func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
+	maybeExistingUpstream, err := r.GlooClients.UpstreamClient.Read(ld.Namespace, createGlooUpstreamName(ld), soloclients.ReadOpts{Ctx: ctx})
+	if err != nil {
+		if !glooerrors.IsNotExist(err) {
+			return fmt.Errorf("failed to get upstream, error is not IsNotExist: %w", err)
+		}
+		upstream := createGlooUpstream(ld, or)
+		if upstream == nil {
+			return fmt.Errorf("failed to create new upstream, value is nil")
+		}
+		goutil.Logger.Infow("creating a new upstream",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+
+		if _, err := r.GlooClients.UpstreamClient.Write(upstream, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+			return fmt.Errorf("failed to create new upstream: %w", err)
+		}
+
+		goutil.Logger.Infow("created a new upstream",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+	} else {
+		upstream := createGlooUpstream(ld, or)
+		if upstream == nil || upstream.UpstreamType == nil {
+			return fmt.Errorf("failed to create new upstream, value is nil")
+
+		}
+
+		goutil.Logger.Infow("updating an existing upstream",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		maybeExistingUpstream.UpstreamType = upstream.UpstreamType
+		maybeExistingUpstream.HealthChecks = upstream.HealthChecks
+		maybeExistingUpstream.Metadata.OwnerReferences = upstream.Metadata.OwnerReferences
+		if _, err := r.GlooClients.UpstreamClient.Write(maybeExistingUpstream, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+			return fmt.Errorf("failed to update existing upstream: %w", err)
+		}
+
+		goutil.Logger.Infow("updated an existing upstream",
+			"namespace", req.Namespace,
+			"name", req.Name,
 		)
 	}
 	return nil
