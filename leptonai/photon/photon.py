@@ -45,6 +45,7 @@ from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import create_limiter, BackgroundTask
+from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
@@ -713,6 +714,19 @@ class Photon(BasePhoton):
         else:
             method = asyncfy(method)
 
+        if kwargs.get("rate_limit") is not None:
+            rate_limiter = RateLimiter(kwargs["rate_limit"])
+
+            def check_rate_limit():
+                if not rate_limiter.hit():
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Rate limit exceeded, please try again later.",
+                    )
+
+        else:
+            rate_limiter = None
+
         if http_method.lower() == "post":
             vd = pydantic.decorator.validate_arguments(method).vd
 
@@ -728,6 +742,9 @@ class Photon(BasePhoton):
                 ),  # type: ignore
             )
             async def typed_handler(request: request_model):  # type: ignore
+                if rate_limiter is not None:
+                    check_rate_limit()
+
                 try:
                     res = await vd.execute(request)
                 except Exception as e:
@@ -748,6 +765,9 @@ class Photon(BasePhoton):
 
             @functools.wraps(method)
             async def typed_handler(*args, **kwargs):
+                if rate_limiter is not None:
+                    check_rate_limit()
+
                 try:
                     res = await method(*args, **kwargs)
                 except Exception as e:
