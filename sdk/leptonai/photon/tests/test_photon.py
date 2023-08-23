@@ -1182,6 +1182,27 @@ class StorePySrcFilePhoton(Photon):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.text, content)
 
+    def test_rate_limit(self):
+        class RateLimitedPhoton(Photon):
+            @Photon.handler(rate_limit="1/minute")
+            def slow(self):
+                return "slow"
+
+            @Photon.handler(rate_limit="1000/second")
+            def fast(self):
+                return "fast"
+
+        ph = RateLimitedPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        client = Client(f"http://127.0.0.1:{port}")
+        for i in range(3):
+            self.assertEqual(client.fast(), "fast")
+
+        res = client.slow()
+        self.assertEqual(res, "slow")
+        self.assertRaisesRegex(requests.exceptions.HTTPError, "429", client.slow)
+
 
 if __name__ == "__main__":
     unittest.main()
