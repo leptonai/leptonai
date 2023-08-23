@@ -16,11 +16,12 @@ type EKSCluster struct {
 	Status          string `json:"status"`
 	Health          string `json:"health"`
 	VPCID           string `json:"vpc_id"`
+	ClusterSGID     string `json:"cluster_sg_id"`
 }
 
 type EKSClusters []EKSCluster
 
-var EKSClustersCols = []string{"name", "region", "arn", "version", "platform version", "status", "health", "vpc id"}
+var EKSClustersCols = []string{"name", "region", "arn", "version", "platform version", "status", "health", "vpc id", "cluster sg id"}
 
 func (vss EKSClusters) String() string {
 	sort.SliceStable(vss, func(i, j int) bool {
@@ -47,6 +48,7 @@ func (vss EKSClusters) String() string {
 			v.Status,
 			v.Health,
 			v.VPCID,
+			v.ClusterSGID,
 		}
 		rows = append(rows, row)
 	}

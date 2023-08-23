@@ -257,6 +257,7 @@ func inspectCluster(
 		CreatedAt: *eksOut.Cluster.CreatedAt,
 
 		VPCID:             vpcID,
+		ClusterSGID:       *eksOut.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId,
 		AttachedELBv2ARNs: attachedELBs,
 
 		Endpoint:             endpoint,
@@ -330,6 +331,7 @@ type Cluster struct {
 	CreatedAt time.Time `json:"created-at"`
 
 	VPCID             string   `json:"vpc-id"`
+	ClusterSGID       string   `json:"cluster-sg-id"`
 	AttachedELBv2ARNs []string `json:"attached-elbv2-arns"`
 
 	Endpoint             string `json:"endpoint"`
@@ -369,6 +371,7 @@ func (c Cluster) String() string {
 	tb.Append([]string{"HEALTH", c.Health})
 	tb.Append([]string{"CREATED AT", c.CreatedAt.String()})
 	tb.Append([]string{"VPC ID", c.VPCID})
+	tb.Append([]string{"SG ID", c.ClusterSGID})
 	for i, arn := range c.AttachedELBv2ARNs {
 		tb.Append([]string{fmt.Sprintf("ATTACHED ELBv2 ARN #%d", i+1), arn})
 	}

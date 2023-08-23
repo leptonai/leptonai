@@ -69,13 +69,15 @@ func lsFunc(cmd *cobra.Command, args []string) {
 	rss := make(common.EKSClusters, 0, len(clusters))
 	for _, v := range clusters {
 		rss = append(rss, common.EKSCluster{
-			Name:    v.Name,
-			Region:  v.Region,
-			ARN:     v.ARN,
-			Version: v.Version,
-			Status:  v.Status,
-			Health:  v.Health,
-			VPCID:   v.VPCID,
+			Name:            v.Name,
+			Region:          v.Region,
+			ARN:             v.ARN,
+			Version:         v.Version,
+			PlatformVersion: v.PlatformVersion,
+			Status:          v.Status,
+			Health:          v.Health,
+			VPCID:           v.VPCID,
+			ClusterSGID:     v.ClusterSGID,
 		})
 	}
 	fmt.Println(rss.String())
