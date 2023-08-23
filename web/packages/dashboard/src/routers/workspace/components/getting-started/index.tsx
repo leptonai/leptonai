@@ -68,14 +68,10 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   <CodeBlock
-                    code="pip install --pre -U leptonai"
+                    code="pip install -U leptonai"
                     copyable={true}
                     language={LanguageSupports.Bash}
                   />
-                </Typography.Paragraph>
-                <Typography.Paragraph>
-                  Closed beta note: this will later be a direct pypi install but
-                  we are hosting on S3 for now for beta testing.
                 </Typography.Paragraph>
                 <Typography.Paragraph>
                   You can check that it is installed by running:
