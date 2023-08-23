@@ -129,19 +129,19 @@ prometheus:
     retention: 24h
     extraFlags:
       - web.enable-lifecycle
-      - storage.tsdb.retention.size=3GB
+      - storage.tsdb.retention.size=20GB
       - storage.tsdb.wal-compression
 
     # ref. https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage
     resources:
       requests:
         cpu: 1000m
-        memory: 2Gi
-        ephemeral-storage: 5Gi # for emptyDir
+        memory: 4Gi
+        ephemeral-storage: 40Gi # for emptyDir
       limits:
         cpu: 1500m
-        memory: 3Gi
-        ephemeral-storage: 6Gi # for emptyDir
+        memory: 6Gi
+        ephemeral-storage: 40Gi # for emptyDir
 
     # emptyDir writes data to local disk by default
     # emptyDir.medium field controls where emptyDir volumes are stored
@@ -152,7 +152,7 @@ prometheus:
     # ref. https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage
     # TODO: make prom server volume ephemeral storage
     emptyDir:
-      sizeLimit: 4Gi
+      sizeLimit: 40Gi
     persistentVolume:
       enabled: false
 

@@ -48,6 +48,13 @@ prometheus:
         sigv4:
           region: ${remote_write_region}
 
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 4Gi
+      limits:
+        cpu: 1500m
+        memory: 6Gi
     # do not use "emptyDir" as it counts towards pod memory usage
     #
     # do not use "volumeClaimTemplate" as AWS EBS is AZ bound, and
