@@ -78,10 +78,14 @@ func getReplicaReadinessIssue(ctx context.Context, pod *corev1.Pod) ReplicaReadi
 
 	scheduled := getConditionByType(conditions, corev1.PodScheduled)
 	if scheduled != nil && scheduled.Status == corev1.ConditionFalse {
+		// some special handling for the scheduling failure
+		// if we ever have a failed scheduling event, we should have a triggeredScaleUp event
+		// 	if we see triggeredScaleUp, then we are adding capacity for the replica
+		// 	if we see both triggeredScaleUp and notTriggerScaleUp, then we actually finished
+		// 	adding capacity for the replica but waiting for the taint to be applied on the node.
+
 		failedScheduleEvent := getLastEvent(events.Items, "", "FailedScheduling", "")
 		triggeredScaleUp := getLastEvent(events.Items, "", "TriggeredScaleUp", "")
-		// This usually happens as we have not correctly tainted the newly added node...
-		// And it happens after the triggeredScaleUp event.
 		notTriggerScaleUp := getLastEvent(events.Items, "", "NotTriggerScaleUp", "")
 		if failedScheduleEvent != nil {
 			if triggeredScaleUp != nil {
@@ -127,6 +131,22 @@ func getConditionByType(conditions []corev1.PodCondition, conditionType corev1.P
 }
 
 func getReadinessIssueFromEvents(events []eventsv1.Event) ReplicaReadinessIssue {
+	// If the last event is normal, then we are still in progress.
+	if lastEvent := getLastEvent(events, "", "", ""); lastEvent != nil && lastEvent.Type == "Normal" {
+		switch lastEvent.Reason {
+		case "Pulling":
+			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Pulling image"}
+		case "Pulled":
+			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Creating the replica"}
+		case "Created":
+			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Starting the replica"}
+		case "Started":
+			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Waiting for the replica to become ready"}
+		}
+		return ReplicaReadinessIssue{ReadinessReasonInProgress, ""}
+	}
+
+	// parse the known warning events
 	if lastEvent := getLastEvent(events, "Warning", "Failed", "Failed to pull image \"amazon/aws-cli\""); lastEvent != nil {
 		if strings.Contains(lastEvent.Note, "401 Unauthorized") {
 			return ReplicaReadinessIssue{ReadinessReasonConfigError, "Failed to pull image due to invalid dockerhub credentials"}
@@ -142,18 +162,13 @@ func getReadinessIssueFromEvents(events []eventsv1.Event) ReplicaReadinessIssue 
 	if lastEvent := getLastEvent(events, "Warning", "FailedMount", ""); lastEvent != nil {
 		return ReplicaReadinessIssue{ReadinessReasonConfigError, "Mount point not found"}
 	}
-	if lastEvent := getLastEvent(events, "Normal", "", ""); lastEvent != nil {
-		if lastEvent.Reason == "Pulling" {
-			return ReplicaReadinessIssue{ReadinessReasonInProgress, "Pulling image"}
-		}
-	}
 	if lastEvent := getLastEvent(events, "Warning", "Unhealthy", "Readiness probe failed"); lastEvent != nil {
 		return ReplicaReadinessIssue{ReadinessReasonInProgress, goutil.MaskIPAddressInReadinessProbeMessage(lastEvent.Note)}
 	}
 	if lastEvent := getLastEvent(events, "Warning", "", ""); lastEvent != nil {
 		return ReplicaReadinessIssue{ReadinessReasonUnknown, ""}
 	}
-	return ReplicaReadinessIssue{ReadinessReasonInProgress, ""}
+	return ReplicaReadinessIssue{ReadinessReasonUnknown, ""}
 }
 
 func getLastEvent(events []eventsv1.Event, eventType, eventReason, eventNotePrefix string) *eventsv1.Event {

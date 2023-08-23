@@ -108,6 +108,9 @@ func TestGetReadinessIssueFromEvents(t *testing.T) {
 	t.Run("BadRegistryToken", testGetReadinessIssueFromEventsBadRegistryToken)
 	t.Run("ReadinessProbe", testGetReadinessIssueFromEventsReadinessProbe)
 	t.Run("BackOffUnknown", testGetReadinessIssueFromEventsBackOffUnknown)
+	t.Run("ContainerCreating", testGetReadinessIssueFromEventsCreating)
+	t.Run("ContainerStarting", testGetReadinessIssueFromEventsStarting)
+	t.Run("ContainerWaitingForReady", testGetReadinessIssueFromEventsWaitingForReady)
 }
 
 func testGetReadinessIssueFromEventsNonExistSecret(t *testing.T) {
@@ -210,6 +213,73 @@ Warning  Unhealthy  0s    kubelet            Readiness probe failed: dial tcp 10
 	}
 	if issue.Message != "Readiness probe failed: dial tcp port 8080: connect: connection refused" {
 		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Message, "Readiness probe failed: dial tcp port 8080: connect: connection refused")
+	}
+}
+
+func testGetReadinessIssueFromEventsStarting(t *testing.T) {
+	s := `
+Normal   Scheduled  11s   default-scheduler  Successfully assigned ws-ccding/newgpt2-5567f95f86-5b9m6 to ip-10-0-14-170.ec2.internal
+Normal   Pulling    10s   kubelet            Pulling image "amazon/aws-cli"
+Normal   Pulled     10s   kubelet            Successfully pulled image "amazon/aws-cli" in 142.711137ms (142.722916ms including waiting)
+Normal   Created    10s   kubelet            Created container env-preparation
+Normal   Started    10s   kubelet            Started container env-preparation
+Normal   Pulling    9s    kubelet            Pulling image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10-runner-0.8.0-alpha.2"
+Normal   Pulled     8s    kubelet            Successfully pulled image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10-runner-0.8.0-alpha.2" in 134.78012ms (134.80177ms including waiting)
+Normal   Created    8s    kubelet            Created container main-container
+`
+	events := parseStringToEvents(s)
+	issue := getReadinessIssueFromEvents(events)
+	if issue.Reason != ReadinessReasonInProgress {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Reason, ReadinessReasonInProgress)
+	}
+	if issue.Message != "Starting the replica" {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Message, "Starting the replica")
+	}
+}
+
+func testGetReadinessIssueFromEventsCreating(t *testing.T) {
+	s := `
+Normal   Scheduled  11s   default-scheduler  Successfully assigned ws-ccding/newgpt2-5567f95f86-5b9m6 to ip-10-0-14-170.ec2.internal
+Normal   Pulling    10s   kubelet            Pulling image "amazon/aws-cli"
+Normal   Pulled     10s   kubelet            Successfully pulled image "amazon/aws-cli" in 142.711137ms (142.722916ms including waiting)
+Normal   Created    10s   kubelet            Created container env-preparation
+Normal   Started    10s   kubelet            Started container env-preparation
+Normal   Pulling    9s    kubelet            Pulling image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10-runner-0.8.0-alpha.2"
+Normal   Pulled     8s    kubelet            Successfully pulled image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10-runner-0.8.0-alpha.2" in 134.78012ms (134.80177ms including waiting)
+`
+	events := parseStringToEvents(s)
+	issue := getReadinessIssueFromEvents(events)
+	if issue.Reason != ReadinessReasonInProgress {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Reason, ReadinessReasonInProgress)
+	}
+	if issue.Message != "Creating the replica" {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Message, "Creating the replica")
+	}
+}
+
+func testGetReadinessIssueFromEventsWaitingForReady(t *testing.T) {
+	s := `
+	Warning  FailedScheduling   25m                 default-scheduler   0/3 nodes are available: 3 node(s) didn't match Pod's node affinity/selector. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..
+	Normal   TriggeredScaleUp   25m                 cluster-autoscaler  pod triggered scale-up: [{eks-dev01awsuseast1-ubuntu-x86_64-g4dnxlarge-v1-4ec4fa7d-29a5-bfc8-be16-1e273cfc2002 0->1 (max: 3)}]
+	Warning  FailedScheduling   20m                 default-scheduler   0/4 nodes are available: 4 node(s) didn't match Pod's node affinity/selector. preemption: 0/4 nodes are available: 4 Preemption is not helpful for scheduling..
+	Normal   NotTriggerScaleUp  20m                 cluster-autoscaler  pod didn't trigger scale-up: 3 node(s) didn't match Pod's node affinity/selector
+	Normal   Scheduled          19m                 default-scheduler   Successfully assigned ws-latest/xiang-test-59499b5565-xnjj4 to ip-10-0-38-100.ec2.internal
+	Normal   Pulling            19m                 kubelet             Pulling image "amazon/aws-cli"
+	Normal   Pulled             19m                 kubelet             Successfully pulled image "amazon/aws-cli" in 8.354485313s (8.354503592s including waiting)
+	Normal   Created            19m                 kubelet             Created container env-preparation
+	Normal   Started            19m                 kubelet             Started container env-preparation
+	Normal   Pulling            19m                 kubelet             Pulling image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11-runner-0.8.0-alpha.2"
+	Normal   Pulled             19m                 kubelet             Successfully pulled image "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11-runner-0.8.0-alpha.2" in 11.061640155s (11.061648214s including waiting)
+	Normal   Created            19m                 kubelet             Created container main-container
+	Normal   Started            18m                 kubelet             Started container main-container
+`
+	events := parseStringToEvents(s)
+	issue := getReadinessIssueFromEvents(events)
+	if issue.Reason != ReadinessReasonInProgress {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Reason, ReadinessReasonInProgress)
+	}
+	if issue.Message != "Waiting for the replica to become ready" {
+		t.Errorf("getReadinessIssueFromEvents(%v) = %v, want %v", s, issue.Message, "Waiting for the replica to become ready")
 	}
 }
 
