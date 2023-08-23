@@ -189,11 +189,6 @@ export const StableDiffusionXl: FC = () => {
                 background-size: cover;
                 background-position: center;
                 text-align: center;
-                img {
-                  width: auto;
-                  max-width: 100%;
-                  max-height: 100%;
-                }
               `}
             >
               <ImageResult

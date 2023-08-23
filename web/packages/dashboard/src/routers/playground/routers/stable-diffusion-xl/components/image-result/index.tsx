@@ -17,7 +17,24 @@ export const ImageResult: FC<{
   const theme = useAntdTheme();
   if (result) {
     return (
-      <>
+      <div
+        css={css`
+          height: 100%;
+          width: 100%;
+          .ant-image {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          img {
+            width: auto !important;
+            height: auto !important;
+            max-width: 100%;
+            max-height: 100%;
+          }
+        `}
+      >
         <div
           css={css`
             position: absolute;
@@ -42,7 +59,6 @@ export const ImageResult: FC<{
           icon={<CarbonIcon icon={<Download />} />}
         />
         <AntdImage
-          height="100%"
           preview={{
             imageRender: (node, { transform }) => {
               const scale = transform.scale * 1.5;
@@ -58,11 +74,10 @@ export const ImageResult: FC<{
               });
             },
           }}
-          width="auto"
           alt={prompt || ""}
           src={result}
         />
-      </>
+      </div>
     );
   }
   return (
