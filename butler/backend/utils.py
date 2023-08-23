@@ -98,8 +98,8 @@ def insert_workspace_to_db(workspace_name, workspace_display_name):
             + len("mothership "): mothership_url.find("/api")
         ]
     )
-    query = "INSERT INTO workspaces (id, display_name, url, tier) VALUES \
-        ('{}', '{}', '{}', 'Basic')".format(
+    query = "INSERT INTO workspaces (id, display_name, url, tier, chargeable) VALUES \
+        ('{}', '{}', '{}', 'Basic', 'FALSE')".format(
         workspace_name, workspace_display_name, workspace_url
     )
     database.execute_sql(query)
