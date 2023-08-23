@@ -84,7 +84,7 @@ export const Container: FC<{
                 size="small"
                 icon={<CarbonIcon icon={<Share />} />}
               >
-                Share
+                {md ? "Share" : null}
               </Button>
             </Popover>
           </Space>
