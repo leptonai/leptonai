@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-metering.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: metering.rules
+      rules:
+        - alert: NoMeteringData
+          annotations:
+            description: No metering data updates for the past 20 mins
+            runbook_url: https://todo.com
+            summary: No metering data updates for the past 20 mins
+          expr: |-
+            sum(max_over_time(kube_pod_info{}[20m])) < 1
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MeteringHourlyAggregateOperationFailure
+          annotations:
+            description: Metering hourly aggregate operation failure
+            runbook_url: https://todo.com
+            summary: Metering hourly aggregate operation failure
+          expr: |-
+            sum(max_over_time(
+              label_replace(
+                {__name__=~"prometheus_.*fail.*_total|prometheus_.*error.*_total"},
+                "name_label",
+                "$1",
+                "__name__",
+                "(.+)"
+              )[1h:])) > 10
+          for: 1m
+          labels:
+            severity: critical

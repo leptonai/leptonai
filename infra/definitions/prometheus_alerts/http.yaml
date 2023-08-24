@@ -1,0 +1,74 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-http.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: http.rules
+      rules:
+        - alert: APIServer500ErrorRate
+          annotations:
+            description: API server 500 error rate is elevated for the past 5 mins
+            runbook_url: https://todo.com
+            summary: API server 500 error rate is elevated
+          expr: |-
+            increase(apiserver_request_total{code="500"}[5m]) > 3
+          for: 1m
+          labels:
+            severity: critical
+        - alert: Mothership500ErrorRate
+          annotations:
+            description: Mothership 500 error rate is elevated for the past 5 mins
+            runbook_url: https://todo.com
+            summary: Mothership 500 error rate is elevated
+          expr: |-
+            increase(mothership{code="500"}[5m]) > 3
+          for: 1m
+          labels:
+            severity: critical
+        - alert: APIServerP99Latency
+          annotations:
+            description: API sever P99 latency is higher than 500 ms
+            runbook_url: https://todo.com
+            summary: API sever P99 latency is higher than 500 ms
+          expr: |-
+            histogram_quantile(0.99, sum(increase(apiserver_request_duration_seconds_bucket{}[5m])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipP99Latency
+          annotations:
+            description: Mothership P99 latency is higher than 500 ms
+            runbook_url: https://todo.com
+            summary: Mothership P99 latency is higher than 500 ms
+          expr: |-
+            histogram_quantile(0.99, sum(increase(mothership_request_duration_seconds_bucket{}[5m])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipAsyncWorkspaceJobFailureRate
+          annotations:
+            description: Mothership async workspace job failure rate is elevated for the past 30 mins
+            runbook_url: https://todo.com
+            summary: Mothership async workspace job failure rate is elevated for the past 30 mins
+          expr: |-
+            increase(mothership_workspace_jobs_failure_total[1m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipAsyncClusterJobFailureRate
+          annotations:
+            description: Mothership async cluster job failure rate is elevated for the past 30 mins
+            runbook_url: https://todo.com
+            summary: Mothership async cluster job failure rate is elevated for the past 30 mins
+          expr: |-
+            increase(mothership_cluster_jobs_failure_total[1m]) > 0
+          for: 1m
+          labels:
+            severity: critical
