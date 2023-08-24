@@ -2,13 +2,20 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
+
 spec:
   hostNetwork: true
+
   tolerations:
-    - key: virtual-kubelet.io/provider
+    - key: lepton.io/provider
+      value: lambda
       operator: Equal
-      value: ec2
       effect: NoSchedule
+    - key: nvidia.com/gpu
+      value: ""
+      operator: Exists
+      effect: NoSchedule
+
   containers:
     - name: nginx
       image: nginx:latest

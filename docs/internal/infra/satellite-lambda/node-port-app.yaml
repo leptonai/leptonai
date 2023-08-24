@@ -7,18 +7,24 @@ spec:
   selector:
     matchLabels:
       run: my-app
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
         run: my-app
     spec:
       hostNetwork: true
+
       tolerations:
-        - key: virtual-kubelet.io/provider
+        - key: lepton.io/provider
+          value: lambda
           operator: Equal
-          value: ec2
           effect: NoSchedule
+        - key: nvidia.com/gpu
+          value: ""
+          operator: Exists
+          effect: NoSchedule
+
       containers:
         - name: my-app
           image: lvthillo/python-flask-docker
