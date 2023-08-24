@@ -2,7 +2,7 @@ import { Injectable } from "injection-js";
 import { ReplaySubject } from "rxjs";
 
 @Injectable()
-export class TitleService {
+export class MetaService {
   title$ = new ReplaySubject<string>(1);
   setTitle(title: string, setToImage = false) {
     const ogTitle = document.querySelector("meta[property='og:title']");
@@ -31,5 +31,15 @@ export class TitleService {
     }
 
     this.title$.next(title);
+  }
+
+  setURLPath(urlPath?: string) {
+    // Only available on production
+    const url = new URL("https://dashboard.lepton.ai/");
+    url.pathname = urlPath ?? window.location.pathname;
+    const ogURL = document.querySelector("meta[property='og:url']");
+    if (ogURL) {
+      ogURL.setAttribute("content", url.toString());
+    }
   }
 }

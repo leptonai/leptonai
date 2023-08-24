@@ -15,7 +15,7 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Image, MagicWandFilled } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { TitleService } from "@lepton-dashboard/services/title.service";
+import { MetaService } from "@lepton-dashboard/services/meta.service";
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -29,8 +29,9 @@ const getRandom = () => {
 
 export const StableDiffusionXl: FC = () => {
   const theme = useAntdTheme();
-  const titleService = useInject(TitleService);
-  titleService.setTitle("🏞️ Stable Diffusion XL", true);
+  const metaService = useInject(MetaService);
+  metaService.setTitle("🏞️ Stable Diffusion XL", true);
+  metaService.setURLPath();
   const [loading, setLoading] = useState(false);
   const [hasResponse, setHasResponse] = useState(false);
   const abortController = useRef<AbortController | null>(null);

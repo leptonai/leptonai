@@ -13,7 +13,7 @@ import {
 } from "react-router-dom";
 import { ThemeProvider } from "@lepton-dashboard/components/theme-provider";
 import { ThemeService } from "@lepton-dashboard/services/theme.service";
-import { TitleService } from "@lepton-dashboard/services/title.service";
+import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { InitializerService } from "@lepton-dashboard/services/initializer.service";
 import { RefreshService } from "@lepton-dashboard/services/refresh.service";
 import { Root } from "@lepton-dashboard/components/root";
@@ -168,7 +168,7 @@ function App() {
     <DIContainer
       providers={[
         ThemeService,
-        TitleService,
+        MetaService,
         InitializerService,
         RefreshService,
         AxiosHandler,

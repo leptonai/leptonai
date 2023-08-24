@@ -19,11 +19,12 @@ import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observ
 import pathJoin from "@lepton-libs/url/path-join";
 import { FC, useCallback, useRef, useState } from "react";
 import { filter, map, Subscription, switchMap, throttleTime } from "rxjs";
-import { TitleService } from "@lepton-dashboard/services/title.service";
+import { MetaService } from "@lepton-dashboard/services/meta.service";
 
 export const Llama2: FC = () => {
-  const titleService = useInject(TitleService);
-  titleService.setTitle("🦙 Llama2", true);
+  const metaService = useInject(MetaService);
+  metaService.setTitle("🦙 Llama2", true);
+  metaService.setURLPath();
   const [option, setOption] = useState<ChatOption>({
     max_tokens: 512,
     top_p: 0.8,
