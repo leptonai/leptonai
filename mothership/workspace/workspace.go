@@ -61,6 +61,7 @@ func New(rootDomain, storeNamespace, certificateARN, sharedAlbRootDomain string,
 	)
 	w.Worker = worker.New()
 	w.Cluster = cluster
+	go w.Init()
 	return w
 }
 
