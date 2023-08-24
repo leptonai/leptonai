@@ -185,6 +185,14 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 		return
 	}
 	if err != nil {
+		if httperrors.IsClientConnectionLost(err) {
+			goutil.Logger.Debugw("client connection lost",
+				"operation", "getLogs",
+				"replica", rid,
+			)
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "client connection lost"})
+			return
+		}
 		goutil.Logger.Errorw("failed to get logs for replica",
 			"operation", "getLogs",
 			"replica", rid,
@@ -210,6 +218,14 @@ func (h *ReplicaHandler) Log(c *gin.Context) {
 	}
 
 	if err != nil && err != io.EOF && err != context.Canceled {
+		if httperrors.IsClientConnectionLost(err) {
+			goutil.Logger.Debugw("client connection lost",
+				"operation", "getLogs",
+				"replica", rid,
+			)
+			c.JSON(http.StatusBadRequest, gin.H{"code": httperrors.ErrorCodeValidationError, "message": "client connection lost"})
+			return
+		}
 		goutil.Logger.Errorw("failed to stream logs for replica",
 			"operation", "getLogs",
 			"replica", rid,
