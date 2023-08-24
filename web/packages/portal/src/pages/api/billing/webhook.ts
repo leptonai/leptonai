@@ -66,20 +66,40 @@ const handler: NextApiHandler<Stripe.Event | string> = async (req, res) => {
       case "customer.subscription.updated":
         const subscription = event.data.object as Stripe.Subscription;
         if (subscription.metadata.workspace_id) {
-          if (subscription.status === "past_due") {
+          const uncollectableInvoices = await stripeClient.invoices.list({
+            subscription: subscription.id,
+            status: "uncollectible",
+            limit: 1,
+          });
+
+          const openInvoices = await stripeClient.invoices.list({
+            subscription: subscription.id,
+            status: "open",
+            limit: 1,
+          });
+
+          const hasUnpaidInvoice =
+            uncollectableInvoices.data.length > 0 ||
+            openInvoices.data.length > 0;
+
+          const status: Stripe.Subscription.Status = hasUnpaidInvoice
+            ? "past_due"
+            : "active";
+
+          if (status === "past_due") {
             // TODO: mothership terminate workspace if active
           }
-          if (subscription.status === "active") {
+          if (status === "active") {
             // TODO: mothership resume workspace if terminate
           }
           await supabaseAdminClient
             .from("workspaces")
-            .update({ status: subscription.status })
+            .update({ status })
             .eq("id", subscription.metadata.workspace_id);
           res
             .status(200)
             .send(
-              `Update workspace ${subscription.metadata.workspace_id} to ${subscription.status}`
+              `Update workspace ${subscription.metadata.workspace_id} to ${status}`
             );
           return;
         } else {
