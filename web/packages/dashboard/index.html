@@ -36,5 +36,17 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script type="text/javascript" id="__prerender_injected">
+      if(window['__PRERENDER_INJECTED']) {
+        // cleanup the prerendered content to avoid flickering
+        setTimeout(() => {
+          document.getElementById('root').innerHTML = '';
+          document.querySelectorAll('style').forEach((el) => {
+            el.remove();
+          })
+        }, 4000)
+      }
+      document.getElementById('__prerender_injected').remove();
+    </script>
   </body>
 </html>

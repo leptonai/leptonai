@@ -5,7 +5,9 @@ import typescript from "@rollup/plugin-typescript";
 import checker from "vite-plugin-checker";
 import injectionTransformer from "./libs/transformer";
 import { viteStaticCopy } from "vite-plugin-static-copy";
+import prerender from "@prerenderer/rollup-plugin";
 
+const skipPreRender = process.env.SKIP_PRERENDER;
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
@@ -87,6 +89,15 @@ export default defineConfig(({ mode }) => {
           },
         ],
       }),
+      skipPreRender
+        ? null
+        : prerender({
+            routes: ["/playground/llama2", "/playground/sdxl"],
+            rendererOptions: {
+              renderAfterTime: 5000,
+              inject: true,
+            },
+          }),
     ],
   };
 });

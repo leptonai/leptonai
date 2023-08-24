@@ -11,6 +11,8 @@ RUN npm install -g pnpm@8
 
 # Skip install Cypress binary
 ENV CYPRESS_INSTALL_BINARY=0
+# Skip pre-render
+ENV SKIP_PRERENDER=1
 
 # Install dependencies
 RUN pnpm install

@@ -132,7 +132,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
       - uses: pnpm/action-setup@v2
         name: Install pnpm
         with:
@@ -160,7 +159,9 @@ jobs:
       - name: Install Dependencies
         working-directory: web
         run: pnpm install
-
+      - name: Install Puppeteer
+        working-directory: web/packages/dashboard
+        run: node node_modules/puppeteer/install.js
       - name: Download cypress binary
         working-directory: web/packages/dashboard
         run: pnpm cypress:install
