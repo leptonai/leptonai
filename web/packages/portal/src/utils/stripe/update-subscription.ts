@@ -1,10 +1,12 @@
-import { AvailableProducts } from "@/utils/stripe/available-products";
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getAvailableProducts } from "@/utils/stripe/available-products";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 
 export async function updateCustomerAmountGTE(
   customer: string,
-  amountGTE: number
+  amountGTE: number,
+  chargeable: boolean
 ) {
+  const stripeClient = getStripeClient(chargeable);
   const { data: subscriptions } = await stripeClient.subscriptions.list({
     customer,
   });
@@ -21,13 +23,17 @@ export async function updateCustomerAmountGTE(
   return subscriptions.map(({ id }) => id);
 }
 
-export async function updateSubscriptionItems(subscriptionId: string) {
+export async function updateSubscriptionItems(
+  subscriptionId: string,
+  chargeable: boolean
+) {
+  const stripeClient = getStripeClient(chargeable);
   const subscription = await stripeClient.subscriptions.retrieve(
     subscriptionId
   );
   const previousItems = subscription.items.data || [];
 
-  const updatedItems = AvailableProducts.filter(
+  const updatedItems = getAvailableProducts(chargeable).filter(
     (p) => !previousItems.find((i) => i.price.id === p.price)
   );
 

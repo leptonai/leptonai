@@ -1,4 +1,4 @@
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 import { updateCustomerAmountGTE } from "@/utils/stripe/update-subscription";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { buffer } from "micro";
@@ -8,7 +8,6 @@ import { updateWorkspaceByConsumerId } from "@/utils/workspace";
 import { withLogging } from "@/utils/logging";
 
 export const config = { api: { bodyParser: false } };
-
 /**
  * @openapi
  * /api/billing/webhook:
@@ -29,6 +28,11 @@ export const config = { api: { bodyParser: false } };
  *           * Update workspace payment_method_attached
  *     tags: [Billing]
  *     parameters:
+ *       - in: query
+ *         name: prod
+ *         description: is stripe prod env
+ *         schema:
+ *           type: string
  *       - in: header
  *         name: stripe-signature
  *         description: The signature of the event
@@ -44,15 +48,21 @@ export const config = { api: { bodyParser: false } };
  */
 const handler: NextApiHandler<Stripe.Event | string> = async (req, res) => {
   const sig = req.headers["stripe-signature"]!;
+  const chargeable = req.query.prod === "enable";
+
   let event;
 
   const reqBuffer = await buffer(req);
+
+  const stripeClient = getStripeClient(chargeable);
 
   try {
     event = stripeClient.webhooks.constructEvent(
       reqBuffer,
       sig,
-      process.env.STRIPE_SIGNING_SECRET!
+      chargeable
+        ? process.env.STRIPE_PROD_SIGNING_SECRET!
+        : process.env.STRIPE_TEST_SIGNING_SECRET!
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -124,7 +134,8 @@ const handler: NextApiHandler<Stripe.Event | string> = async (req, res) => {
 
         const incrementIds = await updateCustomerAmountGTE(
           paymentMethodAttached.customer as string,
-          5000
+          5000,
+          chargeable
         );
         res
           .status(200)
@@ -153,7 +164,8 @@ const handler: NextApiHandler<Stripe.Event | string> = async (req, res) => {
 
           const decrementIds = await updateCustomerAmountGTE(
             paymentMethodDetached.customer as string,
-            50
+            50,
+            chargeable
           );
           res
             .status(200)

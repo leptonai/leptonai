@@ -1,4 +1,4 @@
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { NextApiRequest, NextApiResponse } from "next";
 import { withLogging } from "@/utils/logging";
@@ -18,7 +18,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // 1. Select consumer_id, subscription_id and coupon_id where status equal active and coupon_id not null
     const { data: workspaces, error } = await supabaseAdminClient
       .from("workspaces")
-      .select("id, consumer_id, subscription_id, coupon_id")
+      .select("id, consumer_id, subscription_id, coupon_id, chargeable")
       .eq("status", "active")
       .not("coupon_id", "is", null)
       .not("consumer_id", "is", null)
@@ -34,31 +34,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const expired: { id: string }[] = [];
     if (workspaces && workspaces.length) {
       await Promise.all(
-        workspaces.map((w) =>
-          stripeClient.subscriptions.retrieve(w.subscription_id!).then((s) => {
-            if (
-              datesAreOnSameDay(
-                new Date(s.current_period_start * 1000),
-                new Date()
-              )
-            ) {
-              if (w.coupon_id) {
-                granted.push({ id: w.id, coupon_id: w.coupon_id });
-                return stripeClient.customers
-                  .update(w.consumer_id!, {
-                    coupon: w.coupon_id!,
-                  })
-                  .then(() => true);
-              } else {
-                expired.push({ id: w.id });
-                return stripeClient.customers
-                  .deleteDiscount(w.consumer_id!)
-                  .then(() => true);
+        workspaces.map((w) => {
+          const stripeClient = getStripeClient(w.chargeable);
+          return stripeClient.subscriptions
+            .retrieve(w.subscription_id!)
+            .then((s) => {
+              if (
+                datesAreOnSameDay(
+                  new Date(s.current_period_start * 1000),
+                  new Date()
+                )
+              ) {
+                if (w.coupon_id) {
+                  granted.push({ id: w.id, coupon_id: w.coupon_id });
+                  return stripeClient.customers
+                    .update(w.consumer_id!, {
+                      coupon: w.coupon_id!,
+                    })
+                    .then(() => true);
+                } else {
+                  expired.push({ id: w.id });
+                  return stripeClient.customers
+                    .deleteDiscount(w.consumer_id!)
+                    .then(() => true);
+                }
               }
-            }
-            return true;
-          })
-        )
+              return true;
+            });
+        })
       );
     }
     res.status(200).json({ granted, expired });

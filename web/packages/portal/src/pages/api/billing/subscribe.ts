@@ -1,52 +1,7 @@
-import { AvailableCoupons } from "@/utils/stripe/available-coupons";
-import { AvailableProducts } from "@/utils/stripe/available-products";
-import { stripeClient } from "@/utils/stripe/stripe-client";
-import { supabaseAdminClient } from "@/utils/supabase";
+import { setupWorkspaceSubscription } from "@/utils/stripe/setup-workspace-subscription";
+import { Database } from "@lepton/database";
 import type { NextApiHandler } from "next";
 import { withLogging } from "@/utils/logging";
-
-/**
- * @openapi
- * definitions:
- *   SubscribeRecord:
- *     type: object
- *     required: [id]
- *     properties:
- *       id:
- *         type: string
- *         description: The workspace ID
- *   SubscribeBody:
- *     type: object
- *     required: [record]
- *     properties:
- *       record:
- *         description: The subscription record
- *         $ref: '#/definitions/SubscribeRecord'
- */
-interface SubscribeBody {
-  record: {
-    id: string;
-  };
-}
-
-/**
- * @openapi
- * definitions:
- *   SubscribeResponse:
- *     type: object
- *     required: [consumer_id, subscription_id]
- *     properties:
- *       consumer_id:
- *         type: string
- *         description: The Stripe customer ID
- *       subscription_id:
- *         type: string
- *         description: The Stripe subscription ID
- */
-interface SubscribeResponse {
-  consumer_id: string;
-  subscription_id: string;
-}
 
 /**
  * @openapi
@@ -63,12 +18,14 @@ interface SubscribeResponse {
  *         description: Subscription record
  *         required: true
  *         schema:
- *           $ref: '#/definitions/SubscribeBody'
+ *           type: object
+ *           description: workspace table schema
  *     responses:
  *       200:
  *         description: The subscription record
  *         schema:
- *           $ref: '#/definitions/SubscribeResponse'
+ *           type: object
+ *           description: workspace table schema
  *       401:
  *         description: Unauthorized
  *         schema:
@@ -78,56 +35,21 @@ interface SubscribeResponse {
  *         schema:
  *           type: string
  */
-const handler: NextApiHandler<SubscribeResponse | string> = async (
-  req,
-  res
-) => {
+const handler: NextApiHandler<
+  Database["public"]["Tables"]["workspaces"]["Update"] | string
+> = async (req, res) => {
   if (
     req.method !== "POST" ||
     req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
   ) {
     return res.status(401).send("You are not authorized to call this API");
   }
-
   try {
-    const body: SubscribeBody = req.body;
-    const workspace_id = body.record.id;
-
-    const coupon = AvailableCoupons["10"];
-
-    const consumer = await stripeClient.customers.create({
-      metadata: {
-        workspace_id,
-      },
-      coupon,
-    });
-
-    const subscription = await stripeClient.subscriptions.create({
-      customer: consumer.id,
-      metadata: {
-        workspace_id,
-      },
-      billing_thresholds: {
-        amount_gte: 50,
-        reset_billing_cycle_anchor: false,
-      },
-      items: AvailableProducts,
-    });
-
-    const updated = {
-      consumer_id: consumer.id,
-      subscription_id: subscription.id,
-    };
-
-    await supabaseAdminClient
-      .from("workspaces")
-      .update({
-        consumer_id: consumer.id,
-        subscription_id: subscription.id,
-        coupon_id: coupon,
-      })
-      .eq("id", workspace_id);
-
+    const workspace: Database["public"]["Tables"]["workspaces"]["Row"] =
+      req.body.record;
+    const workspaceId = workspace.id;
+    const chargeable = workspace.chargeable;
+    const updated = await setupWorkspaceSubscription(workspaceId, chargeable);
     res.status(200).json(updated);
   } catch (err) {
     const errorMessage =

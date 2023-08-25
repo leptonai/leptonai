@@ -280,17 +280,17 @@ Subscribe a workspace to a plan
 
 ##### Parameters
 
-| Name | Located in | Description         | Required | Schema                          |
-| ---- | ---------- | ------------------- | -------- | ------------------------------- |
-| body | body       | Subscription record | Yes      | [SubscribeBody](#subscribebody) |
+| Name | Located in | Description         | Required | Schema |
+| ---- | ---------- | ------------------- | -------- | ------ |
+| body | body       | Subscription record | Yes      | object |
 
 ##### Responses
 
-| Code | Description             | Schema                                  |
-| ---- | ----------------------- | --------------------------------------- |
-| 200  | The subscription record | [SubscribeResponse](#subscriberesponse) |
-| 401  | Unauthorized            | string                                  |
-| 500  | Internal server error   | string                                  |
+| Code | Description             | Schema |
+| ---- | ----------------------- | ------ |
+| 200  | The subscription record | object |
+| 401  | Unauthorized            | string |
+| 500  | Internal server error   | string |
 
 ##### Security
 
@@ -325,6 +325,7 @@ Events handled:
 
 | Name             | Located in | Description                | Required | Schema |
 | ---------------- | ---------- | -------------------------- | -------- | ------ |
+| prod             | query      | is stripe prod env         | No       | string |
 | stripe-signature | header     | The signature of the event | Yes      | string |
 
 ##### Responses
@@ -455,25 +456,6 @@ A [usage record](https://stripe.com/docs/api/usage_records/object)
 | Name   | Type                                                  | Description             | Required |
 | ------ | ----------------------------------------------------- | ----------------------- | -------- |
 | record | [ReportStorageUsageRecord](#reportstorageusagerecord) | The usage report record | Yes      |
-
-#### SubscribeRecord
-
-| Name | Type   | Description      | Required |
-| ---- | ------ | ---------------- | -------- |
-| id   | string | The workspace ID | Yes      |
-
-#### SubscribeBody
-
-| Name   | Type                                | Description             | Required |
-| ------ | ----------------------------------- | ----------------------- | -------- |
-| record | [SubscribeRecord](#subscriberecord) | The subscription record | Yes      |
-
-#### SubscribeResponse
-
-| Name            | Type   | Description                | Required |
-| --------------- | ------ | -------------------------- | -------- |
-| consumer_id     | string | The Stripe customer ID     | Yes      |
-| subscription_id | string | The Stripe subscription ID | Yes      |
 
 #### WorkspaceInfo
 

@@ -1,5 +1,5 @@
 import { cors } from "@/utils/cors";
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 import { getWorkspaceById } from "@/utils/workspace";
 import {
   NextApiWithSupabaseHandler,
@@ -63,6 +63,7 @@ const handler: NextApiWithSupabaseHandler = async (req, res, supabase) => {
       if (!consumerId) {
         return res.status(412).send("Workspace has no consumer_id");
       }
+      const stripeClient = getStripeClient(workspace.chargeable);
       const session = await stripeClient.billingPortal.sessions.create({
         customer: consumerId,
         return_url: `https://dashboard.lepton.ai/workspace/${workspaceId}/settings/billing`,

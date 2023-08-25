@@ -1,5 +1,5 @@
 import { cors } from "@/utils/cors";
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 import { getWorkspaceById } from "@/utils/workspace";
 import {
   NextApiWithSupabaseHandler,
@@ -118,6 +118,7 @@ const handler: NextApiWithSupabaseHandler<Invoice | string> = async (
     if (!workspace) {
       return res.status(401).send("You are not authorized to call this API");
     } else {
+      const stripeClient = getStripeClient(workspace.chargeable);
       const subscription = workspace.subscription_id;
       if (!subscription) {
         return res.status(412).send("Workspace has no subscription");

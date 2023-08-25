@@ -1,32 +1,54 @@
 import Stripe from "stripe";
 
-export const AvailableProducts: Stripe.SubscriptionCreateParams.Item[] = [
+const AvailableProducts: Array<{
+  test_price_id: string;
+  prod_price_id: string;
+  metadata: { shape: string };
+}> = [
   {
-    price: "price_1NVbn2BcUfXYxWWViU0XrNgA",
+    prod_price_id: "price_1NicCpBcUfXYxWWVJuS2SDxU",
+    test_price_id: "price_1NVbn2BcUfXYxWWViU0XrNgA",
     metadata: { shape: "cpu.small" },
   },
   {
-    price: "price_1NVbnlBcUfXYxWWVpXUeFNnl",
+    prod_price_id: "price_1NicClBcUfXYxWWVTzdKsDkQ",
+    test_price_id: "price_1NVbnlBcUfXYxWWVpXUeFNnl",
     metadata: { shape: "cpu.medium" },
   },
   {
-    price: "price_1NVboUBcUfXYxWWVLB9kZXzA",
+    prod_price_id: "price_1NicCiBcUfXYxWWVaHCgh9As",
+    test_price_id: "price_1NVboUBcUfXYxWWVLB9kZXzA",
     metadata: { shape: "cpu.large" },
   },
   {
-    price: "price_1NVbpbBcUfXYxWWVTfS6a74e",
+    prod_price_id: "price_1NicCPBcUfXYxWWVmqqm5eIN",
+    test_price_id: "price_1NVbpbBcUfXYxWWVTfS6a74e",
     metadata: { shape: "gpu.t4" },
   },
   {
-    price: "price_1NVbqXBcUfXYxWWVVQRL3Gl3",
+    prod_price_id: "price_1NicCIBcUfXYxWWVj7IYK4MX",
+    test_price_id: "price_1NVbqXBcUfXYxWWVVQRL3Gl3",
     metadata: { shape: "gpu.a10" },
   },
   {
-    price: "price_1NVbrIBcUfXYxWWVk7G25XEB",
+    prod_price_id: "price_1NicCCBcUfXYxWWVxy7Xv3D6",
+    test_price_id: "price_1NVbrIBcUfXYxWWVk7G25XEB",
     metadata: { shape: "gpu.a100" },
   },
   {
-    price: "price_1NZmG4BcUfXYxWWVuAfTMmpY",
+    prod_price_id: "price_1NicBTBcUfXYxWWVVmhC2ZGu",
+    test_price_id: "price_1NZmG4BcUfXYxWWVuAfTMmpY",
     metadata: { shape: "storage" },
   },
 ];
+
+export const getAvailableProducts = (
+  chargeable: boolean
+): Stripe.SubscriptionCreateParams.Item[] => {
+  return AvailableProducts.map(
+    ({ prod_price_id, test_price_id, metadata }) => ({
+      price: chargeable ? prod_price_id : test_price_id,
+      metadata,
+    })
+  );
+};

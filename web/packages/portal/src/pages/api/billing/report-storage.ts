@@ -1,7 +1,8 @@
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { getStripeClient } from "@/utils/stripe/stripe-client";
 import { retrieveSubscriptionItem } from "@/utils/stripe/retrieve-subscription-item";
 import { supabaseAdminClient } from "@/utils/supabase";
 import { withLogging } from "@/utils/logging";
+import { getWorkspaceById } from "@/utils/workspace";
 import Stripe from "stripe";
 import { NextApiHandler } from "next";
 
@@ -96,14 +97,22 @@ const handler: NextApiHandler<UsageRecord | string> = async (req, res) => {
       new Date(body.record.end_time).getTime() / 1000
     );
 
+    const workspace = await getWorkspaceById(workspaceId, supabaseAdminClient);
+
+    if (!workspace) {
+      return res.status(412).send("No workspace found");
+    }
+
     const subscriptionItem = await retrieveSubscriptionItem(
-      workspaceId,
-      "storage"
+      "storage",
+      workspace.chargeable,
+      workspace.subscription_id
     );
 
     if (!subscriptionItem) {
       return res.status(412).send("No subscription shape matched");
     }
+    const stripeClient = getStripeClient(workspace.chargeable);
 
     const usageRecord = await stripeClient.subscriptionItems.createUsageRecord(
       subscriptionItem.id,

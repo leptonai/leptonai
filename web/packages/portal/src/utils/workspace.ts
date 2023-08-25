@@ -29,15 +29,7 @@ export async function updateWorkspaceByConsumerId(
 export async function getWorkspaceById(
   id: string,
   supabaseClient: SupabaseClient
-): Promise<{
-  id: string;
-  created_at: string;
-  consumer_id: string;
-  coupon_id?: string;
-  subscription_id: string;
-  display_name: string;
-  type: string;
-} | null> {
+): Promise<Database["public"]["Tables"]["workspaces"]["Row"] | null> {
   if (
     process.env.NODE_ENV === "development" &&
     process.env.SUPABASE_SECRET_KEY

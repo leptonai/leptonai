@@ -1,8 +1,9 @@
-import { stripeClient } from "@/utils/stripe/stripe-client";
+import { updateSubscriptionItems } from "@/utils/stripe/update-subscription";
+import { supabaseAdminClient } from "@/utils/supabase";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withLogging } from "@/utils/logging";
 
-// Waive all invoice under consumer
+// Sync all workspaces to the latest subscription
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (
     req.method !== "POST" ||
@@ -12,22 +13,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const consumerId = req.body.consumer_id;
+    const { data: workspaces } = await supabaseAdminClient
+      .from("workspaces")
+      .select("subscription_id, chargeable")
+      .not("subscription_id", "is", null);
 
-    const { data: invoices } = await stripeClient.invoices.list({
-      customer: consumerId,
-      status: "open",
-    });
-    if (!invoices || invoices.length === 0) {
-      res.status(412).send("No unpaid invoices found");
+    if (!workspaces || workspaces.length === 0) {
+      res.status(412).send("No workspace found");
     } else {
       await Promise.all(
-        invoices.map(
+        workspaces.map(
           async (s) =>
-            await stripeClient.invoices.pay(s.id, { paid_out_of_band: true })
+            await updateSubscriptionItems(s.subscription_id!, s.chargeable)
         )
       );
-      res.status(200).send(`All invoices under ${consumerId} paid`);
+      res.status(200).send("All workspace updated");
     }
   } catch (err) {
     const errorMessage =
