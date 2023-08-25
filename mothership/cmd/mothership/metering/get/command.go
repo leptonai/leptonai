@@ -198,7 +198,7 @@ func getFunc(cmd *cobra.Command, args []string) {
 			log.Printf("skipping sync")
 			return
 		}
-		err = metering.SyncToFineGrain(aurora, computeData, nil)
+		err = metering.SyncToFineGrain(aurora, clusterName, computeData, nil)
 		if err != nil {
 			log.Fatalf("failed to sync to db %v", err)
 		}

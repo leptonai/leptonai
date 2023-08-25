@@ -2,7 +2,9 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	"github.com/leptonai/lepton/go-pkg/metering"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
@@ -37,6 +40,8 @@ var (
 
 	inCluster   bool
 	clusterName string
+
+	listenPort int
 )
 
 func NewCommand() *cobra.Command {
@@ -72,6 +77,7 @@ and recommended to be at least 5 minutes.
 	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "skips compute data sync (default false)")
 	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run sync on cluster (default false)")
 	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to run sync on")
+	cmd.PersistentFlags().IntVar(&listenPort, "listen-port", 31373, "port to serve prometheus metrics on")
 	return cmd
 }
 
@@ -138,6 +144,16 @@ func syncFunc(cmd *cobra.Command, args []string) {
 		defer func() {
 			cancel()
 			fwd.Stop()
+		}()
+	} else {
+		go func() {
+			// set up prometheus handler if running in cluster
+			metering.RegisterFineGrainHandlers()
+			http.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil)
+			if err != nil {
+				log.Fatalf("couldn't start prometheus metrics server: %v", err)
+			}
 		}()
 	}
 
@@ -233,7 +249,7 @@ func syncOnce(syncCompute bool, syncStorage bool, clusterName string, start time
 		}
 	}
 	// create a new connection each time (in case token/connections expire between syncs)
-	err = metering.SyncToFineGrain(aurora, computeData, storageData)
+	err = metering.SyncToFineGrain(aurora, clusterName, computeData, storageData)
 	if err != nil {
 		log.Printf("Data sync failed for window %s, %s: %v", start.Format(time.ANSIC), end.Format(time.ANSIC), err)
 	}

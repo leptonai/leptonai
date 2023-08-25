@@ -235,6 +235,47 @@ func queryKubeCostInCluster(ctx context.Context, opencostSvcName string, opencos
 	return body, nil
 }
 
+// SyncToFineGrain handles the transaction for inserting fine grain compute and storage data into Aurora
+func SyncToFineGrain(aurora AuroraDB, cluster string, computeData []FineGrainComputeData, storageData []FineGrainStorageData) (err error) {
+	db := aurora.DB
+	// todo: check if tables exist
+	tx, err := db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%v \n %s", err, tx.Rollback())
+			return
+		}
+		err = tx.Commit()
+	}()
+	// Generate a batch query ID
+	batchID, _ := uuid.NewRandom()
+	batchIDStr := batchID.String()
+	// Insert into fine_grain
+	if len(computeData) > 0 {
+		var affected int64
+		affected, err = BatchInsertIntoComputeFineGrain(tx, computeData, batchIDStr)
+		if err != nil {
+			return
+		}
+		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableComputeFineGrain)
+		GatherFineGrain(cluster, string(MeteringTableComputeFineGrain), float64(affected), float64(countLeptonDeployments(computeData)))
+	}
+	if len(storageData) > 0 {
+		var affected int64
+		affected, err = BatchInsertIntoFineGrainStorage(tx, storageData, batchIDStr)
+		if err != nil {
+			return
+		}
+		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableStorageFineGrain)
+		GatherFineGrain(cluster, string(MeteringTableStorageFineGrain), float64(affected), 0.0)
+	}
+	return
+}
+
+// insert data into compute_fine_grain table with the same batch ID
 func BatchInsertIntoComputeFineGrain(tx *sql.Tx, data []FineGrainComputeData, batchID string) (int64, error) {
 	cmd := fmt.Sprintf(`INSERT INTO %s (
 		query_id,
@@ -283,38 +324,6 @@ func BatchInsertIntoComputeFineGrain(tx *sql.Tx, data []FineGrainComputeData, ba
 		affected += batchAffected
 	}
 	return affected, nil
-}
-
-// SyncToFineGrain handles the transaction for inserting fine grain compute and storage data into Aurora
-func SyncToFineGrain(aurora AuroraDB, computeData []FineGrainComputeData, storageData []FineGrainStorageData) error {
-	db := aurora.DB
-	// todo: check if tables exist
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = fmt.Errorf("%v \n %s", err, tx.Rollback())
-	}()
-	// Generate a batch query ID
-	batchID, _ := uuid.NewRandom()
-	batchIDStr := batchID.String()
-	// Insert into fine_grain
-	if len(computeData) > 0 {
-		affected, err := BatchInsertIntoComputeFineGrain(tx, computeData, batchIDStr)
-		if err != nil {
-			return err
-		}
-		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableComputeFineGrain)
-	}
-	if len(storageData) > 0 {
-		affected, err := BatchInsertIntoFineGrainStorage(tx, storageData, batchIDStr)
-		if err != nil {
-			return err
-		}
-		goutil.Logger.Infof("Inserted %d rows into %s", affected, MeteringTableStorageFineGrain)
-	}
-	return tx.Commit()
 }
 
 // returns the most recent query's start and end time, or zero time if no data exists for a cluster
@@ -442,4 +451,14 @@ func GetGapsInFineGrain(auroraDB AuroraDB, cluster string, start, end time.Time)
 		gaps = append(gaps, []time.Time{lastSyncEnd, end})
 	}
 	return gaps, nil
+}
+
+func countLeptonDeployments(data []FineGrainComputeData) int {
+	ld := 0
+	for _, d := range data {
+		if len(d.LeptonDeploymentName) > 0 && len(d.PodShape) > 0 && d.RunningMinutes > 0 {
+			ld++
+		}
+	}
+	return ld
 }

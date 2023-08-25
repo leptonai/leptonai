@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/supabase"
 	"github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/araddon/dateparse"
 	"github.com/google/uuid"
@@ -31,6 +33,8 @@ var (
 	runBackgroundOn int
 
 	clusterName string
+
+	listenPort int
 )
 
 func NewCommand() *cobra.Command {
@@ -81,6 +85,7 @@ mothership metering aggregate --start-time "7/11/2023 8:00PM" --table hourly
 	cmd.PersistentFlags().BoolVar(&runBackground, "run-background", false, "run hourly aggregate in background indefinitely, ignoring --start-time, --end-time, --table flags")
 	cmd.PersistentFlags().IntVar(&runBackgroundOn, "run-background-on", 5, "minute of hour to run aggregate each hour, must be between 0-59")
 	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to aggregate data on")
+	cmd.PersistentFlags().IntVar(&listenPort, "listen-port", 31374, "port to serve prometheus metrics on")
 	return cmd
 }
 
@@ -112,6 +117,17 @@ func aggregateFunc(cmd *cobra.Command, args []string) {
 		if runBackgroundOn < 0 || runBackgroundOn > 59 {
 			log.Fatalf("--run-background-on must be between 0-59, got %d", runBackgroundOn)
 		}
+
+		// set up prometheus handler
+		go func() {
+			metering.RegisterAggregateHandlers()
+			http.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil)
+			if err != nil {
+				log.Fatalf("couldn't start prometheus metrics server: %v", err)
+			}
+		}()
+
 		queryInterval := time.Hour
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
@@ -305,17 +321,19 @@ func aggregateOneWindowIntoTables(
 		} else {
 			log.Printf("processing %d %s compute rows for window %s - %s", len(computeAggregate), tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
-			_, err = retryInsertIntoComputeAggregate(aurora.DB, computeTable, computeAggregate, batchID, maxRetries)
+			computeRowsIntoAurora, err := retryInsertIntoComputeAggregate(aurora.DB, computeTable, computeAggregate, batchID, maxRetries)
 			if err != nil {
 				log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
 			}
+			metering.GatherAggregate(clusterName, string(computeTable), "aurora", float64(computeRowsIntoAurora))
 
 			if computeTable == metering.MeteringTableComputeHourly {
 				// insert into supabase table
-				_, err = retryInsertIntoComputeAggregate(supabaseDB, computeTable, computeAggregate, batchID, maxRetries)
+				computeRowsIntoSupabase, err := retryInsertIntoComputeAggregate(supabaseDB, computeTable, computeAggregate, batchID, maxRetries)
 				if err != nil {
 					log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
 				}
+				metering.GatherAggregate(clusterName, string(computeTable), "supabase", float64(computeRowsIntoSupabase))
 			}
 		}
 	}
@@ -330,16 +348,18 @@ func aggregateOneWindowIntoTables(
 		} else {
 			log.Printf("processing %d %s storage rows for window %s - %s", len(storageAggregate), tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
-			_, err = retryInsertIntoStorageAggregate(aurora.DB, storageTable, storageAggregate, batchID, maxRetries)
+			storageRowsIntoAurora, err := retryInsertIntoStorageAggregate(aurora.DB, storageTable, storageAggregate, batchID, maxRetries)
 			if err != nil {
 				log.Fatalf("couldn't insert into aurora %s table: %v", tableFlag, err)
 			}
+			metering.GatherAggregate(clusterName, string(storageTable), "aurora", float64(storageRowsIntoAurora))
 			if storageTable == metering.MeteringTableStorageHourly {
 				// insert into supabase table
-				_, err = retryInsertIntoStorageAggregate(supabaseDB, storageTable, storageAggregate, batchID, maxRetries)
+				storageRowsIntoSupabase, err := retryInsertIntoStorageAggregate(supabaseDB, storageTable, storageAggregate, batchID, maxRetries)
 				if err != nil {
 					log.Fatalf("couldn't insert into supabase %s table: %v", tableFlag, err)
 				}
+				metering.GatherAggregate(clusterName, string(storageTable), "supabase", float64(storageRowsIntoSupabase))
 			}
 		}
 	}

@@ -256,7 +256,7 @@ func backfillFunc(cmd *cobra.Command, args []string) {
 		}
 		retryInsertErr := util.Retry(5, 2*time.Second, func() (err error) {
 			// no storage data to backfill, so we pass nil
-			err = metering.SyncToFineGrain(auroraDB, computeData, nil)
+			err = metering.SyncToFineGrain(auroraDB, clusterName, computeData, nil)
 			if err != nil {
 				log.Printf("Failed to insert data, retrying: %v", err)
 				return err
