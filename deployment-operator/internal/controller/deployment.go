@@ -378,7 +378,10 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 func compareAndPatchDeployment(dep, patch *appsv1.Deployment) bool {
 	equals := compareAndPatchLabels(&dep.ObjectMeta, &patch.ObjectMeta) &&
 		compareAndPatchAnnotations(&dep.ObjectMeta, &patch.ObjectMeta) &&
-		compareAndPatchOwnerReferences(&dep.ObjectMeta, &patch.ObjectMeta)
+		compareAndPatchOwnerReferences(&dep.ObjectMeta, &patch.ObjectMeta) &&
+		compareAndPatchLabels(&dep.Spec.Template.ObjectMeta, &patch.Spec.Template.ObjectMeta) &&
+		compareAndPatchAnnotations(&dep.Spec.Template.ObjectMeta, &patch.Spec.Template.ObjectMeta)
+
 	if !reflect.DeepEqual(dep.Spec.Template.Spec, patch.Spec.Template.Spec) {
 		dep.Spec.Template.Spec = patch.Spec.Template.Spec
 		equals = false
@@ -387,7 +390,7 @@ func compareAndPatchDeployment(dep, patch *appsv1.Deployment) bool {
 		dep.Spec.Replicas = patch.Spec.Replicas
 		equals = false
 	}
-	if !reflect.DeepEqual(dep.Spec, patch.Spec) {
+	if !reflect.DeepEqual(dep.Spec.Selector, patch.Spec.Selector) {
 		goutil.Logger.Errorw("Trying to modify immutable fields",
 			"namespace", dep.Namespace,
 			"name", dep.Name,
