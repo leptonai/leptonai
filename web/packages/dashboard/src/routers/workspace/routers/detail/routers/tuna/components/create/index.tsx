@@ -90,6 +90,7 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
             name="name"
             rules={[
               { required: true, message: "Please enter tuna name" },
+              { type: "string", max: 32 },
               {
                 pattern: /^[a-z]([-a-z0-9]*[a-z0-9])?$/,
                 message:
