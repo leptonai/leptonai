@@ -532,12 +532,3 @@ set -x
 
 
 
-
-
-
-# install VPN
-sudo apt-get update && sudo apt-get install -y --reinstall network-manager network-manager-gnome network-manager-openvpn network-manager-openvpn-gnome openvpn
-
-# install net utils
-sudo apt-get install netcat telnet -y
-

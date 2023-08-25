@@ -5,7 +5,8 @@
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
 
-address: 10.0.68.34
+address: 0.0.0.0
+readOnlyPort: 10249
 port: 10250
 
 authentication:
@@ -14,16 +15,21 @@ authentication:
   webhook:
     cacheTTL: 2m0s
     enabled: true
+
+  # any request presenting a client certificate signed
+  # by one of the authorities in the bundle
   x509:
-    clientCAFile: "/etc/kubernetes/pki/ca.crt"
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+
 authorization:
   mode: Webhook
   webhook:
     cacheAuthorizedTTL: 5m0s
     cacheUnauthorizedTTL: 30s
+
 clusterDomain: cluster.local
 hairpinMode: hairpin-veth
-readOnlyPort: 0
+
 cgroupDriver: cgroupfs
 cgroupRoot: "/"
 featureGates:
@@ -32,7 +38,55 @@ featureGates:
 protectKernelDefaults: true
 serializeImagePulls: false
 
+# default false
+rotateCertificates: false
+
+# lepton NOTE for satellite node
+#
+# Do not use self-signed certs, "kubelet logs" doesn't work:
+#
+# 1) kubelet does not include the node IP in SAN field.
+#    "kubelet logs" -> "tls: failed to verify certificate: x509: cannot validate certificate for 10.0.2.233 because it doesn't contain any IP SANs"
+#
+# 2) Self-signed certs will never work with EKS control plane CA even with the correct IP in the SAN field.
+#    "kubelet logs" -> "tls: failed to verify client's certificate: x509: certificate signed by unknown authority"
+#    "curl https:///138.2.238.131:10250/stats/summary" -> "SSL certificate problem: self signed certificate in certificate chain"
+#
+# Just let kubelet send CSR to eks-signer by setting "serverTLSBootstrap=true"
+# even if the default CSR is not approved/issued by EKS control plane CA.
+# ref. https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+#
+# If the satellite kubelet is using an AWS user, the CSR will be stuck pending (never approved):
+# NAME        AGE     SIGNERNAME                      REQUESTOR   REQUESTEDDURATION   CONDITION
+# csr-2t8zx   4h40m   kubernetes.io/kubelet-serving   gyuho       <none>              Pending
+#
+# We need the satellite-node originated CSR to be:
+# csr-mbbvp   50s   kubernetes.io/kubelet-serving   system:node:fargate-x-x-x-x.eu-central-1.compute.internal        <none>              Approved,Issued
+#
+# To fix the issue, we need the following:
+# 1) a separate role for the satellite node (the existing node group role in aws-auth configmap cannot be resued)
+# 2) add the separate role to the aws-auth configmap with the satellite node (system:node:fargate-x-x-x-x.eu-central-1.compute.internal)
+# 3) assume the separate role and pass the credential to the kubelet
+#
+# That way, the kubelet will send CSR to eks-signer with the correct role (system:node:fargate-x-x-x-x.eu-central-1.compute.internal).
+# Which can be approved manually. And once approved, which can be signed automatically by eks-signer.
+
+# enables server certificate bootstrap, rather than self signing a serving certificate
+# request a certificate from the 'certificates.k8s.io' API (eks-approver, eks-signer)
+# RotateKubeletServerCertificate feature must be enabled
+# default EKS is true
+#
 serverTLSBootstrap: true
+
+# "serverTLSBootstrap=false" will generate a self-signed certificate to
+# tlsCertFile: /var/lib/kubelet/pki/kubelet.crt
+# tlsPrivateKeyFile: /var/lib/kubelet/pki/kubelet.key
+# but do not specify the path to the certificate and key files
+# otherwise,
+# open /var/lib/kubelet/pki/kubelet.crt: no such file or directory
+tlsCertFile: ""
+tlsPrivateKeyFile: ""
+
 tlsCipherSuites:
   - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
   - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256

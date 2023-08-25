@@ -1,8 +1,8 @@
 # Sattelite EKS node using Lambda Labs
 
-**THIS IS EXPERIMENTAL.**
+**THIS IS EXPERIMENTAL AND INTENTIONALLY NOT AUTOMATED.**
 
-To sum, any Lambda machine can be an EKS node outside of AWS as long as it's created as a [fargate-kind node](https://github.com/leptonai/lepton/issues/2267#issuecomment-1673969397), and with host networking, we can run pods on the satellite node.
+To sum, any Lambda machine can be an EKS node outside of AWS as long as it's created as a [fargate-kind node](https://github.com/leptonai/lepton/issues/2267#issuecomment-1673969397), and with host networking, we can run pods on the satellite node. And with extra steps, `kubectl logs` and `exec` works.
 
 ## Goals
 
@@ -10,11 +10,17 @@ To sum, any Lambda machine can be an EKS node outside of AWS as long as it's cre
 - The node can be stably running sending heartbeats to the EKS cluster.
 - The node can run a pod(s).
 - The node can run Kubernetes deployments with services, using Node IP.
+- kubelet logs and exec work.
+
+## Non-goals
+
+Connecting via VPN does not work due to limitations in AWS Client VPN -- see [NOTES: AWS Client VPN](#notes-aws-client-vpn).
+
+Thus, requires us to set up SSL passthrough proxy.
 
 ## TODOs
 
 - GPU workloads.
-- Connect via VPN.
 - See [GH#2663](https://github.com/leptonai/lepton/issues/2663) for more.
 
 ## Prerequisites
@@ -54,12 +60,18 @@ ma l i c \
 
 ### Step 3. Install dependencies in Lambda Cloud instance
 
+We need to install kubelet, containerd, and CNI components.
+
+Note that Lambda Cloud instance already has `aws`, `docker`, `containerd`, `runc` installed.
+
+Unless needed, just use the one the Lambda Cloud machine already has.
+
 ```bash
 # Welcome to Ubuntu 20.04.5 LTS (GNU/Linux 5.15.0-67-generic x86_64)
-ssh -o "StrictHostKeyChecking no" -i ~/.lambda-labs/ssh.private.pem ubuntu@138.2.229.235
+ssh -o "StrictHostKeyChecking no" -i ~/.lambda-labs/ssh.private.pem ubuntu@138.2.238.131
 
 # aws, docker, containerd, runc are already installed
-scp -i ~/.lambda-labs/ssh.private.pem ./satellite-lambda/init.bash ubuntu@138.2.229.235:/tmp/init.bash
+scp -i ~/.lambda-labs/ssh.private.pem ./satellite-lambda/init.bash ubuntu@138.2.238.131:/tmp/init.bash
 ```
 
 In the remote machine:
@@ -70,330 +82,73 @@ vi /tmp/init.bash
 sudo bash /tmp/init.bash
 ```
 
-### Step 4. Set up certs for AWS Client VPN
+### Step 4. Create an ENI for the satellite node
 
-```bash
-cd /tmp
-rm -rf /tmp/easy-rsa
-git clone https://github.com/OpenVPN/easy-rsa.git /tmp/easy-rsa
-
-cd /tmp/easy-rsa/easyrsa3
-./easyrsa init-pki
-./easyrsa build-ca nopass
-./easyrsa build-server-full server nopass
-./easyrsa build-client-full client1.domain.tld nopass
-
-rm -rf satellite-lambda/vpn/
-mkdir -p satellite-lambda/vpn/
-
-cd /tmp/easy-rsa/easyrsa3
-
-cp pki/ca.crt satellite-lambda/vpn/
-cp pki/private/ca.key satellite-lambda/vpn/
-
-cp pki/issued/server.crt satellite-lambda/vpn/
-cp pki/private/server.key satellite-lambda/vpn/
-
-cp pki/issued/client1.domain.tld.crt satellite-lambda/vpn/
-cp pki/private/client1.domain.tld.key satellite-lambda/vpn/
-
-cd satellite-lambda/vpn/
-aws acm import-certificate \
---certificate fileb://server.crt \
---private-key fileb://server.key \
---certificate-chain fileb://ca.crt
-# arn:aws:acm:us-east-1:605454121064:certificate/d326050a-03f8-46a3-8577-a4ee563c2987
-
-cd satellite-lambda/vpn/
-aws acm import-certificate \
---certificate fileb://client1.domain.tld.crt \
---private-key fileb://client1.domain.tld.key \
---certificate-chain fileb://ca.crt
-# arn:aws:acm:us-east-1:605454121064:certificate/4c7d84ff-f048-41f4-a0c7-af57b1be0ded
-```
-
-### Step 5. Create AWS Client VPN connection to access VPC
-
-```bash
-# step 5-1. create log stream for VPN connection
-aws logs create-log-stream \
---region us-east-1 \
---log-group-name /aws/eks/gh61/cluster \
---log-stream-name vpn
-
-# step 5-2. create client VPN endpoint
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/create-client-vpn-endpoint.html
-ma a -r us-east-1 k l
-ma a -r us-east-1 v g vpc-017bd15e7c79d5c0e
-aws ec2 create-client-vpn-endpoint \
---region us-east-1 \
---description gh61 \
---client-cidr-block 10.0.68.0/22 \
---server-certificate-arn arn:aws:acm:us-east-1:605454121064:certificate/d326050a-03f8-46a3-8577-a4ee563c2987 \
---authentication-options Type=certificate-authentication,MutualAuthentication={ClientRootCertificateChainArn=arn:aws:acm:us-east-1:605454121064:certificate/4c7d84ff-f048-41f4-a0c7-af57b1be0ded} \
---connection-log-options Enabled=true,CloudwatchLogGroup=/aws/eks/gh61/cluster,CloudwatchLogStream=vpn \
---vpc-id vpc-017bd15e7c79d5c0e \
---vpn-port 443 \
---tag-specifications 'ResourceType=client-vpn-endpoint,Tags=[{Key=Name,Value=gh61}]' \
---split-tunnel
-# cvpn-endpoint-00561e95187909400
-
-# step 5-3. associate target private subnet
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/associate-client-vpn-target-network.html#
-ma a -r us-east-1 k l
-ma a -r us-east-1 v g vpc-017bd15e7c79d5c0e
-# pick private-us-east-1a
-aws ec2 associate-client-vpn-target-network \
---region us-east-1 \
---client-vpn-endpoint-id cvpn-endpoint-00561e95187909400 \
---subnet-id subnet-0d8407df7fee0a6d2
-
-# step 5-3.
-# either
-#
-# update default security group inbound/outbound
-# make sure the applied sg has all traffic + 0.0.0.0 for inbound/outbound
-#
-# make sure
-# EKS created security group applied to ENI that is attached to EKS Control Plane master nodes, as well as any managed workloads.
-# inbound rule has the default "sg-038dc417abbbe3c1a" as inbound rule for all traffic
-#
-# or
-#
-# step 5-3. create a new sg group for VPN connection
-# required for remote host to access EKS cluster endpoints
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/create-security-group.html
-aws ec2 create-security-group \
---vpc-id vpc-017bd15e7c79d5c0e \
---description gh61-vpn-sg \
---group-name gh61-vpn-sg
-# sg-0529d29fcc15ddbc5
-
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/authorize-security-group-ingress.html
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/authorize-security-group-egress.html
-aws ec2 authorize-security-group-ingress \
---region us-east-1 \
---group-id sg-0529d29fcc15ddbc5 \
---protocol all \
---cidr 0.0.0.0/0
-
-# EKS created security group applied to ENI that is attached to EKS Control Plane master nodes, as well as any managed workloads.
-# inbound rule has inbound rule for all traffic
-ma a -r us-east-1 k l
-ma a -r us-east-1 v g vpc-017bd15e7c79d5c0e
-# sg-0e58e5d6271b4a30d
-aws ec2 authorize-security-group-ingress \
---region us-east-1 \
---group-id sg-0e58e5d6271b4a30d \
---protocol all \
---cidr 0.0.0.0/0
-
-# step 5-4. apply security group to VPN connection
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/apply-security-groups-to-client-vpn-target-network.html
-# pick default sg or the one you just created
-aws ec2 apply-security-groups-to-client-vpn-target-network \
---region us-east-1 \
---client-vpn-endpoint-id cvpn-endpoint-00561e95187909400 \
---vpc-id vpc-017bd15e7c79d5c0e \
---security-group-ids sg-0529d29fcc15ddbc5
-
-# step 5-5. update VPN authorization rules
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/authorize-client-vpn-ingress.html
-aws ec2 authorize-client-vpn-ingress \
---region us-east-1 \
---client-vpn-endpoint-id cvpn-endpoint-00561e95187909400 \
---authorize-all-groups \
---target-network-cidr 10.0.0.0/16
-
-# step 5-6. add lambda machine public IP to VPN route table for SSH traffic
-# https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/cvpn-working-routes.html
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/create-client-vpn-route.html
-# "138.2.238.131" is the public IP of the lambda host
-aws ec2 create-client-vpn-route \
---region us-east-1 \
---client-vpn-endpoint-id cvpn-endpoint-00561e95187909400 \
---destination-cidr-block 138.2.238.131/32 \
---target-vpc-subnet-id subnet-0d8407df7fee0a6d2
-```
-
-### Step 6. Download AWS Client VPN config file from AWS
-
-```bash
-aws ec2 export-client-vpn-client-configuration \
---client-vpn-endpoint-id cvpn-endpoint-00561e95187909400 \
---output text > satellite-lambda/vpn/downloaded-client-config.ovpn
-```
-
-Make sure to update the config file with key and cert fields:
-
-```bash
-cat satellite-lambda/vpn/client1.domain.tld.crt
-cat satellite-lambda/vpn/client1.domain.tld.key
-vi satellite-lambda/vpn/downloaded-client-config.ovpn
-```
-
-```text
-<cert>
-TODO
-</cert>
-
-<key>
-TODO
-</key>
-```
-
-### Step 7. Connect the remote Lambda machine to AWS Client VPN
-
-```bash
-scp -i satellite-lambda/ssh.private.pem \
-satellite-lambda/vpn/downloaded-client-config.ovpn \
-ubuntu@138.2.238.131:/tmp/downloaded-client-config.ovpn
-ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131 "sudo mv /tmp/downloaded-client-config.ovpn /etc/downloaded-client-config.ovpn"
-ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131 "tail /etc/downloaded-client-config.ovpn"
-
-ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131
-
-sudo vi /etc/downloaded-client-config.ovpn
-tail /etc/downloaded-client-config.ovpn
-
-# add the following to enable SSH
-# we do not need if we add public IP as VPN connection route
-# route-nopull
-# route 138.2.238.131 255.255.255.255 net_gateway
-
-# in remote machine
-# https://docs.aws.amazon.com/pdfs/vpn/latest/clientvpn-admin/client-vpn-admin-guide.pdf
-tmux new-session
-tmux attach-session -t 0
-sudo openvpn --config /etc/downloaded-client-config.ovpn
-```
-
-### Step 8. Check VPC access connectivity using VPN connection
-
-```bash
-# ifconfig to get the IP, or get client connection from AWS Client VPN console
-# 10.0.68.34
-# use this for kubelet config + kubelet flag
-ifconfig
-```
-
-```bash
-# connect to VPN using AWS VPN client
-aws eks update-kubeconfig --region us-east-1 --name gh61
-kubectl get endpoints
-
-# both EC2 and Lambda can access cluster endpoints
-NAME         ENDPOINTS                        AGE
-kubernetes   10.0.16.135:443,10.0.33.58:443   4h11m
-my-app       10.0.68.34:8080                  26m
-
-# make sure you can connect to EKS cluster
-curl -k https://10.0.16.135:443
-curl -k https://10.0.33.58:443
-```
-
-```bash
-# we can access VPC, but not from VPC to lambda
-# from lambda to AWS via private IP
-#
-# EC2 open port 8080 with instance of cluster sg group
-# Lambda can access via private IP 10.0.24.211
-# but cannot access if EC2's in VPN
-aws ssm start-session --region us-east-1 --target i-03b46467ba38ad90a
-nc -l 8080
-# from lambda remote machine
-nc -vz 10.0.24.211 8080
-# telnet 10.0.24.211 8080
-
-# TODO
-# CANNOT access Lambda from VPC
-#
-# lambda open port 8081 with instance of VPN connection sg group
-ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131
-nc -l 8081
-# from ec2 remote machine
-nc -vz 10.0.68.34 8081
-# telnet 10.0.68.34 8081
-
-# EC2 can only access via public IP
-nc -vz 138.2.238.131 8081
-```
-
-### WE ARE STUCK HERE
-
-Basically, using VPC, we can access AWS EKS VPC IPs from VPN-connected Lambda Labs hosts (e.g., connect to EC2 private IPs, EKS control plane endpoints, etc.). But, EKS control plane or EC2 instance cannot route to VPN-connected Lambda Labs hosts.
-
-![vpc-reachability-analysis](./satellite-lambda/vpc-reachability-analysis.png)
-
-This is because all private subnet outbound traffic to `10.0.0.0/16` are routed using the local route table, which has the following route:
-
-![vpc-private-subnet-route-table.png](./satellite-lambda/vpc-private-subnet-route-table.png)
-
-See the following articles for more information:
-
-- [Client-to-client access using AWS Client VPN](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/scenario-client-to-client.html)
-- ["connection can only be initiated from the client to the EC2 instance and it wouldn't work for the connections initiated in the other direction."](https://serverfault.com/questions/964767/unable-to-ping-vpn-clients-from-target-subnet)
-
-Without this step, kubelet exec/logs would not work...
-
-We can still schedule pods on the satellite node, but we cannot access the pod. See below for the remaining steps.
-
-### Step 10. Create an ENI for the satellite node
+- Most tricky part, and EKS- and satellite-node-specific
+- NOT officially documented and discovered by some reverse engineering (see [source](https://github.com/leptonai/lepton/issues/2267#issuecomment-1673969397))
+- Only required for the satellite node authorization
 
 ```bash
 # to pick subnet ID + security group ID
 ma a -r us-east-1 k l
-ma a -r us-east-1 v g vpc-0776c6668008e90a9
+ma a -r us-east-1 v g vpc-054e3e3d03ad1254c
 
 # to create an ENI
+# pick private subnet
+# pick "Secondary EKS cluster security group to allow traffic from/to nodes" sg
 ma a -r us-east-1 n c \
---subnet-id subnet-051a611f159253cba \
---sg-ids sg-03ed97e5202d027ed \
---name gh058-satellite-node-01 \
---description gh058-satellite-node-01
+--subnet-id subnet-005ea515bb30d0da2 \
+--sg-ids sg-0a69102d3a1400efa \
+--name gh62-satellite-node-01 \
+--description gh62-satellite-node-01
 
 # to list ENIs
 ma a -r us-east-1 n l
-ma a -r us-east-1 n g eni-086d663f3201384e3
+ma a -r us-east-1 n g eni-0ae8356ec326d98e5
 ```
 
 ```text
-*-----------------------*-------------------------*------------*------------*---------------------------*-----------------------*--------------------------*------------*----------------------*
-|        ENI ID         |     ENI DESCRIPTION     | ENI STATUS | PRIVATE IP |        PRIVATE DNS        |        VPC ID         |        SUBNET ID         |     AZ     |         SGS          |
-*-----------------------*-------------------------*------------*------------*---------------------------*-----------------------*--------------------------*------------*----------------------*
-| eni-086d663f3201384e3 | gh058-satellite-node-01 | available  | 10.0.2.27  | ip-10-0-2-27.ec2.internal | vpc-0776c6668008e90a9 | subnet-051a611f159253cba | us-east-1a | sg-03ed97e5202d027ed |
-*-----------------------*-------------------------*------------*------------*---------------------------*-----------------------*--------------------------*------------*----------------------*
+*-----------------------*------------------------*------------*-------------*-----------------------------*-----------------------*--------------------------*------------*----------------------*
+|        ENI ID         |    ENI DESCRIPTION     | ENI STATUS | PRIVATE IP  |         PRIVATE DNS         |        VPC ID         |        SUBNET ID         |     AZ     |         SGS          |
+*-----------------------*------------------------*------------*-------------*-----------------------------*-----------------------*--------------------------*------------*----------------------*
+| eni-0ae8356ec326d98e5 | gh62-satellite-node-01 | available  | 10.0.14.170 | ip-10-0-14-170.ec2.internal | vpc-054e3e3d03ad1254c | subnet-005ea515bb30d0da2 | us-east-1a | sg-0a69102d3a1400efa |
+*-----------------------*------------------------*------------*-------------*-----------------------------*-----------------------*--------------------------*------------*----------------------*
 ```
 
+And this fargate hostname is required for later node registration:
+
 ```bash
-ma a -r us-east-1 k n s h eni-086d663f3201384e3
-# fargate-ip-10-0-2-27.us-east-1.compute.internal
+ma a -r us-east-1 k n s h eni-0ae8356ec326d98e5
+# fargate-ip-10-0-14-170.us-east-1.compute.internal
 ```
+
+Why `fargate-`? We don't know why. We just know this is required by EKS.
 
 ```bash
 # to delete an ENI
-# ma a -r us-east-1 n d eni-086d663f3201384e3
+# ma a -r us-east-1 n d eni-0ae8356ec326d98e5
 ```
 
-### Step 11. Download EKS kubeconfig and CA certificate
+### Step 5. Download EKS kubeconfig and CA certificate
+
+This is required for the satellite node authentication using the CA from the EKS control plane.
 
 ```bash
-ma a -r us-east-1 k l
-ma a -r us-east-1 k k gh058
-ma a -r us-east-1 k k gh058 -k /tmp/gh058.kubeconfig
+# aws eks update-kubeconfig --region us-east-1 --name gh62
+# ma a -r us-east-1 k k gh62
+ma a -r us-east-1 k k gh62 -k /tmp/gh62.kubeconfig
+cp /tmp/gh62.kubeconfig /Users/leegyuho/.kube/config
+kubectl get nodes
 ```
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name gh058
-
 DESCRIBE_CLUSTER_RESULT="/tmp/describe_cluster_result.txt"
 aws eks describe-cluster \
 --region=us-east-1 \
---name=gh058 \
+--name=gh62 \
 --output=text \
 --query 'cluster.{certificateAuthorityData: certificateAuthority.data, endpoint: endpoint, serviceIpv4Cidr: kubernetesNetworkConfig.serviceIpv4Cidr, serviceIpv6Cidr: kubernetesNetworkConfig.serviceIpv6Cidr, clusterIpFamily: kubernetesNetworkConfig.ipFamily, outpostArn: outpostConfig.outpostArns[0], id: id}' > $DESCRIBE_CLUSTER_RESULT
-
-cat $DESCRIBE_CLUSTER_RESULT
+# cat $DESCRIBE_CLUSTER_RESULT
 
 B64_CLUSTER_CA=$(cat $DESCRIBE_CLUSTER_RESULT | awk '{print $1}')
 APISERVER_ENDPOINT=$(cat $DESCRIBE_CLUSTER_RESULT | awk '{print $3}')
@@ -412,13 +167,15 @@ mkdir -p $CA_CERTIFICATE_DIRECTORY
 echo $B64_CLUSTER_CA | base64 -d > $CA_CERTIFICATE_FILE_PATH
 cat $CA_CERTIFICATE_FILE_PATH
 
-cat /tmp/gh058.kubeconfig
+cat /tmp/gh62.kubeconfig
 cat /tmp/k8s-pki/ca.crt
 ```
 
-### Step 12. Download EKS kubeconfig, CA certificate, kubelet config, containerd config, CNI config in the satellite node
+### Step 6. Download EKS kubeconfig, CA certificate, kubelet config, containerd config, CNI config in the satellite node
 
-This can be done in many ways. For simplicity, we just use `scp` to copy the files.
+This can be done in many ways, and will be automated in the future.
+
+For simplicity, we just use `scp` to copy the files:
 
 ```bash
 # in remote machines
@@ -465,7 +222,9 @@ ubuntu@138.2.238.131:/etc/containerd/config.toml
 scp -i satellite-lambda/ssh.private.pem \
 satellite-lambda/cni-host-network.conf \
 ubuntu@138.2.238.131:/etc/cni/net.d/10-host-network.conf
+```
 
+```bash
 # in remote machines
 ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131
 
@@ -482,9 +241,15 @@ sudo systemctl restart containerd
 # sudo systemctl status containerd
 ```
 
-### Step 13. Add a new user entry to aws-auth configmap
+### Step 7. Add a new user entry to aws-auth configmap
 
 This is required for the satellite node authorization.
+
+*Option 1.* Just use the AWS IAM user credential for kubelet.
+
+Pros: The user credential never expires, so much simpler.
+
+Cons: The kubelet originated CSRs are not signed by the EKS control plane approver. Which means, `kubelet logs` and `kubectl exec` will not work.
 
 ```bash
 aws sts get-caller-identity
@@ -509,7 +274,7 @@ kubectl -n kube-system get configmap aws-auth -o yaml
 apiVersion: v1
 data:
   mapRoles: |
-    - rolearn: arn:aws:iam::605454121064:role/gh058-mng-role
+    - rolearn: arn:aws:iam::605454121064:role/gh62-mng-role
       username: system:node:{{EC2PrivateDNSName}}
       groups:
       - system:bootstrappers
@@ -522,20 +287,266 @@ data:
       userid: AIDAYZ57AXBUCE2ABSLCN
 ```
 
-### Step 14. Set up kubelet in the satellite node
+*Option 2.* Use the AWS IAM role and session token for kubelet.
+
+Pros: The kubelet originated CSRs can be signed by the EKS control plane approver. Which means, `kubelet logs` and `kubectl exec` will work.
+
+Cons: The max IAM role session timeout is 4-hour, so we either need to refresh the token every 4-hour, or use IAM Roles Anywhere (to be discussed later).
 
 ```bash
-# node-ip must be the one set by client VPN or leave empty
-# can't use eni private IP
-# since it will
-# "Failed to set some node status fields" err="failed to validate nodeIP: node IP: \"10.0.8.57\" not found in the host's network interfaces" node="fargate-ip-10-0-15-153.us-east-1.compute.internal"
 
-# find ip
-# ifconfig
+```yaml
+apiVersion: v1
+data:
+  mapRoles: |
+    - rolearn: arn:aws:iam::605454121064:role/gh62-mng-role
+      username: system:node:{{EC2PrivateDNSName}}
+      groups:
+      - system:bootstrappers
+      - system:nodes
+    - rolearn: arn:aws:iam::605454121064:role/gh62-satellite
+      username: system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal
+      groups:
+      - system:bootstrappers
+      - system:nodes
+```
 
-# in remote machines
-ssh -o "StrictHostKeyChecking no" -i satellite-lambda/ssh.private.pem ubuntu@138.2.238.131
+We will use the role to authorize the satellite node.
 
+Step 1. Just create an empty, separate IAM role.
+
+Step 2. Update the trusted entity to include the user (required for assuming the role):
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "EKSNodeAssumeRole",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        },
+        {
+            "Effect": "Allow",
+            "Principal": { "AWS": "arn:aws:iam::605454121064:user/gyuho" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+```
+
+Step 3. Add this role to the aws-auth configmap:
+
+```bash
+ma a --region us-east-1 k a g gh62
+ma a --region us-east-1 k a a \
+--cluster-name gh62 \
+--groups system:bootstrappers,system:nodes \
+--user-name system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal \
+--role-arn arn:aws:iam::605454121064:role/gh62-satellite
+```
+
+And this role can be assumed with:
+
+```bash
+aws sts assume-role \
+--role-arn arn:aws:iam::605454121064:role/gh62-satellite \
+--role-session-name test
+```
+
+See the following steps for further instructions.
+
+### Step 8. Set up passthrough proxy for apiserver to kubelet traffic
+
+Whether using VPN or not, the traffic from kubelet to kube-apiserver works fine. But the traffic from kube-apiserver to kubelet does not work due to the node IP being set outside of the cluster VPC CIDR. Note that kubelet does not allow setting arbitrary node IP, unless it's one of the IPs in the host network interfaces.
+
+That is, in order for us to support `kubectl exec` and `logs`, we need to support kube-apiserver to kubelet traffic. And to correctly route traffic from kube-apiserver to kubelet, we need to set up a passthrough proxy to the actual lambda node public IP.
+
+Without automation, for now, just follow the steps below:
+
+Step 1. Create a new EC2 instance within the same VPC as the EKS cluster.
+
+Step 2. Set up a passthrough proxy in the EC2 instance. Either use IP tables, Nginx, or simple Go proxy.
+
+Note that you don't even need to verify TLS certs. Just relay the packets from apiserver to the Lambda Cloud public IP.
+
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"net"
+)
+
+func main() {
+	localPort := 10250
+	remoteIP := "138.2.238.131"
+	remotePort := 10250
+
+	forward(localPort, remoteIP, remotePort)
+}
+
+func forward(localPort int, remoteIP string, remotePort int) {
+	localAddr := fmt.Sprintf("0.0.0.0:%d", localPort)
+	remoteAddr := fmt.Sprintf("%s:%d", remoteIP, remotePort)
+
+	// Listen for incoming packets locally
+	ln, err := net.Listen("tcp", localAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+
+	fmt.Printf("Listening %q\n", localAddr)
+
+	for {
+		localConn, err := ln.Accept()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("local conn:", localConn.LocalAddr().String())
+
+		// Connect to remote target
+		fmt.Println("connecting to", remoteAddr)
+		remoteConn, err := net.Dial("tcp", remoteAddr)
+
+		// tlsConfig := &tls.Config{
+		// 	InsecureSkipVerify: true,
+		// }
+		// remoteConn, err := tls.Dial("tcp", remoteAddr, tlsConfig)
+		if err != nil {
+			localConn.Close()
+			fmt.Println("Failed to connect to remote:", err)
+			continue
+		}
+
+		// Forward data bidirectionally
+		go func() {
+			n, err := io.Copy(localConn, remoteConn)
+			if err != nil {
+				fmt.Println("Local to remote copy error:", err)
+				return
+			}
+
+			fmt.Println("remote -> local:", n)
+
+			localConn.Close()
+			remoteConn.Close()
+		}()
+
+		go func() {
+			n, err := io.Copy(remoteConn, localConn)
+			if err != nil {
+				fmt.Println("Remote to local copy error:", err)
+				return
+			}
+
+			fmt.Println("local -> remote:", n)
+
+			localConn.Close()
+			remoteConn.Close()
+		}()
+	}
+}
+```
+
+### Step 9. Set up a dummy network interface in the satellite node
+
+Once the apiserver traffic is routed to the satellite Lambda Cloud node, we need to set up a dummy network interface in the satellite node, so that the kubelet can receive the apiserve traffic.
+
+Step 1. Open the kubelet port `:10250` in the Lambda Cloud firewall.
+
+Step 2. Get the private IP of the proxy EC2 instance. This is because apiserver can only reach the EC2 private IP, and we will advertise/register the satellite node with that IP to send the apiserver traffic to the proxy server.
+
+Step 3. Set up a dummy network interface in the satellite node (see [link](https://linuxconfig.org/configuring-virtual-network-interfaces-in-linux)), to listen to the proxied apiserver traffic. Note that `10.0.2.233` here is the EC2 proxy server instance private IP.
+
+```bash
+ip link show eth0
+ip a
+ifconfig
+
+sudo modprobe dummy
+sudo ip link add eth0 type dummy
+ip link show eth0
+
+# give the interface a random MAC address
+sudo ifconfig eth0 hw ether C8:D7:4A:4E:47:50
+
+# add an alias to the interface and configure an it with an IP address
+sudo ip addr add 10.0.2.233/24 brd + dev eth0 label eth0:0
+
+# put the interface up
+sudo ip link set dev eth0 up
+```
+
+```bash
+# check the interface
+ifconfig
+```
+
+```text
+enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.19.62.58  netmask 255.255.240.0  broadcast 10.19.63.255
+        inet6 fe80::17ff:fe02:115c  prefixlen 64  scopeid 0x20<link>
+        ether 02:00:17:02:11:5c  txqueuelen 1000  (Ethernet)
+        RX packets 1116003  bytes 1188644758 (1.1 GB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 449437  bytes 61468157 (61.4 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+eth0: flags=195<UP,BROADCAST,RUNNING,NOARP>  mtu 1500
+        inet6 fe80::cad7:4aff:fe4e:4750  prefixlen 64  scopeid 0x20<link>
+        ether c8:d7:4a:4e:47:50  txqueuelen 1000  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 23  bytes 1610 (1.6 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+eth0:0: flags=195<UP,BROADCAST,RUNNING,NOARP>  mtu 1500
+        inet 10.0.2.233  netmask 255.255.255.0  broadcast 10.0.2.255
+        ether c8:d7:4a:4e:47:50  txqueuelen 1000  (Ethernet)
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 110279  bytes 18306613 (18.3 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 110279  bytes 18306613 (18.3 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+```
+
+### Step 10. Set up kubelet in the satellite node
+
+Now we need to set up a kubelet process (use systemd service) to start the actual node.
+
+Note two things here:
+
+- We are assuming the new satellite IAM role to authenticate and authorize the node.
+  - We are passing the assumed IAM credential token to the kubelet.
+  - `hostname-override` must be the same as the one set in aws-auth configmap.
+- We are setting the `--node-ip` to the proxy EC2 instance private IP, which will be advertised to the EKS cluster apiserver, so it knows to send the traffic to the proxy.
+
+```bash
+printf "AWS_ACCESS_KEY_ID=\"%s\" \\
+AWS_SECRET_ACCESS_KEY=\"%s\" \\
+AWS_SESSION_TOKEN=\"%s\" \\
+" \
+$(AWS_ACCESS_KEY_ID=... \
+AWS_SECRET_ACCESS_KEY=... \
+aws sts assume-role \
+--role-arn arn:aws:iam::605454121064:role/gh62-satellite \
+--role-session-name test \
+--duration-seconds 14400 \
+--query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+--output text)
+```
+
+```bash
 rm -f /tmp/kubelet.sh
 cat << 'EOF' > /tmp/kubelet.sh
 #!/bin/bash
@@ -545,15 +556,25 @@ rm -f /root/.kube/config
 
 AWS_ACCESS_KEY_ID=... \
 AWS_SECRET_ACCESS_KEY=... \
-aws eks update-kubeconfig --region us-east-1 --name gh61
+aws eks update-kubeconfig --region us-east-1 --name gh62
 
 AWS_ACCESS_KEY_ID=... \
 AWS_SECRET_ACCESS_KEY=... \
 kubectl get nodes
 
-AWS_ACCESS_KEY_ID=... \
-AWS_SECRET_ACCESS_KEY=... \
-/usr/bin/kubelet --config=/etc/kubernetes/kubelet/kubelet-config.yaml --kubeconfig=/root/.kube/config --container-runtime-endpoint=unix:///run/containerd/containerd.sock --image-credential-provider-config /etc/eks/image-credential-provider/config.json --image-credential-provider-bin-dir /etc/eks/image-credential-provider --node-labels eks.amazonaws.com/compute-type=fargate --hostname-override fargate-ip-10-0-15-153.us-east-1.compute.internal --node-ip 10.0.68.34
+AWS_ACCESS_KEY_ID="..." \
+AWS_SECRET_ACCESS_KEY="..." \
+AWS_SESSION_TOKEN="..." \
+/usr/bin/kubelet \
+--config=/etc/kubernetes/kubelet/kubelet-config.yaml \
+--kubeconfig=/root/.kube/config \
+--container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+--image-credential-provider-config /etc/eks/image-credential-provider/config.json \
+--image-credential-provider-bin-dir /etc/eks/image-credential-provider \
+--node-labels eks.amazonaws.com/compute-type=fargate \
+--hostname-override fargate-ip-10-0-14-170.us-east-1.compute.internal \
+--node-ip 10.0.2.233
+
 EOF
 sudo chmod +x /tmp/kubelet.sh
 sudo cp /tmp/kubelet.sh /usr/bin/kubelet.sh
@@ -588,65 +609,100 @@ cat /etc/systemd/system/kubelet.service
 sudo systemctl daemon-reload
 ```
 
-Successful logs:
+### Step 11. Start kubelet service to join the network
+
+```bash
+sudo systemctl stop kubelet.service
+sudo systemctl disable kubelet.service
+
+sudo rm -f /var/lib/kubelet/pki/*
+sudo rm -f /var/log/kubelet.log
+sudo systemctl enable kubelet.service
+sudo systemctl restart --no-block kubelet.service
+# sudo systemctl status kubelet.service
+sudo tail -f /var/log/kubelet.log
+```
+
+### Step 12. Deploy test node port app
+
+```bash
+k apply -f ./satellite-lambda/node-port-app.yaml
+k apply -f ./satellite-lambda/nginx.yaml
+k get po -o wide
+```
+
+- http://138.2.238.131:8080
+- http://138.2.238.131
+
+And connect to the service using the Lambda Labs instance public IP + port 8080:
+
+![service-demo-8080](satellite-lambda/service-demo-8080.png)
+
+![service-demo-nginx](satellite-lambda/service-demo-nginx.png)
+
+### Step 13. Check nodes and pods
+
+Successful output:
 
 ```bash
 k get nodes
 
-NAME                                              STATUS   ROLES    AGE   VERSION
-fargate-ip-10-0-2-27.us-east-1.compute.internal   Ready    <none>   39m   v1.26.7
-ip-10-0-19-126.ec2.internal                       Ready    <none>   17h   v1.26.6
+NAME                                                STATUS   ROLES    AGE   VERSION
+fargate-ip-10-0-14-170.us-east-1.compute.internal   Ready    <none>   74m   v1.26.7
+ip-10-0-31-11.ec2.internal                          Ready    <none>   19h   v1.26.6
+ip-10-0-35-215.ec2.internal                         Ready    <none>   20h   v1.26.6
 ```
 
 ```bash
-k describe node fargate-ip-10-0-2-27.us-east-1.compute.internal
+kubectl describe node fargate-ip-10-0-14-170.us-east-1.compute.internal
 
-Name:               fargate-ip-10-0-2-27.us-east-1.compute.internal
+Name:               fargate-ip-10-0-14-170.us-east-1.compute.internal
 Roles:              <none>
 Labels:             beta.kubernetes.io/arch=amd64
                     beta.kubernetes.io/os=linux
                     eks.amazonaws.com/compute-type=fargate
                     kubernetes.io/arch=amd64
-                    kubernetes.io/hostname=fargate-ip-10-0-2-27.us-east-1.compute.internal
+                    kubernetes.io/hostname=fargate-ip-10-0-14-170.us-east-1.compute.internal
                     kubernetes.io/os=linux
-Annotations:        csi.volume.kubernetes.io/nodeid: {"csi.tigera.io":"fargate-ip-10-0-2-27.us-east-1.compute.internal"}
+Annotations:        csi.volume.kubernetes.io/nodeid: {"csi.tigera.io":"fargate-ip-10-0-14-170.us-east-1.compute.internal"}
                     node.alpha.kubernetes.io/ttl: 0
                     volumes.kubernetes.io/controller-managed-attach-detach: true
-CreationTimestamp:  Sun, 20 Aug 2023 11:49:27 +0800
-Taints:             <none>
+CreationTimestamp:  Fri, 25 Aug 2023 12:45:19 +0800
+Taints:             lepton.io/provider=lambda:NoSchedule
+                    nvidia.com/gpu:NoSchedule
 Unschedulable:      false
 Lease:
-  HolderIdentity:  fargate-ip-10-0-2-27.us-east-1.compute.internal
+  HolderIdentity:  fargate-ip-10-0-14-170.us-east-1.compute.internal
   AcquireTime:     <unset>
-  RenewTime:       Sun, 20 Aug 2023 12:29:32 +0800
+  RenewTime:       Fri, 25 Aug 2023 13:59:55 +0800
 Conditions:
   Type             Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
   ----             ------  -----------------                 ------------------                ------                       -------
-  MemoryPressure   False   Sun, 20 Aug 2023 12:24:39 +0800   Sun, 20 Aug 2023 11:49:27 +0800   KubeletHasSufficientMemory   kubelet has sufficient memory available
-  DiskPressure     False   Sun, 20 Aug 2023 12:24:39 +0800   Sun, 20 Aug 2023 11:49:27 +0800   KubeletHasNoDiskPressure     kubelet has no disk pressure
-  PIDPressure      False   Sun, 20 Aug 2023 12:24:39 +0800   Sun, 20 Aug 2023 11:49:27 +0800   KubeletHasSufficientPID      kubelet has sufficient PID available
-  Ready            True    Sun, 20 Aug 2023 12:24:39 +0800   Sun, 20 Aug 2023 11:49:28 +0800   KubeletReady                 kubelet is posting ready status. AppArmor enabled
+  MemoryPressure   False   Fri, 25 Aug 2023 13:57:19 +0800   Fri, 25 Aug 2023 12:45:19 +0800   KubeletHasSufficientMemory   kubelet has sufficient memory available
+  DiskPressure     False   Fri, 25 Aug 2023 13:57:19 +0800   Fri, 25 Aug 2023 12:45:19 +0800   KubeletHasNoDiskPressure     kubelet has no disk pressure
+  PIDPressure      False   Fri, 25 Aug 2023 13:57:19 +0800   Fri, 25 Aug 2023 12:45:19 +0800   KubeletHasSufficientPID      kubelet has sufficient PID available
+  Ready            True    Fri, 25 Aug 2023 13:57:19 +0800   Fri, 25 Aug 2023 12:45:20 +0800   KubeletReady                 kubelet is posting ready status. AppArmor enabled
 Addresses:
-  InternalIP:  10.19.60.132
-  Hostname:    fargate-ip-10-0-2-27.us-east-1.compute.internal
+  InternalIP:  10.0.2.233
+  Hostname:    fargate-ip-10-0-14-170.us-east-1.compute.internal
 Capacity:
   cpu:                30
   ephemeral-storage:  1422559648Ki
   hugepages-1Gi:      0
   hugepages-2Mi:      0
-  memory:             206129480Ki
+  memory:             206129488Ki
   pods:               110
 Allocatable:
   cpu:                30
   ephemeral-storage:  1311030969427
   hugepages-1Gi:      0
   hugepages-2Mi:      0
-  memory:             206027080Ki
+  memory:             206027088Ki
   pods:               110
 System Info:
-  Machine ID:                 b5daa36c5840b3b9ca449c77043f147f
-  System UUID:                147cac70-c9c0-4e5b-beb5-09d9aef1a610
-  Boot ID:                    cea43fb4-6fa4-4aca-b3d0-98ed9461a4c1
+  Machine ID:                 30121a4ad8a27fa8f33033798287ee07
+  System UUID:                233ca4a1-f1dd-4d92-89f2-378e02de01f8
+  Boot ID:                    cbae0eab-c117-4829-a5d8-04809e203e9d
   Kernel Version:             5.15.0-67-generic
   OS Image:                   Ubuntu 20.04.6 LTS
   Operating System:           linux
@@ -657,11 +713,11 @@ System Info:
 Non-terminated Pods:          (5 in total)
   Namespace                   Name                                                    CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
   ---------                   ----                                                    ------------  ----------  ---------------  -------------  ---
-  calico-system               csi-node-driver-tm5tl                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         100m
-  default                     my-app-b97f997c4-cc798                                  0 (0%)        0 (0%)      0 (0%)           0 (0%)         80m
-  default                     nginx                                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         80m
-  gpu-operator                gpu-operator-node-feature-discovery-worker-8kwj6        0 (0%)        0 (0%)      0 (0%)           0 (0%)         44m
-  kube-prometheus-stack       kube-prometheus-stack-prometheus-node-exporter-w4thz    0 (0%)        0 (0%)      0 (0%)           0 (0%)         100m
+  calico-system               calico-typha-59d588595f-drk4l                           0 (0%)        0 (0%)      0 (0%)           0 (0%)         74m
+  calico-system               csi-node-driver-dmqn9                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         13h
+  default                     my-app-6d788947d8-lpx9k                                 0 (0%)        0 (0%)      0 (0%)           0 (0%)         13h
+  default                     nginx                                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         70m
+  kube-prometheus-stack       kube-prometheus-stack-prometheus-node-exporter-zzqmd    0 (0%)        0 (0%)      0 (0%)           0 (0%)         13h
 Allocated resources:
   (Total limits may be over 100 percent, i.e., overcommitted.)
   Resource           Requests  Limits
@@ -672,47 +728,9 @@ Allocated resources:
   hugepages-1Gi      0 (0%)    0 (0%)
   hugepages-2Mi      0 (0%)    0 (0%)
 Events:
-  Type     Reason                   Age                  From             Message
-  ----     ------                   ----                 ----             -------
-  Warning  MissingClusterDNS        50m (x44 over 100m)  kubelet          kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
-  Normal   Starting                 44m                  kubelet          Starting kubelet.
-  Warning  InvalidDiskCapacity      44m                  kubelet          invalid capacity 0 on image filesystem
-  Normal   NodeHasSufficientMemory  44m (x2 over 44m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientMemory
-  Normal   NodeHasNoDiskPressure    44m (x2 over 44m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasNoDiskPressure
-  Normal   NodeHasSufficientPID     44m (x2 over 44m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientPID
-  Normal   NodeAllocatableEnforced  44m                  kubelet          Updated Node Allocatable limit across pods
-  Normal   NodeReady                44m                  kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeReady
-  Warning  MissingClusterDNS        43m (x15 over 44m)   kubelet          kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
-  Normal   NodeHasSufficientMemory  40m (x2 over 40m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientMemory
-  Normal   NodeAllocatableEnforced  40m                  kubelet          Updated Node Allocatable limit across pods
-  Warning  InvalidDiskCapacity      40m                  kubelet          invalid capacity 0 on image filesystem
-  Normal   Starting                 40m                  kubelet          Starting kubelet.
-  Normal   NodeHasNoDiskPressure    40m (x2 over 40m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasNoDiskPressure
-  Normal   NodeHasSufficientPID     40m (x2 over 40m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientPID
-  Normal   NodeReady                40m                  kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeReady
-  Normal   RegisteredNode           40m                  node-controller  Node fargate-ip-10-0-2-27.us-east-1.compute.internal event: Registered Node fargate-ip-10-0-2-27.us-east-1.compute.internal in Controller
-  Warning  MissingClusterDNS        35m (x34 over 40m)   kubelet          kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
-  Normal   Starting                 30m                  kubelet          Starting kubelet.
-  Warning  InvalidDiskCapacity      30m                  kubelet          invalid capacity 0 on image filesystem
-  Normal   NodeHasSufficientMemory  30m (x2 over 30m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientMemory
-  Normal   NodeHasNoDiskPressure    30m (x2 over 30m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasNoDiskPressure
-  Normal   NodeHasSufficientPID     30m (x2 over 30m)    kubelet          Node fargate-ip-10-0-2-27.us-east-1.compute.internal status is now: NodeHasSufficientPID
-  Normal   NodeAllocatableEnforced  30m                  kubelet          Updated Node Allocatable limit across pods
-  Warning  MissingClusterDNS        33s (x173 over 30m)  kubelet          kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
-```
-
-### Step 15. Start kubelet service to join the network
-
-```bash
-# in case it's already running
-sudo systemctl stop kubelet.service
-sudo systemctl disable kubelet.service
-sudo systemctl enable kubelet.service
-
-sudo rm -f /var/log/kubelet.log
-sudo systemctl restart --no-block kubelet.service
-# sudo systemctl status kubelet.service
-sudo tail -f /var/log/kubelet.log
+  Type     Reason             Age                  From     Message
+  ----     ------             ----                 ----     -------
+  Warning  MissingClusterDNS  4m5s (x58 over 74m)  kubelet  kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
 ```
 
 ```bash
@@ -727,23 +745,203 @@ ma a --region us-east-1 k n s a \
 k get nodes
 ```
 
-### Step 16. Deploy test node port app
+### Step 14. Manually approve CSRs
+
+Note that in order for kubectl exec and logs to work, the kubelet originated CSRs must be approved and issued.
+
+The default eks-approver and signer approves and signs based on the hostname, which does not work for our satellite node objects. Thus, we need to approve manually. And then the signed certs will be issued automatically, so long as the node authorizes with the correct credential (the one in aws-auth configmap). Which is why we cannot use the IAM user for the node authorization.
 
 ```bash
-k apply -f ./satellite-lambda/node-port-app.yaml
-k apply -f ./satellite-lambda/nginx.yaml
-k get po -o wide
+# to get the current pending CSRs
+k get csr
+
+csr-d682r   34s     kubernetes.io/kubelet-serving   system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal   <none>              Pending
 ```
 
-- http://138.2.229.235:8080
-- http://138.2.229.235
+```bash
+# to manually approve
+k certificate approve csr-d682r
+```
 
-And connect to the service using the Lambda Labs instance public IP + port 8080:
+Shortly, the **eks-signer will issue certs for the approved CSR:**
 
-![service-demo-8080](satellite-lambda/service-demo-8080.png)
+```bash
+csr-d682r   65s     kubernetes.io/kubelet-serving   system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal   <none>              Approved,Issued
+```
 
-![service-demo-nginx](satellite-lambda/service-demo-nginx.png)
+You can inspect the certificate with:
 
-### Step 17. Check pod logs
+```bash
+k get csr csr-d682r -o yaml
+```
 
-**THIS DOES NOT WORK...***
+```yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-08-25T04:45:20Z"
+  generateName: csr-
+  name: csr-d682r
+  resourceVersion: "503058"
+  uid: 4a84b570-c0a1-4f13-8c4d-8f1ebf6f6a7c
+spec:
+  extra:
+    accessKeyId:
+    - ASIAYZ57AXBUL6JBOSW6
+    arn:
+    - arn:aws:sts::605454121064:assumed-role/gh62-satellite/test
+    canonicalArn:
+    - arn:aws:iam::605454121064:role/gh62-satellite
+    principalId:
+    - AROAYZ57AXBUAFZAZQGKU
+    sessionName:
+    - test
+  groups:
+  - system:bootstrappers
+  - system:nodes
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQmJ6Q0NBUllDQVFBd1h6RVZNQk1HQTFVRUNoTU1jM2x6ZEdWdE9tNXZaR1Z6TVVZd1JBWURWUVFERXoxegplWE4wWlcwNmJtOWtaVHBtWVhKbllYUmxMV2x3TFRFd0xUQXRNVFF0TVRjd0xuVnpMV1ZoYzNRdE1TNWpiMjF3CmRYUmxMbWx1ZEdWeWJtRnNNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVhZm13blN6R3hqNlYKY21KTWdvN1kzc1kzZW16cXc1dkVrSFJBMHpxODVXemM0WlVlS0U1T0pmbjZtVHB0cW10ZUFpS0FRa3VJL3RYKworMU5RSWU5Qm5LQlZNRk1HQ1NxR1NJYjNEUUVKRGpGR01FUXdRZ1lEVlIwUkJEc3dPWUl4Wm1GeVoyRjBaUzFwCmNDMHhNQzB3TFRFMExURTNNQzUxY3kxbFlYTjBMVEV1WTI5dGNIVjBaUzVwYm5SbGNtNWhiSWNFQ2dBQzZUQUsKQmdncWhrak9QUVFEQWdOSEFEQkVBaUJuQTN0NTZ0VnlnSXBQRzlwc0Mwb3FhN1pGMU5tNVRUOHE0WkxKanJ6NQpVQUlnYk9MNTN6amg1bTZlUVlYaDFRdlF3QXVieFI2WnorL1dkcjZHUFJhY0FtVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==
+  signerName: kubernetes.io/kubelet-serving
+  uid: aws-iam-authenticator:605454121064:AROAYZ57AXBUAFZAZQGKU
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+  username: system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM4akNDQWRxZ0F3SUJBZ0lVTGlvWWdzRGJwOXUvbTFMM1p5NUJmUTFwNVp3d0RRWUpLb1pJaHZjTkFRRUwKQlFBd0ZURVRNQkVHQTFVRUF4TUthM1ZpWlhKdVpYUmxjekFlRncweU16QTRNalV3TkRReE1EQmFGdzB5TkRBNApNalF3TkRReE1EQmFNRjh4RlRBVEJnTlZCQW9UREhONWMzUmxiVHB1YjJSbGN6RkdNRVFHQTFVRUF4TTljM2x6CmRHVnRPbTV2WkdVNlptRnlaMkYwWlMxcGNDMHhNQzB3TFRFMExURTNNQzUxY3kxbFlYTjBMVEV1WTI5dGNIVjAKWlM1cGJuUmxjbTVoYkRCWk1CTUdCeXFHU000OUFnRUdDQ3FHU000OUF3RUhBMElBQkduNXNKMHN4c1krbFhKaQpUSUtPMk43R04zcHM2c09ieEpCMFFOTTZ2T1ZzM09HVkhpaE9UaVg1K3BrNmJhcHJYZ0lpZ0VKTGlQN1YvdnRUClVDSHZRWnlqZ2Jvd2diY3dEZ1lEVlIwUEFRSC9CQVFEQWdXZ01CTUdBMVVkSlFRTU1Bb0dDQ3NHQVFVRkJ3TUIKTUF3R0ExVWRFd0VCL3dRQ01BQXdIUVlEVlIwT0JCWUVGR1pHNk1uZHl0eUFsQlZDdEtiSU4rOXJHU2QrTUI4RwpBMVVkSXdRWU1CYUFGR1ljNU8vdG5sUDhHK01veEh2VWtMVHdiSGJzTUVJR0ExVWRFUVE3TURtQ01XWmhjbWRoCmRHVXRhWEF0TVRBdE1DMHhOQzB4TnpBdWRYTXRaV0Z6ZEMweExtTnZiWEIxZEdVdWFXNTBaWEp1WVd5SEJBb0EKQXVrd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFLRUM1blB0bTBicHY3TVJTYUxlKzBIcGZGZlk3N24xQ0F2dwpMUG9yZHZZYWhkNFlpQ2krazdPTFhua2hMQ2VGVU5vVXg0WXYwMllnUWxuSXZFMGo1WENxYlFLMDN6bThDaEVaCkZWRkZXTE05eWpKTmUwTkZReU44bnlKQjh1ZFc1Y29yenJVck4vYzNNTVVLbTNsK2JHOXNYa3lFK3lsSzNrUXMKZnpSa0huZzVTYmRMcU9UVHd2dGd0Z2tubHNwOUdnTER6blhTNzNSajRZd1hmUnBqRGU2VERjczNKbWJYQ0hINApUWHpBVjdZaGEvamdpc2luSVZUVkgzUS93SjVXRmsyWDJWRGUwdGdkTm5TZ3JqNG1QTm0yNVlZVWNvelZZaUp6Cm4xQlRGSzg3dU0ybU9sOTJRaXNpTHZoYkc2RVozdE9JY2xrUVEyS25wL0J4Qi9zUUxEcz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  conditions:
+  - lastTransitionTime: "2023-08-25T04:46:22Z"
+    lastUpdateTime: "2023-08-25T04:46:22Z"
+    message: This CSR was approved by kubectl certificate approve.
+    reason: KubectlApprove
+    status: "True"
+    type: Approved
+```
+
+```bash
+# status.certificate field
+echo ... | base64 -d
+openssl x509 -in ...cert -text -noout
+```
+
+You can see the CSR correctly includes the IP in the cert SAN field:
+
+```text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            59:67:64:e6:95:18:ef:31:a5:a4:2d:97:08:34:82:bd:b8:fc:e0:03
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = kubernetes
+        Validity
+            Not Before: Aug 25 04:53:00 2023 GMT
+            Not After : Aug 24 04:53:00 2024 GMT
+        Subject: O = system:nodes, CN = system:node:fargate-ip-10-0-14-170.us-east-1.compute.internal
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (256 bit)
+                pub:
+                    04:81:33:dc:f4:ce:86:df:c0:c3:09:c4:05:30:0f:
+                    dc:6f:9a:56:c9:bb:ab:d1:ea:3d:84:d4:fb:62:f6:
+                    10:39:a2:3d:e9:61:aa:9a:8a:eb:ba:0f:a6:f0:79:
+                    b5:9f:0f:6f:d0:70:ba:32:06:69:fc:81:18:0d:b7:
+                    65:2f:67:63:bc
+                ASN1 OID: prime256v1
+                NIST CURVE: P-256
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Digital Signature, Key Encipherment
+            X509v3 Extended Key Usage:
+                TLS Web Server Authentication
+            X509v3 Basic Constraints: critical
+                CA:FALSE
+            X509v3 Subject Key Identifier:
+                AC:B0:BD:6B:6A:75:7F:FF:CB:D2:38:12:EF:E0:F6:15:F2:4A:78:A1
+            X509v3 Authority Key Identifier:
+                66:1C:E4:EF:ED:9E:53:FC:1B:E3:28:C4:7B:D4:90:B4:F0:6C:76:EC
+            X509v3 Subject Alternative Name:
+                DNS:fargate-ip-10-0-14-170.us-east-1.compute.internal, IP Address:10.0.2.233
+    Signature Algorithm: sha256WithRSAEncryption
+```
+
+### Step 15. Check pod logs and exec
+
+```bash
+k get po -o wide
+
+NAME                      READY   STATUS    RESTARTS   AGE   IP           NODE                                                NOMINATED NODE   READINESS GATES
+my-app-6d788947d8-lpx9k   1/1     Running   0          13h   10.0.2.233   fargate-ip-10-0-14-170.us-east-1.compute.internal   <none>           <none>
+nginx                     1/1     Running   0          72m   10.0.2.233   fargate-ip-10-0-14-170.us-east-1.compute.internal   <none>           <none>
+```
+
+```bash
+k logs my-app-6d788947d8-lpx9k
+
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://10.19.62.58:8080
+Press CTRL+C to quit
+43.247.163.116 - - [24/Aug/2023 17:26:35] "GET / HTTP/1.1" 200 -
+207.180.223.28 - - [24/Aug/2023 17:29:25] "CONNECT google.com:443 HTTP/1.1" 404 -
+192.99.9.171 - - [24/Aug/2023 17:38:00] "GET /cdn-cgi/trace HTTP/1.1" 404 -
+```
+
+```bash
+k exec -ti my-app-6d788947d8-lpx9k -- sh
+
+/app # ls
+Dockerfile        LICENSE           README.md         requirements.txt  src
+```
+
+```bash
+k logs nginx
+
+/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+```
+
+```bash
+k exec -ti nginx -- sh
+
+# ls
+bin  boot  dev	docker-entrypoint.d  docker-entrypoint.sh  etc	home  lib  lib32  lib64  libx32  media	mnt  opt  proc	root  run  sbin  srv  sys  tmp	usr  var
+```
+
+### What's next?
+
+- Make the CNI plugin host network work with IPAMD plugin, for Ingress to work.
+  - Pod IP should be the Labmda Cloud public IP.
+- Automate the steps above.
+- Research/design the following for the long-term solution:
+  - Reliably approve CSRs.
+  - Reliably run the SSL passthrough proxy.
+  - Set up long-term IAM role for on-prem hosts (see IAM Roles Anywhere).
+  - Set up gateway tunnel.
+  - EFS should work.
+  - See https://github.com/leptonai/lepton/issues/2663 for more.
+
+### NOTES: AWS Client VPN
+
+Basically, using VPC, we can access AWS EKS VPC IPs from VPN-connected Lambda Labs hosts (e.g., connect to EC2 private IPs, EKS control plane endpoints, etc.). But, EKS control plane or EC2 instance cannot route to VPN-connected Lambda Labs hosts.
+
+![vpc-reachability-analysis](./satellite-lambda/vpc-reachability-analysis.png)
+
+This is because all private subnet outbound traffic to `10.0.0.0/16` are routed using the local route table, which has the following route:
+
+![vpc-private-subnet-route-table.png](./satellite-lambda/vpc-private-subnet-route-table.png)
+
+See the following articles for more information:
+
+- [Client-to-client access using AWS Client VPN](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/scenario-client-to-client.html)
+- ["connection can only be initiated from the client to the EC2 instance and it wouldn't work for the connections initiated in the other direction."](https://serverfault.com/questions/964767/unable-to-ping-vpn-clients-from-target-subnet)
+
+Without this step, kubelet exec/logs would not work...
+
+We can still schedule pods on the satellite node, but we cannot access the pod. See below for the remaining steps.
+
