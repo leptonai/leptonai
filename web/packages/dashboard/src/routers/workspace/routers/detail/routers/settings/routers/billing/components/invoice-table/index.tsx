@@ -98,7 +98,7 @@ export const InvoiceTable: FC<{
           dataIndex: "amount",
           render: (amount) => (
             <Tag bordered={false}>
-              $ {new Decimal(amount).div(100).toFixed()}
+              ${new Decimal(amount).div(100).toFixed()}
             </Tag>
           ),
         },

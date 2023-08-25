@@ -23,13 +23,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     } else {
       const previousStripeClient = getStripeClient(workspace.chargeable);
       if (workspace.subscription_id) {
-        await previousStripeClient.subscriptions.del(workspace.subscription_id);
+        try {
+          await previousStripeClient.subscriptions.del(
+            workspace.subscription_id
+          );
+        } catch (e) {
+          console.warn(e);
+        }
       }
       if (workspace.consumer_id) {
-        await previousStripeClient.customers.deleteDiscount(
-          workspace.consumer_id
-        );
-        await previousStripeClient.customers.del(workspace.consumer_id);
+        try {
+          await previousStripeClient.customers.deleteDiscount(
+            workspace.consumer_id
+          );
+        } catch (e) {
+          console.warn(e);
+        }
+        try {
+          await previousStripeClient.customers.del(workspace.consumer_id);
+        } catch (e) {
+          console.warn(e);
+        }
       }
       const updated = await setupWorkspaceSubscription(workspaceId, chargeable);
       res.status(200).json(updated);
