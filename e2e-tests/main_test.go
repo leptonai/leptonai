@@ -143,8 +143,8 @@ func waitForDNSPropagation(hostname string) error {
 		if err != nil {
 			return fmt.Errorf("failed to lookup IP for %s: %v", hostname, err)
 		}
-		if len(ips) == 0 {
-			return fmt.Errorf("no IP found for %s", hostname)
+		if len(ips) < 3 {
+			return fmt.Errorf("Fewer than three IP addresses found for %s", hostname)
 		}
 		return nil
 	})
