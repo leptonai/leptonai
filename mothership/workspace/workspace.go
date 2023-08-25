@@ -490,7 +490,7 @@ func (w *Workspace) delete(workspaceName string, logCh chan<- string) (err error
 	_, err = terraform.GetWorkspace(ctxBeforeTF, tfws)
 	if err != nil {
 		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
-		return fmt.Errorf("failed to get workspace: %w", err)
+		return fmt.Errorf("failed to get terraform workspace %s: %w", tfws, err)
 	}
 	dir, err := util.PrepareTerraformWorkingDir(tfws, "workspace", ws.Spec.GitRef)
 	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
