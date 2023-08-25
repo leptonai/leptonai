@@ -97,6 +97,7 @@ jobs:
             --expected-state "ready"
       - name: Run tests
         run: |
+          sleep 180 # wait for dns to be ready
           go test -p 8 -timeout 3600s -v ./e2e-tests/... \
             --workspace-url https://${{ inputs.workspace_name }}.cloud.lepton.ai/api/v1 \
             --auth-token ${{ inputs.api_token }}
@@ -158,7 +159,7 @@ jobs:
           --expected-state "ready"
       - name: Run tests
         run: |
-          sleep 120 # wait for envoy to be ready
+          sleep 180 # wait for envoy and dns to be ready
           go test -p 8 -timeout 3600s -v ./e2e-tests/... \
             --workspace-url https://${{ inputs.workspace_name_01 }}.${{ needs.find-cluster.outputs.cluster }}.dev.lepton.ai/api/v1 \
             --auth-token ${{ inputs.api_token_01 }} \
