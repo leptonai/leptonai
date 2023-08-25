@@ -3,10 +3,14 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@lepton/database";
 
 async function getWorkspace(id: string, client: SupabaseClient) {
-  const { data: workspaces } = await client
+  const { data: workspaces, error } = await client
     .from("workspaces")
     .select()
     .eq("id", id);
+
+  if (error) {
+    throw error;
+  }
 
   if (workspaces && workspaces.length) {
     return workspaces[0];

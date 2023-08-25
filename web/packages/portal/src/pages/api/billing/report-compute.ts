@@ -92,6 +92,7 @@ interface ReportComputeUsageBody {
  *           type: string
  */
 const handler: NextApiHandler<UsageRecord | string> = async (req, res) => {
+  console.log("report-compute", JSON.stringify(req.body));
   if (
     req.method !== "POST" ||
     req.query.LEPTON_API_SECRET !== process.env.LEPTON_API_SECRET
