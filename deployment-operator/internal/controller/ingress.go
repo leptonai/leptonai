@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"reflect"
+
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	domainname "github.com/leptonai/lepton/go-pkg/domain-name"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
@@ -14,7 +16,7 @@ type Ingress struct {
 	leptonDeployment *leptonaiv1alpha1.LeptonDeployment
 }
 
-// temporarily set ALB timeout to 5 minutes since some inference requests would take longer time when the service is busy 
+// temporarily set ALB timeout to 5 minutes since some inference requests would take longer time when the service is busy
 const albTimeoutSec = 300
 
 func newIngress(ld *leptonaiv1alpha1.LeptonDeployment) *Ingress {
@@ -48,4 +50,21 @@ func (k *Ingress) createHeaderBasedDeploymentIngress(or []metav1.OwnerReference)
 	annotation.SetDeploymentAndAPITokenConditions(service.ServiceName(ld.GetSpecName()), ld.GetSpecName(), k.leptonDeployment.GetTokens())
 	paths := ingress.NewPrefixPaths().AddServicePath(service.ServiceName(ld.GetSpecName()), service.Port, service.RootPath)
 	return ingress.NewIngress(ingress.IngressNameForHeaderBased(ld.GetSpecName()), ld.Namespace, "", annotation.Get(), paths.Get(), or)
+}
+
+func compareAndPatchIngress(ing, patch *networkingv1.Ingress) bool {
+	equals := compareAndPatchLabels(&ing.ObjectMeta, &patch.ObjectMeta) &&
+		compareAndPatchOwnerReferences(&ing.ObjectMeta, &patch.ObjectMeta)
+	// TODO: we have to override the whole annotations because we will remove annotations when they are not in the new ingress
+	// However, we should support fine-grained update in the future.
+	if !reflect.DeepEqual(ing.ObjectMeta.Annotations, patch.ObjectMeta.Annotations) {
+		ing.ObjectMeta.Annotations = patch.ObjectMeta.Annotations
+		equals = false
+	}
+	if !reflect.DeepEqual(ing.Spec, patch.Spec) {
+		ing.Spec = patch.Spec
+		equals = false
+	}
+
+	return equals
 }

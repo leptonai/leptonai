@@ -242,69 +242,63 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*appsv1.Deployment, error) {
-	deployment := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, req.NamespacedName, deployment)
+	expectedDeployment, err := r.createDeployment(ctx, ld, or)
+	if err != nil {
+		return nil, err
+	}
+	existingDeployment := &appsv1.Deployment{}
+	err = r.Client.Get(ctx, req.NamespacedName, existingDeployment)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, err
 		}
+
 		goutil.Logger.Infow("creating a new leptonDeployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		d, err := r.createDeployment(ctx, ld, or)
+		err = r.Client.Create(ctx, expectedDeployment)
 		if err != nil {
 			return nil, err
 		}
-		err = r.Client.Create(ctx, d)
-		if err != nil {
-			return nil, err
-		}
-
 		goutil.Logger.Infow("created a new leptonDeployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
+		return expectedDeployment, nil
 	} else {
+		if compareAndPatchDeployment(existingDeployment, expectedDeployment) {
+			goutil.Logger.Infow("Skipping updating the deployment: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return existingDeployment, nil
+		}
+
 		goutil.Logger.Infow("updating an existing leptonDeployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		d, err := r.createDeployment(ctx, ld, or)
-		if err != nil {
+		if err := r.Client.Update(ctx, existingDeployment); err != nil {
 			return nil, err
 		}
-		deployment.ObjectMeta.Labels = d.ObjectMeta.Labels
-		deployment.ObjectMeta.OwnerReferences = d.ObjectMeta.OwnerReferences
-		// We only update Spec.Template.Spec because other fields like selector is immutable.
-		deployment.Spec.Template.Spec = d.Spec.Template.Spec
-		// We have to handle the number of replicas separately because it is not
-		// in the pod spec. We are not able to update the whole deployment spec
-		// because other fields like labelSelector is immutable.
-		deployment.Spec.Replicas = d.Spec.Replicas
-
-		if err := r.Client.Update(ctx, deployment); err != nil {
-			return nil, err
-		}
-
 		goutil.Logger.Infow("updated an existing leptonDeployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
+		return existingDeployment, nil
 	}
 
-	return deployment, nil
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*corev1.Service, error) {
+	expectedService := newService(ld).createService(or)
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      service.ServiceName(ld.GetSpecName()),
 	}
-	service := &corev1.Service{}
-	err := r.Client.Get(ctx, namespacedName, service)
+	existingService := &corev1.Service{}
+	err := r.Client.Get(ctx, namespacedName, existingService)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, err
@@ -314,37 +308,36 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		service = newService(ld).createService(or)
-		if err := r.Client.Create(ctx, service); err != nil {
+		if err := r.Client.Create(ctx, expectedService); err != nil {
 			return nil, err
 		}
-
 		goutil.Logger.Infow("created a new service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
+		return expectedService, nil
 	} else {
+		if compareAndPatchService(existingService, expectedService) {
+			goutil.Logger.Infow("Skipping updating the service: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return existingService, nil
+		}
+
 		goutil.Logger.Infow("updating an existing service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		svc := newService(ld).createService(or)
-		service.ObjectMeta.Labels = svc.ObjectMeta.Labels
-		service.ObjectMeta.Annotations = svc.ObjectMeta.Annotations
-		service.ObjectMeta.OwnerReferences = svc.ObjectMeta.OwnerReferences
-		service.Spec = svc.Spec
-		if err := r.Client.Update(ctx, service); err != nil {
+		if err := r.Client.Update(ctx, existingService); err != nil {
 			return nil, err
 		}
-
 		goutil.Logger.Infow("updated an existing service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
+		return existingService, nil
 	}
-	return service, nil
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
@@ -358,106 +351,109 @@ func (r *LeptonDeploymentReconciler) createOrUpdateIngress(ctx context.Context, 
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
+	expectedIngress := newIngress(ld).createHeaderBasedDeploymentIngress(or)
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      ingress.IngressNameForHeaderBased(ld.GetSpecName()),
 	}
-	ingress := &networkingv1.Ingress{}
-	err := r.Client.Get(ctx, namespacedName, ingress)
+	existingIngress := &networkingv1.Ingress{}
+	err := r.Client.Get(ctx, namespacedName, existingIngress)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		ingress = newIngress(ld).createHeaderBasedDeploymentIngress(or)
-		if ingress != nil {
-			goutil.Logger.Infow("creating a new header based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
 
-			if err := r.Client.Create(ctx, ingress); err != nil {
-				return err
-			}
-
-			goutil.Logger.Infow("created a new header based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
+		goutil.Logger.Infow("creating a new header based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		if err := r.Client.Create(ctx, expectedIngress); err != nil {
+			return err
 		}
+		goutil.Logger.Infow("created a new header based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	} else {
-		ing := newIngress(ld).createHeaderBasedDeploymentIngress(or)
-		if ing != nil {
-			goutil.Logger.Infow("updating an existing header based ingress",
+		if compareAndPatchIngress(existingIngress, expectedIngress) {
+			goutil.Logger.Infow("Skipping updating the header-based ingress: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
 			)
-
-			ingress.ObjectMeta.Labels = ing.ObjectMeta.Labels
-			ingress.ObjectMeta.Annotations = ing.ObjectMeta.Annotations
-			ingress.ObjectMeta.OwnerReferences = ing.ObjectMeta.OwnerReferences
-			ingress.Spec = ing.Spec
-			if err := r.Client.Update(ctx, ingress); err != nil {
-				return err
-			}
-
-			goutil.Logger.Infow("updated an existing header based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
+			return nil
 		}
+
+		goutil.Logger.Infow("updating an existing header based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		if err := r.Client.Update(ctx, existingIngress); err != nil {
+			return err
+		}
+		goutil.Logger.Infow("updated an existing header based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	}
 	return nil
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) error {
+	expectedIngress := newIngress(ld).createHostBasedDeploymentIngress(or)
 	namespacedName := types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      ingress.IngressNameForHostBased(ld.GetSpecName()),
 	}
-	ingress := &networkingv1.Ingress{}
-	err := r.Client.Get(ctx, namespacedName, ingress)
+	existingIngress := &networkingv1.Ingress{}
+	err := r.Client.Get(ctx, namespacedName, existingIngress)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
 
-		ingress = newIngress(ld).createHostBasedDeploymentIngress(or)
-		if ingress != nil {
-			goutil.Logger.Infow("creating a new host based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
-
-			if err := r.Client.Create(ctx, ingress); err != nil {
-				return err
-			}
-
-			goutil.Logger.Infow("created a new host based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
+		if expectedIngress == nil {
+			return nil
 		}
+
+		goutil.Logger.Infow("creating a new host based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		if err := r.Client.Create(ctx, expectedIngress); err != nil {
+			return err
+		}
+		goutil.Logger.Infow("created a new host based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	} else {
-		ing := newIngress(ld).createHostBasedDeploymentIngress(or)
-		if ing != nil {
-			goutil.Logger.Infow("updating an existing host based ingress",
+		if expectedIngress == nil {
+			goutil.Logger.Infow("deleting an existing host based ingress",
 				"namespace", req.Namespace,
 				"name", req.Name,
 			)
-
-			ingress.ObjectMeta.Labels = ing.ObjectMeta.Labels
-			ingress.ObjectMeta.Annotations = ing.ObjectMeta.Annotations
-			ingress.ObjectMeta.OwnerReferences = ing.ObjectMeta.OwnerReferences
-			ingress.Spec = ing.Spec
-			if err := r.Client.Update(ctx, ingress); err != nil {
-				return err
-			}
-
-			goutil.Logger.Infow("updated an existing host based ingress",
-				"namespace", req.Namespace,
-				"name", req.Name,
-			)
+			return r.Client.Delete(ctx, existingIngress)
 		}
+
+		if compareAndPatchIngress(existingIngress, expectedIngress) {
+			goutil.Logger.Infow("Skipping updating the host-based ingress: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return nil
+		}
+
+		goutil.Logger.Infow("updating an existing host based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		if err := r.Client.Update(ctx, existingIngress); err != nil {
+			return err
+		}
+		goutil.Logger.Infow("updated an existing host based ingress",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
 	}
 	return nil
 }
@@ -505,12 +501,10 @@ func (r *LeptonDeploymentReconciler) createDeployment(ctx context.Context, ld *l
 			"name", ld.Name,
 			"pvname", pvname,
 		)
-
 		err = k8s.CreatePVC(ctx, ld.Namespace, pvcname, pvname, or)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
-
 		goutil.Logger.Infow("created a new pvc",
 			"namespace", ld.Namespace,
 			"name", ld.Name,
@@ -530,12 +524,10 @@ func (r *LeptonDeploymentReconciler) deletePV(ctx context.Context, ld *leptonaiv
 			"name", ld.Name,
 			"pvname", pvname,
 		)
-
 		err := k8s.DeletePV(ctx, pvname)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-
 		goutil.Logger.Infow("deleted a pv",
 			"namespace", ld.Namespace,
 			"name", ld.Name,
@@ -559,47 +551,40 @@ func (r *LeptonDeploymentReconciler) createOrUpdateLoadBalancerRules(ctx context
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
-	maybeExistingRT, err := r.GlooClients.RouteTableClient.Read(ld.Namespace, createRouteTableName(ld), soloclients.ReadOpts{Ctx: ctx})
+	expectedRouteTable := createHeaderBasedDeploymentRouteTable(ld, or)
+	existingRouteTable, err := r.GlooClients.RouteTableClient.Read(ld.Namespace, createRouteTableName(ld), soloclients.ReadOpts{Ctx: ctx})
 	if err != nil {
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get RouteTable, error is not IsNotExist: %w", err)
-		}
-		routeTable := createHeaderBasedDeploymentRouteTable(ld, or)
-		if routeTable == nil {
-			return fmt.Errorf("failed to create new route table, value is nil")
 		}
 
 		goutil.Logger.Infow("creating a new header based routeTable",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		if _, err := r.GlooClients.RouteTableClient.Write(routeTable, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+		if _, err := r.GlooClients.RouteTableClient.Write(expectedRouteTable, soloclients.WriteOpts{Ctx: ctx}); err != nil {
 			return fmt.Errorf("failed to create new RouteTable: %w", err)
 		}
-
 		goutil.Logger.Infow("created a new header based routeTable",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
 	} else {
-		routeTable := createHeaderBasedDeploymentRouteTable(ld, or)
-		if routeTable == nil {
-			return fmt.Errorf("failed to create new route table, value is nil")
+		if compareAndPatchRouteTable(existingRouteTable, expectedRouteTable) {
+			goutil.Logger.Infow("Skipping updating the gloo route table: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return nil
 		}
 
 		goutil.Logger.Infow("updating an existing header based routeTable",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		maybeExistingRT.Routes = routeTable.Routes
-		maybeExistingRT.Metadata.OwnerReferences = routeTable.Metadata.OwnerReferences
-
-		maybeExistingRT.Metadata.Labels[RouteTaleDomainLabelKey] = routeTable.Metadata.Labels[RouteTaleDomainLabelKey]
-		if _, err := r.GlooClients.RouteTableClient.Write(maybeExistingRT, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		if _, err := r.GlooClients.RouteTableClient.Write(existingRouteTable, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing RouteTable: %w", err)
 		}
-
 		goutil.Logger.Infow("updated an existing header based routeTable",
 			"namespace", req.Namespace,
 			"name", req.Name,
@@ -609,46 +594,40 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
-	maybeExistingVS, err := r.GlooClients.VirtualServiceClient.Read(ld.Namespace, createDeploymentVirtualServiceName(ld), soloclients.ReadOpts{Ctx: ctx})
+	expectedVirtualService := createHostBasedDeploymentVirtualService(ld, or)
+	existingVirtualService, err := r.GlooClients.VirtualServiceClient.Read(ld.Namespace, createDeploymentVirtualServiceName(ld), soloclients.ReadOpts{Ctx: ctx})
 	if err != nil {
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get VirtualService, error is not IsNotExist: %w", err)
 		}
-		virtualService := createHostBasedDeploymentVirtualService(ld, or)
-		if virtualService == nil {
-			return fmt.Errorf("failed to create new virtual service, value is nil")
 
-		}
 		goutil.Logger.Infow("creating a new host based virtual service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		if _, err := r.GlooClients.VirtualServiceClient.Write(virtualService, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+		if _, err := r.GlooClients.VirtualServiceClient.Write(expectedVirtualService, soloclients.WriteOpts{Ctx: ctx}); err != nil {
 			return fmt.Errorf("failed to create new VirtualService: %w", err)
 		}
-
 		goutil.Logger.Infow("created a new host based virtual service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
 	} else {
-		virtualService := createHostBasedDeploymentVirtualService(ld, or)
-
-		if virtualService == nil || virtualService.VirtualHost == nil {
-			return fmt.Errorf("failed to create new virtual service, value is nil")
+		if compareAndPatchVirtualService(existingVirtualService, expectedVirtualService) {
+			goutil.Logger.Infow("Skipping updating the gloo virtual service: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return nil
 		}
 
 		goutil.Logger.Infow("updating an existing host based virtual service",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		maybeExistingVS.VirtualHost = virtualService.VirtualHost
-		maybeExistingVS.Metadata.OwnerReferences = virtualService.Metadata.OwnerReferences
-		if _, err := r.GlooClients.VirtualServiceClient.Write(maybeExistingVS, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		if _, err := r.GlooClients.VirtualServiceClient.Write(existingVirtualService, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing VirtualService: %w", err)
 		}
-
 		goutil.Logger.Infow("updated an existing host based virtual service",
 			"namespace", req.Namespace,
 			"name", req.Name,
@@ -658,46 +637,40 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ct
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Metadata_OwnerReference) error {
-	maybeExistingUpstream, err := r.GlooClients.UpstreamClient.Read(ld.Namespace, createGlooUpstreamName(ld), soloclients.ReadOpts{Ctx: ctx})
+	expectedUpstream := createGlooUpstream(ld, or)
+	existingUpstream, err := r.GlooClients.UpstreamClient.Read(ld.Namespace, createGlooUpstreamName(ld), soloclients.ReadOpts{Ctx: ctx})
 	if err != nil {
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get upstream, error is not IsNotExist: %w", err)
 		}
-		upstream := createGlooUpstream(ld, or)
-		if upstream == nil {
-			return fmt.Errorf("failed to create new upstream, value is nil")
-		}
+
 		goutil.Logger.Infow("creating a new upstream",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-
-		if _, err := r.GlooClients.UpstreamClient.Write(upstream, soloclients.WriteOpts{Ctx: ctx}); err != nil {
+		if _, err := r.GlooClients.UpstreamClient.Write(expectedUpstream, soloclients.WriteOpts{Ctx: ctx}); err != nil {
 			return fmt.Errorf("failed to create new upstream: %w", err)
 		}
-
 		goutil.Logger.Infow("created a new upstream",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
 	} else {
-		upstream := createGlooUpstream(ld, or)
-		if upstream == nil || upstream.UpstreamType == nil {
-			return fmt.Errorf("failed to create new upstream, value is nil")
-
+		if compareAndPatchGlooUpstream(existingUpstream, expectedUpstream) {
+			goutil.Logger.Infow("Skipping updating the gloo upstream: already up-to-date",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return nil
 		}
 
 		goutil.Logger.Infow("updating an existing upstream",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		maybeExistingUpstream.UpstreamType = upstream.UpstreamType
-		maybeExistingUpstream.HealthChecks = upstream.HealthChecks
-		maybeExistingUpstream.Metadata.OwnerReferences = upstream.Metadata.OwnerReferences
-		if _, err := r.GlooClients.UpstreamClient.Write(maybeExistingUpstream, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		if _, err := r.GlooClients.UpstreamClient.Write(existingUpstream, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing upstream: %w", err)
 		}
-
 		goutil.Logger.Infow("updated an existing upstream",
 			"namespace", req.Namespace,
 			"name", req.Name,

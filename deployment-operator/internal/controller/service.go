@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"reflect"
+
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 
@@ -39,4 +41,16 @@ func (k *Service) createService(or []metav1.OwnerReference) *corev1.Service {
 		},
 	}
 	return service
+}
+
+func compareAndPatchService(svc, patch *corev1.Service) bool {
+	equals := compareAndPatchLabels(&svc.ObjectMeta, &patch.ObjectMeta) &&
+		compareAndPatchAnnotations(&svc.ObjectMeta, &patch.ObjectMeta) &&
+		compareAndPatchOwnerReferences(&svc.ObjectMeta, &patch.ObjectMeta)
+	if !reflect.DeepEqual(svc.Spec, patch.Spec) {
+		svc.Spec = patch.Spec
+		equals = false
+	}
+
+	return equals
 }

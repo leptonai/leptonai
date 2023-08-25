@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"reflect"
 
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -218,4 +219,65 @@ func createGlooUpstream(ld *leptonaiv1alpha1.LeptonDeployment, or []*gloocore.Me
 		},
 	}
 	return &upstream
+}
+
+func compareAndPatchRouteTable(rt, patch *gloogw.RouteTable) bool {
+	equals := compareAndPatchGlooMetadata(rt.Metadata, patch.Metadata)
+	if !reflect.DeepEqual(rt.Routes, patch.Routes) {
+		rt.Routes = patch.Routes
+		equals = false
+	}
+
+	return equals
+}
+
+func compareAndPatchVirtualService(vs, patch *gloogw.VirtualService) bool {
+	equals := compareAndPatchGlooMetadata(vs.Metadata, patch.Metadata)
+	if !reflect.DeepEqual(vs.VirtualHost, patch.VirtualHost) {
+		vs.VirtualHost = patch.VirtualHost
+		equals = false
+	}
+
+	return equals
+}
+
+func compareAndPatchGlooUpstream(gu, patch *glooapi.Upstream) bool {
+	equals := compareAndPatchGlooMetadata(gu.Metadata, patch.Metadata)
+	if !reflect.DeepEqual(gu.HealthChecks, patch.HealthChecks) {
+		gu.HealthChecks = patch.HealthChecks
+		equals = false
+	}
+	if !reflect.DeepEqual(gu.UpstreamType, patch.UpstreamType) {
+		gu.UpstreamType = patch.UpstreamType
+		equals = false
+	}
+
+	return equals
+}
+
+func compareAndPatchGlooMetadata(meta, patch *gloocore.Metadata) bool {
+	equals := true
+	for k, v := range patch.Labels {
+		if meta.Labels == nil {
+			meta.Labels = make(map[string]string)
+		}
+		if meta.Labels[k] != v {
+			meta.Labels[k] = v
+			equals = false
+		}
+	}
+	for k, v := range patch.Annotations {
+		if meta.Annotations == nil {
+			meta.Annotations = make(map[string]string)
+		}
+		if meta.Annotations[k] != v {
+			meta.Annotations[k] = v
+			equals = false
+		}
+	}
+	if !reflect.DeepEqual(meta.OwnerReferences, patch.OwnerReferences) {
+		meta.OwnerReferences = patch.OwnerReferences
+		equals = false
+	}
+	return equals
 }
