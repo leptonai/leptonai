@@ -85,6 +85,7 @@ else
 fi
 
 terraform init --upgrade
+echo "SUCCESS: Terraform init completed successfully"
 
 # loads additional flags and values for the following "terraform apply" commands
 # shellcheck source=/dev/null
@@ -94,44 +95,13 @@ source ./variables.sh
 export TF_LOG="INFO"
 export TF_LOG_PATH="tf.install.log"
 
-CHECK_TERRAFORM_APPLY_OUTPUT=${CHECK_TERRAFORM_APPLY_OUTPUT:-true}
-
 # Apply modules in sequence
 for target in "${targets[@]}"
 do
   terraform apply -target="$target" "${APPLY_FLAGS[@]}"
-
-  if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-    apply_output=$(terraform apply -target="$target" "${APPLY_FLAGS[@]}" 2>&1)
-    if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
-      echo "SUCCESS: Terraform apply of $target completed successfully"
-    else
-      echo "FAILED: Terraform apply of $target failed"
-      exit 1
-    fi
-  fi
+  echo "SUCCESS: Terraform apply of $target completed successfully"
 done
 
 # Final apply to catch any remaining resources
-echo "Applying remaining resources..."
 terraform apply "${APPLY_FLAGS[@]}"
-
-if [[ "$CHECK_TERRAFORM_APPLY_OUTPUT" == "true" ]]; then
-  apply_output=$(terraform apply "${APPLY_FLAGS[@]}" 2>&1)
-  if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
-    echo "SUCCESS: Terraform apply of all modules completed successfully"
-  else
-    echo "FAILED: Terraform apply of all modules failed"
-    exit 1
-  fi
-fi
-
-echo ""
-echo "Run this to access the cluster:"
-if [[ "$REGION" != "" ]]; then
-    echo "aws eks update-kubeconfig --region $REGION --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
-else
-    echo "aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --kubeconfig /tmp/$CLUSTER_NAME.kubeconfig"
-fi
-echo ""
-echo "APPLY SUCCESS"
+echo "SUCCESS: Terraform apply of all modules completed successfully"

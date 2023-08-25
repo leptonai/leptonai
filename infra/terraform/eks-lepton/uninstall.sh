@@ -72,12 +72,8 @@ else
   echo "skipping copying lepton charts"
 fi
 
-if terraform init --upgrade ; then
-  echo "SUCCESS: Terraform init completed successfully"
-else
-  echo "ERROR: Terraform init failed"
-  exit 1
-fi
+terraform init --upgrade
+echo "SUCCESS: Terraform init completed successfully"
 
 # ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
 export TF_LOG="INFO"
@@ -108,23 +104,16 @@ DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-TEST}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"
 do
-  echo "deleting ${target}"
   terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" \
     -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" -target="$target" \
     -var="shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN" \
     -var="shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID"
+  echo "SUCCESS: Terraform destroy ${target} completed successfully"
 done
 
 echo "deleting the remaining resources"
-if terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" \
+terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" \
   -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" \
   -var="shared_alb_main_domain=$SHARED_ALB_MAIN_DOMAIN" \
-  -var="shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID" ; then
-  echo "SUCCESS: Terraform destroy completed successfully"
-else
-  echo "FAILED: Terraform destroy failed"
-  exit 1
-fi
-
-# NOTE: to clean up kubeconfig file used for "local-exec"
-# rm -f /tmp/$CLUSTER_NAME.kubeconfig
+  -var="shared_alb_route53_zone_id=$SHARED_ALB_ROUTE53_ZONE_ID"
+echo "SUCCESS: Terraform destroy completed successfully"

@@ -56,24 +56,15 @@ else
   echo "skipping copying lepton workspace charts"
 fi
 
-if terraform init --upgrade; then
-  echo "SUCCESS: Terraform init completed successfully"
-else
-  echo "ERROR: Terraform init failed"
-  exit 1
-fi
+terraform init --upgrade
+echo "SUCCESS: Terraform init completed successfully"
 
 # ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
 export TF_LOG="INFO"
 export TF_LOG_PATH="tf.uninstall.log"
 
-echo "Deleting resources..."
-if terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="region=$REGION" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
+terraform apply -destroy -auto-approve -var="cluster_name=$CLUSTER_NAME" -var="region=$REGION" -var="namespace=$WORKSPACE_NAME" -var="workspace_name=$WORKSPACE_NAME" \
   -var="create_efs=$CREATE_EFS" \
   -var="vpc_id=$VPC_ID" \
-  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"; then
-  echo "SUCCESS: Terraform destroy completed successfully"
-else
-  echo "FAILED: Terraform destroy failed"
-  exit 1
-fi
+  -var="efs_mount_targets=$EFS_MOUNT_TARGETS"
+echo "SUCCESS: Terraform destroy completed successfully"

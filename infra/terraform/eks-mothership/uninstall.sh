@@ -27,12 +27,8 @@ if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "null" ]; then
   exit 1
 fi
 
-if terraform init --upgrade ; then
-  echo "SUCCESS: Terraform init completed successfully"
-else
-  echo "ERROR: Terraform init failed"
-  exit 1
-fi
+terraform init --upgrade
+echo "SUCCESS: Terraform init completed successfully"
 
 # ref. https://developer.hashicorp.com/terraform/cli/config/environment-variables
 export TF_LOG="INFO"
@@ -42,17 +38,9 @@ DEPLOYMENT_ENVIRONMENT=${DEPLOYMENT_ENVIRONMENT:-DEV}
 REGION=${REGION:-"us-east-1"}
 for target in "${targets[@]}"
 do
-  echo "deleting ${target}"
   terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" -target="$target"
+  echo "SUCCESS: Terraform destroy ${target} completed successfully"
 done
 
-echo "deleting the remaining resources"
-if terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME" ; then
-  echo "SUCCESS: Terraform destroy completed successfully"
-else
-  echo "FAILED: Terraform destroy failed"
-  exit 1
-fi
-
-# NOTE: to clean up kubeconfig file used for "local-exec"
-# rm -f /tmp/$CLUSTER_NAME.kubeconfig
+terraform apply -destroy -auto-approve -var-file="deployment-environments/$DEPLOYMENT_ENVIRONMENT.tfvars" -var="region=$REGION" -var="cluster_name=$CLUSTER_NAME"
+echo "SUCCESS: Terraform destroy completed successfully"

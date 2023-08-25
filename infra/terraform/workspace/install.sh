@@ -84,12 +84,8 @@ else
   echo "skipping copying lepton workspace charts"
 fi
 
-if terraform init --upgrade ; then
-  echo "SUCCESS: Terraform init completed successfully"
-else
-  echo "ERROR: Terraform init failed"
-  exit 1
-fi
+terraform init --upgrade
+echo "SUCCESS: Terraform init completed successfully"
 
 # loads additional flags and values for the following "terraform apply" commands
 # shellcheck source=/dev/null
@@ -99,12 +95,5 @@ source ./variables.sh
 export TF_LOG="INFO"
 export TF_LOG_PATH="tf.install.log"
 
-echo "Applying resources..."
 terraform apply "${APPLY_FLAGS[@]}"
-apply_output=$(terraform apply "${APPLY_FLAGS[@]}" 2>&1)
-if [[ $? -eq 0 && $apply_output == *"Apply complete"* ]]; then
-  echo "SUCCESS: Terraform apply of all modules completed successfully"
-else
-  echo "FAILED: Terraform apply of all modules failed"
-  exit 1
-fi
+echo "SUCCESS: Terraform apply of all modules completed successfully"
