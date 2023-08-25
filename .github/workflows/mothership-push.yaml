@@ -1,28 +1,27 @@
-name: CI/CD - mothership
+name: mothership
 
 on:
-  pull_request:
+  push:
     paths:
-      - ".github/workflows/cicd-mothership-pr.yaml"
+      - ".github/workflows/cicd-mothership-main.yaml"
       - ".github/workflows/build-docker-image.yaml"
-      - .github/workflows/cicd-mothership-and-cluster.yaml
       - "mothership/**"
       - "go-pkg/**"
-      - "infra/terraform/eks-lepton/**"
-      - "charts/mothership/**"
-    branches: ["**"]
+    branches: ["main"]
 
 jobs:
-  build-mothership:
+  build-mothership-latest:
     uses: ./.github/workflows/build-docker-image.yaml
     secrets: inherit
     with:
       folder: mothership
       repo: lepton-mothership
+      tag: latest
 
-  build-mothershipctl:
+  build-mothershipctl-latest:
     uses: ./.github/workflows/build-docker-image.yaml
     secrets: inherit
     with:
       folder: mothership/cmd/mothership
       repo: lepton-mothershipctl
+      tag: latest

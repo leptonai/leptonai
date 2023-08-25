@@ -1,4 +1,4 @@
-name: clean-test-workspaces
+name: hourly-clean-test-workspaces
 
 on:
   schedule:

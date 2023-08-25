@@ -1,9 +1,16 @@
-name: CI/CD - mothership - release
+name: mothership
 
 on:
-  push:
-    tags:
-      - "*"
+  pull_request:
+    paths:
+      - ".github/workflows/cicd-mothership-pr.yaml"
+      - ".github/workflows/build-docker-image.yaml"
+      - .github/workflows/cicd-mothership-and-cluster.yaml
+      - "mothership/**"
+      - "go-pkg/**"
+      - "infra/terraform/eks-lepton/**"
+      - "charts/mothership/**"
+    branches: ["**"]
 
 jobs:
   build-mothership:
@@ -12,8 +19,6 @@ jobs:
     with:
       folder: mothership
       repo: lepton-mothership
-      tag: ${GITHUB_REF##*/}
-      commit: ${GITHUB_REF##*/}
 
   build-mothershipctl:
     uses: ./.github/workflows/build-docker-image.yaml
@@ -21,5 +26,3 @@ jobs:
     with:
       folder: mothership/cmd/mothership
       repo: lepton-mothershipctl
-      tag: ${GITHUB_REF##*/}
-      commit: ${GITHUB_REF##*/}

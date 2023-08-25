@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
           echo "cluster=$latest_ready_cluster" >> $GITHUB_OUTPUT
-  run-tests:
+  dedicated-alb:
     runs-on: self-hosted
     needs: [find-cluster]
     steps:
@@ -114,7 +114,7 @@ jobs:
             --workspace-name "${{ inputs.workspace_name }}" \
             --timeout 10 \
             --expected-state "deleted"
-  run-tests-shared-alb:
+  shared-alb:
     runs-on: self-hosted
     needs: [find-cluster]
     steps:

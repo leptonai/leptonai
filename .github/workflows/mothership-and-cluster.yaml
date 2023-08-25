@@ -1,4 +1,4 @@
-name: CI/CD - mothership+cluster
+name: mothership+cluster
 
 # Note:
 #  1. This e2e test uses the CI mothership (living in the ci namespace of the dev mothership cluster) to create the test cluster/workspace.
