@@ -34,6 +34,72 @@ export interface Database {
   };
   public: {
     Tables: {
+      compute_hourly: {
+        Row: {
+          batch_id: string;
+          deployment_name: string;
+          end_time: string;
+          id: string;
+          shape: string;
+          stripe_usage_record_id: string | null;
+          usage: number;
+          workspace_id: string;
+        };
+        Insert: {
+          batch_id: string;
+          deployment_name?: string;
+          end_time?: string;
+          id?: string;
+          shape?: string;
+          stripe_usage_record_id?: string | null;
+          usage: number;
+          workspace_id?: string;
+        };
+        Update: {
+          batch_id?: string;
+          deployment_name?: string;
+          end_time?: string;
+          id?: string;
+          shape?: string;
+          stripe_usage_record_id?: string | null;
+          usage?: number;
+          workspace_id?: string;
+        };
+        Relationships: [];
+      };
+      storage_hourly: {
+        Row: {
+          batch_id: string | null;
+          end_time: string;
+          id: string;
+          size_bytes: number | null;
+          size_gb: number | null;
+          storage_id: string;
+          stripe_usage_record_id: string | null;
+          workspace_id: string;
+        };
+        Insert: {
+          batch_id?: string | null;
+          end_time: string;
+          id?: string;
+          size_bytes?: number | null;
+          size_gb?: number | null;
+          storage_id: string;
+          stripe_usage_record_id?: string | null;
+          workspace_id: string;
+        };
+        Update: {
+          batch_id?: string | null;
+          end_time?: string;
+          id?: string;
+          size_bytes?: number | null;
+          size_gb?: number | null;
+          storage_id?: string;
+          stripe_usage_record_id?: string | null;
+          workspace_id?: string;
+        };
+        Relationships: [];
+      };
       user_workspace: {
         Row: {
           id: number;
