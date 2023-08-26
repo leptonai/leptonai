@@ -3,7 +3,7 @@ from leptonai.photon import Photon
 
 
 class Counter(Photon):
-    image = f"python:{sys.version_info.major}.{sys.version_info.minor}-slim"
+    image = f"default/python:{sys.version_info.major}.{sys.version_info.minor}-slim"
 
     def init(self):
         self.counter = 0
