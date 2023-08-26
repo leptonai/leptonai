@@ -1,5 +1,5 @@
 {
-  "name": "lepton-dashboard",
+  "name": "@lepton/dashboard",
   "description": "Lepton Dashboard is a general purpose, web-based UI for Lepton clusters. It allows users to manage deployments and troubleshoot them.",
   "private": true,
   "version": "0.0.1",
@@ -15,6 +15,7 @@
     "cypress:install": "cypress install"
   },
   "dependencies": {
+    "@lepton/ui": "workspace:*",
     "@ant-design/icons": "^5.0.1",
     "@carbon/icons-react": "^11.19.0",
     "@emotion/css": "^11.11.0",
@@ -62,6 +63,7 @@
     "xterm-addon-fit": "^0.7.0"
   },
   "devDependencies": {
+    "@lepton/tsconfig": "workspace:*",
     "@percy/cli": "^1.26.0",
     "@percy/cypress": "^3.1.2",
     "@prerenderer/renderer-puppeteer": "^1.2.2",
@@ -78,10 +80,13 @@
     "@types/uuid": "^9.0.2",
     "@vitejs/plugin-react": "^4.0.0",
     "archiver": "^5.3.1",
+    "autoprefixer": "^10.4.14",
     "cypress": "^12.14.0",
     "fs-extra": "^11.1.1",
     "openapi-types": "^12.1.3",
+    "postcss": "^8.4.27",
     "puppeteer": "^21.1.0",
+    "tailwindcss": "^3.3.3",
     "typescript": "~5.0.2",
     "vite": "^4.3.2",
     "vite-plugin-checker": "^0.6.0",

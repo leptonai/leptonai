@@ -122,6 +122,15 @@
           "react/jsx-uses-react": "off",
           "react/react-in-jsx-scope": "off"
         }
+      },
+      {
+        "files": [
+          "tailwind.config.js",
+          "postcss.config.js"
+        ],
+        "rules": {
+          "@typescript-eslint/no-var-requires": "off"
+        }
       }
     ]
   }

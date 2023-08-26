@@ -9,6 +9,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { StrictMode } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import "@lepton/ui/styles/globals.css";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);

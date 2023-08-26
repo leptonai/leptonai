@@ -1,7 +1,7 @@
 const uiConfig = require("@lepton/ui/tailwind.config");
 
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   ...uiConfig,
-  content: [...uiConfig.content, "./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: [...uiConfig.content, "./src/**/*.{ts,tsx}"],
 };

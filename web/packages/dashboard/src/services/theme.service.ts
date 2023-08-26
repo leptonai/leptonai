@@ -104,9 +104,17 @@ export class ThemeService {
       sameSite: "Lax",
     });
     this.theme$.next(this.presetThemes[reverseTheme]);
+    this.setClassname(reverseTheme);
+  }
+
+  private setClassname(theme: string) {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
   }
 
   constructor() {
     this.theme$.next(this.presetThemes[this.getValidTheme()]);
+    this.setClassname(this.getValidTheme());
   }
 }
