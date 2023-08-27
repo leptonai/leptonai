@@ -45,10 +45,10 @@ def pickle_photon_wrapper(port):
 
 objects_to_test = [
     [1, 2, 3],
-    # lepton_pickle([1, 2, 3]),  # one shouldn't double-pickle stuff but we'll still test.
-    # {"key": "value"},
-    # {"key": [1, 2, 3]},
-    # [1, "2", 3.0, {"four": 4}],
+    lepton_pickle([1, 2, 3]),  # one shouldn't double-pickle stuff but we'll still test.
+    {"key": "value"},
+    {"key": [1, 2, 3]},
+    [1, "2", 3.0, {"four": 4}],
 ]
 
 
@@ -72,7 +72,7 @@ class TestPickle(unittest.TestCase):
 
     def test_pickle_size_comparison(self):
         obj = ([1] * 1000,)
-        last_size = len(lepton_pickle(obj)["content"])
+        last_size = len(lepton_pickle(obj, compression=0)["content"])
         for i in range(1, 10):
             size = len(lepton_pickle(obj, compression=i)["content"])
             self.assertLessEqual(size, last_size)
@@ -93,7 +93,7 @@ class TestPickleWithPhoton(unittest.TestCase):
         port = find_free_port()
         proc = multiprocessing.Process(target=pickle_photon_wrapper, args=(port,))
         proc.start()
-        time.sleep(1)
+        time.sleep(2)
         url = f"http://localhost:{port}"
         c = Client(url)
 
