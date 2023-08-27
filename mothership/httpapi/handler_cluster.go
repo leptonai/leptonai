@@ -142,12 +142,12 @@ func HandleClusterCreate(c *gin.Context) {
 func HandleClusterDelete(c *gin.Context) {
 	force := c.DefaultQuery("force", "false")
 	clName := c.Param("clname")
-	lc, err := Cluster.Get(c, clName)
+	_, err := Cluster.Get(c, clName)
+	if apierrors.IsNotFound(err) {
+		c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + c.Param("clname") + " doesn't exist"})
+		return
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			c.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "cluster " + c.Param("clname") + " doesn't exist"})
-			return
-		}
 		goutil.Logger.Errorw("failed to get cluster",
 			"cluster", clName,
 			"operation", "delete",
@@ -157,15 +157,31 @@ func HandleClusterDelete(c *gin.Context) {
 		return
 	}
 
-	if force != "true" && len(lc.Status.Workspaces) != 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    httperrors.ErrorCodeInvalidRequest,
-			"message": fmt.Sprintf("cluster %s has workspaces %v, please delete them first", clName, lc.Status.Workspaces),
-		})
-		return
+	if force != "true" {
+		wss, err := Workspace.List(c)
+		if err != nil {
+			goutil.Logger.Errorw("failed to list workspaces to verify whether the cluster is in use",
+				"cluster", clName,
+				"operation", "delete",
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    httperrors.ErrorCodeInternalFailure,
+				"message": "failed to list workspaces to verify whether the cluster is in use: " + err.Error(),
+			})
+		}
+		for _, ws := range wss {
+			if ws.Spec.ClusterName == clName {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    httperrors.ErrorCodeInvalidRequest,
+					"message": fmt.Sprintf("cluster %s is in use by workspace %s", clName, ws.Name),
+				})
+				return
+			}
+		}
 	}
 
-	if err := Cluster.Delete(c.Param("clname")); err != nil {
+	if err := Cluster.Delete(clName); err != nil {
 		goutil.Logger.Errorw("failed to delete cluster",
 			"cluster", clName,
 			"operation", "delete",

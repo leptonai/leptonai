@@ -18,7 +18,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/aws/route53"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/common"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/util"
-	"github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_iam_v2 "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -79,19 +78,18 @@ func purgeFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("failed to list clusters %v", err)
 	}
-
-	cmap := map[string]*v1alpha1.LeptonCluster{}
-	for _, c := range clusters {
-		cmap[c.Name] = c
+	workspaces, err := util.ListWorkspaces(cli, false)
+	if err != nil {
+		log.Fatalf("failed to list clusters %v", err)
 	}
 
-	wps := map[string]bool{}
 	cls := map[string]bool{}
 	for _, c := range clusters {
 		cls[c.Name] = true
-		for _, w := range c.Status.Workspaces {
-			wps[w] = true
-		}
+	}
+	wps := map[string]bool{}
+	for _, w := range workspaces {
+		wps[w.Name] = true
 	}
 
 	purgeAWS(cls, wps)

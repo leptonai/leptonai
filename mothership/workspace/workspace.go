@@ -80,13 +80,10 @@ func (w *Workspace) Init() {
 	metrics.SetWorkspacesTotal(float64(len(wss)))
 	go w.monitorTotalNumberOfWorkspaces()
 
-	ctow := make(map[string][]string)
-
 	goutil.Logger.Infow("start to init all workspaces")
 
 	for _, item := range wss {
 		ws := item
-		ctow[ws.Spec.ClusterName] = append(ctow[ws.Spec.ClusterName], ws.Spec.Name)
 
 		switch ws.Status.State {
 		case crdv1alpha1.WorkspaceOperationalStateCreating, crdv1alpha1.WorkspaceOperationalStateUnknown:
@@ -139,26 +136,6 @@ func (w *Workspace) Init() {
 					)
 				}
 			}()
-		}
-	}
-
-	for clusterName, wss := range ctow {
-		cl, err := w.Cluster.DataStore.Get(ctx, clusterName)
-		if err != nil {
-			goutil.Logger.Errorw("failed to get cluster",
-				"cluster", clusterName,
-				"operation", "init",
-				"error", err,
-			)
-			continue
-		}
-		cl.Status.Workspaces = wss
-		if err := w.Cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
-			goutil.Logger.Errorw("failed to update cluster",
-				"cluster", clusterName,
-				"operation", "init",
-				"error", err,
-			)
 		}
 	}
 
@@ -259,34 +236,6 @@ func (w *Workspace) Create(ctx *gin.Context, spec crdv1alpha1.LeptonWorkspaceSpe
 		)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
 		return nil, fmt.Errorf("unknown error: %w", err)
-	}
-
-	// TODO: Fact check: I think k8s will handle the data race here: e.g., someone stepped in
-	// between Get and Update, the update will fail. Users will see the error and retry.
-	cl, err := w.Cluster.DataStore.Get(ctx, spec.ClusterName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			ctx.JSON(http.StatusNotFound, gin.H{"code": httperrors.ErrorCodeResourceNotFound, "message": "failed to create workspace: " + err.Error()})
-			return nil, fmt.Errorf("cluster %s does not exist", spec.ClusterName)
-		} else {
-			goutil.Logger.Errorw("failed to create workspace",
-				"workspace", workspaceName,
-				"operation", "create",
-				"error", err,
-			)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
-			return nil, fmt.Errorf("unknown error: %w", err)
-		}
-	}
-	cl.Status.Workspaces = append(cl.Status.Workspaces, workspaceName)
-	if err := w.Cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
-		goutil.Logger.Errorw("failed to create workspace",
-			"workspace", workspaceName,
-			"operation", "create",
-			"error", err,
-		)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to create workspace: " + err.Error()})
-		return nil, fmt.Errorf("failed to update cluster: %w", err)
 	}
 
 	if err := w.DataStore.Create(ctx, workspaceName, ws); err != nil {
@@ -546,28 +495,6 @@ func (w *Workspace) delete(workspaceName string, logCh chan<- string) (err error
 
 	ctxAfterTFApply, cancelAfterTFApply := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelAfterTFApply()
-
-	cl, err = w.Cluster.DataStore.Get(ctxAfterTFApply, ws.Spec.ClusterName)
-	if err != nil {
-		goutil.Logger.Errorw("failed to get cluster",
-			"cluster", ws.Spec.ClusterName,
-			"operation", "delete",
-			"error", err,
-		)
-	} else {
-		cl.Status.Workspaces = goutil.RemoveString(cl.Status.Workspaces, workspaceName)
-		// TODO: data race: if two goroutines are concurrently updating the cluster, this will fail.
-		ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
-		defer cancel()
-		if err := w.Cluster.DataStore.UpdateStatus(ctx, cl.Name, cl); err != nil {
-			goutil.Logger.Errorw("failed to remove the deleted workspace from cluster",
-				"workspace", workspaceName,
-				"cluster", cl.Name,
-				"operation", "delete",
-				"error", err,
-			)
-		}
-	}
 
 	err = terraform.DeleteEmptyWorkspace(ctxAfterTFApply, tfws)
 	if err != nil {

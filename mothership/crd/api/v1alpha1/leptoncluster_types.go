@@ -48,8 +48,6 @@ type LeptonClusterStatus struct {
 
 	// unix timestamp
 	UpdatedAt uint64 `json:"updated_at"`
-	// Workspaces are mutable and can be added/removed from cluster.
-	Workspaces []string `json:"workspaces,omitempty"`
 	// Properties are immutable and are set once cluster is created.
 	Properties LeptonClusterProperties `json:"properties,omitempty"`
 }

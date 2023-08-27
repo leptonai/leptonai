@@ -93,12 +93,6 @@ spec:
                 description: unix timestamp
                 format: int64
                 type: integer
-              workspaces:
-                description: Workspaces are mutable and can be added/removed from
-                  cluster.
-                items:
-                  type: string
-                type: array
             required:
             - state
             - updated_at
