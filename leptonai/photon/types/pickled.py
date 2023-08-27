@@ -45,14 +45,18 @@ def is_pickled(obj: LeptonPickled) -> bool:
         return False
 
 
-def lepton_pickle(obj: Any, compression: int = 0) -> LeptonPickled:
+def lepton_pickle(obj: Any, compression: int = -1) -> LeptonPickled:
     """
     Pickles an object and returns an objec that will be able to be sent over the
     api.
 
     Args:
         obj (Any): The object to pickle.
-        compression (bool): Whether to compress the pickled string.
+        compression (int): the compression level used in lepton pickle, between
+            0 to 9 or -1. 0 means no compression, 1-9 means progrssively more
+            compression applied (hence slower). Default=-1 means the default
+            zlib compression chosen by zlib to be a balance between speed and
+            compression.
 
     Returns:
         content: a dictionary with two keys: "type" and "content". "type" has value
@@ -63,8 +67,9 @@ def lepton_pickle(obj: Any, compression: int = 0) -> LeptonPickled:
         content = pickle.dumps(obj)
     except Exception as e:
         raise ValueError(f"Object is unpicklable. Detailed error message: {str(e)}.")
-    if compression:
-        content = zlib.compress(content, level=compression)
+    if compression < -1 or compression > 9:
+        raise ValueError(f"Incorrect level of compression: {compression}.")
+    content = zlib.compress(content, level=compression)
     pickled = {
         "type": _PICKLED_PREFIX,
         "compression": compression,
@@ -84,9 +89,7 @@ def lepton_unpickle(obj: LeptonPickled) -> Any:
         Any: The unpickled object.
     """
     content = base64.b64decode(obj["content"])
-    if obj.get("compression", False):
-        content = zlib.decompress(content)
-
+    content = zlib.decompress(content)
     try:
         return pickle.loads(content)
     except Exception as e:
