@@ -133,13 +133,34 @@ func TestDeploymentStatusAndEvents(t *testing.T) {
 
 func TestUpdateDeploymentMinReplicas(t *testing.T) {
 	t.Parallel()
-	// Update deployment to have 2 replicas
-	if err := updateAndVerifyDeploymentMinReplicas(mainTestDeploymentName, 2); err != nil {
-		t.Fatal(err)
+	dName := newName(t.Name())
+	d := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
+		Name:     dName,
+		PhotonID: mainTestPhotonID,
+		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
+			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			MinReplicas:   1,
+		},
 	}
-	// Patch back to 1 replica to not hurt other tests
-	if err := updateAndVerifyDeploymentMinReplicas(mainTestDeploymentName, 1); err != nil {
-		t.Fatal(err)
+	_, err := lepton.Deployment().Create(d)
+	if err != nil {
+		log.Fatalf("Failed to create deployment: %v", err)
+	}
+	defer func() {
+		if err := lepton.Deployment().Delete(dName); err != nil {
+			t.Fatalf("Failed to delete deployment: %v", err)
+		}
+	}()
+	if err := waitForDeploymentToRunningState(dName); err != nil {
+		t.Fatalf("Failed to wait for deployment to running state: %v", err)
+	}
+	// Scale deployment up to have 2 replicas
+	if err := updateAndVerifyDeploymentMinReplicas(dName, 2); err != nil {
+		t.Fatalf("Failed to update deployment to 2 replicas: %v", err)
+	}
+	// Scale deployment down to have 1 replica
+	if err := updateAndVerifyDeploymentMinReplicas(dName, 1); err != nil {
+		t.Fatalf("Failed to update deployment to 1 replica: %v", err)
 	}
 }
 
@@ -173,7 +194,7 @@ func TestDeploymentOutOfQuota(t *testing.T) {
 
 func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error {
 	patch := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
-		Name: mainTestDeploymentName,
+		Name: name,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			MinReplicas: numReplicas,
 		},
@@ -186,11 +207,11 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 		return fmt.Errorf("Expected deployment to have %d replicas in patch response, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
 	// Wait for deployment to be running
-	if err := waitForDeploymentToRunningState(mainTestDeploymentName); err != nil {
+	if err := waitForDeploymentToRunningState(name); err != nil {
 		return err
 	}
 	// Check that the deployment has numReplicas replicas in running state
-	d, err = lepton.Deployment().Get(mainTestDeploymentName)
+	d, err = lepton.Deployment().Get(name)
 	if err != nil {
 		return err
 	}
@@ -199,7 +220,7 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 	}
 	// Verify there are numReplicas replicas
 	return retryUntilNoErrorOrTimeout(2*time.Minute, func() error {
-		replicas, err := lepton.Replica().List(mainTestDeploymentName)
+		replicas, err := lepton.Replica().List(name)
 		if err != nil {
 			return fmt.Errorf("Failed to list replicas: %v", err)
 		}
