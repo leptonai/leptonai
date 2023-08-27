@@ -160,10 +160,10 @@ func TestUpdateDeploymentMinReplicas(t *testing.T) {
 		t.Fatalf("Failed to update deployment to 2 replicas: %v", err)
 	}
 	// Update deployment to have 0 replicas
-	if err := updateAndVerifyDeploymentMinReplicas(mainTestDeploymentName, 0); err != nil {
+	if err := updateAndVerifyDeploymentMinReplicas(dName, 0); err != nil {
 		t.Fatal(err)
 	}
-	// Scale deployment down to have 1 replica
+	// Scale deployment up to have 1 replica
 	if err := updateAndVerifyDeploymentMinReplicas(dName, 1); err != nil {
 		t.Fatalf("Failed to update deployment to 1 replica: %v", err)
 	}
