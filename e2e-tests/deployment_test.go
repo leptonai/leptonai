@@ -7,6 +7,7 @@ import (
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"k8s.io/utils/ptr"
 )
 
 func TestDeploySamePhotonMultipleTimes(t *testing.T) {
@@ -21,7 +22,7 @@ func TestDeploySamePhotonMultipleTimes(t *testing.T) {
 			PhotonID: mainTestPhotonID,
 			ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 				ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-				MinReplicas:   1,
+				MinReplicas:   ptr.To[int32](1),
 			},
 			APITokens: []leptonaiv1alpha1.TokenVar{
 				{
@@ -73,7 +74,7 @@ func TestDeployWithDuplicateName(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 		APITokens: []leptonaiv1alpha1.TokenVar{
 			{
@@ -139,7 +140,7 @@ func TestUpdateDeploymentMinReplicas(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 	}
 	_, err := lepton.Deployment().Create(d)
@@ -158,6 +159,10 @@ func TestUpdateDeploymentMinReplicas(t *testing.T) {
 	if err := updateAndVerifyDeploymentMinReplicas(dName, 2); err != nil {
 		t.Fatalf("Failed to update deployment to 2 replicas: %v", err)
 	}
+	// Update deployment to have 0 replicas
+	if err := updateAndVerifyDeploymentMinReplicas(mainTestDeploymentName, 0); err != nil {
+		t.Fatal(err)
+	}
 	// Scale deployment down to have 1 replica
 	if err := updateAndVerifyDeploymentMinReplicas(dName, 1); err != nil {
 		t.Fatalf("Failed to update deployment to 1 replica: %v", err)
@@ -168,7 +173,7 @@ func TestDeploymentOutOfQuota(t *testing.T) {
 	patch := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name: mainTestDeploymentName,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			MinReplicas:   100,
+			MinReplicas:   ptr.To[int32](100),
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
 		},
 	}
@@ -183,7 +188,7 @@ func TestDeploymentOutOfQuota(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1Large,
-			MinReplicas:   20,
+			MinReplicas:   ptr.To[int32](20),
 		},
 	}
 	_, err = lepton.Deployment().Create(d)
@@ -196,26 +201,30 @@ func updateAndVerifyDeploymentMinReplicas(name string, numReplicas int32) error 
 	patch := &leptonaiv1alpha1.LeptonDeploymentUserSpec{
 		Name: name,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			MinReplicas: numReplicas,
+			MinReplicas: ptr.To[int32](numReplicas),
 		},
 	}
 	d, err := lepton.Deployment().Update(patch)
 	if err != nil {
 		return err
 	}
-	if d.ResourceRequirement.MinReplicas != numReplicas {
+	if *d.ResourceRequirement.MinReplicas != numReplicas {
 		return fmt.Errorf("Expected deployment to have %d replicas in patch response, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
-	// Wait for deployment to be running
-	if err := waitForDeploymentToRunningState(name); err != nil {
-		return err
+
+	if numReplicas != 0 {
+		// Wait for deployment to be running
+		if err := waitForDeploymentToRunningState(name); err != nil {
+			return err
+		}
+		// Check that the deployment has numReplicas replicas in running state
+		d, err = lepton.Deployment().Get(name)
+		if err != nil {
+			return err
+		}
 	}
-	// Check that the deployment has numReplicas replicas in running state
-	d, err = lepton.Deployment().Get(name)
-	if err != nil {
-		return err
-	}
-	if d.ResourceRequirement.MinReplicas != numReplicas {
+
+	if *d.ResourceRequirement.MinReplicas != numReplicas {
 		return fmt.Errorf("Expected deployment to have %d replicas when running, got %d", numReplicas, d.ResourceRequirement.MinReplicas)
 	}
 	// Verify there are numReplicas replicas
@@ -238,7 +247,7 @@ func TestDeployWithInvalidEnvVar(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 		APITokens: []leptonaiv1alpha1.TokenVar{
 			{
@@ -277,7 +286,7 @@ func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 	}
 	_, err := lepton.Deployment().Create(d)
@@ -381,7 +390,7 @@ func TestPrivateContainerRegistry(t *testing.T) {
 		PhotonID: phoid,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 		ImagePullSecrets: []string{pullSecretName},
 	}
@@ -435,7 +444,7 @@ func TestUpdatePhotonID(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 	}
 	_, err = lepton.Deployment().Create(deploy)

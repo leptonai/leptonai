@@ -212,6 +212,10 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 }
 
 func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.LeptonDeploymentState) leptonaiv1alpha1.LeptonDeploymentState {
+	if replicas == 0 && readyReplicas == 0 { // TODO: figure out a better state for zero size deployment??
+		return leptonaiv1alpha1.LeptonDeploymentStateNotReady
+	}
+
 	if replicas > 0 && replicas == readyReplicas {
 		return leptonaiv1alpha1.LeptonDeploymentStateRunning
 	}

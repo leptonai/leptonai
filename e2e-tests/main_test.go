@@ -15,6 +15,7 @@ import (
 	e2eutil "github.com/leptonai/lepton/e2e-tests/e2e-util"
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/util"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -94,7 +95,7 @@ func mustPrepareTest() {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 		APITokens: []leptonaiv1alpha1.TokenVar{
 			{

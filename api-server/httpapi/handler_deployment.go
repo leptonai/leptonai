@@ -17,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 )
 
 type DeploymentHandler struct {
@@ -356,8 +357,12 @@ func (h *DeploymentHandler) validateCreateInput(ctx context.Context, ld *leptona
 		}
 	}
 
-	if ld.ResourceRequirement.MinReplicas <= 0 {
-		return fmt.Errorf("min replicas must be positive")
+	if ld.ResourceRequirement.MinReplicas == nil {
+		return fmt.Errorf("min replicas must be specified for creation")
+	}
+
+	if *ld.ResourceRequirement.MinReplicas < 0 {
+		return fmt.Errorf("min replicas must be non-negative")
 	}
 
 	err := h.checkQuota(ctx, ld, nil)
@@ -454,8 +459,9 @@ func (h *DeploymentHandler) patchDeployment(old *leptonaiv1alpha1.LeptonDeployme
 		old.Spec.PhotonImage = util.UpdateDefaultRegistry(ph.Spec.Image, h.photonImageRegistry)
 		patched = true
 	}
-	if spec.ResourceRequirement.MinReplicas > 0 {
-		old.Spec.ResourceRequirement.MinReplicas = spec.ResourceRequirement.MinReplicas
+	if spec.ResourceRequirement.MinReplicas != nil && *spec.ResourceRequirement.MinReplicas >= 0 {
+		mr := *spec.ResourceRequirement.MinReplicas
+		old.Spec.ResourceRequirement.MinReplicas = ptr.To[int32](mr)
 		patched = true
 	}
 	if spec.APITokens != nil {

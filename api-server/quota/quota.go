@@ -38,6 +38,11 @@ type TotalResource struct {
 // Admit checks if a LeptonDeploymentResourceRequirement can be admitted to a ResourceQuota
 // after release the resources used by the old deployment if any.
 func Admit(q v1.ResourceQuota, r *leptonaiv1alpha1.LeptonDeploymentResourceRequirement, o *leptonaiv1alpha1.LeptonDeploymentResourceRequirement) bool {
+	if r == nil || r.MinReplicas == nil {
+		// zero replica, must admit
+		return true
+	}
+
 	if o != nil { // release the resources used by the old deployment if any
 		kc := deploymentutil.LeptonResourceToKubeResource(*o)
 		for requestName, request := range kc.Requests {
@@ -48,7 +53,12 @@ func Admit(q v1.ResourceQuota, r *leptonaiv1alpha1.LeptonDeploymentResourceRequi
 				continue
 			}
 
-			for i := 0; i < int(o.MinReplicas); i++ {
+			if o.MinReplicas == nil {
+				// nothing in this deployment
+				continue
+			}
+
+			for i := 0; i < int(*o.MinReplicas); i++ {
 				// improve me: only release the resources actually conusmed by the old deployment
 				// basically number of running pod...
 				u := q.Status.Used[requestName]
@@ -70,7 +80,7 @@ func Admit(q v1.ResourceQuota, r *leptonaiv1alpha1.LeptonDeploymentResourceRequi
 		}
 		u := q.Status.Used[requestName]
 
-		for i := 0; i < int(r.MinReplicas); i++ {
+		for i := 0; i < int(*r.MinReplicas); i++ {
 			u.Add(request)
 		}
 

@@ -98,7 +98,7 @@ type LeptonDeploymentResourceRequirement struct {
 	LeptonDeploymentReplicaResourceRequirement `json:",inline"`
 	// +optional
 	ResourceShape LeptonDeploymentResourceShape `json:"resource_shape"`
-	MinReplicas   int32                         `json:"min_replicas"`
+	MinReplicas   *int32                        `json:"min_replicas"`
 }
 
 // GetAcceleratorRequirement returns the required number and type of the accelerator for the deployment.

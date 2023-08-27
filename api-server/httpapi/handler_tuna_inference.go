@@ -14,6 +14,7 @@ import (
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"k8s.io/utils/ptr"
 
 	"github.com/gin-gonic/gin"
 )
@@ -162,7 +163,7 @@ func (ih *InferenceHandler) createTunaDeployment(c *gin.Context, ti TunaInferenc
 	userSpec.PhotonID = ti.Spec.PhotonID
 	userSpec.Name = tunaDeploymentName(ti.Metadata.Name)
 	userSpec.ResourceRequirement.ResourceShape = leptonaiv1alpha1.AC1A10
-	userSpec.ResourceRequirement.MinReplicas = 1
+	userSpec.ResourceRequirement.MinReplicas = ptr.To[int32](1)
 
 	userSpec.Envs = []leptonaiv1alpha1.EnvVar{
 		{

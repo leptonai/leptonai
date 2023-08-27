@@ -13,6 +13,7 @@ import (
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	goclient "github.com/leptonai/lepton/go-client"
 	"github.com/leptonai/lepton/go-pkg/k8s/ingress"
+	"k8s.io/utils/ptr"
 )
 
 func TestIngressWithDeploymentDocsUsingHeaderBased(t *testing.T) {
@@ -88,7 +89,7 @@ func TestIngressOfPublicDeployment(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 	}
 	_, err := lepton.Deployment().Create(d)
@@ -133,7 +134,7 @@ func TestIngressOfDeploymentWithCustomTokenAndUpdatingToken(t *testing.T) {
 		PhotonID: mainTestPhotonID,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
 			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
-			MinReplicas:   1,
+			MinReplicas:   ptr.To[int32](1),
 		},
 		APITokens: []leptonaiv1alpha1.TokenVar{
 			{

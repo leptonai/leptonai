@@ -111,7 +111,7 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 			OwnerReferences: or,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &ld.Spec.ResourceRequirement.MinReplicas,
+			Replicas: ld.Spec.ResourceRequirement.MinReplicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					labelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),

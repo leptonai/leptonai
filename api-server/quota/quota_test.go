@@ -7,6 +7,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 )
 
 func TestQuotaAdmit(t *testing.T) {
@@ -36,7 +37,7 @@ func TestQuotaAdmit(t *testing.T) {
 		{
 			q: cq,
 			r: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   12,
+				MinReplicas:   ptr.To[int32](12),
 				ResourceShape: leptonaiv1alpha1.GP1Small,
 			},
 			o: nil,
@@ -46,7 +47,7 @@ func TestQuotaAdmit(t *testing.T) {
 		{
 			q: cq,
 			r: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   13,
+				MinReplicas:   ptr.To[int32](13),
 				ResourceShape: leptonaiv1alpha1.GP1Small,
 			},
 			o: nil,
@@ -56,7 +57,7 @@ func TestQuotaAdmit(t *testing.T) {
 		{
 			q: cq,
 			r: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   1,
+				MinReplicas:   ptr.To[int32](1),
 				ResourceShape: leptonaiv1alpha1.AC1T4,
 			},
 			o: nil,
@@ -65,7 +66,7 @@ func TestQuotaAdmit(t *testing.T) {
 		{
 			q: cq,
 			r: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   2,
+				MinReplicas:   ptr.To[int32](2),
 				ResourceShape: leptonaiv1alpha1.AC1T4,
 			},
 			o: nil,
@@ -75,11 +76,11 @@ func TestQuotaAdmit(t *testing.T) {
 		{
 			q: cq,
 			r: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   2,
+				MinReplicas:   ptr.To[int32](2),
 				ResourceShape: leptonaiv1alpha1.AC1T4,
 			},
 			o: &leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-				MinReplicas:   1,
+				MinReplicas:   ptr.To[int32](1),
 				ResourceShape: leptonaiv1alpha1.AC1T4,
 			},
 			w: true,

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"k8s.io/utils/ptr"
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,7 +92,7 @@ func TestValidateCreateInput_ResourceRequirement(t *testing.T) {
 			Name:                "test",
 			ResourceRequirement: tt.r,
 		}
-		r.ResourceRequirement.MinReplicas = 1
+		r.ResourceRequirement.MinReplicas = ptr.To[int32](1)
 		err := h.validateCreateInput(&gin.Context{}, r)
 		if tt.e && err == nil {
 			t.Errorf("Test %d: Expected error, but got none", i)
