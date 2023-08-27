@@ -81,7 +81,8 @@ jobs:
             --workspace-name "${{ inputs.workspace_name }}" \
             --git-ref "${{ inputs.git_ref }}" \
             --image-tag "${{ inputs.image_tag }}" \
-            --tier "basic"
+            --tier "basic" \
+            --lb-type "dedicated"
           # install sdk
           if ! hash nvidia-smi 2>/dev/null; then
              echo "nvidia-smi not found on host, installing cpu version of torch"

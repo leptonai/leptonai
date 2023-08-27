@@ -1,4 +1,5 @@
 {{ if .Values.web.enabled }}
+{{ if eq .Values.lbType "dedicated" }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -28,4 +29,5 @@ spec:
                 name: {{ .Values.web.name }}-service
                 port:
                   number: {{ .Values.web.service.port }}
+{{ end }}
 {{ end }}

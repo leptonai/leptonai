@@ -1,4 +1,5 @@
 {{ if .Values.lbGlooRules.enabled }}
+{{ if eq .Values.lbType "shared" }}
 apiVersion: gloo.solo.io/v1
 kind: Upstream
 metadata:
@@ -85,4 +86,5 @@ spec:
       - prefix: /
       directResponseAction:
         status: 404
+{{ end }}
 {{ end }}

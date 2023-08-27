@@ -366,7 +366,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeDedicated {
+			return nil
+		}
 		goutil.Logger.Infow("creating a new header based ingress",
 			"namespace", req.Namespace,
 			"name", req.Name,
@@ -379,6 +381,13 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 			"name", req.Name,
 		)
 	} else {
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeDedicated {
+			goutil.Logger.Infow("deleting an existing header based ingress",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return r.Client.Delete(ctx, existingIngress)
+		}
 		if compareAndPatchIngress(existingIngress, expectedIngress) {
 			goutil.Logger.Infow("Skipping updating the header-based ingress: already up-to-date",
 				"namespace", req.Namespace,
@@ -414,6 +423,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeDedicated {
+			return nil
+		}
 
 		if expectedIngress == nil {
 			return nil
@@ -431,7 +443,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 			"name", req.Name,
 		)
 	} else {
-		if expectedIngress == nil {
+		if expectedIngress == nil || r.LBType != leptonaiv1alpha1.WorkspaceLBTypeDedicated {
 			goutil.Logger.Infow("deleting an existing host based ingress",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -561,6 +573,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get RouteTable, error is not IsNotExist: %w", err)
 		}
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			return nil
+		}
 
 		goutil.Logger.Infow("creating a new header based routeTable",
 			"namespace", req.Namespace,
@@ -574,6 +589,13 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(
 			"name", req.Name,
 		)
 	} else {
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			goutil.Logger.Infow("deleting an existing route table",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return r.GlooClients.RouteTableClient.Delete(existingRouteTable.Metadata.Namespace, existingRouteTable.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
+		}
 		if compareAndPatchRouteTable(existingRouteTable, expectedRouteTable) {
 			goutil.Logger.Infow("Skipping updating the gloo route table: already up-to-date",
 				"namespace", req.Namespace,
@@ -604,6 +626,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ct
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get VirtualService, error is not IsNotExist: %w", err)
 		}
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			return nil
+		}
 
 		goutil.Logger.Infow("creating a new host based virtual service",
 			"namespace", req.Namespace,
@@ -617,6 +642,14 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ct
 			"name", req.Name,
 		)
 	} else {
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			goutil.Logger.Infow("deleting an existing virtual service",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return r.GlooClients.VirtualServiceClient.Delete(existingVirtualService.Metadata.Namespace, existingVirtualService.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
+		}
+
 		if compareAndPatchVirtualService(existingVirtualService, expectedVirtualService) {
 			goutil.Logger.Infow("Skipping updating the gloo virtual service: already up-to-date",
 				"namespace", req.Namespace,
@@ -647,6 +680,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Cont
 		if !glooerrors.IsNotExist(err) {
 			return fmt.Errorf("failed to get upstream, error is not IsNotExist: %w", err)
 		}
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			return nil
+		}
 
 		goutil.Logger.Infow("creating a new upstream",
 			"namespace", req.Namespace,
@@ -660,6 +696,13 @@ func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Cont
 			"name", req.Name,
 		)
 	} else {
+		if r.LBType != leptonaiv1alpha1.WorkspaceLBTypeShared {
+			goutil.Logger.Infow("deleting an existing upstream",
+				"namespace", req.Namespace,
+				"name", req.Name,
+			)
+			return r.GlooClients.UpstreamClient.Delete(existingUpstream.Metadata.Namespace, existingUpstream.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
+		}
 		if compareAndPatchGlooUpstream(existingUpstream, expectedUpstream) {
 			goutil.Logger.Infow("Skipping updating the gloo upstream: already up-to-date",
 				"namespace", req.Namespace,

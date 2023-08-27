@@ -1,4 +1,5 @@
 {{ if .Values.apiServer.enabled }}
+{{ if eq .Values.lbType "dedicated" }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -37,4 +38,5 @@ spec:
               number: {{ .Values.apiServer.service.port }}
         path: {{ .Values.apiServer.path }}
         pathType: Prefix
+{{ end }}
 {{ end }}

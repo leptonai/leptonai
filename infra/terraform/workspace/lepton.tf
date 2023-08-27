@@ -168,7 +168,7 @@ resource "helm_release" "lepton" {
   }
 
   set {
-    name  = "deploymentOperator.lbType"
+    name  = "lbType"
     value = var.lb_type
   }
 
