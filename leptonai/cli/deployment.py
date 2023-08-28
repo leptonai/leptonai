@@ -267,8 +267,18 @@ def log(name, replica):
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to update.", required=True)
-@click.option("--id", "-i", help="ID of the photon.", default=None)
-@click.option("--min-replicas", help="Number of replicas.", type=int, default=None)
+@click.option("--id", "-i", help="The new photon id to update to.", default=None)
+@click.option(
+    "--min-replicas",
+    help=(
+        "Number of replicas to update to. Pass `0` to scale the number"
+        " of replicas to zero, in which case the deployemnt status page"
+        " will show the deployment to be `not ready` until you scale it"
+        " back with a positive number of replicas."
+    ),
+    type=int,
+    default=None,
+)
 @click.option("--resource-shape", help="Resource shape.", default=None)
 @click.option(
     "--public/--no-public",
@@ -284,15 +294,16 @@ def log(name, replica):
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the deployment. See docs for"
+        "Access tokens that can be used to access the deployment. See docs for"
         " details on access control."
     ),
     multiple=True,
 )
 def update(name, min_replicas, resource_shape, public, tokens, id):
     """
-    Updates a deployment. Currently, only adjustment of the number of replicas is
-    supported.
+    Updates a deployment. Note that for all the update options, changes are made
+    as replacements, and not incrementals. For example, if you specify `--tokens`,
+    old tokens are replaced by the new set of tokens.
     """
     if id:
         # TODO: We should probably check if the id is valid.
