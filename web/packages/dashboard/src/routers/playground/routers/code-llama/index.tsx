@@ -1,4 +1,4 @@
-import { ChatBot } from "@carbon/icons-react";
+import { ChatBot, MagicWandFilled } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
@@ -114,9 +114,9 @@ export const CodeLlama: FC = () => {
   const [model, setModel] = useState<string>(modelFromURL);
   const [models, setModels] = useState<string[]>([]);
   const [option, setOption] = useState<ChatOption>({
-    max_tokens: 512,
-    top_p: 0.8,
-    temperature: 0.5,
+    max_tokens: 256,
+    top_p: 0.9,
+    temperature: 0.1,
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -266,6 +266,8 @@ export const CodeLlama: FC = () => {
             css={css`
               flex: 0 1 auto;
             `}
+            submitIcon={<CarbonIcon icon={<MagicWandFilled />} />}
+            submitText="Generate"
             ref={inputRef}
             maxRows={8}
             loading={submitting}
