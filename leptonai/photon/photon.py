@@ -1,10 +1,8 @@
 from abc import abstractmethod
 import asyncio
-import base64
 import copy
 import functools
 import cloudpickle
-from io import BytesIO
 import importlib
 import importlib.util
 import inspect
@@ -22,12 +20,11 @@ from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi.responses import Response, JSONResponse, StreamingResponse, FileResponse
+from fastapi.responses import Response, JSONResponse, FileResponse
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
 import pydantic.decorator
-from pydantic import BaseModel, validator
 import uvicorn
 import uvicorn.config
 
@@ -41,6 +38,15 @@ from leptonai.config import (
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
+from leptonai.photon.types import (  # noqa: F401
+    FileParam,
+    lepton_pickle,
+    lepton_unpickle,
+    is_pickled,
+    LeptonPickled,
+    PNGResponse,
+    WAVResponse,
+)
 from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
 from .batcher import batch
@@ -49,73 +55,6 @@ from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
-
-
-_BASE64FILE_ENCODED_PREFIX = "encoded:"
-
-
-class FileParam(BaseModel):
-    content: bytes
-
-    # allow creating FileParam with position args
-    def __init__(self, content: bytes):
-        super().__init__(content=content)
-
-    def __str__(self):
-        return f"FileParam(id={id(self)}) {len(self.content)} Bytes"
-
-    def __repr__(self):
-        return str(self)
-
-    # TODO: cached property?
-    @property
-    def file(self):
-        return BytesIO(self.content)
-
-    @validator("content", pre=True)
-    def validate_content(cls, content):
-        # when users create a FileParam, content is a file-like object
-        if hasattr(content, "read"):
-            return content.read()
-        elif isinstance(content, bytes):
-            return content
-        elif isinstance(content, str):
-            # when the FileParam is created from a request, content is a base64 encoded string
-            if content.startswith(_BASE64FILE_ENCODED_PREFIX):
-                return base64.b64decode(
-                    content[len(_BASE64FILE_ENCODED_PREFIX) :].encode("utf-8")
-                )
-            else:
-                return content.encode("utf-8")
-        else:
-            raise ValueError(
-                "content must be a file-like object or bytes or a base64 encoded"
-                f" string: {content}"
-            )
-
-    @staticmethod
-    def encode(content: bytes) -> str:
-        return _BASE64FILE_ENCODED_PREFIX + base64.b64encode(content).decode("utf-8")
-
-    if PYDANTIC_MAJOR_VERSION <= 1:
-
-        class Config:
-            json_encoders = {bytes: lambda v: FileParam.encode(v)}
-
-    else:
-        from pydantic import field_serializer
-
-        @field_serializer("content")
-        def _encode_content(self, content: bytes, _) -> str:
-            return self.encode(content)
-
-
-class PNGResponse(StreamingResponse):
-    media_type = "image/png"
-
-
-class WAVResponse(StreamingResponse):
-    media_type = "audio/wav"
 
 
 def create_model_for_func(func: Callable, func_name: Optional[str] = None):
