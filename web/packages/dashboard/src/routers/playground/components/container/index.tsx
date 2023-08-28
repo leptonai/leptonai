@@ -54,7 +54,7 @@ export const Container: FC<{
         icon={icon}
         title={title}
         extra={
-          <Space size={0}>
+          <Space size={4}>
             {extra}
             <Popover
               placement="bottomRight"
@@ -84,7 +84,7 @@ export const Container: FC<{
                 size="small"
                 icon={<CarbonIcon icon={<Share />} />}
               >
-                {md ? "Share" : null}
+                {md !== false ? "Share" : null}
               </Button>
             </Popover>
           </Space>

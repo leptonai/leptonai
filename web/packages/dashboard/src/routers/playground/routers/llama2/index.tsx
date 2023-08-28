@@ -4,6 +4,7 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
+import { Api } from "@lepton-dashboard/routers/playground/routers/llama2/components/api";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
 import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
@@ -18,7 +19,7 @@ import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-s
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import pathJoin from "@lepton-libs/url/path-join";
 import { FC, useCallback, useMemo, useRef, useState } from "react";
-import { filter, map, Subscription, switchMap, throttleTime } from "rxjs";
+import { filter, map, Subscription, switchMap, tap, throttleTime } from "rxjs";
 import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
@@ -62,6 +63,7 @@ export const Llama2: FC = () => {
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
   const chatService = useInject(ChatService);
   const theme = useAntdTheme();
+  const [url, setUrl] = useState("");
   const playgroundService = useInject(PlaygroundService);
   const model$ = useObservableFromState(model);
   const chat = useStateFromObservable(
@@ -74,6 +76,7 @@ export const Llama2: FC = () => {
             return playgroundService.getLlama70bBackend();
           }
         }),
+        tap((url) => setUrl(url)),
         map((url) =>
           chatService.createChat({
             api_url: pathJoin(url, "chat/completions"),
@@ -136,6 +139,7 @@ export const Llama2: FC = () => {
     <Container
       loading={!chat}
       icon={<CarbonIcon icon={<ChatBot />} />}
+      extra={<Api apiUrl={url} />}
       title={
         <>
           <Dropdown menu={modelMenu} trigger={["click"]}>

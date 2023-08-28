@@ -22,9 +22,8 @@ export const Nav: FC = () => {
   return !xs ? (
     <TabsNav
       css={css`
-        .ant-tabs-tab {
-          padding: 12px 0 !important;
-        }
+        margin-left: 36px;
+        margin-top: 2px;
       `}
       menuItems={menuItems}
     />
