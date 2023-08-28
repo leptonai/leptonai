@@ -14,6 +14,10 @@ export const Nav: FC = () => {
       key: `${pathname}/llama2`,
     },
     {
+      label: <span id="nav-codellama">Code Llama</span>,
+      key: `${pathname}/codellama`,
+    },
+    {
       label: <span id="nav-sdxl">Stable Diffusion XL</span>,
       key: `${pathname}/sdxl`,
     },

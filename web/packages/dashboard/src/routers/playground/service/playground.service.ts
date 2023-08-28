@@ -1,7 +1,8 @@
 import { Injectable } from "injection-js";
 
-import { map, Observable, shareReplay } from "rxjs";
+import { map, mergeMap, Observable, shareReplay } from "rxjs";
 import { HttpClientService } from "@lepton-dashboard/services/http-client.service";
+import pathJoin from "@lepton-libs/url/path-join";
 
 interface PlaygroundConfig {
   [key: string]: {
@@ -9,6 +10,16 @@ interface PlaygroundConfig {
     description: string;
     api: string;
   };
+}
+
+interface ModeItem {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+  root: string;
+  parent: null;
+  permission: Record<string, unknown>[];
 }
 
 @Injectable()
@@ -43,6 +54,36 @@ export class PlaygroundService {
   getLlama70bBackend(): Observable<string> {
     return this.getPlaygroundConfig().pipe(
       map((config) => config["llama2-70b"].api)
+    );
+  }
+
+  listCodeLlamaModels(): Observable<string[]> {
+    return this.getCodeLlamaBackend().pipe(
+      mergeMap((backend) => {
+        return this.http.get<{
+          data: ModeItem[];
+          object: "list";
+        }>(pathJoin(backend, "models"));
+      }),
+      map((modes) =>
+        modes.data
+          .map((mode) => mode.id)
+          // ignore models that are compatible with the OpenAI API
+          .filter(
+            (id) =>
+              ![
+                "gpt-3.5-turbo",
+                "text-davinci-003",
+                "text-embedding-ada-002",
+              ].includes(id)
+          )
+      )
+    );
+  }
+
+  getCodeLlamaBackend(): Observable<string> {
+    return this.getPlaygroundConfig().pipe(
+      map((config) => config["codellama"].api)
     );
   }
 }

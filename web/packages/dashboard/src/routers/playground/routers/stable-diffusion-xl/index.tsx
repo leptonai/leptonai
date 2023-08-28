@@ -7,7 +7,6 @@ import {
 import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
 import { PromptInput } from "@lepton-libs/gradio/prompt-input";
 import { FC, useMemo, useRef, useState } from "react";
-import { Select } from "antd";
 import { css } from "@emotion/react";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
@@ -16,6 +15,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Image, MagicWandFilled } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { MetaService } from "@lepton-dashboard/services/meta.service";
+import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -120,26 +120,13 @@ export const StableDiffusionXl: FC = () => {
       icon={<CarbonIcon icon={<Image />} />}
       title="Stable Diffusion XL"
       extra={
-        <Select
-          css={css`
-            width: 130px;
-            .ant-select-selection-placeholder,
-            .ant-select-arrow {
-              font-weight: normal;
-              color: ${theme.colorText};
-            }
-          `}
-          popupMatchSelectWidth={false}
+        <PresetSelector
           options={presetOptions}
-          optionLabelProp="placeholder"
           value={presetPrompt}
           onChange={(v) => {
             setPrompt(v);
             setResult(presets.find((p) => p.prompt === v)!.image);
           }}
-          size="small"
-          bordered={false}
-          placeholder="Load a preset"
         />
       }
       option={<Options value={option} onChange={setOption} />}

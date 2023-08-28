@@ -87,12 +87,60 @@ export default defineConfig(({ mode }) => {
             src: "node_modules/shiki/languages/json.tmLanguage.json",
             dest: "shiki/languages",
           },
+          {
+            src: "node_modules/shiki/languages/css.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/cpp.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/c.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/go.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/html.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/java.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/javascript.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/typescript.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/sql.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/yaml.tmLanguage.json",
+            dest: "shiki/languages",
+          },
+          {
+            src: "node_modules/shiki/languages/glsl.tmLanguage.json",
+            dest: "shiki/languages",
+          },
         ],
       }),
       skipPreRender
         ? null
         : prerender({
-            routes: ["/playground/llama2", "/playground/sdxl"],
+            routes: [
+              "/playground/llama2",
+              "/playground/sdxl",
+              "/playground/codellama",
+            ],
             rendererOptions: {
               renderAfterTime: 5000,
               inject: true,

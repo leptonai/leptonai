@@ -4,7 +4,7 @@ import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
   LanguageSupports,
-} from "@lepton-dashboard/routers/workspace/components/code-block";
+} from "@lepton-dashboard/components/code-block";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 

@@ -28,6 +28,7 @@ export const PromptInput = forwardRef<
     submitIcon?: ReactNode;
     onCancel: () => void;
     extra?: ReactNode;
+    maxRows?: number;
   } & EmotionProps
 >(
   (
@@ -42,6 +43,7 @@ export const PromptInput = forwardRef<
       className,
       submitText = "Send",
       submitIcon = <CarbonIcon icon={<SendAltFilled />} />,
+      maxRows = 2,
     },
     ref
   ) => {
@@ -97,7 +99,7 @@ export const PromptInput = forwardRef<
             disabled={disabled}
             ref={inputRef}
             placeholder="Send a message"
-            autoSize={{ minRows: 1, maxRows: 2 }}
+            autoSize={{ minRows: 1, maxRows }}
             value={value}
             onCompositionStart={() => (compositionState.current = true)}
             onCompositionEnd={() => (compositionState.current = false)}

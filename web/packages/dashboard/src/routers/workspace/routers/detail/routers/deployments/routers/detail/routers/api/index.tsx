@@ -14,7 +14,7 @@ import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
   LanguageSupports,
-} from "@lepton-dashboard/routers/workspace/components/code-block";
+} from "@lepton-dashboard/components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 import { Link } from "@lepton-dashboard/components/link";

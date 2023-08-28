@@ -5,7 +5,7 @@ import { Button, Col, Row, Space, Typography } from "antd";
 import {
   CodeBlock,
   LanguageSupports,
-} from "@lepton-dashboard/routers/workspace/components/code-block";
+} from "@lepton-dashboard/components/code-block";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import mime2ext from "mime2ext";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";

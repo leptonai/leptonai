@@ -30,10 +30,12 @@ export interface ChatOption {
   temperature: number;
   top_p: number;
   max_tokens: number;
+  model?: string;
 }
 export interface ChatCompletion {
   onGeneratingChanged(): Observable<boolean>;
   onMessagesChanged(): Observable<ChatMessageItem[]>;
+  appendMessage(message: ChatGPTMessage): void;
   send(content: string, option: ChatOption): Observable<string>;
   clear(): void;
 }
@@ -50,6 +52,12 @@ class Chat implements ChatCompletion {
 
   onMessagesChanged(): Observable<ChatMessageItem[]> {
     return this.messages$.asObservable();
+  }
+
+  appendMessage(message: ChatGPTMessage): void {
+    this.push({
+      message,
+    });
   }
 
   send(content: string, option: ChatOption): Observable<string> {
@@ -74,9 +82,9 @@ class Chat implements ChatCompletion {
       const now = Date.now();
       openAIStream(
         {
-          model: "gpt-3.5-turbo",
           messages,
           stream: true,
+          model: option.model || "gpt-3.5-turbo",
           temperature: option.temperature,
           top_p: option.top_p,
           max_tokens: option.max_tokens,

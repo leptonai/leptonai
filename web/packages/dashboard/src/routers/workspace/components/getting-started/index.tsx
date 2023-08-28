@@ -4,7 +4,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import {
   CodeBlock,
   LanguageSupports,
-} from "@lepton-dashboard/routers/workspace/components/code-block";
+} from "@lepton-dashboard/components/code-block";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Collapse, Typography } from "antd";

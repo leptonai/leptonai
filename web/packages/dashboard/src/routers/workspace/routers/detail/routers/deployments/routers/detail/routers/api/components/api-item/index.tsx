@@ -10,7 +10,7 @@ import { Typography } from "antd";
 import {
   LanguageSupports,
   CodeBlock,
-} from "../../../../../../../../../../components/code-block";
+} from "@lepton-dashboard/components/code-block";
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;

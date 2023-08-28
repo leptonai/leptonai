@@ -50,16 +50,83 @@ export enum LanguageSupports {
   Bash = "bash",
   Python = "python",
   JSON = "json",
+  CSS = "css",
+  CPP = "cpp",
+  C = "c",
+  GO = "go",
+  HTML = "html",
+  JavaScript = "js",
+  TypeScript = "ts",
+  Java = "java",
+  SQL = "sql",
+  YAML = "yaml",
 }
 
 const highlighterLoader: Promise<Highlighter> = getHighlighter({
   themes: ["github-dark", "github-light"],
-  langs: ["bash", "python", "json"],
+  langs: [
+    "bash",
+    "python",
+    "json",
+    "css",
+    "cpp",
+    "c",
+    "go",
+    "html",
+    "js",
+    "ts",
+    "java",
+    "sql",
+    "yaml",
+  ],
 });
+
+export function normlizeLanguage(
+  language: string
+): LanguageSupports | undefined {
+  switch (language) {
+    case "shell":
+    case "powershell":
+    case "bash":
+    case "sh":
+    case "bat":
+      return LanguageSupports.Bash;
+    case "python":
+    case "py":
+      return LanguageSupports.Python;
+    case "json":
+      return LanguageSupports.JSON;
+    case "css":
+      return LanguageSupports.CSS;
+    case "cpp":
+      return LanguageSupports.CPP;
+    case "c":
+      return LanguageSupports.C;
+    case "go":
+    case "golang":
+      return LanguageSupports.GO;
+    case "html":
+      return LanguageSupports.HTML;
+    case "typescript":
+    case "ts":
+      return LanguageSupports.TypeScript;
+    case "javascript":
+    case "js":
+      return LanguageSupports.JavaScript;
+    case "java":
+      return LanguageSupports.Java;
+    case "sql":
+      return LanguageSupports.SQL;
+    case "yaml":
+      return LanguageSupports.YAML;
+    default:
+      return void 0;
+  }
+}
 
 export const CodeBlock: FC<{
   code: string;
-  language: LanguageSupports;
+  language?: LanguageSupports;
   copyable?: boolean;
   tokenMask?: (content: string, token: IThemedToken) => boolean | string;
   transparentBg?: boolean;

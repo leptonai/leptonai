@@ -5,6 +5,7 @@ import { Header } from "@lepton-dashboard/components/layout/components/header";
 import { Nav } from "@lepton-dashboard/routers/playground/components/nav";
 import { Llama2 } from "@lepton-dashboard/routers/playground/routers/llama2";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
+import { CodeLlama } from "@lepton-dashboard/routers/playground/routers/code-llama";
 import { ChatService } from "@lepton-libs/gradio/chat.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Button, Grid, Space } from "antd";
@@ -122,6 +123,7 @@ export const Playground: FC = () => {
           <Routes>
             <Route path="sdxl" element={<StableDiffusionXl />} />
             <Route path="llama2" element={<Llama2 />} />
+            <Route path="codellama" element={<CodeLlama />} />
             <Route path="*" element={<NavigateTo name="playgroundLLM" />} />
           </Routes>
         </Layout>
