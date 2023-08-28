@@ -1,6 +1,6 @@
 {
   "name": "shell",
-  "model": "py:../leptonai/examples/shell/shell.py:Shell",
+  "model": "py:../leptonai/tests/shell/shell.py:Shell",
   "type": "photon",
   "openapi_schema": {
     "openapi": "3.1.0",

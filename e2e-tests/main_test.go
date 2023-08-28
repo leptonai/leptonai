@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	modelName = "../sdk/leptonai/examples/elements/main.py"
+	modelName = "../sdk/leptonai/tests/shell/shell.py"
 )
 
 func prepare() {

@@ -321,7 +321,7 @@ func TestDeleteAndImmediateRecreateWithTheSameName(t *testing.T) {
 func TestCustomizedImage(t *testing.T) {
 	t.Parallel()
 	name := newName(t.Name())
-	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/tests/custom_image/main.py"}
 	output, err := client.RunLocal("pho", "create", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
@@ -412,7 +412,7 @@ func TestUpdatePhotonID(t *testing.T) {
 	t.Parallel()
 	dname := newName(t.Name())
 	name := mainTestPhotonName
-	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/examples/self_defined_image/main.py:Counter"}
+	fullArgs := []string{"-n", name, "-m", "py:../sdk/leptonai/tests/custom_image/main.py"}
 	output, err := client.RunLocal("pho", "create", fullArgs...)
 	if err != nil {
 		t.Fatalf("Failed to create photon with customized image: %v - %s", err, output)
