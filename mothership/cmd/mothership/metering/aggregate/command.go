@@ -310,8 +310,11 @@ func aggregateOneWindowIntoTables(
 	batchID string,
 	maxRetries int,
 ) {
+	var computeAggregate []metering.ComputeAggregateRow
+	var storageAggregate []metering.StorageAggregateRow
+	var err error
 	if enableCompute {
-		computeAggregate, err := metering.GetComputeAggregate(aurora, clusterName, startTime, endTime)
+		computeAggregate, err = metering.GetComputeAggregate(aurora, clusterName, startTime, endTime)
 		if err != nil {
 			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
 				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
@@ -338,7 +341,7 @@ func aggregateOneWindowIntoTables(
 		}
 	}
 	if enableStorage {
-		storageAggregate, err := metering.GetStorageAggregate(aurora, startTime, endTime)
+		storageAggregate, err = metering.GetStorageAggregate(aurora, startTime, endTime)
 		if err != nil {
 			log.Fatalf("couldn't get %s aggregate data for window %s - %s: %v",
 				tableFlag, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), err)
@@ -362,6 +365,23 @@ func aggregateOneWindowIntoTables(
 				metering.GatherAggregate(clusterName, string(storageTable), "supabase", float64(storageRowsIntoSupabase))
 			}
 		}
+	}
+
+	if tableFlag == "hourly" {
+		// update last used timestamp for all relevant workspaces
+		// TODO: Chunk update into smaller batches
+		var affected int64
+		retryUpdateErr := util.Retry(maxRetries, 2*time.Second, func() error {
+			affected, err = metering.UpdateWorkspacesLastUsedTimestamp(supabaseDB, computeAggregate, storageAggregate, endTime)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		if retryUpdateErr != nil {
+			log.Fatalf("couldn't update last used timestamp: %v", retryUpdateErr)
+		}
+		log.Printf("updated last used timestamp for %d workspaces", affected)
 	}
 }
 

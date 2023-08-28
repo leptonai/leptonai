@@ -25,6 +25,8 @@ type StorageAggregateRow struct {
 }
 
 const (
+	updateLastUsedTimestamp = `UPDATE workspaces SET last_billable_usage_timestamp = '%s' WHERE id = '%s'`
+
 	insertHourly = `INSERT INTO %s (
 		batch_id,
 		end_time,
@@ -55,7 +57,7 @@ const (
 	insertStorage = `INSERT INTO %s (
 		batch_id,
 		end_time,
-		workspace_id,	
+		workspace_id,
 		storage_id,
 		size_bytes,
 		size_gb
@@ -229,10 +231,10 @@ func GetStorageAggregate(aurora AuroraDB, start, end time.Time) ([]StorageAggreg
 
 func queryStorageAgg(db *sql.DB, start, end time.Time) ([]StorageAggregateRow, error) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT
-			workspace, storage_id, ROUND(AVG(size_bytes)) as avg_size
-			from %s
-			where time > '%s' and time <= '%s'
-			GROUP BY workspace, storage_id`,
+            workspace, storage_id, ROUND(AVG(size_bytes)) as avg_size
+            from %s
+            where time > '%s' and time <= '%s'
+            GROUP BY workspace, storage_id`,
 		MeteringTableStorageFineGrain,
 		start.Format(time.RFC3339),
 		end.Format(time.RFC3339),
@@ -256,6 +258,52 @@ func queryStorageAgg(db *sql.DB, start, end time.Time) ([]StorageAggregateRow, e
 	return res, nil
 }
 
+// updates the `workspace` table in the supabase 'public' schema with the last used timestamp for the workspace
+func UpdateWorkspacesLastUsedTimestamp(supabaseDB *sql.DB, computeData []ComputeAggregateRow, storageData []StorageAggregateRow, timestamp time.Time) (int64, error) {
+	// find all unique workspace ids from compute and storage data
+	var workspaces = map[string]bool{}
+	for _, d := range computeData {
+		// only want workspaces with at least 1 minute of usage
+		if d.Usage > 0 {
+			workspaces[d.Workspace] = true
+		}
+	}
+	for _, d := range storageData {
+		// only want workspaces with storage usage > 1GB
+		if d.sizeBytes > bytesInGibabyte {
+			workspaces[d.Workspace] = true
+		}
+	}
+
+	tx, err := supabaseDB.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	// update last used timestamp for each workspace
+	totalAffected := int64(0)
+	for ws := range workspaces {
+		res, err := tx.Exec(fmt.Sprintf(updateLastUsedTimestamp, timestamp.Format(time.RFC3339), ws))
+		if err != nil {
+			return 0, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		totalAffected += affected
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			return 0, fmt.Errorf("failed to commit UpdateWorkspacesLastUsedTimestamp txn, error: %v, rollback error: %v", err, rollbackErr)
+		}
+		return 0, fmt.Errorf("failed to commit UpdateWorkspacesLastUsedTimestamp txn: %v", err)
+	}
+	return totalAffected, nil
+}
 func InsertRowsIntoStorageAggregate(tx *sql.Tx, tableName MeteringTable, aggregateData []StorageAggregateRow, batchID string) (int64, error) {
 	if !(tableName == MeteringTableStorageHourly || tableName == MeteringTableStorageDaily || tableName == MeteringTableStorageWeekly) {
 		return 0, fmt.Errorf("invalid table name: %s", tableName)
