@@ -68,11 +68,11 @@ LEPTON_WS_URL=$(lep workspace url)
 echo "Done"
 echo
 
-echo "Obtaining lepton sdk example folder..."
+echo "Obtaining lepton sdk test folder..."
 SCRIPT_PATH=$(realpath "$0")
 SCRIPT_FOLDER=$(dirname "$SCRIPT_PATH")
-LEPTON_EXAMPLE_FOLDER=$SCRIPT_FOLDER/../leptonai/examples
-echo "Path for lepton example folder: $LEPTON_EXAMPLE_FOLDER"
+LEPTON_TEST_FOLDER=$SCRIPT_FOLDER/../leptonai/tests
+echo "Path for lepton test folder: $LEPTON_TEST_FOLDER"
 echo "Done"
 echo
 
@@ -86,7 +86,7 @@ echo "Done"
 echo
 
 echo "## Testing creating a local photon..."
-command="lep photon create -n ${COMMON_NAME} -m $LEPTON_EXAMPLE_FOLDER/shell/shell.py"
+command="lep photon create -n ${COMMON_NAME} -m $LEPTON_TEST_FOLDER/shell/shell.py"
 if eval "$command"; then
     echo "Done"
 else
