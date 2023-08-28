@@ -27,6 +27,7 @@ import openai
 openai.api_base = os.environ.get("OPENAI_API_BASE", "${apiUrl}")${
       apiKey ? `\nopenai.api_key = "${apiKey}"` : ""
     }
+openai.api_key = "<YOUR_EMAIL_ADDRESS>" # for using API from playground, you may use your email address here    
 
 # List available models
 print("==== Available models ====")
