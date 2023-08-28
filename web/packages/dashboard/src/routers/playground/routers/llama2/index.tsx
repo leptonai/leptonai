@@ -4,7 +4,6 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
-import { Api } from "@lepton-dashboard/routers/playground/routers/llama2/components/api";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
 import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
@@ -24,6 +23,7 @@ import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
+import { Api } from "@lepton-dashboard/routers/playground/components/api";
 
 const modelMap = {
   "llama-2-7b": {
@@ -139,7 +139,7 @@ export const Llama2: FC = () => {
     <Container
       loading={!chat}
       icon={<CarbonIcon icon={<ChatBot />} />}
-      extra={<Api apiUrl={url} />}
+      extra={<Api apiUrl={url} title="Llama API" />}
       title={
         <>
           <Dropdown menu={modelMenu} trigger={["click"]}>

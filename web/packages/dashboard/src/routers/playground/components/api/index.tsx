@@ -4,7 +4,10 @@ import { ChatAPIModal } from "@lepton-libs/gradio/chat-api-modal";
 import { Button, Grid } from "antd";
 import { FC, useState } from "react";
 
-export const Api: FC<{ apiUrl: string }> = ({ apiUrl }) => {
+export const Api: FC<{ apiUrl: string; title: string }> = ({
+  apiUrl,
+  title,
+}) => {
   const { md } = Grid.useBreakpoint();
   const [open, setOpen] = useState(false);
   return (
@@ -15,7 +18,7 @@ export const Api: FC<{ apiUrl: string }> = ({ apiUrl }) => {
         onClick={() => setOpen(true)}
         icon={<CarbonIcon icon={<Code />} />}
       >
-        {md !== false ? "Llama API" : null}
+        {md !== false ? title : null}
       </Button>
       <ChatAPIModal
         apiUrl={apiUrl}

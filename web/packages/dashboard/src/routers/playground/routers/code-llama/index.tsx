@@ -32,6 +32,7 @@ import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
 import { MDMessage } from "@lepton-dashboard/routers/playground/routers/code-llama/components/md-message";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
+import { Api } from "@lepton-dashboard/routers/playground/components/api";
 
 const presets = [
   {
@@ -112,6 +113,7 @@ export const CodeLlama: FC = () => {
   const [params] = useSearchParams();
   const modelFromURL = params.get("model") || "";
   const [model, setModel] = useState<string>(modelFromURL);
+  const [url, setUrl] = useState("");
   const [models, setModels] = useState<string[]>([]);
   const [option, setOption] = useState<ChatOption>({
     max_tokens: 256,
@@ -131,8 +133,9 @@ export const CodeLlama: FC = () => {
         playgroundService.getCodeLlamaBackend(),
         playgroundService.listCodeLlamaModels(),
       ]).pipe(
-        tap(([_, models]) => {
+        tap(([url, models]) => {
           setModels(models);
+          setUrl(url);
           const normalModel =
             models.find((item) => item === modelFromURL) || models[0];
           setModel(normalModel);
@@ -233,7 +236,19 @@ export const CodeLlama: FC = () => {
                   cursor: pointer;
                 `}
               >
-                <span>{model}</span>
+                <span
+                  css={css`
+                    @media (max-width: 480px) {
+                      max-width: 80px;
+                      display: inline-block;
+                      overflow: hidden;
+                      line-height: 10px;
+                      text-overflow: ellipsis;
+                    }
+                  `}
+                >
+                  {model}
+                </span>
                 <DownOutlined />
               </Space>
             </Dropdown>
@@ -243,13 +258,16 @@ export const CodeLlama: FC = () => {
         )
       }
       extra={
-        <PresetSelector
-          options={presetOptions}
-          value={presetPrompt}
-          onChange={(v) => {
-            setPrompt(v);
-          }}
-        />
+        <Space>
+          <Api apiUrl={url} title="Code Llama API" />
+          <PresetSelector
+            options={presetOptions}
+            value={presetPrompt}
+            onChange={(v) => {
+              setPrompt(v);
+            }}
+          />
+        </Space>
       }
       content={
         <div
