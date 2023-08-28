@@ -18,10 +18,6 @@ type GCSSyncer struct {
 	CredJSON string `json:"cred_json"`
 }
 
-type Metadata struct {
-	Name string `json:"name"`
-}
-
 type StorageSyncerSpec struct {
 	*GCSSyncer
 	// TODO: support S3Syncer
