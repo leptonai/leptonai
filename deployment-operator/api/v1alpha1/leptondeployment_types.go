@@ -56,6 +56,9 @@ type LeptonDeploymentUserSpec struct {
 	Name                string                              `json:"name"`
 	PhotonID            string                              `json:"photon_id"`
 	ResourceRequirement LeptonDeploymentResourceRequirement `json:"resource_requirement"`
+
+	// +optional
+	Autoscaler *Autoscaler `json:"auto_scaler,omitempty"`
 	// +optional
 	APITokens []TokenVar `json:"api_tokens"`
 	// +optional
@@ -64,6 +67,21 @@ type LeptonDeploymentUserSpec struct {
 	Mounts []Mount `json:"mounts"`
 	// +optional
 	ImagePullSecrets []string `json:"pull_image_secrets"`
+}
+
+// Autoscaler defines the auto scaling behavior.
+type Autoscaler struct {
+	// +optional
+	// ScaleDown defines the scale down behavior.
+	ScaleDown *ScaleDown `json:"scale_down,omitempty"`
+}
+
+// ScaleDown defines the scale down behavior.
+type ScaleDown struct {
+	// +optional
+	// Scale down the number of replicas to zero if there is no user traffic for the given duration in seconds.
+	// System traffice like Health check and metrics traffic are not considered.
+	NoTrafficDurationInSeconds *int32 `json:"no_traffic_timeout,omitempty"`
 }
 
 // GetSpecName returns the name of the deployment.

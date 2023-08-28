@@ -51,6 +51,21 @@ spec:
                       type: object
                   type: object
                 type: array
+              auto_scaler:
+                description: Autoscaler defines the auto scaling behavior.
+                properties:
+                  scale_down:
+                    description: ScaleDown defines the scale down behavior.
+                    properties:
+                      no_traffic_timeout:
+                        description: Scale down the number of replicas to zero if
+                          there is no user traffic for the given duration in seconds.
+                          System traffice like Health check and metrics traffic are
+                          not considered.
+                        format: int32
+                        type: integer
+                    type: object
+                type: object
               bucket_name:
                 type: string
               certificate_arn:
