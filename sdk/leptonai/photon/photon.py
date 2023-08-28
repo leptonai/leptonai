@@ -227,31 +227,32 @@ class Photon(BasePhoton):
     obj_pkl_filename: str = "obj.pkl"
     py_src_filename: str = "py.py"
 
+    # The docker base image to use for the photon. In default, we encourage you to use the
+    # default base image, which provides a blazing fast loading time when running photons
+    # remotely. On top of the default image, you can then install any additional dependencies
+    # via `requirement_dependency` or `system_dependency`.
     image: str = BASE_IMAGE
-    """
-    The docker base image to use for the photon. In default, we encourage you to use the
-    default base image, which provides a blazing fast loading time when running photons
-    remotely. On top of the default image, you can then install any additional dependencies
-    via `requirement_dependency` or `system_dependency`.
-    """
 
+    # The args for the base image.
     args: list = BASE_IMAGE_ARGS
-    """
-    The args for the base image.
-    """
 
+    # Required python dependencies that you usually install with `pip install`. For example, if
+    # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
+    # photon depends on a package installable over github, you can set the dependency to
+    # `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
     requirement_dependency: Optional[List[str]] = None
-    """
-    Required python dependencies that you usually install with `pip install`. For example, if
-    your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
-    photon depends on a package installable over github, you can set the dependency to
-    `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
-    """
 
+    # System dependencies that can be installed via `apt install`. FOr example, if your photon
+    # depends on `ffmpeg`, you can set `system_dependency=["ffmpeg"]`.
     system_dependency: Optional[List[str]] = None
+
+    # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
 
     def __init__(self, name=None, model=None):
+        """
+        Initializes a Photon.
+        """
         if name is None:
             name = self.__class__.__qualname__
         if model is None:
@@ -265,9 +266,23 @@ class Photon(BasePhoton):
         self._background_tasks_limiter = None
 
     def _on_background_task_done(self, task):
+        """
+        Internal function to remove the background task when it is done. You
+        do not need to call this manually.
+        """
         self._background_tasks.remove(task)
 
     def add_background_task(self, func, *args, **kwargs):
+        """
+        Adds a background task to the background task queue. Note that to cope
+        with most AI workloads, which are usually compute heavy and mutually exclusive
+        on many resources (including e.g. the PyTorch runtime itself), we limit the
+        number of concurrent background tasks to 1.
+
+        Args:
+            func: the Callable function to run.
+            *args, **kwargs: the args and kwargs to pass to the function.
+        """
         if self._background_tasks_limiter is None:
             # NB: Make max_concurrency configurable?
             self._background_tasks_limiter = create_limiter(max_concurrency=1)
@@ -467,6 +482,11 @@ class Photon(BasePhoton):
         return py_obj
 
     def init(self):
+        """
+        The explicit init function that your derived Photon class should implement.
+        This function is called when we create a deployment from a photon, and is
+        guaranteed to run before the first api call served by the photon.
+        """
         pass
 
     def _call_init_once(self):
@@ -609,7 +629,15 @@ class Photon(BasePhoton):
             else:
                 break
 
-    def launch(self, host="0.0.0.0", port=DEFAULT_PORT, log_level="info"):
+    def launch(
+        self,
+        host: Optional[str] = "0.0.0.0",
+        port: Optional[int] = DEFAULT_PORT,
+        log_level: Optional[str] = "info",
+    ):
+        """
+        Launches the api service for the photon.
+        """
         self._call_init_once()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(
