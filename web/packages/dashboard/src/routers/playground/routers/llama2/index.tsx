@@ -13,18 +13,45 @@ import {
   ChatOption,
   ChatService,
 } from "@lepton-libs/gradio/chat.service";
-import { PromptInput } from "@lepton-libs/gradio/prompt-input";
+import { PromptInput, PromptInputRef } from "@lepton-libs/gradio/prompt-input";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import pathJoin from "@lepton-libs/url/path-join";
-import { FC, useCallback, useRef, useState } from "react";
+import { FC, useCallback, useMemo, useRef, useState } from "react";
 import { filter, map, Subscription, switchMap, throttleTime } from "rxjs";
 import { MetaService } from "@lepton-dashboard/services/meta.service";
+import { Dropdown, Space } from "antd";
+import { DownOutlined } from "@ant-design/icons";
+import { useSearchParams } from "react-router-dom";
 
+const modelMap = {
+  "llama-2-7b": {
+    name: "Llama-2-7b",
+  },
+  "llama-2-70b": {
+    name: "Llama-2-70b",
+  },
+} as const;
+
+type Model = keyof typeof modelMap;
+
+const DEFAULT_MODEL: Model = "llama-2-7b";
+
+const getValidModel = (model: string): Model => {
+  if (model in modelMap) {
+    return model as Model;
+  } else {
+    return DEFAULT_MODEL;
+  }
+};
 export const Llama2: FC = () => {
   const metaService = useInject(MetaService);
   metaService.setTitle("🦙 Llama2", true);
   metaService.setURLPath();
+  const inputRef = useRef<PromptInputRef>(null);
+  const [params] = useSearchParams();
+  const modelFromURL = getValidModel(params.get("model") || "");
+  const [model, setModel] = useState<Model>(modelFromURL);
   const [option, setOption] = useState<ChatOption>({
     max_tokens: 512,
     top_p: 0.8,
@@ -36,9 +63,17 @@ export const Llama2: FC = () => {
   const chatService = useInject(ChatService);
   const theme = useAntdTheme();
   const playgroundService = useInject(PlaygroundService);
+  const model$ = useObservableFromState(model);
   const chat = useStateFromObservable(
     () =>
-      playgroundService.getLlama2Backend().pipe(
+      model$.pipe(
+        switchMap((model) => {
+          if (model === "llama-2-7b") {
+            return playgroundService.getLlamaBackend();
+          } else {
+            return playgroundService.getLlama70bBackend();
+          }
+        }),
         map((url) =>
           chatService.createChat({
             api_url: pathJoin(url, "chat/completions"),
@@ -77,11 +112,44 @@ export const Llama2: FC = () => {
       },
     }
   );
+
+  const modelMenu = useMemo(() => {
+    return {
+      items: (Object.keys(modelMap) as Model[]).map((key) => ({
+        key,
+        label: modelMap[key].name,
+        title: modelMap[key].name,
+      })),
+      onClick: ({ key }: { key: string }) => {
+        setModel(key as Model);
+        // focus input
+        inputRef.current?.focus();
+        // set query params
+        const url = new URL(window.location.href);
+        url.searchParams.set("model", key);
+        window.history.replaceState({}, "", url.toString());
+      },
+    };
+  }, []);
+
   return (
     <Container
       loading={!chat}
       icon={<CarbonIcon icon={<ChatBot />} />}
-      title="Llama2"
+      title={
+        <>
+          <Dropdown menu={modelMenu} trigger={["click"]}>
+            <Space
+              css={css`
+                cursor: pointer;
+              `}
+            >
+              <span>{modelMap[model].name}</span>
+              <DownOutlined />
+            </Space>
+          </Dropdown>
+        </>
+      }
       content={
         <div
           css={css`
@@ -120,6 +188,7 @@ export const Llama2: FC = () => {
             css={css`
               flex: 0 1 auto;
             `}
+            ref={inputRef}
             loading={loading}
             value={prompt}
             onChange={setPrompt}
