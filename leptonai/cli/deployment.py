@@ -300,7 +300,10 @@ def update(name, min_replicas, resource_shape, public, tokens, id):
     if resource_shape:
         resource_shape = _validate_resource_shape(resource_shape)
     if min_replicas is not None:
-        check(min_replicas > 0, f"Invalid number of replicas: {min_replicas}")
+        check(
+            min_replicas >= 0,
+            f"Invalid number of replicas: {min_replicas}. Must be non-negative.",
+        )
         # Just to avoid stupid errors right now, we will limit the number of replicas
         # to 100 for now.
         check(

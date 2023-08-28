@@ -117,7 +117,7 @@ def update_deployment(
     deployment_body = {}
     if photon_id:
         deployment_body["photon_id"] = photon_id
-    if min_replicas:
+    if min_replicas is not None:
         deployment_body["resource_requirement"] = {}
         deployment_body["resource_requirement"]["min_replicas"] = min_replicas
     if resource_shape:
