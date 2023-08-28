@@ -10,6 +10,13 @@ export const withLogging =
   (fn: NextApiHandler): NextApiHandler =>
   async (req: NextApiRequest, res: NextApiResponse) => {
     const start = Date.now();
+    const method = req.method;
+    const origin = req.headers.origin;
+    const pathname = req.url;
+    const reqHeaders = { ...req.headers };
+    const { secureSessionId, requestId } = H.parseHeaders(reqHeaders) || {};
+    const reqBody = req.body;
+    delete reqHeaders["cookie"];
     try {
       return await fn(req, res);
     } catch (e) {
@@ -23,39 +30,22 @@ export const withLogging =
     } finally {
       const delta = `${(Date.now() - start) / 1000}s`;
       const status = res.statusCode;
-      const method = req.method;
-      const origin = req.headers.origin;
-      const pathname = req.url;
       const statusMessage = res.statusMessage;
-      const reqHeaders = { ...req.headers };
-      const { secureSessionId, requestId } = H.parseHeaders(reqHeaders) || {};
-      const reqBody = req.body;
-      delete reqHeaders["cookie"];
-
       if (status >= 500) {
         H.consumeError(
           new Error(`SERVER_ERROR ${pathname} ${method} ${statusMessage}`),
           secureSessionId,
-          requestId
-        );
-        console.error(
-          `SERVER_ERROR ${pathname} ${method} ${statusMessage}`,
-          JSON.stringify(
-            {
-              requestId,
-              secureSessionId,
-              delta,
-              status,
-              method,
-              origin,
-              pathname,
-              statusMessage,
-              reqHeaders: JSON.stringify(reqHeaders, null, 2),
-              reqBody: JSON.stringify(reqBody, null, 2),
-            },
-            null,
-            2
-          )
+          requestId,
+          {
+            delta,
+            status,
+            method,
+            origin,
+            pathname,
+            statusMessage,
+            reqHeaders: JSON.stringify(reqHeaders, null, 2),
+            reqBody: JSON.stringify(reqBody, null, 2),
+          }
         );
         await H.flush();
       }
