@@ -63,6 +63,8 @@ class Client(object):
         workspace_or_url: str,
         deployment: Optional[str] = None,
         token: Optional[str] = None,
+        stream: Optional[bool] = None,
+        chunk_size: Optional[int] = None,
     ):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
@@ -73,6 +75,10 @@ class Client(object):
             deployment (str, optional): The deployment name. If a full URL is passed
                 in, deployment can be None.
             token (str, optional): The token to use for authentication. Defaults to None.
+            stream (bool, optional): Whether to stream the response. Defaults to None.
+                Note that if stream is specified but the return type is json, we will
+                still return the json object lump sum, instead of a generator.
+            chunk_size (int, optional): The chunk size to use when streaming. Defaults to None.
 
         Implementation Note: when one uses a full URL, the client accesses the deployment
         specific endpoint directly. This endpoint may have a certain delay, and may not be
@@ -111,6 +117,8 @@ class Client(object):
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
+        self.stream = stream
+        self.chunk_size = chunk_size
 
         # Check healthz to see if things are properly working
         if not self.healthz():
@@ -184,10 +192,24 @@ class Client(object):
     # discouraged, only when accessing endpoints that are not defined via
     # Photon.
     def _get(self, path: str, *args, **kwargs) -> requests.models.Response:
-        return self._session.get(urljoin(self.url, path), *args, **kwargs)
+        return self._session.get(
+            urljoin(self.url, path), stream=self.stream, *args, **kwargs
+        )
 
     def _post(self, path: str, *args, **kwargs) -> requests.models.Response:
-        return self._session.post(urljoin(self.url, path), *args, **kwargs)
+        return self._session.post(
+            urljoin(self.url, path), stream=self.stream, *args, **kwargs
+        )
+
+    def _get_proper_res_content(self, res: requests.models.Response):
+        res.raise_for_status()
+        if res.headers.get("content-type", None) == "application/json":
+            return res.json()
+        else:
+            if self.stream and "chunked" in res.headers.get("transfer-encoding", ""):
+                return res.iter_content(chunk_size=self.chunk_size)
+            else:
+                return res.content
 
     def _post_path(self, path_name: str, function_name: str) -> Callable:
         """
@@ -210,11 +232,7 @@ class Client(object):
                     path_name,
                     json=jsonable_encoder(kwargs),
                 )
-                res.raise_for_status()
-                if res.headers.get("content-type", None) == "application/json":
-                    return res.json()
-                else:
-                    return res.content
+                return self._get_proper_res_content(res)
 
             _method.__name__ = function_name
             if self.openapi:
@@ -241,11 +259,7 @@ class Client(object):
                         )
                     )
                 res = self._get(path_name, params=kwargs)
-                res.raise_for_status()
-                if res.headers["content-type"] == "application/json":
-                    return res.json()
-                else:
-                    return res.content
+                return self._get_proper_res_content(res)
 
             _method.__name__ = function_name
             if self.openapi:

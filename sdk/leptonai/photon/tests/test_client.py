@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import multiprocessing
 import os
 import tempfile
@@ -12,7 +13,7 @@ import unittest
 import responses
 
 from leptonai import Client
-from leptonai.photon import Photon, handler
+from leptonai.photon import Photon, handler, StreamingResponse
 from utils import random_name, find_free_port, photon_run_local_server
 
 
@@ -159,6 +160,52 @@ class TestClient(unittest.TestCase):
             self.assertTrue(res == {"outputs": outputs})
 
         proc.kill()
+
+
+class StreamingPhoton(Photon):
+    def _simple_generator(self):
+        for i in range(10):
+            yield bytes(str(i) + ",", "utf-8")
+
+    @handler
+    def run(self) -> StreamingResponse:
+        return StreamingResponse(self._simple_generator())
+
+
+def streaming_photon_wrapper(port):
+    photon = StreamingPhoton()
+    photon.launch(port=port)
+
+
+class TestStreamingPhotonClient(unittest.TestCase):
+    def setUp(self) -> None:
+        self.port = find_free_port()
+        self.proc = multiprocessing.Process(
+            target=streaming_photon_wrapper, args=(self.port,)
+        )
+        self.proc.start()
+        time.sleep(2)
+
+    def tearDown(self) -> None:
+        self.proc.terminate()
+
+    def test_streaming_client(self):
+        url = f"http://localhost:{self.port}"
+        c = Client(url, stream=True)
+
+        result = c.run()
+        self.assertIsInstance(result, Iterable)
+
+        result_list = [r for r in result]
+        self.assertIsInstance(result_list, list)
+        self.assertEqual(b"".join(result_list), b"0,1,2,3,4,5,6,7,8,9,")
+
+    def test_non_streaming_client(self):
+        url = f"http://localhost:{self.port}"
+        c = Client(url, stream=False)
+
+        result = c.run()
+        self.assertEqual(result, b"0,1,2,3,4,5,6,7,8,9,")
 
 
 if __name__ == "__main__":
