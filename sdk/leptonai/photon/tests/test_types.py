@@ -19,7 +19,7 @@ from leptonai.photon.types import (
     lepton_unpickle,
     LeptonPickled,
 )
-from leptonai.photon import Photon, handler
+from leptonai.photon import Photon, handler, StreamingResponse
 
 from utils import find_free_port
 
@@ -89,12 +89,19 @@ class TestPickle(unittest.TestCase):
 
 
 class TestPickleWithPhoton(unittest.TestCase):
-    def test_pickle_with_photon(self):
-        port = find_free_port()
-        proc = multiprocessing.Process(target=pickle_photon_wrapper, args=(port,))
-        proc.start()
+    def setUp(self) -> None:
+        self.port = find_free_port()
+        self.proc = multiprocessing.Process(
+            target=pickle_photon_wrapper, args=(self.port,)
+        )
+        self.proc.start()
         time.sleep(2)
-        url = f"http://localhost:{port}"
+
+    def tearDown(self) -> None:
+        self.proc.terminate()
+
+    def test_pickle_with_photon(self):
+        url = f"http://localhost:{self.port}"
         c = Client(url)
 
         for obj in objects_to_test:
@@ -118,7 +125,41 @@ class TestPickleWithPhoton(unittest.TestCase):
         self.assertTrue(is_pickled(res))
         self.assertEqual(lepton_unpickle(res).all(), a.all())
 
-        proc.kill()
+
+class StreamingPhoton(Photon):
+    def _simple_generator(self):
+        for i in range(10):
+            yield bytes(str(i) + ",", "utf-8")
+
+    @handler
+    def run(self) -> StreamingResponse:
+        return StreamingResponse(self._simple_generator())
+
+
+def streaming_photon_wrapper(port):
+    photon = StreamingPhoton()
+    photon.launch(port=port)
+
+
+class TestStreamingPhoton(unittest.TestCase):
+    def setUp(self) -> None:
+        self.port = find_free_port()
+        self.proc = multiprocessing.Process(
+            target=streaming_photon_wrapper, args=(self.port,)
+        )
+        self.proc.start()
+        time.sleep(2)
+
+    def tearDown(self) -> None:
+        self.proc.terminate()
+
+    def test_pickle_with_photon(self):
+        url = f"http://localhost:{self.port}"
+        c = Client(url)
+
+        result = c.run()
+
+        self.assertEqual(result, b"0,1,2,3,4,5,6,7,8,9,")
 
 
 if __name__ == "__main__":
