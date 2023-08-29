@@ -140,7 +140,7 @@ pub struct Resources {
     pub ssh_commands_path: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub existing_vpc_security_group_id: Option<String>,
+    pub existing_vpc_security_group_ids: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub existing_vpc_subnet_ids_for_asg: Option<Vec<String>>,
 
@@ -197,7 +197,7 @@ impl Resources {
             ssh_public_key_path: None,
             ssh_commands_path: String::new(),
 
-            existing_vpc_security_group_id: None,
+            existing_vpc_security_group_ids: None,
             existing_vpc_subnet_ids_for_asg: None,
 
             cloudformation_ec2_instance_role: None,
@@ -274,7 +274,7 @@ pub struct DefaultSpecOption {
     pub image_volume_size_in_gb: u32,
     pub image_volume_iops: u32,
 
-    pub existing_vpc_security_group_id: String,
+    pub existing_vpc_security_group_ids: Vec<String>,
     pub existing_vpc_subnet_ids_for_asg: Vec<String>,
 
     pub plugins: Vec<String>,
@@ -544,10 +544,11 @@ impl Spec {
                 ssh_public_key_path,
                 ssh_commands_path: get_ssh_commands_path(&opts.spec_file_path),
 
-                existing_vpc_security_group_id: if opts.existing_vpc_security_group_id.is_empty() {
+                existing_vpc_security_group_ids: if opts.existing_vpc_security_group_ids.is_empty()
+                {
                     None
                 } else {
-                    Some(opts.existing_vpc_security_group_id.clone())
+                    Some(opts.existing_vpc_security_group_ids.clone())
                 },
                 existing_vpc_subnet_ids_for_asg: if opts.existing_vpc_subnet_ids_for_asg.is_empty()
                 {

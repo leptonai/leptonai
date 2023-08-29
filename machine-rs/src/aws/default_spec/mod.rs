@@ -200,9 +200,9 @@ pub fn command() -> Command {
                 .default_value("my-aad-tag"),
         )
         .arg(
-            Arg::new("EXISTING_VPC_SECURITY_GROUP_ID")
-                .long("existing-vpc-security-group-id")
-                .help("Sets the AWS EC2 security group Id (if not empty, apply command skips VPC creation, delete is skipped)")
+            Arg::new("EXISTING_VPC_SECURITY_GROUP_IDS")
+                .long("existing-vpc-security-group-ids")
+                .help("Sets the comma-separated AWS EC2 security group Id (if not empty, apply command skips VPC creation, delete is skipped)")
                 .required(false)
                 .num_args(1),
         )

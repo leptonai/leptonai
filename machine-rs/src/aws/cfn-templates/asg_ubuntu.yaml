@@ -37,9 +37,9 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
     Description: The public subnet IDs where node instances are to be created.
 
-  SecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: EC2 security group ID
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: EC2 security group IDs
 
   ArchType:
     Type: String
@@ -392,8 +392,7 @@ Resources:
           - AssociatePublicIpAddress: true
             DeleteOnTermination: true
             DeviceIndex: 0
-            Groups:
-              - !Ref SecurityGroupId
+            Groups: !Ref SecurityGroupIds
         TagSpecifications:
           - ResourceType: instance
             Tags:

@@ -376,7 +376,7 @@ pub async fn execute(log_level: &str, spec_file_path: &str, skip_prompt: bool) -
     }
 
     if aws_resources.cloudformation_vpc_id.is_none()
-        && aws_resources.existing_vpc_security_group_id.is_none()
+        && aws_resources.existing_vpc_security_group_ids.is_none()
         && aws_resources.existing_vpc_subnet_ids_for_asg.is_none()
         && aws_resources.cloudformation_vpc_security_group_id.is_none()
         && aws_resources.cloudformation_vpc_public_subnet_ids.is_none()
@@ -507,9 +507,9 @@ pub async fn execute(log_level: &str, spec_file_path: &str, skip_prompt: bool) -
     let is_spot_instance = spec.machine.instance_mode == *"spot";
     let on_demand_pct = if is_spot_instance { 0 } else { 100 };
 
-    let security_group_id = if let Some(s) = &aws_resources.existing_vpc_security_group_id {
-        log::info!("using the existing security group Id {s}");
-        s.to_string()
+    let security_group_ids = if let Some(s) = &aws_resources.existing_vpc_security_group_ids {
+        log::info!("using the existing security group Id {:?}", s);
+        s.join(",")
     } else {
         aws_resources
             .cloudformation_vpc_security_group_id
@@ -544,7 +544,7 @@ pub async fn execute(log_level: &str, spec_file_path: &str, skip_prompt: bool) -
                 .unwrap(),
         ),
         build_param("PublicSubnetIds", &asg_subnet_ids),
-        build_param("SecurityGroupId", &security_group_id),
+        build_param("SecurityGroupIds", &security_group_ids),
         build_param(
             "InstanceMode",
             if is_spot_instance {
@@ -1095,7 +1095,7 @@ pub async fn execute(log_level: &str, spec_file_path: &str, skip_prompt: bool) -
         }
 
         // VPC delete must run after associated EC2 instances are terminated due to dependencies
-        if aws_resources.existing_vpc_security_group_id.is_none()
+        if aws_resources.existing_vpc_security_group_ids.is_none()
             && aws_resources.existing_vpc_subnet_ids_for_asg.is_none()
             && aws_resources.cloudformation_vpc_id.is_some()
             && aws_resources.cloudformation_vpc_security_group_id.is_some()

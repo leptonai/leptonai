@@ -240,7 +240,7 @@ pub async fn execute(
     }
 
     // VPC delete must run after associated EC2 instances are terminated due to dependencies
-    if aws_resources.existing_vpc_security_group_id.is_none()
+    if aws_resources.existing_vpc_security_group_ids.is_none()
         && aws_resources.existing_vpc_subnet_ids_for_asg.is_none()
         && aws_resources.cloudformation_vpc_id.is_some()
         && aws_resources.cloudformation_vpc_security_group_id.is_some()

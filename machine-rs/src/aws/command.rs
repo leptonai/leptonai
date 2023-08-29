@@ -18,6 +18,16 @@ pub async fn execute(matches: &clap::ArgMatches) {
     match matches.subcommand() {
         Some((crate::aws::default_spec::NAME, sub_matches)) => {
             let s = sub_matches
+                .get_one::<String>("EXISTING_VPC_SECURITY_GROUP_IDS")
+                .unwrap_or(&String::new())
+                .clone();
+            let existing_vpc_security_group_ids: Vec<String> = if s.is_empty() {
+                Vec::new()
+            } else {
+                s.split(',').map(|x| x.trim().to_string()).collect()
+            };
+
+            let s = sub_matches
                 .get_one::<String>("EXISTING_VPC_SUBNET_IDS_FOR_ASG")
                 .unwrap_or(&String::new())
                 .clone();
@@ -134,10 +144,7 @@ pub async fn execute(matches: &clap::ArgMatches) {
                 os_type: sub_matches.get_one::<String>("OS_TYPE").unwrap().clone(),
                 aad_tag: sub_matches.get_one::<String>("AAD_TAG").unwrap().clone(),
 
-                existing_vpc_security_group_id: sub_matches
-                    .get_one::<String>("EXISTING_VPC_SECURITY_GROUP_ID")
-                    .unwrap_or(&String::new())
-                    .to_string(),
+                existing_vpc_security_group_ids,
                 existing_vpc_subnet_ids_for_asg,
 
                 plugins,
