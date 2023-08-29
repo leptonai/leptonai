@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 import {
   Scrollable,
   ScrollableRef,
@@ -9,12 +9,14 @@ import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Code } from "@carbon/icons-react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { Skeleton, Spin, Typography } from "antd";
+import { Spin, Typography } from "antd";
 import {
   CodeBlock,
   normalizeLanguage,
 } from "@lepton-dashboard/components/code-block";
 import { LoadingOutlined } from "@ant-design/icons";
+
+let renderCount = 0;
 
 export const MDMessage = forwardRef<
   ScrollableRef,
@@ -27,6 +29,10 @@ export const MDMessage = forwardRef<
   }
 >(({ content, error, loading, completionTime }, ref) => {
   const theme = useAntdTheme();
+  const codeRenderCacheRef = useRef<
+    Record<string, { priority: number; code: string }>
+  >({});
+
   return (
     <Scrollable
       ref={ref}
@@ -43,26 +49,38 @@ export const MDMessage = forwardRef<
         <ReactMarkdown
           remarkPlugins={[remarkBreaks]}
           components={{
-            code({ inline, className, children, ...props }) {
+            code({ node, inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || "");
               const language = normalizeLanguage(match?.[1] ?? "py");
+              const codePositionId = `${node.position?.start.line}-${node.position?.start.column}-${node.position?.start.offset}`;
+              const codeRenderCache =
+                codeRenderCacheRef.current[codePositionId]?.code ?? "";
+              const priority = renderCount++;
               return !inline ? (
-                completionTime ? (
-                  <CodeBlock
-                    {...props}
-                    transparentBg
-                    copyable
-                    code={String(children).replace(/\n$/, "")}
-                    language={language}
-                  />
-                ) : (
-                  <Skeleton
-                    title={false}
-                    css={css`
-                      padding: 12px;
-                    `}
-                  />
-                )
+                <CodeBlock
+                  {...props}
+                  initCode={codeRenderCache}
+                  rendered={(code) => {
+                    if (
+                      !codeRenderCacheRef.current[codePositionId] ||
+                      codeRenderCacheRef.current[codePositionId].priority <
+                        priority
+                    ) {
+                      if (completionTime) {
+                        delete codeRenderCacheRef.current[codePositionId];
+                      } else {
+                        codeRenderCacheRef.current[codePositionId] = {
+                          priority,
+                          code,
+                        };
+                      }
+                    }
+                  }}
+                  transparentBg
+                  copyable={!!completionTime}
+                  code={String(children).replace(/\n$/, "")}
+                  language={language}
+                />
               ) : (
                 <Typography.Text code {...props} className={className}>
                   {children}

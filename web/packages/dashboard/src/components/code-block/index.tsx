@@ -127,14 +127,22 @@ export function normalizeLanguage(
 
 export const CodeBlock: FC<{
   code: string;
+  initCode?: string;
   language?: LanguageSupports;
+  rendered?: (code: string) => void;
   copyable?: boolean;
   tokenMask?: (content: string, token: IThemedToken) => boolean | string;
   transparentBg?: boolean;
-}> = ({ code, language, copyable, tokenMask, transparentBg }) => {
-  const [highlightedCode, setHighlightedCode] = useState(
-    "<pre><code></code></pre>"
-  );
+}> = ({
+  code,
+  rendered,
+  initCode = "<pre><code></code></pre>",
+  language,
+  copyable,
+  tokenMask,
+  transparentBg,
+}) => {
+  const [highlightedCode, setHighlightedCode] = useState(initCode);
   const themeService = useInject(ThemeService);
 
   const currentTheme = useStateFromObservable(
@@ -181,6 +189,7 @@ export const CodeBlock: FC<{
           },
         });
         setHighlightedCode(codeString);
+        rendered?.(codeString);
       }
     };
 
@@ -189,7 +198,7 @@ export const CodeBlock: FC<{
     return () => {
       inThisTake = false;
     };
-  }, [language, code, currentTheme, tokenMask, transparentBg]);
+  }, [language, code, currentTheme, tokenMask, transparentBg, rendered]);
 
   return (
     <div
