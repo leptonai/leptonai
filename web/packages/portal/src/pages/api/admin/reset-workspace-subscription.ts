@@ -45,7 +45,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           console.warn(e);
         }
       }
-      const updated = await setupWorkspaceSubscription(workspaceId, chargeable);
+      const updated = await setupWorkspaceSubscription(
+        workspaceId,
+        chargeable,
+        workspace.tier
+      );
       res.status(200).json(updated);
     }
   } catch (err) {

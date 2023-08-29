@@ -27,6 +27,23 @@ Content-Type: application/json
 }
 ```
 
+## Update workspace tier
+
+When we need to change workspace tier.
+
+`tier` could be `Basic`, `Standard` or `Enterprise`.
+
+```http request
+POST https://portal.lepton.ai/api/admin/update-workspace-tier?LEPTON_API_SECRET=${LEPTON_API_SECRET}
+Content-Type: application/json
+
+{
+  "workspace_id": "y90kazsl",
+  "tier": "Standard"
+}
+
+```
+
 ## Update workspace coupon
 
 When we need to issue discounts coupons to customers.

@@ -15,7 +15,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { data: workspaces } = await supabaseAdminClient
       .from("workspaces")
-      .select("subscription_id, chargeable")
+      .select("subscription_id, chargeable, tier")
       .not("subscription_id", "is", null);
 
     if (!workspaces || workspaces.length === 0) {
@@ -24,7 +24,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await Promise.all(
         workspaces.map(
           async (s) =>
-            await updateSubscriptionItems(s.subscription_id!, s.chargeable)
+            await updateSubscriptionItems(
+              s.subscription_id!,
+              s.chargeable,
+              s.tier
+            )
         )
       );
       res.status(200).send("All workspace updated");

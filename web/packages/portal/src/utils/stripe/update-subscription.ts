@@ -1,5 +1,7 @@
 import { getAvailableProducts } from "@/utils/stripe/available-products";
 import { getStripeClient } from "@/utils/stripe/stripe-client";
+import { Database } from "@lepton/database";
+import Stripe from "stripe";
 
 export async function updateCustomerAmountGTE(
   customer: string,
@@ -25,7 +27,8 @@ export async function updateCustomerAmountGTE(
 
 export async function updateSubscriptionItems(
   subscriptionId: string,
-  chargeable: boolean
+  chargeable: boolean,
+  tier: Database["public"]["Enums"]["tier"] | null
 ) {
   const stripeClient = getStripeClient(chargeable);
   const subscription = await stripeClient.subscriptions.retrieve(
@@ -33,11 +36,26 @@ export async function updateSubscriptionItems(
   );
   const previousItems = subscription.items.data || [];
 
-  const updatedItems = getAvailableProducts(chargeable).filter(
+  const addedItems = getAvailableProducts(chargeable, tier).filter(
     (p) => !previousItems.find((i) => i.price.id === p.price)
   );
 
+  const deletedItems: Stripe.SubscriptionCreateParams.Item[] = previousItems
+    .filter(
+      (p) =>
+        !getAvailableProducts(chargeable, tier).find(
+          (i) => i.price === p.price.id
+        )
+    )
+    .map((p) => {
+      return {
+        deleted: true,
+        id: p.id,
+        metadata: p.metadata,
+      };
+    });
+
   await stripeClient.subscriptions.update(subscriptionId, {
-    items: updatedItems,
+    items: [...addedItems, ...deletedItems],
   });
 }

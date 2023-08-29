@@ -6,7 +6,8 @@ import { Database } from "@lepton/database";
 
 export const setupWorkspaceSubscription = async (
   workspaceId: string,
-  chargeable: boolean
+  chargeable: boolean,
+  tier: Database["public"]["Enums"]["tier"] | null
 ) => {
   const coupon = getAvailableCoupons("10", chargeable);
 
@@ -15,7 +16,8 @@ export const setupWorkspaceSubscription = async (
   const subscription = await createSubscription(
     consumer.id,
     workspaceId,
-    chargeable
+    chargeable,
+    tier
   );
 
   const updated: Database["public"]["Tables"]["workspaces"]["Update"] = {

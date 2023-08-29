@@ -1,10 +1,12 @@
 import { getAvailableProducts } from "@/utils/stripe/available-products";
 import { getStripeClient } from "@/utils/stripe/stripe-client";
+import { Database } from "@lepton/database";
 
 export const createSubscription = async (
   customerId: string,
   workspaceId: string,
-  chargeable: boolean
+  chargeable: boolean,
+  tier: Database["public"]["Enums"]["tier"] | null
 ) => {
   const stripeClient = getStripeClient(chargeable);
   return await stripeClient.subscriptions.create({
@@ -16,6 +18,6 @@ export const createSubscription = async (
       amount_gte: 50,
       reset_billing_cycle_anchor: false,
     },
-    items: getAvailableProducts(chargeable),
+    items: getAvailableProducts(chargeable, tier),
   });
 };

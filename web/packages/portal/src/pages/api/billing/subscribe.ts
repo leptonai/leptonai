@@ -49,7 +49,12 @@ const handler: NextApiHandler<
       req.body.record;
     const workspaceId = workspace.id;
     const chargeable = workspace.chargeable;
-    const updated = await setupWorkspaceSubscription(workspaceId, chargeable);
+    const tier = workspace.tier;
+    const updated = await setupWorkspaceSubscription(
+      workspaceId,
+      chargeable,
+      tier
+    );
     res.status(200).json(updated);
   } catch (err) {
     const errorMessage =

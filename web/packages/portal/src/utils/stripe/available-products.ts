@@ -1,10 +1,18 @@
+import { Database } from "@lepton/database";
 import Stripe from "stripe";
 
 const AvailableProducts: Array<{
   test_price_id: string;
   prod_price_id: string;
-  metadata: { shape: string };
+  metadata: { shape?: string; tier?: Database["public"]["Enums"]["tier"] };
 }> = [
+  {
+    prod_price_id: "price_1NkRpTBcUfXYxWWVL656v5xa",
+    test_price_id: "price_1NkRdmBcUfXYxWWVLwtdWT8C",
+    metadata: {
+      tier: "Standard",
+    },
+  },
   {
     prod_price_id: "price_1NicCpBcUfXYxWWVJuS2SDxU",
     test_price_id: "price_1NVbn2BcUfXYxWWViU0XrNgA",
@@ -43,12 +51,19 @@ const AvailableProducts: Array<{
 ];
 
 export const getAvailableProducts = (
-  chargeable: boolean
+  chargeable: boolean,
+  tier: Database["public"]["Enums"]["tier"] | null
 ): Stripe.SubscriptionCreateParams.Item[] => {
   return AvailableProducts.map(
     ({ prod_price_id, test_price_id, metadata }) => ({
       price: chargeable ? prod_price_id : test_price_id,
       metadata,
     })
-  );
+  ).filter((i) => {
+    if (i.metadata.shape) {
+      return true;
+    } else {
+      return i.metadata.tier === tier;
+    }
+  });
 };
