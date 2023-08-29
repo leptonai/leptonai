@@ -27,23 +27,23 @@
         }
     },
     "ac1.t4": {
-        "Description": "Accelerated computing shape with 1 16GB T4 GPU, 4 CPUs, 16GB of RAM and 100GB of ephemeral storage",
+        "Description": "Accelerated computing shape with 1 16GB T4 GPU, 4 CPUs, 16GB of RAM and 512GB of ephemeral storage",
         "DisplayName": "gpu.t4",
         "Resource": {
             "CPU": 4,
             "Memory": 16384,
-            "EphemeralStorageInGB": 100,
+            "EphemeralStorageInGB": 512,
             "AcceleratorType": "Tesla-T4",
             "AcceleratorNum": 1
         }
     },
     "ac1.a10": {
-        "Description": "Accelerated computing shape with 1 24GB A10 GPU, 8 CPUs, 32GB of RAM and 400GB of ephemeral storage",
+        "Description": "Accelerated computing shape with 1 24GB A10 GPU, 8 CPUs, 32GB of RAM and 512GB of ephemeral storage",
         "DisplayName": "gpu.a10",
         "Resource": {
             "CPU": 8,
             "Memory": 32768,
-            "EphemeralStorageInGB": 400,
+            "EphemeralStorageInGB": 512,
             "AcceleratorType": "NVIDIA-A10G",
             "AcceleratorNum": 1
         }
