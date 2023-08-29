@@ -8,7 +8,7 @@ on:
       - ".github/workflows/run-e2e-tests.yaml"
       - "**.go"
       - "**.py"
-      - "charts/lepton/**"
+      - "charts/workspace/**"
       - "infra/terraform/workspace/**"
     branches: ["**"]
 

@@ -53,7 +53,8 @@ spec:
           - {{ .Release.Namespace }}
           labels:
             lepton.ai/gloo-route-table-domain: {{ .Values.workspaceName }}-deployments-header-based-routing
-    # routes for api server
+{{ if ne .Values.apiServer.apiToken "" }}
+    # routes for api server with Auth header
     - matchers:
       - prefix: /api/
         headers:
@@ -81,6 +82,15 @@ spec:
       directResponseAction:
         status: 401
         body: "Not Authorized!"
+{{ else }}
+    - matchers:
+      - prefix: /api/
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+{{ end }}
     # catchall
     - matchers:
       - prefix: /
