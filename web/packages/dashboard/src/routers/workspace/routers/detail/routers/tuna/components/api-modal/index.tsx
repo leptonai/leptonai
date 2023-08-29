@@ -1,4 +1,7 @@
-import { ChatAPIModal } from "@lepton-libs/gradio/chat-api-modal";
+import {
+  CodeAPIModal,
+  APICodeTemplates,
+} from "@lepton-libs/gradio/code-api-modal";
 import { Button, Tooltip } from "antd";
 import { SizeType } from "antd/lib/config-provider/SizeContext";
 import { FC, PropsWithChildren, ReactNode, useState } from "react";
@@ -37,10 +40,10 @@ export const ApiModal: FC<ApiModalProps & PropsWithChildren> = ({
         </Button>
       </Tooltip>
 
-      <ChatAPIModal
-        apiUrl={apiUrl}
+      <CodeAPIModal
         title={`Copy API for ${name}`}
-        apiKey={apiKey}
+        code={APICodeTemplates.chat(apiUrl, apiKey && `"${apiKey}"`)}
+        maskString={apiKey}
         open={open}
         setOpen={setOpen}
       />

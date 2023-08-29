@@ -1,13 +1,13 @@
 import { Code } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { ChatAPIModal } from "@lepton-libs/gradio/chat-api-modal";
+import { CodeAPIModal } from "@lepton-libs/gradio/code-api-modal";
 import { Button, Grid } from "antd";
 import { FC, useState } from "react";
 
-export const Api: FC<{ apiUrl: string; title: string }> = ({
-  apiUrl,
-  title,
-}) => {
+export const Api: FC<{
+  code: string;
+  name: string;
+}> = ({ code, name }) => {
   const { md } = Grid.useBreakpoint();
   const [open, setOpen] = useState(false);
   return (
@@ -18,13 +18,13 @@ export const Api: FC<{ apiUrl: string; title: string }> = ({
         onClick={() => setOpen(true)}
         icon={<CarbonIcon icon={<Code />} />}
       >
-        {md !== false ? title : null}
+        {md !== false ? "API" : null}
       </Button>
-      <ChatAPIModal
-        apiUrl={apiUrl}
+      <CodeAPIModal
+        code={code}
         open={open}
         setOpen={setOpen}
-        title={title}
+        title={`Copy API for ${name}`}
       />
     </>
   );

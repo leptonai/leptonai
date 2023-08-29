@@ -33,6 +33,7 @@ import { useSearchParams } from "react-router-dom";
 import { MDMessage } from "@lepton-dashboard/routers/playground/routers/code-llama/components/md-message";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
+import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
 
 const presets = [
   {
@@ -259,13 +260,20 @@ export const CodeLlama: FC = () => {
       }
       extra={
         <Space>
-          <Api apiUrl={url} title="Code Llama API" />
           <PresetSelector
             options={presetOptions}
             value={presetPrompt}
             onChange={(v) => {
               setPrompt(v);
             }}
+          />
+          <Api
+            name="Code Llama"
+            code={APICodeTemplates.chat(
+              url,
+              '"<YOUR_EMAIL_ADDRESS>" # for using API from playground, you may use your email address here',
+              "# Python\\n" + "def fibonacci(n):"
+            )}
           />
         </Space>
       }

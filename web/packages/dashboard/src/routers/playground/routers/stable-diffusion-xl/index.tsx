@@ -16,6 +16,10 @@ import { Image, MagicWandFilled } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
+import { Space } from "antd";
+import { Api } from "@lepton-dashboard/routers/playground/components/api";
+import { tap } from "rxjs";
+import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -39,6 +43,7 @@ export const StableDiffusionXl: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const playgroundService = useInject(PlaygroundService);
   const [prompt, setPrompt] = useState(presets[0].prompt);
+  const [url, setUrl] = useState<string>("");
   const [option, setOption] = useState<SdxlOption>({
     width: 1024,
     height: 1024,
@@ -49,7 +54,12 @@ export const StableDiffusionXl: FC = () => {
   });
 
   const backend = useStateFromObservable(
-    () => playgroundService.getStableDiffusionXlBackend(),
+    () =>
+      playgroundService.getStableDiffusionXlBackend().pipe(
+        tap((url) => {
+          setUrl(url);
+        })
+      ),
     null
   );
 
@@ -118,16 +128,31 @@ export const StableDiffusionXl: FC = () => {
     <Container
       loading={!backend}
       icon={<CarbonIcon icon={<Image />} />}
-      title="Stable Diffusion XL"
+      title={
+        <span
+          css={css`
+            @media (max-width: 480px) {
+              max-width: 80px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          `}
+        >
+          Stable Diffusion XL
+        </span>
+      }
       extra={
-        <PresetSelector
-          options={presetOptions}
-          value={presetPrompt}
-          onChange={(v) => {
-            setPrompt(v);
-            setResult(presets.find((p) => p.prompt === v)!.image);
-          }}
-        />
+        <Space>
+          <PresetSelector
+            options={presetOptions}
+            value={presetPrompt}
+            onChange={(v) => {
+              setPrompt(v);
+              setResult(presets.find((p) => p.prompt === v)!.image);
+            }}
+          />
+          <Api name="Stable Diffusion XL" code={APICodeTemplates.sd(url)} />
+        </Space>
       }
       option={<Options value={option} onChange={setOption} />}
       content={
