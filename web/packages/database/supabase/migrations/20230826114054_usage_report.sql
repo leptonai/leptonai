@@ -24,6 +24,10 @@ create table "public"."storage_hourly" (
 
 alter table "public"."storage_hourly" enable row level security;
 
+drop trigger if exists "report_stripe_compute" on "public"."compute_hourly";
+
+drop trigger if exists "report_stripe_storage" on "public"."storage_hourly";
+
 CREATE TRIGGER report_stripe_compute AFTER INSERT ON public.compute_hourly FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://portal.lepton.ai/api/billing/report-compute', 'POST', '{"Content-type":"application/json"}', '{"LEPTON_API_SECRET":"LEPTON_API_SECRET"}', '60000');
 
 CREATE TRIGGER report_stripe_storage AFTER INSERT ON public.storage_hourly FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://portal.lepton.ai/api/billing/report-storage', 'POST', '{"Content-type":"application/json"}', '{"LEPTON_API_SECRET":"LEPTON_API_SECRET"}', '60000');

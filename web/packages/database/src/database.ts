@@ -194,6 +194,7 @@ export interface Database {
           created_at: string | null;
           display_name: string | null;
           id: string;
+          last_billable_usage_timestamp: string | null;
           payment_method_attached: boolean;
           status: string | null;
           subscription_id: string | null;
@@ -207,6 +208,7 @@ export interface Database {
           created_at?: string | null;
           display_name?: string | null;
           id: string;
+          last_billable_usage_timestamp?: string | null;
           payment_method_attached?: boolean;
           status?: string | null;
           subscription_id?: string | null;
@@ -220,6 +222,7 @@ export interface Database {
           created_at?: string | null;
           display_name?: string | null;
           id?: string;
+          last_billable_usage_timestamp?: string | null;
           payment_method_attached?: boolean;
           status?: string | null;
           subscription_id?: string | null;
