@@ -8,6 +8,7 @@ from .photon import (  # noqa: F401
     HTTPException,
     PNGResponse,
     WAVResponse,
+    StreamingResponse,
     FileParam,
     StaticFiles,
 )

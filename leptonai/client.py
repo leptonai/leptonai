@@ -211,7 +211,7 @@ class Client(object):
                     json=jsonable_encoder(kwargs),
                 )
                 res.raise_for_status()
-                if res.headers["content-type"] == "application/json":
+                if res.headers.get("content-type", None) == "application/json":
                     return res.json()
                 else:
                     return res.content

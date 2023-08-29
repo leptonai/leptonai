@@ -20,7 +20,12 @@ from fastapi import APIRouter, FastAPI, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi.responses import Response, JSONResponse, FileResponse
+from fastapi.responses import (  # noqa: F401
+    Response,
+    JSONResponse,
+    FileResponse,
+    StreamingResponse,
+)
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
