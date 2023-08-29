@@ -12,13 +12,13 @@ spec:
   groups:
     - name: http.rules
       rules:
-        - alert: APIServer500ErrorRate
+        - alert: LeptonAPIServer500ErrorRate
           annotations:
-            description: API server 500 error rate is elevated for the past 5 mins
+            description: Lepton API server 500 error rate is elevated for the past 5 mins
             runbook_url: https://todo.com
             summary: API server 500 error rate is elevated
           expr: |-
-            increase(apiserver_request_total{code="500"}[5m]) > 3
+            increase(lepton_http_requests_total{code="500", component="api_server"}[5m]) > 3
           for: 1m
           labels:
             severity: critical
@@ -28,17 +28,17 @@ spec:
             runbook_url: https://todo.com
             summary: Mothership 500 error rate is elevated
           expr: |-
-            increase(mothership{code="500"}[5m]) > 3
+            increase(lepton_http_requests_total{code="500", component="mothership"}[5m]) > 3
           for: 1m
           labels:
             severity: critical
-        - alert: APIServerP99Latency
+        - alert: LeptonAPIServerP99Latency
           annotations:
-            description: API sever P99 latency is higher than 500 ms
+            description: Lepton API sever P99 latency is higher than 500 ms
             runbook_url: https://todo.com
             summary: API sever P99 latency is higher than 500 ms
           expr: |-
-            histogram_quantile(0.99, sum(increase(apiserver_request_duration_seconds_bucket{}[5m])) by (le)) > 0.5
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[5m])) by (le)) > 0.5
           for: 1m
           labels:
             severity: critical
@@ -48,7 +48,7 @@ spec:
             runbook_url: https://todo.com
             summary: Mothership P99 latency is higher than 500 ms
           expr: |-
-            histogram_quantile(0.99, sum(increase(mothership_request_duration_seconds_bucket{}[5m])) by (le)) > 0.5
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[5m])) by (le)) > 0.5
           for: 1m
           labels:
             severity: critical
