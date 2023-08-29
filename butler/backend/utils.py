@@ -12,16 +12,23 @@ import user
 
 dotenv.load_dotenv()
 
+SHARED = "shared"
+DEDICATED = "dedicated"
+
 send_grid_api_key = os.environ.get("SEND_GRID_KEY")
 ENV = os.environ.get("ENV")
 if ENV == "PROD":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_PROD")
     mothership_url = os.environ.get("MOTHERSHIP_URL_PROD")
     cluster_name = os.environ.get("MOTHERSHIP_CLUSTER_NAME_PROD")
+    cluster_alias_in_hostname = os.environ.get("SHARED_LB_URL_CLUSTER_ALIAS_PROD")
+    shared_lb_url_main_domain = os.environ.get("SHARED_LB_URL_MAIN_DOMAIN_PROD")
 elif ENV == "DEV":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_DEV")
     mothership_url = os.environ.get("MOTHERSHIP_URL_DEV")
     cluster_name = os.environ.get("MOTHERSHIP_CLUSTER_NAME_DEV")
+    cluster_alias_in_hostname = os.environ.get("SHARED_LB_URL_CLUSTER_ALIAS_DEV")
+    shared_lb_url_main_domain = os.environ.get("SHARED_LB_URL_MAIN_DOMAIN_DEV")
 
 
 def generate_token(length):
@@ -72,6 +79,7 @@ def create_workspace_on_cluster(workspace_display_name):
         "Authorization": "Bearer {}".format(mothership_key),
     }
 
+    version = "0.8.4"
     payload = {
         "name": workspace_name,
         "cluster_name": cluster_name,
@@ -80,24 +88,55 @@ def create_workspace_on_cluster(workspace_display_name):
         "quota_group": "small",
         "description": description,
         "tier": "basic",  # Could be basic, standard, enterprise
-        "image_tag": "0.8.3",
-        "git_ref": "0.8.3",
+        "image_tag": version,
+        "git_ref": version,
+        "lb-type": "shared",
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response
 
 
-def insert_workspace_to_db(workspace_name, workspace_display_name):
+def create_workspace_url(workspace_name, lb_type="shared") -> str:
+    if lb_type not in [SHARED, DEDICATED]:
+        print(
+            f"load balancer type should be either {SHARED} or {DEDICATED}, but got {lb_type}"
+        )
+        exit(1)
+    else:
+        print(f"using loadbalancer type {lb_type}")
+
+    if lb_type == SHARED and (
+        cluster_alias_in_hostname == "" or shared_lb_url_main_domain == ""
+    ):
+        print(
+            f"bad input: cluster_alias_in_hostname {cluster_alias_in_hostname} and shared_lb_url_main_domain {shared_lb_url_main_domain} should both be non-empty"
+        )
+        exit(1)
+
     workspace_url = (
         "https://"
         + workspace_name
         + "."
-        + mothership_url[
-            mothership_url.find("mothership")
-            + len("mothership "): mothership_url.find("/api")
-        ]
+        + cluster_alias_in_hostname
+        + "."
+        + shared_lb_url_main_domain
     )
+    if lb_type == DEDICATED:
+        workspace_url = (
+            "https://"
+            + workspace_name
+            + "."
+            + mothership_url[
+                mothership_url.find("mothership")
+                + len("mothership "): mothership_url.find("/api")
+            ]
+        )
+    return workspace_url
+
+
+def insert_workspace_to_db(workspace_name, workspace_display_name):
+    workspace_url = create_workspace_url(workspace_name)
     query = "INSERT INTO workspaces (id, display_name, url, tier, chargeable) VALUES \
         ('{}', '{}', '{}', 'Basic', 'FALSE')".format(
         workspace_name, workspace_display_name, workspace_url
@@ -121,18 +160,18 @@ def create_workspace(workspace_display_name):
 
 
 def list_workspace_users(workspace_id):
-    '''
+    """
     This function is used to list all users in a workspace.
-    '''
+    """
     return workspace.get_workspace_users(workspace_id)
 
 
 def invite_user(email):
-    '''
+    """
     This function is used to invite a user to the platform by email.
-    '''
+    """
     result = user.add_user(email)
-    if result['enable']:
+    if result["enable"]:
         send_welcome((email, email))
     return result
 
@@ -150,7 +189,9 @@ def add_user_to_workspace(email, workspace_id):
         print("User {} already in workspace {}".format(email, workspace_id))
         return
 
-    token = workspace.get_workspace_info_from_mothership(workspace_id)['spec']['api_token']
+    token = workspace.get_workspace_info_from_mothership(workspace_id)["spec"][
+        "api_token"
+    ]
 
     max_id = database.get_max_id_for_user_workspace()
     query = "INSERT INTO user_workspace ( id , workspace_id, user_id, token) \
@@ -159,7 +200,9 @@ def add_user_to_workspace(email, workspace_id):
     )
     database.execute_sql(query)
     return "User {} successfully added to \
-        workspace {}".format(email, workspace_id)
+        workspace {}".format(
+        email, workspace_id
+    )
 
 
 def remove_user_from_workspace(email, workspace_id):
@@ -177,4 +220,6 @@ def remove_user_from_workspace(email, workspace_id):
     )
     database.execute_sql(query)
     return "User {} successfully removed from \
-        workspace {}".format(email, workspace_id)
+        workspace {}".format(
+        email, workspace_id
+    )
