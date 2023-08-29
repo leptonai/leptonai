@@ -67,12 +67,12 @@ func listFunc(cmd *cobra.Command, args []string) {
 	log.Printf("fetched %d clusters from mothership API", len(rs))
 
 	eksAPIs := make(map[string]*aws_eks_v2.Client)
-	colums := []string{"name", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
+	colums := []string{"name", "alias", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 
 	stsID, err := aws.GetCallerIdentity()
 	if err != nil {
 		log.Printf("no AWS access -- skipping AWS API call, setting select-kubeconfig to false (%v)", err)
-		colums = []string{"name", "provider", "region", "git-ref", "state"}
+		colums = []string{"name", "alias", "provider", "region", "git-ref", "state"}
 	} else {
 		log.Printf("inspecting AWS resources using %v", *stsID.Arn)
 		for _, c := range rs {
@@ -105,7 +105,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 
 		eksAPI, ok := eksAPIs[c.Spec.Region]
 		if !ok { // no aws access
-			rows = append(rows, []string{c.Spec.Name, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State)})
+			rows = append(rows, []string{c.Spec.Name, c.Spec.Subdomain, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State)})
 			continue
 		}
 
@@ -129,7 +129,7 @@ func listFunc(cmd *cobra.Command, args []string) {
 			version, status, health = eks.GetClusterStatus(eksOut)
 		}
 
-		rows = append(rows, []string{c.Spec.Name, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
+		rows = append(rows, []string{c.Spec.Name, c.Spec.Subdomain, c.Spec.Provider, c.Spec.Region, c.Spec.GitRef, string(c.Status.State), version, status, health})
 		promptOptions = append(promptOptions,
 			fmt.Sprintf("%s (provider %s region %s, state %s, eks status %s)",
 				c.Spec.Name,
