@@ -9,6 +9,7 @@ import (
 
 	"github.com/leptonai/lepton/go-pkg/aws"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	aws_svcquotas_v2 "github.com/aws/aws-sdk-go-v2/service/servicequotas"
 )
 
@@ -61,9 +62,10 @@ func TestListServiceQuotas(t *testing.T) {
 	}
 
 	cli := aws_svcquotas_v2.NewFromConfig(cfg)
+	cwClient := cloudwatch.NewFromConfig(cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	quotas, err := ListServiceQuotas(ctx, cli, "ec2", "eks")
+	quotas, err := ListServiceQuotas(ctx, cli, cwClient, "ec2", "eks")
 	cancel()
 	if err != nil {
 		t.Fatal(err)
