@@ -187,28 +187,53 @@ func (r *LeptonDeploymentReconciler) updateDeploymentStatus(ctx context.Context,
 	if ld == nil {
 		return nil
 	}
+	var expectedState leptonaiv1alpha1.LeptonDeploymentState
+	var expectedExternalEndpoint string
 	if !ld.DeletionTimestamp.IsZero() {
-		ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateDeleting
-		ld.Status.Endpoint.ExternalEndpoint = ""
+		expectedState = leptonaiv1alpha1.LeptonDeploymentStateDeleting
+		expectedExternalEndpoint = ""
 	} else {
 		deployment, err := r.getDeployment(ctx, req)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				ld.Status.State = leptonaiv1alpha1.LeptonDeploymentStateStarting
+				expectedState = leptonaiv1alpha1.LeptonDeploymentStateStarting
 			} else {
 				return err
 			}
 		} else {
-			ld.Status.State = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
+			expectedState = transitionState(deployment.Status.Replicas, deployment.Status.ReadyReplicas, ld.Status.State)
 		}
-		if r.LBType == leptonaiv1alpha1.WorkspaceLBTypeShared {
-			ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.SharedALBMainDomain).GetDeployment(ld.GetSpecName())
 
+		if r.LBType == leptonaiv1alpha1.WorkspaceLBTypeShared {
+			expectedExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.SharedALBMainDomain).GetDeployment(ld.GetSpecName())
 		} else {
-			ld.Status.Endpoint.ExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
+			expectedExternalEndpoint = "https://" + domainname.New(ld.Spec.WorkspaceName, ld.Spec.RootDomain).GetDeployment(ld.GetSpecName())
 		}
 	}
-	return r.Status().Update(ctx, ld)
+	if ld.Status.State == expectedState && ld.Status.Endpoint.ExternalEndpoint == expectedExternalEndpoint {
+		goutil.Logger.Infow("Skipping updating LeptonDeployment status: already up-to-date",
+			"namespace", req.Namespace,
+			"name", req.Name,
+		)
+		return nil
+	}
+	ld.Status.State = expectedState
+	ld.Status.Endpoint.ExternalEndpoint = expectedExternalEndpoint
+	goutil.Logger.Infow("updating LeptonDeployment status",
+		"namespace", req.Namespace,
+		"name", req.Name,
+		"state", expectedState,
+		"externalEndpoint", expectedExternalEndpoint,
+	)
+	err := r.Status().Update(ctx, ld)
+	if err != nil {
+		return err
+	}
+	goutil.Logger.Infow("updated LeptonDeployment status",
+		"namespace", req.Namespace,
+		"name", req.Name,
+	)
+	return nil
 }
 
 func transitionState(replicas, readyReplicas int32, state leptonaiv1alpha1.LeptonDeploymentState) leptonaiv1alpha1.LeptonDeploymentState {
@@ -257,7 +282,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			return nil, err
 		}
 
-		goutil.Logger.Infow("creating a new leptonDeployment",
+		goutil.Logger.Infow("creating a new deployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
@@ -265,13 +290,13 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 		if err != nil {
 			return nil, err
 		}
-		goutil.Logger.Infow("created a new leptonDeployment",
+		goutil.Logger.Infow("created a new deployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
 		return expectedDeployment, nil
 	} else {
-		if compareAndPatchDeployment(existingDeployment, expectedDeployment) {
+		if compareLeptonDeploymentSpecHash(existingDeployment.Annotations, expectedDeployment.Annotations) {
 			goutil.Logger.Infow("Skipping updating the deployment: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -279,14 +304,14 @@ func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Contex
 			return existingDeployment, nil
 		}
 
-		goutil.Logger.Infow("updating an existing leptonDeployment",
+		goutil.Logger.Infow("updating an existing deployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if err := r.Client.Update(ctx, existingDeployment); err != nil {
+		if err := r.Client.Update(ctx, expectedDeployment); err != nil {
 			return nil, err
 		}
-		goutil.Logger.Infow("updated an existing leptonDeployment",
+		goutil.Logger.Infow("updated an existing deployment",
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
@@ -321,7 +346,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 		)
 		return expectedService, nil
 	} else {
-		if compareAndPatchService(existingService, expectedService) {
+		if compareLeptonDeploymentSpecHash(existingService.Annotations, expectedService.Annotations) {
 			goutil.Logger.Infow("Skipping updating the service: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -333,7 +358,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateService(ctx context.Context, 
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if err := r.Client.Update(ctx, existingService); err != nil {
+		if err := r.Client.Update(ctx, expectedService); err != nil {
 			return nil, err
 		}
 		goutil.Logger.Infow("updated an existing service",
@@ -388,7 +413,8 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 			)
 			return r.Client.Delete(ctx, existingIngress)
 		}
-		if compareAndPatchIngress(existingIngress, expectedIngress) {
+
+		if compareLeptonDeploymentSpecHash(existingIngress.Annotations, expectedIngress.Annotations) {
 			goutil.Logger.Infow("Skipping updating the header-based ingress: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -400,7 +426,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedIngress(ctx contex
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if err := r.Client.Update(ctx, existingIngress); err != nil {
+		if err := r.Client.Update(ctx, expectedIngress); err != nil {
 			return err
 		}
 		goutil.Logger.Infow("updated an existing header based ingress",
@@ -451,7 +477,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 			return r.Client.Delete(ctx, existingIngress)
 		}
 
-		if compareAndPatchIngress(existingIngress, expectedIngress) {
+		if compareLeptonDeploymentSpecHash(existingIngress.Annotations, expectedIngress.Annotations) {
 			goutil.Logger.Infow("Skipping updating the host-based ingress: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -463,7 +489,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedIngress(ctx context.
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if err := r.Client.Update(ctx, existingIngress); err != nil {
+		if err := r.Client.Update(ctx, expectedIngress); err != nil {
 			return err
 		}
 		goutil.Logger.Infow("updated an existing host based ingress",
@@ -596,7 +622,8 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(
 			)
 			return r.GlooClients.RouteTableClient.Delete(existingRouteTable.Metadata.Namespace, existingRouteTable.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
 		}
-		if compareAndPatchRouteTable(existingRouteTable, expectedRouteTable) {
+
+		if compareLeptonDeploymentSpecHash(existingRouteTable.Metadata.Annotations, expectedRouteTable.Metadata.Annotations) {
 			goutil.Logger.Infow("Skipping updating the gloo route table: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -608,7 +635,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHeaderBasedLoadBalancerRules(
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if _, err := r.GlooClients.RouteTableClient.Write(existingRouteTable, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		// Must set the resource version to update when using GlooClients
+		expectedRouteTable.Metadata.ResourceVersion = existingRouteTable.Metadata.ResourceVersion
+		if _, err := r.GlooClients.RouteTableClient.Write(expectedRouteTable, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing RouteTable: %w", err)
 		}
 		goutil.Logger.Infow("updated an existing header based routeTable",
@@ -650,7 +679,7 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ct
 			return r.GlooClients.VirtualServiceClient.Delete(existingVirtualService.Metadata.Namespace, existingVirtualService.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
 		}
 
-		if compareAndPatchVirtualService(existingVirtualService, expectedVirtualService) {
+		if compareLeptonDeploymentSpecHash(existingVirtualService.Metadata.Annotations, expectedVirtualService.Metadata.Annotations) {
 			goutil.Logger.Infow("Skipping updating the gloo virtual service: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -662,7 +691,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateHostBasedLoadBalancerRules(ct
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if _, err := r.GlooClients.VirtualServiceClient.Write(existingVirtualService, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		// Must set the resource version to update when using GlooClients
+		expectedVirtualService.Metadata.ResourceVersion = existingVirtualService.Metadata.ResourceVersion
+		if _, err := r.GlooClients.VirtualServiceClient.Write(expectedVirtualService, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing VirtualService: %w", err)
 		}
 		goutil.Logger.Infow("updated an existing host based virtual service",
@@ -703,7 +734,8 @@ func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Cont
 			)
 			return r.GlooClients.UpstreamClient.Delete(existingUpstream.Metadata.Namespace, existingUpstream.Metadata.Name, soloclients.DeleteOpts{Ctx: ctx, IgnoreNotExist: true})
 		}
-		if compareAndPatchGlooUpstream(existingUpstream, expectedUpstream) {
+
+		if compareLeptonDeploymentSpecHash(existingUpstream.Metadata.Annotations, expectedUpstream.Metadata.Annotations) {
 			goutil.Logger.Infow("Skipping updating the gloo upstream: already up-to-date",
 				"namespace", req.Namespace,
 				"name", req.Name,
@@ -715,7 +747,9 @@ func (r *LeptonDeploymentReconciler) createOrUpdateGlooUpstream(ctx context.Cont
 			"namespace", req.Namespace,
 			"name", req.Name,
 		)
-		if _, err := r.GlooClients.UpstreamClient.Write(existingUpstream, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
+		// Must set the resource version to update when using GlooClients
+		expectedUpstream.Metadata.ResourceVersion = existingUpstream.Metadata.ResourceVersion
+		if _, err := r.GlooClients.UpstreamClient.Write(expectedUpstream, soloclients.WriteOpts{Ctx: ctx, OverwriteExisting: true}); err != nil {
 			return fmt.Errorf("failed to update existing upstream: %w", err)
 		}
 		goutil.Logger.Infow("updated an existing upstream",

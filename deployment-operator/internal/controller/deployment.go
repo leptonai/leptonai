@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"path"
-	"reflect"
 
 	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
@@ -12,7 +11,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -108,6 +106,7 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 				labelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
 				labelKeyLeptonDeploymentName:            ld.GetSpecName(),
 			},
+			Annotations:     newAnnotationsWithSpecHash(ld),
 			OwnerReferences: or,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -373,33 +372,4 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	}
 
 	return spec
-}
-
-func compareAndPatchDeployment(dep, patch *appsv1.Deployment) bool {
-	equals := compareAndPatchLabels(&dep.ObjectMeta, &patch.ObjectMeta) &&
-		compareAndPatchAnnotations(&dep.ObjectMeta, &patch.ObjectMeta) &&
-		compareAndPatchOwnerReferences(&dep.ObjectMeta, &patch.ObjectMeta) &&
-		compareAndPatchLabels(&dep.Spec.Template.ObjectMeta, &patch.Spec.Template.ObjectMeta) &&
-		compareAndPatchAnnotations(&dep.Spec.Template.ObjectMeta, &patch.Spec.Template.ObjectMeta)
-
-	if !reflect.DeepEqual(dep.Spec.Template.Spec, patch.Spec.Template.Spec) {
-		dep.Spec.Template.Spec = patch.Spec.Template.Spec
-		equals = false
-	}
-	if dep.Spec.Replicas != patch.Spec.Replicas {
-		dep.Spec.Replicas = patch.Spec.Replicas
-		equals = false
-	}
-	if !reflect.DeepEqual(dep.Spec.Selector, patch.Spec.Selector) {
-		goutil.Logger.Errorw("Trying to modify immutable fields",
-			"namespace", dep.Namespace,
-			"name", dep.Name,
-			"old", dep.Spec,
-			"new", patch.Spec,
-		)
-		// do not update the equals boolean because we do not want to update
-		// the deployment if no other fields are modified.
-	}
-
-	return equals
 }

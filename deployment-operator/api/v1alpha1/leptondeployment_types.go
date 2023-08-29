@@ -18,11 +18,19 @@ package v1alpha1
 
 import (
 	"fmt"
+	"hash/fnv"
+	"strconv"
 
 	"github.com/leptonai/lepton/go-pkg/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
+	hashutil "k8s.io/kubernetes/pkg/util/hash"
 )
+
+// The probe is used to trigger the reconciliation of the deployment/service/ingress/etc
+// if we modified the algorithm of generating them from LeptonDeployments.
+var probe *int = nil
 
 // LeptonDeploymentSpec defines the desired state of LeptonDeployment
 type LeptonDeploymentSpec struct {
@@ -109,6 +117,18 @@ func (ld *LeptonDeployment) GetTokens() []string {
 		}
 	}
 	return util.UniqStringSlice(tokens)
+}
+
+// SpecHash returns the hash of the deployment spec.
+func (ld *LeptonDeployment) SpecHash() string {
+	// The code refers to https://github.com/kubernetes/kubernetes/blob/3e910875a70c15dbd36cc79addfcb6999a644d88/pkg/controller/history/controller_history.go#L92-L104
+	hf := fnv.New32()
+	hashutil.DeepHashObject(hf, ld.Spec)
+	if probe != nil {
+		// The magic number 10 came from the above reference code.
+		hf.Write([]byte(strconv.FormatInt(int64(*probe), 10)))
+	}
+	return rand.SafeEncodeString(fmt.Sprint(hf.Sum32()))
 }
 
 // LeptonDeploymentResourceRequirement defines the resource requirement of the deployment.

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"reflect"
 	"testing"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
@@ -72,6 +71,9 @@ func TestCreateHeaderBasedDeploymentRouteTable(t *testing.T) {
 					BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
 					Controller:         &wrappers.BoolValue{Value: true},
 				},
+			},
+			Annotations: map[string]string{
+				leptonDeploymentSpecHashKey: testLD.SpecHash(),
 			},
 		},
 		Routes: []*gloogw.Route{
@@ -179,14 +181,14 @@ func TestCreateHeaderBasedDeploymentRouteTable(t *testing.T) {
 	}
 
 	if exptected.String() != actual.String() {
-		t.Errorf("Wront output: \n%s \nvs \n%s", exptected.String(), actual.String())
+		t.Errorf("Wrong output: \n%s \nvs \n%s", exptected.String(), actual.String())
 	}
 }
 
 func TestCreateHeaderBasedDeploymentRouteTableEmptyToken(t *testing.T) {
 	testLDNoToken := createTestLeptonDeployment()
 	testLDNoToken.Spec.APITokens = nil
-	actual := createHeaderBasedDeploymentRouteTable(testLDNoToken, []*gloocore.Metadata_OwnerReference{getGlooOwnerRefFromLeptonDeployment(testLD)})
+	actual := createHeaderBasedDeploymentRouteTable(testLDNoToken, []*gloocore.Metadata_OwnerReference{getGlooOwnerRefFromLeptonDeployment(testLDNoToken)})
 	exptected := gloogw.RouteTable{
 		Metadata: &gloocore.Metadata{
 			Name:      "wsName-userSpecName-header-route-table",
@@ -203,6 +205,9 @@ func TestCreateHeaderBasedDeploymentRouteTableEmptyToken(t *testing.T) {
 					BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
 					Controller:         &wrappers.BoolValue{Value: true},
 				},
+			},
+			Annotations: map[string]string{
+				leptonDeploymentSpecHashKey: testLDNoToken.SpecHash(),
 			},
 		},
 		Routes: []*gloogw.Route{
@@ -245,14 +250,14 @@ func TestCreateHeaderBasedDeploymentRouteTableEmptyToken(t *testing.T) {
 	}
 
 	if exptected.String() != actual.String() {
-		t.Errorf("Wront output: \n%s \nvs \n%s", exptected.String(), actual.String())
+		t.Errorf("Wrong output: \n%s \nvs \n%s", exptected.String(), actual.String())
 	}
 }
 
 func TestCreateDomainBasedDeploymentVirtualServiceEmptyToken(t *testing.T) {
 	testLDNoToken := createTestLeptonDeployment()
 	testLDNoToken.Spec.APITokens = nil
-	actual := createHostBasedDeploymentVirtualService(testLDNoToken, []*gloocore.Metadata_OwnerReference{getGlooOwnerRefFromLeptonDeployment(testLD)})
+	actual := createHostBasedDeploymentVirtualService(testLDNoToken, []*gloocore.Metadata_OwnerReference{getGlooOwnerRefFromLeptonDeployment(testLDNoToken)})
 	exptected := gloogw.VirtualService{
 		Metadata: &gloocore.Metadata{
 			Name:      "wsName-userSpecName-deployment-virtual-service",
@@ -266,6 +271,9 @@ func TestCreateDomainBasedDeploymentVirtualServiceEmptyToken(t *testing.T) {
 					BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
 					Controller:         &wrappers.BoolValue{Value: true},
 				},
+			},
+			Annotations: map[string]string{
+				leptonDeploymentSpecHashKey: testLDNoToken.SpecHash(),
 			},
 		},
 		VirtualHost: &gloogw.VirtualHost{
@@ -307,7 +315,7 @@ func TestCreateDomainBasedDeploymentVirtualServiceEmptyToken(t *testing.T) {
 	}
 
 	if exptected.String() != actual.String() {
-		t.Errorf("Wront output: \n%s \nvs \n%s", exptected.String(), actual.String())
+		t.Errorf("Wrong output: \n%s \nvs \n%s", exptected.String(), actual.String())
 	}
 }
 
@@ -326,6 +334,9 @@ func TestCreateDomainBasedDeploymentVirtualService(t *testing.T) {
 					BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
 					Controller:         &wrappers.BoolValue{Value: true},
 				},
+			},
+			Annotations: map[string]string{
+				leptonDeploymentSpecHashKey: testLD.SpecHash(),
 			},
 		},
 		VirtualHost: &gloogw.VirtualHost{
@@ -424,7 +435,7 @@ func TestCreateDomainBasedDeploymentVirtualService(t *testing.T) {
 	}
 
 	if exptected.String() != actual.String() {
-		t.Errorf("Wront output: \n%s \nvs \n%s", exptected.String(), actual.String())
+		t.Errorf("Wrong output: \n%s \nvs \n%s", exptected.String(), actual.String())
 	}
 }
 
@@ -443,6 +454,9 @@ func TestCreateGlooUpstream(t *testing.T) {
 					BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
 					Controller:         &wrappers.BoolValue{Value: true},
 				},
+			},
+			Annotations: map[string]string{
+				leptonDeploymentSpecHashKey: testLD.SpecHash(),
 			},
 		},
 		HealthChecks: []*envoycore.HealthCheck{
@@ -469,141 +483,6 @@ func TestCreateGlooUpstream(t *testing.T) {
 	}
 
 	if exptected.String() != actual.String() {
-		t.Errorf("Wront output: \n%s \nvs \n%s", exptected.String(), actual.String())
-	}
-}
-
-func TestCompareAndPatchGlooMetadata(t *testing.T) {
-	tests := []struct {
-		meta         *gloocore.Metadata
-		patch        *gloocore.Metadata
-		expected     bool
-		expectedMeta *gloocore.Metadata
-	}{
-		{
-			meta: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key1": "value1",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue1",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV1",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			patch: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key1": "value1",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue1",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV1",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			expected: true,
-			expectedMeta: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key1": "value1",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue1",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV1",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-		},
-		{
-			meta: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key1": "value1",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue1",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV1",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			patch: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key2": "value2",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue2",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV2",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			expected: false,
-			expectedMeta: &gloocore.Metadata{
-				Labels: map[string]string{
-					"key1": "value1",
-					"key2": "value2",
-				},
-				Annotations: map[string]string{
-					"ann1": "annValue2",
-				},
-				OwnerReferences: []*gloocore.Metadata_OwnerReference{
-					{
-						ApiVersion:         "ldCRDV2",
-						Kind:               "ldCRDKind",
-						Name:               "ldObjectName",
-						Uid:                "ldObjectUid",
-						BlockOwnerDeletion: &wrappers.BoolValue{Value: true},
-						Controller:         &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		equals := compareAndPatchGlooMetadata(test.meta, test.patch)
-		if equals != test.expected {
-			t.Errorf("Wrong output: %v vs %v", equals, test.expected)
-		}
-		if !reflect.DeepEqual(test.meta, test.expectedMeta) {
-			t.Errorf("Wrong output: \n%s \nvs \n%s", test.meta.String(), test.expectedMeta.String())
-		}
+		t.Errorf("Wrong output: \n%s \nvs \n%s", exptected.String(), actual.String())
 	}
 }

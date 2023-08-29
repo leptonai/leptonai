@@ -32,3 +32,27 @@ func TestSleepAndPoke(t *testing.T) {
 	wg.Wait()
 	<-ch
 }
+
+func TestCompareLeptonDeploymentSpecHash(t *testing.T) {
+	tests := []struct {
+		a map[string]string
+		b map[string]string
+		e bool
+	}{
+		{nil, nil, false},
+		{nil, map[string]string{}, false},
+		{map[string]string{}, nil, false},
+		{map[string]string{}, map[string]string{}, true},
+		{map[string]string{"a": "a"}, map[string]string{"a": "a"}, true},
+		{map[string]string{leptonDeploymentSpecHashKey: "a"}, map[string]string{"a": "a"}, false},
+		{map[string]string{"a": "a"}, map[string]string{leptonDeploymentSpecHashKey: "b"}, false},
+		{map[string]string{leptonDeploymentSpecHashKey: "a"}, map[string]string{leptonDeploymentSpecHashKey: "b"}, false},
+		{map[string]string{leptonDeploymentSpecHashKey: "b"}, map[string]string{leptonDeploymentSpecHashKey: "b"}, true},
+	}
+
+	for i, test := range tests {
+		if compareLeptonDeploymentSpecHash(test.a, test.b) != test.e {
+			t.Errorf("expected %t for tesi %d: %+v, got %t", test.e, i, test, !test.e)
+		}
+	}
+}
