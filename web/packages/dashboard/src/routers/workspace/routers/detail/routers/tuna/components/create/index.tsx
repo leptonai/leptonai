@@ -39,6 +39,8 @@ const normFile = (e: UploadChangeParam<unknown>) => {
   return e?.fileList;
 };
 
+const limit4MB = 4 * 1024 * 1024;
+
 export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
   const fineTuneService = useInject(TunaService);
   const refreshService = useInject(RefreshService);
@@ -169,6 +171,48 @@ export const CreateJob: FC<CreateProps> = ({ finish = () => void 0 }) => {
                           );
                         }
                         return Promise.resolve();
+                      },
+                    },
+                    {
+                      validator: async (_, fileList) => {
+                        if (
+                          fileList &&
+                          fileList[0].originFileObj.size > limit4MB
+                        ) {
+                          return Promise.reject(
+                            new Error(
+                              `File size must be less than 4MB, but got ${(
+                                fileList[0].originFileObj.size /
+                                1024 /
+                                1024
+                              ).toFixed(2)}MB`
+                            )
+                          );
+                        } else {
+                          return Promise.resolve();
+                        }
+                      },
+                    },
+                    {
+                      warningOnly: true,
+                      message: (
+                        <Typography.Text type="secondary">
+                          If your datasize is bigger than 4 MBs, please reach{" "}
+                          out to{" "}
+                          <Typography.Link href="mailto:info@lepton.ai">
+                            info@lepton.ai
+                          </Typography.Link>
+                        </Typography.Text>
+                      ),
+                      validator: async (_, fileList) => {
+                        if (
+                          fileList &&
+                          fileList[0].originFileObj.size > limit4MB
+                        ) {
+                          return Promise.reject();
+                        } else {
+                          return Promise.resolve();
+                        }
                       },
                     },
                   ]}
