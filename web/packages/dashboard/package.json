@@ -53,6 +53,7 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7",
     "react-router-dom": "^6.11.0",
+    "remark-breaks": "^3.0.3",
     "rxjs": "^7.8.1",
     "shiki": "^0.14.3",
     "strip-ansi": "^7.1.0",

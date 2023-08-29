@@ -8,10 +8,11 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { Code } from "@carbon/icons-react";
 import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { Skeleton, Spin, Typography } from "antd";
 import {
   CodeBlock,
-  normlizeLanguage,
+  normalizeLanguage,
 } from "@lepton-dashboard/components/code-block";
 import { LoadingOutlined } from "@ant-design/icons";
 
@@ -40,10 +41,11 @@ export const MDMessage = forwardRef<
     >
       {content ? (
         <ReactMarkdown
+          remarkPlugins={[remarkBreaks]}
           components={{
             code({ inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || "");
-              const language = normlizeLanguage(match?.[1] ?? "py");
+              const language = normalizeLanguage(match?.[1] ?? "py");
               return !inline ? (
                 completionTime ? (
                   <CodeBlock

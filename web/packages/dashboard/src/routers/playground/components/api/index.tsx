@@ -24,7 +24,7 @@ export const Api: FC<{ apiUrl: string; title: string }> = ({
         apiUrl={apiUrl}
         open={open}
         setOpen={setOpen}
-        title="Llama API"
+        title={title}
       />
     </>
   );

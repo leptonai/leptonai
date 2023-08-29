@@ -50,7 +50,7 @@ export const Playground: FC = () => {
                         padding: 0 !important;
                       `}
                       size="small"
-                      type="text"
+                      type="link"
                       href="https://lepton.ai/docs"
                     >
                       Document
@@ -60,7 +60,7 @@ export const Playground: FC = () => {
                         padding: 0 !important;
                       `}
                       size="small"
-                      type="text"
+                      type="link"
                       href="https://lepton.ai/references"
                     >
                       Reference
@@ -70,7 +70,7 @@ export const Playground: FC = () => {
                         padding: 0 !important;
                       `}
                       size="small"
-                      type="text"
+                      type="link"
                       href="https://lepton.ai/pricing"
                     >
                       Pricing
@@ -80,7 +80,7 @@ export const Playground: FC = () => {
                         padding: 0 !important;
                       `}
                       size="small"
-                      type="text"
+                      type="link"
                     >
                       Playground
                     </Button>
@@ -89,7 +89,7 @@ export const Playground: FC = () => {
                         padding: 0 !important;
                       `}
                       size="small"
-                      type="text"
+                      type="link"
                       target="_blank"
                       href="https://github.com/leptonai/examples"
                     >

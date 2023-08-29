@@ -81,7 +81,8 @@ const highlighterLoader: Promise<Highlighter> = getHighlighter({
   ],
 });
 
-export function normlizeLanguage(
+// eslint-disable-next-line react-refresh/only-export-components
+export function normalizeLanguage(
   language: string
 ): LanguageSupports | undefined {
   switch (language) {

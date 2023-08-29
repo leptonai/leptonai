@@ -41,7 +41,7 @@ const presets = [
   },
   {
     name: "SQL",
-    prompt: "Create a user table using SQL and randomly insert 3 records",
+    prompt: "Create a user table using SQL and randomly insert 3 records\n",
   },
   {
     name: "JSON to YAML",
@@ -58,7 +58,7 @@ const presets = [
       '  "time" : 1314211127,\n' +
       '  "type" : "comment"\n' +
       "}\n" +
-      "```",
+      "```\n",
   },
   {
     name: "Refactor code",
@@ -86,7 +86,7 @@ const presets = [
       "        return max;\n" +
       "    }\n" +
       "};\n" +
-      "```",
+      "```\n",
   },
   {
     name: "Explain code",
@@ -95,7 +95,7 @@ const presets = [
       "\n" +
       "```\n" +
       "data:text/html,<html contenteditable>\n" +
-      "```",
+      "```\n",
   },
 ];
 
