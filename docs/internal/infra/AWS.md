@@ -10,6 +10,8 @@ VPC: 1
 NAT GATEWAY: 3 (1 per AZ)
 ALB: 1
 EIP: 4
+EFS: 1
+EFS Mount Points: 3
 
 CPUs: 10 vCPUs
 MEMORY: 100 GB
@@ -28,6 +30,8 @@ VPC (L-F678F1CE): 20
 NAT GATEWAY (L-FE5A380F): 60 (20 per AZ)
 ALB (L-53DA6B97): 100
 EIP (L-0263D0A3): 500
+EFS: 100
+EFS Mount Points: 300
 
 Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances (L-1216C47A):
 1024 (# of vCPUs)
@@ -81,6 +85,9 @@ O(customers). Each ALB consumes one EIP. The required number of EIP is thus the 
 #### EFS
 
 O(customers). We provision one EFS per customer. The default quota for EFS is 1000, which should be good enough.
+
+##### EFS Mount targets per VPC L-7391004C
+O(customers) for now. Each workspace needs 1 efs and it translates to 3 mount points. The hard upperlimit is 400.
 
 #### S3
 
