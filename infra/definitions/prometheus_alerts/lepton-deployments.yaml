@@ -14,19 +14,19 @@ spec:
       rules:
         - alert: UserPodNotReady
           annotations:
-            description: User pods are not ready for 20 mins
-            summary: User pods are not ready for 20 mins
+            description: User pods ({{ $value }}%) are not ready (more than 5%)
+            summary: More than 5% of user pods are not ready
           expr: |-
-            kube_pod_status_phase{namespace=~"ws-.+", phase=~"Pending|Unknown"} > 0
-          for: 20m
+            sum(kube_pod_status_phase{namespace=~"ws-.+", phase=~"Pending|Unknown"}) / sum(kube_pod_status_phase{namespace=~"ws-.+"}) * 100 > 5
+          for: 5m
           labels:
             severity: critical
         - alert: UserDeploymentNotReady
           annotations:
-            description: User deployments are not ready for 20 mins
-            summary: User deployments are not ready for 20 mins
+            description: User deployments ({{ $value }}%) are not ready (more than 5%)
+            summary: More than 5% of user deployments are not ready
           expr: |-
-            kube_deployment_status_condition{namespace=~"ws-.+", status=~"false|unknown"} > 0
-          for: 20m
+            sum(kube_deployment_status_condition{namespace=~"ws-.+", status=~"false|unknown"}) / sum(kube_deployment_status_condition{namespace=~"ws-.+"}) * 100 > 5
+          for: 5m
           labels:
             severity: critical
