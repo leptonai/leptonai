@@ -36,6 +36,7 @@ import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import "./log";
+import { ShikiProvider } from "@lepton/ui/shared/shiki";
 
 const Login = lazyErrorWrapper(
   lazy(() =>
@@ -204,7 +205,9 @@ function App() {
       ]}
     >
       <ThemeProvider>
-        <RouterProvider router={router} />
+        <ShikiProvider>
+          <RouterProvider router={router} />
+        </ShikiProvider>
       </ThemeProvider>
     </DIContainer>
   );

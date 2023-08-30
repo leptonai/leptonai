@@ -1,15 +1,11 @@
 import { CheckCircleFilled } from "@ant-design/icons";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import {
-  CodeBlock,
-  LanguageSupports,
-} from "@lepton-dashboard/components/code-block";
+import { CodeBlock } from "@lepton/ui/components/code-block";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import { Collapse, Typography } from "antd";
 import { FC } from "react";
-
 export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const credential = [
@@ -70,7 +66,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                   <CodeBlock
                     code="pip install -U leptonai"
                     copyable={true}
-                    language={LanguageSupports.Bash}
+                    language="bash"
                   />
                 </Typography.Paragraph>
                 <Typography.Paragraph>
@@ -80,7 +76,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                   <CodeBlock
                     code="lep --help"
                     copyable={true}
-                    language={LanguageSupports.Bash}
+                    language="bash"
                   />
                 </Typography.Paragraph>
               </>
@@ -101,7 +97,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 <Typography.Paragraph>
                   <CodeBlock
                     code="lep photon create --name mygpt2 --model hf:gpt2"
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>
@@ -114,7 +110,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 <Typography.Paragraph>
                   <CodeBlock
                     code="lep photon run --name mygpt2 --local"
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>
@@ -131,7 +127,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
   -d '{
   "inputs": "Once upon a time"
 }'`}
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>
@@ -170,7 +166,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                   <CodeBlock
                     code={`lep login -c ${credential}`}
                     tokenMask={maskCredential}
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>
@@ -181,7 +177,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 <Typography.Paragraph>
                   <CodeBlock
                     code="lep photon push --name mygpt2"
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>
@@ -192,7 +188,7 @@ export const GettingStarted: FC<{ finished?: boolean }> = ({ finished }) => {
                 <Typography.Paragraph>
                   <CodeBlock
                     code="lep photon run --name mygpt2 --deployment-name mygpt2"
-                    language={LanguageSupports.Bash}
+                    language="bash"
                     copyable
                   />
                 </Typography.Paragraph>

@@ -3,8 +3,7 @@ import { FC, PropsWithChildren, ReactNode, useCallback } from "react";
 import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
-  LanguageSupports,
-} from "@lepton-dashboard/components/code-block";
+} from "@lepton/ui/components/code-block";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 
@@ -126,7 +125,7 @@ export const CodeAPIModal: FC<
             endAt: 3,
           })}
           code={code}
-          language={LanguageSupports.Python}
+          language="python"
         />
       </div>
     </Modal>

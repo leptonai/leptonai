@@ -99,17 +99,25 @@
     "overrides": [
       {
         "files": [
+          "packages/dashboard/**/*",
+          "packages/ui/**/*"
+        ],
+        "rules": {
+          "react/react-in-jsx-scope": "off",
+          "react/no-unknown-property": "off"
+        }
+      },
+      {
+        "files": [
           "packages/dashboard/**/*"
         ],
         "rules": {
           "react-refresh/only-export-components": "warn",
           "react/self-closing-comp": "error",
           "react/jsx-curly-brace-presence": "error",
-          "react/react-in-jsx-scope": "off",
           "react/display-name": "off",
           "react/prop-types": "off",
           "react/no-unescaped-entities": "off",
-          "react/no-unknown-property": "off",
           "react-hooks/exhaustive-deps": "error"
         }
       },
@@ -126,7 +134,8 @@
       {
         "files": [
           "tailwind.config.js",
-          "postcss.config.js"
+          "postcss.config.js",
+          "next.config.js"
         ],
         "rules": {
           "@typescript-eslint/no-var-requires": "off"

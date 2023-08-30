@@ -2,10 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Button, Col, Row, Space, Typography } from "antd";
-import {
-  CodeBlock,
-  LanguageSupports,
-} from "@lepton-dashboard/components/code-block";
+import { CodeBlock } from "@lepton/ui/components/code-block";
 import { SafeAny } from "@lepton-dashboard/interfaces/safe-any";
 import mime2ext from "mime2ext";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
@@ -169,12 +166,7 @@ const JSONDisplay: ResultDisplay = ({ content }) => {
           }
         `}
       >
-        <CodeBlock
-          code={code}
-          language={LanguageSupports.JSON}
-          copyable
-          transparentBg
-        />
+        <CodeBlock code={code} language="json" copyable transparentBg />
       </div>
     );
   } catch (e) {

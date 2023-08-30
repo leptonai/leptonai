@@ -4,6 +4,7 @@
   "exclude": ["dist", "build", "node_modules"],
   "compilerOptions": {
     "baseUrl": ".",
+    "jsxImportSource": "@emotion/react",
     "paths": {
       "@lepton/ui/*": ["./src/*"],
       "@lepton/ui/components/*": ["./src/components/*"],

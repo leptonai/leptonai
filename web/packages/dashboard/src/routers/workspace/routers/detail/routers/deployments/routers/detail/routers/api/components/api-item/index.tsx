@@ -7,16 +7,13 @@ import { Deployment } from "@lepton-dashboard/interfaces/deployment";
 import { useInject } from "@lepton-libs/di";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { Typography } from "antd";
-import {
-  LanguageSupports,
-  CodeBlock,
-} from "@lepton-dashboard/components/code-block";
+import { CodeBlock } from "@lepton/ui/components/code-block";
 
 export const ApiItem: FC<{
   api: LeptonAPIItem;
   authorization: string;
   deployment: Deployment;
-  language: LanguageSupports;
+  language: "bash" | "python";
 }> = ({ api, authorization, deployment, language }) => {
   const openApiService = useInject(OpenApiService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
@@ -25,7 +22,7 @@ export const ApiItem: FC<{
     if (api.request) {
       const hasAuthHeader = Object.hasOwn(api.request.headers, "Authorization");
       switch (language) {
-        case LanguageSupports.Python:
+        case "python":
           if (import.meta.env.VITE_ENABLE_OAUTH === "enable") {
             return openApiService.toPythonSDKCode(api, {
               deployment: deployment.name,
@@ -38,7 +35,7 @@ export const ApiItem: FC<{
             );
           }
 
-        case LanguageSupports.Bash:
+        case "bash":
           return openApiService.curlify({
             ...api.request,
             headers:

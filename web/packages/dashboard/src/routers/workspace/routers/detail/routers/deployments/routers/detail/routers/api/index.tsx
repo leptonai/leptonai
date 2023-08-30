@@ -13,21 +13,20 @@ import {
 import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
-  LanguageSupports,
-} from "@lepton-dashboard/components/code-block";
+} from "@lepton/ui/components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
 import { Link } from "@lepton-dashboard/components/link";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
+
+type CodeLanguage = "python" | "bash";
 
 export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
   const photonService = useInject(PhotonService);
   const openApiService = useInject(OpenApiService);
   const workspaceTrackerService = useInject(WorkspaceTrackerService);
   const [initialized, setInitialized] = useState(false);
-  const [codeLanguage, setCodeLanguage] = useState<LanguageSupports>(
-    LanguageSupports.Python
-  );
+  const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>("python");
   const [apis, setApis] = useState<LeptonAPIItem[]>([]);
   const photons = useStateFromBehaviorSubject(photonService.list());
   const photon = useMemo(() => {
@@ -93,20 +92,20 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
                   options={[
                     {
                       label: "Python",
-                      value: LanguageSupports.Python,
+                      value: "python",
                     },
                     {
                       label: "HTTP",
-                      value: LanguageSupports.Bash,
+                      value: "bash",
                     },
                   ]}
                   value={codeLanguage}
-                  onChange={(e) => setCodeLanguage(e as LanguageSupports)}
+                  onChange={(e) => setCodeLanguage(e as CodeLanguage)}
                 />
               </Space>
             </Col>
           </Row>
-          {codeLanguage === LanguageSupports.Python && (
+          {codeLanguage === "python" && (
             <>
               <Typography.Paragraph>
                 Install the Python client:
@@ -114,7 +113,7 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
               <Typography.Paragraph>
                 <CodeBlock
                   code="pip install leptonai"
-                  language={LanguageSupports.Bash}
+                  language="bash"
                   copyable
                 />
               </Typography.Paragraph>
@@ -134,7 +133,7 @@ export const Api: FC<{ deployment: Deployment }> = ({ deployment }) => {
 LEPTON_API_TOKEN = "${APIToken}"`
                       : `from leptonai.client import Client`
                   }
-                  language={LanguageSupports.Python}
+                  language="python"
                   tokenMask={createDoubleQuoteSecretTokenMasker(
                     APIToken || "",
                     {
@@ -147,7 +146,7 @@ LEPTON_API_TOKEN = "${APIToken}"`
               </Typography.Paragraph>
             </>
           )}
-          {APIToken && codeLanguage === LanguageSupports.Bash && (
+          {APIToken && codeLanguage === "bash" && (
             <>
               <Typography.Paragraph>
                 Export your API token as an environment variable:
@@ -155,7 +154,7 @@ LEPTON_API_TOKEN = "${APIToken}"`
               <Typography.Paragraph>
                 <CodeBlock
                   code={`export LEPTON_API_TOKEN="${APIToken}"`}
-                  language={LanguageSupports.Bash}
+                  language="bash"
                   tokenMask={createDoubleQuoteSecretTokenMasker(
                     APIToken || "",
                     {
@@ -182,12 +181,12 @@ LEPTON_API_TOKEN = "${APIToken}"`
               .
             </Typography.Paragraph>
           )}
-          {codeLanguage === LanguageSupports.Python && (
+          {codeLanguage === "python" && (
             <Typography.Paragraph>
               Then, you can call the API(s) like the following code segments:
             </Typography.Paragraph>
           )}
-          {codeLanguage === LanguageSupports.Bash &&
+          {codeLanguage === "bash" &&
             (APIToken ? (
               <Typography.Paragraph>
                 Then, you can call the API(s) with cURL like the following code
@@ -208,7 +207,7 @@ LEPTON_API_TOKEN = "${APIToken}"`
               language={codeLanguage}
             />
           ))}
-          {codeLanguage === LanguageSupports.Bash && isPublic && (
+          {codeLanguage === "bash" && isPublic && (
             <>
               <br />
               You can also check{" "}

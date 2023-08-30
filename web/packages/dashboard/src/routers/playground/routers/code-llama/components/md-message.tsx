@@ -10,11 +10,9 @@ import { Code } from "@carbon/icons-react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { Spin, Typography } from "antd";
-import {
-  CodeBlock,
-  normalizeLanguage,
-} from "@lepton-dashboard/components/code-block";
+import { CodeBlock } from "@lepton/ui/components/code-block";
 import { LoadingOutlined } from "@ant-design/icons";
+import { normalizeLanguage } from "@lepton/ui/shared/shiki";
 
 let renderCount = 0;
 

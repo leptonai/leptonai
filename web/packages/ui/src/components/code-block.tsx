@@ -1,23 +1,9 @@
 import { FC, useEffect, useState } from "react";
-import {
-  getHighlighter,
-  Highlighter,
-  setCDN,
-  renderToHtml,
-  IThemedToken,
-} from "shiki";
-import { useInject } from "@lepton-libs/di";
-import { ThemeService } from "@lepton-dashboard/services/theme.service";
-import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
-import { map } from "rxjs";
+import type { IThemedToken } from "shiki";
 import { css } from "@emotion/react";
-import { Typography } from "antd";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { CopyFile } from "@carbon/icons-react";
+import { Languages, useBrowserShiki } from "@lepton/ui/shared/shiki";
+import { CopyButton } from "@lepton/ui/components/copy-button";
 
-setCDN("/shiki/");
-
-// eslint-disable-next-line react-refresh/only-export-components
 export const createDoubleQuoteSecretTokenMasker = (
   secret = "",
   option?: {
@@ -46,93 +32,15 @@ export const createDoubleQuoteSecretTokenMasker = (
   };
 };
 
-export enum LanguageSupports {
-  Bash = "bash",
-  Python = "python",
-  JSON = "json",
-  CSS = "css",
-  CPP = "cpp",
-  C = "c",
-  GO = "go",
-  HTML = "html",
-  JavaScript = "js",
-  TypeScript = "ts",
-  Java = "java",
-  SQL = "sql",
-  YAML = "yaml",
-}
-
-const highlighterLoader: Promise<Highlighter> = getHighlighter({
-  themes: ["github-dark", "github-light"],
-  langs: [
-    "bash",
-    "python",
-    "json",
-    "css",
-    "cpp",
-    "c",
-    "go",
-    "html",
-    "js",
-    "ts",
-    "java",
-    "sql",
-    "yaml",
-  ],
-});
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function normalizeLanguage(
-  language: string
-): LanguageSupports | undefined {
-  switch (language) {
-    case "shell":
-    case "powershell":
-    case "bash":
-    case "sh":
-    case "bat":
-      return LanguageSupports.Bash;
-    case "python":
-    case "py":
-      return LanguageSupports.Python;
-    case "json":
-      return LanguageSupports.JSON;
-    case "css":
-      return LanguageSupports.CSS;
-    case "cpp":
-      return LanguageSupports.CPP;
-    case "c":
-      return LanguageSupports.C;
-    case "go":
-    case "golang":
-      return LanguageSupports.GO;
-    case "html":
-      return LanguageSupports.HTML;
-    case "typescript":
-    case "ts":
-      return LanguageSupports.TypeScript;
-    case "javascript":
-    case "js":
-      return LanguageSupports.JavaScript;
-    case "java":
-      return LanguageSupports.Java;
-    case "sql":
-      return LanguageSupports.SQL;
-    case "yaml":
-      return LanguageSupports.YAML;
-    default:
-      return void 0;
-  }
-}
-
 export const CodeBlock: FC<{
   code: string;
   initCode?: string;
-  language?: LanguageSupports;
+  language?: Languages;
   rendered?: (code: string) => void;
   copyable?: boolean;
   tokenMask?: (content: string, token: IThemedToken) => boolean | string;
   transparentBg?: boolean;
+  theme?: string;
 }> = ({
   code,
   rendered,
@@ -143,20 +51,14 @@ export const CodeBlock: FC<{
   transparentBg,
 }) => {
   const [highlightedCode, setHighlightedCode] = useState(initCode);
-  const themeService = useInject(ThemeService);
-
-  const currentTheme = useStateFromObservable(
-    () => themeService.theme$.pipe(map(() => themeService.getValidTheme())),
-    themeService.getValidTheme()
-  );
+  const { getHighlighter, renderToHtml, themeMode } = useBrowserShiki();
 
   useEffect(() => {
     let inThisTake = true;
     const setCode = async () => {
-      const highlighter = await highlighterLoader;
+      const highlighter = await getHighlighter();
       if (inThisTake) {
-        const themeName =
-          currentTheme === "dark" ? "github-dark" : "github-light";
+        const themeName = themeMode === "dark" ? "github-dark" : "github-light";
         const tokens = highlighter.codeToThemedTokens(
           code,
           language,
@@ -198,7 +100,7 @@ export const CodeBlock: FC<{
     return () => {
       inThisTake = false;
     };
-  }, [language, code, currentTheme, tokenMask, transparentBg, rendered]);
+  }, [language, code, themeMode, tokenMask, transparentBg, rendered]);
 
   return (
     <div
@@ -214,7 +116,7 @@ export const CodeBlock: FC<{
           overflow: hidden;
         }
 
-        .ant-typography-copy {
+        .copy-button {
           position: absolute;
           top: 12px;
           right: 12px;
@@ -223,11 +125,10 @@ export const CodeBlock: FC<{
         }
 
         &:hover {
-          .ant-typography-copy {
+          .copy-button {
             opacity: 1;
           }
         }
-
         pre {
           flex: 1;
           overflow: auto;
@@ -251,14 +152,7 @@ export const CodeBlock: FC<{
         }
       `}
     >
-      {copyable && code && (
-        <Typography.Text
-          copyable={{
-            text: code,
-            icon: <CarbonIcon icon={<CopyFile />} />,
-          }}
-        />
-      )}
+      {copyable && code && <CopyButton className="copy-button" value={code} />}
       <div dangerouslySetInnerHTML={{ __html: highlightedCode }} />
     </div>
   );
