@@ -134,6 +134,22 @@ class CustomPhotonWithMount(Photon):
         return "hello"
 
 
+class ChildPhoton(Photon):
+    @Photon.handler()
+    def greet(self) -> str:
+        return "hello from child"
+
+
+class ParentPhoton(Photon):
+    @Photon.handler()
+    def greet(self) -> str:
+        return "hello from parent"
+
+    @Photon.handler(mount=True)
+    def child(self):
+        return ChildPhoton()
+
+
 class TestPhoton(unittest.TestCase):
     def setUp(self):
         # pytest imports test files as top-level module which becomes
@@ -604,6 +620,23 @@ from leptonai.photon import Photon
             "hello",
         )
         proc.kill()
+
+    def test_mount_photon(self):
+        ph = ParentPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.post(
+            f"http://127.0.0.1:{port}/greet",
+            json={},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), "hello from parent")
+        res = requests.post(
+            f"http://127.0.0.1:{port}/child/greet",
+            json={},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), "hello from child")
 
     @unittest.skipIf(not has_flask, "flask not installed")
     def test_mount_flask(self):

@@ -132,38 +132,7 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     return request_model, response_model, response_class
 
 
-_routes = {}
-
-
-def get_routes(var):
-    qualname = var.__qualname__
-    if not inspect.isclass(var):
-        qualname = ".".join(qualname.split(".")[:-1])
-
-    mod_path = None
-
-    if mod_path is None:
-        try:
-            mod = sys.modules[var.__module__]
-            mod_path = os.path.abspath(mod.__file__) if mod.__file__ else ""
-        except (KeyError, AttributeError):
-            pass
-    if mod_path is None:
-        try:
-            mod_path = os.path.abspath(inspect.getfile(var))
-        except (TypeError, OSError):
-            # TypeError happens when var is not supported by inspect (like a built-in callable).
-            # OSError happens when a Photon class is defined in an interactive session and not in a source file.
-            # For these two cases, we cannot get the module path, so we just route back to the next available
-            # option.
-            pass
-    if mod_path is None:
-        mod_path = var.__module__
-
-    cls_name = f"{mod_path}:{qualname}"
-    if cls_name not in _routes:
-        _routes[cls_name] = {}
-    return _routes[cls_name]
+PHOTON_HANDLER_PARAMS_KEY = "__photon_handler_params__"
 
 
 class Photon(BasePhoton):
@@ -202,7 +171,6 @@ class Photon(BasePhoton):
         if model is None:
             model = self.__class__.__qualname__
         super().__init__(name=name, model=model)
-        self._routes = self._gather_routes()
         self._init_called = False
         self._init_res = None
 
@@ -246,7 +214,15 @@ class Photon(BasePhoton):
         res = {}
 
         for base in cls._iter_ancestors():
-            update_routes(res, get_routes(base))
+            base_routes = {}
+            for attr_name in dir(base):
+                attr_val = getattr(base, attr_name)
+                if hasattr(attr_val, PHOTON_HANDLER_PARAMS_KEY) and callable(attr_val):
+                    path, method, func, kwargs = getattr(
+                        attr_val, PHOTON_HANDLER_PARAMS_KEY
+                    )
+                    base_routes.setdefault(path, {})[method] = (func, kwargs)
+            update_routes(res, base_routes)
 
         return res
 
@@ -625,10 +601,6 @@ class Photon(BasePhoton):
                 return
             raise
 
-        if isinstance(subapp, (FastAPI, StaticFiles)):
-            app.mount(f"/{path}", subapp)
-            return
-
         try:
             import gradio as gr
 
@@ -643,14 +615,16 @@ class Photon(BasePhoton):
         except ImportError:
             has_flask = False
 
-        if not has_gradio and not has_flask:
+        if isinstance(subapp, (FastAPI, StaticFiles)):
+            app.mount(f"/{path}", subapp)
+        elif isinstance(subapp, Photon):
+            app.mount(f"/{path}", subapp._create_app(load_mount=True))
+        elif not has_gradio and not has_flask:
             logger.warning(
                 f"Skip mounting {path} as none of [`gradio`, `flask`] is"
                 " installed and it is not a FastAPI"
             )
-            return
-
-        if has_gradio and isinstance(subapp, gr.Blocks):  # type: ignore
+        elif has_gradio and isinstance(subapp, gr.Blocks):  # type: ignore
             gr.mount_gradio_app(app, subapp, f"/{path}")  # type: ignore
         elif has_flask and isinstance(subapp, Flask):  # type: ignore
             app.mount(f"/{path}", WSGIMiddleware(subapp))
@@ -778,7 +752,7 @@ class Photon(BasePhoton):
 
     def _register_routes(self, app, load_mount):
         api_router = APIRouter()
-        for path, routes in self._routes.items():
+        for path, routes in self._gather_routes().items():
             for method, (func, kwargs) in routes.items():
                 if kwargs.get("mount"):
                     if load_mount:
@@ -807,19 +781,15 @@ class Photon(BasePhoton):
         def decorator(func):
             path_ = path if path is not None else func.__name__
             path_ = path_.strip("/")
-            routes = get_routes(func)
-            if path_ in routes and method in routes[path_]:
-                raise ValueError(
-                    f"Handler (path={path_}, method={method}) already exists:"
-                    f" {routes[path_][method]}"
-                )
 
             @functools.wraps(func)
             def wrapped_func(self, *args, **kwargs):
                 self._call_init_once()
                 return func(self, *args, **kwargs)
 
-            routes.setdefault(path_, {})[method] = (func, kwargs)
+            setattr(
+                wrapped_func, PHOTON_HANDLER_PARAMS_KEY, (path_, method, func, kwargs)
+            )
             return wrapped_func
 
         if callable(path) and not kwargs:
