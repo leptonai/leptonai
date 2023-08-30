@@ -47,5 +47,16 @@
             "AcceleratorType": "NVIDIA-A10G",
             "AcceleratorNum": 1
         }
+    },
+    "tuna.medium": {
+        "Description": "Medium accelerated computing shape for TUNA",
+        "DisplayName": "tuna.medium",
+        "Resource": {
+            "CPU": 8,
+            "Memory": 32768,
+            "EphemeralStorageInGB": 512,
+            "AcceleratorType": "NVIDIA-A10G",
+            "AcceleratorNum": 1
+        }
     }
 }
