@@ -15,7 +15,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
-from leptonai.api.workspace import get_current_workspace_id
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_DEPLOYMENT_URL
 from .photon import _parse_deployment_tokens_or_die, _validate_resource_shape
 
@@ -118,7 +118,7 @@ def status(name, show_tokens):
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
     conn = get_connection_or_die()
-    workspace_id = get_current_workspace_id()
+    workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
 
     dep_info = guard_api(
         api.get_deployment(conn, name),

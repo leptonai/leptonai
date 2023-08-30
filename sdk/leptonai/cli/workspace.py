@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.table import Table
 
 from leptonai.api import workspace as api
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from .util import (
     click_group,
     get_connection_or_die,
@@ -43,8 +44,9 @@ def _register_and_set(
             )
             or ""
         )
-    api.save_workspace(workspace_id, workspace_url, auth_token=auth_token)
-    api.set_current_workspace(workspace_id)
+    WorkspaceInfoLocalRecord.set_and_save(
+        workspace_id, workspace_url, auth_token=auth_token
+    )
     console.print(f'Workspace "{workspace_id}" [green]registered[/].')
     console.print(
         f"Next time, you can just use `lep workspace login -i {workspace_id}` to"
@@ -73,11 +75,12 @@ def login(
     """
     Logs in to a workspace. This also verifies that the workspace is accessible.
     """
-    check(workspace_id or display_name, "Must specify --workspace-id.")
+    check(
+        workspace_id or display_name, "Must specify --workspace-id or --display-name."
+    )
     if workspace_id is None:
-        check(display_name, "You have not specified workspace id or display name.")
         # We will try to find the workspace id from the display name.
-        workspaces = api.load_workspace_info()["workspaces"]
+        workspaces = WorkspaceInfoLocalRecord.get_all_workspaces()
         matching_ids = []
         for workspace_id, info in workspaces.items():
             if info.get("display_name", None) == display_name:
@@ -108,20 +111,23 @@ def login(
         console.print("Do not use this option unless you know what you are doing.")
         workspace_url = test_only_workspace_url
     else:
-        workspace_url = api.get_full_workspace_api_url(workspace_id)
-    check(workspace_url, f"Workspace [red]{workspace_id}[/] does not exist.")
-    workspaces = api.load_workspace_info()["workspaces"]
+        workspace_url = None
+    workspaces = WorkspaceInfoLocalRecord.get_all_workspaces()
     if workspace_id in workspaces:
         # If this workspace already exists, we will update the auth token if given.
         # Although the workspace url is actually already stored in workspaces[workspace_id]["url"],
         # it is still a good idea to re-check it in case the system updates the url.
         if auth_token:
-            console.print(f"Updating auth token for workspace [green]{workspace_id}[/]")
-            _register_and_set(workspace_id, workspace_url, auth_token=auth_token)
-        api.set_current_workspace(workspace_id)
+            console.print(f"Will update info for workspace [green]{workspace_id}[/]")
+            WorkspaceInfoLocalRecord.set_and_save(
+                workspace_id, workspace_url, auth_token=auth_token
+            )
+        else:
+            WorkspaceInfoLocalRecord.set_current(workspace_id)
     else:
-        # If workspace id does not exist, we register it.
-        _register_and_set(workspace_id, workspace_url, auth_token=auth_token)
+        WorkspaceInfoLocalRecord.set_and_save(
+            workspace_id, workspace_url, auth_token=auth_token
+        )
     console.print(f"Workspace [green]{workspace_id}[/] logged in.")
 
 
@@ -132,7 +138,7 @@ def logout():
     operate both locally and remotely, such as `lep photon run`, will be carried
     out locally in default.
     """
-    api.set_current_workspace(None)
+    WorkspaceInfoLocalRecord.set_current(None)
     console.print("[green]Logged out[/]")
 
 
@@ -142,16 +148,15 @@ def list():
     List current workspaces and their urls on record. For any workspace displayed
     in the list, you can log in to it by `lep workspace login -i <id>`.
     """
-    workspace_info = api.load_workspace_info()
-    workspaces = workspace_info["workspaces"]
-    current_workspace = workspace_info["current_workspace"]
+    workspace_info = WorkspaceInfoLocalRecord.get_all_workspaces()
+    current_workspace = WorkspaceInfoLocalRecord.get_current_workspace_id()
     table = Table()
     table.add_column("ID")
     table.add_column("Name")
     table.add_column("URL")
     table.add_column("Role")
     table.add_column("Auth Token")
-    for workspace_id, info in workspaces.items():
+    for workspace_id, info in workspace_info.items():
         url = info["url"]
         # in older versions of the SDK, "display_name" field does not exist, so we
         # add a sanity check.
@@ -185,7 +190,7 @@ def remove(workspace_id):
         console.print("Must specify --workspace-id")
         sys.exit(1)
     try:
-        api.remove_workspace(workspace_id)
+        WorkspaceInfoLocalRecord.remove(workspace_id)
         console.print(f'Workspace "{workspace_id}" [green]removed[/]')
     except KeyError:
         console.print(f'Workspace "{workspace_id}" [red]does not exist[/]')
@@ -202,8 +207,7 @@ def id():
     obtain the workspace id in the command line in e.g. a shell script, but
     do not want to hardcode it in the source file.
     """
-    workspace_info = api.load_workspace_info()
-    current_workspace = workspace_info["current_workspace"]
+    current_workspace = WorkspaceInfoLocalRecord.get_current_workspace_id()
     check(
         current_workspace,
         "It seems that you are not logged in. Please run `lep workspace login` first.",
@@ -218,8 +222,8 @@ def token():
     when you want to obtain the workspace token in the command line in e.g.
     a shell script, but do not want to hardcode it in the source file.
     """
-    conn = get_connection_or_die()
-    console.print(conn._token, end="")
+    token = WorkspaceInfoLocalRecord._get_current_workspace_token()
+    console.print(token, end="")
 
 
 @workspace.command()
@@ -229,13 +233,12 @@ def url():
     obtain the workspace url in the command line in e.g. a shell script, but
     do not want to hardcode it in the source file.
     """
-    workspace_info = api.load_workspace_info()
-    current_workspace = workspace_info["current_workspace"]
+    url = WorkspaceInfoLocalRecord._get_current_workspace_deployment_url()
     check(
-        current_workspace,
+        url,
         "It seems that you are not logged in. Please run `lep workspace login` first.",
     )
-    console.print(api.get_full_workspace_url(current_workspace), end="")
+    console.print(url, end="")
 
 
 @workspace.command()
@@ -260,7 +263,9 @@ def status():
     # naming, consider changing it.
     id = info["workspace_name"]
     console.print(f"id:         {id}")
-    console.print(f"name:       {api.get_workspace_display_name(id)}")
+    console.print(
+        f"name:       {WorkspaceInfoLocalRecord._get_current_workspace_display_name()}"
+    )
     console.print(f"state:      {info['workspace_state']}")
     console.print(f"build time: {info['build_time']}")
     console.print(f"version:    {info['git_commit']}")

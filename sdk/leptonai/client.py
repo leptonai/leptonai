@@ -12,7 +12,12 @@ from leptonai._internal.client_utils import (
     _get_positional_argument_error_message,
     _fallback_api_call_message,
 )
-from leptonai.api.workspace import get_full_workspace_url, get_full_workspace_api_url
+from leptonai.api.connection import Connection
+from leptonai.api.workspace import (
+    WorkspaceInfoLocalRecord,
+    _get_full_workspace_url,
+    _get_full_workspace_api_url,
+)
 from .api import deployment, APIError
 
 
@@ -31,6 +36,19 @@ def local(port: int = 8080) -> str:
         str: The connection string.
     """
     return f"http://localhost:{port}"
+
+
+def current() -> str:
+    """
+    Returns the current workspace id. This is useful for creating a client that
+    calls deployments in the current workspace. Note that when instantiating a
+    client, if the current workspace is used, the token will be automatically
+    set to the current workspace token if not specified.
+    """
+    id = WorkspaceInfoLocalRecord.get_current_workspace_id()
+    if id is None:
+        raise RuntimeError("No current workspace is set.")
+    return id
 
 
 class Client(object):
@@ -71,7 +89,8 @@ class Client(object):
 
         Args:
             workspace_or_url (str): The workspace id, or a full URL to the deployment's
-                endpoint.
+                endpoint. Use `local()` to access a local deployment, and `current()`
+                to access the current workspace if you have logged in.
             deployment (str, optional): The deployment name. If a full URL is passed
                 in, deployment can be None.
             token (str, optional): The token to use for authentication. Defaults to None.
@@ -97,7 +116,7 @@ class Client(object):
                 )
             self.url = workspace_or_url
         else:
-            url = get_full_workspace_url(workspace_or_url)
+            url = _get_full_workspace_url(workspace_or_url)
             if not url:
                 raise ValueError(
                     f"Workspace {workspace_or_url} does not exist or is not accessible."
@@ -114,6 +133,13 @@ class Client(object):
                 )
         else:
             self._session.headers.update({"X-Lepton-Deployment": deployment})
+        # If we are simply using the current workspace, we will also automatically
+        # set the token as the current workspace token.
+        if (
+            token is None
+            and workspace_or_url == WorkspaceInfoLocalRecord.get_current_workspace_id()
+        ):
+            token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         self._path_cache = {}
@@ -315,27 +341,33 @@ class Workspace(object):
     Currently, we do not support local workspaces - all workspaces are remote.
     """
 
-    def __init__(self, workspace_id: str, token: Optional[str] = None):
+    def __init__(self, workspace_id: Optional[str] = None, token: Optional[str] = None):
         """
         Creates a Lepton workspace.
 
         Args:
-            workspace_id (str): The workspace id.
+            workspace_id (str): The workspace id. If not specified, the currently
+                logged in workspace will be used.
             token (str, optional): The token to use for authentication. Defaults to None.
         """
+        if workspace_id is None:
+            workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
+            if workspace_id is None:
+                raise ValueError(
+                    "No workspace id specified, and no current workspace is set."
+                )
+            token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         self.workspace_id = workspace_id
-        api_url = get_full_workspace_api_url(workspace_id)
+        api_url = _get_full_workspace_api_url(workspace_id)
         if not api_url:
             raise ValueError(
                 f"Workspace {workspace_id} does not seem to exist. Did you specify the"
                 " right id?"
             )
-        else:
-            self.workspace_api_url = api_url
-        self.token = token if token else ""
+        self.conn = Connection(api_url, token)
 
     def _workspace_deployments(self) -> List:
-        deployments = deployment.list_deployment(self.workspace_api_url, self.token)
+        deployments = deployment.list_deployment(self.conn)
         if isinstance(deployments, APIError):
             raise ValueError(
                 f"Failed to list deployments for workspace {self.workspace_id}"
@@ -366,5 +398,5 @@ class Workspace(object):
                 f" {self.workspace_id}."
             )
         return Client(
-            self.workspace_id, deployment_name, token if token else self.token
+            self.workspace_id, deployment_name, token if token else self.conn._token
         )

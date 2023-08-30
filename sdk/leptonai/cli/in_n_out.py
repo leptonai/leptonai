@@ -3,9 +3,9 @@ Login is the main module that allows a serverless login.
 """
 import webbrowser
 
-from .util import check, console, guard_api, get_connection_or_die
+from .util import console, guard_api
 from leptonai.api import workspace
-from leptonai.api.connection import Connection
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 
 LOGIN_LOGO = """\
 ========================================================
@@ -23,14 +23,17 @@ def cloud_login(credentials=None):
     Logs in to the serverless cloud.
     """
     console.print(LOGIN_LOGO)
-    workspace_id = workspace.get_workspace()
+    workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
     if workspace_id and not credentials:
         # Already logged in. Notify the user the login status.
-        conn = get_connection_or_die()
         console.print(
             "Hint: If you have multiple workspaces, you can pick the one you want\n"
             "to log in via `lep workspace login -i workspace_id`."
         )
+    elif len(WorkspaceInfoLocalRecord.get_all_workspaces()) == 1 and not credentials:
+        # Only one workspace, so we will simply log in to that one.
+        workspace_id = list(WorkspaceInfoLocalRecord.get_all_workspaces().keys())[0]
+        WorkspaceInfoLocalRecord.set_current(workspace_id)
     else:
         # Need to login.
         if not credentials:
@@ -58,13 +61,11 @@ def cloud_login(credentials=None):
                 credentials = input("Credential: ")
 
         workspace_id, auth_token = credentials.split(":", 1)
-        url = workspace.get_full_workspace_api_url(workspace_id)
-        check(url, "Workspace [red]{workspace_id}[/] does not exist.")
-        workspace.save_workspace(workspace_id, url, auth_token=auth_token)
-        workspace.set_current_workspace(workspace_id)
-        conn = Connection(url, auth_token)
+        WorkspaceInfoLocalRecord.set_and_save(workspace_id, auth_token=auth_token)
     # Try to login and print the info.
-    info = workspace.get_workspace_info(conn)
+    info = workspace.get_workspace_info(
+        WorkspaceInfoLocalRecord.get_current_connection()
+    )
     guard_api(
         info,
         detail=True,
@@ -85,11 +86,11 @@ def cloud_logout(purge=False):
     Logs out of the serverless cloud.
     """
     if purge:
-        workspace_id = workspace.get_workspace()
-        workspace.remove_workspace(workspace_id)
+        workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
         if workspace_id:
             console.print(
                 f"OK, purging credentials for workspace [green]{workspace_id}[/]."
             )
-    workspace.set_current_workspace(None)
+            WorkspaceInfoLocalRecord.remove(workspace_id)
+    WorkspaceInfoLocalRecord.set_current(None)
     console.print("Logged out of Lepton AI.")
