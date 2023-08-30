@@ -259,7 +259,7 @@ export const CodeLlama: FC = () => {
         )
       }
       extra={
-        <Space>
+        <>
           <PresetSelector
             options={presetOptions}
             value={presetPrompt}
@@ -275,7 +275,7 @@ export const CodeLlama: FC = () => {
               "# Python\\n" + "def fibonacci(n):"
             )}
           />
-        </Space>
+        </>
       }
       content={
         <div

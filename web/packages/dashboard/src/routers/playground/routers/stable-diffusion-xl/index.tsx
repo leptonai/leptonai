@@ -16,7 +16,6 @@ import { Image, MagicWandFilled } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
-import { Space } from "antd";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
 import { tap } from "rxjs";
 import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
@@ -142,7 +141,7 @@ export const StableDiffusionXl: FC = () => {
         </span>
       }
       extra={
-        <Space>
+        <>
           <PresetSelector
             options={presetOptions}
             value={presetPrompt}
@@ -152,7 +151,7 @@ export const StableDiffusionXl: FC = () => {
             }}
           />
           <Api name="Stable Diffusion XL" code={APICodeTemplates.sd(url)} />
-        </Space>
+        </>
       }
       option={<Options value={option} onChange={setOption} />}
       content={
