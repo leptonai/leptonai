@@ -15,7 +15,6 @@ spec:
         - alert: UserPodNotReady
           annotations:
             description: User pods are not ready for 20 mins
-            runbook_url: https://todo.com
             summary: User pods are not ready for 20 mins
           expr: |-
             kube_pod_status_phase{namespace=~"ws-.+", phase=~"Pending|Unknown"} > 0
@@ -25,7 +24,6 @@ spec:
         - alert: UserDeploymentNotReady
           annotations:
             description: User deployments are not ready for 20 mins
-            runbook_url: https://todo.com
             summary: User deployments are not ready for 20 mins
           expr: |-
             kube_deployment_status_condition{namespace=~"ws-.+", status=~"false|unknown"} > 0

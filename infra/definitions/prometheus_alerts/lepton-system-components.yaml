@@ -15,7 +15,6 @@ spec:
         - alert: APIServerNotReady
           annotations:
             description: API Server is not ready for 5 mins
-            runbook_url: https://todo.com
             summary: API Server is not ready for 5 mins
           expr: |-
             kube_deployment_status_condition{deployment="lepton-api-server", status=~"false|unknown"} > 0
@@ -25,7 +24,6 @@ spec:
         - alert: DeploymentOperatorNotReady
           annotations:
             description: Deployment operator is not ready for 5 mins
-            runbook_url: https://todo.com
             summary: Deployment operator is not ready for 5 mins
           expr: |-
             kube_deployment_status_condition{deployment="deployment-operator", status=~"false|unknown"} > 0

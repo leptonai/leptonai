@@ -51,8 +51,13 @@ alertmanager:
             # make sure to add " in the beginning of the channel name is '#'
             channel: "${alertmanager_slack_channel}"
             api_url: ${alertmanager_slack_webhook_url}
-            title: '{{ template "slack.default.title" . }}'
-            text: '{{ template "slack.default.titlelink" . }}'
+            title: "${alertmanager_eks}: Alert Count: {{ len .Alerts }}"
+            text: |-
+              {{ range .Alerts }}
+              *Summary: {{ .Annotations.summary }}*
+              Description: {{ .Annotations.description }}
+              Labels: {{ range $key, $value := .Labels }}{{ $key }}: {{ $value }} | {{ end }}
+              {{ end }}
 
     templates:
       - "/etc/alertmanager/config/*.tmpl"

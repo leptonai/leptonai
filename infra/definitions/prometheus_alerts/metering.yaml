@@ -15,7 +15,6 @@ spec:
         - alert: NoMeteringData
           annotations:
             description: No metering data updates for the past 20 mins
-            runbook_url: https://todo.com
             summary: No metering data updates for the past 20 mins
           expr: |-
             sum(max_over_time(kube_pod_info{}[20m])) < 1
@@ -25,7 +24,6 @@ spec:
         - alert: MeteringHourlyAggregateOperationFailure
           annotations:
             description: Metering hourly aggregate operation failure
-            runbook_url: https://todo.com
             summary: Metering hourly aggregate operation failure
           expr: |-
             sum(max_over_time(

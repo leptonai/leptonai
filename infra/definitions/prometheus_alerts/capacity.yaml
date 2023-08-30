@@ -15,7 +15,6 @@ spec:
         - alert: WorkspaceCount
           annotations:
             description: The number of workspaces that is nearly full at {{ $value }} (> 80) out of 100.
-            runbook_url: https://todo.com
             summary: Number of workspaces nearly full.
           expr: |-
             sum(mothership_workspaces_total) > 80
@@ -25,7 +24,6 @@ spec:
         - alert: ClusterCount
           annotations:
             description: The number of clusters that is nearly full at {{ $value }} (> 5) out of 10.
-            runbook_url: https://todo.com
             summary: Number of clusters nearly full.
           expr: |-
             sum(mothership_clusters_total) > 5
