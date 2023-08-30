@@ -51,7 +51,7 @@ alertmanager:
             # make sure to add " in the beginning of the channel name is '#'
             channel: "${alertmanager_slack_channel}"
             api_url: ${alertmanager_slack_webhook_url}
-            title: "${alertmanager_eks}: Alert Count: {{ len .Alerts }}"
+            title: "[{{ .Status }}] ${alertmanager_eks}: Alert Count: {{ len .Alerts }}"
             text: |-
               {{ range .Alerts }}
               *Summary: {{ .Annotations.summary }}*
