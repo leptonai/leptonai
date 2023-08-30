@@ -11,7 +11,7 @@ from .util import (
     check,
     click_group,
     guard_api,
-    get_workspace_and_token_or_die,
+    get_connection_or_die,
     explain_response,
 )
 from leptonai.api import secret as api
@@ -52,8 +52,8 @@ def create(name, value):
             "Secret name cannot start with reserved prefix"
             f" {LEPTON_RESERVED_ENV_PREFIX}. Found {n}.",
         )
-    workspace_url, auth_token = get_workspace_and_token_or_die()
-    existing_secrets = api.list_secret(workspace_url, auth_token)
+    conn = get_connection_or_die()
+    existing_secrets = api.list_secret(conn)
     if existing_secrets:
         for n in name:
             check(
@@ -62,7 +62,7 @@ def create(name, value):
                 " different name or remove the existing secret with `lep secret"
                 " remove` first.",
             )
-    response = api.create_secret(workspace_url, auth_token, name, value)
+    response = api.create_secret(conn, name, value)
     explain_response(
         response,
         f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/].",
@@ -77,8 +77,8 @@ def list():
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
-    secrets = guard_api(api.list_secret(workspace_url, auth_token))
+    conn = get_connection_or_die()
+    secrets = guard_api(api.list_secret(conn))
     secrets.sort()
     table = Table(title="Secrets", show_lines=True)
     table.add_column("ID")
@@ -94,8 +94,8 @@ def remove(name):
     """
     Removes the secret with the given name.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
-    response = api.remove_secret(workspace_url, auth_token, name)
+    conn = get_connection_or_die()
+    response = api.remove_secret(conn, name)
     explain_response(
         response,
         f"Secret [green]{name}[/] deleted successfully.",

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 import re
+from typing import Any
 
 import click
 from rich.table import Table
@@ -10,7 +11,7 @@ from .util import (
     check,
     click_group,
     guard_api,
-    get_workspace_and_token_or_die,
+    get_connection_or_die,
     explain_response,
 )
 from leptonai.api import deployment as api
@@ -46,9 +47,9 @@ def list(pattern):
     """
     Lists all deployments in the current workspace.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     deployments = guard_api(
-        api.list_deployment(workspace_url, auth_token),
+        api.list_deployment(conn),
         detail=True,
         msg="Cannot list deployments. See error message above.",
     )
@@ -88,8 +89,8 @@ def remove(name):
     """
     Removes a deployment.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
-    response = api.remove_deployment(workspace_url, auth_token, name)
+    conn = get_connection_or_die()
+    response = api.remove_deployment(conn, name)
     explain_response(
         response,
         f"Deployment [green]{name}[/] removed.",
@@ -116,11 +117,11 @@ def status(name, show_tokens):
     Gets the status of a deployment.
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     workspace_id = get_current_workspace_id()
 
     dep_info = guard_api(
-        api.get_deployment(workspace_url, auth_token, name),
+        api.get_deployment(conn, name),
         detail=True,
         msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
     )
@@ -157,7 +158,7 @@ def status(name, show_tokens):
     console.print("Replicas List:")
 
     rep_info = guard_api(
-        api.get_readiness(workspace_url, auth_token, name),
+        api.get_readiness(conn, name),
         detail=True,
         msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
     )
@@ -183,7 +184,7 @@ def status(name, show_tokens):
     console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
 
     term_info = guard_api(
-        api.get_termination(workspace_url, auth_token, name),
+        api.get_termination(conn, name),
         detail=True,
         msg=f"Cannot obtain termination info for [red]{name}[/]. See error above.",
     )
@@ -223,7 +224,7 @@ def log(name, replica):
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep deployment status`.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     if not replica:
         # obtain replica information, and then select the first one.
         console.print(
@@ -231,7 +232,7 @@ def log(name, replica):
             " replica."
         )
         replicas = guard_api(
-            api.get_replicas(workspace_url, auth_token, name),
+            api.get_replicas(conn, name),
             detail=True,
             msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
         )
@@ -241,7 +242,7 @@ def log(name, replica):
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")
     stream_or_err = guard_api(
-        api.get_log(workspace_url, auth_token, name, replica),
+        api.get_log(conn, name, replica),
         detail=False,
         msg="Cannot obtain log for [red]{replica}[/]. See error above.",
     )
@@ -334,11 +335,10 @@ def update(name, min_replicas, resource_shape, public, tokens, id):
             # changed, while [] means that the tokens are cleared (aka, public deployment)
             final_tokens = None
 
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     guard_api(
         api.update_deployment(
-            workspace_url,
-            auth_token,
+            conn,
             name,
             id,
             min_replicas,
@@ -358,9 +358,9 @@ def qps(name, by_path):
     """
     Gets the QPS of a deployment.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     qps_info = guard_api(
-        api.get_qps(workspace_url, auth_token, name, by_path=by_path),
+        api.get_qps(conn, name, by_path=by_path),
         detail=True,
         msg=f"Cannot obtain QPS info for [red]{name}[/]. See error above.",
     )
@@ -374,7 +374,9 @@ def qps(name, by_path):
         table.add_column("time")
         for path in all_paths:
             table.add_column(path)
-        value_path_speed_map = defaultdict(defaultdict)
+        value_path_speed_map: defaultdict[float, defaultdict[str, Any]] = defaultdict(
+            defaultdict
+        )
         for path_info in qps_info:
             handler = path_info["metric"]["handler"]
             values = path_info["values"]
@@ -408,9 +410,9 @@ def latency(name, by_path):
     """
     Gets the latency of a deployment.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     latency_info = guard_api(
-        api.get_latency(workspace_url, auth_token, name, by_path=by_path),
+        api.get_latency(conn, name, by_path=by_path),
         detail=True,
         msg=f"Cannot obtain latency info for [red]{name}[/]. See error above.",
     )
@@ -424,7 +426,9 @@ def latency(name, by_path):
         table.add_column("time")
         for path in all_paths:
             table.add_column(path)
-        value_path_speed_map = defaultdict(defaultdict)
+        value_path_speed_map: defaultdict[float, defaultdict[str, Any]] = defaultdict(
+            defaultdict
+        )
         for path_info in latency_info:
             handler = path_info["metric"]["handler"]
             values = path_info["values"]

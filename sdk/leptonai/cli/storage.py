@@ -11,7 +11,7 @@ from .util import (
     check,
     click_group,
     guard_api,
-    get_workspace_and_token_or_die,
+    get_connection_or_die,
     explain_response,
 )
 
@@ -77,14 +77,14 @@ def ls(path):
     """
     List the contents of a directory of the current storage.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     check(
-        api.check_path_exists(workspace_url, auth_token, path),
+        api.check_path_exists(conn, path),
         f"[red]{path}[/] not found",
     )
 
     path_content = guard_api(
-        api.get_dir(workspace_url, auth_token, path),
+        api.get_dir(conn, path),
         detail=True,
         msg=f"ls [red]{path}[/] failed. See error message above.",
     )
@@ -98,13 +98,13 @@ def rm(path):
     Delete a file in the storage of the current workspace. Note that wildcard is
     not supported yet.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     check(
-        api.check_path_exists(workspace_url, auth_token, path),
+        api.check_path_exists(conn, path),
         f"[red]{path}[/] not found.",
     )
 
-    file_type = api.check_file_type(workspace_url, auth_token, path)
+    file_type = api.check_file_type(conn, path)
     check(file_type is not None, f"[red]{path}[/] not found")
     check(
         file_type != "dir",
@@ -113,7 +113,7 @@ def rm(path):
     )
 
     explain_response(
-        api.remove_file_or_dir(workspace_url, auth_token, path),
+        api.remove_file_or_dir(conn, path),
         f"Deleted [green]{path}[/].",
         f"[red]rm {path}[/] failed. See error above",
         f"[red]rm {path}[/] failed. Internal service error.",
@@ -127,13 +127,13 @@ def rmdir(path):
     Delete a directory in the storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     check(
-        api.check_path_exists(workspace_url, auth_token, path),
+        api.check_path_exists(conn, path),
         f"[red]{path}[/] not found",
     )
 
-    file_type = api.check_file_type(workspace_url, auth_token, path)
+    file_type = api.check_file_type(conn, path)
     check(file_type is not None, f"[red]{path}[/] not found")
     check(
         file_type == "dir",
@@ -141,7 +141,7 @@ def rmdir(path):
     )
 
     explain_response(
-        api.remove_file_or_dir(workspace_url, auth_token, path),
+        api.remove_file_or_dir(conn, path),
         f"Deleted [green]{path}[/].",
         f"[red]rmdir {path}[/] failed. See error above.",
         f"[red]rmdir {path}[/] failed. Internal service error.",
@@ -154,9 +154,9 @@ def mkdir(path):
     """
     Create a directory in the storage of the current workspace.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     explain_response(
-        api.create_dir(workspace_url, auth_token, path),
+        api.create_dir(conn, path),
         f"Created directory [green]{path}[/].",
         f"[red]mkdir {path}[/] failed. See error above.",
         f"[red]mkdir {path}[/] failed. Internal service error.",
@@ -173,13 +173,13 @@ def upload(local_path, remote_path):
     storage. If remote_path is a directory, you need to append a "/", and the
     file will be uploaded to that directory with its local name.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     # if the remote path is a directory, upload the file with its local name to that directory
     if remote_path[-1] == "/":
         remote_path = remote_path + local_path.split("/")[-1]
 
     explain_response(
-        api.upload_file(workspace_url, auth_token, local_path, remote_path),
+        api.upload_file(conn, local_path, remote_path),
         f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]",
         f"[red]upload {local_path} to {remote_path}[/] failed. See error above.",
         f"[red]upload {local_path} to {remote_path}[/] failed. Internal service error.",
@@ -195,14 +195,14 @@ def download(remote_path, local_path):
     downloaded to the current working directory with the same name as the remote
     file.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
 
     check(
-        api.check_path_exists(workspace_url, auth_token, remote_path),
+        api.check_path_exists(conn, remote_path),
         f"[red]{remote_path}[/] not found",
     )
     check(
-        api.check_file_type(workspace_url, auth_token, remote_path) == "file",
+        api.check_file_type(conn, remote_path) == "file",
         f"[red]{remote_path}[/] is not a file",
     )
 
@@ -223,7 +223,7 @@ def download(remote_path, local_path):
     )
 
     guard_api(
-        api.download_file(workspace_url, auth_token, remote_path, local_path),
+        api.download_file(conn, remote_path, local_path),
         detail=True,
         msg=(
             f"[red]download {remote_path} to {local_path} failed[/]. See error message"

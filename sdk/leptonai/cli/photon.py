@@ -6,43 +6,45 @@ import subprocess
 import socket
 import sys
 import tempfile
-from typing import Optional
+from typing import Optional, List, Dict, Union
+
 from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 import click
+
+from leptonai.api.connection import Connection
+from leptonai.api import photon as api
+from leptonai.api import workspace
+from leptonai.api.deployment import list_deployment
+from leptonai.api.storage import check_path_exists
+from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
 from leptonai.photon.base import (
     find_all_local_photons,
     find_local_photon,
     remove_local_photon,
 )
-from leptonai.api import photon as api
-from leptonai.api import workspace
+from leptonai.photon.constants import METADATA_VCS_URL_KEY
+from leptonai.photon.download import fetch_code_from_vcs
 from .util import (
     click_group,
     guard_api,
     check,
-    get_workspace_and_token_or_die,
+    get_connection_or_die,
     explain_response,
     APIError,
 )
-from leptonai.photon.constants import METADATA_VCS_URL_KEY
-from leptonai.photon.download import fetch_code_from_vcs
-from leptonai.api.deployment import list_deployment
-from leptonai.api.storage import check_path_exists
-from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
+
 
 console = Console(highlight=False)
 
 
-def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
+def _get_ordered_photon_ids_or_none(conn: Connection, name: str):
     """Returns a list of photon ids for a given name, in the order newest to
     oldest. If no photon of such name exists, returns None.
     """
-    photons = api.list_remote(workspace_url, auth_token)
-    guard_api(
-        photons, msg=f"Failed to list photons in workspace [red]{workspace_url}[/]."
-    )
+    photons = api.list_remote(conn)
+    guard_api(photons, msg=f"Failed to list photons in workspace [red]{conn._url}[/].")
     target_photons = [p for p in photons if p["name"] == name]  # type: ignore
     if len(target_photons) == 0:
         return None
@@ -50,13 +52,11 @@ def _get_ordered_photon_ids_or_none(workspace_url, auth_token, name):
     return [p["id"] for p in target_photons]
 
 
-def _get_most_recent_photon_id_or_none(
-    workspace_url, auth_token, name
-) -> Optional[str]:
+def _get_most_recent_photon_id_or_none(conn: Connection, name: str) -> Optional[str]:
     """Returns the most recent photon id for a given name. If no photon of such
     name exists, returns None.
     """
-    photon_ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
+    photon_ids = _get_ordered_photon_ids_or_none(conn, name)
     return photon_ids[0] if photon_ids else None
 
 
@@ -165,10 +165,11 @@ def remove(name, local, id_, all_):
     if not local and workspace_url is not None:
         # Remove remote photon.
         auth_token = workspace.get_auth_token(workspace_url)
+        conn = Connection(workspace_url, auth_token)
         # Find ids that we need to remove
         if name:
             # Remove all versions of the photon.
-            ids = _get_ordered_photon_ids_or_none(workspace_url, auth_token, name)
+            ids = _get_ordered_photon_ids_or_none(conn, name)
             check(ids, f"Cannot find photon with name [yellow]{name}[/].")
             ids = [ids[0]] if (not all_) else ids  # type: ignore
         else:
@@ -176,7 +177,7 @@ def remove(name, local, id_, all_):
         # Actually remove the ids
         for id_to_remove in ids:  # type: ignore
             explain_response(
-                api.remove_remote(workspace_url, auth_token, id_to_remove),
+                api.remove_remote(conn, id_to_remove),
                 f"Photon id [green]{id_to_remove}[/] removed.",
                 f"Photon id [red]{id_to_remove}[/] not removed. See error message"
                 " above.",
@@ -211,9 +212,9 @@ def list(local, pattern):
     workspace_url = workspace.get_current_workspace_url()
 
     if workspace_url is not None and not local:
-        auth_token = workspace.get_auth_token(workspace_url)
+        conn = Connection(workspace_url, workspace.get_auth_token(workspace_url))
         photons = guard_api(
-            api.list_remote(workspace_url, auth_token),
+            api.list_remote(conn),
             detail=True,
             msg=f"Failed to list photons in workspace [red]{workspace_url}[/].",
         )
@@ -271,7 +272,7 @@ def list(local, pattern):
         console.print("To show local photons, use the `--local` flag.")
 
 
-def _parse_mount_or_die(url: str, auth: Optional[str], mount: str):
+def _parse_mount_or_die(conn: Connection, mount: str):
     """
     Utility function to parse a mount string into a dict.
     """
@@ -283,7 +284,7 @@ def _parse_mount_or_die(url: str, auth: Optional[str], mount: str):
                 {"path": parts[0].strip(), "mount_path": parts[1].strip()}
             )
             check(
-                check_path_exists(url, auth, parts[0].strip()),
+                check_path_exists(conn, parts[0].strip()),
                 f"Path [red]{parts[0].strip()}[/] does not exist.",
             )
         else:
@@ -366,9 +367,9 @@ def _parse_env_and_secret_or_die(env, secret):
     return env_parsed, secret_parsed
 
 
-def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment_name):
+def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     deployments = guard_api(
-        list_deployment(workspace_url, auth_token),
+        list_deployment(conn),
         detail=True,
         msg="Failed to list deployments.",
     )
@@ -392,7 +393,9 @@ def _find_deployment_name_or_die(workspace_url, auth_token, name, id, deployment
     return deployment_name
 
 
-def _parse_deployment_tokens_or_die(public, tokens):
+def _parse_deployment_tokens_or_die(
+    public: bool, tokens: List[str]
+) -> List[Dict[str, Union[str, Dict[str, str]]]]:
     """
     Utility function to parse deployment tokens.
     """
@@ -406,7 +409,9 @@ def _parse_deployment_tokens_or_die(public, tokens):
     else:
         # We will always include the workspace token as acceptable tokens
         # for the deployment.
-        final_tokens = [{"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}}]
+        final_tokens: List[Dict[str, Union[str, Dict[str, str]]]] = [
+            {"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}}
+        ]
         if tokens:
             final_tokens.extend([{"value": token} for token in tokens])
         return final_tokens
@@ -517,7 +522,7 @@ def run(
 
     if not local and workspace_url is not None:
         # remote execution.
-        auth_token = workspace.get_auth_token(workspace_url)
+        conn = Connection(workspace_url, workspace.get_auth_token(workspace_url))
         # We first check if id is specified - this is the most specific way to
         # refer to a photon. If not, we will check if name is specified - this
         # might lead to multiple photons, so we will pick the latest one to run
@@ -525,7 +530,7 @@ def run(
         # TODO: Support push and run if the photon does not exist on remote
         if id is None:
             # look for the latest photon with the given name.
-            id = _get_most_recent_photon_id_or_none(workspace_url, auth_token, name)
+            id = _get_most_recent_photon_id_or_none(conn, name)
             check(
                 id,
                 f"Photon [red]{name}[/] does not exist. Did you intend to run a"
@@ -536,15 +541,12 @@ def run(
             console.print(f"Running the specified version: [green]{id}[/]")
         # parse environment variables and secrets
         env_parsed, secret_parsed = _parse_env_and_secret_or_die(env, secret)
-        mount_parsed = _parse_mount_or_die(workspace_url, auth_token, mount)
-        deployment_name = _find_deployment_name_or_die(
-            workspace_url, auth_token, name, id, deployment_name
-        )
+        mount_parsed = _parse_mount_or_die(conn, mount)
+        deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
         resource_shape = _validate_resource_shape(resource_shape)
         final_tokens = _parse_deployment_tokens_or_die(public, tokens)
         response = api.run_remote(
-            workspace_url,
-            auth_token,
+            conn,
             id,
             deployment_name,
             resource_shape,
@@ -679,10 +681,10 @@ def push(name):
     """
     Push a photon to the workspace.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
+    conn = get_connection_or_die()
     path = find_local_photon(name)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
-    response = api.push(workspace_url, auth_token, path)  # type: ignore
+    response = api.push(conn, path)  # type: ignore
     explain_response(
         response,
         f"Photon [green]{name}[/] pushed to workspace.",
@@ -698,8 +700,8 @@ def fetch(id, path):
     """
     Fetch a photon from the workspace.
     """
-    workspace_url, auth_token = get_workspace_and_token_or_die()
-    photon_or_err = api.fetch(workspace_url, auth_token, id, path)
+    conn = get_connection_or_die()
+    photon_or_err = api.fetch(conn, id, path)
     if isinstance(photon_or_err, APIError):
         console.print(f"Photon [red]{id}[/] failed to fetch: {photon_or_err}")
         sys.exit(1)

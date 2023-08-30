@@ -4,7 +4,8 @@ import yaml
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
 from leptonai.util import create_cached_dir_if_needed
-from .util import APIError, create_header, json_or_error
+from .connection import Connection
+from .util import APIError, json_or_error
 
 WORKSPACE_FILE = CACHE_DIR / "workspace_info.yaml"
 
@@ -20,7 +21,7 @@ def load_workspace_info():
     return workspace_info
 
 
-def get_full_workspace_url(workspace_id) -> Optional[str]:
+def get_full_workspace_url(workspace_id) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -79,7 +80,7 @@ def get_workspace_display_name(workspace_id) -> Optional[str]:
         return response["display_name"]
 
 
-def get_full_workspace_api_url(workspace_id) -> Optional[str]:
+def get_full_workspace_api_url(workspace_id) -> str:
     """
     Get the full URL for the API of a workspace.
 
@@ -88,7 +89,10 @@ def get_full_workspace_api_url(workspace_id) -> Optional[str]:
     :raises APIError: if the backend server returns an error
     """
     workspace_url = get_full_workspace_url(workspace_id)
-    return workspace_url + WORKSPACE_API_PATH if workspace_url else None
+    if workspace_url:
+        return workspace_url + WORKSPACE_API_PATH
+    else:
+        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
 
 
 def save_workspace(workspace_id, url, terraform_dir=None, auth_token=None):
@@ -195,9 +199,9 @@ def get_current_workspace_display_name() -> Optional[str]:
     return workspaces[current_workspace]["display_name"]
 
 
-def get_workspace_info(url: str, auth_token: str):
+def get_workspace_info(conn: Connection):
     """
     Gets the runtime information for the given workspace url.
     """
-    response = requests.get(url + "/workspace", headers=create_header(auth_token))
+    response = conn.get("/workspace")
     return json_or_error(response)

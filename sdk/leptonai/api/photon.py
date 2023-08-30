@@ -1,5 +1,4 @@
 import os
-import requests
 from typing import Any, Dict, List, Optional, Union
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
@@ -7,7 +6,8 @@ from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add
 import leptonai.photon  # noqa: F401
 from leptonai.config import CACHE_DIR
 from leptonai.util import check_photon_name
-from .util import APIError, create_header, json_or_error
+from .connection import Connection
+from .util import APIError, json_or_error
 
 
 def create(name: str, model: Any) -> BasePhoton:
@@ -85,48 +85,36 @@ def load_metadata(path: str, unpack_extra_files: bool = False) -> Dict[Any, Any]
     return BasePhoton.load_metadata(path, unpack_extra_files)
 
 
-def push(url: str, auth_token: Optional[str], path: str):
+def push(conn: Connection, path: str):
     """
     Push a photon to a workspace.
-    :param str url: url of the workspace including the schema
-    (e.g. http://localhost:8000)
     :param str path: path to the photon file
     """
     with open(path, "rb") as file:
-        response = requests.post(
-            url + "/photons", files={"file": file}, headers=create_header(auth_token)
-        )
+        response = conn.post("/photons", files={"file": file})
         return response
 
 
-def list_remote(url: str, auth_token: Optional[str]):
+def list_remote(conn: Connection):
     """
     List the photons on a workspace.
-    :param str url: url of the workspace including the schema
-    (e.g. http://localhost:8000)
     """
-    response = requests.get(url + "/photons", headers=create_header(auth_token))
+    response = conn.get("/photons")
     return json_or_error(response)
 
 
-def remove_remote(url: str, auth_token: Optional[str], id: str):
+def remove_remote(conn: Connection, id: str):
     """
     Remove a photon from a workspace.
-    :param str url: url of the workspace including the schema
-    (e.g. http://localhost:8000)
     :param str id: id of the photon to remove
     """
-    response = requests.delete(
-        url + "/photons/" + id, headers=create_header(auth_token)
-    )
+    response = conn.delete("/photons/" + id)
     return response
 
 
-def fetch(url: str, auth_token: Optional[str], id: str, path: str):
+def fetch(conn: Connection, id: str, path: str):
     """
     Fetch a photon from a workspace.
-    :param str url: url of the workspace including the schema
-    (e.g. http://localhost:8000)
     :param str id: id of the photon to fetch
     :param str path: path to save the photon to
     """
@@ -136,10 +124,9 @@ def fetch(url: str, auth_token: Optional[str], id: str, path: str):
     else:
         need_rename = False
 
-    response = requests.get(
-        url + "/photons/" + id + "?content=true",
+    response = conn.get(
+        "/photons/" + id + "?content=true",
         stream=True,
-        headers=create_header(auth_token),
     )
 
     if response.status_code > 299:
@@ -163,8 +150,7 @@ def fetch(url: str, auth_token: Optional[str], id: str, path: str):
 
 
 def run_remote(
-    url: str,
-    auth_token: Optional[str],
+    conn: Connection,
     id: str,
     deployment_name: str,
     resource_shape: str,
@@ -194,7 +180,5 @@ def run_remote(
         "api_tokens": tokens,
     }
 
-    response = requests.post(
-        url + "/deployments", json=deployment, headers=create_header(auth_token)
-    )
+    response = conn.post("/deployments", json=deployment)
     return response

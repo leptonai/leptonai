@@ -8,7 +8,7 @@ from rich.table import Table
 from leptonai.api import workspace as api
 from .util import (
     click_group,
-    get_workspace_and_token_or_die,
+    get_connection_or_die,
     check,
     guard_api,
 )
@@ -218,8 +218,8 @@ def token():
     when you want to obtain the workspace token in the command line in e.g.
     a shell script, but do not want to hardcode it in the source file.
     """
-    _, auth_token = get_workspace_and_token_or_die()
-    console.print(auth_token, end="")
+    conn = get_connection_or_die()
+    console.print(conn._token, end="")
 
 
 @workspace.command()
@@ -243,8 +243,8 @@ def status():
     """
     Prints the status of the current workspace.
     """
-    url, auth_token = get_workspace_and_token_or_die()
-    info = api.get_workspace_info(url, auth_token)
+    conn = get_connection_or_die()
+    info = api.get_workspace_info(conn)
     guard_api(
         info,
         detail=True,
