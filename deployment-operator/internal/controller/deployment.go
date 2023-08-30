@@ -242,7 +242,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	envs := util.ToContainerEnv(ld.Spec.Envs)
 	// Add lepton runtime envs to the container envs
 	runtimeEnvs := []corev1.EnvVar{
-		{Name: "LEPTON_WORKSPACE_NAME", Value: ld.Spec.WorkspaceName},
+		{Name: "LEPTON_WORKSPACE_ID", Value: ld.Spec.WorkspaceName},
 		{Name: "LEPTON_PHOTON_NAME", Value: ld.Spec.PhotonName},
 		{Name: "LEPTON_PHOTON_ID", Value: ld.Spec.PhotonID},
 		{Name: "LEPTON_DEPLOYMENT_NAME", Value: ld.Spec.Name},

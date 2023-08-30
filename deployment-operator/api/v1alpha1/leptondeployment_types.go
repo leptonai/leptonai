@@ -26,11 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
+	"k8s.io/utils/ptr"
 )
 
 // The probe is used to trigger the reconciliation of the deployment/service/ingress/etc
 // if we modified the algorithm of generating them from LeptonDeployments.
-var probe *int = nil
+var probe *int = ptr.To[int](1)
 
 // LeptonDeploymentSpec defines the desired state of LeptonDeployment
 type LeptonDeploymentSpec struct {
