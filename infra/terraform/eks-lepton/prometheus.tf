@@ -392,7 +392,7 @@ resource "helm_release" "kube_prometheus_stack" {
       alertmanager_slack_channel     = var.alertmanager_slack_channel
       alertmanager_slack_webhook_url = var.alertmanager_slack_webhook_url
       alertmanager_target_namespaces = var.alertmanager_target_namespaces
-      alertmanager_eks               = var.local.cluster_name
+      alertmanager_eks               = var.cluster_name
     }) : file("${path.module}/helm/values/kube-prometheus-stack/alertmanager-disabled.yaml"),
 
     templatefile("${path.module}/helm/values/kube-prometheus-stack/prometheus-server.yaml", {
