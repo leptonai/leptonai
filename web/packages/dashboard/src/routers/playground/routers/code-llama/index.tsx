@@ -37,12 +37,12 @@ import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
 
 const presets = [
   {
-    name: "Fibonacci",
-    prompt: "# Python\n" + "def fibonacci(n):",
-  },
-  {
     name: "SQL",
     prompt: "Create a user table using SQL and randomly insert 3 records\n",
+  },
+  {
+    name: "Fibonacci",
+    prompt: "# Python\n" + "def fibonacci(n):",
   },
   {
     name: "JSON to YAML",
@@ -98,7 +98,7 @@ const presets = [
       "data:text/html,<html contenteditable>\n" +
       "```\n",
   },
-];
+] as const;
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -123,7 +123,7 @@ export const CodeLlama: FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [prompt, setPrompt] = useState("# Python\n" + "def fibonacci(n):");
+  const [prompt, setPrompt] = useState<string>(presets[0].prompt);
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
   const chatService = useInject(ChatService);
   const theme = useAntdTheme();
