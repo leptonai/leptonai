@@ -11,7 +11,7 @@ import click
 from rich.console import Console
 from leptonai.api import APIError
 from leptonai.api.connection import Connection
-import leptonai.api.workspace as workspace
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 
 
 console = Console(highlight=False)
@@ -57,15 +57,12 @@ def get_connection_or_die() -> Connection:
     Gets the connection to the current workspace, or exits if the connection
     cannot be established.
     """
-    workspace_url = workspace.get_current_workspace_url()
-    if not workspace_url:
-        console.print(
-            "It seems that you are not logged in. Please run `lep workspace login`"
-            " first."
-        )
+    try:
+        conn = WorkspaceInfoLocalRecord.get_current_connection()
+    except RuntimeError:
+        console.print("It seems that you are not logged in yet.")
         sys.exit(1)
-    auth_token = workspace.get_auth_token(workspace_url)
-    return Connection(workspace_url, auth_token)
+    return conn
 
 
 def check(condition: Any, message: str) -> None:

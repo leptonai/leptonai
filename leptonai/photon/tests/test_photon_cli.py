@@ -115,7 +115,7 @@ class TestPhotonCli(unittest.TestCase):
         self.assertIn("--name", result.output.lower())
 
         result = runner.invoke(cli, ["photon", "remove", "-n", "abcdef"])
-        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0, result)
         self.assertIn("abcdef", result.output.lower())
         self.assertIn("removed", result.output.lower())
 

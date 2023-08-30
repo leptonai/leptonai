@@ -8,7 +8,9 @@
 # one workspace.
 # - If you want to test interactive login, do not set LEPTON_RELEASE_CREDENTIALS,
 #   otherwise set it to a credential string.
+# - If you want the script to pause when an error happens, set PAUSE to true.
 ################################################################################
+PAUSE=false
 
 ################################################################################
 # Utility functions
@@ -58,7 +60,7 @@ if lep ws status | grep "build time" > /dev/null; then
     echo "Verified that workspace login worked."
 else
     echo "lep ws status failed. This should not happen."
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -91,7 +93,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -112,7 +114,7 @@ if curl -f -s -X "POST" "http://localhost:$PORT/run" -d '{"query": "echo yes"}' 
 else
     echo "Local photon failed. This should not happen."
     kill $PID
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -127,7 +129,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -137,7 +139,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -147,7 +149,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -155,7 +157,7 @@ echo "## Testing running a photon with the same name: this should be caught by a
 command="lep photon run -n ${COMMON_NAME} -dn ${COMMON_NAME}"
 if eval "$command" > /dev/null; then
     echo "Expected command to fail but it passed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 else
     echo "Done"
 fi
@@ -167,7 +169,7 @@ if eval "$command" > /dev/null ; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -177,7 +179,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -193,7 +195,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "Failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -206,7 +208,7 @@ while ! eval "$command" > /dev/null; do
     if [ $RETRY -ge 100 ]; then
         echo "Too many retries and the deployment is still not up."
         echo "I am going to give up."
-        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
         break
     fi
     sleep 5
@@ -220,7 +222,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "lep deployment status failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -233,7 +235,7 @@ else
         echo "Done"
     else
         echo "lep deployment log failed. Did not find expected log content, or log api is too slow. This should not happen. Reproduce with: $command"
-        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
     fi
 fi
 echo
@@ -249,7 +251,7 @@ if eval "$command" | grep "yes" > /dev/null; then
     echo "Done"
 else
     echo "Deployment returned content did not contain expected output. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -267,7 +269,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep secret create failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -277,7 +279,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "lep secret list failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -287,7 +289,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep photon run failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -300,7 +302,7 @@ while ! eval "$command" > /dev/null; do
     if [ $RETRY -ge 100 ]; then
         echo "Too many retries and the deployment is still not up."
         echo "I am going to give up."
-        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
         break
     fi
     sleep 5
@@ -320,7 +322,7 @@ if eval "$command" | grep "world" > /dev/null; then
     echo "Env variable is correct."
 else
     echo "Did not contain expected env var. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
@@ -332,7 +334,7 @@ if eval "$command" | grep "world" > /dev/null; then
     echo "Secret value is correct."
 else
     echo "Did not contain expected secret. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
@@ -344,7 +346,7 @@ if eval "$command" | grep "world" > /dev/null; then
     echo "Renamed secret value is correct."
 else
     echo "Did not contain expected renamed secret. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -354,7 +356,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep dep remove failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -379,7 +381,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "update to 2 replicas. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -389,7 +391,7 @@ if eval "$command" | grep "out of 2 replicas ready" > /dev/null; then
     echo "Replicas are correct."
 else
     echo "Replicas are not correct. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 # scale back to 1 replica
 echo "Testing reducing the deployment replicas to 1..."
@@ -398,7 +400,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "reduce to 1 replica. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 # Verify if things are actually correct
@@ -407,7 +409,7 @@ if eval "$command" | grep "out of 2 replicas ready" > /dev/null; then
     echo "Replicas are correct."
 else
     echo "Replicas are not correct. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -417,14 +419,14 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep dep update failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 command="lep dep status -n ${COMMON_NAME}"
 if eval "$command" | grep "Is Public:" | grep "Yes" > /dev/null; then
     echo "Authentication tokens are correct."
 else
     echo "Authentication tokens are not correct. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo "Testing updating the deployment to private..."
 command="lep dep update -n ${COMMON_NAME} --no-public"
@@ -432,14 +434,14 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep dep update failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 command="lep dep status -n ${COMMON_NAME}"
 if eval "$command" | grep "Is Public:" | grep "No" > /dev/null; then
     echo "Authentication tokens are correct."
 else
     echo "Authentication tokens are not correct. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 
 echo "Testing updating the deployment with additional tokens..."
@@ -448,14 +450,14 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep dep update failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 command="lep dep status -n ${COMMON_NAME} --show-tokens"
 if eval "$command" | grep "ncc1701" > /dev/null; then
     echo "Authentication tokens are correct."
 else
     echo "Authentication tokens are not correct. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -472,7 +474,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "lep photon run failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -485,7 +487,7 @@ while ! eval "$command" > /dev/null; do
     if [ $RETRY -ge 100 ]; then
         echo "Too many retries and the deployment is still not up."
         echo "I am going to give up."
-        TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+        if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
         break
     fi
     sleep 5
@@ -509,7 +511,7 @@ if eval "$command" > /dev/null; then
     echo "Create file done"
 else
     echo "Create file failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo "Checking file..."
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
@@ -522,7 +524,7 @@ if eval "$command" | grep "${COMMON_NAME}.txt" > /dev/null; then
     echo "File exists."
 else
     echo "File does not exist. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
@@ -535,7 +537,7 @@ if eval "$command" > /dev/null; then
     echo "Delete file done"
 else
     echo "Delete file failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo "Done"
 echo
@@ -546,7 +548,7 @@ if eval "$command"; then
     echo "Done"
 else
     echo "lep dep remove failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
 
@@ -579,7 +581,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "lep deployment qps failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 
 echo "## Testing getting latency..."
@@ -588,7 +590,7 @@ if eval "$command" > /dev/null; then
     echo "Done"
 else
     echo "lep deployment latency failed. This should not happen. Reproduce with: $command"
-    TOTAL_ERRORS=$((TOTAL_ERRORS+1))
+    if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo "Note that the above work do not verify actual qps and latency values."
 echo

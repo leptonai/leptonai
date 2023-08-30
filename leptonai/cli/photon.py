@@ -15,9 +15,9 @@ import click
 
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
-from leptonai.api import workspace
 from leptonai.api.deployment import list_deployment
 from leptonai.api.storage import check_path_exists
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
 from leptonai.photon.base import (
     find_all_local_photons,
@@ -155,17 +155,14 @@ def remove(name, local, id_, all_):
     command will remove the photon from the workspace. Otherwise, or of `--local`
     is explicitly specified, it will remove the photon from the local environment.
     """
-    workspace_url = workspace.get_current_workspace_url()
-
     check(
         not (name and id_), "Cannot specify both --name and --id. Use one or the other."
     )
     check(name or id_, "Must specify either --name or --id.")
 
-    if not local and workspace_url is not None:
+    if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
         # Remove remote photon.
-        auth_token = workspace.get_auth_token(workspace_url)
-        conn = Connection(workspace_url, auth_token)
+        conn = WorkspaceInfoLocalRecord.get_current_connection()
         # Find ids that we need to remove
         if name:
             # Remove all versions of the photon.
@@ -209,14 +206,15 @@ def list(local, pattern):
     `--local` is explicitly specified, it will list all photons in the local
     environment.
     """
-    workspace_url = workspace.get_current_workspace_url()
-
-    if workspace_url is not None and not local:
-        conn = Connection(workspace_url, workspace.get_auth_token(workspace_url))
+    if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
+        conn = WorkspaceInfoLocalRecord.get_current_connection()
         photons = guard_api(
             api.list_remote(conn),
             detail=True,
-            msg=f"Failed to list photons in workspace [red]{workspace_url}[/].",
+            msg=(
+                "Failed to list photons in workspace"
+                f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
+            ),
         )
         # Note: created_at returned by the server is in milliseconds, and as a
         # result we need to divide by 1000 to get seconds that is understandable
@@ -225,8 +223,8 @@ def list(local, pattern):
             (photon["name"], photon["model"], photon["id"], photon["created_at"] / 1000)
             for photon in photons
         ]
-        ws_id = workspace.get_current_workspace_id()
-        ws_name = workspace.get_current_workspace_display_name()
+        ws_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
+        ws_name = WorkspaceInfoLocalRecord._get_current_workspace_display_name()
         if ws_name:
             title = f"Photons in workspace {ws_id}({ws_name})"
         else:
@@ -516,13 +514,11 @@ def run(
     Refer to the documentation for a more detailed description on the choices
     among `--name`, `--model`, `--file` and `--id`.
     """
-    workspace_url = workspace.get_current_workspace_url()
-
     check(not (name and id), "Must specify either --id or --name, not both.")
 
-    if not local and workspace_url is not None:
+    if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
         # remote execution.
-        conn = Connection(workspace_url, workspace.get_auth_token(workspace_url))
+        conn = WorkspaceInfoLocalRecord.get_current_connection()
         # We first check if id is specified - this is the most specific way to
         # refer to a photon. If not, we will check if name is specified - this
         # might lead to multiple photons, so we will pick the latest one to run
