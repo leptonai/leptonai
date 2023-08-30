@@ -16,17 +16,17 @@ import { FC, useMemo, useState } from "react";
 const planMap = {
   Basic: {
     name: "Basic Plan",
-    description:
-      "The Basic Plan is perfect for individuals and small teams who are just getting started.",
+    description: "Perfect for individuals and small teams to get started.",
   },
   Standard: {
     name: "Standard Plan",
     description:
-      "Meet the needs of growing businesses and collaborative teams.",
+      "Designed to meet the needs of collaborative teams and growing businesses.",
   },
   Enterprise: {
     name: "Enterprise Plan",
-    description: "For organizations with more complex requirements.",
+    description:
+      "Built for organizations needing a high level of SLAs, performance, and compliance.",
   },
 } as const;
 

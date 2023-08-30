@@ -10,8 +10,10 @@ export const ProductUnitPrice: FC<{
     (i) => (i.default_price as Stripe.Price).id === priceId
   );
   const unit = useMemo(() => {
-    const unit_price = (product?.default_price as Stripe.Price).tiers?.[0]
-      .unit_amount_decimal;
+    const defaultPrice = product?.default_price as Stripe.Price;
+    const unit_price =
+      defaultPrice.unit_amount_decimal ||
+      defaultPrice.tiers?.[0].unit_amount_decimal;
     return unit_price !== undefined &&
       unit_price !== null &&
       typeof +unit_price === "number"
@@ -21,7 +23,10 @@ export const ProductUnitPrice: FC<{
 
   return (
     <>
-      ${unit} {product?.name === "storage" ? "/ GB / hour" : "/ minute"}
+      ${unit}
+      {product?.name !== "Standard Plan" ? (
+        <>{product?.name === "storage" ? "/ GB / hour" : "/ minute"}</>
+      ) : null}
     </>
   );
 };

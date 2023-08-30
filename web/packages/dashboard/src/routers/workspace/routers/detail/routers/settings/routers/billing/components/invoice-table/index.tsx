@@ -1,11 +1,11 @@
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { PriceSummary } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/price-summary";
+import { ProductAmount } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-amount";
 import { ProductName } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-name";
 import { ProductQuantity } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-quantity";
 import { ProductUnitPrice } from "@lepton-dashboard/routers/workspace/routers/detail/routers/settings/routers/billing/components/product-unit-price";
-import { Table, Tag } from "antd";
-import Decimal from "decimal.js";
+import { Table } from "antd";
 import { FC, useMemo } from "react";
 import Stripe from "stripe";
 
@@ -18,7 +18,7 @@ export const InvoiceTable: FC<{
     if (invoice.lines.data.every((e) => e.amount === 0)) {
       return invoice.lines.data;
     } else {
-      return invoice.lines.data.filter((e) => e.amount > 0);
+      return invoice.lines.data.filter((e) => e.amount !== 0);
     }
   }, [invoice]);
 
@@ -58,10 +58,10 @@ export const InvoiceTable: FC<{
       )}
       columns={[
         {
-          title: "RESOURCE TYPE",
+          title: "TYPE",
           dataIndex: "description",
           render: (_, data) => {
-            return <ProductName products={products} priceId={data.price?.id} />;
+            return <ProductName item={data} products={products} />;
           },
         },
         {
@@ -96,11 +96,7 @@ export const InvoiceTable: FC<{
           ),
           align: "right",
           dataIndex: "amount",
-          render: (amount) => (
-            <Tag bordered={false}>
-              ${new Decimal(amount).div(100).toFixed()}
-            </Tag>
-          ),
+          render: (amount) => <ProductAmount amount={amount} />,
         },
       ]}
     />

@@ -11,11 +11,12 @@ export const DateParser: FC<
     detail?: boolean;
     prefix?: string;
     suffix?: string;
+    format?: string;
   } & EmotionProps
-> = ({ date, detail, prefix, suffix, className }) => {
-  const format = dayjs(date).isSame(new Date(), "year")
-    ? "MMM D, h:mm A"
-    : "MMM D, YYYY";
+> = ({ date, detail, prefix, format, suffix, className }) => {
+  const defaultFormat =
+    format ||
+    (dayjs(date).isSame(new Date(), "year") ? "MMM D, h:mm A" : "MMM D, YYYY");
 
   const detailedFormat = "h:mm A, MMM D, YYYY";
 
@@ -46,7 +47,8 @@ export const DateParser: FC<
       >
         <span>
           <Link className={className}>
-            {prefix} {dayjs(date).format(detail ? detailedFormat : format)}{" "}
+            {prefix}{" "}
+            {dayjs(date).format(detail ? detailedFormat : defaultFormat)}{" "}
             {suffix}
           </Link>
         </span>

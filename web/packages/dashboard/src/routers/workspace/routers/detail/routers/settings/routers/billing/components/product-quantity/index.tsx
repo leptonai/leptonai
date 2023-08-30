@@ -14,7 +14,10 @@ export const ProductQuantity: FC<{
 
   return (
     <>
-      {quantity} {product?.name === "storage" ? "GB-hour" : "minute"}
+      {quantity}{" "}
+      {product?.name !== "Standard Plan" ? (
+        <>{product?.name === "storage" ? "GB-hour" : "minute"}</>
+      ) : null}
     </>
   );
 };
