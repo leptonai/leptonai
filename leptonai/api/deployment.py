@@ -1,17 +1,17 @@
-import requests
 from typing import Dict, List, Union, Optional
 import warnings
 
-from .util import create_header, json_or_error, APIError
+from .connection import Connection
+from .util import json_or_error, APIError
 
 
-def list_deployment(url: str, auth_token: Optional[str]) -> Union[List, APIError]:
+def list_deployment(conn: Connection) -> Union[List, APIError]:
     """
     List all deployments in a workspace.
 
     Returns a list of deployments.
     """
-    response = requests.get(url + "/deployments", headers=create_header(auth_token))
+    response = conn.get("/deployments")
     # sanity check that the response is actually a list or APIError
     content = json_or_error(response)
     if isinstance(content, dict):
@@ -19,77 +19,67 @@ def list_deployment(url: str, auth_token: Optional[str]) -> Union[List, APIError
     return content
 
 
-def remove_deployment(url: str, auth_token: Optional[str], name: str):
+def remove_deployment(conn: Connection, name: str):
     """
     Remove a deployment from a workspace.
 
     Returns 200 if successful, 404 if the deployment does not exist.
     """
-    response = requests.delete(
-        url + "/deployments/" + name, headers=create_header(auth_token)
-    )
+    response = conn.delete("/deployments/" + name)
     return response
 
 
-def get_deployment(url: str, auth_token: Optional[str], name: str):
+def get_deployment(conn: Connection, name: str):
     """
     Get a deployment from a workspace.
     """
-    response = requests.get(
-        url + "/deployments/" + name, headers=create_header(auth_token)
-    )
+    response = conn.get("/deployments/" + name)
     return json_or_error(response)
 
 
-def get_readiness(url: str, auth_token: Optional[str], name: str):
+def get_readiness(conn: Connection, name: str):
     """
     Get a deployment readiness info from a workspace.
 
     Returns the deployment info if successful, and APIError if the deployment
     does not exist.
     """
-    response = requests.get(
-        url + "/deployments/" + name + "/readiness", headers=create_header(auth_token)
-    )
+    response = conn.get("/deployments/" + name + "/readiness")
     return json_or_error(response)
 
 
-def get_termination(url: str, auth_token: Optional[str], name: str):
+def get_termination(conn: Connection, name: str):
     """
     Get a deployment termination info from a workspace.
 
     Returns the deployment's information about earlier terminations, if exist.
     """
-    response = requests.get(
-        url + "/deployments/" + name + "/termination", headers=create_header(auth_token)
-    )
+    response = conn.get("/deployments/" + name + "/termination")
     return json_or_error(response)
 
 
-def get_replicas(url: str, auth_token: Optional[str], name: str):
+def get_replicas(conn: Connection, name: str):
     """
     Get a deployment's replicas from a workspace.
 
     Returns the deployment info if successful, and APIError if the deployment
     does not exist.
     """
-    response = requests.get(
-        url + "/deployments/" + name + "/replicas", headers=create_header(auth_token)
-    )
+    response = conn.get("/deployments/" + name + "/replicas")
     return json_or_error(response)
 
 
-def get_log(url: str, auth_token: Optional[str], name: str, replica: str):
+def get_log(conn: Connection, name: str, replica: str):
     """
     Get a deployment log from a workspace.
 
     Returns the deployment info if successful, and APIError if the deployment
     does not exist.
     """
-    response = requests.get(
-        url + "/deployments/" + name + "/replicas/" + replica + "/log",
-        headers=create_header(auth_token),
+    response = conn.get(
+        "/deployments/" + name + "/replicas/" + replica + "/log",
         stream=True,  # stream the response
+        timeout=None,  # no timeout
     )
     if response.ok:
         for chunk in response.iter_content(chunk_size=None):
@@ -100,8 +90,7 @@ def get_log(url: str, auth_token: Optional[str], name: str, replica: str):
 
 
 def update_deployment(
-    url: str,
-    auth_token: Optional[str],
+    conn: Connection,
     name: str,
     photon_id: Optional[str] = None,
     min_replicas: Optional[int] = None,
@@ -134,15 +123,14 @@ def update_deployment(
         warnings.warn(
             "There is nothing to update - did you forget to pass in any arguments?"
         )
-    response = requests.patch(
-        url + "/deployments/" + name,
-        headers=create_header(auth_token),
+    response = conn.patch(
+        "/deployments/" + name,
         json=deployment_body,
     )
     return json_or_error(response)
 
 
-def get_qps(url: str, auth_token: Optional[str], name: str, by_path: bool = False):
+def get_qps(conn: Connection, name: str, by_path: bool = False):
     """
     Get a deployment's QPS from a workspace.
 
@@ -150,19 +138,17 @@ def get_qps(url: str, auth_token: Optional[str], name: str, by_path: bool = Fals
     does not exist.
     """
     if by_path:
-        response = requests.get(
-            url + "/deployments/" + name + "/monitoring/FastAPIQPSByPath",
-            headers=create_header(auth_token),
+        response = conn.get(
+            "/deployments/" + name + "/monitoring/FastAPIQPSByPath",
         )
     else:
-        response = requests.get(
-            url + "/deployments/" + name + "/monitoring/FastAPIQPS",
-            headers=create_header(auth_token),
+        response = conn.get(
+            "/deployments/" + name + "/monitoring/FastAPIQPS",
         )
     return json_or_error(response)
 
 
-def get_latency(url: str, auth_token: Optional[str], name: str, by_path: bool = False):
+def get_latency(conn: Connection, name: str, by_path: bool = False):
     """
     Get a deployment's latency from a workspace.
 
@@ -170,13 +156,11 @@ def get_latency(url: str, auth_token: Optional[str], name: str, by_path: bool = 
     does not exist.
     """
     if by_path:
-        response = requests.get(
-            url + "/deployments/" + name + "/monitoring/FastAPILatencyByPath",
-            headers=create_header(auth_token),
+        response = conn.get(
+            "/deployments/" + name + "/monitoring/FastAPILatencyByPath",
         )
     else:
-        response = requests.get(
-            url + "/deployments/" + name + "/monitoring/FastAPILatency",
-            headers=create_header(auth_token),
+        response = conn.get(
+            "/deployments/" + name + "/monitoring/FastAPILatency",
         )
     return json_or_error(response)

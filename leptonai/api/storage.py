@@ -1,8 +1,7 @@
 import os
-import requests
-from typing import Optional
 
-from .util import create_header, json_or_error, APIError
+from .connection import Connection
+from .util import json_or_error, APIError
 
 
 def _prepend_separator(file_path):
@@ -12,19 +11,18 @@ def _prepend_separator(file_path):
     return file_path if file_path.startswith("/") else "/" + file_path
 
 
-def get_dir(url: str, auth_token: Optional[str], file_path: str):
+def get_dir(conn: Connection, file_path: str):
     """
     Get the contents of a directory on the currently logged in remote server.
     :param str file_path: path to the directory on the remote server
     """
-    response = requests.get(
-        f"{url}/storage/default{_prepend_separator(file_path)}",
-        headers=create_header(auth_token),
+    response = conn.get(
+        f"/storage/default{_prepend_separator(file_path)}",
     )
     return json_or_error(response)
 
 
-def check_file_type(url: str, auth_token: Optional[str], file_path: str):
+def check_file_type(conn: Connection, file_path: str):
     """
     Check if the contents at file_path stored on the remote server are a file or a directory.
 
@@ -37,7 +35,7 @@ def check_file_type(url: str, auth_token: Optional[str], file_path: str):
     file_path = _prepend_separator(file_path)
     parent_dir = "/" if os.path.dirname(file_path) == "" else os.path.dirname(file_path)
 
-    parent_contents = get_dir(url, auth_token, parent_dir)
+    parent_contents = get_dir(conn, parent_dir)
     if isinstance(parent_contents, APIError):
         return None
 
@@ -48,57 +46,50 @@ def check_file_type(url: str, auth_token: Optional[str], file_path: str):
     return None
 
 
-def check_path_exists(url: str, auth_token: Optional[str], file_path: str):
+def check_path_exists(conn: Connection, file_path: str):
     """
     Check if the contents at file_path exist on the remote server.
 
     :param str file_path: path to the file or directory on the remote server
     """
-
-    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
-    response = requests.head(req_url, headers=create_header(auth_token))
+    response = conn.head(f"/storage/default{_prepend_separator(file_path)}")
     return response.status_code == 200
 
 
-def remove_file_or_dir(url: str, auth_token: Optional[str], file_path: str):
+def remove_file_or_dir(conn: Connection, file_path: str):
     """
     Remove a file or directory on the currently logged in remote server.
 
     :param str file_path: path to the file or directory on the remote server
     """
-    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
-    response = requests.delete(req_url, headers=create_header(auth_token))
+    response = conn.delete(f"/storage/default{_prepend_separator(file_path)}")
     return response
 
 
-def create_dir(url: str, auth_token: Optional[str], file_path: str):
+def create_dir(conn: Connection, file_path: str):
     """
     Create a directory on the currently logged in remote server.
     :param str file_path: path to the directory on the remote server
     """
-    req_url = f"{url}/storage/default{_prepend_separator(file_path)}"
-    response = requests.put(req_url, headers=create_header(auth_token))
+    response = conn.put(f"/storage/default{_prepend_separator(file_path)}")
     return response
 
 
-def upload_file(url: str, auth_token: Optional[str], local_path: str, remote_path: str):
+def upload_file(conn: Connection, local_path: str, remote_path: str):
     """
     Upload a file to the currently logged in remote server.
 
     :param str local_path: path to the file on the local machine
     :param str remote_path: path to the file on the remote server
     """
-    req_url = f"{url}/storage/default{_prepend_separator(remote_path)}"
     with open(local_path, "rb") as file:
-        response = requests.post(
-            req_url, files={"file": file}, headers=create_header(auth_token)
+        response = conn.post(
+            f"/storage/default{_prepend_separator(remote_path)}", files={"file": file}
         )
         return response
 
 
-def download_file(
-    url: str, auth_token: Optional[str], remote_path: str, local_path: str
-):
+def download_file(conn: Connection, remote_path: str, local_path: str):
     """
     Download a file from the currently logged in remote server.
     :param str url: url of the remote server including the schema
@@ -106,8 +97,9 @@ def download_file(
     :param str remote_path: path to the file on the remote server
     :param str local_path: absolute path to the file on the local machine
     """
-    req_url = f"{url}/storage/default{_prepend_separator(remote_path)}"
-    response = requests.get(req_url, headers=create_header(auth_token), stream=True)
+    response = conn.get(
+        f"/storage/default{_prepend_separator(remote_path)}", stream=True
+    )
     if response.status_code >= 200 and response.status_code <= 299:
         # download file
         try:

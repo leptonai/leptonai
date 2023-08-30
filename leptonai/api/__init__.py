@@ -28,4 +28,5 @@ from . import secret
 from . import storage
 from . import workspace
 
+from .connection import Connection
 from .util import APIError

@@ -3,9 +3,9 @@ Login is the main module that allows a serverless login.
 """
 import webbrowser
 
-from .util import check, console, guard_api
+from .util import check, console, guard_api, get_connection_or_die
 from leptonai.api import workspace
-from leptonai.cli.util import get_workspace_and_token_or_die
+from leptonai.api.connection import Connection
 
 LOGIN_LOGO = """\
 ========================================================
@@ -14,7 +14,7 @@ LOGIN_LOGO = """\
 [blue]   | |   |  _| | |_) || || | | |  \\| |    / _ \\  | |     [/]
 [blue]   | |___| |___|  __/ | || |_| | |\\  |   / ___ \\ | |     [/]
 [blue]   |_____|_____|_|    |_| \\___/|_| \\_|  /_/   \\_\\___|    [/]
-                                                         
+
 ========================================================"""
 
 
@@ -26,7 +26,7 @@ def cloud_login(credentials=None):
     workspace_id = workspace.get_workspace()
     if workspace_id and not credentials:
         # Already logged in. Notify the user the login status.
-        url, auth_token = get_workspace_and_token_or_die()
+        conn = get_connection_or_die()
         console.print(
             "Hint: If you have multiple workspaces, you can pick the one you want\n"
             "to log in via `lep workspace login -i workspace_id`."
@@ -62,14 +62,15 @@ def cloud_login(credentials=None):
         check(url, "Workspace [red]{workspace_id}[/] does not exist.")
         workspace.save_workspace(workspace_id, url, auth_token=auth_token)
         workspace.set_current_workspace(workspace_id)
+        conn = Connection(url, auth_token)
     # Try to login and print the info.
-    info = workspace.get_workspace_info(url, auth_token)
+    info = workspace.get_workspace_info(conn)
     guard_api(
         info,
         detail=True,
         msg=(
-            f"Cannot properly log into workspace [red]{workspace_id} (debug:"
-            f" url={url}). This should usually not happen - it might be a transient"
+            f"Cannot properly log into workspace [red]{workspace_id}."
+            " This should usually not happen - it might be a transient"
             " network issue. Please contact us by sharing the error message above."
         ),
     )

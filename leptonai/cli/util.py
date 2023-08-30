@@ -3,13 +3,14 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import click
 
 from rich.console import Console
 from leptonai.api import APIError
+from leptonai.api.connection import Connection
 import leptonai.api.workspace as workspace
 
 
@@ -51,23 +52,20 @@ def is_valid_url(candidate_str: str) -> bool:
     return parsed.scheme != "" and parsed.netloc != ""
 
 
-def get_workspace_and_token_or_die() -> Tuple[str, Optional[str]]:
+def get_connection_or_die() -> Connection:
     """
-    Gets the workspace URL and auth token or exits if they are not found.
-
-    :return: A tuple of the workspace URL and auth token.
+    Gets the connection to the current workspace, or exits if the connection
+    cannot be established.
     """
     workspace_url = workspace.get_current_workspace_url()
-    if workspace_url is None:
+    if not workspace_url:
         console.print(
             "It seems that you are not logged in. Please run `lep workspace login`"
             " first."
         )
         sys.exit(1)
-    # Note: it is possible that the workspace does not require an auth token, in
-    # which case this will return None and we will pass along.
     auth_token = workspace.get_auth_token(workspace_url)
-    return workspace_url, auth_token
+    return Connection(workspace_url, auth_token)
 
 
 def check(condition: Any, message: str) -> None:
