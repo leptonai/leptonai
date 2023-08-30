@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-node.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: node.rules
+      rules:
+        - alert: NodeCPUUsageHigh
+          annotations:
+            description: Node CPU usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: Node CPU usage high
+          expr: |-
+            100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance) * 100) > 80
+          for: 5m
+          labels:
+            severity: critical
+        - alert: NodeMemoryUsageHigh
+          annotations:
+            description: Node Memory usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: Node Memory usage high
+          expr: |-
+            max((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100) by (instance) > 80
+          for: 5m
+          labels:
+            severity: critical
+        - alert: NodeDiskUsageHigh
+          annotations:
+            description: Node Disk usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: Node Disk usage high
+          expr: |-
+            100 - min(node_filesystem_free_bytes{fstype!="rootfs",mountpoint!~"/boot.*", device!~"shm|tmpfs"} / node_filesystem_size_bytes{fstype!="rootfs",mountpoint!~"/boot.*", device!~"shm|tmpfs"} * 100) by (instance) > 80
+          for: 5m
+          labels:
+            severity: critical
