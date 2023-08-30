@@ -1,4 +1,5 @@
 import requests
+import concurrent.futures
 import os
 import dotenv
 import database
@@ -91,10 +92,21 @@ def get_all_ws_stats():
     ws_total = get_workspaces()
     workspace_ids = [w['spec']['name'] for w in ws_total]
     out = []
-    for workspace_id in workspace_ids:
-        print(workspace_id)
-        out.append(get_ws_stat(workspace_id))
-    return pd.DataFrame(out, columns=['workspace_id', 'ws_display_name', 'num_of_photons', 'num_of_deployments', 'cpu', 'memory', 'gpu'])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_url = {executor.submit(get_ws_stat, workspace_id): workspace_id for workspace_id in workspace_ids}
+        for future in concurrent.futures.as_completed(future_to_url):
+            workspace_id = future_to_url[future]
+            try:
+                data = future.result()
+            except Exception as exc:
+                print('%r generated an exception: %s' % (workspace_id, exc))
+            else:
+                out.append(data)
+
+    result = pd.DataFrame(out, columns=['workspace_id', 'ws_display_name', 'num_of_photons', 'num_of_deployments', 'cpu', 'memory', 'gpu'])
+    result = result.sort_values(by=['num_of_photons'], ascending=False)
+    return result
 
 
 def get_ws_stat(workspace_id):
