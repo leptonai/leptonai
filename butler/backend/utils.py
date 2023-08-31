@@ -69,7 +69,7 @@ def send_welcome(destination):
     return response
 
 
-def create_workspace_on_cluster(workspace_display_name):
+def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
     workspace_name = generate_token(8)
     api_token = generate_token(32)
     description = workspace_display_name
@@ -90,14 +90,14 @@ def create_workspace_on_cluster(workspace_display_name):
         "tier": "basic",  # Could be basic, standard, enterprise
         "image_tag": version,
         "git_ref": version,
-        "lb-type": "shared",
+        "lb-type": lb_type,
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response
 
 
-def create_workspace_url(workspace_name, lb_type="shared") -> str:
+def create_workspace_url(workspace_name, lb_type=SHARED) -> str:
     if lb_type not in [SHARED, DEDICATED]:
         print(
             f"load balancer type should be either {SHARED} or {DEDICATED}, but got {lb_type}"
@@ -135,8 +135,8 @@ def create_workspace_url(workspace_name, lb_type="shared") -> str:
     return workspace_url
 
 
-def insert_workspace_to_db(workspace_name, workspace_display_name):
-    workspace_url = create_workspace_url(workspace_name)
+def insert_workspace_to_db(workspace_name, workspace_display_name, lb_type=SHARED):
+    workspace_url = create_workspace_url(workspace_name, lb_type=lb_type)
     query = "INSERT INTO workspaces (id, display_name, url, tier, chargeable) VALUES \
         ('{}', '{}', '{}', 'Basic', 'FALSE')".format(
         workspace_name, workspace_display_name, workspace_url
@@ -144,8 +144,8 @@ def insert_workspace_to_db(workspace_name, workspace_display_name):
     database.execute_sql(query)
 
 
-def create_workspace(workspace_display_name):
-    response = create_workspace_on_cluster(workspace_display_name)
+def create_workspace(workspace_display_name, lb_type=SHARED):
+    response = create_workspace_on_cluster(workspace_display_name, lb_type=lb_type)
     if response.status_code != 201:
         print(response.content)
         return json.loads(response.content)
@@ -153,7 +153,7 @@ def create_workspace(workspace_display_name):
         workspace_info = json.loads(response.content)
     workspace_id = workspace_info["spec"]["name"]
     workspace_display_name = workspace_info["spec"]["description"]
-    insert_workspace_to_db(workspace_id, workspace_display_name)
+    insert_workspace_to_db(workspace_id, workspace_display_name, lb_type=lb_type)
     print("Workspace {} successfully created".format(workspace_display_name))
     print("Workspace ID: {}".format(workspace_id))
     return workspace_info
