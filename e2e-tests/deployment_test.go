@@ -389,7 +389,7 @@ func TestPrivateContainerRegistry(t *testing.T) {
 		Name:     name,
 		PhotonID: phoid,
 		ResourceRequirement: leptonaiv1alpha1.LeptonDeploymentResourceRequirement{
-			ResourceShape: leptonaiv1alpha1.GP1HiddenTest,
+			ResourceShape: leptonaiv1alpha1.GP1Small,
 			MinReplicas:   ptr.To[int32](1),
 		},
 		ImagePullSecrets: []string{pullSecretName},

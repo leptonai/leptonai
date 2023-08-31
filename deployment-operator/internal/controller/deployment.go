@@ -11,7 +11,6 @@ import (
 	"github.com/leptonai/lepton/go-pkg/k8s"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
-	"github.com/leptonai/lepton/go-pkg/version"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -200,7 +199,7 @@ func (k *deployment) newMainContainerCommand() []string {
 }
 
 func (k *deployment) newMainContainerArgs() []string {
-	lepInstallCmd := fmt.Sprintf("if ! command -v lep; then pip install https://lepton-sdk.s3.amazonaws.com/release/leptonai-%s-py3-none-any.whl; fi", version.Release)
+	lepInstallCmd := "if ! command -v lep; then pip install leptonai; fi"
 	leptonCmd := fmt.Sprintf("lep photon prepare -f %s; lep photon run -f %[1]s", k.photonDestPath())
 	return []string{"-c", lepInstallCmd + "; " + leptonCmd}
 }
