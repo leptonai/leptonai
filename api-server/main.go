@@ -9,12 +9,14 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/leptonai/lepton/api-server/httpapi"
 	"github.com/leptonai/lepton/api-server/util"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
 	"github.com/leptonai/lepton/go-pkg/kv"
+	"github.com/leptonai/lepton/go-pkg/metering"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
 	"github.com/leptonai/lepton/metrics"
@@ -282,6 +284,9 @@ func main() {
 	ipsh := httpapi.NewImagePullSecretHandler(*handler)
 	ipsh.AddToRoute(v1)
 
+	metering.RegisterStorageHandlers()
+	// update storage metrics every 60 seconds
+	go updateStorageMetrics(60)
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
@@ -335,5 +340,35 @@ func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
 			c.Request = c.Request.WithContext(ctx)
 		}
 		c.Next()
+	}
+}
+
+// exposeStorageMetrics exposes most recent storage metrics
+func exposeStorageMetrics() {
+	sizeWorkspace, err := goutil.TotalDirDiskUsageBytes(*storageMountPathFlag)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get workspace size",
+			"operation", "TotalDuDir",
+			"workspace", *workspaceNameFlag,
+			"error", err,
+		)
+		return
+	}
+	metering.GatherDiskUsage(*workspaceNameFlag, *clusterNameFlag, "efs", *efsIDFlag, int64(sizeWorkspace))
+}
+
+// updateStorageMetrics updates storage metrics every secondsDelay seconds
+func updateStorageMetrics(secondsDelay int) {
+	var lock sync.Mutex
+
+	timer := time.NewTicker(time.Second * time.Duration(secondsDelay))
+	defer timer.Stop()
+	for {
+		<-timer.C
+		go func() {
+			lock.Lock()
+			defer lock.Unlock()
+			exposeStorageMetrics()
+		}()
 	}
 }

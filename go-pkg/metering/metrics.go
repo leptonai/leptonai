@@ -5,6 +5,8 @@ import (
 )
 
 var (
+	// metering metrics are exposed by metering-sync and metering-aggregate
+	// used to monitor metering deployment health and data streaming to databases
 	meteringCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "lepton",
@@ -37,6 +39,26 @@ var (
 		},
 		[]string{"cluster_name"},
 	)
+
+	// storage metrics, exposed via the lepton api server
+	// used to gather storage usage data for billing purposes
+	storageDiskUsageBytes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "lepton",
+			Subsystem: "storage",
+			Name:      "workspace_usage_bytes",
+		},
+		[]string{
+			// which workspace is the data from?
+			"workspace_id",
+			//  which cluster is the data from?
+			"cluster_name",
+			// i.e 'efs'
+			"type",
+			// apiserver/httpapi/main.go's *efsIdFlag, for example
+			"storage_id",
+		},
+	)
 )
 
 func RegisterAggregateHandlers() {
@@ -54,6 +76,12 @@ func RegisterFineGrainHandlers() {
 	)
 }
 
+func RegisterStorageHandlers() {
+	prometheus.MustRegister(
+		storageDiskUsageBytes,
+	)
+}
+
 // GatherAggregate exports Prometheus metrics for metering-related aggregate operations
 func GatherAggregate(clusterName string, tableName string, dbHost string, latestAmount float64) {
 	meteringCounter.WithLabelValues(clusterName, tableName, dbHost).Inc()
@@ -68,4 +96,9 @@ func GatherFineGrain(clusterName string, tableName string, latestAmount float64,
 	if tableName == string(MeteringTableComputeFineGrain) {
 		meteringLDAmountFineGrain.WithLabelValues(clusterName).Set(latestLDAmount)
 	}
+}
+
+// GatherDiskUsage exports Prometheus metrics for workspace disk usage
+func GatherDiskUsage(workspaceId string, clusterName string, storageType string, storageId string, diskUsageBytes int64) {
+	storageDiskUsageBytes.WithLabelValues(workspaceId, clusterName, storageType, storageId).Set(float64(diskUsageBytes))
 }
