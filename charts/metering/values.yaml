@@ -2,7 +2,7 @@ metering:
   backfillEnabled: true
   syncEnabled: true
   aggregateEnabled: true
-  name: mothership-metering
+  name: metering
   syncName: sync
   aggregateName: aggregate
   backfillName: backfill
@@ -28,3 +28,4 @@ metering:
   kubecostNamespace: "kubecost-cost-analyzer"
   kubecostServiceName: "kubecost-cost-analyzer"
   kubecostPort: 9090
+  metricsPort: 31373

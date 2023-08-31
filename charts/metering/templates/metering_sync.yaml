@@ -1,8 +1,8 @@
-{{ if or .Values.metering.syncEnabled .Values.metering.aggregateEnabled }}
+{{ if .Values.metering.syncEnabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.metering.name }}-deployment
+  name: {{ .Values.metering.name }}-{{ .Values.metering.syncName }}-deployment
   namespace: metering
   labels:
     app: {{ .Values.metering.name }}
@@ -18,7 +18,6 @@ spec:
     spec:
       serviceAccountName: {{ .Values.metering.serviceAccountName }}
       containers:
-{{ if .Values.metering.syncEnabled}}
       - name: {{ .Values.metering.name }}-{{ .Values.metering.syncName }}-container
         env:
         - name: AURORA_USERNAME
@@ -55,46 +54,8 @@ spec:
           requests:
             cpu: {{ .Values.metering.service.resources.requests.cpu }}
             memory: {{ .Values.metering.service.resources.requests.memory }}
-{{ end }}
-{{ if .Values.metering.aggregateEnabled}}
-      - name: {{ .Values.metering.name }}-{{ .Values.metering.aggregateName}}-container
-        env:
-          - name: AURORA_USERNAME
-            valueFrom:
-              secretKeyRef:
-                name: mothership-rds-aurora-secret
-                key: username
-          - name: AURORA_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mothership-rds-aurora-secret
-                key: password
-          - name: SUPABASE_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: supabase-credential-secret
-                key: password
-        args:
-          - "metering"
-          - "aggregate"
-          - "--db-driver-name={{ .Values.metering.auroraDbDriver }}"
-          - "--db-host={{ .Values.metering.auroraDbHost }}"
-          - "--db-region={{ .Values.metering.region }}"
-          - "--db-port={{ .Values.metering.auroraDbPort }}"
-          - "--db-name={{ .Values.metering.auroraDbName }}"
-          - "--db-user=$(AURORA_USERNAME)"
-          - "--db-password=$(AURORA_PASSWORD)"
-          - "--supabase-password=$(SUPABASE_PASSWORD)"
-          - "--enable-compute"
-          - "--enable-storage"
-          - "--run-background"
-          - "--run-background-on=5"
-          - "--cluster-name={{ .Values.metering.clusterName }}"
-        image: {{ .Values.metering.image.repository }}:{{ .Values.metering.image.tag }}
-        imagePullPolicy: {{ .Values.metering.image.pullPolicy }}
-        resources:
-          requests:
-            cpu: {{ .Values.metering.service.resources.requests.cpu }}
-            memory: {{ .Values.metering.service.resources.requests.memory }}
-{{ end }}
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.metering.metricsPort }}
+          protocol: TCP
 {{ end }}

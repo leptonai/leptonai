@@ -85,7 +85,7 @@ mothership metering aggregate --start-time "7/11/2023 8:00PM" --table hourly
 	cmd.PersistentFlags().BoolVar(&runBackground, "run-background", false, "run hourly aggregate in background indefinitely, ignoring --start-time, --end-time, --table flags")
 	cmd.PersistentFlags().IntVar(&runBackgroundOn, "run-background-on", 5, "minute of hour to run aggregate each hour, must be between 0-59")
 	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to aggregate data on")
-	cmd.PersistentFlags().IntVar(&listenPort, "listen-port", 31374, "port to serve prometheus metrics on")
+	cmd.PersistentFlags().IntVar(&listenPort, "listen-port", 31373, "port to serve prometheus metrics on")
 	return cmd
 }
 

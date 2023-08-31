@@ -230,3 +230,17 @@ prometheus:
             # https://docs.solo.io/gloo-edge/latest/guides/observability/prometheus/#find-envoys-prometheus-stats
             replacement: $1:9091
             target_label: __address__
+
+- job_name: metering-metrics
+  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+  kubernetes_sd_configs:
+    - role: pod
+      namespaces:
+        names:
+          - metering
+
+  relabel_configs:
+    - source_labels:
+        - __meta_kubernetes_pod_name
+      action: keep
+      regex: ^metering-.+
