@@ -8,7 +8,8 @@ import {
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { MessageLoading } from "@lepton-libs/gradio/message-loading";
 import { ChatMessageItem, ChatService } from "@lepton-libs/gradio/chat.service";
-import { Avatar, Space, Typography } from "antd";
+import { MDMessage } from "@lepton-libs/gradio/md-message";
+import { Avatar, Typography } from "antd";
 import { forwardRef } from "react";
 
 export const ChatMessages = forwardRef<
@@ -80,10 +81,17 @@ export const ChatMessages = forwardRef<
                         )}
                       </Typography.Text>
                     )}
-                    <Space align="start" size={16}>
+                    <div
+                      css={css`
+                        display: flex;
+                        flex-direction: row;
+                        align-items: start;
+                      `}
+                    >
                       <div
                         css={css`
                           line-height: 0;
+                          margin-right: ${theme.padding}px;
                         `}
                       >
                         {ChatService.isUserMessage(item) ? (
@@ -107,39 +115,34 @@ export const ChatMessages = forwardRef<
                         )}
                       </div>
 
-                      {loading ? (
-                        <div
-                          css={css`
-                            line-height: 0;
-                          `}
-                        >
-                          <MessageLoading />
-                        </div>
-                      ) : (
-                        <Typography.Text
-                          type={item.error ? "danger" : undefined}
-                          css={css`
-                            position: relative;
-                            top: 1px;
-                          `}
-                        >
-                          <pre
+                      <div
+                        css={css`
+                          overflow: hidden;
+                        `}
+                      >
+                        {loading ? (
+                          <div
                             css={css`
-                              font-family: ${theme.fontFamily} !important;
-                              padding: 0 !important;
-                              margin: 0 !important;
-                              white-space: pre-wrap;
-                              word-wrap: break-word;
-                              background: transparent !important;
-                              border: none !important;
-                              border-radius: 0 !important;
+                              line-height: 0;
                             `}
                           >
-                            {item.error || item.message.content.trim()}
-                          </pre>
-                        </Typography.Text>
-                      )}
-                    </Space>
+                            <MessageLoading />
+                          </div>
+                        ) : (
+                          <MDMessage
+                            content={item.message.content}
+                            error={item.error}
+                            loading={item.loading}
+                            responseTime={item.responseTime}
+                            completionTime={
+                              item.message.role === "user"
+                                ? 1
+                                : item.completionTime
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

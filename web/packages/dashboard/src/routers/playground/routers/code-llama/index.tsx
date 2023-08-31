@@ -1,7 +1,10 @@
 import { ChatBot, MagicWandFilled } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
+import {
+  Scrollable,
+  ScrollableRef,
+} from "@lepton-dashboard/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
@@ -30,7 +33,7 @@ import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
-import { MDMessage } from "@lepton-dashboard/routers/playground/routers/code-llama/components/md-message";
+import { MDMessage } from "@lepton-libs/gradio/md-message";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
 import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
@@ -322,14 +325,26 @@ export const CodeLlama: FC = () => {
                 flex-direction: column;
               `}
             >
-              <MDMessage
-                content={message?.message.content}
-                error={message?.error}
-                loading={message?.loading}
-                responseTime={message?.responseTime}
-                completionTime={message?.completionTime}
+              <Scrollable
                 ref={scrollRef}
-              />
+                margin="8px"
+                position={["start", "end"]}
+                css={css`
+                  flex: 1;
+                  width: 100%;
+                  background-color: ${theme.colorBgContainer};
+                  padding: ${theme.paddingXS}px;
+                `}
+              >
+                <MDMessage
+                  single
+                  content={message?.message.content}
+                  error={message?.error}
+                  loading={message?.loading}
+                  responseTime={message?.responseTime}
+                  completionTime={message?.completionTime}
+                />
+              </Scrollable>
             </div>
           </div>
         </div>
