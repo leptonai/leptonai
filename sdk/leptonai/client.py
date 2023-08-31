@@ -90,7 +90,7 @@ class PathTree(object):
     def __call__(self):
         paths_ordered = list(self._all_paths)
         paths_ordered.sort()
-        path_separator = "\n-"
+        path_separator = "\n- "
         return (
             "A wrapper for leptonai Client that contains the following paths:\n"
             f"- {path_separator.join(paths_ordered)}\n"
@@ -130,14 +130,34 @@ class PathTree(object):
         if "/" in path:
             prefix, remaining = path.split("/", 1)
             prefix = self.rectify_name(prefix)
-            if prefix not in self._path_cache:
-                self._path_cache[prefix] = PathTree(
-                    name=(self.name + "." if self.name else "") + prefix
+            if prefix.isidentifier():
+                if prefix not in self._path_cache:
+                    self._path_cache[prefix] = PathTree(
+                        name=(self.name + "." if self.name else "") + prefix
+                    )
+                self._path_cache[prefix]._add(remaining, func)
+            else:
+                # temporarily ignore this path if it is not a valid identifier.
+                # this is to prevent the case where the path is something like
+                # "foo/{bar}" which we don't support yet.
+                warnings.warn(
+                    f"Path {path} is not a valid identifier. Ignoring for now.",
+                    RuntimeWarning,
                 )
-            self._path_cache[prefix]._add(remaining, func)
+                return
         else:
             path = self.rectify_name(path)
-            self._path_cache[path] = func
+            if path.isidentifier():
+                self._path_cache[path] = func
+            else:
+                # temporarily ignore this path if it is not a valid identifier.
+                # this is to prevent the case where the path is something like
+                # "foo/{bar}" which we don't support yet.
+                warnings.warn(
+                    f"Path {path} is not a valid identifier. Ignoring for now.",
+                    RuntimeWarning,
+                )
+                return
 
 
 class Client(object):
@@ -435,6 +455,10 @@ class Workspace(object):
                     "No workspace id specified, and it seems that you are not"
                     " logged in."
                 )
+        if (
+            workspace_id == WorkspaceInfoLocalRecord.get_current_workspace_id()
+            and not token
+        ):
             token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         self.workspace_id = workspace_id
         api_url = _get_full_workspace_api_url(workspace_id)
