@@ -120,6 +120,8 @@ spec:
                 items:
                   type: string
                 type: array
+              resource_provider:
+                type: string
               resource_requirement:
                 description: LeptonDeploymentResourceRequirement defines the resource
                   requirement of the deployment.

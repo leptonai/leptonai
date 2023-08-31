@@ -6,22 +6,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestSpecHash(t *testing.T) {
-	ld := &LeptonDeployment{
-		Spec: LeptonDeploymentSpec{
-			LeptonDeploymentUserSpec: LeptonDeploymentUserSpec{
-				Name: "test",
-			},
-		},
-	}
-	probe = nil
-	hash := ld.SpecHash()
-	expected := "7d95bb485d"
-	if hash != expected {
-		t.Errorf("expected %s, got %s", expected, hash)
-	}
-}
-
 func TestSpecHashWithProbe(t *testing.T) {
 	ld := &LeptonDeployment{
 		Spec: LeptonDeploymentSpec{

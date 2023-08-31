@@ -1,6 +1,6 @@
 package leptonlabels
 
-var (
+const (
 	// TODO: Depreciate the old labels
 	LabelKeyPhotonNameDepreciated            = "photon_name"
 	LabelKeyPhotonIDDepreciated              = "photon_id"
@@ -11,4 +11,10 @@ var (
 	LabelKeyPhotonID              = "photon.lepton.ai/id"
 	LabelKeyLeptonDeploymentName  = "deployment.lepton.ai/name"
 	LabelKeyLeptonDeploymentShape = "deployment.lepton.ai/shape"
+
+	LabelKeyLeptonResourceProvider = "lepton.ai/resource-provider"
+)
+
+const (
+	LabelValueResourceProviderLambdaLabs = "lambdalabs"
 )

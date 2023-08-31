@@ -220,7 +220,8 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 	// NOTE: gpu operator automatically adds tolerations to GPU pods
 	// we just need GPU node taints
 	// ref. https://github.com/leptonai/lepton/issues/1220
-	// tolerations := []corev1.Toleration{}
+
+	tolerations := []corev1.Toleration{}
 	nodeSelector := map[string]string{}
 	if k.gpuEnabled() {
 		_, acctype := ld.Spec.ResourceRequirement.GetAcceleratorRequirement()
@@ -358,6 +359,25 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 
 	for _, sn := range ld.Spec.ImagePullSecrets {
 		spec.ImagePullSecrets = append(spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.ImagePullSecretPrefix + sn})
+	}
+
+	if ld.Spec.ResourceProvider != nil {
+		// add tolerations for the satellite providers
+		// - key: "$LabelKeyLeptonResourceProvider"
+		// operator: "Equal"
+		// value: "$ResourceProvider"
+		// effect: "NoSchedule"
+		spec.Tolerations = append(tolerations, corev1.Toleration{
+			Key:      leptonlabels.LabelKeyLeptonResourceProvider,
+			Operator: corev1.TolerationOpEqual,
+			Value:    *ld.Spec.ResourceProvider,
+			Effect:   corev1.TaintEffectNoSchedule,
+		})
+		spec.NodeSelector[leptonlabels.LabelKeyLeptonResourceProvider] = *ld.Spec.ResourceProvider
+		// TODO: remove this after Lambda Labs support Pod networking
+		if *ld.Spec.ResourceProvider == leptonlabels.LabelValueResourceProviderLambdaLabs {
+			spec.HostNetwork = true
+		}
 	}
 
 	return spec

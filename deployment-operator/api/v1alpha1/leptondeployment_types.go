@@ -76,6 +76,8 @@ type LeptonDeploymentUserSpec struct {
 	Mounts []Mount `json:"mounts"`
 	// +optional
 	ImagePullSecrets []string `json:"pull_image_secrets"`
+	// +optional
+	ResourceProvider *string `json:"resource_provider,omitempty"`
 }
 
 // Autoscaler defines the auto scaling behavior.
