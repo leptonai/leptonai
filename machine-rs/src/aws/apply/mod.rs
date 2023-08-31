@@ -807,24 +807,6 @@ pub async fn execute(log_level: &str, spec_file_path: &str, skip_prompt: bool) -
     log::info!("waiting for bootstrap and ready (to be safe)");
     sleep(Duration::from_secs(20)).await;
 
-    for ssh_command in ssh_commands.iter() {
-        match ssh_command.run("tail -10 /var/log/cloud-init-output.log") {
-            Ok(output) => {
-                println!(
-                    "{} init script std output:\n{}\n",
-                    ssh_command.instance_id, output.stdout
-                );
-                if !output.stderr.trim().is_empty() {
-                    println!(
-                        "{} init script std err:\n{}\n",
-                        ssh_command.instance_id, output.stderr
-                    );
-                }
-            }
-            Err(e) => log::warn!("failed to run ssh command {}", e),
-        }
-    }
-
     if spec.wait_for_init_script_completion {
         log::info!("waiting for init script completion");
         for ssh_command in ssh_commands.iter() {
