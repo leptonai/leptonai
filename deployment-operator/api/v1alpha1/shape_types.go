@@ -13,6 +13,9 @@ const (
 	// Not supported yet
 	// AC1A100 = LeptonDeploymentResourceShape("ac1.a100")
 
+	// Tuna Dummy Shape for billing
+	TunaMedium = LeptonDeploymentResourceShape("tuna.medium")
+
 	// Other
 	Customized = LeptonDeploymentResourceShape("customized")
 )

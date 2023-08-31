@@ -2,21 +2,30 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
+	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/k8s/leptonlabels"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/gin-gonic/gin"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type TunaInference struct {
@@ -84,7 +93,8 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 	}
 
 	if !ih.isSysWorkspace {
-		ti.Metadata.Name = ih.workspaceName + "-" + ti.Metadata.Name
+		name := ti.Metadata.Name
+		ti.Metadata.Name = ih.workspaceName + "-" + name
 		r := c.Request.Clone(c)
 
 		jti, err := json.Marshal(ti)
@@ -101,6 +111,17 @@ func (ih *InferenceHandler) Create(c *gin.Context) {
 		r.ContentLength = int64(len(jti))
 
 		ih.sysProxy.ServeHTTP(c.Writer, r)
+
+		err = createDummyDeployment(name, ih.namespace)
+		if err != nil {
+			goutil.Logger.Errorw("failed to create dummy deployment for billing",
+				"operation", "createTunaInference",
+				"deployment", name,
+				"error", err,
+			)
+			return
+		}
+
 		return
 	}
 
@@ -148,11 +169,23 @@ func (ih *InferenceHandler) Get(c *gin.Context) {
 
 // Delete deletes a tuna inference deployment
 func (ih *InferenceHandler) Delete(c *gin.Context) {
+	name := c.Param("tiname")
+
 	if !ih.isSysWorkspace {
 		ih.forwardToSysWorkspace(c)
+
+		err := deleteDummyDeployment(name, ih.namespace)
+		if err != nil && !apierrors.IsNotFound(err) {
+			goutil.Logger.Errorw("failed to delete dummy deployment for billing",
+				"operation", "deleteTunaInference",
+				"deployment", name,
+				"error", err,
+			)
+		}
+
 		return
 	}
-	name := c.Param("tiname")
+
 	ih.deleteDeployment(c, tunaDeploymentName(name))
 }
 
@@ -190,4 +223,65 @@ func (ih *InferenceHandler) forwardToSysWorkspace(c *gin.Context) {
 	r := c.Request.Clone(c)
 	r.URL.Path = strings.Replace(r.URL.Path, "/tuna/inference/", "/tuna/inference/"+ih.workspaceName+"-", 1)
 	ih.sysProxy.ServeHTTP(c.Writer, r)
+}
+
+// create a dummy deployment in this namespace for billing purpose
+func createDummyDeployment(name, namespace string) error {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tuna-dummy-" + name,
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app.kubernetes.io/name":                             "tuna-dummy-" + name,
+					leptonlabels.LabelKeyLeptonDeploymentNameDepreciated: "tuna-dummy-" + name,
+					leptonlabels.LabelKeyLeptonDeploymentName:            "tuna-dummy-" + name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app.kubernetes.io/name":                              "tuna-dummy-" + name,
+						leptonlabels.LabelKeyLeptonDeploymentShapeDepreciated: string(leptonaiv1alpha1.TunaMedium),
+						leptonlabels.LabelKeyLeptonDeploymentShape:            string(leptonaiv1alpha1.TunaMedium),
+						leptonlabels.LabelKeyLeptonDeploymentNameDepreciated:  "tuna-dummy-" + name,
+						leptonlabels.LabelKeyLeptonDeploymentName:             "tuna-dummy-" + name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    "sleep-container",
+							Image:   "alpine",
+							Command: []string{"sleep", "infinity"},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("0"),
+									corev1.ResourceMemory: resource.MustParse("0"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return k8s.MustLoadDefaultClient().Create(ctx, deployment)
+}
+
+func deleteDummyDeployment(name, namespace string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return k8s.MustLoadDefaultClient().Delete(ctx, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tuna-dummy-" + name,
+			Namespace: namespace,
+		},
+	})
 }

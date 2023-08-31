@@ -9,6 +9,7 @@ import (
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/deploymentutil"
 	"github.com/leptonai/lepton/go-pkg/k8s"
+	"github.com/leptonai/lepton/go-pkg/k8s/leptonlabels"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 
@@ -31,17 +32,6 @@ const (
 
 	nvidiaGPUProductLabelKey = "nvidia.com/gpu.product"
 	nvidiaGPUResourceKey     = "nvidia.com/gpu"
-
-	// TODO: Depreciate the old labels
-	labelKeyPhotonNameDepreciated            = "photon_name"
-	labelKeyPhotonIDDepreciated              = "photon_id"
-	labelKeyLeptonDeploymentNameDepreciated  = "lepton_deployment_name"
-	labelKeyLeptonDeploymentShapeDepreciated = "lepton_deployment_shape"
-
-	labelKeyPhotonName            = "photon.lepton.ai/name"
-	labelKeyPhotonID              = "photon.lepton.ai/id"
-	labelKeyLeptonDeploymentName  = "deployment.lepton.ai/name"
-	labelKeyLeptonDeploymentShape = "deployment.lepton.ai/shape"
 
 	readinessProbeInitialDelaySeconds = 5
 	readinessProbePeriodSeconds       = 5
@@ -81,12 +71,12 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				labelKeyPhotonIDDepreciated:              ld.Spec.PhotonID,
-				labelKeyPhotonID:                         ld.Spec.PhotonID,
-				labelKeyLeptonDeploymentNameDepreciated:  ld.GetSpecName(),
-				labelKeyLeptonDeploymentName:             ld.GetSpecName(),
-				labelKeyLeptonDeploymentShapeDepreciated: ld.GetShape(),
-				labelKeyLeptonDeploymentShape:            ld.GetShape(),
+				leptonlabels.LabelKeyPhotonIDDepreciated:              ld.Spec.PhotonID,
+				leptonlabels.LabelKeyPhotonID:                         ld.Spec.PhotonID,
+				leptonlabels.LabelKeyLeptonDeploymentNameDepreciated:  ld.GetSpecName(),
+				leptonlabels.LabelKeyLeptonDeploymentName:             ld.GetSpecName(),
+				leptonlabels.LabelKeyLeptonDeploymentShapeDepreciated: ld.GetShape(),
+				leptonlabels.LabelKeyLeptonDeploymentShape:            ld.GetShape(),
 			},
 		},
 		Spec: *podSpec,
@@ -98,12 +88,12 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 			Name:      ld.GetSpecName(),
 			Namespace: ld.Namespace,
 			Labels: map[string]string{
-				labelKeyPhotonNameDepreciated:           ld.Spec.PhotonName,
-				labelKeyPhotonName:                      ld.Spec.PhotonName,
-				labelKeyPhotonIDDepreciated:             ld.Spec.PhotonID,
-				labelKeyPhotonID:                        ld.Spec.PhotonID,
-				labelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
-				labelKeyLeptonDeploymentName:            ld.GetSpecName(),
+				leptonlabels.LabelKeyPhotonNameDepreciated:           ld.Spec.PhotonName,
+				leptonlabels.LabelKeyPhotonName:                      ld.Spec.PhotonName,
+				leptonlabels.LabelKeyPhotonIDDepreciated:             ld.Spec.PhotonID,
+				leptonlabels.LabelKeyPhotonID:                        ld.Spec.PhotonID,
+				leptonlabels.LabelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
+				leptonlabels.LabelKeyLeptonDeploymentName:            ld.GetSpecName(),
 			},
 			Annotations:     newAnnotationsWithSpecHash(ld),
 			OwnerReferences: or,
@@ -112,8 +102,8 @@ func (k *deployment) createDeployment(or []metav1.OwnerReference) *appsv1.Deploy
 			Replicas: ld.Spec.ResourceRequirement.MinReplicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					labelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
-					labelKeyLeptonDeploymentName:            ld.GetSpecName(),
+					leptonlabels.LabelKeyLeptonDeploymentNameDepreciated: ld.GetSpecName(),
+					leptonlabels.LabelKeyLeptonDeploymentName:            ld.GetSpecName(),
 				},
 			},
 			Template: template,

@@ -2,6 +2,7 @@ package controller
 
 import (
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/go-pkg/k8s/leptonlabels"
 	"github.com/leptonai/lepton/go-pkg/k8s/service"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ func (k *Service) createService(or []metav1.OwnerReference) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				labelKeyLeptonDeploymentName: ld.GetSpecName(),
+				leptonlabels.LabelKeyLeptonDeploymentName: ld.GetSpecName(),
 			},
 			Ports: []corev1.ServicePort{
 				{
