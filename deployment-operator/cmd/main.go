@@ -22,20 +22,20 @@ import (
 	"os"
 	"time"
 
+	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
+	"github.com/leptonai/lepton/deployment-operator/internal/controller"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"github.com/solo-io/gloo/projects/gloo/cli/pkg/helpers"
+	_ "go.uber.org/automaxprocs"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
-	"github.com/leptonai/lepton/deployment-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
 

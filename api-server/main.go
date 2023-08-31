@@ -25,6 +25,7 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "go.uber.org/automaxprocs"
 	_ "gocloud.dev/blob/s3blob"
 )
 
