@@ -179,6 +179,11 @@ func (c *Cluster) Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec
 		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
 	}
 
+	// Assume gin router limit only 1 concurrent request
+	if err := c.validateClusterSpec(ctx, spec); err != nil {
+		return nil, fmt.Errorf("invalid cluster spec %s: %s", clusterName, err)
+	}
+
 	totalClusters := metrics.GetTotalClusters(prometheus.DefaultGatherer)
 	log.Printf("currently total %d clusters... creating one more", totalClusters)
 	if totalClusters >= maxClusters {
@@ -227,6 +232,15 @@ func (c *Cluster) Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec
 	// only allow updating certain fields
 	if spec.GitRef != "" {
 		cl.Spec.GitRef = spec.GitRef
+	}
+
+	if spec.Subdomain != "" {
+		cl.Spec.Subdomain = spec.Subdomain
+	}
+
+	// Assume gin router limit only 1 concurrent request
+	if err := c.validateClusterSpec(ctx, cl.Spec); err != nil {
+		return nil, fmt.Errorf("invalid cluster spec %s: %s", clusterName, err)
 	}
 
 	if err := c.DataStore.Update(ctx, clusterName, cl); err != nil {
@@ -678,4 +692,17 @@ func (c *Cluster) updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster
 	cl.Status.State = state
 	cl.Status.UpdatedAt = uint64(time.Now().Unix())
 	return c.DataStore.UpdateStatus(ctx, cl.Spec.Name, cl)
+}
+
+func (c *Cluster) validateClusterSpec(ctx context.Context, newSpec crdv1alpha1.LeptonClusterSpec) error {
+	clusters, err := c.DataStore.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list clusters")
+	}
+	for _, c := range clusters {
+		if newSpec.Name != c.Spec.Name && newSpec.Subdomain == c.Spec.Subdomain {
+			return fmt.Errorf("subdomain %s is already used by cluster %s", newSpec.Subdomain, c.Spec.Name)
+		}
+	}
+	return nil
 }

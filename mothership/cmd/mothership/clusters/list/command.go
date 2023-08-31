@@ -67,12 +67,12 @@ func listFunc(cmd *cobra.Command, args []string) {
 	log.Printf("fetched %d clusters from mothership API", len(rs))
 
 	eksAPIs := make(map[string]*aws_eks_v2.Client)
-	colums := []string{"name", "alias", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
+	colums := []string{"name", "subdomain", "provider", "region", "git-ref", "state", "eks k8s version", "eks status", "eks health"}
 
 	stsID, err := aws.GetCallerIdentity()
 	if err != nil {
 		log.Printf("no AWS access -- skipping AWS API call, setting select-kubeconfig to false (%v)", err)
-		colums = []string{"name", "alias", "provider", "region", "git-ref", "state"}
+		colums = []string{"name", "subdomain", "provider", "region", "git-ref", "state"}
 	} else {
 		log.Printf("inspecting AWS resources using %v", *stsID.Arn)
 		for _, c := range rs {

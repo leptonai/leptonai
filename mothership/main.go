@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/leptonai/lepton/go-pkg/httperrors"
@@ -88,6 +89,7 @@ func main() {
 
 	api := router.Group("/api")
 	v1 := api.Group("/v1")
+	v1.Use(concurrentRWControlMiddleware())
 
 	v1.GET("/info", httpapi.NewInfoHandler().HandleGet)
 
@@ -219,4 +221,20 @@ func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
 			},
 		),
 	)
+}
+
+func concurrentRWControlMiddleware() gin.HandlerFunc {
+	var lock sync.RWMutex
+	return func(c *gin.Context) {
+		switch c.Request.Method {
+		case http.MethodPut, http.MethodPost, http.MethodPatch, http.MethodDelete:
+			lock.Lock()
+			defer lock.Unlock()
+			c.Next()
+		case http.MethodGet:
+			lock.RLock()
+			defer lock.RUnlock()
+			c.Next()
+		}
+	}
 }
