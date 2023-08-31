@@ -285,3 +285,9 @@ variable "alertmanager_target_namespaces" {
   description = "alertmanager target namespaces filter"
   default     = ".*"
 }
+
+variable "satellite_node_user_arn" {
+  description = "AWS IAM user ARN for assuming satellite nodes"
+  type        = string
+  default     = null
+}

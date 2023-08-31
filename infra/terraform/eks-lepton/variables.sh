@@ -123,3 +123,7 @@ fi
 if [[ "$ALERTMANAGER_SLACK_WEBHOOK_URL" != "" ]]; then
     APPLY_FLAGS+=("-var=alertmanager_slack_webhook_url=$ALERTMANAGER_SLACK_WEBHOOK_URL")
 fi
+
+if [[ "$SATELLITE_NODE_USER_ARN" != "" ]]; then
+    APPLY_FLAGS+=("-var=satellite_node_user_arn=$SATELLITE_NODE_USER_ARN")
+fi
