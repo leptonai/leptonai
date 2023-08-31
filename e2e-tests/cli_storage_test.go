@@ -223,3 +223,17 @@ func TestCLIStorageDownload(t *testing.T) {
 		t.Fatalf("Expected downloaded file %s to equal uploaded file %s", downloadPath, testFilePath)
 	}
 }
+
+func TestCLIGetDiskUsage(t *testing.T) {
+	output, err := client.Login("")
+	if err != nil {
+		t.Fatal("Login failed", err, output)
+	}
+	du, err := lepton.Storage().TotalDiskUsageBytes()
+	if err != nil {
+		t.Fatalf("Storage get disk usage failed: %s", err)
+	}
+	if du < 0 {
+		t.Fatalf("Expected disk usage to be non-negative, got %d", du)
+	}
+}

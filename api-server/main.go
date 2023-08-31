@@ -186,7 +186,7 @@ func main() {
 
 	v1 := api.Group("/v1")
 
-	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, *tierFlag, workspaceState)
+	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, *tierFlag, *storageMountPathFlag, workspaceState)
 	v1.GET("/workspace", wih.HandleGet)
 
 	v1.GET("/photons", handler.PhotonHanlder().List)
@@ -270,6 +270,7 @@ func main() {
 		v1.PUT("/storage/default/*path", sh.CreateDir)
 		v1.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
 		v1.HEAD("/storage/default/*path", sh.CheckExists)
+		v1.GET("/storage/du", sh.TotalDiskUsageBytes)
 	}
 
 	if *efsIDFlag != "" {

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -75,4 +77,31 @@ func IsEmptyDir(name string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+// wrapper for du command
+func Du(args ...string) (string, error) {
+	cmd := exec.Command("du", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// note: -b flag not supported by macOS
+func TotalDirDiskUsageBytes(dirPath string) (int, error) {
+	stdout, err := Du("-sb", dirPath)
+	if err != nil {
+		return 0, err
+	}
+
+	stdout = strings.TrimSuffix(stdout, "\n")
+	stdout = strings.TrimSuffix(stdout, dirPath)
+	stdout = strings.TrimSpace(stdout)
+	size, err := strconv.Atoi(stdout)
+	if err != nil {
+		return 0, err
+	}
+	return size, nil
 }

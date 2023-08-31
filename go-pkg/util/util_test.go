@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -232,6 +233,65 @@ func TestIsEmpty(t *testing.T) {
 	}
 	if isEmpty {
 		t.Errorf("IsEmpty(%s) = true; want false", newPath)
+	}
+}
+
+func TestDu(t *testing.T) {
+	mntPath := "/tmp/" + RandString(10)
+	err := os.MkdirAll(mntPath, 0777)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = Du(mntPath)
+	if err != nil {
+		t.Errorf("Du(%s) threw error: %v", mntPath, err)
+	}
+
+	flags := []string{"-s", "-h", "-c", "-k"}
+	for _, flag := range flags {
+		_, err := Du(flag, mntPath)
+		if err != nil {
+			t.Errorf("Du(%s %s) threw error: %v", mntPath, flag, err)
+		}
+	}
+
+	stdout, err := Du("-s", mntPath)
+	if err != nil {
+		t.Errorf("Du(%s -s) threw error: %v", mntPath, err)
+	}
+	if !strings.Contains(stdout, mntPath) {
+		t.Errorf("Du(%s -s) = %s; want it to contain %s", mntPath, stdout, mntPath)
+	}
+}
+
+func TestTotalDuDir(t *testing.T) {
+	mntPath := "/tmp/" + RandString(10)
+	err := os.MkdirAll(mntPath, 0777)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// create a 1 MB file
+	file, err := os.Create(mntPath + "/" + RandString(10))
+	if err != nil {
+		t.Errorf("could not create file at %s: %v", mntPath, err)
+	}
+	defer file.Close()
+	_, err = file.Write(make([]byte, 1024*1024))
+	if err != nil {
+		t.Errorf("could not write to file at %s: %v", mntPath, err)
+	}
+
+	sizeBytes, err := TotalDirDiskUsageBytes(mntPath)
+	if err != nil {
+		t.Errorf("TotalDirDiskUsageKB(%s) threw error: %v", mntPath, err)
+	}
+	sizeDiff := sizeBytes - 1024*1024
+	if sizeDiff < 0 {
+		sizeDiff = -1 * sizeDiff
+	}
+	if sizeDiff > 5*1024 {
+		t.Errorf("got size %d bytes, want within 5 kb of %d bytes", sizeBytes, 1024)
 	}
 }
 

@@ -19,6 +19,8 @@ type WorkspaceInfo struct {
 	WorkspaceTier  string         `json:"workspace_tier"`
 	WorkspaceState WorkspaceState `json:"workspace_state"`
 
+	WorkspaceDiskUsageBytes int64 `json:"workspace_disk_usage_bytes"`
+
 	ResourceQuota ResourceQuota `json:"resource_quota"`
 }
 
@@ -40,11 +42,12 @@ const (
 
 type WorkspaceInfoHandler struct {
 	Handler
-	WorkspaceInfo *WorkspaceInfo
+	WorkspaceInfo      *WorkspaceInfo
+	WorkspaceMountPath string
 }
 
 // NewWorkspaceInfoHandler creates a new WorkspaceInfoHandler
-func NewWorkspaceInfoHandler(h Handler, workspaceName string, tier string, workspaceState WorkspaceState) *WorkspaceInfoHandler {
+func NewWorkspaceInfoHandler(h Handler, workspaceName string, tier string, mountPath string, workspaceState WorkspaceState) *WorkspaceInfoHandler {
 	cih := &WorkspaceInfoHandler{
 		Handler: h,
 		WorkspaceInfo: &WorkspaceInfo{
@@ -53,6 +56,7 @@ func NewWorkspaceInfoHandler(h Handler, workspaceName string, tier string, works
 			WorkspaceTier:  tier,
 			WorkspaceState: workspaceState,
 		},
+		WorkspaceMountPath: mountPath,
 	}
 
 	return cih
@@ -71,6 +75,18 @@ func (wi *WorkspaceInfoHandler) HandleGet(c *gin.Context) {
 	}
 	wi.WorkspaceInfo.ResourceQuota.Limit = quota.RemoveSystemLimitOverhead(quota.GetTotalResource(q.Status.Hard))
 	wi.WorkspaceInfo.ResourceQuota.Used = quota.RemoveSystemUsageOverhead(quota.GetTotalResource(q.Status.Used))
+
+	sizeWorkspace, err := goutil.TotalDirDiskUsageBytes(wi.WorkspaceMountPath)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get workspace size",
+			"operation", "TotalDuDir",
+			"workspace", wi.WorkspaceInfo.WorkspaceName,
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": "failed to get workspace size: " + err.Error()})
+		return
+	}
+	wi.WorkspaceInfo.WorkspaceDiskUsageBytes = int64(sizeWorkspace)
 
 	c.JSON(http.StatusOK, wi.WorkspaceInfo)
 }

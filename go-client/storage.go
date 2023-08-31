@@ -14,6 +14,7 @@ import (
 )
 
 const storagePath = "/storage/default"
+const duPath = "/storage/du"
 
 type Storage struct {
 	Lepton
@@ -30,6 +31,18 @@ func (s *Storage) Ls(filePath string) ([]map[string]string, error) {
 		return nil, err
 	}
 	return ret, nil
+}
+
+func (s *Storage) TotalDiskUsageBytes() (int, error) {
+	output, err := s.http.RequestPath(http.MethodGet, duPath, nil, nil)
+	if err != nil {
+		return 0, err
+	}
+	ret := map[string]int{}
+	if err := json.Unmarshal(output, &ret); err != nil {
+		return 0, err
+	}
+	return ret["TotalDiskUsage"], nil
 }
 
 func (s *Storage) Mkdir(filePath string) error {

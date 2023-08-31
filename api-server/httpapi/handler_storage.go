@@ -101,6 +101,22 @@ func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 	}
 }
 
+// DiskUsage returns the total number of bytes stored in the filesystem
+func (sh *StorageHandler) TotalDiskUsageBytes(c *gin.Context) {
+	size, err := goutil.TotalDirDiskUsageBytes(sh.mountPath)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get total disk usage",
+			"operation", "totalDiskUsage",
+			"mountPath", sh.mountPath,
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": httperrors.ErrorCodeInternalFailure, "message": err.Error()})
+		return
+	}
+	c.Header("Content-Type", "application/json")
+	c.JSON(http.StatusOK, gin.H{"totalDiskUsageBytes": size})
+}
+
 func (sh *StorageHandler) CreateDir(c *gin.Context) {
 	relPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relPath)
