@@ -13,6 +13,7 @@ from .util import (
     guard_api,
     get_connection_or_die,
     explain_response,
+    sizeof_fmt,
 )
 
 custom_theme = Theme(
@@ -69,6 +70,22 @@ def storage():
     and directories in your workspace.
     """
     pass
+
+
+@storage.command()
+def du():
+    """
+    Returns total disk usage of the workspace
+    """
+    conn = get_connection_or_die()
+    usage = guard_api(
+        api.du(conn),
+        detail=True,
+        msg="du failed. See error message above.",
+    )
+    print(usage)
+    humanized_usage = sizeof_fmt(usage["totalDiskUsageBytes"])
+    console.print(f"Total disk usage: {humanized_usage}")
 
 
 @storage.command()

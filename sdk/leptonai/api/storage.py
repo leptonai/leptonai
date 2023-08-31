@@ -122,3 +122,11 @@ def download_file(conn: Connection, remote_path: str, local_path: str):
         return {"name": local_path}
     else:
         return APIError(response)
+
+
+def du(conn: Connection):
+    """
+    Get the total disk usage of the current workspace.
+    """
+    response = conn.get("/storage/du")
+    return json_or_error(response)

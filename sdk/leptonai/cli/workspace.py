@@ -7,12 +7,7 @@ from rich.table import Table
 
 from leptonai.api import workspace as api
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
-from .util import (
-    click_group,
-    get_connection_or_die,
-    check,
-    guard_api,
-)
+from .util import click_group, get_connection_or_die, check, guard_api, sizeof_fmt
 
 console = Console(highlight=False)
 
@@ -262,6 +257,7 @@ def status():
     # the workspace id in the frontend definition. If we decide to consolidate
     # naming, consider changing it.
     id = info["workspace_name"]
+
     console.print(f"id:         {id}")
     console.print(
         f"name:       {WorkspaceInfoLocalRecord._get_current_workspace_display_name()}"
@@ -269,6 +265,7 @@ def status():
     console.print(f"state:      {info['workspace_state']}")
     console.print(f"build time: {info['build_time']}")
     console.print(f"version:    {info['git_commit']}")
+    console.print(f"Disk Usage: {sizeof_fmt(info['workspace_disk_usage_bytes'])}")
     console.print("quota usage:")
     quota = info["resource_quota"]
     quota_limit = quota["limit"]

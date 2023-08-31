@@ -135,3 +135,15 @@ def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
             return
         else:
             sys.exit(1)
+
+
+def sizeof_fmt(num, suffix="B"):
+    """
+    Convert a quantity of bytes to a human readable format.
+    ref: https://web.archive.org/web/20111010015624/http://blogmag.net/blog/read/38/Print_human_readable_file_size
+    """
+    for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
