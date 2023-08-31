@@ -1,0 +1,69 @@
+# https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/Chart.yaml
+# https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+toolkit:
+  enabled: true
+  repository: nvcr.io/nvidia/k8s
+  image: container-toolkit
+  version: ${toolkit_version}
+
+dcgmExporter:
+  enabled: true
+
+  # repository: nvcr.io/nvidia/k8s
+  repository: ${dcgm_exporter_container_repo}
+
+  image: dcgm-exporter
+  version: 3.1.8-3.1.5-ubuntu20.04
+
+  imagePullPolicy: IfNotPresent
+
+daemonsets:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+
+    # TODO: add this taint to all GPU nodes to disable calico?
+    # TODO: tolerate this to run GPU operator components on satellite nodes
+    # - key: lepton.io/provider
+    #   operator: Exists
+    #   effect: NoSchedule
+
+operator:
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Equal
+      value: ""
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Equal
+      value: ""
+      effect: NoSchedule
+
+    # TODO: add this taint to all GPU nodes to disable calico?
+    # TODO: tolerate this to run GPU operator components on satellite nodes
+    # - key: lepton.io/provider
+    #   operator: Exists
+    #   effect: NoSchedule
+
+node-feature-discovery:
+  enableNodeFeatureApi: true
+  worker:
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Equal
+        value: ""
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Equal
+        value: ""
+        effect: NoSchedule
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+    # TODO: add this taint to all GPU nodes to disable calico?
+    # TODO: tolerate this to run GPU operator components on satellite nodes
+    # - key: lepton.io/provider
+    #   operator: Exists
+    #   effect: NoSchedule
