@@ -1,4 +1,5 @@
-from typing import Callable, Dict, List, Optional
+import keyword
+from typing import Callable, Dict, List, Set, Optional, Union, Iterable
 from urllib.parse import urljoin
 import warnings
 
@@ -51,6 +52,94 @@ def current() -> str:
     return id
 
 
+class PathTree(object):
+    def __init__(self, name=""):
+        self._path_cache: Dict[str, Union[Callable, PathTree]] = {}
+        self._all_paths: Set[str] = set()
+        self.name = name
+
+    def __getattr__(self, name: str) -> Union[Callable, "PathTree"]:
+        try:
+            return self._path_cache[name]
+        except KeyError:
+            raise AttributeError(
+                f"No such path named {name} found. I am currently at {self.name} and"
+                f" available members are ({','.join(self._path_cache.keys())})."
+            )
+
+    def __dir__(self) -> Iterable[str]:
+        return self._path_cache.keys()
+
+    def __getitem__(self, name: str) -> Union[Callable, "PathTree"]:
+        try:
+            return self._path_cache[name]
+        except KeyError:
+            raise AttributeError(
+                f"No such path named {name} found. I am currently at {self.name} and"
+                f" available members are ({','.join(self._path_cache.keys())})."
+            )
+
+    def __setitem__(
+        self, name: str, value: Union[Callable, "PathTree"]
+    ) -> None:  # noqa
+        raise NotImplementedError(
+            "PathTree does not support dictionary-type set. Use add(path, func)"
+            " instead."
+        )
+
+    def __call__(self):
+        paths_ordered = list(self._all_paths)
+        paths_ordered.sort()
+        path_separator = "\n-"
+        return (
+            "A wrapper for leptonai Client that contains the following paths:\n"
+            f"- {path_separator.join(paths_ordered)}\n"
+        )
+
+    def _has(self, path_or_name: str) -> bool:
+        return path_or_name in self._all_paths or path_or_name in self._path_cache
+
+    @staticmethod
+    def rectify_name(name: str) -> str:
+        """
+        Rectifies the path to be a valid python identifier. For example,
+        "foo/bar" will be converted to "foo_bar".
+        """
+        if keyword.iskeyword(name):
+            name += "_"
+        return name.replace("-", "_").replace(".", "_")
+
+    # implementation note: prefixing this function with "_" in case there is
+    # an api function that is called "add". Ditto for "_has" above.
+    def _add(self, path: str, func: Callable):
+        """
+        Adds a path to the path tree. The path can contain "/"s, in which each "/"
+        will be split and converted to children nodes.
+        """
+        if path in self._all_paths:
+            warnings.warn(
+                "Adding a path that already exists. This is not an issue of the"
+                " runtime, but a deployment issue.",
+                RuntimeWarning,
+            )
+        # Record all paths for bookkeeping purposes.
+        self._all_paths.add(path)
+        # Remove the leading and trailing slashes, which are not needed.
+        path = path.strip("/")
+
+        if "/" in path:
+            prefix, remaining = path.split("/", 1)
+            prefix = self.rectify_name(prefix)
+            if prefix not in self._path_cache:
+                self._path_cache[prefix] = PathTree(
+                    name=(self.name + "." if self.name else "") + prefix
+                )
+            self._path_cache[prefix]._add(remaining, func)
+        else:
+            path = self.rectify_name(path)
+            self._path_cache[path] = func
+
+
 class Client(object):
     """
     The lepton python client that calls a deployment in a workspace.
@@ -72,7 +161,6 @@ class Client(object):
         client = Client("https://my-custom-lepton-deployment.com/")
     """
 
-    _path_cache: Dict[str, Callable] = {}
     openapi: Dict = {}
 
     # TODO: add support for creating client with name/id
@@ -142,9 +230,9 @@ class Client(object):
             token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
-        self._path_cache = {}
-        self.stream = stream
-        self.chunk_size = chunk_size
+        self._path_cache: PathTree = PathTree()
+        self.stream: Optional[bool] = stream
+        self.chunk_size: Optional[int] = chunk_size
 
         # Check healthz to see if things are properly working
         if not self.healthz():
@@ -185,11 +273,7 @@ class Client(object):
 
         # At load time, we will also set up all path caches.
         for path_name in self.paths():
-            function_name = path_name[1:] if path_name.startswith("/") else path_name
-            # Replace the slashes and dashes in function_name with underscore
-            # to make it a valid python function name.
-            function_name = function_name.replace("/", "_").replace("-", "_")
-            if function_name in self._path_cache:
+            if self._path_cache._has(path_name):
                 warnings.warn(
                     "Multiple endpoints with the same name detected. This is not"
                     " an issue of the runtime - it is caused by the deployment giving"
@@ -198,13 +282,11 @@ class Client(object):
                     + f"\n\ndebug info: found duplicated name {path_name}.",
                     RuntimeWarning,
                 )
-                # For the sake of avoiding confusions, we will clear the path cache.
-                self._path_cache = {}
                 break
             if "post" in self.openapi["paths"][path_name]:
-                self._post_path(path_name, function_name)
+                self._create_post_path(path_name)
             elif "get" in self.openapi["paths"][path_name]:
-                self._get_path(path_name, function_name)
+                self._create_get_path(path_name)
             else:
                 warnings.warn(
                     f"Endpoint {path_name} does not have a post or get method."
@@ -237,7 +319,7 @@ class Client(object):
             else:
                 return res.content
 
-    def _post_path(self, path_name: str, function_name: str) -> Callable:
+    def _create_post_path(self, path_name: str) -> None:
         """
         internal method to create a method that reflects the post path.
 
@@ -245,7 +327,7 @@ class Client(object):
         :param function_name: the name of the function.
         :return: a method that can be called to call post to the path.
         """
-        if function_name not in self._path_cache:
+        if not self._path_cache._has(path_name):
 
             def _method(*args, **kwargs):
                 if args:
@@ -260,13 +342,12 @@ class Client(object):
                 )
                 return self._get_proper_res_content(res)
 
-            _method.__name__ = function_name
+            _method.__name__ = path_name
             if self.openapi:
                 _method.__doc__ = _get_method_docstring(self.openapi, path_name)
-            self._path_cache[function_name] = _method
-        return self._path_cache[function_name]
+            self._path_cache._add(path_name, _method)
 
-    def _get_path(self, path_name: str, function_name: str) -> Callable:
+    def _create_get_path(self, path_name: str) -> None:
         """
         internal method to create a method that reflects the get path.
 
@@ -275,7 +356,7 @@ class Client(object):
         :param function_name: the name of the function.
         :return: a method that can be called to call get to the path.
         """
-        if function_name not in self._path_cache:
+        if not self._path_cache._has(path_name):
 
             def _method(*args, **kwargs):
                 if args:
@@ -287,13 +368,10 @@ class Client(object):
                 res = self._get(path_name, params=kwargs)
                 return self._get_proper_res_content(res)
 
-            _method.__name__ = function_name
+            _method.__name__ = path_name
             if self.openapi:
                 _method.__doc__ = _get_method_docstring(self.openapi, path_name)
-            else:
-                _method.__doc__ = ""
-            self._path_cache[function_name] = _method
-        return self._path_cache[function_name]
+            self._path_cache._add(path_name, _method)
 
     def paths(self) -> List[str]:
         """
@@ -329,8 +407,8 @@ class Client(object):
         except KeyError:
             raise AttributeError(f"No such endpoint named {name} found.")
 
-    def __dir__(self):
-        return self._path_cache.keys()
+    def __dir__(self) -> Iterable[str]:
+        return ["paths", "healthz", "openapi"] + list(self._path_cache.__dir__())
 
 
 class Workspace(object):

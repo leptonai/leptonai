@@ -82,10 +82,10 @@ class TestClient(unittest.TestCase):
         client = Client(url)
         self.assertTrue(client.healthz())
         # Tests if run_with_slashes and run_with_dashes are both registered
-        res = client.run_with_slashes()
+        res = client.run.with_.slashes()
         self.assertTrue(res == "hello world")
-        res = client.run_with_dashes()
-        self.assertTrue(res == "hello world")
+        res = client.run.with_dashes()
+        self.assertTrue(res == "hello world", client.run())
         proc.terminate()
 
     def test_client_with_post_and_get(self):
@@ -248,8 +248,14 @@ class TestNestedPhotonClient(unittest.TestCase):
         result = c.greet()
         self.assertEqual(result, "hello from parent")
 
-        # TODO: support nested objects: instead of having "c.child_greet", do "c.child.greet"
-        result = c.child_greet()
+        child_docstring = c.child()
+        self.assertIn(
+            "A wrapper for leptonai Client that contains the following paths:\n- greet",
+            child_docstring,
+            child_docstring,
+        )
+
+        result = c.child.greet()
         self.assertEqual(result, "hello from child")
 
 
