@@ -20,6 +20,7 @@ describe("deployments", () => {
 
   after(() => {
     removePhoton(photonName);
+    cy.wait(2000);
     removePhotonZip(photonName);
   });
 
@@ -69,7 +70,13 @@ describe("deployments", () => {
 
     cy.intercept("PATCH", "/api/v1/deployments/*", (req) => {
       expect(req.body?.resource_requirement?.min_replicas).to.eq(2);
-      expect(req.body?.api_tokens).to.be.undefined;
+      expect(req.body?.api_tokens).to.be.deep.eq([
+        {
+          value_from: {
+            token_name_ref: "WORKSPACE_TOKEN",
+          },
+        },
+      ]);
       expect(req.body?.envs).to.be.undefined;
       expect(req.body?.mounts).to.be.undefined;
       expect(req.body?.image_pull_secrets).to.be.undefined;

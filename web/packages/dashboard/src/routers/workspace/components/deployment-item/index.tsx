@@ -3,6 +3,7 @@ import { DeleteDeployment } from "@lepton-dashboard/routers/workspace/components
 import { HardwareIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/hardware-indicator";
 import { PhotonIndicator } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/photon-indicator";
 import { Storage } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/storage";
+import { Tokens } from "@lepton-dashboard/routers/workspace/components/deployment-item/components/tokens";
 import { useStateFromBehaviorSubject } from "@lepton-libs/hooks/use-state-from-observable";
 import { FC, useMemo } from "react";
 import { Deployment } from "@lepton-dashboard/interfaces/deployment";
@@ -118,6 +119,9 @@ export const DeploymentItem: FC<{ deployment: Deployment }> = ({
                   ) : null}
                   {deployment.envs && deployment.envs.length > 0 ? (
                     <Envs envs={deployment.envs} />
+                  ) : null}
+                  {deployment.api_tokens && deployment.api_tokens.length > 1 ? (
+                    <Tokens tokens={deployment.api_tokens} />
                   ) : null}
                 </Description.Container>
               </Col>

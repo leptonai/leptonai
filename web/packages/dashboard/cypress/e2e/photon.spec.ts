@@ -16,6 +16,7 @@ describe("photons", () => {
 
   after(() => {
     removePhoton(photonName);
+    cy.wait(2000);
     removePhotonZip(photonName);
   });
 

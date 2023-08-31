@@ -6,9 +6,12 @@ export enum State {
   Unknown = "",
 }
 
-type Token =
-  | { value_from: { token_name_ref: "WORKSPACE_TOKEN" } }
-  | { value: string };
+export type WorkspaceToken = {
+  value_from: { token_name_ref: "WORKSPACE_TOKEN" };
+};
+export type DeploymentToken = { value: string };
+
+export type Token = WorkspaceToken | DeploymentToken;
 
 export interface Deployment {
   name: string;

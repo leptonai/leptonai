@@ -3,7 +3,9 @@ import {
   Asterisk,
   Hashtag,
   Launch,
+  NetworkPublic,
   TrashCan,
+  TwoFactorAuthentication,
 } from "@carbon/icons-react";
 import { IconContainer } from "@lepton-dashboard/components/icon-container";
 import { CarbonIcon, EqualIcon } from "@lepton-dashboard/components/icons";
@@ -21,7 +23,6 @@ import { css } from "@emotion/react";
 import {
   Button,
   Cascader,
-  Checkbox,
   Col,
   Collapse,
   ConfigProvider,
@@ -43,6 +44,7 @@ import {
   DeploymentEnv,
   DeploymentMount,
   DeploymentSecretEnv,
+  DeploymentToken,
 } from "@lepton-dashboard/interfaces/deployment";
 import { PhotonGroup } from "@lepton-dashboard/interfaces/photon";
 import { useInject } from "@lepton-libs/di";
@@ -57,6 +59,7 @@ interface RawForm {
   shape?: string;
   photon: string[];
   enable_public: boolean;
+  deployment_tokens: string[];
   envs: { name: string; value: string }[];
   secret_envs: { name: string; value: string }[];
   mounts: DeploymentMount[];
@@ -81,6 +84,7 @@ export const DeploymentForm: FC<{
   const navigateService = useInject(NavigateService);
   const addSecretFnRef = useRef<FormListOperation["add"] | null>(null);
   const addVariableFnRef = useRef<FormListOperation["add"] | null>(null);
+  const addTokenRef = useRef<FormListOperation["add"] | null>(null);
   const secretService = useInject(SecretService);
   const imagePullSecretService = useInject(ImagePullSecretService);
   const hardwareService = useInject(HardwareService);
@@ -168,6 +172,9 @@ export const DeploymentForm: FC<{
       min_replicas: initialDeploymentValue.resource_requirement?.min_replicas,
       photon: photon,
       enable_public: !initialDeploymentValue.api_tokens?.length,
+      deployment_tokens: (initialDeploymentValue.api_tokens || [])
+        ?.filter((t): t is DeploymentToken => "value" in t)
+        .map((t) => t.value),
       shape: initialDeploymentValue.resource_requirement?.resource_shape,
       envs: initialDeploymentValue.envs?.filter(
         (e): e is DeploymentEnv => !!(e as DeploymentEnv).value
@@ -216,14 +223,17 @@ export const DeploymentForm: FC<{
           min_replicas: value.min_replicas,
           resource_shape: value.shape,
         },
+        api_tokens: value.enable_public
+          ? []
+          : [
+              { value_from: { token_name_ref: "WORKSPACE_TOKEN" } },
+              ...value.deployment_tokens.map((t) => ({ value: t })),
+            ],
       };
       if (!edit) {
         transformed = {
           ...transformed,
           name: value.name,
-          api_tokens: value.enable_public
-            ? []
-            : [{ value_from: { token_name_ref: "WORKSPACE_TOKEN" } }],
           envs: [
             ...(value.envs || []),
             ...(value.secret_envs || []).map(({ name, value }) => ({
@@ -311,7 +321,7 @@ export const DeploymentForm: FC<{
           >
             <InputNumber
               style={{ width: "100%" }}
-              min={1}
+              min={0}
               precision={0}
               step={1}
             />
@@ -325,8 +335,101 @@ export const DeploymentForm: FC<{
       >
         <Select disabled={edit} options={shapeOptions} />
       </Form.Item>
-      <Form.Item name="enable_public" valuePropName="checked">
-        <Checkbox disabled={edit}>Enable public access</Checkbox>
+      <Form.Item
+        label="Access tokens"
+        shouldUpdate={(prevValues, curValues) =>
+          prevValues.enable_public !== curValues.enable_public
+        }
+      >
+        {() => (
+          <Space.Compact
+            css={css`
+              width: 100%;
+            `}
+          >
+            <Form.Item name="enable_public" noStyle>
+              <Select
+                options={[
+                  {
+                    value: true,
+                    label: (
+                      <Space>
+                        <NetworkPublic />
+                        Enable public access
+                      </Space>
+                    ),
+                  },
+                  {
+                    value: false,
+                    label: (
+                      <Space>
+                        <TwoFactorAuthentication />
+                        Use workspace token
+                      </Space>
+                    ),
+                  },
+                ]}
+              />
+            </Form.Item>
+            {!form.getFieldValue("enable_public") && (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => addTokenRef.current && addTokenRef.current()}
+              >
+                deployment token
+              </Button>
+            )}
+          </Space.Compact>
+        )}
+      </Form.Item>
+      <Form.Item
+        noStyle
+        shouldUpdate={(prevValues, curValues) =>
+          prevValues.enable_public !== curValues.enable_public
+        }
+      >
+        {() =>
+          !form.getFieldValue("enable_public") && (
+            <Form.List name="deployment_tokens">
+              {(fields, { add, remove }) => {
+                addTokenRef.current = add;
+                return (
+                  <Row gutter={0}>
+                    {fields.map(({ key, name, ...restField }) => (
+                      <Col key={`${name}-${key}`} span={24}>
+                        <Row gutter={8} wrap={false}>
+                          <Col flex="1 1 auto">
+                            <Form.Item
+                              {...restField}
+                              name={name}
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Please input deployment tokens",
+                                },
+                              ]}
+                            >
+                              <Input.Password
+                                autoFocus
+                                placeholder="Input deployment token"
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col flex={0}>
+                            <Button
+                              icon={<CarbonIcon icon={<TrashCan />} />}
+                              onClick={() => remove(name)}
+                            />
+                          </Col>
+                        </Row>
+                      </Col>
+                    ))}
+                  </Row>
+                );
+              }}
+            </Form.List>
+          )
+        }
       </Form.Item>
       <Collapse
         css={css`
