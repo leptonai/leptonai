@@ -618,7 +618,9 @@ class Photon(BasePhoton):
         if isinstance(subapp, (FastAPI, StaticFiles)):
             app.mount(f"/{path}", subapp)
         elif isinstance(subapp, Photon):
-            app.mount(f"/{path}", subapp._create_app(load_mount=True))
+            subapp_real_app = subapp._create_app(load_mount=True)
+            # app.mount(f"/{path}", subapp_real_app)
+            app.include_router(subapp_real_app.router, prefix=f"/{path}")
         elif not has_gradio and not has_flask:
             logger.warning(
                 f"Skip mounting {path} as none of [`gradio`, `flask`] is"
@@ -639,7 +641,7 @@ class Photon(BasePhoton):
         method = func.__get__(self, self.__class__)
 
         request_model, response_model, response_class = create_model_for_func(
-            method, func_name=path
+            method, func_name=self.__class__.__name__ + "_" + path
         )
 
         if http_method.lower() == "post":

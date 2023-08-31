@@ -354,7 +354,8 @@ class Workspace(object):
             workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
             if workspace_id is None:
                 raise ValueError(
-                    "No workspace id specified, and no current workspace is set."
+                    "No workspace id specified, and it seems that you are not"
+                    " logged in."
                 )
             token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         self.workspace_id = workspace_id
@@ -364,10 +365,13 @@ class Workspace(object):
                 f"Workspace {workspace_id} does not seem to exist. Did you specify the"
                 " right id?"
             )
-        self.conn = Connection(api_url, token)
+        else:
+            self.workspace_api_url = api_url
+        self.token = token if token else ""
+        self.api_conn = Connection(self.workspace_api_url, self.token)
 
     def _workspace_deployments(self) -> List:
-        deployments = deployment.list_deployment(self.conn)
+        deployments = deployment.list_deployment(self.api_conn)
         if isinstance(deployments, APIError):
             raise ValueError(
                 f"Failed to list deployments for workspace {self.workspace_id}"
@@ -398,5 +402,5 @@ class Workspace(object):
                 f" {self.workspace_id}."
             )
         return Client(
-            self.workspace_id, deployment_name, token if token else self.conn._token
+            self.workspace_id, deployment_name, token if token else self.api_conn._token
         )

@@ -208,5 +208,50 @@ class TestStreamingPhotonClient(unittest.TestCase):
         self.assertEqual(result, b"0,1,2,3,4,5,6,7,8,9,")
 
 
+class ChildPhoton(Photon):
+    @Photon.handler()
+    def greet(self) -> str:
+        return "hello from child"
+
+
+class ParentPhoton(Photon):
+    @Photon.handler()
+    def greet(self) -> str:
+        return "hello from parent"
+
+    @Photon.handler(mount=True)
+    def child(self):
+        return ChildPhoton()
+
+
+def parent_photon_wrapper(port):
+    photon = ParentPhoton()
+    photon.launch(port=port)
+
+
+class TestNestedPhotonClient(unittest.TestCase):
+    def setUp(self) -> None:
+        self.port = find_free_port()
+        self.proc = multiprocessing.Process(
+            target=parent_photon_wrapper, args=(self.port,)
+        )
+        self.proc.start()
+        time.sleep(2)
+
+    def tearDown(self) -> None:
+        self.proc.terminate()
+
+    def test_nested_photon(self):
+        url = f"http://localhost:{self.port}"
+        c = Client(url)
+
+        result = c.greet()
+        self.assertEqual(result, "hello from parent")
+
+        # TODO: support nested objects: instead of having "c.child_greet", do "c.child.greet"
+        result = c.child_greet()
+        self.assertEqual(result, "hello from child")
+
+
 if __name__ == "__main__":
     unittest.main()
