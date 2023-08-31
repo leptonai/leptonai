@@ -11,6 +11,7 @@ import (
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	"gocloud.dev/blob"
+	"k8s.io/utils/ptr"
 )
 
 // Backupable is an interface for resources that can be backed up
@@ -75,7 +76,7 @@ func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix,
 	case WorkspaceStateNormal:
 	case WorkspaceStatePaused:
 	case WorkspaceStateTerminated:
-		go h.deleteAllDeployments()
+		go h.scaleAllDeploymentsDownToZeroReplica()
 	default:
 		goutil.Logger.Fatalw("invalid workspace state",
 			"state", workspaceState,
@@ -93,21 +94,76 @@ func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix,
 }
 
 const (
-	deleteAllDeploymentInterval = 5 * time.Minute
+	scaleAllDeploymentsDownToZeroReplicaRetryInterval = 5 * time.Minute
+	scaleAllDeploymentsDownToZeroReplicaIdleInterval  = 24 * time.Hour
 )
 
-func (h *Handler) deleteAllDeployments() {
+func (h *Handler) scaleAllDeploymentsDownToZeroReplica() {
+	// first, backup the existing deployments
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		err := h.ldDB.BackupAndDeleteAll(ctx)
+		err := h.ldDB.Backup(ctx)
 		cancel()
+		if err == nil {
+			break
+		}
+		goutil.Logger.Errorw(fmt.Sprintf("failed to backup, retrying in %v", backupRetryInterval),
+			"namespace", h.namespace,
+			"operation", "scaleAllDeploymentsDownToZeroReplica",
+			"error", err,
+		)
+		time.Sleep(scaleAllDeploymentsDownToZeroReplicaRetryInterval)
+	}
+	goutil.Logger.Infow("backup successful",
+		"operation", "scaleAllDeploymentsDownToZeroReplica",
+		"namespace", h.namespace,
+	)
+	// second, scale all deployments down to zero replica
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		lds, err := h.ldDB.List(ctx)
 		if err != nil {
-			goutil.Logger.Errorw("failed to delete all deployments",
-				"operation", "deleteAllDeployments",
+			goutil.Logger.Errorw(fmt.Sprintf("failed to list deployments, retrying in %v", backupRetryInterval),
+				"namespace", h.namespace,
+				"operation", "scaleAllDeploymentsDownToZeroReplica",
 				"error", err,
 			)
+			cancel()
+			time.Sleep(scaleAllDeploymentsDownToZeroReplicaRetryInterval)
+			continue
 		}
-		time.Sleep(deleteAllDeploymentInterval)
+		failed := false
+		for _, ld := range lds {
+			if ld.Spec.ResourceRequirement.MinReplicas == nil {
+				continue
+			}
+			if *ld.Spec.ResourceRequirement.MinReplicas == 0 {
+				continue
+			}
+			ld.Spec.ResourceRequirement.MinReplicas = ptr.To[int32](0)
+			err = h.ldDB.Update(ctx, ld.GetSpecName(), ld)
+			if err != nil {
+				goutil.Logger.Errorw(fmt.Sprintf("failed to update deployment, retrying in %v", backupRetryInterval),
+					"operation", "scaleAllDeploymentsDownToZeroReplica",
+					"namespace", h.namespace,
+					"deployment", ld.GetSpecName(),
+					"error", err,
+				)
+				failed = true
+				continue
+			}
+			goutil.Logger.Infow("scaled deployment down to zero replica",
+				"operation", "scaleAllDeploymentsDownToZeroReplica",
+				"namespace", h.namespace,
+				"deployment", ld.GetSpecName(),
+			)
+		}
+		cancel()
+		if failed {
+			time.Sleep(scaleAllDeploymentsDownToZeroReplicaRetryInterval)
+		} else {
+			time.Sleep(scaleAllDeploymentsDownToZeroReplicaIdleInterval)
+		}
 	}
 }
 
