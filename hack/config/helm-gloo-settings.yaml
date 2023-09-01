@@ -1,0 +1,45 @@
+# helm install gloo gloo/gloo --namespace  stablediffusion-proxy -f hack/config/helm-gloo-settings.yaml
+settings:
+  create: true
+  writeNamespace: stablediffusion-proxy
+  watchNamespaces:
+  - stablediffusion-proxy
+  ratelimitServer:
+    ratelimitServerRef:
+      name: envoy-rate-limit-server        # rate-limit server upstream name
+      namespace: stablediffusion-proxy   # rate-limit server upstream namespace
+    requestTimeout: 100ms      # optional, default 100ms
+    denyOnFail: false          # optional, default false
+    rateLimitBeforeAuth: false # optional, default false
+gatewayProxies:
+  gatewayProxy:
+    gatewaySettings:
+      customHttpGateway:
+        virtualServiceSelector:
+          gateway-type: stablediffusion-proxy
+        options:
+          healthCheck:
+            path: /healthz
+    podTemplate:
+      resources:
+        requests:
+          cpu: "0.25"
+          memory: "1Gi"
+        limits:
+          cpu: "1"
+          memory: "4Gi"
+    kind:
+      deployment:
+        replicas: 3
+    PodDisruptionBudget:
+      minAvailable:
+        value: 2
+gloo:
+  deployment:
+    resources:
+      requests:
+        cpu: "0.25"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "4Gi"
