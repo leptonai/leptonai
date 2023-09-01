@@ -16,6 +16,7 @@ jobs:
           curl -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" -X POST \
             -d '{
                   "deployment_environment":"TEST",
-                  "name":"'$name'"
+                  "name":"'$name'",
+                  "subdomain": "'$name'",
                 }' \
             https://mothership.cloud.lepton.ai/api/v1/clusters
