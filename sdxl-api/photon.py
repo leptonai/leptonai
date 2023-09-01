@@ -15,6 +15,8 @@ from leptonai.photon import Photon, PNGResponse, HTTPException, FileParam
 
 
 class SDXL(Photon):
+    """Optimized SDXL pipeline running on [Lepton](https://lepton.ai)"""
+
     image: str = "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:torch-flashattn2"
 
     requirement_dependency = [
