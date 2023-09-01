@@ -172,7 +172,7 @@ prometheus:
               - __meta_kubernetes_service_name
             action: keep
             regex: nvidia-dcgm-exporter
-      
+
       - job_name: envoy-gloo-gateway-proxy-pods
 
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
@@ -197,7 +197,6 @@ prometheus:
         # metrics from: https://grafana.com/docs/grafana-cloud/monitor-infrastructure/integrations/integration-reference/integration-envoy/
         # example metrics: https://gist.github.com/suyuee/8b6926eadba0df37bda86d6b650ebb5c
         metric_relabel_configs:
-
           # upstream (request destination) stats : https://www.envoyproxy.io/docs/envoy/latest/configuration/upstream/cluster_manager/cluster_stats.html
           # per upstream
           # HTTP connection stats: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/stats
@@ -231,16 +230,16 @@ prometheus:
             replacement: $1:9091
             target_label: __address__
 
-- job_name: metering-metrics
-  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
-  kubernetes_sd_configs:
-    - role: pod
-      namespaces:
-        names:
-          - metering
+      - job_name: metering-metrics
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - metering
 
-  relabel_configs:
-    - source_labels:
-        - __meta_kubernetes_pod_name
-      action: keep
-      regex: ^metering-.+
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            action: keep
+            regex: ^metering-.+
