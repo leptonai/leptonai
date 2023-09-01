@@ -83,29 +83,63 @@ prometheus:
       # with "kubernetes_sd_configs" "role: endpoints"
       # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
 
-      - job_name: lepton-api-server-service-pods
+      - job_name: lepton-api-server-pods
 
         # discovers targets from listed endpoints of a service
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
         kubernetes_sd_configs:
-          - role: endpoints
-
-            # Optional namespace discovery. If omitted, all namespaces are used.
-            # namespaces:
+          - role: pod
 
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
-        #
-        # fetches endpoints of this service (basically # of mothership pods)
-        # instead of directly from this service.
-        #
-        # e.g.,
-        # <service-name>.<namespace>.svc.cluster.local:<service-port>
-        # "lepton-api-server-service.*.svc.cluster.local:20863"
         relabel_configs:
           - source_labels:
-              - __meta_kubernetes_service_name
+              - __meta_kubernetes_pod_label_app
             action: keep
-            regex: lepton-api-server-service
+            regex: lepton-api-server
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
+
+      - job_name: lepton-deployment-operator-pods
+
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            action: keep
+            regex: lepton-deployment-operator
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
 
       - job_name: lepton-deployment-pods
 

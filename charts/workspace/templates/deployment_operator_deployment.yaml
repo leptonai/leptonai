@@ -46,4 +46,6 @@ spec:
             - "--namespace"
             - {{ .Release.Namespace | quote }}
             - "--lb-type={{ .Values.lbType }}"
+          ports:
+            - containerPort: {{ .Values.deploymentOperator.service.port }}
 {{ end }}

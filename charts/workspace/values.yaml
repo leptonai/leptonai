@@ -37,7 +37,7 @@ apiServer:
   enableStorage: true
   storageMountPath: ""
   state: ""
-  tier: "" 
+  tier: ""
 
 deploymentOperator:
   enabled: true
@@ -48,6 +48,7 @@ deploymentOperator:
     tag: "latest"
     pullPolicy: Always
   service:
+    port: 8080
     resources:
       requests:
         memory: "128Mi"
