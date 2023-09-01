@@ -1,6 +1,5 @@
 import keyword
 from typing import Callable, Dict, List, Set, Optional, Union, Iterable
-from urllib.parse import urljoin
 import warnings
 
 from fastapi.encoders import jsonable_encoder
@@ -179,6 +178,13 @@ class Client(object):
         client = Client(local())
     or via a full URL if you are managing Lepton photons yourself:
         client = Client("https://my-custom-lepton-deployment.com/")
+
+    To cope with explicit urls that might have supaths, we assume that the url you
+    passed in is the relative root of the deployment. This means that if you pass
+    in `https://my.com/foo/bar`, the client will assume
+    that there is an openapi.json file at `https://my.com/foo/bar/openapi.json`,
+    and that all calls like "/function" will be relative to `https://my.com/foo/bar`,
+    aka `https://my.com/foo/bar/function`.
     """
 
     openapi: Dict = {}
@@ -222,7 +228,7 @@ class Client(object):
                     " and deployment name instead.",
                     DeprecationWarning,
                 )
-            self.url = workspace_or_url
+            self.url = workspace_or_url.rstrip("/")
         else:
             url = _get_full_workspace_url(workspace_or_url)
             if not url:
@@ -230,7 +236,7 @@ class Client(object):
                     f"Workspace {workspace_or_url} does not exist or is not accessible."
                 )
             else:
-                self.url = url
+                self.url = url.rstrip("/")
         self._session = requests.Session()
         if deployment is None:
             if not _is_local_url(workspace_or_url):
@@ -267,7 +273,7 @@ class Client(object):
 
         # At load time, we will also load the openapi specification.
         try:
-            raw_openapi = self._get("/openapi.json")
+            raw_openapi = self._get("openapi.json")
             raw_openapi.raise_for_status()
             try:
                 self.openapi = raw_openapi.json()
@@ -321,12 +327,12 @@ class Client(object):
     # Photon.
     def _get(self, path: str, *args, **kwargs) -> requests.models.Response:
         return self._session.get(
-            urljoin(self.url, path), stream=self.stream, *args, **kwargs
+            f"{self.url}/{path.lstrip('/')}", stream=self.stream, *args, **kwargs
         )
 
     def _post(self, path: str, *args, **kwargs) -> requests.models.Response:
         return self._session.post(
-            urljoin(self.url, path), stream=self.stream, *args, **kwargs
+            f"{self.url}/{path.lstrip('/')}", stream=self.stream, *args, **kwargs
         )
 
     def _get_proper_res_content(self, res: requests.models.Response):
