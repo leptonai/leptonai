@@ -39,3 +39,39 @@ spec:
           for: 5m
           labels:
             severity: critical
+        - alert: NodeNotReady
+          annotations:
+            description: The number of not ready nodes ({{ $value }}) is high, more than 0 nodes in the past 5 min.
+            summary: Too many not ready nodes
+          expr: |-
+            sum(kube_node_status_condition{condition="Ready", status!="true"}) by (node) > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: NodeWithDiskPressure
+          annotations:
+            description: The number of nodes with disk pressure({{ $value }}) is high, more than 0 nodes in the past 5 min.
+            summary: Too many nodes with disk pressure
+          expr: |-
+            sum(kube_node_status_condition{condition="DiskPressure", status!="false"}) by (node) > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: NodeWithMemoryPressure
+          annotations:
+            description: The number of nodes with memory pressure({{ $value }}) is high, more than 0 nodes in the past 5 min.
+            summary: Too many nodes with memory pressure
+          expr: |-
+            sum(kube_node_status_condition{condition="MemoryPressure", status!="false"}) by (node) > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: NodeWithPIDPressure
+          annotations:
+            description: The number of nodes with PID pressure({{ $value }}) is high, more than 0 nodes in the past 5 min.
+            summary: Too many nodes with PID pressure
+          expr: |-
+            sum(kube_node_status_condition{condition="PIDPressure", status!="false"}) by (node) > 0
+          for: 5m
+          labels:
+            severity: critical
