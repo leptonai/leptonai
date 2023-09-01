@@ -12,28 +12,39 @@ spec:
   groups:
     - name: metering.rules
       rules:
-        - alert: NoMeteringData
+        - alert: NoHourlyMeteringUpdate
           annotations:
-            description: No metering data updates for the past 20 mins
-            summary: No metering data updates for the past 20 mins
+            description: No hourly metering data updates for the past 2 hours
+            summary: No hourly metering data updates
           expr: |-
-            sum(max_over_time(kube_pod_info{}[20m])) < 1
+            increase(lepton_metering_update_operations_total{table_name=~".+_hourly"}[2h]) < 1
           for: 1m
           labels:
             severity: critical
-        - alert: MeteringHourlyAggregateOperationFailure
+        - alert: NoFineGrainMeteringUpdate
           annotations:
-            description: Metering hourly aggregate operation failure
-            summary: Metering hourly aggregate operation failure
+            description: No fine-grain metering data updates for the past 20 mins
+            summary: No fine-grain metering data updates
           expr: |-
-            sum(max_over_time(
-              label_replace(
-                {__name__=~"prometheus_.*fail.*_total|prometheus_.*error.*_total"},
-                "name_label",
-                "$1",
-                "__name__",
-                "(.+)"
-              )[1h:])) > 10
+            increase(lepton_metering_update_operations_total{table_name=~".+_fine_grain"}[20m]) < 1
+          for: 1m
+          labels:
+            severity: critical
+        - alert: NoMeteringUpdate
+          annotations:
+            description: Metering last sync updated < 1 row for the past 24 hours
+            summary: No metering data updates
+          expr: |-
+            increase(lepton_metering_last_sync_updated_rows[24h]) < 1
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MeteringRequestFailureRate
+          annotations:
+            description: Metering request failure rate at {{ $value }}/per hour, (> 10)
+            summary: Metering request failure rate high
+          expr: |-
+            increase(promhttp_metric_handler_requests_total{job="metering-metrics", code!="200"}[1h]) > 10
           for: 1m
           labels:
             severity: critical
