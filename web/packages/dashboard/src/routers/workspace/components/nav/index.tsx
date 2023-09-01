@@ -8,7 +8,7 @@ import {
   PhotonIcon,
 } from "@lepton-dashboard/components/icons";
 import { IndicatorService } from "@lepton-dashboard/routers/workspace/services/indicator.service";
-import { Folder, Settings, Workspace } from "@carbon/icons-react";
+import { Carbon, Folder, Settings, Workspace } from "@carbon/icons-react";
 import { TabsNav } from "../../../../components/tabs-nav";
 import { useResolvedPath } from "react-router-dom";
 
@@ -82,16 +82,16 @@ export const Nav: FC = () => {
       ),
       key: `${pathname}/storage`,
     },
-    // {
-    //   label: (
-    //     <span id="nav-tuna">
-    //       <CarbonIcon icon={<Carbon />} />
-    //       Tuna
-    //     </span>
-    //   ),
-    //   prefix: `${pathname}/tuna`,
-    //   key: `${pathname}/tuna/list`,
-    // },
+    {
+      label: (
+        <span id="nav-tuna">
+          <CarbonIcon icon={<Carbon />} />
+          Tuna
+        </span>
+      ),
+      prefix: `${pathname}/tuna`,
+      key: `${pathname}/tuna/list`,
+    },
     {
       label: (
         <span id="nav-settings">
