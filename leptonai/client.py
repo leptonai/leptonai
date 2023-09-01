@@ -1,16 +1,13 @@
 import keyword
 from typing import Callable, Dict, List, Set, Optional, Union, Iterable
-import warnings
 
 from fastapi.encoders import jsonable_encoder
 import requests
 
 from leptonai._internal.client_utils import (
     _is_valid_url,
-    _is_local_url,
     _get_method_docstring,
     _get_positional_argument_error_message,
-    _fallback_api_call_message,
 )
 from leptonai.api.connection import Connection
 from leptonai.api.workspace import (
@@ -52,10 +49,11 @@ def current() -> str:
 
 
 class PathTree(object):
-    def __init__(self, name=""):
+    def __init__(self, name: str, debug_record: List):
         self._path_cache: Dict[str, Union[Callable, PathTree]] = {}
         self._all_paths: Set[str] = set()
         self.name = name
+        self.debug_record = debug_record
 
     def __getattr__(self, name: str) -> Union[Callable, "PathTree"]:
         try:
@@ -116,10 +114,9 @@ class PathTree(object):
         will be split and converted to children nodes.
         """
         if path in self._all_paths:
-            warnings.warn(
+            self.debug_record.append(
                 "Adding a path that already exists. This is not an issue of the"
-                " runtime, but a deployment issue.",
-                RuntimeWarning,
+                " runtime, but a deployment issue."
             )
         # Record all paths for bookkeeping purposes.
         self._all_paths.add(path)
@@ -132,16 +129,16 @@ class PathTree(object):
             if prefix.isidentifier():
                 if prefix not in self._path_cache:
                     self._path_cache[prefix] = PathTree(
-                        name=(self.name + "." if self.name else "") + prefix
+                        (self.name + "." if self.name else "") + prefix,
+                        self.debug_record,
                     )
                 self._path_cache[prefix]._add(remaining, func)
             else:
                 # temporarily ignore this path if it is not a valid identifier.
                 # this is to prevent the case where the path is something like
                 # "foo/{bar}" which we don't support yet.
-                warnings.warn(
-                    f"Path {path} is not a valid identifier. Ignoring for now.",
-                    RuntimeWarning,
+                self.debug_record.append(
+                    f"Path {path} is not a valid identifier. Ignoring for now."
                 )
                 return
         else:
@@ -152,9 +149,8 @@ class PathTree(object):
                 # temporarily ignore this path if it is not a valid identifier.
                 # this is to prevent the case where the path is something like
                 # "foo/{bar}" which we don't support yet.
-                warnings.warn(
-                    f"Path {path} is not a valid identifier. Ignoring for now.",
-                    RuntimeWarning,
+                self.debug_record.append(
+                    f"Path {path} is not a valid identifier. Ignoring for now."
                 )
                 return
 
@@ -221,13 +217,6 @@ class Client(object):
         We may remove the ability to use a full URL in the future.
         """
         if _is_valid_url(workspace_or_url):
-            if not _is_local_url(workspace_or_url):
-                warnings.warn(
-                    "Explicitly passing in a remote URL is deprecated, and may be"
-                    " removed in the future. Explicitly pass in the workspace id"
-                    " and deployment name instead.",
-                    DeprecationWarning,
-                )
             self.url = workspace_or_url.rstrip("/")
         else:
             url = _get_full_workspace_url(workspace_or_url)
@@ -238,14 +227,7 @@ class Client(object):
             else:
                 self.url = url.rstrip("/")
         self._session = requests.Session()
-        if deployment is None:
-            if not _is_local_url(workspace_or_url):
-                warnings.warn(
-                    "Remote execution without an explicit deployment is deprecated,"
-                    " and may be removed in the future.",
-                    DeprecationWarning,
-                )
-        else:
+        if deployment:
             self._session.headers.update({"X-Lepton-Deployment": deployment})
         # If we are simply using the current workspace, we will also automatically
         # set the token as the current workspace token.
@@ -256,19 +238,19 @@ class Client(object):
             token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         if token is not None:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
-        self._path_cache: PathTree = PathTree()
+        self._debug_record: List = []
+        self._path_cache: PathTree = PathTree("", self._debug_record)
         self.stream: Optional[bool] = stream
         self.chunk_size: Optional[int] = chunk_size
 
         # Check healthz to see if things are properly working
         if not self.healthz():
-            warnings.warn(
+            self._debug_record.append(
                 "Client is not healthy - healthz() returned False. This might be"
                 " due to:\n- a nonstandard deployment that does not have a healthz"
                 " endpoint. In this case, you may ignore this warning.\n- a network"
                 " error. In this case, please check your network connection. You"
                 " may want to recreate the client for things to work properly.",
-                RuntimeWarning,
             )
 
         # At load time, we will also load the openapi specification.
@@ -278,35 +260,29 @@ class Client(object):
             try:
                 self.openapi = raw_openapi.json()
             except requests.JSONDecodeError:
-                warnings.warn(
+                self._debug_record.append(
                     "OpenAPI spec failed to be json decoded. This is not an issue of"
-                    " the client, but a corrupted openapi spec.\n\n"
-                    + _fallback_api_call_message,
-                    RuntimeWarning,
+                    " the client, but a corrupted openapi spec."
                 )
         except (ConnectionError, requests.ConnectionError) as e:
             raise ConnectionError(
                 "Cannot connect to server. This is not an issue of the"
-                f" client, but a network error. More details:\n\n{e}"
+                f" client, but a network error. More details:\n{e}"
             )
         except requests.HTTPError:
-            warnings.warn(
+            self._debug_record.append(
                 "OpenAPI spec does not exist. This is not a client bug, but the"
-                " deployment does not have an openapi specification.\n\n"
-                + _fallback_api_call_message,
-                RuntimeWarning,
+                " deployment does not have an openapi specification."
             )
 
         # At load time, we will also set up all path caches.
         for path_name in self.paths():
             if self._path_cache._has(path_name):
-                warnings.warn(
-                    "Multiple endpoints with the same name detected. This is not"
-                    " an issue of the runtime - it is caused by the deployment giving"
-                    " multiple endpoints that maps to the same python name.\n\n"
-                    + _fallback_api_call_message
-                    + f"\n\ndebug info: found duplicated name {path_name}.",
-                    RuntimeWarning,
+                self._debug_record.append(
+                    "Multiple endpoints with the same name detected. This is not an"
+                    " issue of the runtime - it is caused by the deployment giving"
+                    " multiple endpoints that maps to the same python name. Found"
+                    " duplicated name: {path_name}."
                 )
                 break
             if "post" in self.openapi["paths"][path_name]:
@@ -314,11 +290,9 @@ class Client(object):
             elif "get" in self.openapi["paths"][path_name]:
                 self._create_get_path(path_name)
             else:
-                warnings.warn(
+                self._debug_record.append(
                     f"Endpoint {path_name} does not have a post or get method."
-                    " Currently we only support post and get methods.\n\n"
-                    + _fallback_api_call_message,
-                    RuntimeWarning,
+                    " Currently we only support post and get methods."
                 )
 
     # Normal usages will go through then `__getattr__` path (which triggers
@@ -427,6 +401,24 @@ class Client(object):
         except (requests.ConnectionError, requests.HTTPError):
             return False
 
+    def debug_record(self) -> List[str]:
+        print("\n\n".join(self._debug_record))
+        if self._debug_record:
+            print(
+                "\n\nOverall, if you are the producer of the deployment, please make"
+                " sure that:\n - the deployment has an openapi specification at"
+                " '/openapi.json'. This is usually guaranteed if you are using the"
+                " standard Photon class.\n - Also kindly ensure that every endpoint is"
+                " uniquely named (note that we will try to convert '-' and '/' in URL"
+                " strings to underscores).\n\nIf you are the consumer of the"
+                " deployment, and do not have control over the endpoint design, a"
+                " workaround is to use the `_post` method to call the endpoints"
+                " directly, instead of using the pythonic utilization that the client"
+                " tries to automatically provide for you."
+            )
+
+        return self._debug_record[:]  # return a copy
+
     def __getattr__(self, name: str):
         try:
             return self._path_cache[name]
@@ -434,7 +426,9 @@ class Client(object):
             raise AttributeError(f"No such endpoint named {name} found.")
 
     def __dir__(self) -> Iterable[str]:
-        return ["paths", "healthz", "openapi"] + list(self._path_cache.__dir__())
+        return ["debug_record", "paths", "healthz", "openapi"] + list(
+            self._path_cache.__dir__()
+        )
 
 
 class Workspace(object):
