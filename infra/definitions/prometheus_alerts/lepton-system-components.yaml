@@ -30,3 +30,25 @@ spec:
           for: 5m
           labels:
             severity: critical
+        - alert: DeploymentOperatorReconcileRate
+          annotations:
+            description: Deployment operator reconcile rate at {{ $value }} in the past 5 min, higher than 10 per minute
+            summary: Deployment operator reconcile rate high
+          expr: |-
+            sum(increase(controller_runtime_reconcile_total[1m])) by (kubernetes_namespace, kubernetes_pod_name) > 10
+          for: 5m
+          labels:
+            severity: critical
+        - alert: DeploymentOperatorReconcileErrorRate
+          annotations:
+            description: Deployment operator reconcile error rate at {{ $value }}% in the past 5 min, higher than 5%
+            summary: Deployment operator reconcile error rate high
+          expr: |-
+            (
+              sum(increase(controller_runtime_reconcile_total{result!="success"}[1m])) by (kubernetes_namespace, kubernetes_pod_name)
+            /
+              sum(increase(controller_runtime_reconcile_total[1m])) by (kubernetes_namespace, kubernetes_pod_name)
+            ) * 100 > 5
+          for: 5m
+          labels:
+            severity: critical
