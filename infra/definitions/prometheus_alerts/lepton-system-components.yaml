@@ -52,3 +52,22 @@ spec:
           for: 5m
           labels:
             severity: critical
+        - alert: LeptonSystemComponentPodCPUUsageHigh
+          annotations:
+            description: Lepton system component CPU usage at {{ $value }}% (> 50%) for 5 minute.
+            summary: Lepton system component pod CPU usage high
+          expr: |-
+            max(rate(container_cpu_usage_seconds_total{container=~"lepton-api-server|lepton-deployment-operator"}[1m])) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="cpu"}) by (namespace, pod, container)
+            * 100 > 50
+          for: 5m
+          labels:
+            severity: critical
+        - alert: LeptonSystemComponentPodMemoryUsageHigh
+          annotations:
+            description: Lepton system component pod memory usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: Lepton system component pod memory usage high
+          expr: |-
+            max(container_memory_usage_bytes{container=~"lepton-api-server|lepton-deployment-operator"}) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="memory"}) by (namespace, pod, container)
+            * 100 > 80

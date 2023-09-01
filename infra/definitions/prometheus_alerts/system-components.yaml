@@ -66,3 +66,25 @@ spec:
           for: 1m
           labels:
             severity: critical
+        - alert: SystemComponentCPUUsageHigh
+          annotations:
+            description: System component CPU usage at {{ $value }}% (> 50%) for 5 minute.
+            summary: System component CPU usage high
+          expr: |-
+            max(rate(container_cpu_usage_seconds_total{namespace!~"ws-.+"}[1m])) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="cpu"}) by (namespace, pod, container)
+            * 100 > 50
+          for: 5m
+          labels:
+            severity: critical
+        - alert: SystemComponentMemoryUsageHigh
+          annotations:
+            description: System component memory usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: System component memory usage high
+          expr: |-
+            max(container_memory_usage_bytes{namespace!~"ws-.+"}) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="memory"}) by (namespace, pod, container)
+            * 100 > 80
+          for: 5m
+          labels:
+            severity: critical
