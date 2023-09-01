@@ -202,14 +202,3 @@ def _get_positional_argument_error_message(
             additional_message = ""
         POSITIONAL_ARGUMENT_ERROR_MESSAGE += additional_message
     return POSITIONAL_ARGUMENT_ERROR_MESSAGE
-
-
-_fallback_api_call_message = (
-    "If you are the producer of the deployment, please make sure that the deployment"
-    " has an openapi specification at '/openapi.json'. This is usually guaranteed if"
-    " you are using the standard Photon class. Also kindly ensure that every endpoint"
-    " is uniquely named (note that we will try to convert '-' and '/' in URL strings to"
-    " underscores). If you are the consumer of the deployment, and do not have control"
-    " over the endpoint design, a workaround is to use the `_post` method to call the"
-    " endpoints directly, instead of using the pythonic method name."
-)
