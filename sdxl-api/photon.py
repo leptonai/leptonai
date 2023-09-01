@@ -122,6 +122,11 @@ class SDXL(Photon):
         high_noise_frac: float = 0.8,
         use_refiner: bool = False,
     ) -> PNGResponse:
+        logger.info(
+            f"Running txt2img with prompt='{prompt}', seed={seed}, steps={steps},"
+            f" width={width}, height={height}, use_refiner={use_refiner}"
+        )
+
         if prompt_embeds is not None:
             prompt_embeds = torch.tensor(
                 prompt_embeds, dtype=torch.float16, device="cuda"
@@ -265,6 +270,11 @@ class SDXL(Photon):
         high_noise_frac: float = 0.8,
         use_refiner: bool = False,
     ) -> PNGResponse:
+        logger.info(
+            f"Running inpaint with prompt='{prompt}', seed={seed}, steps={steps},"
+            f" width={width}, height={height}, use_refiner={use_refiner}"
+        )
+
         if prompt_embeds is not None:
             prompt_embeds = torch.tensor(
                 prompt_embeds, dtype=torch.float16, device="cuda"
@@ -344,18 +354,16 @@ class SDXL(Photon):
         async def update_steps_counter(request: Request, call_next):
             token = None
             auth_header = request.headers.get("Authorization")
-            logger.info(f"auth_header={auth_header}")
             if auth_header is not None:
                 auth_header = auth_header.strip()
                 if auth_header.startswith("Bearer"):
                     token = auth_header.split("Bearer")[-1].strip()
-            logger.info(f"token={token}")
+                    logger.info(f"token={token}")
 
             response = await call_next(request)
 
             steps = None
             steps_str = response.headers.get("steps")
-            logger.info(f"steps_str={steps_str}")
             if steps_str is not None:
                 # remove the steps header so it doesn't get passed to
                 # the client
@@ -364,7 +372,8 @@ class SDXL(Photon):
                     steps = int(steps_str)
                 except Exception:
                     pass
-            logger.info(f"steps={steps}")
+                else:
+                    logger.info(f"steps={steps}")
             if token is not None and steps is not None:
                 self.steps_counter.labels(token).inc(steps)
 
