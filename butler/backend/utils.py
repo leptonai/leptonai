@@ -90,7 +90,7 @@ def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
         "tier": "basic",  # Could be basic, standard, enterprise
         "image_tag": version,
         "git_ref": version,
-        "lb-type": lb_type,
+        "lb_type": lb_type,
     }
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
