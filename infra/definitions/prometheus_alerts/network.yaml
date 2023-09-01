@@ -1,0 +1,33 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-network.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: network.rules
+      rules:
+        - alert: NotEnoughHealthyEnvoyInstances #each gloo gateway-proxy pod represents an envoy
+          annotations:
+            description: The number of healthy envoy instances should be always >= 2, now it's {{ $value }}
+            summary: Envoy servers are not healthy.
+          expr: |-
+            sum(envoy_server_live{job="envoy-gloo-gateway-proxy-pods"}) < 2
+          for: 1m
+          labels:
+            severity: critical
+        - alert: SdxlNotEnoughHealthyEnvoyInstances
+          annotations:
+            description: The number of healthy sdxl envoy instances should be always >= 2, now it's {{ $value }}
+            summary: Sdxl envoy servers are not healthy.
+          expr: |-
+            sum(envoy_server_live{job="sdxl-gloo-gateway"}) < 2
+          for: 1m
+          labels:
+            severity: critical
+
