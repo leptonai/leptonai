@@ -16,6 +16,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: workspaces } = await supabaseAdminClient
       .from("workspaces")
       .select("subscription_id, chargeable, tier")
+      .order("id", { ascending: false })
       .not("subscription_id", "is", null);
 
     if (!workspaces || workspaces.length === 0) {

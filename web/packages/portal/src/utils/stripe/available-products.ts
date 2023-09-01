@@ -48,6 +48,11 @@ const AvailableProducts: Array<{
     test_price_id: "price_1NZmG4BcUfXYxWWVuAfTMmpY",
     metadata: { shape: "storage" },
   },
+  {
+    prod_price_id: "price_1NlOInBcUfXYxWWVEyLHzwXE",
+    test_price_id: "price_1NlOEwBcUfXYxWWVmW2ntSXj",
+    metadata: { shape: "tuna.medium" },
+  },
 ];
 
 export const getAvailableProducts = (
