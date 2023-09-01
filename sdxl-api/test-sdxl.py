@@ -11,6 +11,28 @@ from leptonai.photon import FileParam
 API_URL = os.environ.get("SDXL_API_URL", "http://localhost:8080")
 
 
+class TestTxt2Img(unittest.TestCase):
+    def setUp(self):
+        self.client = Client(API_URL)
+        self.prompt = "A cat laughing rocket"
+        self.seed = 1234
+
+    def test_txt2img(self):
+        result = self.client.txt2img(prompt=self.prompt, seed=self.seed)
+        with open("txt2img.png", "wb") as f:
+            f.write(result)
+
+    def test_run(self):
+        result = self.client.run(prompt=self.prompt, seed=self.seed)
+        with open("run.png", "wb") as f:
+            f.write(result)
+
+    def test_txt2img_and_run_same(self):
+        txt2img_result = self.client.txt2img(prompt=self.prompt, seed=self.seed)
+        run_result = self.client.run(prompt=self.prompt, seed=self.seed)
+        self.assertEqual(txt2img_result, run_result)
+
+
 class TestInpaint(unittest.TestCase):
     def setUp(self):
         self.client = Client(API_URL)

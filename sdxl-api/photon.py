@@ -85,6 +85,8 @@ class SDXL(Photon):
     def _user_error(self, detail):
         raise HTTPException(status_code=400, detail=detail)
 
+    # There is a `run` function which is a copy of txt2img, remember
+    # to update both if you change one.
     @Photon.handler(
         "txt2img",
         example={"prompt": "A cat launching rocket", "seed": 1234},
@@ -169,6 +171,47 @@ class SDXL(Photon):
         images[0].save(img_io, format="PNG", quality="keep")
         img_io.seek(0)
         return PNGResponse(img_io, headers={"steps": str(steps)})
+
+    # `run` is a copy of `txt2img`, we keep this just for backward compatibility
+    @Photon.handler(
+        "run",
+        example={"prompt": "A cat launching rocket", "seed": 1234},
+    )
+    def run(
+        self,
+        prompt: Optional[str] = None,
+        prompt_2: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        negative_prompt_2: Optional[str] = None,
+        prompt_embeds: List[List[List[float]]] = None,
+        negative_prompt_embeds: List[List[List[float]]] = None,
+        pooled_prompt_embeds: List[List[float]] = None,
+        negative_pooled_prompt_embeds: List[List[float]] = None,
+        width: int = 1024,
+        height: int = 1024,
+        guidance_scale: float = 5.0,
+        seed: Optional[int] = None,
+        steps: int = 30,
+        high_noise_frac: float = 0.8,
+        use_refiner: bool = False,
+    ) -> PNGResponse:
+        return self.txt2img(
+            prompt=prompt,
+            prompt_2=prompt_2,
+            negative_prompt=negative_prompt,
+            negative_prompt_2=negative_prompt_2,
+            prompt_embeds=prompt_embeds,
+            negative_prompt_embeds=negative_prompt_embeds,
+            pooled_prompt_embeds=pooled_prompt_embeds,
+            negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
+            width=width,
+            height=height,
+            guidance_scale=guidance_scale,
+            seed=seed,
+            steps=steps,
+            high_noise_frac=high_noise_frac,
+            use_refiner=use_refiner,
+        )
 
     def _img_param_to_img(self, param):
         if isinstance(param, FileParam):
