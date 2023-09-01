@@ -208,25 +208,27 @@ prometheus:
             regex: nvidia-dcgm-exporter
 
       - job_name: envoy-gloo-gateway-proxy-pods
-
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
         kubernetes_sd_configs:
           - role: pod
             namespaces:
               names:
                 - gloo-system
-
         relabel_configs:
           - source_labels:
-              - __meta_kubernetes_pod_name
+              - __meta_kubernetes_pod_label_gloo
             action: keep
-            regex: gateway-proxy.+
+            regex: gateway-proxy
           - source_labels: [__address__]
             action: replace
             regex: ([^:]+):.*
             # https://docs.solo.io/gloo-edge/latest/guides/observability/prometheus/#find-envoys-prometheus-stats
             replacement: $1:8081
             target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
 
         # metrics from: https://grafana.com/docs/grafana-cloud/monitor-infrastructure/integrations/integration-reference/integration-envoy/
         # example metrics: https://gist.github.com/suyuee/8b6926eadba0df37bda86d6b650ebb5c
@@ -244,25 +246,27 @@ prometheus:
             action: keep
 
       - job_name: gloo-control-plane
-
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
         kubernetes_sd_configs:
           - role: pod
             namespaces:
               names:
                 - gloo-system
-
         relabel_configs:
           - source_labels:
-              - __meta_kubernetes_pod_name
+              - __meta_kubernetes_pod_label_gloo
             action: keep
-            regex: ^gloo-.+
+            regex: gloo
           - source_labels: [__address__]
             action: replace
             regex: ([^:]+):.*
             # https://docs.solo.io/gloo-edge/latest/guides/observability/prometheus/#find-envoys-prometheus-stats
             replacement: $1:9091
             target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
 
       - job_name: metering-metrics
         # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
@@ -271,9 +275,58 @@ prometheus:
             namespaces:
               names:
                 - metering
-
         relabel_configs:
           - source_labels:
               - __meta_kubernetes_pod_name
             action: keep
             regex: ^metering-.+
+
+      # sdxl metrics
+      - job_name: sdxl-gloo-gateway
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - stablediffusion-proxy
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gateway-proxy
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            replacement: $1:8081
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: ^(envoy_cluster_upstream_cx_.+)|(envoy_cluster_upstream_rq_.+)|(envoy_cluster_version)|(envoy_http_downstream.+)|(envoy_listener_downstream_cx_total)|(envoy_server_.+)$
+            action: keep
+
+      - job_name: sdxl-gloo-control-plane
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - stablediffusion-proxy
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gloo
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            replacement: $1:9091
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+      - job_name: sdxl-node
+        static_configs:
+          - targets: ['sdxl.lepton.run']
