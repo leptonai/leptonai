@@ -14,6 +14,10 @@ on:
         description: "Is this a release build"
         type: boolean
         default: false
+      build_nightly:
+        description: "Whether to build nightly inages"
+        type: boolean
+        default: false
 
 jobs:
   build_matrix:
@@ -42,9 +46,17 @@ jobs:
         if: inputs.build_base
         run: |
           tag="${{ steps.vars.outputs.base_image }}"
-          docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file sdk/leptonai/photon/dockerfiles/photon-py.Dockerfile --tag ${tag}
+          docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=0 --build-arg CUDA_VERSION=11.7.0 --file sdk/leptonai/photon/dockerfiles/photon-py.Dockerfile --tag ${tag}
           if [ "${{ inputs.is_release }}" == 'true' ]; then
               docker push ${tag}
+          fi
+
+          if [ "${{ inputs.build_nightly }}" == 'true' ]; then
+            tag="${tag}-nightly"
+            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=1 --build-arg CUDA_VERSION=12.1.0 --file sdk/leptonai/photon/dockerfiles/photon-py.Dockerfile --tag ${tag}
+            if [ "${{ inputs.is_release }}" == 'true' ]; then
+                docker push ${tag}
+            fi
           fi
       - name: Build Runner Images
         env:
@@ -52,9 +64,19 @@ jobs:
         run: |
           echo "HEAD SHA=$(git rev-parse --short HEAD)"
           echo "VERSION_TAG=${VERSION_TAG}"
+
           tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
           docker build . --build-arg BASE_IMAGE="${{ steps.vars.outputs.base_image }}" --file sdk/leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag ${tag}
           if [ "${{ inputs.is_release }}" == 'true' ]; then
               docker push ${tag}
           fi
           docker rmi ${tag}
+
+          if [ "${{ inputs.build_nightly }}" == 'true' ]; then
+            tag="${tag}-nightly"
+            docker build . --build-arg BASE_IMAGE="${{ steps.vars.outputs.base_image }}-nightly" --file sdk/leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag ${tag}
+            if [ "${{ inputs.is_release }}" == 'true' ]; then
+                docker push ${tag}
+            fi
+            docker rmi ${tag}
+          fi
