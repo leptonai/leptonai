@@ -4,6 +4,7 @@ on:
   schedule:
     # create a new ci cluster every week on Sunday 8am UTC
     - cron: "0 8 * * 0"
+  workflow_dispatch:
 
 jobs:
   create:
