@@ -1,9 +1,8 @@
 {{ if .Values.deploymentOperator.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: {{ .Values.deploymentOperator.name }}-role
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.deploymentOperator.name }}-{{ .Release.Namespace }}-clusterrole
 rules:
 - apiGroups: [""]
   resources: ["services", "persistentvolumeclaims", "pods"]
@@ -20,12 +19,6 @@ rules:
 - apiGroups: ["gateway.solo.io", "gloo.solo.io"]
   resources: ["routetables", "virtualservices", "upstreams"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: {{ .Values.deploymentOperator.name }}-{{ .Release.Namespace }}-clusterrole
-rules:
 - apiGroups: [""]
   resources: ["persistentvolumes"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
