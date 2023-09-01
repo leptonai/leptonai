@@ -5,6 +5,7 @@ import {
   SdxlOption,
 } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
 import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
+import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
 import { PromptInput } from "@lepton-libs/gradio/prompt-input";
 import { FC, useMemo, useRef, useState } from "react";
 import { css } from "@emotion/react";
@@ -18,7 +19,6 @@ import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
 import { tap } from "rxjs";
-import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
 
 const presetOptions = presets.map((p) => ({
   label: p.name,
@@ -123,6 +123,10 @@ export const StableDiffusionXl: FC = () => {
     abortController.current?.abort();
   };
 
+  const codes = Object.entries(APICodeTemplate.sd(url)).map(
+    ([language, code]) => ({ language, code })
+  );
+
   return (
     <Container
       loading={!backend}
@@ -150,7 +154,7 @@ export const StableDiffusionXl: FC = () => {
               setResult(presets.find((p) => p.prompt === v)!.image);
             }}
           />
-          <Api name="Stable Diffusion XL" code={APICodeTemplates.sd(url)} />
+          <Api name="Stable Diffusion XL" codes={codes} />
         </>
       }
       option={<Options value={option} onChange={setOption} />}

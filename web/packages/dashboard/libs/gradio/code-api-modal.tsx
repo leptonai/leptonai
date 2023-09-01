@@ -1,5 +1,13 @@
-import { Button, message, Modal, Space } from "antd";
-import { FC, PropsWithChildren, ReactNode, useCallback } from "react";
+import { Languages } from "@lepton/ui/shared/shiki";
+import { Button, message, Modal, Space, Tabs } from "antd";
+import {
+  FC,
+  PropsWithChildren,
+  ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   CodeBlock,
   createDoubleQuoteSecretTokenMasker,
@@ -7,76 +15,33 @@ import {
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const APICodeTemplates = {
-  chat: (apiUrl: string, apiKey?: string, prompt?: string) => {
-    // language=Python
-    return `import os
-import sys
-import openai
-
-openai.api_base = os.environ.get("OPENAI_API_BASE", "${apiUrl}")${
-      apiKey ? `\nopenai.api_key = ${apiKey}` : ""
-    }
-
-# List available models
-print("==== Available models ====")
-models = openai.Model.list()
-
-model = models["data"][0]["id"]
-
-completion = openai.ChatCompletion.create(
-    model=model,
-    messages=[
-        {"role": "user", "content": "${prompt || "say hello"}"},
-    ],
-    max_tokens=4096,
-    stream=True,
-)
-
-print(f"==== Model: {model} ====")
-for chunk in completion:
-    content = chunk["choices"][0]["delta"].get("content")
-    if content:
-        sys.stdout.write(content)
-        sys.stdout.flush()
-sys.stdout.write("\\n")`;
-  },
-  sd: (apiUrl: string, prompt?: string) => {
-    // language=Python
-    return (
-      "from leptonai.client import Client\n" +
-      `c = Client("${apiUrl}")\n` +
-      "\n" +
-      "image = c.run(\n" +
-      `    prompt="${prompt || "Astronaut on Mars During sunset"}",\n` +
-      "    height=1024,\n" +
-      "    width=1024,\n" +
-      "    seed=1809774958,\n" +
-      "    steps=30,\n" +
-      "    use_refiner=False\n" +
-      ")\n" +
-      "with open('output_image.png', 'wb') as f:\n" +
-      "    f.write(image)\n" +
-      'print("Image saved as output_image.png")'
-    );
-  },
-};
-
 export const CodeAPIModal: FC<
   {
-    code: string;
+    codes: { language: string; code: string }[];
     maskString?: string;
     title?: ReactNode;
     open: boolean;
     setOpen: (v: boolean) => void;
   } & PropsWithChildren
-> = ({ title, code, open, setOpen, maskString }) => {
+> = ({ title, codes, open, setOpen, maskString }) => {
   const theme = useAntdTheme();
+  const [language, setLanguage] = useState(codes[0].language);
+  const activeCode = useMemo(
+    () => codes.find((c) => c.language === language)!.code,
+    [language, codes]
+  );
+  const highlightLanguage: Languages = useMemo(() => {
+    const languageMap: { [key: string]: Languages } = {
+      Python: "python",
+      HTTP: "bash",
+      "Node.js": "js",
+    };
+    return languageMap[language] || "bash";
+  }, [language]);
   const copy = useCallback(() => {
-    void navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(activeCode);
     void message.success("Copied");
-  }, [code]);
+  }, [activeCode]);
   return (
     <Modal
       width={600}
@@ -97,25 +62,49 @@ export const CodeAPIModal: FC<
         </Space>
       }
     >
-      <div
+      <Tabs
         css={css`
-          height: 300px;
-          border: 1px solid ${theme.colorBorder};
-          background: ${theme.colorBgLayout};
-          overflow: hidden;
-          border-radius: ${theme.borderRadius}px;
+          .ant-tabs-nav-wrap {
+            justify-content: right !important;
+          }
         `}
-      >
-        <CodeBlock
-          transparentBg
-          tokenMask={createDoubleQuoteSecretTokenMasker(maskString || "", {
-            startAt: 3,
-            endAt: 3,
-          })}
-          code={code}
-          language="python"
-        />
-      </div>
+        size="small"
+        activeKey={language}
+        onChange={setLanguage}
+        items={codes.map((c) => ({
+          key: c.language,
+          label: c.language,
+          children: (
+            <div
+              css={css`
+                height: 300px;
+                border: 1px solid ${theme.colorBorderSecondary};
+                background: ${theme.colorBgLayout};
+                overflow: hidden;
+                border-radius: 0 0 ${theme.borderRadius}px
+                  ${theme.borderRadius}px;
+                border-top: none;
+                position: relative;
+                top: -16px;
+              `}
+            >
+              <CodeBlock
+                transparentBg
+                copyable
+                tokenMask={createDoubleQuoteSecretTokenMasker(
+                  maskString || "",
+                  {
+                    startAt: 3,
+                    endAt: 3,
+                  }
+                )}
+                code={activeCode}
+                language={highlightLanguage}
+              />
+            </div>
+          ),
+        }))}
+      />
     </Modal>
   );
 };

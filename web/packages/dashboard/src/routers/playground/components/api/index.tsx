@@ -9,9 +9,9 @@ import { FC, useState } from "react";
 import { catchError, of } from "rxjs";
 
 export const Api: FC<{
-  code: string;
+  codes: { language: string; code: string }[];
   name: string;
-}> = ({ code, name }) => {
+}> = ({ codes, name }) => {
   const { md } = Grid.useBreakpoint();
   const [open, setOpen] = useState(false);
   const authService = useInject(AuthService);
@@ -31,7 +31,7 @@ export const Api: FC<{
           {md !== false ? "API" : null}
         </Button>
         <CodeAPIModal
-          code={code}
+          codes={codes}
           open={open}
           setOpen={setOpen}
           title={`Copy API for ${name}`}

@@ -1,7 +1,5 @@
-import {
-  CodeAPIModal,
-  APICodeTemplates,
-} from "@lepton-libs/gradio/code-api-modal";
+import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
+import { CodeAPIModal } from "@lepton-libs/gradio/code-api-modal";
 import { Button, Tooltip } from "antd";
 import { SizeType } from "antd/lib/config-provider/SizeContext";
 import { FC, PropsWithChildren, ReactNode, useState } from "react";
@@ -24,7 +22,9 @@ export const ApiModal: FC<ApiModalProps & PropsWithChildren> = ({
   children,
 }) => {
   const [open, setOpen] = useState(false);
-
+  const codes = Object.entries(APICodeTemplate.chat(apiUrl, apiKey)).map(
+    ([language, code]) => ({ language, code })
+  );
   return (
     <>
       <Tooltip placement="top" title="Get code template for this tuna">
@@ -42,8 +42,7 @@ export const ApiModal: FC<ApiModalProps & PropsWithChildren> = ({
 
       <CodeAPIModal
         title={`Copy API for ${name}`}
-        code={APICodeTemplates.chat(apiUrl, apiKey && `"${apiKey}"`)}
-        maskString={apiKey}
+        codes={codes}
         open={open}
         setOpen={setOpen}
       />

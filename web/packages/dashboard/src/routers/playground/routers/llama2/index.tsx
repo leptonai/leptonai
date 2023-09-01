@@ -6,6 +6,7 @@ import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
+import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
 import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
 import { ChatOptions } from "@lepton-libs/gradio/chat-options";
 import {
@@ -24,7 +25,6 @@ import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
-import { APICodeTemplates } from "@lepton-libs/gradio/code-api-modal";
 
 const modelMap = {
   "llama-2-7b": {
@@ -136,19 +136,15 @@ export const Llama2: FC = () => {
     };
   }, []);
 
+  const codes = Object.entries(
+    APICodeTemplate.chat(url, "YOUR_EMAIL_ADDRESS")
+  ).map(([language, code]) => ({ language, code }));
+
   return (
     <Container
       loading={!chat}
       icon={<CarbonIcon icon={<ChatBot />} />}
-      extra={
-        <Api
-          name="Llama2"
-          code={APICodeTemplates.chat(
-            url,
-            '"<YOUR_EMAIL_ADDRESS>" # for using API from playground, you may use your email address here'
-          )}
-        />
-      }
+      extra={<Api name="Llama2" codes={codes} />}
       title={
         <>
           <Dropdown menu={modelMenu} trigger={["click"]}>
