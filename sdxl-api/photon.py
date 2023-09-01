@@ -62,25 +62,38 @@ class SDXL(Photon):
         self._optimize_pipeline(self.refiner)
 
         # TODO: can we share the txt2img and inpaint pipelines?
-        self.inpaint_base = StableDiffusionXLInpaintPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0",
-            torch_dtype=torch.float16,
-            variant="fp16",
-            use_safetensors=True,
-            add_watermarker=False,
-        ).to("cuda")
-        self._optimize_pipeline(self.inpaint_base)
+        kwargs = {
+            key: getattr(self.base, key)
+            for key in [
+                "vae",
+                "text_encoder",
+                "text_encoder_2",
+                "tokenizer",
+                "tokenizer_2",
+                "unet",
+                "scheduler",
+                "force_zeros_for_empty_prompt",
+            ]
+        }
+        kwargs["add_watermarker"] = False
+        self.inpaint_base = StableDiffusionXLInpaintPipeline(**kwargs).to("cuda")
 
-        self.inpaint_refiner = StableDiffusionXLInpaintPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-xl-refiner-1.0",
-            text_encoder_2=self.inpaint_base.text_encoder_2,
-            vae=self.inpaint_base.vae,
-            torch_dtype=torch.float16,
-            use_safetensors=True,
-            variant="fp16",
-            add_watermarker=False,
-        ).to("cuda")
-        self._optimize_pipeline(self.inpaint_refiner)
+        kwargs = {
+            key: getattr(self.refiner, key)
+            for key in [
+                "vae",
+                "text_encoder",
+                "text_encoder_2",
+                "tokenizer",
+                "tokenizer_2",
+                "unet",
+                "scheduler",
+                "requires_aesthetics_score",
+                "force_zeros_for_empty_prompt",
+            ]
+        }
+        kwargs["add_watermarker"] = False
+        self.inpaint_refiner = StableDiffusionXLInpaintPipeline(**kwargs).to("cuda")
 
     def _user_error(self, detail):
         raise HTTPException(status_code=400, detail=detail)
