@@ -3,7 +3,9 @@ package metering
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +24,49 @@ type FineGrainStorageData struct {
 	Time        time.Time
 }
 
-func GetFineGrainStorageData(queryTime time.Time, region string, clusterName string) ([]FineGrainStorageData, error) {
+// Pulls the latest storage data from api-server prometheus metrics
+func GetFineGrainStorageDataInCluster(queryTime time.Time, clusterName string, prometheusSvcName string, prometheusNamespace string, prometheusPort int) ([]FineGrainStorageData, error) {
+	// query prometheus for the latest storage data
+	promURL := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", prometheusSvcName, prometheusNamespace, prometheusPort)
+	queryStr := fmt.Sprintf(`lepton_storage_workspace_usage_bytes{cluster_name="%s"}`, clusterName)
+
+	jsonResult, err := QueryPrometheus(promURL, queryStr, queryTime)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []PrometheusStorageQuery
+	err = json.Unmarshal(jsonResult, &results)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	var data []FineGrainStorageData
+	var malformedResults []PrometheusStorageQuery
+	for _, result := range results {
+		sizeStr := result.Value[1].(string)
+		size, err := strconv.Atoi(sizeStr)
+		if err != nil {
+			malformedResults = append(malformedResults, result)
+		}
+		data = append(data, FineGrainStorageData{
+			Cluster:     clusterName,
+			Workspace:   result.Metric.WorkspaceID,
+			storageID:   result.Metric.StorageID,
+			SizeInBytes: uint64(size),
+			Time:        queryTime,
+		})
+	}
+	if len(malformedResults) > 0 {
+		return data, fmt.Errorf("malformed results: %v", malformedResults)
+	}
+	return data, nil
+}
+
+// Uses EFSDescribeFileSystem API to get the latest storage data
+// May be rate limited
+func GetFineGrainStorageDataExternal(queryTime time.Time, region string, clusterName string) ([]FineGrainStorageData, error) {
 	cfg, err := aws.New(&aws.Config{
 		DebugAPICalls: false,
 		Region:        region,

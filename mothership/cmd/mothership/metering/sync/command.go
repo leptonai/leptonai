@@ -28,6 +28,10 @@ var (
 	opencostSvcName   string
 	opencostSvcPort   int
 
+	prometheusNamespace string
+	prometheusSvcName   string
+	prometheusSvcPort   int
+
 	mothershipRegion string
 
 	queryPath       string
@@ -61,10 +65,18 @@ and recommended to be at least 5 minutes.
 	}
 
 	cmd.PersistentFlags().StringVarP(&kubeconfigPath, "kubeconfig", "k", "", "Kubeconfig path (otherwise, client uses the one from KUBECONFIG env var)")
-	cmd.PersistentFlags().StringVarP(&opencostNamespace, "opencost-namespace", "n", "kubecost-cost-analyzer", "Namespace where opencost/kubecost is running")
-	cmd.PersistentFlags().StringVarP(&opencostSvcName, "opencost-service-name", "s", "kubecost-cost-analyzer", "Service name of opencost/kubecost to port-forward")
-	cmd.PersistentFlags().IntVarP(&opencostSvcPort, "opencost-service-port", "t", 9003, "Service port of opencost/kubecost (use 9090 for in cluster)")
 
+	// required for compute data sync
+	cmd.PersistentFlags().StringVar(&opencostNamespace, "opencost-namespace", "kubecost-cost-analyzer", "Namespace where opencost/kubecost is running")
+	cmd.PersistentFlags().StringVar(&opencostSvcName, "opencost-service-name", "kubecost-cost-analyzer", "Service name of opencost/kubecost to port-forward")
+	cmd.PersistentFlags().IntVar(&opencostSvcPort, "opencost-service-port", 9003, "Service port of opencost/kubecost (use 9090 for in cluster)")
+
+	// required for in-cluster storage data sync
+	cmd.PersistentFlags().StringVar(&prometheusNamespace, "prometheus-namespace", "kube-prometheus-stack", "Namespace where main prometheus server is running")
+	cmd.PersistentFlags().StringVar(&prometheusSvcName, "prometheus-service-name", "kube-prometheus-stack-prometheus", "Service name of prometheus to port-forward")
+	cmd.PersistentFlags().IntVar(&prometheusSvcPort, "prometheus-service-port", 9090, "Service port of prometheus server (use 9090 for in cluster)")
+
+	// required for external storage data sync
 	cmd.PersistentFlags().StringVar(&mothershipRegion, "mothership-region", "", "AWS region of mothership")
 
 	// ref. https://docs.kubecost.com/apis/apis-overview/allocation#querying
@@ -73,10 +85,12 @@ and recommended to be at least 5 minutes.
 	cmd.PersistentFlags().StringVar(&queryResolution, "query-resolution", "1m", "Query resolution")
 	cmd.PersistentFlags().IntVar(&syncInterval, "sync-interval-in-minutes", 10, "Interval to sync data to db")
 
-	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "skips efs storage data sync (default false)")
-	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "skips compute data sync (default false)")
+	cmd.PersistentFlags().BoolVar(&enableStorage, "enable-storage", false, "enables efs storage data sync (default false)")
+	cmd.PersistentFlags().BoolVar(&enableCompute, "enable-compute", false, "enables compute data sync, only available in-cluster (default false)")
 	cmd.PersistentFlags().BoolVar(&inCluster, "in-cluster", false, "run sync on cluster (default false)")
 	cmd.PersistentFlags().StringVar(&clusterName, "cluster-name", "", "name of cluster to run sync on")
+
+	// required to expose metering monitoring and alerting metrics
 	cmd.PersistentFlags().IntVar(&listenPort, "listen-port", 31373, "port to serve prometheus metrics on")
 	return cmd
 }
@@ -242,8 +256,12 @@ func syncOnce(syncCompute bool, syncStorage bool, clusterName string, start time
 	var storageData []metering.FineGrainStorageData
 	if syncStorage {
 		log.Printf("Syncing efs storage data with window query start: (%s -- %s)", start, end)
+		if !inCluster {
+			storageData, err = metering.GetFineGrainStorageDataExternal(end, mothershipRegion, clusterName)
+		} else {
+			storageData, err = metering.GetFineGrainStorageDataInCluster(end, clusterName, prometheusSvcName, prometheusNamespace, prometheusSvcPort)
+		}
 
-		storageData, err = metering.GetFineGrainStorageData(end, mothershipRegion, clusterName)
 		if err != nil {
 			log.Fatalf("failed to get storage data %v", err)
 		}

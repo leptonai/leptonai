@@ -1,8 +1,26 @@
 package metering
 
 import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+type PrometheusStorageQuery struct {
+	Metric PrometheusStorageQueryMetrics `json:"metric"`
+	Value  []interface{}                 `json:"value"`
+}
+
+type PrometheusStorageQueryMetrics struct {
+	ClusterName string `json:"cluster_name"`
+	WorkspaceID string `json:"workspace_id"`
+	SizeInBytes int64  `json:"size_bytes"`
+	StorageID   string `json:"storage_id"`
+}
 
 var (
 	// metering metrics are exposed by metering-sync and metering-aggregate
@@ -101,4 +119,22 @@ func GatherFineGrain(clusterName string, tableName string, latestAmount float64,
 // GatherDiskUsage exports Prometheus metrics for workspace disk usage
 func GatherDiskUsage(workspaceId string, clusterName string, storageType string, storageId string, diskUsageBytes int64) {
 	storageDiskUsageBytes.WithLabelValues(workspaceId, clusterName, storageType, storageId).Set(float64(diskUsageBytes))
+}
+
+// Query the prometheus server at promURL with an instance selector for the given queryStr, at specified queryTime
+func QueryPrometheus(promURL, queryStr string, queryTime time.Time) ([]byte, error) {
+	client, err := api.NewClient(api.Config{Address: promURL})
+	if err != nil {
+		return nil, err
+	}
+
+	v1API := v1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	result, _, err := v1API.Query(ctx, queryStr, queryTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
 }
