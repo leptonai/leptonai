@@ -45,32 +45,20 @@ sys.stdout.write("\\n")`;
   sd: (apiUrl: string, prompt?: string) => {
     // language=Python
     return (
-      "import requests\n" +
+      "from leptonai.client import Client\n" +
+      `c = Client("${apiUrl}")\n` +
       "\n" +
-      `url = "${apiUrl}"\n` +
-      "\n" +
-      "payload = {\n" +
-      '    "height": 1024,\n' +
-      `    "prompt": "${prompt || "Astronaut on Mars During sunset"}",\n` +
-      '    "seed": 1809774958,\n' +
-      '    "steps": 30,\n' +
-      '    "use_refiner": False,\n' +
-      '    "width": 1024,\n' +
-      "}\n" +
-      "\n" +
-      "headers = {\n" +
-      '    "Content-Type": "application/json"\n' +
-      "}\n" +
-      "\n" +
-      "response = requests.post(url, json=payload, headers=headers)\n" +
-      "\n" +
-      "if response.status_code == 200:\n" +
-      "    # Assuming the response contains the image data\n" +
-      "    with open('output_image.png', 'wb') as f:\n" +
-      "        f.write(response.content)\n" +
-      '    print("Image saved as output_image.png")\n' +
-      "else:\n" +
-      '    print(f"Error {response.status_code}: {response.text}")\n'
+      "image = c.run(\n" +
+      `    prompt="${prompt || "Astronaut on Mars During sunset"}",\n` +
+      "    height=1024,\n" +
+      "    width=1024,\n" +
+      "    seed=1809774958,\n" +
+      "    steps=30,\n" +
+      "    use_refiner=False\n" +
+      ")\n" +
+      "with open('output_image.png', 'wb') as f:\n" +
+      "    f.write(image)\n" +
+      'print("Image saved as output_image.png")'
     );
   },
 };
@@ -111,7 +99,7 @@ export const CodeAPIModal: FC<
     >
       <div
         css={css`
-          height: 400px;
+          height: 300px;
           border: 1px solid ${theme.colorBorder};
           background: ${theme.colorBgLayout};
           overflow: hidden;
