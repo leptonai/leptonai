@@ -1,13 +1,18 @@
 import { alias, intercept } from "../helper/intercept";
 import { saveToken } from "../helper/save-token";
 import { getRandomPhoton, removePhotonZip } from "../helper/photon";
-import { removeDeployment, removePhoton } from "../helper/request";
+import {
+  cleanPhotonsBefore,
+  removeDeployment,
+  removePhoton,
+} from "../helper/request";
 
 describe("photons", () => {
   let photonName: string;
   let photonPath: string;
   const deploymentName = `e2e-test-${Date.now()}`;
   before(() => {
+    cleanPhotonsBefore(1000 * 60 * 60 * 2);
     getRandomPhoton().then((photon) => {
       photonName = photon.name;
       photonPath = photon.path;
