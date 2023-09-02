@@ -20,10 +20,12 @@ import (
 	"context"
 	"flag"
 	"os"
+	"strings"
 	"time"
 
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/deployment-operator/internal/controller"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -34,6 +36,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
@@ -56,13 +59,15 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var namespace string
+	var namespaces string
 	var lbType string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&namespace, "namespace", "", "The namespace to watch for LeptonDeployment objects. Defaults to all namespaces.")
+	flag.StringVar(&namespace, "namespace", "", "The namespace to watch for LeptonDeployment objects. Can only set one of namespace or namespaces.")
+	flag.StringVar(&namespaces, "namespaces", "", "The list of namespaces separated by comma to watch for LeptonDeployment objects. Defaults to all namespaces.")
 	flag.StringVar(&lbType, "lb-type", string(leptonaiv1alpha1.WorkspaceLBTypeDedicated), "If the deployments should shared LB infra")
 	opts := zap.Options{
 		Development: true,
@@ -72,10 +77,24 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	if namespaces != "" && namespace != "" {
+		goutil.Logger.Fatalw("can only set one of namespace or namespaces",
+			"namespace", namespace,
+			"namespaces", namespaces,
+		)
+	}
+	var namespaceList []string
+	if namespace != "" {
+		namespaceList = []string{namespace}
+	} else {
+		// if namespaces is empty (""), watch all namespaces by setting namespaceList to []string{""}
+		namespaceList = strings.Split(namespace, ",")
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
-		Namespace:              namespace,
+		Cache:                  cache.Options{Namespaces: namespaceList},
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
@@ -104,12 +123,12 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		LBType: leptonaiv1alpha1.LeptonWorkspaceLBType(lbType),
 		GlooClients: controller.GlooClients{
-			VirtualServiceClient: helpers.MustNamespacedVirtualServiceClient(ctx, namespace),
-			RouteTableClient:     helpers.MustNamespacedRouteTableClient(ctx, namespace),
-			UpstreamClient:       helpers.MustNamespacedUpstreamClient(ctx, namespace),
+			VirtualServiceClient: helpers.MustMultiNamespacedVirtualServiceClient(ctx, namespaceList),
+			RouteTableClient:     helpers.MustMultiNamespacedRouteTableClient(ctx, namespaceList),
+			UpstreamClient:       helpers.MustMultiNamespacedUpstreamClient(ctx, namespaceList),
 		},
 	}
-	go ldr.CleanupBadPodsPeriodically(namespace)
+	go ldr.CleanupBadPodsPeriodically(namespaceList)
 
 	if err = (ldr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LeptonDeployment")

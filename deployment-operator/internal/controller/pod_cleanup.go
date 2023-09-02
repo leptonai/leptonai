@@ -12,19 +12,21 @@ import (
 
 // CleanupBadPodsPeriodically cleans up pods with failed status with expected reasons
 // (Evicted, UnexpectedAdmissionError, NodeAffinity)
-func (r *LeptonDeploymentReconciler) CleanupBadPodsPeriodically(namespace string) {
+func (r *LeptonDeploymentReconciler) CleanupBadPodsPeriodically(namespaces []string) {
 	for {
 		time.Sleep(5 * time.Minute)
 
-		goutil.Logger.Infow("cleaning bad pods",
-			"operation", "cleanupBadPods",
-			"namespace", namespace,
-		)
-		r.cleanupBadPodsOnce(namespace)
-		goutil.Logger.Infow("finished cleaning bad pods",
-			"operation", "cleanupBadPods",
-			"namespace", namespace,
-		)
+		for _, namespace := range namespaces {
+			goutil.Logger.Infow("cleaning bad pods",
+				"operation", "cleanupBadPods",
+				"namespace", namespace,
+			)
+			r.cleanupBadPodsOnce(namespace)
+			goutil.Logger.Infow("finished cleaning bad pods",
+				"operation", "cleanupBadPods",
+				"namespace", namespace,
+			)
+		}
 	}
 }
 
@@ -54,7 +56,7 @@ func (r *LeptonDeploymentReconciler) cleanupBadPodsOnce(namespace string) {
 		if pod.Status.Phase != corev1.PodFailed {
 			goutil.Logger.Errorw("pod is not in failed state",
 				"operation", "cleanupBadPods",
-				"namespace", namespace,
+				"namespace", pod.Namespace,
 				"pod", pod.Name,
 				"phase", pod.Status.Phase,
 			)
@@ -64,7 +66,7 @@ func (r *LeptonDeploymentReconciler) cleanupBadPodsOnce(namespace string) {
 			pod.Status.Reason != "NodeAffinity" {
 			goutil.Logger.Warnw("failed pod is not in expected state. skipping and waitting for the default GC to cleanup",
 				"operation", "cleanupBadPods",
-				"namespace", namespace,
+				"namespace", pod.Namespace,
 				"pod", pod.Name,
 				"reason", pod.Status.Reason,
 			)
@@ -74,14 +76,14 @@ func (r *LeptonDeploymentReconciler) cleanupBadPodsOnce(namespace string) {
 		if err != nil {
 			goutil.Logger.Errorw("failed to delete pod",
 				"operation", "cleanupBadPods",
-				"namespace", namespace,
+				"namespace", pod.Namespace,
 				"pod", pod.Name,
 				"error", err,
 			)
 		} else {
 			goutil.Logger.Infow("pod deleted",
 				"operation", "cleanupBadPods",
-				"namespace", namespace,
+				"namespace", pod.Namespace,
 				"pod", pod.Name,
 			)
 		}
