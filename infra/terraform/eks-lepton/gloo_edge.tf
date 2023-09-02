@@ -1,3 +1,15 @@
+locals {
+  gateway_hc_path = <<EOT
+gatewayProxies:
+  gatewayProxy:
+    gatewaySettings:
+      customHttpGateway:
+        options:
+          healthCheck:
+            path: /healthz
+EOT
+}
+
 resource "helm_release" "gloo_edge" {
   name       = "gloo-edge"
   repository = "https://storage.googleapis.com/solo-public-helm"
@@ -74,6 +86,8 @@ resource "helm_release" "gloo_edge" {
     name  = "gloo.deployment.resources.limits.memory"
     value = "8Gi"
   }
+
+  values = [local.gateway_hc_path]
 
   depends_on = [module.eks]
 }

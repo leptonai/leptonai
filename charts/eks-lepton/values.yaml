@@ -7,7 +7,7 @@ lbGlooAlbIngress:
   ingressGroupName: lb-gloo-ingress-group
   certificateArn: ""
   path: /
-  healthCheckPath: /lbhealthz
+  healthCheckPath: /healthz
   serviceName: gateway-proxy # decided by gloo installation
   gatewayProxy:
     port: 80 # gateway-proxy service port is 80 by default;
