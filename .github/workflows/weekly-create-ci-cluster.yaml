@@ -18,6 +18,6 @@ jobs:
             -d '{
                   "deployment_environment":"TEST",
                   "name":"'$name'",
-                  "subdomain": "'$name'",
+                  "subdomain": "'$name'"
                 }' \
             https://mothership.cloud.lepton.ai/api/v1/clusters
