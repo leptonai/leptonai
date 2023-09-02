@@ -21,7 +21,10 @@ class SDXL(Photon):
 
     requirement_dependency = [
         "torch",
-        "diffusers>=0.19.3",
+        # This diffuser fork fixed a place that uses the `any` python builtin which
+        # causes torch.compile failing on dynamic shapes
+        # https://github.com/pytorch/pytorch/issues/103620#issuecomment-1668762971
+        "git+https://github.com/bddppq/diffusers.git@1545865",
         "opencv-python!=4.8.0.76",
     ]
 
