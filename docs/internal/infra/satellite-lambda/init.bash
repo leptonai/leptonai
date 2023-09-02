@@ -485,6 +485,8 @@ set -x
 
 
 
+
+
 ###########################
 # USER-DEFINED POST INIT SCRIPT
 echo DONE###########################
@@ -532,3 +534,20 @@ set -x
 
 
 
+
+
+
+
+# in remote machines
+sudo mkdir -p /var/lib/kubelet
+sudo chown -R ubuntu /var/lib/kubelet
+sudo mkdir -p /etc/kubernetes/kubelet
+sudo chown -R ubuntu /etc/kubernetes/kubelet
+sudo mkdir -p /etc/kubernetes/pki
+sudo chown -R ubuntu /etc/kubernetes/pki
+sudo chown -R ubuntu /etc/containerd
+find /etc/containerd
+find /opt/cni/bin
+sudo mkdir -p /etc/cni/net.d
+sudo chown -R ubuntu /etc/cni/net.d
+sudo chown -R ubuntu /etc/sysctl.d/

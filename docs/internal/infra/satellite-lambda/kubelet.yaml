@@ -6,7 +6,6 @@ kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
 
 address: 0.0.0.0
-readOnlyPort: 10249
 port: 10250
 
 authentication:
@@ -31,12 +30,10 @@ clusterDomain: cluster.local
 hairpinMode: hairpin-veth
 
 cgroupDriver: cgroupfs
-cgroupRoot: "/"
+cgroupRoot: /
+
 featureGates:
   RotateKubeletServerCertificate: true
-
-protectKernelDefaults: true
-serializeImagePulls: false
 
 # default false
 rotateCertificates: false
@@ -101,14 +98,19 @@ containerRuntimeEndpoint: unix:///run/containerd/containerd.sock
 
 # running with swap on is not supported, please disable swap! or set --fail-swap-on
 failSwapOn: false
+protectKernelDefaults: true
+serializeImagePulls: false
 
-# registerWithTaints
 registerNode: true
+# registerNode: false
 
 registerWithTaints:
-  - key: lepton.io/provider
-    value: lambda
-    effect: NoSchedule
   - key: nvidia.com/gpu
     value: ""
+    effect: NoSchedule
+
+  # useful to prevent non-compatible pods from being scheduled on the node
+  # ref. https://github.com/leptonai/lepton/pull/2937
+  - key: lepton.ai/resource-provider
+    value: lambdalabs
     effect: NoSchedule

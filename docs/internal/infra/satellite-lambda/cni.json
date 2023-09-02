@@ -1,0 +1,26 @@
+{
+    "cniVersion": "1.0.0",
+    "name": "cni-host-local",
+    "plugins": [
+        {
+            "type": "host-local",
+            "ipam": {
+                "type": "host-local",
+                "subnet": "172.16.30.0/24",
+                "routes": [
+                    {
+                        "dst": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "portmap",
+            "capabilities": {
+                "portMappings": true
+            },
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
+        }
+    ]
+}
+
