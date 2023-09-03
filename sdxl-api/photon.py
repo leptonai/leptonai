@@ -5,10 +5,13 @@ import tempfile
 from typing import Optional, List, Union
 
 from diffusers import DiffusionPipeline, StableDiffusionXLInpaintPipeline
+from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
 from diffusers.utils import load_image
 from fastapi import FastAPI, Request
 from loguru import logger
+import numpy as np
 from prometheus_client import Counter as PrometheusCounter
+from transformers import CLIPImageProcessor
 import torch
 
 from leptonai.photon import Photon, PNGResponse, HTTPException, FileParam
@@ -33,6 +36,34 @@ class SDXL(Photon):
         pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
         return pipe
 
+    def safety_check(self, image):
+        images = [image]
+        arrarys = [np.array(image)]
+        features = self.feature_extractor(images, return_tensors="pt").pixel_values.to(
+            "cuda"
+        )
+        images, has_nsfw_concepts = self.safety_checker(features, arrarys)
+
+        has_nsfw_concept = has_nsfw_concepts[0]
+        if has_nsfw_concept:
+            return DiffusionPipeline.numpy_to_pil(images[0])[0], has_nsfw_concept
+        else:
+            return image, has_nsfw_concept
+
+    def _image_response(self, image, safety_check, steps):
+        if safety_check:
+            logger.info("Checking NSFW concept")
+            image, has_nsfw_concept = self.safety_check(image)
+            if has_nsfw_concept:
+                logger.warning("NSFW concept detected")
+            else:
+                logger.info("NSFW concept not detected")
+
+        img_io = BytesIO()
+        image.save(img_io, format="PNG", quality="keep")
+        img_io.seek(0)
+        return PNGResponse(img_io, headers={"steps": str(steps)})
+
     def init(self):
         os.environ["PROMETHEUS_DISABLE_CREATED_SERIES"] = "1"
         self.steps_counter = PrometheusCounter(
@@ -42,6 +73,14 @@ class SDXL(Photon):
         )
 
         torch.backends.cuda.matmul.allow_tf32 = True
+
+        self.feature_extractor = CLIPImageProcessor.from_pretrained(
+            "openai/clip-vit-base-patch32",
+            device=0,
+        )
+        self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
+            "CompVis/stable-diffusion-safety-checker"
+        ).to("cuda")
 
         # load both base & refiner
         self.base = DiffusionPipeline.from_pretrained(
@@ -124,6 +163,7 @@ class SDXL(Photon):
         steps: int = 30,
         high_noise_frac: float = 0.8,
         use_refiner: bool = False,
+        safety_check: bool = False,
     ) -> PNGResponse:
         logger.info(
             f"Running txt2img with prompt='{prompt}', seed={seed}, steps={steps},"
@@ -188,10 +228,7 @@ class SDXL(Photon):
                 image=images,
             ).images
 
-        img_io = BytesIO()
-        images[0].save(img_io, format="PNG", quality="keep")
-        img_io.seek(0)
-        return PNGResponse(img_io, headers={"steps": str(steps)})
+        return self._image_response(images[0], safety_check=safety_check, steps=steps)
 
     # `run` is a copy of `txt2img`, we keep this just for backward compatibility
     @Photon.handler(
@@ -215,6 +252,7 @@ class SDXL(Photon):
         steps: int = 30,
         high_noise_frac: float = 0.8,
         use_refiner: bool = False,
+        safety_check: bool = False,
     ) -> PNGResponse:
         return self.txt2img(
             prompt=prompt,
@@ -232,6 +270,7 @@ class SDXL(Photon):
             steps=steps,
             high_noise_frac=high_noise_frac,
             use_refiner=use_refiner,
+            safety_check=safety_check,
         )
 
     def _img_param_to_img(self, param):
@@ -272,6 +311,7 @@ class SDXL(Photon):
         steps: int = 30,
         high_noise_frac: float = 0.8,
         use_refiner: bool = False,
+        safety_check: bool = False,
     ) -> PNGResponse:
         logger.info(
             f"Running inpaint with prompt='{prompt}', seed={seed}, steps={steps},"
@@ -344,10 +384,7 @@ class SDXL(Photon):
                 mask_image=mask_image,
             ).images
 
-        img_io = BytesIO()
-        images[0].save(img_io, format="PNG", quality="keep")
-        img_io.seek(0)
-        return PNGResponse(img_io, headers={"steps": str(steps)})
+        return self._image_response(images[0], safety_check=safety_check, steps=steps)
 
     @Photon.handler(mount=True)
     def do_not_look_at_it(self, app):
