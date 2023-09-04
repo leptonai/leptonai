@@ -43,6 +43,7 @@ export const ApiModal: FC<ApiModalProps & PropsWithChildren> = ({
       <CodeAPIModal
         title={`Copy API for ${name}`}
         codes={codes}
+        maskString={apiKey}
         open={open}
         setOpen={setOpen}
       />

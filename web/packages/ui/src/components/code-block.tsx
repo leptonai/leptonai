@@ -4,11 +4,12 @@ import { css } from "@emotion/react";
 import { Languages, useBrowserShiki } from "@lepton/ui/shared/shiki";
 import { CopyButton } from "@lepton/ui/components/copy-button";
 
-export const createDoubleQuoteSecretTokenMasker = (
+export const createStringLiteralSecretTokenMasker = (
   secret = "",
   option?: {
     startAt?: number;
     endAt?: number;
+    template?: (quote: string, secret: string) => string;
   }
 ) => {
   return (content: string) => {
@@ -17,15 +18,22 @@ export const createDoubleQuoteSecretTokenMasker = (
     }
     const startAt = option?.startAt ?? 0;
     const endAt = option?.endAt ?? secret.length;
-    if (content.includes(secret)) {
+    if (
+      content.includes(secret) &&
+      (content.startsWith("&#39;") || content.startsWith("&quot;"))
+    ) {
+      const quote = content.startsWith("&quot;") ? '"' : "'";
       const startSubstring = secret.substring(0, startAt);
       const endSubstring = secret.substring(
         secret.length - endAt,
         secret.length
       );
-      return `"${startSubstring}${"*".repeat(
+      const markedSecret = `${startSubstring}${"*".repeat(
         secret.length - startAt - endAt
-      )}${endSubstring}"`;
+      )}${endSubstring}`;
+      const template =
+        option?.template ?? ((quote, secret) => `${quote}${secret}${quote}`);
+      return template(quote, markedSecret);
     } else {
       return false;
     }

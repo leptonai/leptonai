@@ -12,7 +12,7 @@ import {
 } from "@lepton-dashboard/services/open-api.service";
 import {
   CodeBlock,
-  createDoubleQuoteSecretTokenMasker,
+  createStringLiteralSecretTokenMasker,
 } from "@lepton/ui/components/code-block";
 import { ApiItem } from "@lepton-dashboard/routers/workspace/routers/detail/routers/deployments/routers/detail/routers/api/components/api-item";
 import { LinkTo } from "@lepton-dashboard/components/link-to";
@@ -134,7 +134,7 @@ LEPTON_API_TOKEN = "${APIToken}"`
                       : `from leptonai.client import Client`
                   }
                   language="python"
-                  tokenMask={createDoubleQuoteSecretTokenMasker(
+                  tokenMask={createStringLiteralSecretTokenMasker(
                     APIToken || "",
                     {
                       startAt: 3,
@@ -155,7 +155,7 @@ LEPTON_API_TOKEN = "${APIToken}"`
                 <CodeBlock
                   code={`export LEPTON_API_TOKEN="${APIToken}"`}
                   language="bash"
-                  tokenMask={createDoubleQuoteSecretTokenMasker(
+                  tokenMask={createStringLiteralSecretTokenMasker(
                     APIToken || "",
                     {
                       startAt: 3,

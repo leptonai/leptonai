@@ -10,10 +10,16 @@ import {
 } from "react";
 import {
   CodeBlock,
-  createDoubleQuoteSecretTokenMasker,
+  createStringLiteralSecretTokenMasker,
 } from "@lepton/ui/components/code-block";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { css } from "@emotion/react";
+
+const languageMap: { [key: string]: Languages } = {
+  Python: "python",
+  HTTP: "bash",
+  "Node.js": "js",
+} as const;
 
 export const CodeAPIModal: FC<
   {
@@ -30,12 +36,7 @@ export const CodeAPIModal: FC<
     () => codes.find((c) => c.language === language)!.code,
     [language, codes]
   );
-  const highlightLanguage: Languages = useMemo(() => {
-    const languageMap: { [key: string]: Languages } = {
-      Python: "python",
-      HTTP: "bash",
-      "Node.js": "js",
-    };
+  const activeLanguage: Languages = useMemo(() => {
     return languageMap[language] || "bash";
   }, [language]);
   const copy = useCallback(() => {
@@ -91,15 +92,20 @@ export const CodeAPIModal: FC<
               <CodeBlock
                 transparentBg
                 copyable
-                tokenMask={createDoubleQuoteSecretTokenMasker(
+                tokenMask={createStringLiteralSecretTokenMasker(
                   maskString || "",
                   {
                     startAt: 3,
                     endAt: 3,
+                    template:
+                      activeLanguage === "bash"
+                        ? (quote, secret) =>
+                            `${quote}Authorization: Bearer ${secret}${quote}`
+                        : undefined,
                   }
                 )}
                 code={activeCode}
-                language={highlightLanguage}
+                language={activeLanguage}
               />
             </div>
           ),
