@@ -18,6 +18,7 @@ from leptonai.api import photon as api
 from leptonai.api import types
 from leptonai.api.deployment import list_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
+from leptonai.photon import Photon
 from leptonai.photon.base import (
     find_all_local_photons,
     find_local_photon,
@@ -296,10 +297,10 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
 
 
 @photon.command()
-@click.option("--name", "-n", help="Name of the photon to run.")
-@click.option("--model", "-m", help="Model spec of the photon.")
+@click.option("--name", "-n", type=str, help="Name of the photon to run.")
+@click.option("--model", "-m", type=str, help="Model spec of the photon.")
 @click.option(
-    "--file", "-f", "path", help="Path to the specific `.photon` file to run."
+    "--file", "-f", "path", type=str, help="Path to the specific `.photon` file to run."
 )
 @click.option(
     "--local",
@@ -310,14 +311,17 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     ),
     is_flag=True,
 )
-@click.option("--port", "-p", help="Port to run on.", default=8080)
-@click.option("--id", "-i", help="ID of the photon (only required for remote).")
+@click.option("--port", "-p", type=int, help="Port to run on.", default=8080)
+@click.option(
+    "--id", "-i", type=str, help="ID of the photon (only required for remote)."
+)
 @click.option(
     "--resource-shape",
+    type=str,
     help="Resource shape for the deployment.",
     default=None,
 )
-@click.option("--min-replicas", help="Number of replicas.", default=1)
+@click.option("--min-replicas", type=int, help="Number of replicas.", default=1)
 @click.option(
     "--mount",
     help=(
@@ -416,11 +420,12 @@ def run(
         if id is None:
             # look for the latest photon with the given name.
             id = _get_most_recent_photon_id_or_none(conn, name)
-            check(
-                id,
-                f"Photon [red]{name}[/] does not exist. Did you intend to run a"
-                " local photon? If so, please specify --local.",
-            )
+            if not id:
+                console.print(
+                    f"Photon [red]{name}[/] does not exist. Did you intend to run a"
+                    " local photon? If so, please specify --local.",
+                )
+                sys.exit(1)
             console.print(f"Running the most recent version of [green]{name}[/]: {id}")
         else:
             console.print(f"Running the specified version: [green]{id}[/]")
@@ -489,7 +494,13 @@ def run(
                 "Mounts, secrets and access tokens are only supported for"
                 " remote execution. They will be ignored for local execution."
             )
-
+        path = str(path)
+        if not os.path.exists(path):
+            console.print(
+                f"You encountered an internal error: photon [red]{path}[/] does not"
+                " exist."
+            )
+            sys.exit(1)
         metadata = api.load_metadata(path)
 
         if metadata.get(METADATA_VCS_URL_KEY, None):
@@ -499,7 +510,14 @@ def run(
 
         port = _find_available_port(port)
         console.print(f"Launching photon on port: [green]{port}[/]")
-        photon.launch(port=port)
+        if not isinstance(photon, Photon):
+            console.print(
+                f"You encountered an unsupported path: Loaded Photon from {path}"
+                " is not a python runnable Photon object."
+            )
+            sys.exit(1)
+        else:
+            photon.launch(port=port)
         return
 
 
