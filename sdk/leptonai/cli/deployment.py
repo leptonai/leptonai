@@ -17,7 +17,6 @@ from .util import (
 from leptonai.api import deployment as api
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_DEPLOYMENT_URL
-from .photon import _parse_deployment_tokens_or_die, _validate_resource_shape
 
 
 @click_group()
@@ -306,44 +305,16 @@ def update(name, min_replicas, resource_shape, public, tokens, id):
     as replacements, and not incrementals. For example, if you specify `--tokens`,
     old tokens are replaced by the new set of tokens.
     """
-    if id:
-        # TODO: We should probably check if the id is valid.
-        pass
-    if resource_shape:
-        resource_shape = _validate_resource_shape(resource_shape)
-    if min_replicas is not None:
-        check(
-            min_replicas >= 0,
-            f"Invalid number of replicas: {min_replicas}. Must be non-negative.",
-        )
-        # Just to avoid stupid errors right now, we will limit the number of replicas
-        # to 100 for now.
-        check(
-            min_replicas <= 100,
-            f"Invalid number of replicas: {min_replicas} is too big.",
-        )
-    check(not (public and tokens), "Cannot specify both --public and --tokens.")
-    if public:
-        final_tokens = []
-    else:
-        if tokens or (public is not None):
-            # If tokens is set, or public is explicitly set to be false, we know
-            # that we want to change the access control of the deployment.
-            final_tokens = _parse_deployment_tokens_or_die(public, tokens)
-        else:
-            # Note that None is different from [] here. None means that the tokens are not
-            # changed, while [] means that the tokens are cleared (aka, public deployment)
-            final_tokens = None
-
     conn = get_connection_or_die()
     guard_api(
         api.update_deployment(
             conn,
             name,
-            id,
-            min_replicas,
-            resource_shape,
-            final_tokens,
+            photon_id=id,
+            min_replicas=min_replicas,
+            resource_shape=resource_shape,
+            is_public=public,
+            tokens=tokens,
         ),
         detail=True,
         msg=f"Cannot update deployment [red]{name}[/]. See error above.",

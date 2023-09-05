@@ -1,6 +1,7 @@
-from typing import Dict, List, Union, Optional
+from typing import List, Union, Optional
 import warnings
 
+from . import types
 from .connection import Connection
 from .util import json_or_error, APIError
 
@@ -95,7 +96,8 @@ def update_deployment(
     photon_id: Optional[str] = None,
     min_replicas: Optional[int] = None,
     resource_shape: Optional[str] = None,
-    api_tokens: Optional[List[Dict[str, Union[str, Dict[str, str]]]]] = None,
+    is_public: Optional[bool] = None,
+    tokens: Optional[List[str]] = None,
 ):
     """
     Update a deployment in a workspace.
@@ -103,21 +105,19 @@ def update_deployment(
     Currently only supports updating the photon id, the min replicas, and the api tokens.
     For any more complex changes, consider re-run the deployment.
     """
-    deployment_body = {}
-    if photon_id:
-        deployment_body["photon_id"] = photon_id
-    if min_replicas is not None:
-        deployment_body["resource_requirement"] = {}
-        deployment_body["resource_requirement"]["min_replicas"] = min_replicas
-    if resource_shape:
-        if "resource_requirement" not in deployment_body:
-            deployment_body["resource_requirement"] = {}
-        deployment_body["resource_requirement"]["resource_shape"] = resource_shape
-    # Note that if the user passed in an empty list, it is still different from "None":
-    # None means the user did not want to update the api tokens, while an empty list means
-    # the user wants to remove api tokens and make it public.
-    if api_tokens is not None:
-        deployment_body["api_tokens"] = api_tokens
+    deployment_spec = types.DeploymentSpec(
+        name=name,
+        photon_id=photon_id,
+        resource_requirement=types.ResourceRequirement(
+            resource_shape=resource_shape,
+            min_replicas=min_replicas,
+        ),
+        api_tokens=types.TokenVar.make_token_vars_from_config(
+            is_public=is_public,
+            tokens=tokens,
+        ),
+    )
+    deployment_body = deployment_spec.dict(exclude_none=True)
     if not deployment_body:
         # If nothing is updated...
         warnings.warn(

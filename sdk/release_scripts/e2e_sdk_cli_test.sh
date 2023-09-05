@@ -403,9 +403,10 @@ else
     if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo
-# Verify if things are actually correct
+# Verify if things are actually correct. Will sleep for 10 seconds for replicas to wind down.
+sleep 10
 command="lep dep status -n ${COMMON_NAME}"
-if eval "$command" | grep "out of 2 replicas ready" > /dev/null; then
+if eval "$command" | grep "out of 1 replicas ready" > /dev/null; then
     echo "Replicas are correct."
 else
     echo "Replicas are not correct. Reproduce with: $command"

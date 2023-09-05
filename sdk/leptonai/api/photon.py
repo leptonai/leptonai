@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
 # import leptonai.photon to register the schemas and types
@@ -7,6 +7,7 @@ import leptonai.photon  # noqa: F401
 from leptonai.config import CACHE_DIR
 from leptonai.util import check_photon_name
 from .connection import Connection
+from . import types
 from .util import APIError, json_or_error
 
 
@@ -149,36 +150,34 @@ def fetch(conn: Connection, id: str, path: str):
     return photon
 
 
+def run_remote_with_spec(conn: Connection, deployment_spec: types.DeploymentSpec):
+    response = conn.post("/deployments", json=deployment_spec.dict(exclude_none=True))
+    return response
+
+
 def run_remote(
     conn: Connection,
     id: str,
     deployment_name: str,
-    resource_shape: str,
-    min_replicas: int,
+    resource_shape: Optional[str] = None,
+    min_replicas: Optional[int] = None,
     mounts: Optional[List[str]] = None,
-    env_list: Optional[Dict[str, str]] = None,
-    secret_list: Optional[Dict[str, str]] = None,
-    tokens: Optional[List[Dict[str, Union[str, Dict[str, str]]]]] = None,
+    env_list: Optional[List[str]] = None,
+    secret_list: Optional[List[str]] = None,
+    is_public: Optional[bool] = False,
+    tokens: Optional[List[str]] = None,
 ):
     # TODO: check if the given id is a valid photon id
-    envs_and_secrets = []
-    if env_list is not None:
-        for k, v in env_list.items():
-            envs_and_secrets.append({"name": k, "value": v})
-    if secret_list is not None:
-        for k, v in secret_list.items():
-            envs_and_secrets.append({"name": k, "value_from": {"secret_name_ref": v}})
-    deployment = {
-        "name": deployment_name,
-        "photon_id": id,
-        "resource_requirement": {
-            "resource_shape": resource_shape,
-            "min_replicas": min_replicas,
-        },
-        "envs": envs_and_secrets,
-        "mounts": mounts,
-        "api_tokens": tokens,
-    }
-
-    response = conn.post("/deployments", json=deployment)
-    return response
+    if not resource_shape:
+        resource_shape = types.DEFAULT_RESOURCE_SHAPE
+    deployment_spec = types.DeploymentSpec(
+        name=deployment_name,
+        photon_id=id,
+        resource_requirement=types.ResourceRequirement.make_resource_requirement(
+            resource_shape=resource_shape, min_replicas=min_replicas
+        ),
+        mounts=types.Mount.make_mounts_from_strings(mounts),
+        envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
+        api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
+    )
+    return run_remote_with_spec(conn, deployment_spec)
