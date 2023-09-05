@@ -80,7 +80,8 @@ def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
         "Authorization": "Bearer {}".format(mothership_key),
     }
 
-    version = "0.9.0"
+
+    version = "0.9.1"
     payload = {
         "name": workspace_name,
         "cluster_name": cluster_name,
