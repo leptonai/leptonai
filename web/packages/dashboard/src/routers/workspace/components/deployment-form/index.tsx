@@ -28,6 +28,7 @@ import {
   ConfigProvider,
   Dropdown,
   Form,
+  Grid,
   Input,
   InputNumber,
   InputRef,
@@ -89,6 +90,7 @@ export const DeploymentForm: FC<{
   const imagePullSecretService = useInject(ImagePullSecretService);
   const hardwareService = useInject(HardwareService);
   const nameRef = useRef<InputRef | null>(null);
+  const { md } = Grid.useBreakpoint();
 
   useEffect(() => {
     if (nameRef.current) {
@@ -376,7 +378,7 @@ export const DeploymentForm: FC<{
                 icon={<PlusOutlined />}
                 onClick={() => addTokenRef.current && addTokenRef.current()}
               >
-                deployment token
+                {md ? "deployment token" : "token"}
               </Button>
             )}
           </Space.Compact>
