@@ -14,6 +14,12 @@ type StorageSyncerHandler struct {
 	Handler
 }
 
+func (handler *StorageSyncerHandler) AddToRoute(v1 gin.IRoutes) {
+	// TODO: add list and get
+	v1.POST("/syncer", handler.StorageSyncerHandler().Create)
+	v1.DELETE("/syncer/:name", handler.StorageSyncerHandler().Delete)
+}
+
 // Create creates a storage syncer.
 func (h *StorageSyncerHandler) Create(c *gin.Context) {
 	s := StorageSyncer{}

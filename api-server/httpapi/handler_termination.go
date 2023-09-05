@@ -17,6 +17,10 @@ type DeploymentTerminationHandler struct {
 	Handler
 }
 
+func (h *DeploymentTerminationHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments/:did/termination", h.Get)
+}
+
 func (h *DeploymentTerminationHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 

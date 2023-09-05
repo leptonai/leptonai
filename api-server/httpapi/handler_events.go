@@ -14,6 +14,10 @@ type DeploymentEventHandler struct {
 	Handler
 }
 
+func (h *DeploymentEventHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments/:did/events", h.Get)
+}
+
 func (h *DeploymentEventHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 	events, err := k8s.ListDeploymentEvents(c, h.namespace, name)

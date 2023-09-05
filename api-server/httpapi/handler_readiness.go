@@ -17,6 +17,10 @@ type DeploymentReadinessHandler struct {
 	Handler
 }
 
+func (h *DeploymentReadinessHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments/:did/readiness", h.Get)
+}
+
 func (h *DeploymentReadinessHandler) Get(c *gin.Context) {
 	name := c.Param("did")
 	deployment := &appsv1.Deployment{}

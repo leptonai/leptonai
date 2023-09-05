@@ -14,6 +14,12 @@ type SecretHandler struct {
 	Handler
 }
 
+func (h *SecretHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/secrets", h.List)
+	r.POST("/secrets", h.Create)
+	r.DELETE("/secrets/:key", h.Delete)
+}
+
 func (h *SecretHandler) List(c *gin.Context) {
 	keys, err := h.secretDB.List(c)
 	if err != nil {

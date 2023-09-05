@@ -21,6 +21,14 @@ type PhotonHandler struct {
 	Handler
 }
 
+func (h *PhotonHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/photons", h.List)
+	r.POST("/photons", h.Create)
+	r.GET("/photons/:pid", h.Get)
+	r.GET("/photons/:pid/content", h.Download)
+	r.DELETE("/photons/:pid", h.Delete)
+}
+
 func (h *PhotonHandler) Download(c *gin.Context) {
 	pid := c.Param("pid")
 	ph, err := h.phDB.Get(c, pid)

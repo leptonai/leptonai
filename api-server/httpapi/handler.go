@@ -3,15 +3,24 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/url"
 	"time"
 
+	"github.com/leptonai/lepton/api-server/util"
 	leptonaiv1alpha1 "github.com/leptonai/lepton/deployment-operator/api/v1alpha1"
 	"github.com/leptonai/lepton/go-pkg/datastore"
 	"github.com/leptonai/lepton/go-pkg/k8s/secret"
+	"github.com/leptonai/lepton/go-pkg/kv"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 
+	"github.com/gin-gonic/gin"
 	"gocloud.dev/blob"
 	"k8s.io/utils/ptr"
+)
+
+const (
+	tunaURL = "https://tuna-dev.vercel.app/"
 )
 
 // Backupable is an interface for resources that can be backed up
@@ -35,14 +44,26 @@ type Handler struct {
 	apiToken                      string
 	photonBucket                  *blob.Bucket
 
+	workspaceState   WorkspaceState
+	storageMountPath string
+	tier             string
+	region           string
+	dynamodbName     string
+	enableTuna       bool
+	enableStorage    bool
+
 	secretDB *secret.SecretSet
 	phDB     *datastore.CRStore[*leptonaiv1alpha1.Photon]
 	ldDB     *datastore.CRStore[*leptonaiv1alpha1.LeptonDeployment]
+
+	router gin.IRouter
 }
 
 func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix, photonImageRegistry, s3ReadOnlyAccessK8sSecretName,
 	rootDomain, sharedALBMainDomain, workspaceName, certARN, apiToken string, photonBucket, backupBucket *blob.Bucket,
-	workspaceState WorkspaceState) *Handler {
+	workspaceState WorkspaceState, tier, storageMountPath, region, dynamodbName string,
+	enableTuna, enableStorage bool,
+	router gin.IRouter) *Handler {
 	h := &Handler{
 		clusterName:                   clusterName,
 		namespace:                     namespace,
@@ -58,6 +79,16 @@ func New(clusterName, namespace, prometheusURL, bucketName, efsID, protonPrefix,
 		certARN:                       certARN,
 		apiToken:                      apiToken,
 		photonBucket:                  photonBucket,
+
+		workspaceState:   workspaceState,
+		storageMountPath: storageMountPath,
+		tier:             tier,
+		region:           region,
+		dynamodbName:     dynamodbName,
+		enableTuna:       enableTuna,
+		enableStorage:    enableStorage,
+
+		router: router,
 
 		secretDB: secret.New(namespace, secret.SecretObjectName, backupBucket),
 		phDB: datastore.NewCRStore[*leptonaiv1alpha1.Photon](
@@ -167,6 +198,52 @@ func (h *Handler) scaleAllDeploymentsDownToZeroReplica() {
 	}
 }
 
+func (h *Handler) AddToRoute() {
+	h.PhotonHanlder().AddToRoute(h.router)
+	h.DeploymentHandler().AddToRoute(h.router)
+	h.MonitoringHandler().AddToRoute(h.router)
+	h.ReplicaHandler().AddToRoute(h.router)
+	h.SecretHandler().AddToRoute(h.router)
+	h.DeploymentEventHandler().AddToRoute(h.router)
+	h.DeploymentReadinessHandler().AddToRoute(h.router)
+	h.DeploymentTerminationHandler().AddToRoute(h.router)
+	h.ImagePullSecretHandler().AddToRoute(h.router)
+
+	NewWorkspaceInfoHandler(*h, h.workspaceName, h.tier, h.storageMountPath, h.workspaceState).AddToRoute(h.router)
+
+	if h.efsID != "" {
+		h.StorageSyncerHandler().AddToRoute(h.router)
+	}
+
+	if h.enableTuna {
+		u, err := url.Parse(tunaURL)
+		if err != nil {
+			log.Fatal("Cannot parse tuna service URL:", err)
+		}
+
+		kv, err := kv.NewKVDynamoDB(h.dynamodbName, h.region)
+		if err != nil {
+			log.Fatal("Cannot create DynamoDB KV:", err)
+		}
+
+		jh := NewJobHandler(u, kv)
+		jh.AddToRoute(h.router)
+	}
+
+	if h.enableStorage {
+		sh := NewStorageHandler(*h, h.storageMountPath)
+		sh.AddToRoute(h.router)
+	}
+
+	var ih *InferenceHandler
+	if util.IsSysWorkspace(h.workspaceName) {
+		ih = NewInferenceHandlerForSys(*h.DeploymentHandler())
+	} else {
+		ih = NewInferenceHandler(*h.DeploymentHandler())
+	}
+	ih.AddToRoute(h.router)
+}
+
 func (h *Handler) PhotonHanlder() *PhotonHandler {
 	return &PhotonHandler{
 		Handler: *h,
@@ -209,12 +286,6 @@ func (h *Handler) StorageHandler() *StorageHandler {
 	}
 }
 
-func (h *Handler) StorageSyncerHandler() *StorageSyncerHandler {
-	return &StorageSyncerHandler{
-		Handler: *h,
-	}
-}
-
 func (h *Handler) DeploymentReadinessHandler() *DeploymentReadinessHandler {
 	return &DeploymentReadinessHandler{
 		Handler: *h,
@@ -223,6 +294,18 @@ func (h *Handler) DeploymentReadinessHandler() *DeploymentReadinessHandler {
 
 func (h *Handler) DeploymentTerminationHandler() *DeploymentTerminationHandler {
 	return &DeploymentTerminationHandler{
+		Handler: *h,
+	}
+}
+
+func (h *Handler) ImagePullSecretHandler() *ImagePullSecretHandler {
+	return &ImagePullSecretHandler{
+		Handler: *h,
+	}
+}
+
+func (h *Handler) StorageSyncerHandler() *StorageSyncerHandler {
+	return &StorageSyncerHandler{
 		Handler: *h,
 	}
 }

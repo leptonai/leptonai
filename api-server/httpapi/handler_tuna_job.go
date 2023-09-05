@@ -41,6 +41,14 @@ func NewJobHandler(url *url.URL, kv *kv.KVDynamoDB) *JobHandler {
 	}
 }
 
+func (jh *JobHandler) AddToRoute(r gin.IRoutes) {
+	r.POST("/tuna/job/add", jh.AddJob)
+	r.GET("/tuna/job/get/:id", jh.GetJobByID)
+	r.GET("/tuna/job/list", jh.ListJobs)
+	r.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
+	r.GET("/tuna/job/cancel/:id", jh.CancelJob)
+}
+
 func (jh *JobHandler) AddJob(c *gin.Context) {
 	r := httptest.NewRecorder()
 	name := c.DefaultQuery("name", "")

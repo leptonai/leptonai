@@ -24,6 +24,14 @@ type DeploymentHandler struct {
 	Handler
 }
 
+func (h *DeploymentHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments", h.List)
+	r.POST("/deployments", h.Create)
+	r.GET("/deployments/:did", h.Get)
+	r.PATCH("/deployments/:did", h.Update)
+	r.DELETE("/deployments/:did", h.Delete)
+}
+
 func (h *DeploymentHandler) Create(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {

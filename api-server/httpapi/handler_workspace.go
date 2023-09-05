@@ -62,6 +62,10 @@ func NewWorkspaceInfoHandler(h Handler, workspaceName string, tier string, mount
 	return cih
 }
 
+func (h *WorkspaceInfoHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/workspace", h.HandleGet)
+}
+
 func (wi *WorkspaceInfoHandler) HandleGet(c *gin.Context) {
 	q, err := k8s.GetResourceQuota(c, wi.namespace, "quota-"+wi.workspaceName)
 	if err != nil && !apierrors.IsNotFound(err) {

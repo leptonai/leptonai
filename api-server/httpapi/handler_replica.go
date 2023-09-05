@@ -26,6 +26,12 @@ type ReplicaHandler struct {
 
 const mainContainerName = "main-container"
 
+func (h *ReplicaHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments/:did/replicas", h.List)
+	r.GET("/deployments/:did/replicas/:rid/shell", h.Shell)
+	r.GET("/deployments/:did/replicas/:rid/log", h.Log)
+}
+
 func (h *ReplicaHandler) List(c *gin.Context) {
 	did := c.Param("did")
 	clientset := k8s.MustInitK8sClientSet()

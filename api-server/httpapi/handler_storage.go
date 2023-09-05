@@ -46,6 +46,15 @@ func NewStorageHandler(h Handler, mountPath string) *StorageHandler {
 	}
 }
 
+func (sh *StorageHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/storage/default/*path", sh.GetFileOrDir)
+	r.POST("/storage/default/*path", sh.CreateFile)
+	r.PUT("/storage/default/*path", sh.CreateDir)
+	r.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
+	r.HEAD("/storage/default/*path", sh.CheckExists)
+	r.GET("/storage/du", sh.TotalDiskUsageBytes)
+}
+
 func (sh *StorageHandler) GetFileOrDir(c *gin.Context) {
 	relPath := c.Param("path")
 	absPath := filepath.Join(sh.mountPath, relPath)

@@ -83,6 +83,13 @@ func NewInferenceHandler(d DeploymentHandler) *InferenceHandler {
 	}
 }
 
+func (ih *InferenceHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/tuna/inference", ih.List)
+	r.POST("/tuna/inference", ih.Create)
+	r.GET("/tuna/inference/:tiname", ih.Get)
+	r.DELETE("/tuna/inference/:tiname", ih.Delete)
+}
+
 // Create creates a new tuna inference deployment
 func (ih *InferenceHandler) Create(c *gin.Context) {
 	ti := TunaInference{}

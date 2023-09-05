@@ -25,6 +25,28 @@ type MonitorningHandler struct {
 	Handler
 }
 
+func (h *MonitorningHandler) AddToRoute(r gin.IRoutes) {
+	r.GET("/deployments/:did/replicas/:rid/monitoring/memoryUtil", h.ReplicaMemoryUtil)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/memoryUsage", h.ReplicaMemoryUsage)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/memoryTotal", h.ReplicaMemoryTotal)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/CPUUtil", h.ReplicaCPUUtil)
+
+	r.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIQPS", h.ReplicaFastAPIQPS)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/FastAPILatency", h.ReplicaFastAPILatency)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIByPathQPS", h.ReplicaFastAPIQPSByPath)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIByPathLatency", h.ReplicaFastAPILatencyByPath)
+
+	r.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryUtil", h.ReplicaGPUMemoryUtil)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryUsage", h.ReplicaGPUMemoryUsage)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryTotal", h.ReplicaGPUMemoryTotal)
+	r.GET("/deployments/:did/replicas/:rid/monitoring/GPUUtil", h.ReplicaGPUUtil)
+
+	r.GET("/deployments/:did/monitoring/FastAPIQPS", h.DeploymentFastAPIQPS)
+	r.GET("/deployments/:did/monitoring/FastAPILatency", h.DeploymentFastAPILatency)
+	r.GET("/deployments/:did/monitoring/FastAPIQPSByPath", h.DeploymentFastAPIQPSByPath)
+	r.GET("/deployments/:did/monitoring/FastAPILatencyByPath", h.DeploymentFastAPILatencyByPath)
+}
+
 func (h *MonitorningHandler) ReplicaMemoryUtil(c *gin.Context) {
 	// get the memory util for the past 1 hour
 	query := fmt.Sprintf("(container_memory_usage_bytes{pod=\"%s\", container=\"main-container\"} / "+

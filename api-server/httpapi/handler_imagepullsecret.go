@@ -34,13 +34,6 @@ type ImagePullSecretHandler struct {
 	Handler
 }
 
-// NewImagePullSecretHandler creates a new ImagePullSecretHandler
-func NewImagePullSecretHandler(h Handler) *ImagePullSecretHandler {
-	return &ImagePullSecretHandler{
-		Handler: h,
-	}
-}
-
 // AddToRoute adds routes to the gin engine.
 func (h *ImagePullSecretHandler) AddToRoute(r gin.IRoutes) {
 	r.GET("/imagepullsecrets", h.List)

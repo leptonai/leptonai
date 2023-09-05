@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/leptonai/lepton/api-server/httpapi"
 	"github.com/leptonai/lepton/api-server/util"
 	"github.com/leptonai/lepton/go-pkg/httperrors"
-	"github.com/leptonai/lepton/go-pkg/kv"
 	"github.com/leptonai/lepton/go-pkg/metering"
 	goutil "github.com/leptonai/lepton/go-pkg/util"
 	"github.com/leptonai/lepton/go-pkg/version"
@@ -32,8 +30,6 @@ const (
 	apiServerPort = 20863
 	apiServerPath = "/api/"
 	rootPath      = "/"
-
-	tunaURL = "https://tuna-dev.vercel.app/"
 )
 
 func main() {
@@ -105,25 +101,6 @@ func main() {
 
 	workspaceState := httpapi.WorkspaceState(*stateFlag)
 
-	handler := httpapi.New(
-		*clusterNameFlag,
-		*namespaceFlag,
-		*prometheusURLFlag,
-		*bucketNameFlag,
-		*efsIDFlag,
-		*photonPrefixFlag,
-		*photonImageRegistryFlag,
-		*s3ReadOnlyAccessK8sSecretNameFlag,
-		*rootDomainFlag,
-		*sharedALBMainDomainFlag,
-		*workspaceNameFlag,
-		*certificateARNFlag,
-		*apiTokenFlag,
-		pbu,
-		bbu,
-		workspaceState,
-	)
-
 	log.Printf("Starting the %s tier Lepton Server on :%d with request timeout %v\n", *tierFlag, apiServerPort, requestTimeoutInternalDur)
 
 	router := gin.Default()
@@ -148,108 +125,37 @@ func main() {
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})
-
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	api := router.Group("/api")
-
 	v1 := api.Group("/v1")
 
-	wih := httpapi.NewWorkspaceInfoHandler(*handler, *workspaceNameFlag, *tierFlag, *storageMountPathFlag, workspaceState)
-	v1.GET("/workspace", wih.HandleGet)
-
-	v1.GET("/photons", handler.PhotonHanlder().List)
-	v1.POST("/photons", handler.PhotonHanlder().Create)
-	v1.GET("/photons/:pid", handler.PhotonHanlder().Get)
-	v1.GET("/photons/:pid/content", handler.PhotonHanlder().Download)
-	v1.DELETE("/photons/:pid", handler.PhotonHanlder().Delete)
-
-	v1.GET("/secrets", handler.SecretHandler().List)
-	v1.POST("/secrets", handler.SecretHandler().Create)
-	v1.DELETE("/secrets/:key", handler.SecretHandler().Delete)
-
-	v1.GET("/deployments", handler.DeploymentHandler().List)
-	v1.POST("/deployments", handler.DeploymentHandler().Create)
-	v1.GET("/deployments/:did", handler.DeploymentHandler().Get)
-	v1.PATCH("/deployments/:did", handler.DeploymentHandler().Update)
-	v1.DELETE("/deployments/:did", handler.DeploymentHandler().Delete)
-
-	v1.GET("/deployments/:did/replicas", handler.ReplicaHandler().List)
-	v1.GET("/deployments/:did/replicas/:rid/shell", handler.ReplicaHandler().Shell)
-	v1.GET("/deployments/:did/replicas/:rid/log", handler.ReplicaHandler().Log)
-
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/memoryUtil", handler.MonitoringHandler().ReplicaMemoryUtil)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/memoryUsage", handler.MonitoringHandler().ReplicaMemoryUsage)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/memoryTotal", handler.MonitoringHandler().ReplicaMemoryTotal)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/CPUUtil", handler.MonitoringHandler().ReplicaCPUUtil)
-
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIQPS", handler.MonitoringHandler().ReplicaFastAPIQPS)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/FastAPILatency", handler.MonitoringHandler().ReplicaFastAPILatency)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIByPathQPS", handler.MonitoringHandler().ReplicaFastAPIQPSByPath)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/FastAPIByPathLatency", handler.MonitoringHandler().ReplicaFastAPILatencyByPath)
-
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryUtil", handler.MonitoringHandler().ReplicaGPUMemoryUtil)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryUsage", handler.MonitoringHandler().ReplicaGPUMemoryUsage)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/GPUMemoryTotal", handler.MonitoringHandler().ReplicaGPUMemoryTotal)
-	v1.GET("/deployments/:did/replicas/:rid/monitoring/GPUUtil", handler.MonitoringHandler().ReplicaGPUUtil)
-
-	v1.GET("/deployments/:did/monitoring/FastAPIQPS", handler.MonitoringHandler().DeploymentFastAPIQPS)
-	v1.GET("/deployments/:did/monitoring/FastAPILatency", handler.MonitoringHandler().DeploymentFastAPILatency)
-	v1.GET("/deployments/:did/monitoring/FastAPIQPSByPath", handler.MonitoringHandler().DeploymentFastAPIQPSByPath)
-	v1.GET("/deployments/:did/monitoring/FastAPILatencyByPath", handler.MonitoringHandler().DeploymentFastAPILatencyByPath)
-
-	v1.GET("/deployments/:did/events", handler.DeploymentEventHandler().Get)
-	v1.GET("/deployments/:did/readiness", handler.DeploymentReadinessHandler().Get)
-	v1.GET("/deployments/:did/termination", handler.DeploymentTerminationHandler().Get)
-
-	u, err := url.Parse(tunaURL)
-	if err != nil {
-		log.Fatal("Cannot parse tuna service URL:", err)
-	}
-
-	if *enableTunaFlag {
-		kv, err := kv.NewKVDynamoDB(*dynamodbNameFlag, *regionFlag)
-		if err != nil {
-			log.Fatal("Cannot create DynamoDB KV:", err)
-		}
-
-		jh := httpapi.NewJobHandler(u, kv)
-		v1.POST("/tuna/job/add", jh.AddJob)
-		v1.GET("/tuna/job/get/:id", jh.GetJobByID)
-		v1.GET("/tuna/job/list", jh.ListJobs)
-		v1.GET("/tuna/job/list/:status", jh.ListJobsByStatus)
-		v1.GET("/tuna/job/cancel/:id", jh.CancelJob)
-	}
-
-	var ih *httpapi.InferenceHandler
-	if util.IsSysWorkspace(*workspaceNameFlag) {
-		ih = httpapi.NewInferenceHandlerForSys(*handler.DeploymentHandler())
-	} else {
-		ih = httpapi.NewInferenceHandler(*handler.DeploymentHandler())
-	}
-
-	v1.POST("/tuna/inference", ih.Create)
-	v1.GET("/tuna/inference/:tiname", ih.Get)
-	v1.DELETE("/tuna/inference/:tiname", ih.Delete)
-
-	if *enableStorageFlag {
-		sh := httpapi.NewStorageHandler(*handler, *storageMountPathFlag)
-		v1.GET("/storage/default/*path", sh.GetFileOrDir)
-		v1.POST("/storage/default/*path", sh.CreateFile)
-		v1.PUT("/storage/default/*path", sh.CreateDir)
-		v1.DELETE("/storage/default/*path", sh.DeleteFileOrDir)
-		v1.HEAD("/storage/default/*path", sh.CheckExists)
-		v1.GET("/storage/du", sh.TotalDiskUsageBytes)
-	}
-
-	if *efsIDFlag != "" {
-		v1.POST("/syncer", handler.StorageSyncerHandler().Create)
-		v1.DELETE("/syncer/:name", handler.StorageSyncerHandler().Delete)
-		// TODO: add list and get
-	}
-
-	ipsh := httpapi.NewImagePullSecretHandler(*handler)
-	ipsh.AddToRoute(v1)
+	handler := httpapi.New(
+		*clusterNameFlag,
+		*namespaceFlag,
+		*prometheusURLFlag,
+		*bucketNameFlag,
+		*efsIDFlag,
+		*photonPrefixFlag,
+		*photonImageRegistryFlag,
+		*s3ReadOnlyAccessK8sSecretNameFlag,
+		*rootDomainFlag,
+		*sharedALBMainDomainFlag,
+		*workspaceNameFlag,
+		*certificateARNFlag,
+		*apiTokenFlag,
+		pbu,
+		bbu,
+		workspaceState,
+		*tierFlag,
+		*storageMountPathFlag,
+		*regionFlag,
+		*dynamodbNameFlag,
+		*enableTunaFlag,
+		*enableStorageFlag,
+		v1,
+	)
+	handler.AddToRoute()
 
 	metering.RegisterStorageHandlers()
 	// update storage metrics every 60 seconds
