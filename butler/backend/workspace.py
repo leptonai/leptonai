@@ -167,4 +167,4 @@ def grant_coupon(workspace_id, amount):
     }
     params = {"LEPTON_API_SECRET": LEPTON_API_SECRET}
     response = requests.post(url, headers=headers, json=data, params=params)
-    return response.json()    
+    return response
