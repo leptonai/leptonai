@@ -1,8 +1,35 @@
+import base64
+import tempfile
+
 from loguru import logger
 
 from leptonai.registry import Registry
+from leptonai.photon import FileParam
 
 pipeline_registry = Registry()
+
+
+def img_param_to_img(param):
+    from diffusers.utils import load_image
+
+    if isinstance(param, FileParam):
+        file = tempfile.NamedTemporaryFile()
+        file.write(param.file.read())
+        file.flush()
+        param = file.name
+    elif isinstance(param, str):
+        if param.startswith("http://") or param.startswith("https://"):
+            pass
+        else:
+            # base64
+            file = tempfile.NamedTemporaryFile()
+            file.write(base64.b64decode(param.encode("ascii")))
+            file.flush()
+            param = file.name
+    else:
+        raise ValueError(f"Invalid image param: {param}")
+    image = load_image(param)
+    return image
 
 
 def create_diffusion_pipeline(task, model, revision, torch_compile=False):
@@ -92,6 +119,7 @@ def create_transformers_pipeline(task, model, revision):
 for task in [
     "audio-classification",
     "automatic-speech-recognition",
+    "depth-estimation",
     "sentiment-analysis",
     "summarization",
     "text-classification",
