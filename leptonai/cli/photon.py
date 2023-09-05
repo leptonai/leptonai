@@ -6,7 +6,7 @@ import subprocess
 import socket
 import sys
 import tempfile
-from typing import Optional, List, Dict, Union
+from typing import Optional
 
 from rich.console import Console
 from rich.prompt import Confirm
@@ -15,10 +15,9 @@ import click
 
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
+from leptonai.api import types
 from leptonai.api.deployment import list_deployment
-from leptonai.api.storage import check_path_exists
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
-from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
 from leptonai.photon.base import (
     find_all_local_photons,
     find_local_photon,
@@ -270,101 +269,6 @@ def list(local, pattern):
         console.print("To show local photons, use the `--local` flag.")
 
 
-def _parse_mount_or_die(conn: Connection, mount: str):
-    """
-    Utility function to parse a mount string into a dict.
-    """
-    mount_parsed = []
-    for mount_str in mount:
-        parts = mount_str.split(":")
-        if len(parts) == 2:
-            mount_parsed.append(
-                {"path": parts[0].strip(), "mount_path": parts[1].strip()}
-            )
-            check(
-                check_path_exists(conn, parts[0].strip()),
-                f"Path [red]{parts[0].strip()}[/] does not exist.",
-            )
-        else:
-            console.print(f"Invalid mount definition: [red]{mount_str}[/]")
-            sys.exit(1)
-    return mount_parsed
-
-
-# Valid shapes is defined as a list instead of a dict intentionally, because
-# we want to preserve the order of the shapes when printing. Granted, this
-# adds a bit of search time, but the list is small enough that it should not
-# matter.
-# TODO: move the valid shapes and the default valid shape to a common config.
-VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
-DEFAULT_RESOURCE_SHAPE = "cpu.small"
-
-
-def _get_valid_shapes_printout() -> str:
-    """
-    Utility function to get the valid shapes as a string.
-    """
-    if len(VALID_SHAPES) > 7:
-        return ", ".join(VALID_SHAPES[:7]) + ", ..."
-    return ", ".join(VALID_SHAPES)
-
-
-def _validate_resource_shape(resource_shape: Optional[str]) -> str:
-    """
-    Utility function to validate the resource shape and exit if invalid.
-
-    :param resource_shape: The resource shape to validate.
-    :return: The resource shape if valid.
-    """
-    if not resource_shape:
-        # In the default case, we want to use cpu.small.
-        return DEFAULT_RESOURCE_SHAPE
-    if resource_shape.lower() not in VALID_SHAPES:
-        # We will check if the user passed in a valid shape, and if not, we will
-        # print a warning.
-        # However, we do not want to directly go to an error, because there might
-        # be cases when the CLI and the cloud service is out of sync. For example
-        # if the user environment has an older version of the CLI while the cloud
-        # service has been updated to support more shapes, we want to allow the
-        # user to use the new shapes. One can simply ignore the warning and proceed.
-        console.print(
-            "It seems that you passed in a non-standard resource shape"
-            f" [yellow]{resource_shape}[/]."
-        )
-        console.print(f"Valid shapes supported by the CLI are:\n{VALID_SHAPES}.")
-    return resource_shape.lower()
-
-
-def _parse_env_and_secret_or_die(env, secret):
-    env_parsed = {}
-    secret_parsed = {}
-    for s in env:
-        try:
-            k, v = s.split("=", 1)
-        except ValueError:
-            console.print(f"Invalid environment definition: [red]{s}[/]")
-            sys.exit(1)
-        check(
-            not k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
-            "Environment variable name cannot start with reserved prefix"
-            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}.",
-        )
-        env_parsed[k] = v
-    for s in secret:
-        # We provide the user a shorcut: instead of having to specify
-        # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
-        # if the local env name and the secret name are the same.
-        k, v = s.split("=", 1) if "=" in s else (s, s)
-        check(
-            not k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
-            "Secret name cannot start with reserved prefix"
-            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}.",
-        )
-        # TODO: sanity check if these secrets exist.
-        secret_parsed[k] = v
-    return env_parsed, secret_parsed
-
-
 def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     deployments = guard_api(
         list_deployment(conn),
@@ -391,30 +295,6 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     return deployment_name
 
 
-def _parse_deployment_tokens_or_die(
-    public: bool, tokens: List[str]
-) -> List[Dict[str, Union[str, Dict[str, str]]]]:
-    """
-    Utility function to parse deployment tokens.
-    """
-    check(
-        not (public and tokens),
-        "If you specify a deployment to be public, it cannot have deployment"
-        " tokens at the same time.",
-    )
-    if public:
-        return []
-    else:
-        # We will always include the workspace token as acceptable tokens
-        # for the deployment.
-        final_tokens: List[Dict[str, Union[str, Dict[str, str]]]] = [
-            {"value_from": {"token_name_ref": "WORKSPACE_TOKEN"}}
-        ]
-        if tokens:
-            final_tokens.extend([{"value": token} for token in tokens])
-        return final_tokens
-
-
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon to run.")
 @click.option("--model", "-m", help="Model spec of the photon.")
@@ -434,7 +314,7 @@ def _parse_deployment_tokens_or_die(
 @click.option("--id", "-i", help="ID of the photon (only required for remote).")
 @click.option(
     "--resource-shape",
-    help="Resource shape (valid values are: " + _get_valid_shapes_printout() + ").",
+    help="Resource shape for the deployment.",
     default=None,
 )
 @click.option("--min-replicas", help="Number of replicas.", default=1)
@@ -536,22 +416,24 @@ def run(
         else:
             console.print(f"Running the specified version: [green]{id}[/]")
         # parse environment variables and secrets
-        env_parsed, secret_parsed = _parse_env_and_secret_or_die(env, secret)
-        mount_parsed = _parse_mount_or_die(conn, mount)
         deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
-        resource_shape = _validate_resource_shape(resource_shape)
-        final_tokens = _parse_deployment_tokens_or_die(public, tokens)
-        response = api.run_remote(
-            conn,
-            id,
-            deployment_name,
-            resource_shape,
-            min_replicas,
-            mount_parsed,
-            env_parsed,
-            secret_parsed,
-            final_tokens,
-        )
+        try:
+            response = api.run_remote(
+                conn,
+                id,
+                deployment_name,
+                resource_shape,
+                min_replicas,
+                mount,
+                env,
+                secret,
+                public,
+                tokens,
+            )
+        except ValueError as e:
+            console.print(f"Error encountered while parsing configs: {e}")
+            console.print("Failed to launch photon.")
+            sys.exit(1)
         explain_response(
             response,
             f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment"
@@ -588,9 +470,10 @@ def run(
             path = find_local_photon(name)
 
         # envs: parse and set environment variables
-        envs, _ = _parse_env_and_secret_or_die(env, {})
-        for k, v in envs.items():
-            os.environ[k] = v
+        if env:
+            env_parsed = types.EnvVar.make_env_vars_from_strings(env, [])
+            for e in env_parsed if env_parsed else []:
+                os.environ[e.name] = e.value if e.value else ""
         if mount or secret or tokens:
             console.print(
                 "Mounts, secrets and access tokens are only supported for"
