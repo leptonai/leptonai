@@ -67,13 +67,13 @@ func listFunc(cmd *cobra.Command, args []string) {
 
 	log.Printf("fetched %d workspaces", len(rs))
 
-	colums := []string{"name", "cluster", "tier", "deployment-image-tag", "terraform-git-ref", "running-state", "operational-state", "updated at", "description"}
+	colums := []string{"name", "cluster", "tier", "deployment-image-tag", "terraform-git-ref", "lb-type", "running-state", "operational-state", "updated at", "description"}
 	rows := make([][]string, 0, len(rs))
 	for _, c := range rs {
 		t := time.Unix(int64(c.Status.UpdatedAt), 0)
 		// Format the time as a string using the desired layout
 		timeString := t.Format("2006-01-02 15:04:05")
-		rows = append(rows, []string{c.Spec.Name, c.Spec.ClusterName, string(c.Spec.Tier), c.Spec.ImageTag, c.Spec.GitRef, string(c.Spec.State), string(c.Status.State), timeString, c.Spec.Description})
+		rows = append(rows, []string{c.Spec.Name, c.Spec.ClusterName, string(c.Spec.Tier), c.Spec.ImageTag, c.Spec.GitRef, string(c.Spec.LBType), string(c.Spec.State), string(c.Status.State), timeString, c.Spec.Description})
 	}
 
 	buf := bytes.NewBuffer(nil)
