@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import sys
+import traceback
 from typing import Callable, Any, List, Optional, Set
 from typing_extensions import Annotated
 import warnings
@@ -696,7 +697,7 @@ class Photon(BasePhoton):
                 try:
                     res = await vd.execute(request)
                 except Exception as e:
-                    logger.error(e)
+                    logger.error(traceback.format_exc())
                     if isinstance(e, HTTPException):
                         return JSONResponse(
                             {"error": e.detail}, status_code=e.status_code
@@ -719,7 +720,7 @@ class Photon(BasePhoton):
                 try:
                     res = await method(*args, **kwargs)
                 except Exception as e:
-                    logger.error(e)
+                    logger.error(traceback.format_exc())
                     if isinstance(e, HTTPException):
                         return JSONResponse(
                             {"error": e.detail}, status_code=e.status_code

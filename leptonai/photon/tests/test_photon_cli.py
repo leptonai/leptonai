@@ -33,6 +33,7 @@ sentence_similarity_model = (
 text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92"
 sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
 audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
+depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstimation"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -138,6 +139,7 @@ class TestPhotonCli(unittest.TestCase):
             (sentence_similarity_model,),
             (text2text_generation_model,),
             (sentiment_analysis_model,),
+            (depth_estimation_model,),
         ]
     )
     def test_photon_run(self, model):
@@ -163,7 +165,7 @@ class TestPhotonCli(unittest.TestCase):
                     logger.warning(f"Client: {res.status_code} {res.text}")
                     logger.warning(f"Server: {proc.stdout.read().decode('utf-8')}")
                     logger.warning(f"Server: {proc.stderr.read().decode('utf-8')}")
-                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.status_code, 200, res.text)
         proc.kill()
 
     def test_hf_embed(self):
@@ -177,7 +179,7 @@ class TestPhotonCli(unittest.TestCase):
                 "inputs": "This framework generates embeddings for each input sentence"
             },
         )
-        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.status_code, 200, res.text)
         res = res.json()
         self.assertTrue(isinstance(res, list))
         self.assertTrue(isinstance(res[0], float))

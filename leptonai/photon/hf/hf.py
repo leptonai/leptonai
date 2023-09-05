@@ -1,3 +1,4 @@
+import base64
 from io import BytesIO
 import os
 import tempfile
@@ -10,7 +11,7 @@ from loguru import logger
 from leptonai.registry import Registry
 from leptonai.photon.base import schema_registry, type_registry
 from leptonai.photon import Photon, PNGResponse, FileParam
-from .hf_utils import pipeline_registry
+from .hf_utils import pipeline_registry, img_param_to_img
 
 task_cls_registry = Registry()
 
@@ -160,7 +161,13 @@ class HuggingfacePhoton(Photon):
         self.pipeline
 
     def run(self, *args, **kwargs):
-        return self.pipeline(*args, **kwargs)
+        import torch
+
+        if torch.cuda.is_available():
+            with torch.autocast(device_type="cuda"):
+                return self.pipeline(*args, **kwargs)
+        else:
+            return self.pipeline(*args, **kwargs)
 
     @classmethod
     def create_from_model_str(cls, name, model_str):
@@ -622,6 +629,74 @@ class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
         if not inputs_is_list:
             res = res[0]
         return res
+
+
+class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
+    hf_task: str = "depth-estimation"
+
+    @Photon.handler(
+        "run",
+        example={
+            "images": [
+                "http://images.cocodataset.org/val2017/000000039769.jpg",
+                "https://images.unsplash.com/photo-1536396123481-991b5b636cbb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2896&q=80",
+            ]
+        },
+    )
+    def run_handler(
+        self,
+        images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
+        **kwargs,
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        inputs_is_list = isinstance(images, list)
+
+        if not inputs_is_list:
+            images = [images]
+        images = [img_param_to_img(img) for img in images]
+
+        res = self.run(
+            images,
+            **kwargs,
+        )
+
+        if not isinstance(res, list):
+            res = [res]
+        for i, r in enumerate(res):
+            # TODO: Should we drop "predicted_depth" in the response?
+            # Convert "predicted_depth" (torch.Tensor) to list(s) of floats
+            predicted_depth = r["predicted_depth"].tolist()
+
+            # Convert "depth" PIL.Image to base64-encoded JPEG
+            depth_io = BytesIO()
+            r["depth"].save(depth_io, format="JPEG")
+            depth = base64.b64encode(depth_io.getvalue()).decode("ascii")
+
+            res[i] = {
+                "predicted_depth": predicted_depth,
+                "depth": depth,
+            }
+
+        if not inputs_is_list:
+            res = res[0]
+        return res
+
+    @Photon.handler(mount=True)
+    def ui(self):
+        import gradio as gr
+
+        blocks = gr.Blocks()
+        with blocks:
+            with gr.Row():
+                input_image = gr.Image(type="filepath")
+                output_image = gr.Image(type="pil")
+            with gr.Row():
+                btn = gr.Button("Depth Estimate", variant="primary")
+                btn.click(
+                    fn=lambda img: self.run(img)["depth"],
+                    inputs=input_image,
+                    outputs=output_image,
+                )
+        return blocks
 
 
 def register_hf_photon():
