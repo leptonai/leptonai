@@ -177,7 +177,7 @@ def find_all_local_photons():
     return records
 
 
-def find_local_photon(name):
+def find_local_photon(name: str) -> Optional[str]:
     res = (
         DB()
         .cursor()

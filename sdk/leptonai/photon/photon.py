@@ -389,7 +389,7 @@ class Photon(BasePhoton):
         return path
 
     @classmethod
-    def load(cls, photon_file, metadata):
+    def load(cls, photon_file, metadata) -> "Photon":
         py_version = metadata["py_obj"].get("py_version")
         cur_py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
         if py_version is not None and py_version != cur_py_version:
