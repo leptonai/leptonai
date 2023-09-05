@@ -68,14 +68,6 @@ class ResourceRequirement(BaseModel):
         )
 
 
-class ScaleDown(BaseModel):
-    no_traffic_timeout: Optional[int] = None
-
-
-class AutoScaler(BaseModel):
-    scale_down: Optional[ScaleDown] = None
-
-
 class TokenValue(BaseModel):
     token_name_ref: str
 
@@ -180,8 +172,32 @@ class Mount(BaseModel):
         return mount_list
 
 
+class ScaleDown(BaseModel):
+    no_traffic_timeout: Optional[int] = None
+
+
+class AutoScaler(BaseModel):
+    scale_down: Optional[ScaleDown] = None
+
+    @staticmethod
+    def make_auto_scaler(
+        no_traffic_timeout: Optional[int] = None,
+    ) -> Optional["AutoScaler"]:
+        if no_traffic_timeout is None:
+            return None
+        elif no_traffic_timeout <= 0:
+            raise ValueError(
+                f"no_traffic_timeout must be positive. Found {no_traffic_timeout}."
+            )
+        return AutoScaler(scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout))
+
+
 # Spec to hold deployment configurations
 class DeploymentSpec(BaseModel):
+    """
+    The main class that defines the deployment spec.
+    """
+
     name: str
     photon_id: Optional[str] = None
     resource_requirement: Optional[ResourceRequirement] = None
