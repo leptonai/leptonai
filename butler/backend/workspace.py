@@ -9,6 +9,7 @@ import pandas as pd
 dotenv.load_dotenv()
 
 ENV = os.environ.get("ENV")
+LEPTON_API_SECRET = os.environ.get("LEPTON_API_SECRET")
 if ENV == "PROD":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_PROD")
     mothership_url = os.environ.get("MOTHERSHIP_URL_PROD")
@@ -56,7 +57,7 @@ def uppgrade_workspace_version(workspace_name, version):
     workspace_info['spec']['image_tag'] = version
 
     response = requests.patch(url, headers=headers, json=workspace_info['spec'])
-    return response
+    return response.json()
 
 
 def get_workspace_info(workspace_name: str) -> dict:
@@ -137,3 +138,33 @@ def get_ws_stat(workspace_id):
     
     info = [workspace_id, ws_display_name, num_of_photons, num_of_deployments, cpu, memory, gpu]
     return info
+
+
+def reset_workspace_subscription(workspace_id):
+    url = "https://portal.lepton.ai/api/admin/reset-workspace-subscription"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "workspace_id": workspace_id,
+        "chargeable": True
+    }
+    params = {"LEPTON_API_SECRET": LEPTON_API_SECRET}
+    response = requests.post(url, headers=headers, json=data, params=params)
+    return response.json()
+
+
+def grant_coupon(workspace_id, amount):
+    '''
+    Input:
+        workspace_id: str
+        amount: int, could be 0, 10, 100, 500 or 1000, when pass 0, it means 
+            remove the workspace coupon.
+    '''
+    url = "https://portal.lepton.ai/api/admin/update-workspace-coupon"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "workspace_id": workspace_id,
+        "coupon": amount
+    }
+    params = {"LEPTON_API_SECRET": LEPTON_API_SECRET}
+    response = requests.post(url, headers=headers, json=data, params=params)
+    return response.json()    

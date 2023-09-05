@@ -16,6 +16,7 @@ SHARED = "shared"
 DEDICATED = "dedicated"
 
 send_grid_api_key = os.environ.get("SEND_GRID_KEY")
+lepton_api_secret = os.environ.get("LEPTON_API_SECRET")
 ENV = os.environ.get("ENV")
 if ENV == "PROD":
     mothership_key = os.environ.get("MOTHERSHIP_KEY_PROD")
@@ -79,7 +80,7 @@ def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
         "Authorization": "Bearer {}".format(mothership_key),
     }
 
-    version = "0.8.4"
+    version = "0.9.0"
     payload = {
         "name": workspace_name,
         "cluster_name": cluster_name,
@@ -100,17 +101,17 @@ def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
 def create_workspace_url(workspace_name, lb_type=SHARED) -> str:
     if lb_type not in [SHARED, DEDICATED]:
         print(
-            f"load balancer type should be either {SHARED} or {DEDICATED}, but got {lb_type}"
+            f"Load balancer type should be either {SHARED} or {DEDICATED}, but got {lb_type}"
         )
         exit(1)
     else:
-        print(f"using loadbalancer type {lb_type}")
+        print(f"Using loadbalancer type {lb_type}")
 
     if lb_type == SHARED and (
         cluster_alias_in_hostname == "" or shared_lb_url_main_domain == ""
     ):
         print(
-            f"bad input: cluster_alias_in_hostname {cluster_alias_in_hostname} and shared_lb_url_main_domain {shared_lb_url_main_domain} should both be non-empty"
+            f"Bad input: cluster_alias_in_hostname {cluster_alias_in_hostname} and shared_lb_url_main_domain {shared_lb_url_main_domain} should both be non-empty"
         )
         exit(1)
 
@@ -223,3 +224,11 @@ def remove_user_from_workspace(email, workspace_id):
         workspace {}".format(
         email, workspace_id
     )
+
+
+def set_payment(workspace_id):
+    return workspace.reset_workspace_subscription(workspace_id)
+
+
+def grant_coupon(workspace_id, amount):
+    return workspace.grant_coupon(workspace_id, amount)
