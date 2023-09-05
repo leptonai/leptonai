@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/leptonai/lepton/api-server/httpapi"
@@ -29,39 +28,6 @@ import (
 	_ "gocloud.dev/blob/s3blob"
 )
 
-var (
-	certificateARNFlag      *string
-	rootDomainFlag          *string
-	sharedALBMainDomainFlag *string
-	clusterNameFlag         *string
-	workspaceNameFlag       *string
-	apiTokenFlag            *string
-
-	// Workspace level Cloud Resources Flags
-	regionFlag                     *string
-	bucketTypeFlag, bucketNameFlag *string
-	efsIDFlag                      *string
-	dynamodbNameFlag               *string
-
-	namespaceFlag *string
-
-	photonPrefixFlag        *string
-	photonImageRegistryFlag *string
-
-	s3ReadOnlyAccessK8sSecretNameFlag *string
-	prometheusURLFlag                 *string
-
-	enableTunaFlag *bool
-
-	storageMountPathFlag *string
-	enableStorageFlag    *bool
-
-	stateFlag *string
-	tierFlag  *string
-
-	requestTimeoutInternal *string
-)
-
 const (
 	apiServerPort = 20863
 	apiServerPath = "/api/"
@@ -71,39 +37,39 @@ const (
 )
 
 func main() {
-	clusterNameFlag = flag.String("cluster-name", "", "name of the Kubernetes cluster this server is running on")
-	workspaceNameFlag = flag.String("workspace-name", "default", "workspace name")
-	namespaceFlag = flag.String("namespace", "default", "namespace to create resources")
-	stateFlag = flag.String("state", "normal", "workspace state after starting the server (allowed values: normal, paused, terminated)")
+	clusterNameFlag := flag.String("cluster-name", "", "name of the Kubernetes cluster this server is running on")
+	workspaceNameFlag := flag.String("workspace-name", "default", "workspace name")
+	namespaceFlag := flag.String("namespace", "default", "namespace to create resources")
+	stateFlag := flag.String("state", "normal", "workspace state after starting the server (allowed values: normal, paused, terminated)")
 
-	s3ReadOnlyAccessK8sSecretNameFlag = flag.String("s3-read-only-access-k8s-secret-name", "s3-ro-key", "S3 read only access k8s secret name")
-	certificateARNFlag = flag.String("certificate-arn", "", "certificate ARN")
-	rootDomainFlag = flag.String("root-domain", "", "root domain")
-	sharedALBMainDomainFlag = flag.String("shared-alb-main-domain", "", "main domain for shared alb")
+	s3ReadOnlyAccessK8sSecretNameFlag := flag.String("s3-read-only-access-k8s-secret-name", "s3-ro-key", "S3 read only access k8s secret name")
+	certificateARNFlag := flag.String("certificate-arn", "", "certificate ARN")
+	rootDomainFlag := flag.String("root-domain", "", "root domain")
+	sharedALBMainDomainFlag := flag.String("shared-alb-main-domain", "", "main domain for shared alb")
 
-	apiTokenFlag = flag.String("api-token", "", "API token for authentication")
-	regionFlag = flag.String("region", "us-east-1", "cluster region")
+	apiTokenFlag := flag.String("api-token", "", "API token for authentication")
+	regionFlag := flag.String("region", "us-east-1", "cluster region")
 
-	bucketTypeFlag = flag.String("bucket-type", "s3", "cloud provider")
-	bucketNameFlag = flag.String("bucket-name", "leptonai", "object store bucket name")
+	bucketTypeFlag := flag.String("bucket-type", "s3", "cloud provider")
+	bucketNameFlag := flag.String("bucket-name", "leptonai", "object store bucket name")
 
 	// rename to EFS root handle
 	// e.g. fs-12345678:/:fsap-12345678
-	efsIDFlag = flag.String("efs-id", "", "EFS ID")
+	efsIDFlag := flag.String("efs-id", "", "EFS ID")
 
-	photonPrefixFlag = flag.String("photon-prefix", "photons", "object store prefix for photon")
-	photonImageRegistryFlag = flag.String("photon-image-registry", "605454121064.dkr.ecr.us-east-1.amazonaws.com", "photon image registry")
+	photonPrefixFlag := flag.String("photon-prefix", "photons", "object store prefix for photon")
+	photonImageRegistryFlag := flag.String("photon-image-registry", "605454121064.dkr.ecr.us-east-1.amazonaws.com", "photon image registry")
 
-	dynamodbNameFlag = flag.String("dynamodb-name", "", "dynamodb table name")
-	prometheusURLFlag = flag.String("prometheus-url", "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090", "prometheus URL")
-	enableTunaFlag = flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
+	dynamodbNameFlag := flag.String("dynamodb-name", "", "dynamodb table name")
+	prometheusURLFlag := flag.String("prometheus-url", "http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090", "prometheus URL")
+	enableTunaFlag := flag.Bool("enable-tuna", false, "enable tuna fine-tuning service")
 
-	enableStorageFlag = flag.Bool("enable-storage", true, "enable storage service")
-	storageMountPathFlag = flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
+	enableStorageFlag := flag.Bool("enable-storage", true, "enable storage service")
+	storageMountPathFlag := flag.String("storage-mount-path", "/mnt/efs/default", "mount path for storage service")
 
-	tierFlag = flag.String("tier", "", "tier of the workspace (allowed values: basic, standard, enterprise)")
+	tierFlag := flag.String("tier", "", "tier of the workspace (allowed values: basic, standard, enterprise)")
 
-	requestTimeoutInternal = flag.String("request-timeout", "1m", "HTTP request timeout")
+	requestTimeoutInternal := flag.String("request-timeout", "1m", "HTTP request timeout")
 
 	flag.Parse()
 
@@ -287,7 +253,7 @@ func main() {
 
 	metering.RegisterStorageHandlers()
 	// update storage metrics every 60 seconds
-	go updateStorageMetrics(60)
+	go updateStorageMetrics(60, *storageMountPathFlag, *workspaceNameFlag, *clusterNameFlag, *efsIDFlag)
 	router.Run(fmt.Sprintf(":%d", apiServerPort))
 }
 
@@ -345,31 +311,25 @@ func timeoutMiddleware(t time.Duration) gin.HandlerFunc {
 }
 
 // exposeStorageMetrics exposes most recent storage metrics
-func exposeStorageMetrics() {
-	sizeWorkspace, err := goutil.TotalDirDiskUsageBytes(*storageMountPathFlag)
+func exposeStorageMetrics(storageMountPath, workspaceName, clusterName, efsID string) {
+	sizeWorkspace, err := goutil.TotalDirDiskUsageBytes(storageMountPath)
 	if err != nil {
 		goutil.Logger.Errorw("failed to get workspace size",
 			"operation", "TotalDuDir",
-			"workspace", *workspaceNameFlag,
+			"workspace", workspaceName,
 			"error", err,
 		)
 		return
 	}
-	metering.GatherDiskUsage(*workspaceNameFlag, *clusterNameFlag, "efs", *efsIDFlag, int64(sizeWorkspace))
+	metering.GatherDiskUsage(workspaceName, clusterName, "efs", efsID, int64(sizeWorkspace))
 }
 
 // updateStorageMetrics updates storage metrics every secondsDelay seconds
-func updateStorageMetrics(secondsDelay int) {
-	var lock sync.Mutex
-
+func updateStorageMetrics(secondsDelay int,
+	storageMountPath, workspaceName, clusterName, efsID string) {
 	timer := time.NewTicker(time.Second * time.Duration(secondsDelay))
 	defer timer.Stop()
-	for {
-		<-timer.C
-		go func() {
-			lock.Lock()
-			defer lock.Unlock()
-			exposeStorageMetrics()
-		}()
+	for range timer.C {
+		exposeStorageMetrics(storageMountPath, workspaceName, clusterName, efsID)
 	}
 }
