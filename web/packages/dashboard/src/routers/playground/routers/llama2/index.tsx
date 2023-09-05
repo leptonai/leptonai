@@ -1,20 +1,22 @@
 import { ChatBot } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
+import { ScrollableRef } from "@lepton/ui/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
-import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
-import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
-import { ChatOptions } from "@lepton-libs/gradio/chat-options";
+import { ChatMessages } from "@lepton/playground/components/chat/chat-messages";
+import { Options } from "@lepton/playground/components/chat/options";
 import {
+  Chat,
   ChatCompletion,
   ChatOption,
-  ChatService,
-} from "@lepton-libs/gradio/chat.service";
-import { PromptInput, PromptInputRef } from "@lepton-libs/gradio/prompt-input";
+} from "@lepton/playground/shared/chat";
+import {
+  PromptInput,
+  PromptInputRef,
+} from "@lepton/playground/components/prompt-input";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import pathJoin from "@lepton-libs/url/path-join";
@@ -25,6 +27,7 @@ import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
+import { APICodeTemplate } from "@lepton/playground/shared/api-code-template";
 
 const modelMap = {
   "llama-2-7b": {
@@ -62,12 +65,11 @@ export const Llama2: FC = () => {
   const [loading, setLoading] = useState(false);
   const [prompt, setPrompt] = useState("Hi, how are you");
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
-  const chatService = useInject(ChatService);
   const theme = useAntdTheme();
   const [url, setUrl] = useState("");
   const playgroundService = useInject(PlaygroundService);
   const model$ = useObservableFromState(model);
-  const chat = useStateFromObservable(
+  const chat: ChatCompletion | null = useStateFromObservable(
     () =>
       model$.pipe(
         switchMap((model) => {
@@ -78,10 +80,11 @@ export const Llama2: FC = () => {
           }
         }),
         tap((url) => setUrl(url)),
-        map((url) =>
-          chatService.createChat({
-            api_url: pathJoin(url, "chat/completions"),
-          })
+        map(
+          (url) =>
+            new Chat({
+              api_url: pathJoin(url, "chat/completions"),
+            })
         )
       ),
     null
@@ -206,9 +209,7 @@ export const Llama2: FC = () => {
           />
         </div>
       }
-      option={
-        <ChatOptions chatOption={option} onChatOptionChanged={setOption} />
-      }
+      option={<Options chatOption={option} onChatOptionChanged={setOption} />}
     />
   );
 };

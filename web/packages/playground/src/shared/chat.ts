@@ -1,9 +1,8 @@
-import { Injectable } from "injection-js";
 import {
   ChatGPTMessage,
   openAIStream,
   OpenAIStreamOption,
-} from "@lepton-libs/open-ai-like/open-ai-stream";
+} from "./open-ai-stream";
 import { BehaviorSubject, Observable } from "rxjs";
 
 export interface ChatMessageItem {
@@ -40,7 +39,7 @@ export interface ChatCompletion {
   clear(): void;
 }
 
-class Chat implements ChatCompletion {
+export class Chat implements ChatCompletion {
   private messages$ = new BehaviorSubject<ChatMessageItem[]>([]);
   private generating$ = new BehaviorSubject<boolean>(false);
 
@@ -188,13 +187,6 @@ class Chat implements ChatCompletion {
   }
 }
 
-@Injectable()
-export class ChatService {
-  static isUserMessage = (message: ChatMessageItem): boolean => {
-    return message.message.role === "user";
-  };
-
-  createChat(option: OpenAIStreamOption): ChatCompletion {
-    return new Chat(option);
-  }
-}
+export const isUserMessage = (message: ChatMessageItem): boolean => {
+  return message.message.role === "user";
+};

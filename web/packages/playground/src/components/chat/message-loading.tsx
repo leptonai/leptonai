@@ -1,5 +1,4 @@
 import { css, keyframes } from "@emotion/react";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { FC } from "react";
 
 const loadingOne = keyframes`
@@ -28,7 +27,6 @@ const loadingThree = keyframes`
 `;
 
 export const MessageLoading: FC = () => {
-  const theme = useAntdTheme();
   return (
     <div
       css={css`
@@ -42,7 +40,7 @@ export const MessageLoading: FC = () => {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: ${theme.colorTextSecondary};
+          background: hsl(var(--muted-foreground));
           animation-timing-function: cubic-bezier(0, 1, 1, 0);
         }
       `}

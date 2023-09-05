@@ -1,4 +1,4 @@
-import { SliderOption } from "@lepton-libs/gradio/slider-option";
+import { SliderOption } from "@lepton/playground/components/slider-option";
 import { Checkbox, Col, Row, Typography } from "antd";
 import { FC } from "react";
 
@@ -22,6 +22,7 @@ export const Options: FC<{
           min={768}
           max={1024}
           step={1}
+          integer
           onChange={(width) => onChange({ ...value, width })}
           value={value.width}
         />
@@ -32,6 +33,7 @@ export const Options: FC<{
           min={768}
           max={1024}
           step={1}
+          integer
           onChange={(height) => onChange({ ...value, height })}
           value={value.height}
         />
@@ -42,6 +44,7 @@ export const Options: FC<{
           min={1}
           max={50}
           step={1}
+          integer
           onChange={(steps) => onChange({ ...value, steps })}
           value={value.steps}
         />
@@ -53,6 +56,7 @@ export const Options: FC<{
           min={0}
           max={2147483647}
           step={1}
+          integer
           disabled={value.random_seed}
           onChange={(seed) => onChange({ ...value, seed })}
           value={value.seed}

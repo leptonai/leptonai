@@ -6,18 +6,14 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CSSProperties } from "react";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
+import type { BaseHTMLAttributes } from "react";
 import { css } from "@emotion/react";
 
 export type ScrollablePosition = "start" | "end";
 
-export interface ScrollableProps {
+export interface ScrollableProps extends BaseHTMLAttributes<HTMLDivElement> {
   position?: "start" | "end" | ["start", "end"];
-  className?: string;
-  style?: CSSProperties;
   margin?: string;
-  id?: string;
 }
 
 export interface ScrollableRef {
@@ -27,10 +23,9 @@ export interface ScrollableRef {
 export const Scrollable = forwardRef<
   ScrollableRef,
   PropsWithChildren<ScrollableProps>
->(({ position = "start", className, id, style, children, margin }, ref) => {
+>(({ position = "start", className, children, margin, ...props }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollableBoxRef = useRef<HTMLDivElement | null>(null);
-  const theme = useAntdTheme();
   const [positions, setPositions] = useState<ScrollablePosition[]>([]);
   const scrollHTMLRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -109,7 +104,7 @@ export const Scrollable = forwardRef<
           top: 0;
           left: 0;
           right: 0;
-          box-shadow: 0 1px 8px 2px ${theme.colorBorder};
+          box-shadow: 0 1px 8px 2px hsl(var(--border));
         }
 
         &.scrollable-end::after {
@@ -117,13 +112,12 @@ export const Scrollable = forwardRef<
           bottom: 0;
           left: 0;
           right: 0;
-          box-shadow: 0 -1px 8px 2px ${theme.colorBorder};
+          box-shadow: 0 -1px 8px 2px hsl(var(--border));
         }
       `}
       ref={containerRef}
       className={className}
-      id={id}
-      style={style}
+      {...props}
     >
       <div
         ref={(ref) => {
@@ -141,3 +135,5 @@ export const Scrollable = forwardRef<
     </div>
   );
 });
+
+Scrollable.displayName = "Scrollable";

@@ -35,8 +35,9 @@ import { AppInterceptor } from "@lepton-dashboard/interceptors/app.interceptor";
 import { NavigateService } from "@lepton-dashboard/services/navigate.service";
 import { NotificationService } from "@lepton-dashboard/services/notification.service";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
-import "./log";
 import { ShikiProvider } from "@lepton/ui/shared/shiki";
+import { Toaster } from "@lepton/ui/components/toaster";
+import "./log";
 
 const Login = lazyErrorWrapper(
   lazy(() =>
@@ -207,6 +208,7 @@ function App() {
       <ThemeProvider>
         <ShikiProvider>
           <RouterProvider router={router} />
+          <Toaster />
         </ShikiProvider>
       </ThemeProvider>
     </DIContainer>

@@ -2,7 +2,7 @@ import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Chat } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat";
 import { ChatRef } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-box";
-import { ModelOption } from "@lepton-libs/gradio/chat.service";
+import { ModelOption } from "@lepton/playground/shared/chat";
 import { Empty } from "antd";
 import { FC, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";

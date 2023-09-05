@@ -2,7 +2,7 @@ import { Code, Login } from "@carbon/icons-react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { useInject } from "@lepton-libs/di";
-import { CodeAPIModal } from "@lepton-libs/gradio/code-api-modal";
+import { CodeAPIDialogContent } from "@lepton/playground/components/code-api-dialog";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Button, Grid } from "antd";
 import { FC, useState } from "react";
@@ -30,10 +30,10 @@ export const Api: FC<{
         >
           {md !== false ? "API" : null}
         </Button>
-        <CodeAPIModal
+        <CodeAPIDialogContent
           codes={codes}
           open={open}
-          setOpen={setOpen}
+          onOpenChange={setOpen}
           title={`Copy API for ${name}`}
         />
       </>

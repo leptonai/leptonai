@@ -1,22 +1,21 @@
 import { ChatBot, MagicWandFilled } from "@carbon/icons-react";
 import { css } from "@emotion/react";
 import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import {
-  Scrollable,
-  ScrollableRef,
-} from "@lepton-dashboard/components/scrollable";
+import { Scrollable, ScrollableRef } from "@lepton/ui/components/scrollable";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
 import { useInject } from "@lepton-libs/di";
-import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
-import { ChatOptions } from "@lepton-libs/gradio/chat-options";
+import { Options } from "@lepton/playground/components/chat/options";
 import {
+  Chat,
   ChatCompletion,
   ChatOption,
-  ChatService,
-} from "@lepton-libs/gradio/chat.service";
-import { PromptInput, PromptInputRef } from "@lepton-libs/gradio/prompt-input";
+} from "@lepton/playground/shared/chat";
+import {
+  PromptInput,
+  PromptInputRef,
+} from "@lepton/playground/components/prompt-input";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import pathJoin from "@lepton-libs/url/path-join";
@@ -34,9 +33,10 @@ import { MetaService } from "@lepton-dashboard/services/meta.service";
 import { Dropdown, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useSearchParams } from "react-router-dom";
-import { MDMessage } from "@lepton-libs/gradio/md-message";
+import { MDMessage } from "@lepton/playground/components/chat/md-message";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
+import { APICodeTemplate } from "@lepton/playground/shared/api-code-template";
 
 const presets = [
   {
@@ -128,10 +128,9 @@ export const CodeLlama: FC = () => {
   const [loading, setLoading] = useState(true);
   const [prompt, setPrompt] = useState<string>(presets[0].prompt);
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
-  const chatService = useInject(ChatService);
   const theme = useAntdTheme();
   const playgroundService = useInject(PlaygroundService);
-  const chat = useStateFromObservable(
+  const chat: ChatCompletion | null = useStateFromObservable(
     () =>
       combineLatest([
         playgroundService.getCodeLlamaBackend(),
@@ -151,10 +150,11 @@ export const CodeLlama: FC = () => {
           });
           setLoading(false);
         }),
-        map(([url]) =>
-          chatService.createChat({
-            api_url: pathJoin(url, "chat/completions"),
-          })
+        map(
+          ([url]) =>
+            new Chat({
+              api_url: pathJoin(url, "chat/completions"),
+            })
         )
       ),
     null
@@ -296,10 +296,10 @@ export const CodeLlama: FC = () => {
             css={css`
               flex: 0 1 auto;
             `}
-            submitIcon={<CarbonIcon icon={<MagicWandFilled />} />}
+            submitIcon={MagicWandFilled}
             submitText="Generate"
             ref={inputRef}
-            maxRows={8}
+            maxRows={3}
             loading={submitting}
             value={prompt}
             onChange={setPrompt}
@@ -350,9 +350,7 @@ export const CodeLlama: FC = () => {
           </div>
         </div>
       }
-      option={
-        <ChatOptions chatOption={option} onChatOptionChanged={setOption} />
-      }
+      option={<Options chatOption={option} onChatOptionChanged={setOption} />}
     />
   );
 };

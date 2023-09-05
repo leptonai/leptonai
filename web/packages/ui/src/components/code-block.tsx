@@ -1,6 +1,5 @@
 import { FC, useEffect, useState } from "react";
 import type { IThemedToken } from "shiki";
-import { css } from "@emotion/react";
 import { Languages, useBrowserShiki } from "@lepton/ui/shared/shiki";
 import { CopyButton } from "@lepton/ui/components/copy-button";
 
@@ -40,6 +39,8 @@ export const createStringLiteralSecretTokenMasker = (
   };
 };
 
+const preClassname = "flex-1 overflow-auto min-h-[35px] text-xs p-2 m-0";
+
 export const CodeBlock: FC<{
   code: string;
   initCode?: string;
@@ -52,7 +53,7 @@ export const CodeBlock: FC<{
 }> = ({
   code,
   rendered,
-  initCode = "<pre><code></code></pre>",
+  initCode = `<pre class="${preClassname}"><code></code></pre>`,
   language,
   copyable,
   tokenMask,
@@ -88,13 +89,14 @@ export const CodeBlock: FC<{
                 typeof _mask === "string"
                   ? _mask
                   : "*".repeat(token.content.length);
-              return `<span style="${style}" ${
-                mask ? `class="mask-token"` : ""
-              }>${
+              return `<span style="${style}" class="group/mask">${
                 !mask
                   ? children
-                  : `<span class="mask">${maskStr}</span><span class="mask-content">${children}</span>`
+                  : `<span class="group-hover/mask:hidden">${maskStr}</span><span class="hidden group-hover/mask:inline">${children}</span>`
               }</span>`;
+            },
+            pre({ children }) {
+              return `<pre class="${preClassname}">${children}</pre>`;
             },
           },
         });
@@ -108,60 +110,29 @@ export const CodeBlock: FC<{
     return () => {
       inThisTake = false;
     };
-  }, [language, code, themeMode, tokenMask, transparentBg, rendered]);
+  }, [
+    language,
+    code,
+    themeMode,
+    tokenMask,
+    transparentBg,
+    rendered,
+    getHighlighter,
+    renderToHtml,
+  ]);
 
   return (
-    <div
-      css={css`
-        max-width: 100%;
-        max-height: 100%;
-        position: relative;
-        display: flex;
-        overflow: hidden;
-        & > div {
-          flex: 1;
-          display: flex;
-          overflow: hidden;
-        }
-
-        .copy-button {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          opacity: 0;
-          transition: opacity 0.12s ease-in-out;
-        }
-
-        &:hover {
-          .copy-button {
-            opacity: 1;
-          }
-        }
-        pre {
-          flex: 1;
-          overflow: auto;
-          min-height: 35px;
-          font-size: 12px;
-          padding: 12px;
-          margin: 0;
-        }
-        .mask-token {
-          .mask-content {
-            display: none;
-          }
-          &:hover {
-            .mask-content {
-              display: inline;
-            }
-            .mask {
-              display: none;
-            }
-          }
-        }
-      `}
-    >
-      {copyable && code && <CopyButton className="copy-button" value={code} />}
-      <div dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+    <div className="group/code-block flex w-full h-full relative overflow-hidden">
+      {copyable && code && (
+        <CopyButton
+          className="absolute top-2 right-2 opacity-0 transition-opacity hover:bg-secondary bg-secondary/80 group-hover/code-block:opacity-100"
+          value={code}
+        />
+      )}
+      <div
+        className="flex-1 flex overflow-hidden"
+        dangerouslySetInnerHTML={{ __html: highlightedCode }}
+      />
     </div>
   );
 };

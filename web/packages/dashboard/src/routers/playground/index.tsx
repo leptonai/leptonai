@@ -6,7 +6,6 @@ import { Nav } from "@lepton-dashboard/routers/playground/components/nav";
 import { Llama2 } from "@lepton-dashboard/routers/playground/routers/llama2";
 import { AuthService } from "@lepton-dashboard/services/auth.service";
 import { CodeLlama } from "@lepton-dashboard/routers/playground/routers/code-llama";
-import { ChatService } from "@lepton-libs/gradio/chat.service";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { Button, Grid, Space } from "antd";
 import { FC, Suspense } from "react";
@@ -26,7 +25,7 @@ export const Playground: FC = () => {
     null
   );
   return (
-    <DIContainer providers={[PlaygroundService, ChatService]}>
+    <DIContainer providers={[PlaygroundService]}>
       <Suspense fallback={<Loading />}>
         <Layout
           footer={<Footer />}

@@ -6,8 +6,8 @@
     "paths": {
       "@lepton-dashboard/*": ["./src/*"],
       "@lepton-libs/*": ["./libs/*"],
-      "@lepton/ui/components": ["../../packages/ui/src/components/index.ts"],
-      "@lepton/ui/*": ["../../packages/ui/src/*"]
+      "@lepton/ui/*": ["../../packages/ui/src/*"],
+      "@lepton/playground/*": ["../../packages/playground/src/*"]
     }
   },
   "include": ["src", "libs"]

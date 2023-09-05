@@ -14,12 +14,12 @@ import {
   ChatBox,
   ChatRef,
 } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-box";
-import { ChatOptions } from "@lepton-libs/gradio/chat-options";
+import { Options } from "@lepton/playground/components/chat/options";
 import {
   ChatOption,
-  ChatService,
+  Chat as ChatClass,
   ModelOption,
-} from "@lepton-libs/gradio/chat.service";
+} from "@lepton/playground/shared/chat";
 import { WorkspaceTrackerService } from "@lepton-dashboard/services/workspace-tracker.service";
 import { useInject } from "@lepton-libs/di";
 import pathJoin from "@lepton-libs/url/path-join";
@@ -55,15 +55,14 @@ export const Chat = forwardRef<
     ref
   ) => {
     const [loading, setLoading] = useState(false);
-    const chatService = useInject(ChatService);
     const workspaceTrackerService = useInject(WorkspaceTrackerService);
     const chat = useMemo(
       () =>
-        chatService.createChat({
+        new ChatClass({
           api_url: pathJoin(model.apiOption.api_url, "chat/completions"),
           api_key: model.apiOption.api_key,
         }),
-      [chatService, model]
+      [model]
     );
     const [option, setOption] = useState<ChatOption>({
       max_tokens: 512,
@@ -131,7 +130,7 @@ export const Chat = forwardRef<
                       width: 250px;
                     `}
                   >
-                    <ChatOptions
+                    <Options
                       chatOption={option}
                       onChatOptionChanged={setOption}
                     />

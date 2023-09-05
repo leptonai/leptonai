@@ -30,7 +30,7 @@
     "react-dom": "18.2.0",
     "stripe": "^12.13.0",
     "swagger-jsdoc": "^6.2.8",
-    "typescript": "5.1.6"
+    "typescript": "^5.2.2"
   },
   "devDependencies": {
     "@lepton/tsconfig": "workspace:*",

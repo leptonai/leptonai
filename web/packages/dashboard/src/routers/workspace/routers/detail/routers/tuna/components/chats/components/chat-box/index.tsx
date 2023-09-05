@@ -1,6 +1,6 @@
-import { ScrollableRef } from "@lepton-dashboard/components/scrollable";
+import { ScrollableRef } from "@lepton/ui/components/scrollable";
 import { ChatInput } from "@lepton-dashboard/routers/workspace/routers/detail/routers/tuna/components/chats/components/chat-input";
-import { ChatMessages } from "@lepton-libs/gradio/chat-messages";
+import { ChatMessages } from "@lepton/playground/components/chat/chat-messages";
 import {
   forwardRef,
   useCallback,
@@ -13,7 +13,7 @@ import { filter, Subscription, switchMap, throttleTime } from "rxjs";
 import { useObservableFromState } from "@lepton-libs/hooks/use-observable-from-state";
 import { useStateFromObservable } from "@lepton-libs/hooks/use-state-from-observable";
 import { css } from "@emotion/react";
-import { ChatCompletion, ChatOption } from "@lepton-libs/gradio/chat.service";
+import { ChatCompletion, ChatOption } from "@lepton/playground/shared/chat";
 
 interface ChatProps {
   chat?: ChatCompletion | null;

@@ -7,6 +7,7 @@
   "packageManager": "pnpm@8.6.12",
   "devDependencies": {
     "lerna": "^7.1.5",
+    "typescript": "^5.2.2",
     "@commitlint/cli": "^17.6.1",
     "@commitlint/config-conventional": "^17.6.1",
     "eslint": "^8.39.0",
@@ -100,6 +101,7 @@
       {
         "files": [
           "packages/dashboard/**/*",
+          "packages/playground/**/*",
           "packages/ui/**/*"
         ],
         "rules": {

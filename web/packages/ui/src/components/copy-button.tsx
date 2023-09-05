@@ -1,7 +1,7 @@
 import { FC, HTMLAttributes, useEffect, useState } from "react";
 import { Button } from "@lepton/ui/components/button";
 import { cn } from "@lepton/ui/utils";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 
 export interface CopyButtonProps extends HTMLAttributes<HTMLButtonElement> {
   value: string;
@@ -27,7 +27,7 @@ export const CopyButton: FC<CopyButtonProps> = ({
   return (
     <Button
       size="icon"
-      variant="ghost"
+      variant="secondary"
       className={cn("relative z-10 h-6 w-6", className)}
       onClick={() => {
         void copyToClipboardWithMeta(value);

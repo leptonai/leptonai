@@ -1,6 +1,6 @@
 import { css } from "@emotion/react";
 import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import { PromptInput } from "@lepton-libs/gradio/prompt-input";
+import { PromptInput } from "@lepton/playground/components/prompt-input";
 import { Checkbox } from "antd";
 import { FC } from "react";
 

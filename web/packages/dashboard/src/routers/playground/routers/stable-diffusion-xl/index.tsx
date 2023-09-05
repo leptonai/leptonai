@@ -5,8 +5,8 @@ import {
   SdxlOption,
 } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
 import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
-import { APICodeTemplate } from "@lepton-libs/gradio/api-code-template";
-import { PromptInput } from "@lepton-libs/gradio/prompt-input";
+import { APICodeTemplate } from "@lepton/playground/shared/api-code-template";
+import { PromptInput } from "@lepton/playground/components/prompt-input";
 import { FC, useMemo, useRef, useState } from "react";
 import { css } from "@emotion/react";
 import { PlaygroundService } from "@lepton-dashboard/routers/playground/service/playground.service";
@@ -174,7 +174,7 @@ export const StableDiffusionXl: FC = () => {
               margin-bottom: 16px;
               flex: 0 0 auto;
             `}
-            submitIcon={<CarbonIcon icon={<MagicWandFilled />} />}
+            submitIcon={MagicWandFilled}
             submitText="Generate"
             loading={loading}
             value={prompt}
