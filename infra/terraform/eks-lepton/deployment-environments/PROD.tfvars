@@ -85,5 +85,3 @@ rds_aurora_host = "mothership-prod-aws-us-west-2-aurora-postgresql-1.cym32vh4eh2
 alertmanager_slack_channel     = "#alertmanager-test"
 alertmanager_slack_webhook_url = "https://hooks.slack.com/services/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"
 alertmanager_target_namespaces = ".*"
-
-satellite_node_user_arn = "arn:aws:iam::720771144610:user/satellite-node"

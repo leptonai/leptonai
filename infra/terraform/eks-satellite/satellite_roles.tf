@@ -14,7 +14,7 @@ data "aws_iam_policy_document" "satellite" {
 # thus easier to use assume-role with user credentials
 # and reauthenticate every ~12-hour (max_session_duration)
 resource "aws_iam_role" "satellite" {
-  name = "${var.cluster_name}-satellite"
+  name = "${var.cluster_name}-satellite-${var.satellite_name}"
 
   assume_role_policy = data.aws_iam_policy_document.satellite.json
 

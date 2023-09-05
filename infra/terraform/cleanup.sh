@@ -6,6 +6,7 @@ targets=(
     "aws-access"
     "eks-lepton"
     "eks-mothership"
+    "eks-satellite"
     "workspace"
 )
 
