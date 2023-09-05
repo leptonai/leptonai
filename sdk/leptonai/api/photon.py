@@ -166,6 +166,7 @@ def run_remote(
     secret_list: Optional[List[str]] = None,
     is_public: Optional[bool] = False,
     tokens: Optional[List[str]] = None,
+    no_traffic_timeout: Optional[int] = None,
 ):
     # TODO: check if the given id is a valid photon id
     if not resource_shape:
@@ -179,5 +180,6 @@ def run_remote(
         mounts=types.Mount.make_mounts_from_strings(mounts),
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
         api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
+        auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
     )
     return run_remote_with_spec(conn, deployment_spec)

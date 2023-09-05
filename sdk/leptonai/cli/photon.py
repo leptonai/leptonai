@@ -368,6 +368,14 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     ),
     multiple=True,
 )
+@click.option(
+    "--no-traffic-timeout",
+    type=int,
+    help=(
+        "If specified, the deployment will be scaled down to 0 replicas after the"
+        " specified number of seconds without traffic."
+    ),
+)
 @click.pass_context
 def run(
     ctx,
@@ -385,6 +393,7 @@ def run(
     secret,
     public,
     tokens,
+    no_traffic_timeout,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -429,6 +438,7 @@ def run(
                 secret,
                 public,
                 tokens,
+                no_traffic_timeout,
             )
         except ValueError as e:
             console.print(f"Error encountered while parsing configs: {e}")

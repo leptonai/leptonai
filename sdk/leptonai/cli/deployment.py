@@ -133,6 +133,7 @@ def status(name, show_tokens):
         state = f"[green]{state}[/]"
     else:
         state = f"[yellow]{state}[/]"
+    console.print(f"Time now:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"Created at: {creation_time}")
     console.print(f"Photon ID:  {dep_info['photon_id']}")
     console.print(f"State:      {state}")
