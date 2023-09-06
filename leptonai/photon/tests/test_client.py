@@ -10,7 +10,8 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 import unittest
 
-import responses
+import httpx
+import respx
 
 from leptonai import Client
 from leptonai.photon import Photon, handler, StreamingResponse
@@ -54,10 +55,12 @@ def post_and_get_wrapper(port):
 
 
 class TestClient(unittest.TestCase):
+    tiny_hf_model = "hf:sshleifer/tiny-gpt2@5f91d94"
+
     def test_client(self):
         # launch server
         name = random_name()
-        proc, port = photon_run_local_server(name=name, model="hf:gpt2")
+        proc, port = photon_run_local_server(name=name, model=self.tiny_hf_model)
         url = f"http://localhost:{port}"
 
         client = Client(url)
@@ -108,51 +111,42 @@ class TestClient(unittest.TestCase):
 
     def test_client_with_token(self):
         name = random_name()
-        proc, port = photon_run_local_server(name=name, model="hf:gpt2")
+        proc, port = photon_run_local_server(name=name, model=self.tiny_hf_model)
         url = f"http://localhost:{port}"
         inputs = "hello inputs"
         outputs = "hello outputs"
         token = "1234"
         wrong_token = "4321"
 
-        with responses.RequestsMock() as rsps:
-            matchers = [
-                responses.matchers.header_matcher({"Authorization": f"Bearer {token}"}),
-            ]
-            rsps.add(
-                responses.GET,
-                f"{url}/openapi.json",
-                json={"paths": {"/run": {"post": {}}}},
-                match=matchers,
+        def check_token(request):
+            if request.headers.get("Authorization") != f"Bearer {token}":
+                return httpx.Response(401, json={"detail": "Unauthorized"})
+            return httpx.Response(200, json={"outputs": outputs})
+
+        with respx.mock:
+            respx.get(f"{url}/openapi.json").respond(
+                200, json={"paths": {"/run": {"post": {}}}}
             )
-            rsps.add(
-                responses.POST,
-                f"{url}/run",
-                json={"outputs": outputs},
-                match=matchers,
-            )
-            rsps.add(
-                responses.GET,
-                f"{url}/healthz",
-                json={},  # doesn't matter
-                match=matchers,
+            respx.get(f"{url}/healthz").respond(200, json={})
+            respx.post(f"{url}/run").mock(side_effect=check_token)
+
+            client = Client(url)
+            self.assertRaisesRegex(
+                Exception,
+                "Unauthorized",
+                client.run,
+                inputs=inputs,
+                msg="Should not pass with no token",
             )
 
-            try:
-                client = Client(url)
-                res = client.run(inputs=inputs)
-            except Exception:
-                pass
-            else:
-                raise Exception("Should not pass with no token")
-
-            try:
-                client = Client(url, token=wrong_token)
-                res = client.run(inputs=inputs)
-            except Exception:
-                pass
-            else:
-                raise Exception("Should not pass with wrong token")
+            client = Client(url, token=wrong_token)
+            self.assertRaisesRegex(
+                Exception,
+                "Unauthorized",
+                client.run,
+                inputs=inputs,
+                msg="Should not pass with wrong token",
+            )
 
             client = Client(url, token=token)
             self.assertTrue(client.healthz())

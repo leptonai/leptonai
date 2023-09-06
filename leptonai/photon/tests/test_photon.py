@@ -1234,7 +1234,7 @@ class StorePySrcFilePhoton(Photon):
 
         res = client.slow()
         self.assertEqual(res, "slow")
-        self.assertRaisesRegex(requests.exceptions.HTTPError, "429", client.slow)
+        self.assertRaisesRegex(Exception, "429", client.slow)
 
 
 if __name__ == "__main__":

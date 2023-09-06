@@ -1,8 +1,9 @@
+import contextlib
 import keyword
 from typing import Callable, Dict, List, Set, Optional, Union, Iterable
 
 from fastapi.encoders import jsonable_encoder
-import requests
+import httpx
 
 from leptonai._internal.client_utils import (
     _is_valid_url,
@@ -226,9 +227,10 @@ class Client(object):
                 )
             else:
                 self.url = url.rstrip("/")
-        self._session = requests.Session()
+
+        headers = {}
         if deployment:
-            self._session.headers.update({"X-Lepton-Deployment": deployment})
+            headers.update({"X-Lepton-Deployment": deployment})
         # If we are simply using the current workspace, we will also automatically
         # set the token as the current workspace token.
         if (
@@ -237,7 +239,9 @@ class Client(object):
         ):
             token = WorkspaceInfoLocalRecord._get_current_workspace_token()
         if token is not None:
-            self._session.headers.update({"Authorization": f"Bearer {token}"})
+            headers.update({"Authorization": f"Bearer {token}"})
+
+        self._session = httpx.Client(headers=headers)
         self._debug_record: List = []
         self._path_cache: PathTree = PathTree("", self._debug_record)
         self.stream: Optional[bool] = stream
@@ -256,20 +260,19 @@ class Client(object):
         # At load time, we will also load the openapi specification.
         try:
             raw_openapi = self._get("openapi.json")
-            raw_openapi.raise_for_status()
             try:
-                self.openapi = raw_openapi.json()
-            except requests.JSONDecodeError:
+                self.openapi = self._get_proper_res_content(raw_openapi)
+            except httpx.DecodingError:
                 self._debug_record.append(
                     "OpenAPI spec failed to be json decoded. This is not an issue of"
                     " the client, but a corrupted openapi spec."
                 )
-        except (ConnectionError, requests.ConnectionError) as e:
+        except (ConnectionError, httpx.ConnectError) as e:
             raise ConnectionError(
                 "Cannot connect to server. This is not an issue of the"
                 f" client, but a network error. More details:\n{e}"
             )
-        except requests.HTTPError:
+        except httpx.HTTPError:
             self._debug_record.append(
                 "OpenAPI spec does not exist. This is not a client bug, but the"
                 " deployment does not have an openapi specification."
@@ -295,29 +298,53 @@ class Client(object):
                     " Currently we only support post and get methods."
                 )
 
+    def __del__(self):
+        self._session.close()
+
     # Normal usages will go through then `__getattr__` path (which triggers
     # `_post_path` and `_post`). Directly using `_post` and `_get` is
     # discouraged, only when accessing endpoints that are not defined via
     # Photon.
-    def _get(self, path: str, *args, **kwargs) -> requests.models.Response:
-        return self._session.get(
-            f"{self.url}/{path.lstrip('/')}", stream=self.stream, *args, **kwargs
-        )
-
-    def _post(self, path: str, *args, **kwargs) -> requests.models.Response:
-        return self._session.post(
-            f"{self.url}/{path.lstrip('/')}", stream=self.stream, *args, **kwargs
-        )
-
-    def _get_proper_res_content(self, res: requests.models.Response):
-        res.raise_for_status()
-        if res.headers.get("content-type", None) == "application/json":
-            return res.json()
+    def _get(self, path: str, *args, **kwargs) -> httpx.Response:
+        kwargs.setdefault("timeout", None)
+        if self.stream:
+            return self._session.stream(
+                "GET", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
+            )
         else:
-            if self.stream and "chunked" in res.headers.get("transfer-encoding", ""):
-                return res.iter_content(chunk_size=self.chunk_size)
-            else:
-                return res.content
+            return self._session.get(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
+
+    def _post(self, path: str, *args, **kwargs) -> httpx.Response:
+        kwargs.setdefault("timeout", None)
+        if self.stream:
+            return self._session.stream(
+                "POST", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
+            )
+        else:
+            return self._session.post(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
+
+    def _get_proper_res_content(self, res: httpx.Response):
+        def generator(res):
+            ctx = res if self.stream else contextlib.nullcontext(res)
+            with ctx as res:
+                res.raise_for_status()
+                if res.headers.get("content-type", None) == "application/json":
+                    res.read()
+                    yield False, res.json()
+                if self.stream and "chunked" in res.headers.get(
+                    "transfer-encoding", ""
+                ):
+                    yield True, None
+                    yield from res.iter_bytes(chunk_size=self.chunk_size)
+                else:
+                    yield False, res.content
+
+        content = generator(res)
+        is_stream, non_stream_content = next(content)
+        if is_stream:
+            return content
+        else:
+            return non_stream_content
 
     def _create_post_path(self, path_name: str) -> None:
         """
@@ -336,6 +363,7 @@ class Client(object):
                             self.openapi, path_name, args
                         )
                     )
+
                 res = self._post(
                     path_name,
                     json=jsonable_encoder(kwargs),
@@ -396,9 +424,9 @@ class Client(object):
         """
         try:
             res = self._get("/healthz")
-            res.raise_for_status()
+            self._get_proper_res_content(res)
             return True
-        except (requests.ConnectionError, requests.HTTPError):
+        except (httpx.ConnectError, httpx.HTTPError):
             return False
 
     def debug_record(self) -> List[str]:
