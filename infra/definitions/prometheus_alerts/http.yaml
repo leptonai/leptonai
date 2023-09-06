@@ -30,21 +30,39 @@ spec:
           for: 1m
           labels:
             severity: critical
-        - alert: LeptonAPIServerP99Latency
+        - alert: LeptonAPIServerP90Latency
           annotations:
-            description: Lepton API sever P99 latency is higher than 500 ms
-            summary: API sever P99 latency is higher than 500 ms
+            description: Lepton API sever P90 latency is higher than 500 ms
+            summary: API sever P90 latency is higher than 500 ms
           expr: |-
-            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[5m])) by (le)) > 0.5
+            histogram_quantile(0.90, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[1h])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipP90Latency
+          annotations:
+            description: Mothership P90 latency is higher than 500 ms
+            summary: Mothership P90 latency is higher than 500 ms
+          expr: |-
+            histogram_quantile(0.90, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[1h])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: LeptonAPIServerP90Latency
+          annotations:
+            description: Lepton API sever P99 latency is higher than 1 sec
+            summary: API sever P99 latency is higher than 1 sec
+          expr: |-
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[1h])) by (le)) > 1
           for: 1m
           labels:
             severity: critical
         - alert: MothershipP99Latency
           annotations:
-            description: Mothership P99 latency is higher than 500 ms
-            summary: Mothership P99 latency is higher than 500 ms
+            description: Mothership P99 latency is higher than 1 sec
+            summary: Mothership P99 latency is higher than 1 sec
           expr: |-
-            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[5m])) by (le)) > 0.5
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[1h])) by (le)) > 1
           for: 1m
           labels:
             severity: critical
