@@ -19,7 +19,8 @@ lint = [
 test = [
     "pytest",
     "pytest-cov",
-    "responses"
+    "responses",
+    "respx",
 ]
 
 [build-system]
