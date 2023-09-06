@@ -88,6 +88,15 @@ spec:
     - sdxl.lepton.run
     - sdxl-api.lepton.run
     routes:
+    - matchers:
+      - exact: /
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        prefixRewrite: '/docs'
     # for dashboard
     - matchers:
       - prefix: /
