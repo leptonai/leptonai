@@ -21,15 +21,14 @@ elif ENV == "DEV":
 
 
 def get_workspaces():
-    url = mothership_url + "/workspaces"
-    headers = {
-        "Authorization": "Bearer {}".format(mothership_key),
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(url, headers=headers)
-
-    return response.json()
+    db_connection = database.get_supabase_connection()
+    query = """
+    SELECT id, display_name, status, tier, url, payment_method_attached, 
+    last_billable_usage_timestamp FROM public.workspaces;
+    """
+    df = pd.read_sql(query, db_connection)
+    db_connection.close()
+    return df
 
 
 def get_workspace_info_from_mothership(workspace_name):
@@ -43,28 +42,27 @@ def get_workspace_info_from_mothership(workspace_name):
 
 
 def uppgrade_workspace_version(workspace_name, version):
-    '''
+    """
     Input:
         workspace_name: str
         version: str, e.g. '0.8.3'
-    '''
-    url = mothership_url + "/workspaces" 
+    """
+    url = mothership_url + "/workspaces"
     headers = {
         "Authorization": "Bearer {}".format(mothership_key),
     }
     workspace_info = get_workspace_info_from_mothership(workspace_name)
-    workspace_info['spec']['git_ref'] = version
-    workspace_info['spec']['image_tag'] = version
+    workspace_info["spec"]["git_ref"] = version
+    workspace_info["spec"]["image_tag"] = version
 
-    response = requests.patch(url, headers=headers, json=workspace_info['spec'])
+    response = requests.patch(url, headers=headers, json=workspace_info["spec"])
     return response.json()
 
 
 def get_workspace_info(workspace_name: str) -> dict:
     db_connection = database.get_supabase_connection().cursor()
     db_connection.execute(
-        "SELECT * FROM workspaces WHERE display_name = '{}'"
-        .format(workspace_name)
+        "SELECT * FROM workspaces WHERE display_name = '{}'".format(workspace_name)
     )
 
     rows = db_connection.fetchall()
@@ -78,93 +76,116 @@ def get_workspace_info(workspace_name: str) -> dict:
 
 def get_workspace_users(workspace_name: str):
     db_connection = database.get_supabase_connection()
-    query = '''
+    query = """
     SELECT u.email
     FROM users u
     JOIN user_workspace uw ON u.id = uw.user_id
     WHERE uw.workspace_id = '{}'
-    '''.format(workspace_name)
+    """.format(
+        workspace_name
+    )
     df = pd.read_sql(query, db_connection)
     db_connection.close()
     return df
 
 
 def get_all_ws_stats():
-    ws_total = get_workspaces()
-    workspace_ids = [w['spec']['name'] for w in ws_total]
+    # ws_total = get_workspaces()
+    # workspace_ids = [w["spec"]["name"] for w in ws_total]
     out = []
 
+    df = get_workspaces()
+    x = df[['id', 'url']]
+    x = x[~x.url.str.contains('dev')]
+    x = x[~x.url.str.contains('cloud')]
+    all_ws_info = [(y[0], y[1]) for y in x.values]
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_url = {executor.submit(get_ws_stat, workspace_id): workspace_id for workspace_id in workspace_ids}
+        future_to_url = {
+            executor.submit(get_ws_stat, info[0], info[1]): info
+            for info in all_ws_info
+        }
         for future in concurrent.futures.as_completed(future_to_url):
             workspace_id = future_to_url[future]
             try:
                 data = future.result()
             except Exception as exc:
-                print('%r generated an exception: %s' % (workspace_id, exc))
+                print("%r generated an exception: %s" % (workspace_id, exc))
             else:
                 out.append(data)
 
-    result = pd.DataFrame(out, columns=['workspace_id', 'ws_display_name', 'num_of_photons', 'num_of_deployments', 'cpu', 'memory', 'gpu'])
-    result = result.sort_values(by=['num_of_photons'], ascending=False)
+    result = pd.DataFrame(
+        out,
+        columns=[
+            "workspace_id",
+            "ws_display_name",
+            "num_of_photons",
+            "num_of_deployments",
+            "cpu",
+            "memory",
+            "gpu",
+        ],
+    )
+    result = result.sort_values(by=["num_of_photons"], ascending=False)
     return result
 
 
-def get_ws_stat(workspace_id):
-    prefix = 'app' if ENV == 'PROD' else 'cloud'
-    base_url = "https://{}.{}.lepton.ai/api/v1/".format(workspace_id, prefix)
+def get_ws_stat(workspace_id, workspace_url):
+    base_url = workspace_url
     ws_info = get_workspace_info_from_mothership(workspace_id)
     try:
-        ws_api_token = ws_info['spec']['api_token']
+        ws_api_token = ws_info["spec"]["api_token"]
     except:
-        ws_api_token = ''
-    ws_display_name = ws_info['spec']['description']
+        ws_api_token = ""
+    ws_display_name = ws_info["spec"]["description"]
     headers = {
         "Authorization": "Bearer {}".format(ws_api_token),
-        "Content-Type": "application/json"
-    }   
+        "Content-Type": "application/json",
+    }
     # get resouce usage
-    url = base_url + "workspace"
+    url = base_url + "/api/v1/workspace"
     res = requests.get(url, headers=headers).json()
-    cpu = round(res['resource_quota']['used']['cpu'], 2)
-    memory = round(res['resource_quota']['used']['memory'] / 1024, 2)
-    gpu = res['resource_quota']['used']['accelerator_num']
+    cpu = round(res["resource_quota"]["used"]["cpu"], 2)
+    memory = round(res["resource_quota"]["used"]["memory"] / 1024, 2)
+    gpu = res["resource_quota"]["used"]["accelerator_num"]
     # get num of photons
-    url = base_url + "photons"   
+    url = base_url + "/api/v1/photons"
     num_of_photons = len(requests.get(url, headers=headers).json())
     # get num of deployments
-    url = base_url + "deployments"
+    url = base_url + "/api/v1/deployments"
     num_of_deployments = len(requests.get(url, headers=headers).json())
-    
-    info = [workspace_id, ws_display_name, num_of_photons, num_of_deployments, cpu, memory, gpu]
+
+    info = [
+        workspace_id,
+        ws_display_name,
+        num_of_photons,
+        num_of_deployments,
+        cpu,
+        memory,
+        gpu,
+    ]
     return info
 
 
 def reset_workspace_subscription(workspace_id):
     url = "https://portal.lepton.ai/api/admin/reset-workspace-subscription"
     headers = {"Content-Type": "application/json"}
-    data = {
-        "workspace_id": workspace_id,
-        "chargeable": True
-    }
+    data = {"workspace_id": workspace_id, "chargeable": True}
     params = {"LEPTON_API_SECRET": LEPTON_API_SECRET}
     response = requests.post(url, headers=headers, json=data, params=params)
     return response.json()
 
 
 def grant_coupon(workspace_id, amount):
-    '''
+    """
     Input:
         workspace_id: str
-        amount: int, could be 0, 10, 100, 500 or 1000, when pass 0, it means 
+        amount: int, could be 0, 10, 100, 500 or 1000, when pass 0, it means
             remove the workspace coupon.
-    '''
+    """
     url = "https://portal.lepton.ai/api/admin/update-workspace-coupon"
     headers = {"Content-Type": "application/json"}
-    data = {
-        "workspace_id": workspace_id,
-        "coupon": amount
-    }
+    data = {"workspace_id": workspace_id, "coupon": amount}
     params = {"LEPTON_API_SECRET": LEPTON_API_SECRET}
     response = requests.post(url, headers=headers, json=data, params=params)
     return response
