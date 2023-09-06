@@ -175,12 +175,35 @@ func fineGrainComputeDataFromResponse(ar AllocationResponse, qp OcQueryParams) (
 			if !qp.QueryEnd.IsZero() {
 				actualQueryEnd = qp.QueryEnd
 			}
+
+			// TODO: remove deprecated labels
+			deploymentNameLabelDepreciated := v.Properties.Labels["lepton_deployment_name"]
+			podShapeLabelDepreciated := v.Properties.Labels["lepton_deployment_shape"]
+
+			deploymentNameLabel := v.Properties.Labels["deployment_lepton_ai_name"]
+			podShapeLabel := v.Properties.Labels["deployment_lepton_ai_shape"]
+
+			// use deprecated labels if new labels are not set
+			if len(deploymentNameLabelDepreciated) > 0 && len(deploymentNameLabel) == 0 {
+				deploymentNameLabel = deploymentNameLabelDepreciated
+			}
+			if len(podShapeLabelDepreciated) > 0 && len(podShapeLabel) == 0 {
+				podShapeLabel = podShapeLabelDepreciated
+			}
+
+			// if chargeback label is set to v, charge the namespace v instead
+			namespace := v.Properties.Namespace
+			chargebackLabel := v.Properties.Labels["chargeback_lepton_ai_workspace"]
+			if len(chargebackLabel) > 0 {
+				namespace = fmt.Sprintf("ws-%s", chargebackLabel)
+			}
+
 			d := FineGrainComputeData{
 				Cluster:              qp.ClusterName,
-				Namespace:            v.Properties.Namespace,
-				LeptonDeploymentName: v.Properties.Labels["lepton_deployment_name"],
+				Namespace:            namespace,
+				LeptonDeploymentName: deploymentNameLabel,
 				PodName:              v.Properties.Pod,
-				PodShape:             v.Properties.Labels["lepton_deployment_shape"],
+				PodShape:             podShapeLabel,
 
 				Start:          actualQueryStart.Unix(),
 				End:            actualQueryEnd.Unix(),
