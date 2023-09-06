@@ -1,4 +1,4 @@
-# helm install gloo gloo/gloo --namespace  stablediffusion-proxy -f hack/config/helm-gloo-settings.yaml
+# helm install gloo gloo/gloo --namespace  stablediffusion-proxy -f hack/config/sdxl/helm-gloo-settings.yaml
 settings:
   create: true
   writeNamespace: stablediffusion-proxy

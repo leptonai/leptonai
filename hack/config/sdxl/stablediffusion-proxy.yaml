@@ -1,4 +1,4 @@
-# 1. Need install gloo in namespace after apply this config: helm install gloo gloo/gloo --namespace  stablediffusion-proxy -f hack/config/helm-gloo-settings.yaml
+# 1. Need install gloo in namespace after apply this config
 # 2. Have to manually config ALB dns name as domain address (alias) in route53
 ---
 apiVersion: v1

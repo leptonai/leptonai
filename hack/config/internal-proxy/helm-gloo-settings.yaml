@@ -1,0 +1,15 @@
+# helm install gloo gloo/gloo --namespace internal-proxy -f hack/config/internal-proxy/helm-gloo-settings.yaml
+settings:
+  create: true
+  writeNamespace: internal-proxy
+  watchNamespaces:
+  - internal-proxy
+gatewayProxies:
+  gatewayProxy:
+    gatewaySettings:
+      customHttpGateway:
+        virtualServiceSelector:
+          gateway-type: internal-proxy
+        options:
+          healthCheck:
+            path: /healthz
