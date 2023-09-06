@@ -37,73 +37,9 @@ import { MDMessage } from "@lepton/playground/components/chat/md-message";
 import { PresetSelector } from "@lepton-dashboard/routers/playground/components/preset-selector";
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
 import { APICodeTemplate } from "@lepton/playground/shared/api-code-template";
+import { codeLlama } from "@lepton/playground/shared/preset-prompts";
 
-const presets = [
-  {
-    name: "SQL",
-    prompt: "Create a user table using SQL and randomly insert 3 records\n",
-  },
-  {
-    name: "Fibonacci",
-    prompt: "# Python\n" + "def fibonacci(n):",
-  },
-  {
-    name: "JSON to YAML",
-    prompt:
-      "Convert the following JSON to YAM\n" +
-      "\n" +
-      "```json\n" +
-      "{\n" +
-      '  "by" : "norvig",\n' +
-      '  "id" : 2921983,\n' +
-      '  "kids" : [ 2922097, 2922429, 2924562, 2922709, 2922573, 2922140, 2922141 ],\n' +
-      '  "parent" : 2921506,\n' +
-      '  "text" : "Aw shucks, guys ... you make me blush with your compliments.<p>Tell you what, Ill make a deal: I\'ll keep writing if you keep reading. K?",\n' +
-      '  "time" : 1314211127,\n' +
-      '  "type" : "comment"\n' +
-      "}\n" +
-      "```\n",
-  },
-  {
-    name: "Refactor code",
-    prompt:
-      "Refactor the following code using Python\n" +
-      "\n" +
-      "```c\n" +
-      "class Main {\n" +
-      "public:\n" +
-      "    int lengthOfLongestSubstring(string s) {\n" +
-      "        int start = 0;\n" +
-      "        int end = 0;\n" +
-      "        int max = 0;\n" +
-      "        for (int i = 0; i < s.size(); ++i) {\n" +
-      "            for (end = start; end < i; ++ end) {\n" +
-      "                if (s[end] == s[i]) {\n" +
-      "                    start = end + 1;\n" +
-      "                    break;\n" +
-      "                }\n" +
-      "            }\n" +
-      "            if (end - start + 1 > max) {\n" +
-      "                max = end - start + 1;\n" +
-      "            }\n" +
-      "        }\n" +
-      "        return max;\n" +
-      "    }\n" +
-      "};\n" +
-      "```\n",
-  },
-  {
-    name: "Explain code",
-    prompt:
-      "Explain the following code \n" +
-      "\n" +
-      "```\n" +
-      "data:text/html,<html contenteditable>\n" +
-      "```\n",
-  },
-] as const;
-
-const presetOptions = presets.map((p) => ({
+const presetOptions = codeLlama.map((p) => ({
   label: p.name,
   value: p.prompt,
   placeholder: "Load a preset",
@@ -126,7 +62,7 @@ export const CodeLlama: FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [prompt, setPrompt] = useState<string>(presets[0].prompt);
+  const [prompt, setPrompt] = useState<string>(codeLlama[0].prompt);
   const subscriptionRef = useRef<Subscription>(Subscription.EMPTY);
   const theme = useAntdTheme();
   const playgroundService = useInject(PlaygroundService);
@@ -195,7 +131,7 @@ export const CodeLlama: FC = () => {
   );
 
   const presetPrompt = useMemo(() => {
-    if (presets.some((p) => p.prompt === prompt)) {
+    if (codeLlama.some((p) => p.prompt === prompt)) {
       return prompt;
     } else {
       return undefined;

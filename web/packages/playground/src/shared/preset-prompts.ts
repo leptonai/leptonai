@@ -1,4 +1,4 @@
-export const presets = [
+export const stableDiffusion = [
   {
     name: "Photorealistic Astronaut",
     image:
@@ -189,4 +189,69 @@ export const presets = [
     prompt:
       "Street photography photo of a stylish French girl, with short hair, capturing her reflection in a storefront while window-shopping, upper body framing, on a quaint Parisian street, with neon lighting from shop signs, shot from a high angle, on a Sony A7111, with a (bokeh effect:1.3),(in the style of Garry Winograd:1.4)",
   },
-];
+] as const;
+
+export const codeLlama = [
+  {
+    name: "SQL",
+    prompt: "Create a user table using SQL and randomly insert 3 records\n",
+  },
+  {
+    name: "Fibonacci",
+    prompt: "# Python\n" + "def fibonacci(n):",
+  },
+  {
+    name: "JSON to YAML",
+    prompt:
+      "Convert the following JSON to YAM\n" +
+      "\n" +
+      "```json\n" +
+      "{\n" +
+      '  "by" : "norvig",\n' +
+      '  "id" : 2921983,\n' +
+      '  "kids" : [ 2922097, 2922429, 2924562, 2922709, 2922573, 2922140, 2922141 ],\n' +
+      '  "parent" : 2921506,\n' +
+      '  "text" : "Aw shucks, guys ... you make me blush with your compliments.<p>Tell you what, Ill make a deal: I\'ll keep writing if you keep reading. K?",\n' +
+      '  "time" : 1314211127,\n' +
+      '  "type" : "comment"\n' +
+      "}\n" +
+      "```\n",
+  },
+  {
+    name: "Refactor code",
+    prompt:
+      "Refactor the following code using Python\n" +
+      "\n" +
+      "```c\n" +
+      "class Main {\n" +
+      "public:\n" +
+      "    int lengthOfLongestSubstring(string s) {\n" +
+      "        int start = 0;\n" +
+      "        int end = 0;\n" +
+      "        int max = 0;\n" +
+      "        for (int i = 0; i < s.size(); ++i) {\n" +
+      "            for (end = start; end < i; ++ end) {\n" +
+      "                if (s[end] == s[i]) {\n" +
+      "                    start = end + 1;\n" +
+      "                    break;\n" +
+      "                }\n" +
+      "            }\n" +
+      "            if (end - start + 1 > max) {\n" +
+      "                max = end - start + 1;\n" +
+      "            }\n" +
+      "        }\n" +
+      "        return max;\n" +
+      "    }\n" +
+      "};\n" +
+      "```\n",
+  },
+  {
+    name: "Explain code",
+    prompt:
+      "Explain the following code \n" +
+      "\n" +
+      "```\n" +
+      "data:text/html,<html contenteditable>\n" +
+      "```\n",
+  },
+] as const;

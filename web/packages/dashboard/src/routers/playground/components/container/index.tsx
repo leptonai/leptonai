@@ -1,23 +1,15 @@
 import { Copy, Share } from "@carbon/icons-react";
-import { css } from "@emotion/react";
-import { css as className } from "@emotion/css";
-import { Card } from "@lepton-dashboard/components/card";
-import { CarbonIcon } from "@lepton-dashboard/components/icons";
-import { LimitedLayoutWidth } from "@lepton-dashboard/components/layout";
-import { useAntdTheme } from "@lepton-dashboard/hooks/use-antd-theme";
-import {
-  App,
-  Button,
-  Col,
-  Grid,
-  Input,
-  Popover,
-  Row,
-  Skeleton,
-  Space,
-  Typography,
-} from "antd";
 import { FC, ReactNode, useCallback } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@lepton/ui/components/popover";
+import { Input } from "@lepton/ui/components/input";
+import { Button } from "@lepton/ui/components/button";
+import { useToast } from "@lepton/ui/hooks/use-toast";
+import { Skeleton } from "@lepton/ui/components/skeleton";
+import { Delay } from "@lepton/ui/components/delay";
 
 export const Container: FC<{
   icon: ReactNode;
@@ -27,112 +19,80 @@ export const Container: FC<{
   extra?: ReactNode;
   loading: boolean;
 }> = ({ icon, title, extra, content, option, loading }) => {
-  const theme = useAntdTheme();
-  const { md } = Grid.useBreakpoint();
-  const { message } = App.useApp();
+  const { toast } = useToast();
 
   const copy = useCallback(() => {
     void navigator.clipboard.writeText(location.href);
-    void message.success("Copied");
-  }, [message]);
+    toast({
+      description: "Copied to clipboard",
+    });
+  }, [toast]);
   return (
-    <LimitedLayoutWidth
-      css={css`
-        padding-top: 16px !important;
-        padding-bottom: 16px !important;
-      `}
-    >
-      <Card
-        css={css`
-          flex: 1;
-        `}
-        bodyClassName={className`
-          display: flex;
-          flex-direction: column;
-        `}
-        paddingless
-        icon={icon}
-        title={title}
-        extra={
-          <Space size={4}>
+    <div className="flex flex-col flex-auto max-w-screen-xl p-4 sm:p-8 w-full min-h-full mx-auto flex-auto">
+      <div className="flex flex-auto flex-col border border-border rounded-md overflow-hidden bg-background">
+        <div className="flex items-center justify-between py-2 px-4 border-b border-border">
+          <div className="space-x-4 flex items-center">
+            {icon}
+            {title}
+          </div>
+          <div className="space-x-4 flex items-center">
             {extra}
-            <Popover
-              placement="bottomRight"
-              trigger={["click"]}
-              content={
-                <div>
-                  <Typography.Paragraph type="secondary">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Share className="w-3 h-3 md:mr-2" />
+                  <span className="hidden md:inline">Share</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-90">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
                     Anyone who has this link will be able to view this
-                  </Typography.Paragraph>
-                  <Space.Compact
-                    css={css`
-                      width: 350px;
-                    `}
-                  >
-                    <Input value={location.href} readOnly />
-                    <Button
-                      onClick={copy}
-                      type="primary"
-                      icon={<CarbonIcon icon={<Copy />} />}
+                  </p>
+                  <div className="space-x-2 flex items-center">
+                    <Input
+                      className="flex-auto"
+                      value={location.href}
+                      readOnly
                     />
-                  </Space.Compact>
+                    <Button onClick={copy}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-              }
-            >
-              <Button
-                type="text"
-                size="small"
-                icon={<CarbonIcon icon={<Share />} />}
-              >
-                {md !== false ? "Share" : null}
-              </Button>
+              </PopoverContent>
             </Popover>
-          </Space>
-        }
-      >
-        {loading ? (
-          <Card borderless>
-            <Skeleton active />
-          </Card>
-        ) : (
-          <Row
-            gutter={[0, 0]}
-            css={css`
-              flex: 1;
-            `}
-          >
-            <Col span={24} sm={24} md={17} xl={19} xxl={20}>
-              <div
-                css={css`
-                  padding: 16px;
-                  height: 100%;
-                  display: flex;
-                `}
-              >
-                {content}
-              </div>
-            </Col>
-            <Col
-              span={24}
-              xxl={4}
-              xl={5}
-              sm={24}
-              md={7}
-              css={css`
-                border-left: ${!md ? 0 : "1px"} solid ${theme.colorBorder};
-              `}
-            >
-              <div
-                css={css`
-                  padding: 16px;
-                `}
-              >
-                {option}
-              </div>
-            </Col>
-          </Row>
-        )}
-      </Card>
-    </LimitedLayoutWidth>
+          </div>
+        </div>
+        <div className="flex flex-auto h-full flex-col items-stretch md:flex-row gap-2">
+          <div className="p-4 flex grow border-border border-0 md:border-r">
+            {loading ? (
+              <Delay delay={300}>
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              </Delay>
+            ) : (
+              content
+            )}
+          </div>
+          <div className="p-4 w-full md:w-2/6 lg:w-1/4">
+            {loading ? (
+              <Delay delay={300}>
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </Delay>
+            ) : (
+              option
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };

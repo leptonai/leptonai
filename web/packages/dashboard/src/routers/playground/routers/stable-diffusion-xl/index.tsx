@@ -1,10 +1,10 @@
 import { Container } from "@lepton-dashboard/routers/playground/components/container";
-import { ImageResult } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/image-result";
+import { ImageResult } from "@lepton/playground/components/stable-diffusion/result";
 import {
   Options,
   SdxlOption,
-} from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/options";
-import { presets } from "@lepton-dashboard/routers/playground/routers/stable-diffusion-xl/components/presets";
+} from "@lepton/playground/components/stable-diffusion/options";
+import { stableDiffusion } from "@lepton/playground/shared/preset-prompts";
 import { APICodeTemplate } from "@lepton/playground/shared/api-code-template";
 import { PromptInput } from "@lepton/playground/components/prompt-input";
 import { FC, useMemo, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import { PresetSelector } from "@lepton-dashboard/routers/playground/components/
 import { Api } from "@lepton-dashboard/routers/playground/components/api";
 import { tap } from "rxjs";
 
-const presetOptions = presets.map((p) => ({
+const presetOptions = stableDiffusion.map((p) => ({
   label: p.name,
   value: p.prompt,
   placeholder: "Load a preset",
@@ -38,10 +38,10 @@ export const StableDiffusionXl: FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasResponse, setHasResponse] = useState(false);
   const abortController = useRef<AbortController | null>(null);
-  const [result, setResult] = useState<string | null>(presets[0].image);
+  const [result, setResult] = useState<string | null>(stableDiffusion[0].image);
   const [error, setError] = useState<string | null>(null);
   const playgroundService = useInject(PlaygroundService);
-  const [prompt, setPrompt] = useState(presets[0].prompt);
+  const [prompt, setPrompt] = useState<string>(stableDiffusion[0].prompt);
   const [url, setUrl] = useState<string>("");
   const [option, setOption] = useState<SdxlOption>({
     width: 1024,
@@ -63,7 +63,7 @@ export const StableDiffusionXl: FC = () => {
   );
 
   const presetPrompt = useMemo(() => {
-    if (presets.some((p) => p.prompt === prompt)) {
+    if (stableDiffusion.some((p) => p.prompt === prompt)) {
       return prompt;
     } else {
       return undefined;
@@ -151,7 +151,7 @@ export const StableDiffusionXl: FC = () => {
             value={presetPrompt}
             onChange={(v) => {
               setPrompt(v);
-              setResult(presets.find((p) => p.prompt === v)!.image);
+              setResult(stableDiffusion.find((p) => p.prompt === v)!.image);
             }}
           />
           <Api name="Stable Diffusion XL" codes={codes} />
