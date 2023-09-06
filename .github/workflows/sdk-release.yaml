@@ -73,7 +73,7 @@ jobs:
       - name: Install Package
         run: |
           pip install leptonai*.whl
-          pip install pytest pytest-cov responses flask gradio
+          pip install pytest pytest-cov responses respx flask gradio
       - name: Run Tests
         run: |
           echo "leptonai package version:"
