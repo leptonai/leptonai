@@ -29,5 +29,4 @@ from . import storage
 from . import workspace
 
 from .connection import Connection
-from .workspace import current_connection
 from .util import APIError

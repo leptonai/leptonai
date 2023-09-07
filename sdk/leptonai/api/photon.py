@@ -1,21 +1,11 @@
 import os
 from typing import Any, Dict, List, Optional
-import warnings
-
-from leptonai.config import CACHE_DIR
+from leptonai.photon.base import schema_registry, type_registry, BasePhoton, add_photon
 
 # import leptonai.photon to register the schemas and types
 import leptonai.photon  # noqa: F401
-from leptonai.photon.base import (
-    schema_registry,
-    type_registry,
-    BasePhoton,
-    add_photon,
-    remove_local_photon,
-    find_all_local_photons,
-)
+from leptonai.config import CACHE_DIR
 from leptonai.util import check_photon_name
-
 from .connection import Connection
 from . import types
 from .util import APIError, json_or_error
@@ -114,14 +104,6 @@ def list_remote(conn: Connection):
     return json_or_error(response)
 
 
-def list_local():
-    """
-    List the photons in the local cache directory.
-    """
-    photons = find_all_local_photons()
-    return [p[1] for p in photons]
-
-
 def remove_remote(conn: Connection, id: str):
     """
     Remove a photon from a workspace.
@@ -129,10 +111,6 @@ def remove_remote(conn: Connection, id: str):
     """
     response = conn.delete("/photons/" + id)
     return response
-
-
-def remove_local(name: str, remove_all: bool = False):
-    return remove_local_photon(name, remove_all)
 
 
 def fetch(conn: Connection, id: str, path: str):
@@ -181,8 +159,8 @@ def run_remote(
     conn: Connection,
     id: str,
     deployment_name: str,
-    resource_shape: str = types.DEFAULT_RESOURCE_SHAPE,
-    min_replicas: int = 1,
+    resource_shape: Optional[str] = None,
+    min_replicas: Optional[int] = None,
     mounts: Optional[List[str]] = None,
     env_list: Optional[List[str]] = None,
     secret_list: Optional[List[str]] = None,
@@ -190,12 +168,9 @@ def run_remote(
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
 ):
-    if no_traffic_timeout:
-        warnings.warn(
-            "no_traffic_timeout is not yet released on the backend, and may come"
-            " later. For now, your deployment will be created without timeout."
-        )
     # TODO: check if the given id is a valid photon id
+    if not resource_shape:
+        resource_shape = types.DEFAULT_RESOURCE_SHAPE
     deployment_spec = types.DeploymentSpec(
         name=deployment_name,
         photon_id=id,
