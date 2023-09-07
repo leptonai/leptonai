@@ -83,6 +83,10 @@ func main() {
 			"namespaces", namespaces,
 		)
 	}
+	if namespaces == "" && namespace == "" {
+		goutil.Logger.Fatalw("must set one of namespace or namespaces")
+	}
+
 	var namespaceList []string
 	if namespace != "" {
 		namespaceList = []string{namespace}
