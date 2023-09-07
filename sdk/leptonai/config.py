@@ -37,9 +37,20 @@ WORKSPACE_API_PATH = "/api/v1"
 
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
 LEPTON_RESERVED_ENV_PREFIX = "lepton_"
+# Homepage URL
+LEPTON_HOMEPAGE_URL = "https://lepton.ai"
+LEPTON_HOMEPAGE_WWW_URL = "https://www.lepton.ai"
 # Dashboard URL
 LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
 LEPTON_DASHBOARD_DAILY_URL = "https://dashboard.daily.lepton.ai"
+
+ALLOW_ORIGINS_URLS = [
+    LEPTON_HOMEPAGE_URL,
+    LEPTON_HOMEPAGE_WWW_URL,
+    LEPTON_DASHBOARD_URL,
+    LEPTON_DASHBOARD_DAILY_URL,
+]
+
 # LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
 LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
