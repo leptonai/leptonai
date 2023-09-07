@@ -82,6 +82,7 @@ export const cleanPhotons = () => {
     return Promise.all(
       response.body
         .map((e) => e.id)
+        .filter((e) => e.startsWith("e2e-test"))
         .map((name) => {
           return cy.request({
             method: "DELETE",
@@ -107,6 +108,7 @@ export const cleanPhotonsBefore = (time: number) => {
       response.body
         .filter((e) => e.created_at + time < Date.now())
         .map((e) => e.id)
+        .filter((e) => e.startsWith("e2e-test"))
         .map((name) => {
           return cy.request({
             method: "DELETE",

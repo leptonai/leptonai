@@ -11,7 +11,7 @@ const tempDir = `${__dirname}/../fixtures/__temp`;
  */
 const genRandomPhoton = async () => {
 
-  const name = `shell-${(Math.random() + 1).toString(36).substring(7)}`;
+  const name = `e2e-test-shell-${(Math.random() + 1).toString(36).substring(7)}`;
 
   // Copy the photon to a temporary directory
   await fs.copy(`${photonDir}/shell`, `${tempDir}/${name}`);
