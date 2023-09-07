@@ -139,29 +139,15 @@ jobs:
       - name: Set up pip
         run: |
           pip install -U pip setuptools
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
-      - name: Install awscli
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-      - name: Login to AWS CodeArtifact (twine)
-        env:
-          AWS_CODE_ARTIFACT_REPO: lepton-dev
-          AWS_CODE_ARTIFACT_DOMAIN: lepton-dev
-          AWS_CODE_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
-          AWS_CODE_ARTIFACT_DOMAIN_OWNER: ${{ secrets.AWS_CODE_ARTIFACT_DOMAIN_OWNER }}
+      - name: Install twine
         run: |
           pip install twine
-          aws codeartifact login --tool twine --repository ${AWS_CODE_ARTIFACT_REPO} --domain ${AWS_CODE_ARTIFACT_DOMAIN} --domain-owner ${AWS_CODE_ARTIFACT_DOMAIN_OWNER} --region ${AWS_CODE_ARTIFACT_REGION}
       - uses: actions/download-artifact@v3
         with:
           name: sdk-package
       - name: Upload Package to PyPI
+        env:
+          PYPI_USERNAME: __token__
+          PYPI_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: |
-          twine upload --verbose --repository codeartifact leptonai*.whl
+          twine upload --verbose --username "${PYPI_USERNAME}" --password "${PYPI_PASSWORD}" leptonai*.whl
