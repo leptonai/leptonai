@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "AllowPullFromPromptAI",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::578806743111:root"
+        },
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+      }
+    ]
+  }
