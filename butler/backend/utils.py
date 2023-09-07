@@ -1,14 +1,13 @@
 import json
 import requests
 import os
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Asm
 import random
 import string
 import dotenv
 import database
 import workspace
 import user
+import mail_utils
 
 dotenv.load_dotenv()
 
@@ -41,33 +40,6 @@ def generate_token(length):
         else:
             break
     return token
-
-
-def send_welcome(destination):
-    """
-    Input:
-        detination : a tuple contains two elements, eg:
-            ('yuze.bob.ma@gmail.com', 'Yuze Ma')
-    """
-    # from address we pass to our Mail object, edit with your name
-    FROM_EMAIL = "uz@lepton.ai"
-
-    # update to your dynamic template id from the UI
-    TEMPLATE_ID = "d-32c4d10c26c34ee5bafb2bb240dd7860"
-
-    TO_EMAILS = [destination]
-
-    message = Mail(from_email=FROM_EMAIL, to_emails=TO_EMAILS)
-    # pass custom values for our HTML placeholders
-    message.dynamic_template_data = {"user_name": destination[1]}
-    message.template_id = TEMPLATE_ID
-    asm = Asm(group_id=21845)
-    message.asm = asm
-
-    sg = SendGridAPIClient(send_grid_api_key)
-    response = sg.send(message)
-
-    return response
 
 
 def create_workspace_on_cluster(workspace_display_name, lb_type="shared"):
@@ -116,8 +88,7 @@ def create_workspace_url(workspace_name, lb_type=SHARED) -> str:
         exit(1)
 
     workspace_url = (
-        "https://"
-        + workspace_name
+        "https://" + workspace_name
         + "."
         + cluster_alias_in_hostname
         + "."
@@ -173,7 +144,7 @@ def invite_user(email):
     """
     result = user.add_user(email)
     if result["enable"]:
-        send_welcome((email, email))
+        mail_utils.send_welcome((email, email))
     return result
 
 
