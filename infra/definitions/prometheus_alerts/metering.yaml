@@ -30,12 +30,12 @@ spec:
           for: 1m
           labels:
             severity: critical
-        - alert: NoMeteringUpdate
+        - alert: NoMeteringSync
           annotations:
-            description: Metering last sync updated < 1 row for the past 24 hours
+            description: Metering last sync updated < 1 row for the past 2 hours
             summary: No metering data updates
           expr: |-
-            increase(lepton_metering_last_sync_updated_rows[24h]) < 1
+            absent_over_time(lepton_metering_last_sync_updated_rows[2h])
           for: 1m
           labels:
             severity: critical
