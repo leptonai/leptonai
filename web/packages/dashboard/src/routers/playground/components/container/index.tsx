@@ -28,7 +28,7 @@ export const Container: FC<{
     });
   }, [toast]);
   return (
-    <div className="flex flex-col flex-auto max-w-screen-xl p-4 sm:p-8 w-full min-h-full mx-auto flex-auto">
+    <div className="flex flex-col flex-auto max-w-screen-xl p-4 sm:p-8 w-full min-h-full mx-auto">
       <div className="flex flex-auto flex-col border border-border rounded-md overflow-hidden bg-background">
         <div className="flex items-center justify-between py-2 px-4 border-b border-border">
           <div className="space-x-4 flex items-center">

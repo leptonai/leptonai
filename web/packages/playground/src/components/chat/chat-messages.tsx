@@ -21,7 +21,10 @@ export const ChatMessages = forwardRef<
       {messages.length > 0 ? (
         <>
           {messages.map((item, index) => {
-            const loading = item.loading && !item.responseTime;
+            const loading =
+              item.loading &&
+              (!item.responseTime ||
+                (!item.completionTime && !item.message.content));
             return (
               <div
                 key={index}
@@ -38,60 +41,39 @@ export const ChatMessages = forwardRef<
                 )}
               >
                 <div className="max-w[800px] m[x-auto]">
-                  <div>
-                    {!isUserMessage(item) && (
-                      <span className="text-muted-foreground text-sm ml-[40px] block">
-                        {loading ? (
-                          <>Generating...</>
-                        ) : (
-                          <>
-                            response in{" "}
-                            {item.responseTime
-                              ? (item.responseTime / 1000).toFixed(2)
-                              : "N/A "}
-                            s, completion in{" "}
-                            {item.completionTime
-                              ? (item.completionTime / 1000).toFixed(2)
-                              : "N/A "}
-                            s
-                          </>
-                        )}
-                      </span>
-                    )}
-                    <div className="flex flex-row items-start">
-                      <div className="leading-none mr-[16px]">
-                        {isUserMessage(item) ? (
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              <UserAvatarFilledAlt size={16} />
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-white bg-sky-600">
-                              <Carbon size={16} />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
+                  <div className="flex flex-row items-start">
+                    <div className="leading-none mr-[16px]">
+                      {isUserMessage(item) ? (
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            <UserAvatarFilledAlt size={16} />
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="text-white bg-sky-600">
+                            <Carbon size={16} />
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
 
-                      <div className="overflow-hidden leading-[24px]">
-                        {loading ? (
-                          <MessageLoading />
-                        ) : (
-                          <MDMessage
-                            content={item.message.content}
-                            error={item.error}
-                            loading={item.loading}
-                            responseTime={item.responseTime}
-                            completionTime={
-                              item.message.role === "user"
-                                ? 1
-                                : item.completionTime
-                            }
-                          />
-                        )}
-                      </div>
+                    <div className="overflow-hidden leading-[24px]">
+                      {loading ? (
+                        <MessageLoading />
+                      ) : (
+                        <MDMessage
+                          content={item.message.content}
+                          error={item.error}
+                          loading={item.loading}
+                          responseTime={item.responseTime}
+                          completionTime={
+                            item.message.role === "user"
+                              ? 1
+                              : item.completionTime
+                          }
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
