@@ -9,6 +9,7 @@ import (
 	"github.com/leptonai/lepton/mothership/cmd/mothership/aurora"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/clusters"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/contexts"
+	"github.com/leptonai/lepton/mothership/cmd/mothership/cost"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/kubeconfig"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/metering"
 	"github.com/leptonai/lepton/mothership/cmd/mothership/purge"
@@ -46,6 +47,7 @@ func init() {
 		quotas.NewCommand(),
 		volumes.NewCommand(),
 		purge.NewCommand(),
+		cost.NewCommand(),
 		self.NewCommand(),
 	)
 }

@@ -22,7 +22,7 @@ func TestBilling(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	usage, err := GetCostAndUsage(ctx, cfg, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour))
+	usage, err := GetCostAndUsage(ctx, cfg, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), []string{"SERVICE", "USAGE_TYPE"}, []string{}, []string{}, []string{"UnblendedCost"})
 	cancel()
 	if err != nil {
 		t.Fatal(err)
