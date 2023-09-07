@@ -225,6 +225,10 @@ def _get_full_workspace_api_url(workspace_id) -> str:
         raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
 
 
+def current_connection() -> Connection:
+    return WorkspaceInfoLocalRecord.get_current_connection()
+
+
 def get_workspace_info(conn: Connection):
     """
     Gets the runtime information for the given workspace url.
