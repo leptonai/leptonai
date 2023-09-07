@@ -91,8 +91,7 @@ func main() {
 	if namespace != "" {
 		namespaceList = []string{namespace}
 	} else {
-		// if namespaces is empty (""), watch all namespaces by setting namespaceList to []string{""}
-		namespaceList = strings.Split(namespace, ",")
+		namespaceList = strings.Split(namespaces, ",")
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
