@@ -1,9 +1,5 @@
 # lepton
 
-## Environments
+The folks are so busy that no time was allocated to write the readme.
 
-`latest.cloud.lepton.ai` tracking the main branch of our git repo
-
-`staging.cloud.lepton.ai` tracking the release candidate
-
-`stable.cloud.lepton.ai` tracking the current stable release
+![rtfc](https://sd.keepcalms.com/i-w600/keep-calm-and-rtfc.jpg)
