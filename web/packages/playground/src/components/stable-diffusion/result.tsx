@@ -3,6 +3,7 @@ import { Download, Image } from "@carbon/icons-react";
 import { Stopwatch } from "../stopwatch";
 import { Button } from "@lepton/ui/components/button";
 import { Icons } from "@lepton/ui/components/icons";
+import { ImgPreview } from "@lepton/ui/components/img-preview";
 
 export const ImageResult: FC<{
   result: string | null;
@@ -26,7 +27,7 @@ export const ImageResult: FC<{
           </a>
         </Button>
 
-        <img
+        <ImgPreview
           className="z-10 w-auto h-auto max-w-full max-h-full"
           alt={prompt || ""}
           src={result}
