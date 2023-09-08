@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import asyncio
+from collections import OrderedDict
 import copy
 import functools
 import cloudpickle
@@ -11,7 +12,7 @@ import os
 import re
 import sys
 import traceback
-from typing import Callable, Any, List, Optional, Set
+from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
 import warnings
 import zipfile
@@ -248,33 +249,39 @@ class Photon(BasePhoton):
         return filtered_pkgs
 
     @classmethod
-    def _iter_ancestors(cls):
+    def _iter_ancestors(cls) -> Iterator[Type["Photon"]]:
         yield cls
         for base in cls.__bases__:
-            if base == BasePhoton:
-                # BasePhoton should not have any routes
+            if base == Photon:
+                # We still yield the Photon class, in case in the future, we add
+                # default paths etc. in the Photon class.
+                yield base
+            elif not issubclass(base, Photon):
+                # We do not yield non-Photon base classes, and any base class of
+                # the Photon class (such as BasePhoton)
                 continue
-            if not issubclass(base, BasePhoton):
-                continue
-            yield from base._iter_ancestors()
+            else:
+                yield from base._iter_ancestors()
 
     @property
-    def _requirement_dependency(self):
-        deps = []
-        for base in self._iter_ancestors():
-            if base.requirement_dependency is not None:
-                deps.extend(base.requirement_dependency)
+    def _requirement_dependency(self) -> List[str]:
+        deps = OrderedDict()
+        # We add dependencies from ancestor classes to derived classes
+        # and keep the order, while removing redundant dependencies
+        for base in reversed(list(self._iter_ancestors())):
+            if base.requirement_dependency:
+                deps.update({dep: None for dep in base.requirement_dependency})
         # Do not sort or uniq pip deps lines, as order matters
-        return deps
+        return list(deps.keys())
 
     @property
-    def _system_dependency(self):
-        deps = []
-        for base in self._iter_ancestors():
-            if base.system_dependency is not None:
-                deps.extend(base.system_dependency)
+    def _system_dependency(self) -> List[str]:
+        deps = OrderedDict()
+        for base in reversed(list(self._iter_ancestors())):
+            if base.system_dependency:
+                deps.update({dep: None for dep in base.system_dependency})
         # NB: maybe we can sort and uniq system deps lines
-        return deps
+        return list(deps.keys())
 
     @property
     def metadata(self):
