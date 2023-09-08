@@ -30,6 +30,13 @@ daemonsets:
     #   effect: NoSchedule
 
 operator:
+  # https://catalog.ngc.nvidia.com/orgs/nvidia/containers/gpu-operator/tags
+  repository: nvcr.io/nvidia
+  image: gpu-operator
+
+  # default to chart value
+  # version: ""
+
   tolerations:
     - key: node-role.kubernetes.io/master
       operator: Equal
@@ -67,3 +74,19 @@ node-feature-discovery:
     # - key: lepton.io/provider
     #   operator: Exists
     #   effect: NoSchedule
+
+validator:
+  # https://catalog.ngc.nvidia.com/orgs/nvidia/teams/cloud-native/containers/gpu-operator-validator/tags
+  repository: nvcr.io/nvidia/cloud-native
+  image: gpu-operator-validator
+
+  # default to chart value
+  # version: ""
+
+  plugin:
+    env:
+      # disable plugin workload validation by default to avoid UnexpectedAdmissionError
+      # ref. https://github.com/NVIDIA/gpu-operator/commit/d8944e115b8bc1cd6f74ae39ad8a8080336ed9e3
+      # ref. https://github.com/NVIDIA/gpu-operator/commit/b2e51a407b74c285ee557812dfdc375250649d6c
+      - name: WITH_WORKLOAD
+        value: "false"

@@ -8,7 +8,9 @@ resource "helm_release" "nvidia_gpu_operator" {
 
   # NOTE: nvidia does not use conventional version
   # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/Chart.yaml
-  # version = "v1.0.0-devel"
+  # https://catalog.ngc.nvidia.com/orgs/nvidia/containers/gpu-operator/tags
+  # https://catalog.ngc.nvidia.com/orgs/nvidia/teams/cloud-native/containers/gpu-operator-validator/tags
+  version = "v23.6.1"
 
   # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
   values = [
