@@ -319,7 +319,7 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     "--resource-shape",
     type=str,
     help="Resource shape for the deployment.",
-    default=None,
+    default=types.DEFAULT_RESOURCE_SHAPE,
 )
 @click.option(
     "--resource-affinity",
