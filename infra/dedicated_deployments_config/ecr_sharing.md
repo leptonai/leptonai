@@ -10,7 +10,11 @@ For more detailed instructions, please refer to https://repost.aws/knowledge-cen
    - Lepton Operator
    - Lepton
 
-3. Here is an example permission JSON:
+3. Replicate the existing images to the target region.
+
+Run the `ecr_reupload.py` script in the /hack/scripts. It tags the existing images with a temp-tag to trigger replications. We also need to delete the temp-tag after the replication (also included in the same reupload python script).
+
+4. Here is an example permission JSON:
 
 ```json
 {
