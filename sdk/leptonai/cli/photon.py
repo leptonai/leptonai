@@ -321,6 +321,13 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     help="Resource shape for the deployment.",
     default=None,
 )
+@click.option(
+    "--resource-affinity",
+    help="Resource affinity (experimental).",
+    type=str,
+    hidden=True,
+    default=None,
+)
 @click.option("--min-replicas", type=int, help="Number of replicas.", default=1)
 @click.option(
     "--mount",
@@ -390,6 +397,7 @@ def run(
     port,
     id,
     resource_shape,
+    resource_affinity,
     min_replicas,
     mount,
     deployment_name,
@@ -437,6 +445,7 @@ def run(
                 id,
                 deployment_name,
                 resource_shape,
+                resource_affinity,
                 min_replicas,
                 mount,
                 env,

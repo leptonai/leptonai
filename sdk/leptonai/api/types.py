@@ -31,11 +31,14 @@ def _get_valid_shapes_printout() -> str:
 # Spec to hold resource requirements
 class ResourceRequirement(BaseModel):
     resource_shape: Optional[str] = None
+    resource_affinity: Optional[str] = None
     min_replicas: Optional[int] = None
 
     @staticmethod
     def make_resource_requirement(
-        resource_shape: Optional[str] = None, min_replicas: Optional[int] = None
+        resource_shape: Optional[str] = None,
+        resource_affinity: Optional[str] = None,
+        min_replicas: Optional[int] = None,
     ) -> Optional["ResourceRequirement"]:
         """
         Validates the resource shape and min replicas, and returns a
@@ -62,8 +65,10 @@ class ResourceRequirement(BaseModel):
             raise ValueError(
                 f"min_replicas must be non-negative. Found {min_replicas}."
             )
+        # TODO: validate resource_affinity
         return ResourceRequirement(
             resource_shape=resource_shape,
+            resource_affinity=resource_affinity,
             min_replicas=min_replicas,
         )
 
