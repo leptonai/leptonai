@@ -120,7 +120,7 @@ spec:
                 items:
                   type: string
                 type: array
-              resource_provider:
+              resource_affinity:
                 type: string
               resource_requirement:
                 description: LeptonDeploymentResourceRequirement defines the resource
