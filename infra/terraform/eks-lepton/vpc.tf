@@ -27,6 +27,11 @@ module "vpc" {
   # 10.0.48.0/20 from 10.0.48.0 to 10.0.63.255 with 4094 IPs.
   # ref. https://developer.hashicorp.com/terraform/language/functions/cidrsubnet
   private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
+
+  # NOTE
+  # Public subnets are not being used (only passing private subnets to EKS).
+  # And terraform VPC module does not support deleting existing subnets.
+  # TODO: Find a way to delete existing public subnets to free up the CIDR ranges.
   #
   # e.g., a reigon of 4 AZs will have:
   # 10.0.60.0/24 from 10.0.60.0 to 10.0.60.255 with 254 IPs.
