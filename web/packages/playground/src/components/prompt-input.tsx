@@ -73,7 +73,8 @@ export const PromptInput = forwardRef<
         <div className="grow">
           <Textarea
             className="border-0 resize-none bg-transparent shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            rows={maxRows}
+            minRows={1}
+            maxRows={maxRows || 2}
             disabled={disabled}
             ref={inputRef}
             placeholder="Send a message"

@@ -43,6 +43,7 @@ export const ChatInput: FC<{
           margin: 0 auto;
         `}
         loading={loading}
+        maxRows={5}
         value={input}
         disabled={disabled}
         onChange={onInputChanged}

@@ -235,7 +235,7 @@ export const CodeLlama: FC = () => {
             submitIcon={MagicWandFilled}
             submitText="Generate"
             ref={inputRef}
-            maxRows={3}
+            maxRows={8}
             loading={submitting}
             value={prompt}
             onChange={setPrompt}
