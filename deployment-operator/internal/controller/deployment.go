@@ -361,7 +361,7 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		spec.ImagePullSecrets = append(spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.ImagePullSecretPrefix + sn})
 	}
 
-	if ld.Spec.ResourceProvider != nil {
+	if ld.Spec.ResourceAffinity != nil {
 		// add tolerations for the satellite providers
 		// - key: "$LabelKeyLeptonResourceProvider"
 		// operator: "Equal"
@@ -370,12 +370,12 @@ func (k *deployment) createDeploymentPodSpec() *corev1.PodSpec {
 		spec.Tolerations = append(tolerations, corev1.Toleration{
 			Key:      leptonlabels.LabelKeyLeptonResourceProvider,
 			Operator: corev1.TolerationOpEqual,
-			Value:    *ld.Spec.ResourceProvider,
+			Value:    *ld.Spec.ResourceAffinity,
 			Effect:   corev1.TaintEffectNoSchedule,
 		})
-		spec.NodeSelector[leptonlabels.LabelKeyLeptonResourceProvider] = *ld.Spec.ResourceProvider
+		spec.NodeSelector[leptonlabels.LabelKeyLeptonResourceProvider] = *ld.Spec.ResourceAffinity
 		// TODO: remove this after Lambda Labs support Pod networking
-		if *ld.Spec.ResourceProvider == leptonlabels.LabelValueResourceProviderLambdaLabs {
+		if *ld.Spec.ResourceAffinity == leptonlabels.LabelValueResourceProviderLambdaLabs {
 			spec.HostNetwork = true
 		}
 	}

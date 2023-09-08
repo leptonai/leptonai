@@ -29,6 +29,8 @@ export interface Deployment {
   mounts?: Array<DeploymentMount>;
   api_tokens?: Token[];
   pull_image_secrets?: string[];
+
+  // TODO: support resource affinity
 }
 
 export interface DeploymentMount {

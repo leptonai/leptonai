@@ -263,8 +263,8 @@ func (in *LeptonDeploymentUserSpec) DeepCopyInto(out *LeptonDeploymentUserSpec) 
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ResourceProvider != nil {
-		in, out := &in.ResourceProvider, &out.ResourceProvider
+	if in.ResourceAffinity != nil {
+		in, out := &in.ResourceAffinity, &out.ResourceAffinity
 		*out = new(string)
 		**out = **in
 	}

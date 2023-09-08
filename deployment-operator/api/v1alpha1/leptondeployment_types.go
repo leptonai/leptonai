@@ -77,7 +77,7 @@ type LeptonDeploymentUserSpec struct {
 	// +optional
 	ImagePullSecrets []string `json:"pull_image_secrets"`
 	// +optional
-	ResourceProvider *string `json:"resource_provider,omitempty"`
+	ResourceAffinity *string `json:"resource_affinity,omitempty"`
 }
 
 // Autoscaler defines the auto scaling behavior.

@@ -14,7 +14,7 @@ func TestCreateDeploymentPodSpecWithResourceProvider(t *testing.T) {
 		leptonDeployment: &leptonaiv1alpha1.LeptonDeployment{
 			Spec: leptonaiv1alpha1.LeptonDeploymentSpec{
 				LeptonDeploymentUserSpec: leptonaiv1alpha1.LeptonDeploymentUserSpec{
-					ResourceProvider: ptr.To[string](leptonlabels.LabelValueResourceProviderLambdaLabs),
+					ResourceAffinity: ptr.To[string](leptonlabels.LabelValueResourceProviderLambdaLabs),
 				},
 			},
 		},

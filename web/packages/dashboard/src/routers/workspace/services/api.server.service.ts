@@ -93,6 +93,8 @@ export class ApiServerService implements ApiService {
       envs: deployment.envs || [],
       mounts: deployment.mounts || [],
       pull_image_secrets: deployment.pull_image_secrets,
+
+      // TODO: support resource affinity
     });
   }
 
