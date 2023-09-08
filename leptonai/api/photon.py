@@ -160,6 +160,7 @@ def run_remote(
     id: str,
     deployment_name: str,
     resource_shape: Optional[str] = None,
+    resource_affinity: Optional[str] = None,
     min_replicas: Optional[int] = None,
     mounts: Optional[List[str]] = None,
     env_list: Optional[List[str]] = None,
@@ -175,7 +176,9 @@ def run_remote(
         name=deployment_name,
         photon_id=id,
         resource_requirement=types.ResourceRequirement.make_resource_requirement(
-            resource_shape=resource_shape, min_replicas=min_replicas
+            resource_shape=resource_shape,
+            resource_affinity=resource_affinity,
+            min_replicas=min_replicas,
         ),
         mounts=types.Mount.make_mounts_from_strings(mounts),
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),

@@ -154,8 +154,8 @@ class TestClientDocgen(unittest.TestCase):
         except RuntimeError as e:
             error_str = str(e)
             self.assertIn(
-                "Did you mean the following?\n    run5(\n        query='hello',\n      "
-                "  query2=1,\n    )",
+                "Did you mean the following?\n    run5(\n        query='hello',\n  "
+                "      query2=1,\n    )",
                 error_str,
             )
 
