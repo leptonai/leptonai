@@ -19,6 +19,18 @@ spec:
         port: 8080
 
 ---
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: aiqr-upstream
+  namespace: stablediffusion-proxy
+spec:
+  static:
+    hosts:
+      - addr: 104.171.203.56
+        port: 8080
+
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -27,9 +39,8 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name:  stablediffusion-proxy-group
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:605454121064:certificate/e49493bb-b2ab-4cff-a21c-f5c4b7fe52c5, arn:aws:acm:us-east-1:605454121064:certificate/d82b5449-c53e-4fd2-90b8-db82d0de6f59, arn:aws:acm:us-east-1:605454121064:certificate/473684b0-83ba-410f-a8d6-b0705eba6385, arn:aws:acm:us-east-1:605454121064:certificate/a3766d77-95f7-45e5-b06b-d33334ed4b3a, arn:aws:acm:us-east-1:605454121064:certificate/bdf755eb-dbb1-454a-a1ce-eeb89b659f6d, arn:aws:acm:us-east-1:605454121064:certificate/1a2313f2-8f12-459e-ae4f-2c4fc0df3fe9
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:605454121064:certificate/e49493bb-b2ab-4cff-a21c-f5c4b7fe52c5, arn:aws:acm:us-east-1:605454121064:certificate/d82b5449-c53e-4fd2-90b8-db82d0de6f59, arn:aws:acm:us-east-1:605454121064:certificate/473684b0-83ba-410f-a8d6-b0705eba6385, arn:aws:acm:us-east-1:605454121064:certificate/a3766d77-95f7-45e5-b06b-d33334ed4b3a, arn:aws:acm:us-east-1:605454121064:certificate/bdf755eb-dbb1-454a-a1ce-eeb89b659f6d, arn:aws:acm:us-east-1:605454121064:certificate/1a2313f2-8f12-459e-ae4f-2c4fc0df3fe9, arn:aws:acm:us-east-1:605454121064:certificate/6e8753b9-9523-4ea4-ad6c-5319211661aa
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    external-dns.alpha.kubernetes.io/hostname: sdxl-fast.lepton.run, sdxl.lepton.run, sdxl.test.lepton.ai, sdxl-api.lepton.run
   name: stablediffusion-upstream-ingress
   namespace: stablediffusion-proxy
 spec: 
@@ -71,6 +82,37 @@ spec:
               name: use-annotation
         path: /
         pathType: Prefix
+
+---
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: aiqr-proxy
+  namespace: stablediffusion-proxy
+  labels:
+    gateway-type: stablediffusion-proxy # label used by the Gateway CR
+spec:
+  virtualHost:
+    domains:
+    - aiqr.lepton.run
+    routes:
+    - matchers:
+      - exact: /
+      routeAction:
+        single:
+          upstream:
+            name: aiqr-upstream
+            namespace: stablediffusion-proxy
+      options:
+        prefixRewrite: '/docs'
+    # for dashboard
+    - matchers:
+      - prefix: /
+      routeAction:
+        single:
+          upstream:
+            name: aiqr-upstream
+            namespace: stablediffusion-proxy
 
 ---
 apiVersion: gateway.solo.io/v1
