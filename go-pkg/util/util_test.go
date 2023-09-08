@@ -31,7 +31,10 @@ func TestContainsString(t *testing.T) {
 
 func TestRemoveString(t *testing.T) {
 	slice := []string{"a", "b", "c"}
-	result := RemoveString(slice, "a")
+	result, ok := RemoveString(slice, "a")
+	if !ok {
+		t.Errorf("RemoveString(slice, \"a\") = %v; want true", ok)
+	}
 	if ContainsString(result, "a") {
 		t.Errorf("RemoveString(slice, \"a\") = %v; want not contain \"a\"", result)
 	}

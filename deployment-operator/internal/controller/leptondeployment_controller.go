@@ -266,8 +266,15 @@ func (r *LeptonDeploymentReconciler) finalize(ctx context.Context, req ctrl.Requ
 	if err := r.deletePV(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	ld.SetFinalizers(goutil.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName))
-	return r.Update(ctx, ld)
+	finalizers, ok := goutil.RemoveString(ld.GetFinalizers(), leptonaiv1alpha1.DeletionFinalizerName)
+	if !ok {
+		return nil
+	}
+	ld.SetFinalizers(finalizers)
+	if err := r.Update(ctx, ld); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 func (r *LeptonDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, req ctrl.Request, ld *leptonaiv1alpha1.LeptonDeployment, or []metav1.OwnerReference) (*appsv1.Deployment, error) {
