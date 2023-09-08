@@ -1,0 +1,14 @@
+{{ if .Values.web.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.web.name }}-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: {{ .Values.web.name }}
+  ports:
+    - name: http
+      port: {{ .Values.web.service.port }}
+      targetPort: {{ .Values.web.service.port }}
+{{ end }}

@@ -1,0 +1,65 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go-1.19.x
+
+env:
+  # override in-cluster config
+  KUBECONFIG: /home/runner/.kube/config
+  POD_NAMESPACE: default
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    paths:
+      - .github/workflows/go.yml
+      - "**.go"
+      - go.mod
+      - go.sum
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19.x
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.26.4"
+      - name: Install awscli
+        run: |
+          python -m pip install --upgrade pip
+          pip install awscli
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Switch to the proper k8s context
+        run: |
+          latest_ready_cluster=$(curl -s -H "Authorization: Bearer ${{ secrets.MOTHERSHIP_TOKEN }}" \
+          https://mothership.cloud.lepton.ai/api/v1/clusters | \
+          jq -r '[.[] | select(.status.state=="ready" and (.spec.name | test("^ci[0-9]{14}$")))] | max_by(.spec.name) | .spec.name')
+          echo "latest ready cluster: $latest_ready_cluster"
+          if [ -z "$latest_ready_cluster" ]; then
+            echo "no ready cluster found"
+            exit 1
+          fi
+          aws eks update-kubeconfig --name "$latest_ready_cluster" --region ${{ vars.AWS_REGION }}
+      - name: Test
+        run: |
+          (cd api-server && go test -v ./...)
+          (cd deployment-operator && go test -v ./...)
+          (cd mothership && go test -v ./...)
+          (cd go-pkg && go test -v ./...)
+          (cd go-client && go test -v ./...)

@@ -1,0 +1,18 @@
+clusterName: ""
+sharedAlbMainDomain: ""
+
+lbGlooAlbIngress:
+  enabled: true
+  namespace: "gloo-system" # decided by gloo installation
+  ingressGroupName: lb-gloo-ingress-group
+  certificateArn: ""
+  path: /
+  healthCheckPath: /healthz
+  serviceName: gateway-proxy # decided by gloo installation
+  gatewayProxy:
+    port: 80 # gateway-proxy service port is 80 by default;
+  idleTimeout: 300
+
+env:
+  provider: aws
+  name: dev

@@ -1,0 +1,54 @@
+name: sdk-test-cp310
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test-sdk-cp310.yaml
+      - sdk/**
+      - vectordb/**
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout examples repo
+        uses: actions/checkout@v3
+        with:
+          repository: leptonai/examples
+          token: ${{ secrets.EXAMPLES_REPO_GITHUB_TOKEN }}
+          path: sdk/examples
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          pip install -U pip setuptools
+      - name: Lint
+        run: |
+          cd sdk
+          if ! hash nvidia-smi 2>/dev/null; then
+             echo "nvidia-smi not found on host, installing cpu version of torch"
+             pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          fi
+          pip install .[lint]
+          ruff .
+          black --check .
+          cd -
+      - name: Test with pytest
+        run: |
+          cd sdk
+          pip install .
+          pip install -r leptonai/examples/requirements.txt
+          pip install .[test]
+          cd -
+          pytest -x sdk
+          # TODO: add tests for running examples
+          ls -l ./sdk/examples

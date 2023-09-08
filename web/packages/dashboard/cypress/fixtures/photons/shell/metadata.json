@@ -1,0 +1,144 @@
+{
+  "name": "shell",
+  "model": "py:../leptonai/tests/shell/shell.py:Shell",
+  "type": "photon",
+  "openapi_schema": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "shell",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/run": {
+        "post": {
+          "summary": "Run",
+          "description": "Run the shell. Don't do rm -rf though.",
+          "operationId": "run_run_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunInput"
+                },
+                "example": {
+                  "query": "pwd"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/RunOutput"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "RunInput": {
+          "properties": {
+            "query": {
+              "type": "string",
+              "title": "Query"
+            }
+          },
+          "type": "object",
+          "required": ["query"],
+          "title": "RunInput"
+        },
+        "RunOutput": {
+          "properties": {
+            "output": {
+              "items": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2,
+              "title": "Output"
+            }
+          },
+          "type": "object",
+          "title": "RunOutput"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": ["loc", "msg", "type"],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "py_obj": {
+    "name": "Shell",
+    "obj_pkl_file": "obj.pkl"
+  },
+  "capture_requirement_dependency": false,
+  "requirement_dependency": [],
+  "system_dependency": null,
+  "vcs_url": null,
+  "image": "default/lepton:photon-py3.10-runner-0.1.12",
+  "args": ["--shm-size=1g"],
+  "extra_files": []
+}

@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- _v1alpha1_leptoncluster.yaml
+- _v1alpha1_leptonworkspace.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

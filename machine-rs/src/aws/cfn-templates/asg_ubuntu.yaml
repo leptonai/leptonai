@@ -1,0 +1,546 @@
+---
+# ref. https://github.com/gyuho/dev-machine/blob/main/machine-rs/src/aws/cfn-templates/asg_ubuntu.yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Development machine"
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
+Parameters:
+  Id:
+    Type: String
+    Description: Unique identifier, prefix for all resources created below.
+
+  UserId:
+    Type: String
+    Description: For tagging resources.
+
+  KmsKeyArn:
+    Type: String
+    Description: KMS CMK ARN that de/encrypts resources.
+
+  AadTag:
+    Type: String
+    Description: AAD tag for envelope encryption with KMS.
+
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name.
+
+  Ec2KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 SSH key name
+
+  InstanceProfileArn:
+    Type: String
+    Description: Instance profile ARN
+
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The public subnet IDs where node instances are to be created.
+
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: EC2 security group IDs
+
+  ArchType:
+    Type: String
+    Default: "amd64"
+    Description: The name of the CPU/GPU architecture. Used for names only.
+
+  OsType:
+    Type: String
+    AllowedValues: ["ubuntu20.04", "ubuntu22.04"]
+    Default: "ubuntu20.04"
+    Description: The name of the OS distribution and kind. Used for Rust binary download links.
+
+  ImageId:
+    Type: String
+    Default: ""
+    Description: (Optional) Custom image ID. This value overrides any AWS Systems Manager Parameter Store value specified above.
+
+  # Make sure to use the same OS version as binary builder host
+  # otherwise, it can fail with:
+  # error while loading shared libraries: libssl.so.3: cannot open shared object file: No such file or directory
+  # https://ubuntu.com/server/docs/cloud-images/amazon-ec2
+  # https://aws.amazon.com/blogs/compute/query-for-the-latest-amazon-linux-ami-ids-using-aws-systems-manager-parameter-store/
+  ImageIdSsmParameter:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: AWS Systems Manager Parameter Store parameter of the AMI ID.
+
+  SshKeyEmail:
+    Type: String
+    Default: "none"
+    Description: The email to link to an SSH key. If empty, SSH key is not created.
+
+  # use https://github.com/gyuho/aws-manager/blob/main/src/ec2/mod.rs for better defaults
+  InstanceTypes:
+    Type: CommaDelimitedList
+    Default: c6a.4xlarge,m6a.4xlarge,m5.4xlarge,c5.4xlarge
+    # Default: c6g.4xlarge,m6g.4xlarge,r6g.4xlarge,t4g.2xlarge
+    Description: EC2 instance types
+
+  InstanceTypesCount:
+    Type: Number
+    Default: 4
+    MinValue: 1
+    MaxValue: 10
+    Description: The number of instance types
+
+  InstanceMode:
+    Type: String
+    AllowedValues: ["spot", "on-demand"]
+    Default: "spot"
+    Description: Set to "spot" to run spot instance.
+
+  AsgLaunchTemplateId:
+    Type: String
+    Default: ""
+    Description: (Optional) Non-empty to reuse.
+
+  AsgLaunchTemplateVersion:
+    Type: String
+    Default: ""
+    Description: (Optional) Non-empty to reuse.
+
+  AsgName:
+    Type: String
+    Description: Unique identifier for this Asg.
+
+  AsgMinInstancesInService:
+    Type: Number
+    Description: Minimum instances in service for update.
+    Default: 1
+    MinValue: 1
+    MaxValue: 1000
+
+  AsgMinSize:
+    Type: Number
+    Description: Minimum size auto scaling group
+    Default: 0
+    MinValue: 0
+    MaxValue: 3
+
+  AsgMaxSize:
+    Type: Number
+    Description: Maximum size auto scaling group
+    Default: 2
+    MinValue: 1
+    MaxValue: 3
+
+  AsgDesiredCapacity:
+    Type: Number
+    Description: Desired size auto scaling group
+    Default: 1
+    MinValue: 0
+    MaxValue: 3
+
+  OnDemandPercentageAboveBaseCapacity:
+    Type: Number
+    Default: 100
+    MinValue: 0
+    MaxValue: 100
+    Description: 0 for Spot only. 100 for On-Demand only.
+
+  ImageVolumeType:
+    Type: String
+    AllowedValues: ["gp2", "gp3", "io1", "io2"]
+    Default: "gp3"
+    Description: The name of the image volume type.
+
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-blockdevicemapping-ebs.html#cfn-ec2-launchtemplate-blockdevicemapping-ebs-volumesize
+  # Volume of size 10GB is smaller than snapshot 'snap-09cabd4c2903c4dde', expect size >= 20GB (Service: AmazonAutoScaling; Status Code: 400; Error Code: ValidationError;
+  ImageVolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1024
+    Description: Size of the root disk for the EC2 instances, in GiB.
+
+  ImageVolumeIops:
+    Type: Number
+    Default: 3000
+    MinValue: 200
+    MaxValue: 6000
+    Description: Size of the root disk for the EC2 instances, in GiB.
+
+Conditions:
+  # to overwrite SSM parameter
+  HasImageId:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: ImageId
+          - ""
+
+  ImageVolumeIopsAllowed:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: ImageVolumeType
+          - "io1"
+      - Fn::Equals:
+          - Ref: ImageVolumeType
+          - "io2"
+      - Fn::Equals:
+          - Ref: ImageVolumeType
+          - "gp3"
+
+  Has2InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 2
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 3
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 4
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 5
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 6
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has3InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 3
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 4
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 5
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 6
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has4InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 4
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 5
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 6
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has5InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 5
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 6
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has6InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 6
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has7InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 7
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has8InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 8
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has9InstanceTypes:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 9
+      - Fn::Equals:
+          - Ref: InstanceTypesCount
+          - 10
+
+  Has10InstanceTypes:
+    Fn::Equals:
+      - Ref: InstanceTypesCount
+      - 10
+
+Resources:
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata.html
+  AsgLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Join ["-", [!Ref Id, !Ref ArchType]]
+      LaunchTemplateData:
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-iaminstanceprofile.html
+        IamInstanceProfile:
+          Arn: !Ref InstanceProfileArn
+        # ImageId overwrites SSM parameter
+        ImageId:
+          Fn::If:
+            - HasImageId
+            - !Ref ImageId
+            - !Ref ImageIdSsmParameter
+        KeyName: !Ref Ec2KeyPairName
+
+        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-blockdevicemapping.html
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-blockdevicemapping-ebs.html#cfn-ec2-launchtemplate-blockdevicemapping-ebs-volumesize
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-blockdevicemapping-ebs.html
+        # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/RootDeviceStorage.html
+        BlockDeviceMappings:
+          # mounted to "/dev/root"
+          - DeviceName: "/dev/sda1"
+            Ebs:
+              Encrypted: true
+              VolumeType: !Ref ImageVolumeType
+              VolumeSize: !Ref ImageVolumeSize
+
+              # This parameter is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
+              # This parameter is not supported for gp2, st1, sc1, or standard volumes.
+              # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-volume.html#cfn-ec2-volume-iops
+              Iops:
+                Fn::If:
+                  - ImageVolumeIopsAllowed
+                  - !Ref ImageVolumeIops
+                  - !Ref AWS::NoValue
+
+        Monitoring:
+          Enabled: true
+
+        # need this for public DNS + SSH access
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: true
+            DeleteOnTermination: true
+            DeviceIndex: 0
+            Groups: !Ref SecurityGroupIds
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - { Key: Name, Value: !Sub "${Id}-${ArchType}" }
+              - { Key: UserId, Value: !Sub "${UserId}" }
+
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata.html#cfn-ec2-launchtemplate-launchtemplatedata-userdata
+        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/QuickStartEC2Instance.html
+        # /var/log/cloud-init-output.log
+        # takes about 3-minute
+        UserData:
+          Fn::Base64:
+            Fn::Sub: |
+              #!/usr/bin/env bash
+
+              # install aws cli
+              while [ 1 ]; do
+                sudo rm -f /tmp/awscli-exe-linux-$(uname -m).zip || true;
+                sudo apt-get update -yq && sudo apt-get install -yq wget unzip && wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip
+                if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+                sleep 2s;
+              done;
+              unzip /tmp/awscli-exe-linux-$(uname -m).zip && sudo ./aws/install
+              /usr/local/bin/aws --version
+
+              AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=7 aws s3 cp s3://${S3BucketName}/${Id}/init.bash /tmp/init.bash
+              bash /tmp/init.bash
+
+              echo "SUCCESS"
+
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: !Ref AsgMinInstancesInService
+        MaxBatchSize: 1
+        SuspendProcesses:
+          - HealthCheck
+          - ReplaceUnhealthy
+          - AZRebalance
+          - AlarmNotification
+          - ScheduledActions
+    Properties:
+      AutoScalingGroupName: !Ref AsgName
+      MinSize: !Ref AsgMinSize
+      MaxSize: !Ref AsgMaxSize
+      DesiredCapacity: !Ref AsgDesiredCapacity
+      VPCZoneIdentifier: !Ref PublicSubnetIds
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 120
+      MetricsCollection:
+        - Granularity: "1Minute"
+      Tags:
+        - Key: Name
+          Value: !Ref AsgName
+          PropagateAtLaunch: true
+        - Key: ASG_NAME
+          Value: !Ref AsgName
+          PropagateAtLaunch: true
+        - Key: ID
+          Value: !Ref Id
+          PropagateAtLaunch: true
+        - Key: USER_ID
+          Value: !Ref UserId
+          PropagateAtLaunch: true
+        - Key: ARCH_TYPE
+          Value: !Ref ArchType
+          PropagateAtLaunch: true
+        - Key: OS_TYPE
+          Value: !Ref OsType
+          PropagateAtLaunch: true
+        - Key: INSTANCE_MODE
+          Value: !Ref InstanceMode
+          PropagateAtLaunch: true
+        - Key: KMS_KEY_ARN
+          Value: !Ref KmsKeyArn
+          PropagateAtLaunch: true
+        - Key: AAD_TAG
+          Value: !Ref AadTag
+          PropagateAtLaunch: true
+        - Key: S3_BUCKET_NAME
+          Value: !Ref S3BucketName
+          PropagateAtLaunch: true
+      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-mixedinstancespolicy.html
+      # https://aws.amazon.com/getting-started/hands-on/ec2-auto-scaling-spot-instances/
+      MixedInstancesPolicy:
+        # define balance between spot vs. on-demand
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancesdistribution.html
+        # https://ec2spotworkshops.com/launching_ec2_spot_instances/asg.html
+        InstancesDistribution:
+          OnDemandAllocationStrategy: "lowest-price"
+          # minimum amount of the Auto Scaling group's capacity that must be fulfilled by On-Demand Instances
+          OnDemandBaseCapacity: 0
+          # percentages of On-Demand Instances and Spot Instances for your additional capacity beyond OnDemandBaseCapacity
+          # 20 specifies 20% On-Demand Instances, 80% Spot Instances
+          # If set to 0, only Spot Instances are used.
+          # If set to 100, only On-Demand Instances are used.
+          OnDemandPercentageAboveBaseCapacity: !Ref OnDemandPercentageAboveBaseCapacity
+          SpotAllocationStrategy: "lowest-price"
+          # number of Spot Instance pools across which to allocate your Spot Instances
+          SpotInstancePools: 3
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplate.html
+        LaunchTemplate:
+          LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref AsgLaunchTemplate
+            Version: !GetAtt AsgLaunchTemplate.LatestVersionNumber
+          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-launchtemplateoverrides.html
+          Overrides:
+            - InstanceType: !Select [0, !Ref InstanceTypes]
+            - Fn::If:
+                - Has2InstanceTypes
+                - InstanceType: !Select [1, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has3InstanceTypes
+                - InstanceType: !Select [2, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has4InstanceTypes
+                - InstanceType: !Select [3, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has5InstanceTypes
+                - InstanceType: !Select [4, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has6InstanceTypes
+                - InstanceType: !Select [5, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has7InstanceTypes
+                - InstanceType: !Select [6, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has8InstanceTypes
+                - InstanceType: !Select [7, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has9InstanceTypes
+                - InstanceType: !Select [8, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+            - Fn::If:
+                - Has10InstanceTypes
+                - InstanceType: !Select [9, !Ref InstanceTypes]
+                - !Ref AWS::NoValue
+
+Outputs:
+  # same as "AutoScalingGroupName"
+  AsgLogicalId:
+    Value: !Ref ASG

@@ -1,0 +1,3 @@
+# useful for DEV/TEST mode
+alertmanager:
+  enabled: false

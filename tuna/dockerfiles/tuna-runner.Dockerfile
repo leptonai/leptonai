@@ -1,0 +1,8 @@
+ARG FASTCHAT_VERSION=23.04
+FROM 605454121064.dkr.ecr.us-east-1.amazonaws.com/fastchat:${FASTCHAT_VERSION}
+
+ARG LEPTONAI_VERSION=0.8.0a2
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN pip install --pre leptonai==${LEPTONAI_VERSION}

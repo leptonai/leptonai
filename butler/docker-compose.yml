@@ -1,0 +1,21 @@
+version: '3'
+services:
+  postgres_db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bulter_db_password
+      POSTGRES_DB: postgres
+
+  backend:
+    build: backend
+    stdin_open: true
+    tty: true
+    ports:
+      - "5001:5001"    
+    depends_on:
+      - postgres_db
+    volumes:
+      - ./backend:/usr/src      
+

@@ -1,0 +1,27 @@
+name: hourly-clean-test-workspaces
+
+on:
+  schedule:
+    # clean up old ci workspaces every hour at the 30 minute mark
+    - cron: "30 * * * *"
+
+jobs:
+  clean-up:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19.x
+      - name: Build mothership cli
+        run: |
+          (cd mothership && go build -v ./cmd/mothership && mv mothership ../mothershipctl)
+      - name: Delete test workspaces
+        run: |
+          ./mothershipctl workspace delete \
+            --auto-approve \
+            --workspace-prefix "test" \
+            --age 2 \
+            --mothership-url https://mothership.cloud.lepton.ai/api/v1 \
+            --token "${{ secrets.MOTHERSHIP_TOKEN }}"

@@ -1,0 +1,708 @@
+package cluster
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	chanwriter "github.com/leptonai/lepton/go-pkg/chan-writer"
+	"github.com/leptonai/lepton/go-pkg/datastore"
+	goutil "github.com/leptonai/lepton/go-pkg/util"
+	"github.com/leptonai/lepton/go-pkg/worker"
+	crdv1alpha1 "github.com/leptonai/lepton/mothership/crd/api/v1alpha1"
+	"github.com/leptonai/lepton/mothership/metrics"
+	"github.com/leptonai/lepton/mothership/terraform"
+	"github.com/leptonai/lepton/mothership/util"
+
+	"github.com/prometheus/client_golang/prometheus"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
+type Cluster struct {
+	RootDomain             string
+	DeploymentEnvironment  string
+	StoreNamespace         string
+	SharedAlbRootDomain    string
+	SharedALBRoute53ZoneID string
+
+	DataStore *datastore.CRStore[*crdv1alpha1.LeptonCluster]
+	Worker    *worker.Worker
+}
+
+const (
+	// NOTE: adjust based on per-account EKS quota
+	maxClusters = 100
+)
+
+// Make cluster a struct and do not use global variables
+// TODO: do we want to backup the cluster state?
+var (
+	crdSrcsToCopy = []string{
+		"/deployment-operator/config/crd/bases/lepton.ai_leptondeployments.yaml",
+		"/deployment-operator/config/crd/bases/lepton.ai_photons.yaml",
+	}
+)
+
+func New(rootDomain, deploymentEnvironment, storeNamespace, sharedAlbRootDomain, sharedALBRoute53ZoneID string) *Cluster {
+	c := &Cluster{
+		RootDomain:             rootDomain,
+		DeploymentEnvironment:  deploymentEnvironment,
+		StoreNamespace:         storeNamespace,
+		SharedAlbRootDomain:    sharedAlbRootDomain,
+		SharedALBRoute53ZoneID: sharedALBRoute53ZoneID,
+	}
+	c.DataStore = datastore.NewCRStore[*crdv1alpha1.LeptonCluster](
+		c.StoreNamespace,
+		&crdv1alpha1.LeptonCluster{},
+		nil,
+	)
+	c.Worker = worker.New()
+	go c.Init()
+	return c
+}
+
+// Init initializes the cluster and retore any ongoing operations
+func (c *Cluster) Init() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	clusters, err := c.DataStore.List(ctx)
+	if err != nil {
+		goutil.Logger.Fatalw("failed to list clusters",
+			"error", err,
+		)
+		return
+	}
+	log.Printf("listed total %d clusters", len(clusters))
+	metrics.SetClustersTotal(float64(len(clusters)))
+	go c.monitorTotalNumberOfClusters()
+
+	for _, item := range clusters {
+		cl := item
+
+		switch cl.Status.State {
+		case crdv1alpha1.ClusterOperationalStateCreating, crdv1alpha1.ClusterOperationalStateUnknown:
+			go func() {
+				goutil.Logger.Infow("restart creating cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "create",
+				)
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				// call the idempotent create function
+				_, err := c.idempotentCreate(ctx, cl)
+				if err != nil {
+					goutil.Logger.Errorw("failed to create cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "create",
+						"error", err,
+					)
+				}
+			}()
+		case crdv1alpha1.ClusterOperationalStateUpdating:
+			go func() {
+				goutil.Logger.Infow("restart updating cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "update",
+				)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_, err := c.Update(ctx, cl.Spec)
+				if err != nil {
+					goutil.Logger.Errorw("failed to update cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "update",
+						"error", err)
+				}
+			}()
+		case crdv1alpha1.ClusterOperationalStateDeleting:
+			go func() {
+				goutil.Logger.Infow("restart deleting cluster",
+					"cluster", cl.Spec.Name,
+					"operation", "delete",
+				)
+				err := c.Delete(cl.Spec.Name)
+				if err != nil {
+					goutil.Logger.Errorw("failed to delete cluster",
+						"cluster", cl.Spec.Name,
+						"operation", "delete",
+						"error", err,
+					)
+				}
+			}()
+		}
+	}
+}
+
+// monitorTotalNumberOfClusters periodically polls the data store to track the total number of clusters.
+func (c *Cluster) monitorTotalNumberOfClusters() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	for {
+		select {
+		case sig := <-sigs:
+			goutil.Logger.Infow("received signal", "signal", sig)
+			return
+		case <-time.After(5 * time.Minute):
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			css, err := c.DataStore.List(ctx)
+			cancel()
+			if err != nil {
+				goutil.Logger.Warnw("failed to list clusters",
+					"operation", "monitorTotalNumberOfClusters",
+					"error", err,
+				)
+				continue
+			}
+			goutil.Logger.Infow("listed total clusters",
+				"operation", "list",
+				"clusters", len(css),
+			)
+			metrics.SetClustersTotal(float64(len(css)))
+		}
+	}
+}
+
+// Create schedules a cluster create job via "eks-lepton".
+// Note that the cluster name is globally unique, guaranteed by the Kubernetes and namespace.
+// A redundant cluster creation with the same name will fail.
+func (c *Cluster) Create(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+	clusterName := spec.Name
+	if !util.ValidateClusterName(clusterName) {
+		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
+	}
+
+	// Assume gin router limit only 1 concurrent request
+	if err := c.validateClusterSpec(ctx, spec); err != nil {
+		return nil, fmt.Errorf("invalid cluster spec %s: %s", clusterName, err)
+	}
+
+	totalClusters := metrics.GetTotalClusters(prometheus.DefaultGatherer)
+	log.Printf("currently total %d clusters... creating one more", totalClusters)
+	if totalClusters >= maxClusters {
+		return nil, fmt.Errorf("max cluster size limit exceeded (up to %d)", maxClusters)
+	}
+
+	cl := &crdv1alpha1.LeptonCluster{
+		Spec: spec,
+	}
+	if cl.Spec.DeploymentEnvironment == "" {
+		cl.Spec.DeploymentEnvironment = c.DeploymentEnvironment
+	}
+	if err := c.DataStore.Create(ctx, clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to create cluster: %w", err)
+	}
+	cl.Status = crdv1alpha1.LeptonClusterStatus{
+		LastState: crdv1alpha1.ClusterOperationalStateUnknown,
+		State:     crdv1alpha1.ClusterOperationalStateCreating,
+		UpdatedAt: uint64(time.Now().Unix()),
+	}
+	if err := c.DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster status: %w", err)
+	}
+
+	return c.idempotentCreate(ctx, cl)
+}
+
+func (c *Cluster) Update(ctx context.Context, spec crdv1alpha1.LeptonClusterSpec) (*crdv1alpha1.LeptonCluster, error) {
+	clusterName := spec.Name
+	if !util.ValidateClusterName(clusterName) {
+		return nil, fmt.Errorf("invalid cluster name %s: %s", clusterName, util.ClusterNameInvalidMessage)
+	}
+
+	cl, err := c.DataStore.Get(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster: %w", err)
+	}
+
+	if cl.Status.State != crdv1alpha1.ClusterOperationalStateReady {
+		goutil.Logger.Warnw("updating a non-ready cluster",
+			"cluster", clusterName,
+			"operation", "update",
+		)
+	}
+
+	// only allow updating certain fields
+	if spec.GitRef != "" {
+		cl.Spec.GitRef = spec.GitRef
+	}
+
+	if spec.Subdomain != "" {
+		cl.Spec.Subdomain = spec.Subdomain
+	}
+
+	// Assume gin router limit only 1 concurrent request
+	if err := c.validateClusterSpec(ctx, cl.Spec); err != nil {
+		return nil, fmt.Errorf("invalid cluster spec %s: %s", clusterName, err)
+	}
+
+	if err := c.DataStore.Update(ctx, clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster: %w", err)
+	}
+	cl.Status.LastState = cl.Status.State
+	cl.Status.State = crdv1alpha1.ClusterOperationalStateUpdating
+	cl.Status.UpdatedAt = uint64(time.Now().Unix())
+	if err := c.DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
+		return nil, fmt.Errorf("failed to update cluster status: %w", err)
+	}
+
+	err = c.Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		cerr := c.createOrUpdateCluster(metrics.NewCtxWithJobKind("update"), cl, logCh)
+		if cerr != nil {
+			goutil.Logger.Errorw("failed to update cluster",
+				"cluster", clusterName,
+				"operation", "update",
+				"error", cerr,
+			)
+		}
+		return cerr
+	}, func() {
+		c.tryUpdatingStateToFailed(clusterName)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+
+	return cl, nil
+}
+
+func (c *Cluster) Delete(clusterName string) error {
+	return c.Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		return c.delete(clusterName, logCh)
+	}, func() {
+		c.tryUpdatingStateToFailed(clusterName)
+	})
+}
+
+func (c *Cluster) delete(clusterName string, logCh chan<- string) (err error) {
+	start := time.Now()
+	defer func() {
+		metrics.ObserveClusterJobsLatency("delete", err == nil, time.Since(start))
+
+		if err == nil {
+			metrics.IncrementClusterJobsSuccessTotal("delete")
+			return
+		}
+		metrics.IncrementClusterJobsFailureTotal("delete")
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	cl, err := c.DataStore.Get(ctx, clusterName)
+	cancel()
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			goutil.Logger.Infow("cluster not found",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
+
+			return fmt.Errorf("cluster %q not found", clusterName)
+		}
+
+		return fmt.Errorf("failed to get cluster: %w", err)
+	}
+
+	cl.Status.LastState = cl.Status.State
+	cl.Status.State = crdv1alpha1.ClusterOperationalStateDeleting
+
+	ctx, cancel = context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	if err := c.DataStore.UpdateStatus(ctx, clusterName, cl); err != nil {
+		cancel()
+		return fmt.Errorf("failed to update cluster status: %w", err)
+	}
+	cancel()
+
+	defer func() {
+		success := err == nil
+		if err == nil {
+			ctx, cancel = context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+			if err = c.DataStore.Delete(ctx, clusterName); err != nil {
+				goutil.Logger.Errorw("failed to delete cluster from the data store",
+					"cluster", clusterName,
+					"operation", "delete",
+					"error", err,
+				)
+
+				success = false
+			}
+			cancel()
+		}
+		if success {
+			goutil.Logger.Infow("successfully deleted cluster",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
+			return
+		}
+		goutil.Logger.Errorw("failed to delete cluster",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
+
+		// TODO: implement fallback in case tf destroy fails
+
+		// we are NOT going to rely on thie fallback
+		// we should fix the terraform/provisioner destory
+		// this is only used as fallback to minimize the aws bill
+		//
+		// clean up logic:
+		// step 1. inspect the cluster based on provider resources
+		// step 2. query all related cloud resources based on cluster info + tagging
+		// step 3. manually delete resources
+		//
+		// step 4 (optional):
+		// manually issue mothership delete API with force option
+		// to delete mothership(k8s) resources
+		//
+		// do not try to delete everything such as mothership resources
+		// as long as we destroy AWS-bill generating resources with best effort
+		// we should debug why the delete failed manually and actually fix the root cause
+	}()
+
+	ctxBeforeTF, cancelBeforeTF := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelBeforeTF()
+
+	tfws := c.terraformWorkspaceName(clusterName)
+	tfw, err := terraform.GetWorkspace(ctxBeforeTF, tfws)
+	if err != nil {
+		// TODO: check if workspace does not exist. If it does not exist, then it is already deleted.
+		return fmt.Errorf("failed to get workspace: %w", err)
+	}
+
+	if tfw.Locked {
+		goutil.Logger.Infow("tf workspace is locked -- force unlocking",
+			"tf-workspace", tfws,
+			"operation", "force-unlock",
+		)
+		err = terraform.ForceUnlockWorkspace(ctxBeforeTF, tfws)
+		if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+			return fmt.Errorf("failed to force unlock workspace: %w", err)
+		}
+	} else {
+		goutil.Logger.Infow("tf workspace is not locked, continuing...",
+			"tf-workspace", tfws,
+		)
+	}
+
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef, crdSrcsToCopy...)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
+	if err != nil {
+		if !strings.Contains(err.Error(), "reference not found") {
+			return fmt.Errorf("failed to prepare working dir with GitRef %s: %w", cl.Spec.GitRef, err)
+		}
+
+		// If the branch was deleted, we should still be able to delete the cluster.
+		// This is especially true when we were testing
+		goutil.Logger.Warnw("failed to prepare working dir with GitRef, trying main",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
+
+		dir, err = util.PrepareTerraformWorkingDir(tfws, "eks-lepton", "", crdSrcsToCopy...)
+		if err != nil {
+			return fmt.Errorf("failed to prepare working dir with the main GitRef: %w", err)
+		}
+	}
+
+	dpEnv := cl.Spec.DeploymentEnvironment
+
+	command := "./uninstall.sh"
+	uninstallCmd := func(needDeleteNetworkPolicyTF bool) (*exec.Cmd, *chanwriter.Writer) {
+		cmd := exec.Command(command)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			DeploymentEnvironmentKey+"="+dpEnv,
+			"REGION="+cl.Spec.Region,
+			"CLUSTER_NAME="+clusterName,
+			"TF_WORKSPACE="+tfws,
+			"TF_API_TOKEN="+terraform.TempToken,
+			"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(clusterName, cl.Spec.Subdomain, c.SharedAlbRootDomain),
+			"SHARED_ALB_ROUTE53_ZONE_ID="+c.SharedALBRoute53ZoneID,
+		)
+		if needDeleteNetworkPolicyTF {
+			goutil.Logger.Warnw("retrying uninstall with DELETE_TF_STATE_NETWORK_POLICY=true",
+				"cluster", clusterName,
+				"operation", "delete",
+			)
+			cmd.Env = append(cmd.Env, "DELETE_TF_STATE_NETWORK_POLICY=true")
+		}
+
+		cw := chanwriter.New(logCh)
+		cmd.Stdout = cw
+		cmd.Stderr = cw
+
+		return cmd, cw
+	}
+
+	cmd, cw := uninstallCmd(false)
+	err = cmd.Run()
+	if err != nil {
+		// retry only once
+		goutil.Logger.Warnw("checking command run failure logs to decide retries",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", err,
+		)
+		out := cw.Tail(-1)
+
+		// this is a temporary workaround for the following issue
+		// c.f., https://github.com/hashicorp/terraform-provider-kubernetes-alpha/issues/235
+		needDeleteNetworkPolicyTF := strings.Contains(out, "Failed to determine GroupVersionResource for manifest") ||
+			strings.Contains(out, "failed to determine resource GVK: no matches for kind")
+
+		// failed for some other reasons, don't retry (for now)
+		if needDeleteNetworkPolicyTF {
+			goutil.Logger.Infow("uninstall failed with retriable errors",
+				"cluster", clusterName,
+				"operation", "delete",
+				"error", cw.Tail(5),
+			)
+			cmd, cw = uninstallCmd(true)
+			err = cmd.Run()
+		}
+	}
+	if err != nil {
+		goutil.Logger.Errorw("uninstall failed",
+			"cluster", clusterName,
+			"operation", "delete",
+			"error", cw.Tail(5),
+		)
+		return fmt.Errorf("failed to run uninstall: %s", err)
+	}
+	exitCode := cmd.ProcessState.ExitCode()
+	if exitCode != 0 {
+		return fmt.Errorf("uninstall exited with non-zero exit code: %d", exitCode)
+	}
+
+	ctxAfterTF, cancelAfterTF := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelAfterTF()
+
+	err = terraform.DeleteEmptyWorkspace(ctxAfterTF, c.terraformWorkspaceName(clusterName))
+	if err != nil {
+		return fmt.Errorf("failed to delete terraform workspace: %w", err)
+	}
+	goutil.Logger.Infow("deleted terraform workspace",
+		"cluster", clusterName,
+		"operation", "delete",
+	)
+	return nil
+}
+
+func (c *Cluster) List(ctx context.Context) ([]*crdv1alpha1.LeptonCluster, error) {
+	cls, err := c.DataStore.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list clusters: %w", err)
+	}
+	return cls, nil
+}
+
+func (c *Cluster) Get(ctx context.Context, clusterName string) (*crdv1alpha1.LeptonCluster, error) {
+	return c.DataStore.Get(ctx, clusterName)
+}
+
+func (c *Cluster) idempotentCreate(ctx context.Context, cl *crdv1alpha1.LeptonCluster) (*crdv1alpha1.LeptonCluster, error) {
+	var err error
+	clusterName := cl.Spec.Name
+
+	err = terraform.CreateWorkspace(ctx, c.terraformWorkspaceName(clusterName))
+	if err != nil {
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already been taken") {
+			return nil, fmt.Errorf("failed to create terraform workspace: %w", err)
+		} else {
+			goutil.Logger.Infow("skip terraform workspace creation: already exists",
+				"cluster", clusterName,
+				"TerraformWorkspace", clusterName,
+				"operation", "create",
+			)
+		}
+	} else {
+		goutil.Logger.Infow("created terraform workspace",
+			"cluster", clusterName,
+			"TerraformWorkspace", clusterName,
+			"operation", "create",
+		)
+	}
+
+	err = terraform.ForceUnlockWorkspace(ctx, c.terraformWorkspaceName(clusterName))
+	if err != nil && !strings.Contains(err.Error(), "already unlocked") {
+		return nil, fmt.Errorf("failed to force unlock workspace: %w", err)
+	}
+
+	err = c.Worker.CreateJob(120*time.Minute, clusterName, func(logCh chan<- string) error {
+		cerr := c.createOrUpdateCluster(metrics.NewCtxWithJobKind("create"), cl, logCh)
+		if cerr != nil {
+			goutil.Logger.Errorw("failed to create cluster",
+				"cluster", clusterName,
+				"operation", "create",
+				"error", cerr,
+			)
+		}
+		return cerr
+	}, func() {
+		c.tryUpdatingStateToFailed(clusterName)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+
+	return cl, nil
+}
+
+const (
+	UpdatedUnixTimeRFC3339Key      = "UPDATED_UNIX_TIME_RFC3339"
+	DeploymentEnvironmentKey       = "DEPLOYMENT_ENVIRONMENT"
+	DeploymentEnvironmentValueTest = "TEST"
+	DeploymentEnvironmentValueDev  = "DEV"
+	DeploymentEnvironmentValueProd = "PROD"
+)
+
+func (c *Cluster) createOrUpdateCluster(ctx context.Context, cl *crdv1alpha1.LeptonCluster, logCh chan<- string) error {
+	start := time.Now()
+	jkind := metrics.ReadJobKindFromCtx(ctx)
+
+	clusterName := cl.Spec.Name
+	var err error
+
+	defer func() {
+		metrics.ObserveClusterJobsLatency(jkind, err == nil, time.Since(start))
+
+		if err == nil {
+			// if err != nil, the state will be updated in the failure handler
+			cl.Status.LastState = cl.Status.State
+			cl.Status.State = crdv1alpha1.ClusterOperationalStateReady
+			metrics.IncrementClusterJobsSuccessTotal(jkind)
+		} else {
+			metrics.IncrementClusterJobsFailureTotal(jkind)
+		}
+
+		cl.Status.UpdatedAt = uint64(time.Now().Unix())
+		derr := c.DataStore.UpdateStatus(ctx, clusterName, cl)
+		if err == nil && derr != nil {
+			err = derr
+		}
+	}()
+
+	tfws := c.terraformWorkspaceName(clusterName)
+	dir, err := util.PrepareTerraformWorkingDir(tfws, "eks-lepton", cl.Spec.GitRef, crdSrcsToCopy...)
+	defer util.TryDeletingTerraformWorkingDir(tfws) // delete even if there are errors preparing the working dir
+	if err != nil {
+		return fmt.Errorf("failed to prepare working dir: %w", err)
+	}
+
+	dpEnv := cl.Spec.DeploymentEnvironment
+
+	command := "sh"
+	args := []string{"-c", "cd " + dir + " && ./install.sh"}
+
+	cmd := exec.Command(command, args...)
+	cmd.Env = append(os.Environ(),
+		UpdatedUnixTimeRFC3339Key+"="+goutil.RoundTimeByHour(time.Now()).Format(time.RFC3339),
+		DeploymentEnvironmentKey+"="+dpEnv,
+		"REGION="+cl.Spec.Region,
+		"CLUSTER_NAME="+clusterName,
+		"TF_WORKSPACE="+tfws,
+		"TF_API_TOKEN="+terraform.TempToken,
+		"SHARED_ALB_MAIN_DOMAIN="+util.CreateSharedALBMainDomain(clusterName, cl.Spec.Subdomain, c.SharedAlbRootDomain),
+		"SHARED_ALB_ROUTE53_ZONE_ID="+c.SharedALBRoute53ZoneID,
+	)
+	cw := chanwriter.New(logCh)
+	cmd.Stdout = cw
+	cmd.Stderr = cw
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to run install: %s", err)
+	}
+	exitCode := cmd.ProcessState.ExitCode()
+	if exitCode != 0 {
+		return fmt.Errorf("install exited with non-zero exit code: %d", exitCode)
+	}
+
+	// extract necessary information from the output
+	// TODO: clean up the code
+	command = "sh"
+	args = []string{"-c", "cd " + dir + " && ./output.sh"}
+
+	cmd = exec.Command(command, args...)
+	cmd.Env = append(os.Environ(),
+		"CLUSTER_NAME="+clusterName,
+		"TF_WORKSPACE="+tfws,
+		"TF_API_TOKEN="+terraform.TempToken,
+	)
+	var output []byte
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to check json output: %s", err)
+	}
+	exitCode = cmd.ProcessState.ExitCode()
+	if exitCode != 0 {
+		return fmt.Errorf("check json output exited with non-zero exit code: %d", exitCode)
+	}
+	err = json.Unmarshal(output, &cl.Status.Properties)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal json output: %s", err)
+	}
+
+	err = c.DataStore.UpdateStatus(ctx, clusterName, cl)
+	if err != nil {
+		return fmt.Errorf("failed to update cluster state in the data store: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Cluster) terraformWorkspaceName(clusterName string) string {
+	domain := strings.Split(c.RootDomain, ".")[0]
+	return "cl-" + clusterName + "-" + domain
+}
+
+func (c *Cluster) tryUpdatingStateToFailed(clusterName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), datastore.DefaultDatastoreOperationTimeout)
+	defer cancel()
+
+	cl, err := c.DataStore.Get(ctx, clusterName)
+	if err != nil {
+		goutil.Logger.Errorw("failed to get cluster",
+			"cluster", clusterName,
+			"operation", "update cluster state",
+			"error", err,
+		)
+		return
+	}
+
+	if err := c.updateState(ctx, cl, crdv1alpha1.ClusterOperationalStateFailed); err != nil {
+		goutil.Logger.Errorw("failed to update the cluster",
+			"cluster", clusterName,
+			"operation", "update cluster state",
+			"error", err,
+		)
+	}
+}
+
+func (c *Cluster) updateState(ctx context.Context, cl *crdv1alpha1.LeptonCluster, state crdv1alpha1.LeptonClusterOperationalState) error {
+	cl.Status.LastState = cl.Status.State
+	cl.Status.State = state
+	cl.Status.UpdatedAt = uint64(time.Now().Unix())
+	return c.DataStore.UpdateStatus(ctx, cl.Spec.Name, cl)
+}
+
+func (c *Cluster) validateClusterSpec(ctx context.Context, newSpec crdv1alpha1.LeptonClusterSpec) error {
+	clusters, err := c.DataStore.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list clusters")
+	}
+	for _, c := range clusters {
+		if newSpec.Name != c.Spec.Name && newSpec.Subdomain == c.Spec.Subdomain {
+			return fmt.Errorf("subdomain %s is already used by cluster %s", newSpec.Subdomain, c.Spec.Name)
+		}
+	}
+	return nil
+}

@@ -1,0 +1,5 @@
+# Ignore everything (folders and files) on root only
+/*
+!web
+!portal
+!api-docs

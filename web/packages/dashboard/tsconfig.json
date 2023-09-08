@@ -1,0 +1,14 @@
+{
+  "extends": "@lepton/tsconfig/vite",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsxImportSource": "@emotion/react",
+    "paths": {
+      "@lepton-dashboard/*": ["./src/*"],
+      "@lepton-libs/*": ["./libs/*"],
+      "@lepton/ui/*": ["../../packages/ui/src/*"],
+      "@lepton/playground/*": ["../../packages/playground/src/*"]
+    }
+  },
+  "include": ["src", "libs"]
+}

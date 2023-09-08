@@ -1,0 +1,41 @@
+{{ if .Values.apiServer.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+{{ if eq .Values.workspaceName "" }} # a shared api server should get cluster level permissions
+kind: ClusterRole
+metadata:
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrole
+{{ else }} # a dedicated api server has permission to only its namespace
+kind: Role
+metadata:
+  name: {{ .Values.apiServer.name }}-role
+  namespace: {{ .Release.Namespace }}
+{{ end }}
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "pods/exec"]
+  verbs: ["get", "list", "watch", "create"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["resourcequotas"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["lepton.ai"]
+  resources: ["leptondeployments", "photons"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+{{ if eq .Values.workspaceName "" }} # shared api servers have to create namespaces for each namespace
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "create", "delete", "patch"]
+{{ end }}
+{{ end }}

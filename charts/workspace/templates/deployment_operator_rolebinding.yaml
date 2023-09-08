@@ -1,0 +1,14 @@
+{{ if .Values.deploymentOperator.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.deploymentOperator.name }}-{{ .Release.Namespace }}-clusterrolebinding
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.deploymentOperator.name }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Values.deploymentOperator.name }}-{{ .Release.Namespace }}-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+{{ end }}

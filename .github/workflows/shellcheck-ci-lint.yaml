@@ -1,0 +1,31 @@
+name: shellcheck-ci-lint
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/shellcheck-ci-lint.yaml
+      - "**.sh"
+    branches: ["**"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  shellcheck:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: shellcheck
+        uses: reviewdog/action-shellcheck@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          path: "."
+          pattern: "*.sh"
+          exclude: |
+            ./.git/*
+            ./tuna/*
+            ./machine-rs/*
+            ./infra/terraform/eks-lepton/ami-release-artifacts/*
+          check_all_files_with_shebangs: "false"

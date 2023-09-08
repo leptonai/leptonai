@@ -1,0 +1,28 @@
+* {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  padding: 0;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.ant-tooltip {
+  max-width: 50vw !important;
+}
+
+.ant-modal-mask {
+  background-color: transparent !important;
+  backdrop-filter: blur(8px);
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "@lepton/tsconfig/nextjs",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lepton/ui/components": ["../../packages/ui/src/components/index.ts"],
+      "@lepton/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"]
+}

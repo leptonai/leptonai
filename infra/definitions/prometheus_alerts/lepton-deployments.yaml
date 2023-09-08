@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-lepton-deployment.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: lepton-deployment.rules
+      rules:
+        - alert: UserPodNotReady
+          annotations:
+            description: User pods ({{ $value }}%) are not ready (more than 5%)
+            summary: More than 5% of user pods are not ready
+          expr: |-
+            sum(kube_pod_status_phase{namespace=~"ws-.+", phase=~"Pending|Unknown"}) / sum(kube_pod_status_phase{namespace=~"ws-.+"}) * 100 > 5
+          for: 5m
+          labels:
+            severity: critical
+        - alert: UserDeploymentNotReady
+          annotations:
+            description: User deployments ({{ $value }}%) are not ready (more than 5%)
+            summary: More than 5% of user deployments are not ready
+          expr: |-
+            sum(kube_deployment_status_condition{namespace=~"ws-.+", status=~"false|unknown"}) / sum(kube_deployment_status_condition{namespace=~"ws-.+"}) * 100 > 5
+          for: 5m
+          labels:
+            severity: critical

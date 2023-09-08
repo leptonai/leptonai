@@ -1,0 +1,19 @@
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+# https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack#developing-prometheus-rules-and-grafana-dashboards
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/templates/prometheus/_rules.tpl
+defaultRules:
+  # do not create a bunch of random rules...
+  # just pick the one we need (e.g., lepton specific)
+  # ref. https://github.com/leptonai/lepton/issues/2424
+  create: false
+
+  rules:
+    alertmanager: false
+    etcd: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+  appNamespacesTarget: ${alertmanager_target_namespaces}
+
+  # disabled PrometheusRule alerts
+  disabled: {}

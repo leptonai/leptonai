@@ -1,0 +1,104 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.3
+  creationTimestamp: null
+  name: leptonclusters.mothership.lepton.ai
+spec:
+  group: mothership.lepton.ai
+  names:
+    kind: LeptonCluster
+    listKind: LeptonClusterList
+    plural: leptonclusters
+    shortNames:
+    - lc
+    singular: leptoncluster
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: LeptonCluster is the Schema for the leptonclusters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: LeptonClusterSpec defines the desired state of LeptonCluster
+            properties:
+              deployment_environment:
+                description: DeploymentEnvironment defines the deployment environment.
+                  Make this "omitempty" to not include in "required" field. Otherwise,
+                  the old CRDs without this field will be rejected.
+                type: string
+              description:
+                type: string
+              git_ref:
+                description: Terraform module git ref
+                type: string
+              name:
+                description: Name is a globally unique name of a cluster within mothership.
+                type: string
+              provider:
+                type: string
+              region:
+                type: string
+              subdomain:
+                type: string
+            required:
+            - description
+            - git_ref
+            - name
+            - provider
+            - region
+            type: object
+          status:
+            description: LeptonClusterStatus defines the observed state of LeptonCluster
+            properties:
+              last_state:
+                description: Previously known cluster state.
+                type: string
+              properties:
+                description: Properties are immutable and are set once cluster is
+                  created.
+                properties:
+                  oidc_id:
+                    type: string
+                  vpc_id:
+                    type: string
+                  vpc_private_subnets:
+                    items:
+                      type: string
+                    type: array
+                  vpc_public_subnets:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              state:
+                description: Current cluster state.
+                type: string
+              updated_at:
+                description: unix timestamp
+                format: int64
+                type: integer
+            required:
+            - state
+            - updated_at
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

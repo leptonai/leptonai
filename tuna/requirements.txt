@@ -1,0 +1,11 @@
+django
+celery[redis]
+django-celery-results
+loguru
+python-dotenv
+psycopg2-binary
+google-cloud-storage
+cryptography
+django-cors-headers
+logtail-python
+pynvml

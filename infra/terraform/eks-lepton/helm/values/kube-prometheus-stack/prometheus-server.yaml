@@ -1,0 +1,332 @@
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+# https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1alpha1/prometheusagent_types.go
+prometheus:
+  enabled: true
+
+  ingress:
+    # NOTE: to just use service
+    #
+    # e.g.,
+    # <service-name>.<namespace>.svc.cluster.local:<service-port>
+    # http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
+    #
+    # e.g.,
+    # kubectl -n kube-prometheus-stack port-forward prometheus-kube-prometheus-stack-prometheus-0 3000:9090
+    # http://localhost:3000
+    enabled: false
+  service:
+    port: 9090
+    targetPort: 9090
+
+  # manually create to set up IRSA
+  #
+  # e.g.,
+  # serviceaccounts/kube-prometheus-stack-alertmanager
+  # serviceaccounts/kube-prometheus-stack-grafana
+  # serviceaccounts/kube-prometheus-stack-kube-state-metrics
+  # serviceaccounts/kube-prometheus-stack-operator
+  # serviceaccounts/kube-prometheus-stack-prometheus
+  # serviceaccounts/kube-prometheus-stack-prometheus-node-exporter
+  serviceAccount:
+    # use the one created above that maps IRSA for IAM permissions
+    create: false
+    name: ${kube_prometheus_stack_sa_prometheus_server}
+
+  prometheusSpec:
+    scrapeInterval: 30s
+    scrapeTimeout: 5s
+    retention: 24h
+    retentionSize: 100GB
+    walCompression: true
+
+    # configure remote write
+    # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/prometheus_workspace
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#remotewritespec
+    remoteWrite:
+      - name: ${remote_write_name}
+        url: ${remote_write_url}
+        sigv4:
+          region: ${remote_write_region}
+
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 4Gi
+      limits:
+        cpu: 1500m
+        memory: 6Gi
+    # do not use "emptyDir" as it counts towards pod memory usage
+    #
+    # do not use "volumeClaimTemplate" as AWS EBS is AZ bound, and
+    # recreated pod cannot rebind the volume from different AZ
+    #
+    # use use "ephemeral" "EphemeralVolumeSource" as we use remote write
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/prometheus_types.go#L855
+    #
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/prometheus_types.go#L855
+    storageSpec:
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 200Gi
+
+    # the following scrape config is encoded as k8s secret objects
+    # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
+    # c.f., https://github.com/leptonai/lepton/pull/1369/files
+    additionalScrapeConfigs:
+      # NOTE: kube-prometheus-stack already scrapes node-exporter with
+      # "serviceMonitor/kube-prometheus-stack/kube-prometheus-stack-prometheus-node-exporter/0"
+      # with "kubernetes_sd_configs" "role: endpoints"
+      # no need to add "static_configs" "kube-prometheus-stack-prometheus-node-exporter.kube-prometheus-stack.svc.cluster.local:9100"
+
+      - job_name: lepton-api-server-pods
+
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            action: keep
+            regex: lepton-api-server
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
+
+      - job_name: lepton-deployment-operator-pods
+
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            action: keep
+            regex: lepton-deployment-operator
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
+
+      - job_name: lepton-deployment-pods
+
+        # List of Kubernetes service discovery configurations.
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+
+            # for all namespaces
+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_photon_id
+            action: keep
+            regex: .+
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_lepton_deployment_name
+            action: keep
+            regex: .+
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_photon_id
+            target_label: kubernetes_pod_label_photon_id
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_label_lepton_deployment_name
+            target_label: kubernetes_pod_label_lepton_deployment_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: kubernetes_namespace
+            action: replace
+
+      # https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+      - job_name: nvidia-dcgm-exporter
+
+        # discovers targets from listed endpoints of a service
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - gpu-operator
+
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+        #
+        # fetches endpoints of this service (basically # of nodes with DCGM installed)
+        # instead of directly from this service.
+        #
+        # e.g.,
+        # <service-name>.<namespace>.svc.cluster.local:<service-port>
+        # "nvidia-dcgm-exporter.gpu-operator.svc.cluster.local:9400"
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_service_name
+            action: keep
+            regex: nvidia-dcgm-exporter
+
+      - job_name: envoy-gloo-gateway-proxy-pods
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - gloo-system
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gateway-proxy
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            # https://docs.solo.io/gloo-edge/latest/guides/observability/prometheus/#find-envoys-prometheus-stats
+            replacement: $1:8081
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+        # metrics from: https://grafana.com/docs/grafana-cloud/monitor-infrastructure/integrations/integration-reference/integration-envoy/
+        # example metrics: https://gist.github.com/suyuee/8b6926eadba0df37bda86d6b650ebb5c
+        metric_relabel_configs:
+          # upstream (request destination) stats : https://www.envoyproxy.io/docs/envoy/latest/configuration/upstream/cluster_manager/cluster_stats.html
+          # per upstream
+          # HTTP connection stats: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/stats
+          # per http manager
+          # listener stats: https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/stats
+          # per envoy worker
+          # envoy server stats: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/statistics
+          - source_labels: [__name__]
+            # upstream connections
+            regex: ^(envoy_cluster_upstream_cx_.+)|(envoy_cluster_upstream_rq_.+)|(envoy_cluster_version)|(envoy_http_downstream.+)|(envoy_listener_downstream_cx_total)|(envoy_server_.+)$
+            action: keep
+
+      - job_name: gloo-control-plane
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - gloo-system
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gloo
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            # https://docs.solo.io/gloo-edge/latest/guides/observability/prometheus/#find-envoys-prometheus-stats
+            replacement: $1:9091
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+
+      - job_name: metering-metrics
+        # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - metering
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            action: keep
+            regex: ^metering-.+
+
+      # sdxl metrics
+      - job_name: sdxl-gloo-gateway
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - stablediffusion-proxy
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gateway-proxy
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            replacement: $1:8081
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: ^(envoy_cluster_upstream_cx_.+)|(envoy_cluster_upstream_rq_.+)|(envoy_cluster_version)|(envoy_http_downstream.+)|(envoy_listener_downstream_cx_total)|(envoy_server_.+)$
+            action: keep
+
+      - job_name: sdxl-gloo-control-plane
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - stablediffusion-proxy
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_label_gloo
+            action: keep
+            regex: gloo
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+):.*
+            replacement: $1:9091
+            target_label: __address__
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: kubernetes_pod_name
+            action: replace
+      - job_name: sdxl-node
+        static_configs:
+          - targets: ['sdxl.lepton.run']

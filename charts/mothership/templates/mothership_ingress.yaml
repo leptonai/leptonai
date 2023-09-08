@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mothership-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/conditions.mothership-service: '[{"field":"http-header","httpHeaderConfig":{"httpHeaderName": "Authorization","values":["Bearer {{ .Values.mothership.apiToken }}"]}}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.mothership.certificateArn }}
+{{ if eq .Release.Namespace "default" }}
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.mothership.name }}.{{ .Values.mothership.rootDomain }}"
+{{ else }}
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.mothership.name }}-{{ .Release.Namespace }}.{{ .Values.mothership.rootDomain }}"
+{{ end }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: mothership-{{ .Release.Namespace }}
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: mothership-service
+            port:
+              number: 15213
+        path: /
+        pathType: Prefix

@@ -1,0 +1,5 @@
+FROM nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
+
+COPY dcp-metrics-included.csv /etc/dcgm-exporter/dcp-metrics-included.csv
+
+ENTRYPOINT ["/usr/local/dcgm/dcgm-exporter-entrypoint.sh"]

@@ -1,0 +1,52 @@
+{{ if .Values.metering.backfillEnabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.metering.name }}-{{ .Values.metering.backfillName }}-cronjob
+  namespace: metering
+  labels:
+    app: {{ .Values.metering.name }}
+spec:
+  schedule: {{ .Values.metering.backfillSchedule }}
+  timeZone: {{ .Values.metering.backfillTimeZone }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{ .Values.metering.name }}-{{ .Values.metering.backfillName }}-container
+            env:
+            - name: AURORA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mothership-rds-aurora-secret
+                  key: username
+            - name: AURORA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mothership-rds-aurora-secret
+                  key: password
+            args: 
+            - "metering"
+            - "backfill"
+            - "--db-driver-name={{ .Values.metering.auroraDbDriver }}"
+            - "--db-host={{ .Values.metering.auroraDbHost }}"
+            - "--db-region={{ .Values.metering.region }}"
+            - "--db-port={{ .Values.metering.auroraDbPort }}"
+            - "--db-name={{ .Values.metering.auroraDbName }}"
+            - "--db-user=$(AURORA_USERNAME)"
+            - "--db-password=$(AURORA_PASSWORD)"
+            - "--opencost-namespace={{ .Values.metering.kubecostNamespace }}"
+            - "--opencost-service-name={{ .Values.metering.kubecostServiceName }}"
+            - "--opencost-service-port={{ .Values.metering.kubecostPort}}"
+            - "--in-cluster"
+            - "--cluster-name={{ .Values.metering.clusterName }}"
+            - "--duration=12h"
+            image: {{ .Values.metering.image.repository }}:{{ .Values.metering.image.tag }}
+            imagePullPolicy: {{ .Values.metering.image.pullPolicy }}
+            resources:
+              requests:
+                cpu: {{ .Values.metering.service.resources.requests.cpu }}
+                memory: {{ .Values.metering.service.resources.requests.memory }}
+          restartPolicy: OnFailure
+{{ end }}

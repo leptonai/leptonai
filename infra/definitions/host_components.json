@@ -1,0 +1,14 @@
+{
+    "runc": {
+       "version": "1.1.7"
+    },
+    "containerd": {
+       "version": "1.7.2"
+    },
+    "ctr": {
+       "version": "1.7.2"
+    },
+    "cuda": {
+       "version": "12.1"
+    }
+ }

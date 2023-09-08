@@ -1,0 +1,76 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.3
+  creationTimestamp: null
+  name: photons.lepton.ai
+spec:
+  group: lepton.ai
+  names:
+    kind: Photon
+    listKind: PhotonList
+    plural: photons
+    shortNames:
+    - ph
+    singular: photon
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Photon is the Schema for the photons API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PhotonSpec defines the desired state of Photon
+            properties:
+              container_args:
+                items:
+                  type: string
+                type: array
+              entrypoint:
+                type: string
+              exposed_ports:
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              image:
+                type: string
+              model:
+                type: string
+              name:
+                type: string
+              openapi_schema:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              requirement_dependency:
+                items:
+                  type: string
+                type: array
+            required:
+            - image
+            - name
+            type: object
+          status:
+            description: PhotonStatus defines the observed state of Photon. It is
+              empty because we only use Photon as a database.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

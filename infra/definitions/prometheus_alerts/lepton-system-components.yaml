@@ -1,0 +1,73 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-lepton-system-components.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: lepton-system-components.rules
+      rules:
+        - alert: APIServerNotReady
+          annotations:
+            description: API Server is not ready for 5 mins
+            summary: API Server is not ready for 5 mins
+          expr: |-
+            kube_deployment_status_condition{deployment="lepton-api-server", status=~"false|unknown"} > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: DeploymentOperatorNotReady
+          annotations:
+            description: Deployment operator is not ready for 5 mins
+            summary: Deployment operator is not ready for 5 mins
+          expr: |-
+            kube_deployment_status_condition{deployment="deployment-operator", status=~"false|unknown"} > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: DeploymentOperatorReconcileRate
+          annotations:
+            description: Deployment operator reconcile rate at {{ $value }} in the past 5 min, higher than 10 per minute
+            summary: Deployment operator reconcile rate high
+          expr: |-
+            sum(increase(controller_runtime_reconcile_total[1m])) by (kubernetes_namespace, kubernetes_pod_name) > 10
+          for: 5m
+          labels:
+            severity: critical
+        - alert: DeploymentOperatorReconcileErrorRate
+          annotations:
+            description: Deployment operator reconcile error rate at {{ $value }}% in the past 5 min, higher than 5%
+            summary: Deployment operator reconcile error rate high
+          expr: |-
+            (
+              sum(increase(controller_runtime_reconcile_total{result!="success"}[1m])) by (kubernetes_namespace, kubernetes_pod_name)
+            /
+              sum(increase(controller_runtime_reconcile_total[1m])) by (kubernetes_namespace, kubernetes_pod_name)
+            ) * 100 > 5
+          for: 5m
+          labels:
+            severity: critical
+        - alert: LeptonSystemComponentPodCPUUsageHigh
+          annotations:
+            description: Lepton system component CPU usage at {{ $value }}% (> 50%) for 5 minute.
+            summary: Lepton system component pod CPU usage high
+          expr: |-
+            max(rate(container_cpu_usage_seconds_total{container=~"lepton-api-server|lepton-deployment-operator"}[1m])) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="cpu"}) by (namespace, pod, container)
+            * 100 > 50
+          for: 5m
+          labels:
+            severity: critical
+        - alert: LeptonSystemComponentPodMemoryUsageHigh
+          annotations:
+            description: Lepton system component pod memory usage at {{ $value }}% (> 80%) for 5 minute.
+            summary: Lepton system component pod memory usage high
+          expr: |-
+            max(container_memory_usage_bytes{container=~"lepton-api-server|lepton-deployment-operator"}) by (namespace, pod, container)
+            / max(kube_pod_container_resource_limits{resource="memory"}) by (namespace, pod, container)
+            * 100 > 80

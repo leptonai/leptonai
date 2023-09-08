@@ -1,0 +1,15 @@
+{{ if .Values.apiServer.efsID }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Namespace }}-efs-default-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  volumeName: {{ .Release.Namespace }}-efs-default-pv
+  resources:
+    requests:
+      storage: 5Gi
+{{ end }}

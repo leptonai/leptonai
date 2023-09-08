@@ -1,0 +1,53 @@
+name: prod/portal
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BILLING_GATEWAY_PROJECT_ID }}
+on:
+  push:
+    branches:
+      - stable-dashboard
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment:
+      name: Production - Portal
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: 8
+          run_install: false
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "pnpm"
+          cache-dependency-path: "web/pnpm-lock.yaml"
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Restore node modules cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - name: Install Dependencies
+        working-directory: web
+        run: pnpm install
+      - name: Build dependencies
+        run: pnpm build:deploy-deps
+        working-directory: web
+      - name: Install Vercel CLI
+        run: pnpm install --global vercel@canary
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Set Production Deployment URL
+        id: deploy
+        run: echo "url=${{ vars.PROD_DEPLOY_URL_BILLING_GATEWAY }}" >> $GITHUB_OUTPUT

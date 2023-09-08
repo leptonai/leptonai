@@ -1,0 +1,148 @@
+{
+  "name": "@lepton/web-monorepo",
+  "private": true,
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
+  },
+  "packageManager": "pnpm@8.6.12",
+  "devDependencies": {
+    "lerna": "^7.1.5",
+    "typescript": "^5.2.2",
+    "@commitlint/cli": "^17.6.1",
+    "@commitlint/config-conventional": "^17.6.1",
+    "eslint": "^8.39.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-jsx-a11y": "^6.7.1",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.3.4",
+    "eslint-plugin-unused-imports": "^2.0.0",
+    "husky": "^8.0.3",
+    "prettier": "2.8.8",
+    "lint-staged": "^14.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.57.1",
+    "@typescript-eslint/parser": "^5.57.1"
+  },
+  "scripts": {
+    "pre-commit": "lint-staged",
+    "commitlint": "commitlint --edit",
+    "prepare": "cd .. && husky install web/.husky",
+    "preinstall": "npx -y only-allow pnpm",
+    "clean": "lerna clean --yes",
+    "dev": "lerna run dev",
+    "build": "lerna run build",
+    "build:deploy-deps": "lerna run build --scope @lepton/database",
+    "test": "lerna run test",
+    "lint": "eslint . --cache --ext .ts,.js,.tsx,.jsx"
+  },
+  "lint-staged": {
+    "./{*,packages/**/*}.{js,ts,jsx,tsx}": [
+      "prettier --write",
+      "eslint"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module",
+      "modules": true
+    },
+    "plugins": [
+      "react-refresh",
+      "unused-imports"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:prettier/recommended",
+      "plugin:react-hooks/recommended",
+      "plugin:react/recommended"
+    ],
+    "env": {
+      "browser": true,
+      "es2020": true,
+      "node": true
+    },
+    "settings": {
+      "react": {
+        "version": "detect"
+      }
+    },
+    "rules": {
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          "vars": "all",
+          "varsIgnorePattern": "^_",
+          "args": "after-used",
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "@typescript-eslint/ban-types": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-explicit-any": "error"
+    },
+    "overrides": [
+      {
+        "files": [
+          "packages/dashboard/**/*",
+          "packages/playground/**/*",
+          "packages/ui/**/*"
+        ],
+        "rules": {
+          "react/react-in-jsx-scope": "off",
+          "react/no-unknown-property": "off"
+        }
+      },
+      {
+        "files": [
+          "packages/dashboard/**/*"
+        ],
+        "rules": {
+          "react-refresh/only-export-components": "warn",
+          "react/self-closing-comp": "error",
+          "react/jsx-curly-brace-presence": "error",
+          "react/display-name": "off",
+          "react/prop-types": "off",
+          "react/no-unescaped-entities": "off",
+          "react-hooks/exhaustive-deps": "error"
+        }
+      },
+      {
+        "files": [
+          "packages/portal/**/*"
+        ],
+        "rules": {
+          "no-case-declarations": "off",
+          "react/jsx-uses-react": "off",
+          "react/react-in-jsx-scope": "off"
+        }
+      },
+      {
+        "files": [
+          "tailwind.config.js",
+          "postcss.config.js",
+          "next.config.js"
+        ],
+        "rules": {
+          "@typescript-eslint/no-var-requires": "off"
+        }
+      }
+    ]
+  }
+}

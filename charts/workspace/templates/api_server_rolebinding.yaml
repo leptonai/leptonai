@@ -1,0 +1,28 @@
+{{ if .Values.apiServer.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+{{ if eq .Values.workspaceName "" }} # shared api server
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrolebinding
+{{ else }} # dedicated api server
+kind: RoleBinding
+metadata:
+  name: {{ .Values.apiServer.name }}-rolebinding
+  namespace: {{ .Release.Namespace }}
+{{ end}}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.apiServer.name }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+{{ if eq .Values.workspaceName "" }} # shared api server
+  kind: ClusterRole
+  name: {{ .Values.apiServer.name }}-{{ .Release.Namespace }}-clusterrole
+{{ else }} # dedicated api server
+  kind: Role
+  name: {{ .Values.apiServer.name }}-role
+  namespace: {{ .Release.Namespace }}
+{{ end }}
+  apiGroup: rbac.authorization.k8s.io
+{{ end }}

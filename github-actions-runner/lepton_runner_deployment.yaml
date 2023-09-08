@@ -1,0 +1,40 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: lepton-runner-deployment
+  namespace: actions-runner-system
+spec:
+  replicas: 4
+  template:
+    spec:
+      repository: leptonai/lepton
+      dockerdContainerResources:
+        limits:
+          cpu: "4"
+          memory: "8Gi"
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: lepton-runner-deployment-autoscaler
+  namespace: actions-runner-system
+spec:
+  # Runners in the targeted RunnerDeployment won't be scaled down
+  # for 5 minutes instead of the default 10 minutes now
+  scaleDownDelaySecondsAfterScaleOut: 300
+  scaleTargetRef:
+    kind: RunnerDeployment
+    # # In case the scale target is RunnerSet:
+    # kind: RunnerSet
+    name: lepton-runner-deployment
+  minReplicas: 1
+  maxReplicas: 64
+  metrics:
+  - type: PercentageRunnersBusy
+    scaleUpThreshold: '0.75'
+    scaleDownThreshold: '0.25'
+    scaleUpFactor: '2'
+    scaleDownFactor: '0.5'

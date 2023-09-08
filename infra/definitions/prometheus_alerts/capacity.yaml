@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-capacity.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: capacity.rules
+      rules:
+        - alert: WorkspaceCount
+          annotations:
+            description: The number of workspaces that is nearly full at {{ $value }} (> 80) out of 100.
+            summary: Number of workspaces nearly full.
+          expr: |-
+            sum(mothership_workspaces_total) > 80
+          for: 1m
+          labels:
+            severity: critical
+        - alert: ClusterCount
+          annotations:
+            description: The number of clusters that is nearly full at {{ $value }} (> 5) out of 10.
+            summary: Number of clusters nearly full.
+          expr: |-
+            sum(mothership_clusters_total) > 5
+          for: 1m
+          labels:
+            severity: critical

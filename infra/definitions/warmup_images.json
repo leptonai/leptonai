@@ -1,0 +1,37 @@
+{
+  "gp1.small": [
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.7",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.8",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.9",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11"
+  ],
+  "gp1.medium": [
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.7",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.8",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.9",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11"
+  ],
+  "gp1.large": [
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.7",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.8",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.9",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11"
+  ],
+  "ac1.t4": [
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.7",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.8",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.9",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11"
+  ],
+  "ac1.a10": [
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.7",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.8",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.9",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.10",
+    "605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton:photon-py3.11"
+  ]
+}

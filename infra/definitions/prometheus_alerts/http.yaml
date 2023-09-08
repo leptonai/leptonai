@@ -1,0 +1,86 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    release: kube-prometheus-stack
+  name: kube-prometheus-stack-http.rules
+  namespace: kube-prometheus-stack
+spec:
+  groups:
+    - name: http.rules
+      rules:
+        - alert: LeptonAPIServer500ErrorRate
+          annotations:
+            description: Lepton API server 500 error rate is elevated for the past 5 mins
+            summary: API server 500 error rate is elevated
+          expr: |-
+            increase(lepton_http_requests_total{code="500", component="api_server"}[5m]) > 3
+          for: 1m
+          labels:
+            severity: critical
+        - alert: Mothership500ErrorRate
+          annotations:
+            description: Mothership 500 error rate is elevated for the past 5 mins
+            summary: Mothership 500 error rate is elevated
+          expr: |-
+            increase(lepton_http_requests_total{code="500", component="mothership"}[5m]) > 3
+          for: 1m
+          labels:
+            severity: critical
+        - alert: LeptonAPIServerP90Latency
+          annotations:
+            description: Lepton API sever P90 latency is higher than 500 ms
+            summary: API sever P90 latency is higher than 500 ms
+          expr: |-
+            histogram_quantile(0.90, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[1h])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipP90Latency
+          annotations:
+            description: Mothership P90 latency is higher than 500 ms
+            summary: Mothership P90 latency is higher than 500 ms
+          expr: |-
+            histogram_quantile(0.90, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[1h])) by (le)) > 0.5
+          for: 1m
+          labels:
+            severity: critical
+        - alert: LeptonAPIServerP90Latency
+          annotations:
+            description: Lepton API sever P99 latency is higher than 1 sec
+            summary: API sever P99 latency is higher than 1 sec
+          expr: |-
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="api_server"}[1h])) by (le)) > 1
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipP99Latency
+          annotations:
+            description: Mothership P99 latency is higher than 1 sec
+            summary: Mothership P99 latency is higher than 1 sec
+          expr: |-
+            histogram_quantile(0.99, sum(increase(lepton_http_requests_latency_seconds_bucket{component="mothership"}[1h])) by (le)) > 1
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipAsyncWorkspaceJobFailureRate
+          annotations:
+            description: Mothership async workspace job failure rate is elevated for the past 30 mins
+            summary: Mothership async workspace job failure rate is elevated for the past 30 mins
+          expr: |-
+            increase(mothership_workspace_jobs_failure_total[1m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+        - alert: MothershipAsyncClusterJobFailureRate
+          annotations:
+            description: Mothership async cluster job failure rate is elevated for the past 30 mins
+            summary: Mothership async cluster job failure rate is elevated for the past 30 mins
+          expr: |-
+            increase(mothership_cluster_jobs_failure_total[1m]) > 0
+          for: 1m
+          labels:
+            severity: critical

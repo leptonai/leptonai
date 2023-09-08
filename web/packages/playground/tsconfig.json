@@ -1,0 +1,13 @@
+{
+  "extends": "@lepton/tsconfig/react",
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsxImportSource": "@emotion/react",
+    "paths": {
+      "@lepton/ui/components": ["../../packages/ui/src/components/index.ts"],
+      "@lepton/ui/*": ["../../packages/ui/src/*"]
+    }
+  }
+}

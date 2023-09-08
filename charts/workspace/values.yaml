@@ -1,0 +1,86 @@
+workspaceName: ""
+clusterName: ""
+lbType: ""
+
+apiServer:
+  enabled: true
+  name: lepton-api-server
+  replicaCount: 1
+  path: /api/
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-api-server
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 20863
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "512Mi"
+        cpu: "1"
+  serviceAccountRoleArn: ""
+  s3ReadOnlyAccessKeyK8sSecretName: ""
+  bucketName: ""
+  region: ""
+  efsID: ""
+  rootDomain: ""
+  # used for shared ALB + envoy routing URL
+  sharedAlbMainDomain: ""
+  certificateArn: ""
+  apiToken: ""
+  photonPrefix: ""
+  photonImageRegistry: ""
+  dynamodbName: ""
+  enableTuna: false
+  enableStorage: true
+  storageMountPath: ""
+  state: ""
+  tier: ""
+
+deploymentOperator:
+  enabled: true
+  name: lepton-deployment-operator
+  replicaCount: 1
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-deployment-operator
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 8080
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "1"
+
+web:
+  enabled: true
+  name: lepton-web
+  replicaCount: 1
+  path: /
+  image:
+    repository: 605454121064.dkr.ecr.us-east-1.amazonaws.com/lepton-web
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 8080
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "1"
+
+env:
+  provider: aws
+  name: dev
+
+lbGlooRules:
+  enabled: true
+  upstreamHealthCheckPath: /healthz
+  glooNamespace: gloo-system

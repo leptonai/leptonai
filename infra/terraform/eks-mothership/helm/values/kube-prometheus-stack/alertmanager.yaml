@@ -1,0 +1,58 @@
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+# https://grafana.com/blog/2020/02/25/step-by-step-guide-to-setting-up-prometheus-alertmanager-with-slack-pagerduty-and-gmail/
+alertmanager:
+  enabled: true
+
+  ingress:
+    # NOTE: to just use service
+    #
+    # e.g.,
+    # <service-name>.<namespace>.svc.cluster.local:<service-port>
+    # http://kube-prometheus-stack-alertmanager.kube-prometheus-stack.svc.cluster.local:9093
+    #
+    # e.g.,
+    # kubectl -n kube-prometheus-stack port-forward alertmanager-kube-prometheus-stack-alertmanager-0 3000:9093
+    # http://localhost:3000
+    enabled: false
+  service:
+    port: 9093
+    targetPort: 9093
+
+  alertmanagerSpec:
+    priorityClassName: ""
+    logFormat: logfmt
+
+  config:
+    global:
+      resolve_timeout: 5m
+
+    # https://prometheus.io/docs/alerting/latest/configuration/#route
+    route:
+      receiver: "slack-notifications"
+
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+
+      routes:
+        - receiver: "slack-notifications"
+          group_wait: 10s
+          matchers:
+            - service=~"lepton-api-server-service"
+
+    # https://prometheus.io/docs/alerting/latest/configuration/#receiver
+    receivers:
+      - name: "slack-notifications"
+
+        # https://prometheus.io/docs/alerting/latest/configuration/#slack_config
+        slack_configs:
+          - send_resolved: true
+
+            # make sure to add " in the beginning of the channel name is '#'
+            channel: "${alertmanager_slack_channel}"
+            api_url: ${alertmanager_slack_webhook_url}
+            title: '{{ template "slack.default.title" . }}'
+            text: '{{ template "slack.default.titlelink" . }}'
+
+    templates:
+      - "/etc/alertmanager/config/*.tmpl"

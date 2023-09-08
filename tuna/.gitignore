@@ -1,0 +1,10 @@
+package.json
+package-lock.json
+.vercel
+.env*
+*-conv.json
+model
+flower.db
+*-eval-*.json
+*.log.*
+.google_application_credentials

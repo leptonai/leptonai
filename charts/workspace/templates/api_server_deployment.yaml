@@ -1,0 +1,122 @@
+{{ if .Values.apiServer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.apiServer.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.apiServer.name }}
+spec:
+  replicas: {{ .Values.apiServer.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.apiServer.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.apiServer.name }}
+      annotations:
+        kubectl.kubernetes.io/restartedAt: {{ now | quote }}
+    spec:
+      serviceAccountName: {{ .Values.apiServer.name }}
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      {{ if .Values.apiServer.efsID }}
+      volumes:
+        - name: default-efs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Namespace }}-efs-default-pvc
+      {{ end }}
+      containers:
+        - name: {{ .Values.apiServer.name }}
+          image: {{ .Values.apiServer.image.repository }}:{{ .Values.apiServer.image.tag }}
+          imagePullPolicy: {{ .Values.apiServer.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              memory: {{ .Values.apiServer.service.resources.requests.memory }}
+              cpu: {{ .Values.apiServer.service.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.apiServer.service.resources.limits.memory }}
+              cpu: {{ .Values.apiServer.service.resources.limits.cpu }}
+          {{ if .Values.apiServer.efsID }}
+          volumeMounts:
+            - name: default-efs
+              mountPath: /mnt/efs/default
+          {{ end }}
+          command: [ "/app/{{ .Values.apiServer.name }}" ]
+          args:
+{{ if .Values.clusterName }}
+            - "--cluster-name={{ .Values.clusterName }}"
+{{ end }}
+            - "--namespace={{ .Release.Namespace }}"
+{{ if .Values.apiServer.region }}
+            - "--region={{ .Values.apiServer.region }}"
+{{ end }}
+{{ if .Values.apiServer.bucketName }}
+            - "--bucket-name={{ .Values.apiServer.bucketName }}"
+{{ end }}
+{{ if .Values.apiServer.efsID }}
+            - "--efs-id={{ .Values.apiServer.efsID }}"
+{{ end }}
+{{ if .Values.apiServer.certificateArn }}
+            - "--certificate-arn={{ .Values.apiServer.certificateArn }}"
+{{ end }}
+{{ if .Values.apiServer.rootDomain }}
+            - "--root-domain={{ .Values.apiServer.rootDomain }}"
+{{ end }}
+{{ if .Values.apiServer.sharedAlbMainDomain }}
+            - "--shared-alb-main-domain={{ .Values.apiServer.sharedAlbMainDomain }}"
+{{ end }}
+{{ if .Values.apiServer.apiToken }}
+            - "--api-token={{ .Values.apiServer.apiToken }}"
+{{ end }}
+{{ if .Values.apiServer.photonPrefix }}
+            - "--photon-prefix={{ .Values.apiServer.photonPrefix }}"
+{{ end }}
+{{ if .Values.apiServer.photonImageRegistry }}
+            - "--photon-image-registry={{ .Values.apiServer.photonImageRegistry }}"
+{{ end }}
+{{ if .Values.workspaceName }}
+            - "--workspace-name={{ .Values.workspaceName }}"
+{{ end }}
+{{ if .Values.apiServer.dynamodbName }}
+            - "--dynamodb-name={{ .Values.apiServer.dynamodbName }}"
+{{ end }}
+{{ if .Values.apiServer.storageMountPath }}
+            - "--storage-mount-path={{ .Values.apiServer.storageMountPath }}"
+{{ end }}
+            - "--enable-storage={{ .Values.apiServer.enableStorage }}"
+            - "--enable-tuna={{ .Values.apiServer.enableTuna }}"
+{{ if .Values.apiServer.state }}
+            - "--state={{ .Values.apiServer.state }}"
+{{ end }}
+{{ if .Values.apiServer.tier }}
+            - "--tier={{ .Values.apiServer.tier }}"
+{{ end }}
+{{ if .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}
+            - "--s3-read-only-access-k8s-secret-name={{ .Values.apiServer.s3ReadOnlyAccessKeyK8sSecretName }}"
+{{ end }}
+          ports:
+            - containerPort: {{ .Values.apiServer.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.apiServer.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.apiServer.service.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+{{ end }}

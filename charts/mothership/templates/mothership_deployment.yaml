@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mothership.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mothership.name }}
+spec:
+  replicas: {{ .Values.mothership.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mothership.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mothership.name }}
+      annotations:
+        kubectl.kubernetes.io/restartedAt: {{ now | quote }}
+    spec:
+      serviceAccountName: {{ .Values.mothership.name }}
+      containers:
+        - name: {{ .Values.mothership.name }}
+          image: {{ .Values.mothership.image.repository }}:{{ .Values.mothership.image.tag }}
+          imagePullPolicy: {{ .Values.mothership.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.mothership.service.resources.requests.memory }}
+              cpu: {{ .Values.mothership.service.resources.requests.cpu }}
+          command: [ "/mothership" ]
+          args:
+            - --namespace={{ .Release.Namespace }}
+            - --root-domain={{ .Values.mothership.rootDomain }}
+            - --shared-alb-root-domain={{ .Values.mothership.sharedAlbRootDomain }}
+            - --shared-alb-route53-zone-id={{ .Values.mothership.sharedALBRoute53ZoneID }}
+            - --certificate-arn={{ .Values.mothership.certificateArn }}
+            - --deployment-environment={{ .Values.mothership.deploymentEnvironment }}
+          ports:
+            - containerPort: {{ .Values.mothership.service.port }}

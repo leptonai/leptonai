@@ -1,0 +1,100 @@
+{{ if .Values.lbGlooRules.enabled }}
+{{ if eq .Values.lbType "shared" }}
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+  namespace: {{ .Values.lbGlooRules.glooNamespace }}
+spec:
+  healthChecks:
+  # https://docs.solo.io/gloo-edge/latest/guides/traffic_management/request_processing/upstream_health_checks/
+  - httpHealthCheck:
+      path: {{ .Values.lbGlooRules.upstreamHealthCheckPath }}
+    healthyThreshold: 2
+    unhealthyThreshold: 2
+    interval: 15s
+    timeout: 5s
+  kube:
+    serviceName: {{ .Values.apiServer.name }}-service
+    serviceNamespace: {{ .Release.Namespace }}
+    servicePort: {{ .Values.apiServer.service.port }}
+
+---
+
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-virtual-service
+  namespace: {{ .Values.lbGlooRules.glooNamespace }}
+spec:
+  virtualHost:
+    # Assuming ALB have handled domain matching for us
+    domains:
+    - {{ .Values.workspaceName }}.{{ .Values.apiServer.sharedAlbMainDomain }}
+    routes:
+    # routes for options, needs to put before other routes to take the priority
+    - matchers:
+      - prefix: /
+        methods:
+          - OPTIONS
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace:  {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for dataplane requests using header-based routing
+    - matchers:
+      - prefix: /
+      # https://docs.solo.io/gloo-edge/latest/guides/traffic_management/destination_types/delegation
+      # Gloo dynamically link RouteTables corresponding to each deployment, with the workspace name as label
+      delegateAction:
+        selector:
+          namespaces:
+          - {{ .Release.Namespace }}
+          labels:
+            lepton.ai/gloo-route-table-domain: {{ .Values.workspaceName }}-deployments-header-based-routing
+{{ if ne .Values.apiServer.apiToken "" }}
+    # routes for api server with Auth header
+    - matchers:
+      - prefix: /api/
+        headers:
+        - name: Authorization
+          value: Bearer {{ .Values.apiServer.apiToken }}
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for api-server query-based auth
+    - matchers:
+      - prefix: /api/
+        queryParameters:
+        - name: access_token
+          value: {{ .Values.apiServer.apiToken }}
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+    # routes for unauthorized control plane traffic
+    - matchers:
+      - prefix: /api/
+      directResponseAction:
+        status: 401
+        body: "Not Authorized!"
+{{ else }}
+    - matchers:
+      - prefix: /api/
+      routeAction:
+        single:
+          upstream:
+            name:  {{ .Values.workspaceName }}-{{ .Values.apiServer.name }}-upstream
+            namespace: {{ .Values.lbGlooRules.glooNamespace }}
+{{ end }}
+    # catchall
+    - matchers:
+      - prefix: /
+      directResponseAction:
+        status: 404
+{{ end }}
+{{ end }}

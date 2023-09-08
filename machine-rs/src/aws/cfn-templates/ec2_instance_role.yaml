@@ -1,0 +1,129 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "IAM instance role"
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
+Parameters:
+  Id:
+    Type: String
+    Description: Unique identifier, prefix for all resources created below.
+
+  KmsKeyArn:
+    Type: String
+    Description: KMS CMK ARN that de/encrypts resources.
+
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name to store.
+
+Mappings:
+  ServicePrincipals:
+    aws-cn:
+      ec2: ec2.amazonaws.com.cn
+    aws:
+      ec2: ec2.amazonaws.com
+
+Resources:
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ["-", [!Ref Id, "instance-role"]]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - Fn::FindInMap:
+                    - ServicePrincipals
+                    - Ref: AWS::Partition
+                    - ec2
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+      Path: /
+      Policies:
+        - PolicyName: dev-machine-instance-role-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances # to fetch tags
+                  - ec2:DescribeTags # to find network/resource information
+                  - ec2:DescribeVolumes # to wait for volume attachment
+                  - ec2:CreateTags
+                  - ec2:CreateVolume # to create volume if not exists
+                  - ec2:AttachVolume
+                  - ec2:DetachVolume # to fail fast in case of spot instance-action
+                  - ec2:TerminateInstances # to fail fast in case of spot instance-action
+                  - ec2:RegisterImage # for building AMIs
+                # restrict this better
+                # ref. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_ec2_ebs-owner.html
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt # to encrypt EC2 key
+                  - kms:GenerateDataKey* # to encrypt EC2 key
+                  - kms:DescribeKey # to describe the CMK
+                Resource: { Ref: KmsKeyArn }
+              - Effect: Allow
+                Action:
+                  - s3:List*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject # to download artifacts
+                  - s3:PutObject # to upload generated TLS keys
+                Resource:
+                  - !Join [
+                      "",
+                      [
+                        !Sub "arn:${AWS::Partition}:s3:::",
+                        !Ref S3BucketName,
+                        "/",
+                        !Ref Id,
+                        "/*",
+                      ],
+                    ]
+
+              # for static IP addresses
+              - Effect: Allow
+                Action:
+                  - ec2:AllocateAddress # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
+                  - ec2:AssociateAddress # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html
+                  - ec2:DescribeAddresses # https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - ec2:Describe* # "aws ec2 describe-regions ..."
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - eks:Describe* # "aws eks describe-addon-versions ..."
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:* # to login
+                Resource: "*"
+
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-instanceprofile.html
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Join ["-", [!Ref Id, "instance-profile"]]
+      Path: "/"
+      Roles:
+        - !Ref InstanceRole
+
+Outputs:
+  InstanceRoleArn:
+    Value: !GetAtt InstanceRole.Arn
+    Description: Role ARN
+
+  InstanceProfileArn:
+    Value: !GetAtt InstanceProfile.Arn
+    Description: Instance profile ARN

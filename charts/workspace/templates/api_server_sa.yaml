@@ -1,0 +1,13 @@
+{{ if .Values.apiServer.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.apiServer.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+  {{ if eq .Values.env.provider "aws" }}
+  {{ if .Values.apiServer.serviceAccountRoleArn }}
+      eks.amazonaws.com/role-arn: {{ .Values.apiServer.serviceAccountRoleArn }}
+  {{ end }}
+  {{ end }}
+{{ end }}

@@ -1,0 +1,7 @@
+sendgrid==6.10.0
+psycopg2-binary==2.9.6
+flask==2.2.5
+pandas
+requests
+flask_cors
+python-dotenv

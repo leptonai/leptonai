@@ -1,0 +1,559 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "VPC"
+
+# takes about 6-minute
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
+Parameters:
+  Id:
+    Type: String
+    Description: Unique identifier, prefix for all resources created below.
+
+  UserId:
+    Type: String
+    Description: For tagging resources.
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: IP range (CIDR notation) for VPC, must be a valid (RFC 1918) CIDR range (from 10.0.0.0 to 10.0.255.255)
+
+  PublicSubnetCidr1:
+    Type: String
+    Default: 10.0.64.0/19
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: CIDR block for public subnet 1 within the VPC (from 10.0.64.0 to 10.0.95.255)
+
+  PublicSubnetCidr2:
+    Type: String
+    Default: 10.0.128.0/19
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: CIDR block for public subnet 2 within the VPC (from 10.0.128.0 to 10.0.159.255)
+
+  PublicSubnetCidr3:
+    Type: String
+    Default: 10.0.192.0/19
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: CIDR block for public subnet 2 within the VPC (from 10.0.192.0 to 10.0.223.255)
+
+  # limit this to your IP
+  SshPortIngressIpv4Range:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: IP range for SSH inbound traffic
+
+  UserDefinedTcpIngressPorts:
+    Type: CommaDelimitedList
+    Default: 0
+    Description: User-defined ports to TCP open for ingress traffic
+
+  UserDefinedTcpIngressPortsCount:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 10
+    Description: The number of instance types (must be >0 to enable)
+
+  # in case, we deploy some sample app
+  # limit this to your IP
+  UserDefinedTcpIngressPortsIngressIpv4Range:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    Description: IP range for user-defined TCP inbound traffic
+
+Conditions:
+  Has2Azs:
+    Fn::Or:
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - ap-south-1
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - ap-northeast-2
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - ca-central-1
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - cn-north-1
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - sa-east-1
+      - Fn::Equals:
+          - { Ref: "AWS::Region" }
+          - us-west-1
+
+  HasMoreThan2Azs:
+    Fn::Not:
+      - Condition: Has2Azs
+
+  Has1UserDefinedTcpIngressPorts:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 0
+
+  Has2UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 2
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 3
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 4
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 5
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 6
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has3UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 3
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 4
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 5
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 6
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has4UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 4
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 5
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 6
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has5UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 5
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 6
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has6UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 6
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has7UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 7
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has8UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 8
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has9UserDefinedTcpIngressPorts:
+    Fn::Or:
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 9
+      - Fn::Equals:
+          - Ref: UserDefinedTcpIngressPortsCount
+          - 10
+
+  Has10UserDefinedTcpIngressPorts:
+    Fn::Equals:
+      - Ref: UserDefinedTcpIngressPortsCount
+      - 10
+
+Resources:
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "igw"]]
+        - Key: UserId
+          Value: !Ref UserId
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "vpc"]]
+        - Key: UserId
+          Value: !Ref UserId
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+      - VPC
+      - InternetGateway
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # The instances must be in a subnet with outbound internet access.
+  # Can be a public subnet with an auto-assigned public ipv4 address.
+  # Or it can be a private subnet with a NAT Gateway.
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+    Metadata:
+      Comment: Public Subnet 1
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ]
+      CidrBlock: !Ref PublicSubnetCidr1
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "public-subnet-1"]]
+        - Key: Network
+          Value: Public
+        - Key: UserId
+          Value: !Ref UserId
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+    Metadata:
+      Comment: Public Subnet 2
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ]
+      CidrBlock: !Ref PublicSubnetCidr2
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "public-subnet-2"]]
+        - Key: Network
+          Value: Public
+        - Key: UserId
+          Value: !Ref UserId
+
+  PublicSubnet3:
+    Condition: HasMoreThan2Azs
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+    Metadata:
+      Comment: Public Subnet 3
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ]
+      CidrBlock: !Ref PublicSubnetCidr3
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "public-subnet-3"]]
+        - Key: Network
+          Value: Public
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Id, "public-round-table"]]
+        - Key: Network
+          Value: Public
+        - Key: UserId
+          Value: !Ref UserId
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+      - PublicSubnet1
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+      - PublicSubnet2
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet3RouteTableAssociation:
+    Condition: HasMoreThan2Azs
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+      - PublicSubnet3
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      RouteTableId: !Ref PublicRouteTable
+
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DependsOn:
+      - VPC
+      - VPCGatewayAttachment
+    Properties:
+      GroupName: !Join ["-", [!Ref Id, "security-group"]]
+      GroupDescription: Secured communication
+      VpcId: !Ref VPC
+
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group-ingress.html
+  SshIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref SshPortIngressIpv4Range
+
+  UserDefinedTcpIngress1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has1UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [0, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [0, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has2UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [1, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [1, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has3UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [2, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [2, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has4UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [3, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [3, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress5:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has5UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [4, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [4, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress6:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has6UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [5, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [5, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress7:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has7UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [6, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [6, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress8:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has8UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [7, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [7, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress9:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has9UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [8, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [8, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  UserDefinedTcpIngress10:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Has9UserDefinedTcpIngressPorts
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: !Select [9, !Ref UserDefinedTcpIngressPorts]
+      ToPort: !Select [9, !Ref UserDefinedTcpIngressPorts]
+      CidrIp: !Ref UserDefinedTcpIngressPortsIngressIpv4Range
+
+  # TODO: can this be more strict
+  # allow all outbound traffic
+  Egress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: "-1"
+      FromPort: "1"
+      ToPort: "65535"
+      CidrIp: "0.0.0.0/0"
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  SecurityGroupId:
+    Description: Security group ID
+    Value: !Ref SecurityGroup
+
+  PublicSubnetIds:
+    Description: All public subnet IDs in the VPC
+    Value:
+      Fn::If:
+        - HasMoreThan2Azs
+        - !Join [
+            ",",
+            [!Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3],
+          ]
+        - !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]

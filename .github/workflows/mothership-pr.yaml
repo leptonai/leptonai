@@ -1,0 +1,28 @@
+name: mothership
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cicd-mothership-pr.yaml"
+      - ".github/workflows/build-docker-image.yaml"
+      - .github/workflows/cicd-mothership-and-cluster.yaml
+      - "mothership/**"
+      - "go-pkg/**"
+      - "infra/terraform/eks-lepton/**"
+      - "charts/mothership/**"
+    branches: ["**"]
+
+jobs:
+  build-mothership:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: mothership
+      repo: lepton-mothership
+
+  build-mothershipctl:
+    uses: ./.github/workflows/build-docker-image.yaml
+    secrets: inherit
+    with:
+      folder: mothership/cmd/mothership
+      repo: lepton-mothershipctl

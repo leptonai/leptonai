@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- _v1alpha1_leptondeployment.yaml
+- _v1alpha1_photon.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,25 @@
+name: Check terraform file formatting
+
+on:
+  push:
+    paths:
+      - .github/workflows/terraform-fmt.yml
+      - infra/terraform/**
+    branches: ["main"]
+  pull_request:
+    paths:
+      - .github/workflows/terraform-fmt.yml
+      - infra/terraform/**
+    branches: ["**"]
+
+jobs:
+  check_format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: terraform fmt
+        uses: dflook/terraform-fmt-check@v1
+        with:
+          path: infra/terraform

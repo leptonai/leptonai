@@ -1,0 +1,513 @@
+# 1. Need install gloo in namespace after apply this config
+# 2. Have to manually config ALB dns name as domain address (alias) in route53
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stablediffusion-proxy
+
+---
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: stablediffusion-upstream
+  namespace: stablediffusion-proxy
+spec:
+  static:
+    hosts:
+      - addr: 129.146.104.60
+        port: 8080
+
+---
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: aiqr-upstream
+  namespace: stablediffusion-proxy
+spec:
+  static:
+    hosts:
+      - addr: 104.171.203.56
+        port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name:  stablediffusion-proxy-group
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:605454121064:certificate/e49493bb-b2ab-4cff-a21c-f5c4b7fe52c5, arn:aws:acm:us-east-1:605454121064:certificate/d82b5449-c53e-4fd2-90b8-db82d0de6f59, arn:aws:acm:us-east-1:605454121064:certificate/473684b0-83ba-410f-a8d6-b0705eba6385, arn:aws:acm:us-east-1:605454121064:certificate/a3766d77-95f7-45e5-b06b-d33334ed4b3a, arn:aws:acm:us-east-1:605454121064:certificate/bdf755eb-dbb1-454a-a1ce-eeb89b659f6d, arn:aws:acm:us-east-1:605454121064:certificate/1a2313f2-8f12-459e-ae4f-2c4fc0df3fe9, arn:aws:acm:us-east-1:605454121064:certificate/6e8753b9-9523-4ea4-ad6c-5319211661aa
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+  name: stablediffusion-upstream-ingress
+  namespace: stablediffusion-proxy
+spec: 
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: gateway-proxy
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stablediffusion-ingress
+  namespace: stablediffusion-proxy
+  annotations:
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig":
+      { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+    alb.ingress.kubernetes.io/healthcheck-path:  /healthz
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: stablediffusion-proxy-group
+spec:
+  ingressClassName: alb
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: ssl-redirect
+            port:
+              name: use-annotation
+        path: /
+        pathType: Prefix
+
+---
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: aiqr-proxy
+  namespace: stablediffusion-proxy
+  labels:
+    gateway-type: stablediffusion-proxy # label used by the Gateway CR
+spec:
+  virtualHost:
+    domains:
+    - aiqr.lepton.run
+    routes:
+    - matchers:
+      - exact: /
+      routeAction:
+        single:
+          upstream:
+            name: aiqr-upstream
+            namespace: stablediffusion-proxy
+      options:
+        prefixRewrite: '/docs'
+    # for dashboard
+    - matchers:
+      - prefix: /
+      routeAction:
+        single:
+          upstream:
+            name: aiqr-upstream
+            namespace: stablediffusion-proxy
+
+---
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: stablediffusion-proxy
+  namespace: stablediffusion-proxy
+  labels:
+    gateway-type: stablediffusion-proxy # label used by the Gateway CR
+spec:
+  virtualHost:
+    domains:
+    - sdxl.dev01awsuseast1.dev.lepton.ai
+    - sdxl-fast.lepton.run
+    - sdxl.lepton.run
+    - sdxl-api.lepton.run
+    routes:
+    - matchers:
+      - exact: /
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        prefixRewrite: '/docs'
+    # for dashboard
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Authorization
+          value: "Bearer c0p9jinh3o2syrxj6703fvedf7qlw72"
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "128-requests-per-second-dashboard"
+    # for dashboard
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Origin
+          value: "https://dashboard.daily.lepton.ai"
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "128-requests-per-second-dashboard"
+    # for dashboard
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Origin
+          value: "https://dashboard.lepton.ai"
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "128-requests-per-second-dashboard"
+    # for Huhu
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Authorization
+          value: Bearer rim1l8pjcw7i8kbavbzohza1r42pzofr
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "128-requests-per-second"
+    # for cloudkitchen
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Authorization
+          value: Bearer l70qfzt265om0yvlsgf9hg8miuv11qjb
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "unlimited-cloudkitchen"
+    # for lepton
+    - matchers:
+      - prefix: /
+        headers:
+        - name: Authorization
+          value: Bearer ejgthvm86w5bsq09lpvvqq6aujycf1xe
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "unlimited-lepton" 
+    # no token user 3 requests per minute
+    - matchers:
+      - prefix: /run
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "3-requests-per-minute"
+    - matchers:
+      - prefix: /txt2img
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "3-requests-per-minute"
+    - matchers:
+      - prefix: /inpaint
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+      options:
+        ratelimit:
+          rateLimits:
+            - actions:
+              - genericKey:
+                  descriptorValue: "3-requests-per-minute"
+    # no ratelimit for other paths
+    - matchers:
+      - prefix: /
+      routeAction:
+        single:
+          upstream:
+            name: stablediffusion-upstream
+            namespace: stablediffusion-proxy
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ratelimit
+  name: ratelimit
+  namespace: stablediffusion-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratelimit
+  template:
+    metadata:
+      labels:
+        app: ratelimit
+    spec:
+      containers:
+        - name: redis
+          image: redis:alpine
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "0.5"
+            limits:
+              memory: "4Gi"
+              cpu: "1"
+          env:
+            - name: REDIS_SOCKET_TYPE
+              value: tcp
+            - name: REDIS_URL
+              value: redis:6379
+        - name: ratelimit
+          image: docker.io/envoyproxy/ratelimit:965f0bc8
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "0.5"
+            limits:
+              memory: "4Gi"
+              cpu: "1"
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 8081
+              name: grpc
+              protocol: TCP
+          volumeMounts:
+            - name: ratelimit-config
+              mountPath: /data/ratelimit/config
+              readOnly: true
+          env:
+            - name: USE_STATSD
+              value: "false"
+            - name: LOG_LEVEL
+              value: debug
+            - name: REDIS_SOCKET_TYPE
+              value: tcp
+            - name: REDIS_URL
+              value: localhost:6379
+            - name: RUNTIME_ROOT
+              value: /data
+            - name: RUNTIME_SUBDIRECTORY
+              value: ratelimit
+            - name: RUNTIME_WATCH_ROOT
+              value: "false"
+            # need to set RUNTIME_IGNOREDOTFILES to true to avoid issues with
+            # how Kubernetes mounts configmaps into pods.
+            - name: RUNTIME_IGNOREDOTFILES
+              value: "true"
+          command: ["/bin/ratelimit"]
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: ratelimit-config
+          configMap:
+            name: ratelimit-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-rate-limit-server
+  namespace: stablediffusion-proxy
+spec:
+  ports:
+  - port: 8081
+    name: grpc
+    protocol: TCP
+  selector:
+    app: ratelimit
+  type: ClusterIP
+
+---
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata:
+  name: envoy-rate-limit-server
+  namespace: stablediffusion-proxy
+spec:
+  kube:
+    selector:
+      app: ratelimit
+    serviceName: envoy-rate-limit-server
+    serviceNamespace: stablediffusion-proxy
+    servicePort: 8081
+  useHttp2: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+  namespace: stablediffusion-proxy
+data:
+  ratelimit-config.yaml: |
+    domain: custom
+    descriptors:
+      # generic limit of 1 request per second
+      - key: generic_key
+        value: "1-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 1
+      - key: generic_key
+        value: "3-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 3
+      - key: generic_key
+        value: "5-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 5
+      - key: generic_key
+        value: "15-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 15
+      - key: generic_key
+        value: "30-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 30
+      - key: generic_key
+        value: "60-requests-per-minute"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 60
+      - key: generic_key
+        value: "1-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 1
+      - key: generic_key
+        value: "5-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 5
+      - key: generic_key
+        value: "15-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 15
+      - key: generic_key
+        value: "30-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 30
+      - key: generic_key
+        value: "60-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 60
+      - key: generic_key
+        value: "100-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 100
+      - key: generic_key
+        value: "128-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 128
+      - key: generic_key
+        value: "128-requests-per-second-dashboard"
+        rate_limit:
+          unit: second
+          requests_per_unit: 128
+      - key: generic_key
+        value: "unlimited-cloudkitchen"
+        rate_limit:
+          unit: second
+          requests_per_unit: 128
+      - key: generic_key
+        value: "unlimited-lepton"
+        rate_limit:
+          unit: second
+          requests_per_unit: 128
+      - key: generic_key
+        value: "200-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 200
+      - key: generic_key
+        value: "500-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 500
+      - key: generic_key
+        value: "1000-requests-per-second"
+        rate_limit:
+          unit: second
+          requests_per_unit: 1000
+
