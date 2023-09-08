@@ -45,6 +45,12 @@ variable "shared_alb_main_domain" {
   default     = ""
 }
 
+variable "enable_resource_metering" {
+  description = "Determines whether to enable resource metering"
+  type        = bool
+  default     = true
+}
+
 variable "default_capacity_type" {
   description = "Capacity type for nodes; ON_DEMAND or SPOT"
   type        = string

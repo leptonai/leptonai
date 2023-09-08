@@ -1,4 +1,6 @@
 resource "helm_release" "lepton_metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   name = "lepton-metering"
 
   # here, we assume the running script or mothership(controller)

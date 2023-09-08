@@ -5,6 +5,8 @@ locals {
 }
 
 resource "kubernetes_namespace" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     annotations = {
       name = local.metering_namespace
@@ -14,6 +16,8 @@ resource "kubernetes_namespace" "metering" {
 }
 
 resource "aws_iam_policy" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   name        = "${var.cluster_name}-${local.metering_app_name}-policy"
   description = "metering worker IAM Policy"
 
@@ -63,6 +67,8 @@ resource "aws_iam_policy" "metering" {
 }
 
 resource "aws_iam_role" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   name = "${var.cluster_name}-${local.metering_app_name}-role"
 
   assume_role_policy = jsonencode({
@@ -79,9 +85,9 @@ resource "aws_iam_role" "metering" {
           StringEquals = {
             "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:aud" : "sts.amazonaws.com",
 
-            # NOTE: do not use "kubernetes_service_account.metering.metadata[0].name"
+            # NOTE: do not use "kubernetes_service_account.metering[count.index].metadata[0].name"
             # it will fail due to cyclic dependency
-            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.metering.metadata[0].name}:${local.metering_k8s_sa}"
+            "oidc.eks.${var.region}.amazonaws.com/id/${local.oidc_id}:sub" : "system:serviceaccount:${kubernetes_namespace.metering[count.index].metadata[0].name}:${local.metering_k8s_sa}"
           }
         }
       },
@@ -95,8 +101,10 @@ resource "aws_iam_role" "metering" {
 }
 
 resource "aws_iam_role_policy_attachment" "metering" {
-  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.metering.name}"
-  role       = aws_iam_role.metering.name
+  count = var.enable_resource_metering ? 1 : 0
+
+  policy_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${aws_iam_policy.metering[count.index].name}"
+  role       = aws_iam_role.metering[count.index].name
 
   depends_on = [
     aws_iam_policy.metering,
@@ -105,9 +113,11 @@ resource "aws_iam_role_policy_attachment" "metering" {
 }
 
 resource "kubernetes_service_account" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     name      = local.metering_k8s_sa
-    namespace = kubernetes_namespace.metering.metadata[0].name
+    namespace = kubernetes_namespace.metering[count.index].metadata[0].name
 
     # make sure exact match these
     # otherwise, IRSA would not work
@@ -117,7 +127,7 @@ resource "kubernetes_service_account" "metering" {
     }
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.metering.name}"
+      "eks.amazonaws.com/role-arn" = "arn:${local.partition}:iam::${local.account_id}:role/${aws_iam_role.metering[count.index].name}"
     }
   }
 
@@ -133,6 +143,8 @@ resource "kubernetes_service_account" "metering" {
 
 # applies to all namespaces
 resource "kubernetes_cluster_role" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     name = "${local.metering_app_name}-cluster-role"
   }
@@ -170,6 +182,8 @@ resource "kubernetes_cluster_role" "metering" {
 }
 
 resource "kubernetes_cluster_role_binding" "metering" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     name = "${local.metering_app_name}-cluster-role-binding"
   }
@@ -177,13 +191,13 @@ resource "kubernetes_cluster_role_binding" "metering" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.metering.metadata[0].name
+    name      = kubernetes_cluster_role.metering[count.index].metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.metering.metadata[0].name
-    namespace = kubernetes_namespace.metering.metadata[0].name
+    name      = kubernetes_service_account.metering[count.index].metadata[0].name
+    namespace = kubernetes_namespace.metering[count.index].metadata[0].name
   }
 
   depends_on = [
@@ -211,9 +225,11 @@ data "aws_secretsmanager_secret_version" "mothership_rds_aurora_secret" {
 }
 
 resource "kubernetes_secret" "mothership_rds_aurora_secret" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     name      = "mothership-rds-aurora-secret"
-    namespace = kubernetes_namespace.metering.metadata[0].name
+    namespace = kubernetes_namespace.metering[count.index].metadata[0].name
   }
 
   data = {
@@ -248,9 +264,11 @@ data "aws_secretsmanager_secret_version" "supabase_credential_secret" {
 }
 
 resource "kubernetes_secret" "supabase_credential_secret" {
+  count = var.enable_resource_metering ? 1 : 0
+
   metadata {
     name      = "supabase-credential-secret"
-    namespace = kubernetes_namespace.metering.metadata[0].name
+    namespace = kubernetes_namespace.metering[count.index].metadata[0].name
   }
 
   data = {
