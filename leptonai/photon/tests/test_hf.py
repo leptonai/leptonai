@@ -26,7 +26,7 @@ class TestHF(unittest.TestCase):
         self.assertTrue("openapi_schema" in metadata)
         self.assertTrue("/run" in metadata["openapi_schema"]["paths"])
         self.assertTrue("py_obj" not in metadata)
-        self.assertEqual(len(metadata.get("requirement_dependency")), 0)
+        self.assertEqual(len(metadata.get("requirement_dependency")), 1)
 
 
 if __name__ == "__main__":
