@@ -51,6 +51,7 @@ leptonai = ["photon/favicon.ico"]
 
 [tool.black]
 preview = true
+exclude = "_version.py"
 
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
