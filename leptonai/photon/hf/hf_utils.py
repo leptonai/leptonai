@@ -87,7 +87,7 @@ pipeline_registry.register(
 
 def _create_ggml_transformers_pipeline(task, model, revision):
     try:
-        import ctransformers
+        import ctransformers  # noqa: F401
     except ImportError:
         raise ValueError(
             "Failed to import ctransformers, please install it with: pip install"
@@ -96,7 +96,6 @@ def _create_ggml_transformers_pipeline(task, model, revision):
     from ctransformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
     from ctransformers.lib import load_cuda
     from transformers import pipeline
-    import torch
 
     kwargs = {
         "hf": True,
