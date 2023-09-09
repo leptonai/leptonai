@@ -1,0 +1,84 @@
+name: Photon Runner Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Photon Runner Version"
+        required: true
+      build_base:
+        description: "Whether to (re)build base images"
+        type: boolean
+        default: false
+      is_release:
+        description: "Is this a release build"
+        type: boolean
+        default: false
+      build_nightly:
+        description: "Whether to build nightly inages"
+        type: boolean
+        default: false
+
+jobs:
+  build_matrix:
+    strategy:
+      matrix:
+        python_version: ["3.8", "3.9", "3.10", "3.11"]
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Compute Vars
+        id: vars
+        env:
+          ECR_REPOSITORY: lepton
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: echo "base_image=${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}" >> $GITHUB_OUTPUT
+      - name: Build Base Images
+        if: inputs.build_base
+        run: |
+          tag="${{ steps.vars.outputs.base_image }}"
+          docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=0 --build-arg CUDA_VERSION=11.7.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag ${tag}
+          if [ "${{ inputs.is_release }}" == 'true' ]; then
+              docker push ${tag}
+          fi
+
+          if [ "${{ inputs.build_nightly }}" == 'true' ]; then
+            tag="${tag}-nightly"
+            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=1 --build-arg CUDA_VERSION=12.1.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag ${tag}
+            if [ "${{ inputs.is_release }}" == 'true' ]; then
+                docker push ${tag}
+            fi
+          fi
+      - name: Build Runner Images
+        env:
+          VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
+        run: |
+          echo "HEAD SHA=$(git rev-parse --short HEAD)"
+          echo "VERSION_TAG=${VERSION_TAG}"
+
+          tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
+          docker build . --build-arg BASE_IMAGE="${{ steps.vars.outputs.base_image }}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag ${tag}
+          if [ "${{ inputs.is_release }}" == 'true' ]; then
+              docker push ${tag}
+          fi
+          docker rmi ${tag}
+
+          if [ "${{ inputs.build_nightly }}" == 'true' ]; then
+            tag="${tag}-nightly"
+            docker build . --build-arg BASE_IMAGE="${{ steps.vars.outputs.base_image }}-nightly" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag ${tag}
+            if [ "${{ inputs.is_release }}" == 'true' ]; then
+                docker push ${tag}
+            fi
+            docker rmi ${tag}
+          fi
