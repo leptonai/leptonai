@@ -229,6 +229,7 @@ def _get_generated_text(res):
 
 class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
     hf_task: str = "text-generation"
+    requirement_dependency: Optional[List[str]] = ["ctransformers"]
 
     @Photon.handler(
         "run",
