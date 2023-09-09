@@ -175,16 +175,6 @@ dist-ssr
 *.sln
 *.sw?
 
-
-############ gitignore for golang ############
-api-server/api-server
-api-server/lepton-api-server
-mothership/mothership
-mothership/mothershipctl
-mothership/lepton-mothership
-mothership/cmd/mothership/mothership
-mothership/cmd/mothership/mothershipctl
-
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
@@ -194,20 +184,8 @@ mothership/cmd/mothership/mothershipctl
 _obj
 _test
 
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
-
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
-
-*.exe
-.vercel
-
 # Lepton photon compiled file
 obj.pkl
+
+# Lepton version
+leptonai/_version.py
