@@ -1,4 +1,5 @@
 import base64
+import os
 import tempfile
 
 from loguru import logger
@@ -85,31 +86,42 @@ pipeline_registry.register(
 
 
 def _create_ggml_transformers_pipeline(task, model, revision):
+    try:
+        import ctransformers
+    except ImportError:
+        raise ValueError(
+            "Failed to import ctransformers, please install it with: pip install"
+            " ctransformers"
+        )
     from ctransformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
+    from ctransformers.lib import load_cuda
     from transformers import pipeline
     import torch
 
-    try:
-        kwargs = {
-            "hf": True,
-        }
-        if torch.cuda.is_available():
-            # set a sufficiently large number to indicate all layers are on gpu
-            kwargs["gpu_layers"] = 9999999
+    kwargs = {
+        "hf": True,
+    }
 
-        config = AutoConfig.from_pretrained(model, revision=revision)
-        if config.model_type:
-            model_type = config.model_type
+    config = AutoConfig.from_pretrained(model, revision=revision)
+    if config.model_type:
+        model_type = config.model_type
+    else:
+        # infer model_type from model name
+        if "llama" in model.lower():
+            model_type = "llama"
+        elif "falcon" in model.lower():
+            model_type = "falcon"
         else:
-            # infer model_type from model name
-            if "llama" in model.lower():
-                model_type = "llama"
-            elif "falcon" in model.lower():
-                model_type = "falcon"
-            else:
-                raise ValueError(f"Failed to infer ggml model_type from model={model}")
-        kwargs["model_type"] = model_type
+            raise ValueError(f"Failed to infer ggml model_type from model={model}")
+    kwargs["model_type"] = model_type
+    if os.environ.get("HF_GGML_MODEL_FILE"):
+        kwargs["model_file"] = os.environ["HF_GGML_MODEL_FILE"]
 
+    if load_cuda():
+        # set a sufficiently large number to indicate all layers are on gpu
+        kwargs["gpu_layers"] = 9999999
+
+    try:
         model = AutoModelForCausalLM.from_pretrained(model, revision=revision, **kwargs)
         tokenizer = AutoTokenizer.from_pretrained(model)
         pipeline = pipeline(task, model=model, tokenizer=tokenizer)
