@@ -1,4 +1,4 @@
-name: Photon Runner Docker Images
+name: docker
 
 on:
   workflow_dispatch:
