@@ -94,8 +94,8 @@ def _create_ggml_transformers_pipeline(task, model, revision):
             " ctransformers"
         )
     from ctransformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
-    from ctransformers.lib import load_cuda
     from transformers import pipeline
+    import torch
 
     kwargs = {
         "hf": True,
@@ -116,7 +116,7 @@ def _create_ggml_transformers_pipeline(task, model, revision):
     if os.environ.get("HF_GGML_MODEL_FILE"):
         kwargs["model_file"] = os.environ["HF_GGML_MODEL_FILE"]
 
-    if load_cuda():
+    if torch.cuda.is_available():
         # set a sufficiently large number to indicate all layers are on gpu
         kwargs["gpu_layers"] = 9999999
 
