@@ -84,12 +84,47 @@ pipeline_registry.register(
 )
 
 
-def create_transformers_pipeline(task, model, revision):
+def _create_ggml_transformers_pipeline(task, model, revision):
+    from ctransformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
     from transformers import pipeline
     import torch
 
-    # TODO: dolly model needs it. however we need to check if it's
-    # safe to enable it for all models
+    try:
+        kwargs = {
+            "hf": True,
+        }
+        if torch.cuda.is_available():
+            # set a sufficiently large number to indicate all layers are on gpu
+            kwargs["gpu_layers"] = 9999999
+
+        config = AutoConfig.from_pretrained(model, revision=revision)
+        if config.model_type:
+            model_type = config.model_type
+        else:
+            # infer model_type from model name
+            if "llama" in model.lower():
+                model_type = "llama"
+            elif "falcon" in model.lower():
+                model_type = "falcon"
+            else:
+                raise ValueError(f"Failed to infer ggml model_type from model={model}")
+        kwargs["model_type"] = model_type
+
+        model = AutoModelForCausalLM.from_pretrained(model, revision=revision, **kwargs)
+        tokenizer = AutoTokenizer.from_pretrained(model)
+        pipeline = pipeline(task, model=model, tokenizer=tokenizer)
+    except Exception as e:
+        raise ValueError(
+            f"Failed to create pipeline with ggml for task={task}, model={model}: {e}"
+        )
+    else:
+        return pipeline
+
+
+def _create_hf_transformers_pipeline(task, model, revision):
+    from transformers import pipeline
+    import torch
+
     kwargs = {"trust_remote_code": True}
     if torch.cuda.is_available():
         kwargs["device"] = 0
@@ -114,6 +149,13 @@ def create_transformers_pipeline(task, model, revision):
         kwargs.pop("torch_dtype")
         pipeline = pipeline(task=task, model=model, revision=revision, **kwargs)
     return pipeline
+
+
+def create_transformers_pipeline(task, model, revision):
+    if task == "text-generation" and "ggml" in model.lower():
+        _create_ggml_transformers_pipeline(task, model, revision)
+    else:
+        _create_hf_transformers_pipeline(task, model, revision)
 
 
 for task in [
