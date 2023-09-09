@@ -39,6 +39,5 @@ RUN if [ "$TORCH_NIGHTLY" = 0 ]; then \
     fi
 
 RUN pip install uvicorn[standard] gradio!=3.31.0
-RUN CT_CUBLAS=1 pip install ctransformers -U --no-binary ctransformers --no-cache-dir
 
 RUN rm -rf /tmp/leptonai-sdk
