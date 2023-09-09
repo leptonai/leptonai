@@ -77,11 +77,13 @@ jobs:
           echo "leptonai package version:"
           lep -v
 
+          cd ..
           echo "leptonai package path:"
           python -c "import leptonai; print(leptonai)"
 
           echo "Run unittests"
-          pytest -x
+          pytest -x leptonai-sdk
+          cd -
       - name: Run End-To-End Tests
         if: inputs.run_e2e
         env:
