@@ -153,9 +153,9 @@ def _create_hf_transformers_pipeline(task, model, revision):
 
 def create_transformers_pipeline(task, model, revision):
     if task == "text-generation" and "ggml" in model.lower():
-        _create_ggml_transformers_pipeline(task, model, revision)
+        return _create_ggml_transformers_pipeline(task, model, revision)
     else:
-        _create_hf_transformers_pipeline(task, model, revision)
+        return _create_hf_transformers_pipeline(task, model, revision)
 
 
 for task in [
