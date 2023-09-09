@@ -1,10 +1,10 @@
 import base64
+from functools import cached_property
 from io import BytesIO
 import os
 import tempfile
 from typing import List, Union, Optional, Dict, Any
 
-from backports.cached_property import cached_property
 from huggingface_hub import model_info
 from loguru import logger
 
