@@ -234,7 +234,7 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
         "run",
         example={
             "inputs": "I enjoy walking with my cute dog",
-            "max_length": 50,
+            "max_new_tokens": 50,
             "do_sample": True,
             "top_k": 50,
             "top_p": 0.95,
@@ -317,7 +317,7 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
         "run",
         example={
             "inputs": "I enjoy walking with my cute dog",
-            "max_length": 50,
+            "max_new_tokens": 50,
             "do_sample": True,
             "top_k": 50,
             "top_p": 0.95,
