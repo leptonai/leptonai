@@ -84,7 +84,7 @@ class TestDocker(unittest.TestCase):
     def test_run_remote_git_photon(self):
         ph = photon.create(
             random_name(),
-            "https://github.com/leptonai/lepton.git@bdf8508#subdirectory=sdk/leptonai/examples:async_cat.py",
+            "https://github.com/leptonai/leptonai-sdk.git@a7a6e58#subdirectory=leptonai/examples:async_cat.py",
         )
         path = photon.save(ph)
         self._run_photon(path)

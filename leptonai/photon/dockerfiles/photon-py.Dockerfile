@@ -21,15 +21,15 @@ RUN echo "TORCH_NIGHTLY=$TORCH_NIGHTLY"
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
-COPY . /tmp/lepton/
+COPY . /tmp/leptonai-sdk
 
 ARG PYTHON_VERSION
 ENV LEPTON_VIRTUAL_ENV=/opt/lepton/venv
 
-RUN /tmp/lepton/sdk/leptonai/photon/dockerfiles/install_base.sh
+RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_base.sh
 RUN sudo apt-get update && sudo apt-get install -y libgl1 ffmpeg
 
-RUN /tmp/lepton/sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
+RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
 ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
 
 RUN if [ "$TORCH_NIGHTLY" = 0 ]; then \
@@ -40,4 +40,4 @@ RUN if [ "$TORCH_NIGHTLY" = 0 ]; then \
 
 RUN pip install uvicorn[standard] gradio!=3.31.0
 
-RUN rm -rf /tmp/lepton
+RUN rm -rf /tmp/leptonai-sdk
