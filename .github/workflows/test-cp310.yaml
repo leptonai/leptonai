@@ -1,0 +1,43 @@
+name: test-cp310
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout examples repo
+        uses: actions/checkout@v3
+        with:
+          repository: leptonai/examples
+          path: examples
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          pip install -U pip setuptools
+      - name: Lint
+        run: |
+          if ! hash nvidia-smi 2>/dev/null; then
+             echo "nvidia-smi not found on host, installing cpu version of torch"
+             pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          fi
+          pip install .[lint]
+          ruff .
+          black --check .
+      - name: Test with pytest
+        run: |
+          pip install .
+          pip install -r leptonai/examples/requirements.txt
+          pip install .[test]
+          pytest -x
