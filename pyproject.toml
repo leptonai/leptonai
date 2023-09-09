@@ -3,7 +3,7 @@ name = "leptonai"
 description = "Lepton AI Platform"
 authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
 dynamic = ["dependencies", "version"]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 [project.urls]
 Homepage = "https://lepton.ai"
@@ -28,8 +28,7 @@ requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<=7.1.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-root = ".."
-write_to = "sdk/leptonai/_version.py"
+write_to = "leptonai/_version.py"
 
 # add .post1.devN to last tagged version (N is the number of commits
 # since the tagged commit)

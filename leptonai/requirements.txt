@@ -1,5 +1,4 @@
 anyio
-backports.cached-property # Python3.8 adds functools.cached_property
 click
 cloudpickle
 fastapi
