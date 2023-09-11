@@ -37,7 +37,7 @@ version_scheme="no-guess-dev"
 local_scheme="node-and-date"
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["leptonai/requirements.txt"]}
+dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools]
 include-package-data = false
