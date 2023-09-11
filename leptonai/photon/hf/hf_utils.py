@@ -211,9 +211,9 @@ def hf_missing_package_error_message(
         " HuggingFace pipelines do not have a standard way to pre-determine and"
         " install dependencies yet. As a best-effort attempt, here are steps you can"
         " take to fix this issue:\n\n1. If you are running locally, you can install"
-        ' the missing packages with pip as follows:\n\npip install "'
-        ' ".join(missing_packages)\n\n(note that some package names and pip names may'
-        " be different, and you may need to search pypi for the correct package"
+        " the missing packages with pip as follows:\n\npip install"
+        f" {' '.join(missing_packages)}\n\n(note that some package names and pip names"
+        " may be different, and you may need to search pypi for the correct package"
         " name)\n\n2. If you are using LeptonAI SDK, we maintain a mapping from known"
         " HuggingFace pipelines to their dependencies. We appreciate if you can send a"
         " PR to https://github.com/leptonai/leptonai-sdk/ to add the missing"
