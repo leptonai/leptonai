@@ -83,8 +83,8 @@ class HuggingfacePhoton(Photon):
     @property
     def _requirement_dependency(self) -> List[str]:
         # First, get the overridden base class requirement_dependency
-        print(f"called! {self.hf_model}")
         deps: List[str] = super()._requirement_dependency
+        # Add manually maintained dependencies to the list.
         if self.hf_model in hf_pipeline_dependencies:
             pipeline_specific_deps = hf_pipeline_dependencies[self.hf_model]
             for d in pipeline_specific_deps:
