@@ -842,35 +842,44 @@ class Photon(BasePhoton):
             cwd = os.getcwd()
 
         with switch_cwd(cwd):
-            path_parts = os.path.splitext(os.path.basename(path))
-            if len(path_parts) != 2 or path_parts[1] != ".py":
-                raise ValueError(f"File path should be a Python file (.py): {path}")
-            module_name = path_parts[0]
-            spec = importlib.util.spec_from_file_location(module_name, path)
-            if spec is None:
-                raise ValueError(f"Could not import Python module from path: {path}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
+            if os.path.exists(path):
+                path_parts = os.path.splitext(os.path.basename(path))
+                if len(path_parts) != 2 or path_parts[1] != ".py":
+                    raise ValueError(f"File path should be a Python file (.py): {path}")
+                module_name = path_parts[0]
+                spec = importlib.util.spec_from_file_location(module_name, path)
+                if spec is None:
+                    raise ValueError(
+                        f"Could not import Python module from path: {path}"
+                    )
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                if spec.loader is None:
+                    raise ValueError(
+                        f"Could not import Python module from path: {path}"
+                    )
+                spec.loader.exec_module(module)
+                if cls_name is None:
+                    valid_cls_names = cls._find_photon_subcls_names(module)
+                    if len(valid_cls_names) == 0:
+                        raise ValueError(
+                            f"Can not find any sub classes of {cls.__name__} in {path}"
+                        )
+                    elif len(valid_cls_names) > 1:
+                        raise ValueError(
+                            f"Found multiple sub classes of {cls.__name__} in {path}:"
+                            f" {valid_cls_names}"
+                        )
+                    else:
+                        cls_name = valid_cls_names[0]
+                        model_str = f"{model_str}:{cls_name}"
+            elif "." in path:
+                module_str, _, cls_name = path.rpartition(".")
+                module = importlib.import_module(module_str)
+            else:
+                raise ValueError(f"Can not find file or module: {path}")
+
             cloudpickle.register_pickle_by_value(module)
-            if spec.loader is None:
-                raise ValueError(f"Could not import Python module from path: {path}")
-            spec.loader.exec_module(module)
-
-            if cls_name is None:
-                valid_cls_names = cls._find_photon_subcls_names(module)
-                if len(valid_cls_names) == 0:
-                    raise ValueError(
-                        f"Can not find any sub classes of {cls.__name__} in {path}"
-                    )
-                elif len(valid_cls_names) > 1:
-                    raise ValueError(
-                        f"Found multiple sub classes of {cls.__name__} in {path}:"
-                        f" {valid_cls_names}"
-                    )
-                else:
-                    cls_name = valid_cls_names[0]
-                    model_str = f"{model_str}:{cls_name}"
-
             ph_cls = getattr(module, cls_name)
             if not inspect.isclass(ph_cls) or not issubclass(ph_cls, cls):
                 raise ValueError(f"{cls_name} is not a sub class of {cls.__name__}")
