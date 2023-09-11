@@ -33,4 +33,6 @@ jobs:
              pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
           fi
           pip install .[test]
-          pytest -x
+          cd ..
+          pytest -x leptonai-sdk
+          cd -

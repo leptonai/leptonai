@@ -38,4 +38,6 @@ jobs:
       - name: Test with pytest
         run: |
           pip install .[test]
-          pytest -x
+          cd ..
+          pytest -x leptonai-sdk
+          cd -
