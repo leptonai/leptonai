@@ -2,6 +2,7 @@ import base64
 from functools import cached_property
 from io import BytesIO
 import os
+import re
 import tempfile
 from typing import List, Union, Optional, Dict, Any
 
@@ -11,7 +12,12 @@ from loguru import logger
 from leptonai.registry import Registry
 from leptonai.photon.base import schema_registry, type_registry
 from leptonai.photon import Photon, PNGResponse, FileParam
-from .hf_utils import pipeline_registry, img_param_to_img
+from .hf_utils import (
+    pipeline_registry,
+    img_param_to_img,
+    hf_missing_package_error_message,
+)
+from .hf_dependencies import hf_pipeline_dependencies
 
 task_cls_registry = Registry()
 
@@ -71,7 +77,20 @@ def is_transformers_model(model):
 
 class HuggingfacePhoton(Photon):
     photon_type: str = "hf"
+    hf_task: str = "undefined (please override this in your derived class)"
     requirement_dependency: Optional[List[str]] = []
+
+    @property
+    def _requirement_dependency(self) -> List[str]:
+        # First, get the overridden base class requirement_dependency
+        deps: List[str] = super()._requirement_dependency
+        # Add manually maintained dependencies to the list.
+        if self.hf_model in hf_pipeline_dependencies:
+            pipeline_specific_deps = hf_pipeline_dependencies[self.hf_model]
+            for d in pipeline_specific_deps:
+                if d not in deps:
+                    deps.append(d)
+        return deps
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -146,13 +165,34 @@ class HuggingfacePhoton(Photon):
             raise ValueError(f"Could not find pipeline creator for {self.hf_task}")
         logger.info(
             f"Creating pipeline for {self.hf_task}(model={self.hf_model},"
-            f" revision={self.hf_revision})"
+            f" revision={self.hf_revision}).\n"
+            "HuggingFace download might take a while, please be patient..."
         )
-        pipeline = pipeline_creator(
-            task=self.hf_task,
-            model=self.hf_model,
-            revision=self.hf_revision,
-        )
+        try:
+            pipeline = pipeline_creator(
+                task=self.hf_task,
+                model=self.hf_model,
+                revision=self.hf_revision,
+            )
+        except ImportError as e:
+            # Huggingface has a mechanism that detects dependencies, and then prints dependent
+            # libraries in the error message. When this happens, we want to parse the error and
+            # then tell the user what they should do.
+            # See https://github.com/huggingface/transformers/blob/ce2e7ef3d96afaf592faf3337b7dd997c7ad4928/src/transformers/dynamic_module_utils.py#L178
+            # for the source code that prints the error message.
+            pattern = (
+                "This modeling file requires the following packages that were not found"
+                " in your environment: (.*?). Run `pip install"
+            )
+            match = re.search(pattern, e.msg)
+            if match:
+                missing_packages = match.group(1).split(", ")
+                raise ImportError(
+                    hf_missing_package_error_message(self.hf_task, missing_packages)
+                ) from e
+            else:
+                raise e
+
         return pipeline
 
     def init(self):
