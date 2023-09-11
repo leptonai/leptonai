@@ -37,7 +37,5 @@ jobs:
           black --check .
       - name: Test with pytest
         run: |
-          pip install .
-          pip install -r leptonai/examples/requirements.txt
           pip install .[test]
           pytest -x
