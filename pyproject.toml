@@ -43,7 +43,7 @@ dependencies = {file = ["requirements.txt"]}
 include-package-data = false
 
 [tool.setuptools.packages.find]
-exclude = ["*tests*", "leptoninternal*", "*examples*", "release_scripts*", "*dockerfiles*"]
+exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]
 
 [tool.setuptools.package-data]
 leptonai = ["photon/favicon.ico"]

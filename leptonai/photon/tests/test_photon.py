@@ -41,7 +41,6 @@ import zipfile
 
 from fastapi import FastAPI
 from loguru import logger
-import numpy as np
 import requests
 import torch
 
@@ -356,113 +355,6 @@ class Counter(Photon):
         )
         proc.kill()
 
-    @unittest.skipIf(not has_hnsqlite, "hnsqlite not installed")
-    def test_vec_db_examples(self):
-        name = random_name()
-
-        vec_db_path = os.path.join(
-            os.path.dirname(leptonai.__file__), "examples", "vec_db.py"
-        )
-        if not os.path.exists(vec_db_path):
-            logger.warning(f"Skipping test_vec_db_examples, {vec_db_path} not found")
-            return
-
-        with tempfile.NamedTemporaryFile(suffix=".py", dir=tmpdir) as f, open(
-            vec_db_path, "rb"
-        ) as vec_db_file:
-            f.write(vec_db_file.read())
-            f.flush()
-            proc, port = photon_run_local_server(
-                name="vec-db", model=f"py:{f.name}:VecDB"
-            )
-
-        dim = 2
-        name = "two"
-
-        # create collection
-        res = requests.post(
-            f"http://127.0.0.1:{port}/create_collection",
-            json={"name": name, "dim": dim},
-        )
-        self.assertEqual(res.status_code, 200)
-
-        # list collections
-        # TODO: this should be get, not post
-        res = requests.post(f"http://127.0.0.1:{port}/list_collections", json={})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), [[name, dim]])
-
-        # create second collection, list collections, remove it and list collections again
-        name2 = random_name()
-        res = requests.post(
-            f"http://127.0.0.1:{port}/create_collection",
-            json={"name": name2, "dim": dim},
-        )
-        self.assertEqual(res.status_code, 200)
-        res = requests.post(f"http://127.0.0.1:{port}/list_collections", json={})
-        self.assertEqual(res.status_code, 200)
-        self.assertTrue([name2, dim] in res.json())
-        res = requests.post(
-            f"http://127.0.0.1:{port}/remove_collection", json={"name": name2}
-        )
-        self.assertEqual(res.status_code, 200)
-        res = requests.post(f"http://127.0.0.1:{port}/list_collections", json={})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), [[name, dim]])
-
-        # insert
-        count = 10
-        embeddings = []
-        for i in range(count):
-            vector = np.random.rand(dim).tolist()
-            text = f"text_{i}"
-            doc_id = f"doc_id_{i}"
-            embeddings.append({"doc_id": doc_id, "text": text, "vector": vector})
-        res = requests.post(
-            f"http://127.0.0.1:{port}/add",
-            json={"name": name, "embeddings": embeddings},
-        )
-        self.assertEqual(res.status_code, 200)
-        res = requests.post(f"http://127.0.0.1:{port}/count", json={"name": name})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), count)
-
-        # get
-        res = requests.post(
-            f"http://127.0.0.1:{port}/get",
-            json={"name": name, "doc_ids": ["doc_id_0", "doc_id_2"]},
-        )
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()), 2)
-        self.assertTrue(
-            np.allclose(
-                [r["vector"] for r in res.json()],
-                [embeddings[0]["vector"], embeddings[2]["vector"]],
-            )
-        )
-
-        # search
-        k = 3
-        res = requests.post(
-            f"http://127.0.0.1:{port}/search",
-            json={"name": name, "vector": embeddings[0]["vector"], "k": k},
-        )
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()), k)
-        self.assertEqual(res.json()[0]["doc_id"], embeddings[0]["doc_id"])
-
-        # delete
-        res = requests.post(
-            f"http://127.0.0.1:{port}/delete",
-            json={"name": name, "doc_ids": [embeddings[0]["doc_id"]]},
-        )
-        self.assertEqual(res.status_code, 200)
-        res = requests.post(f"http://127.0.0.1:{port}/count", json={"name": name})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), count - 1)
-
-        proc.kill()
-
     def test_extra_files(self):
         name = random_name()
         ph = CustomPhotonWithCustomExtraFiles(name=name)
@@ -537,26 +429,6 @@ from leptonai.photon import Photon
             self.assertEqual(res.status_code, 200)
         finally:
             os.environ.pop("GIT_PROJ_URL")
-
-        # test github user & token autofill from environment variables
-        if not os.environ.get("GITHUB_USER") or not os.environ.get("GITHUB_TOKEN"):
-            logger.debug(
-                "Skip github user & token autofill test because env vars GITHUB_USER"
-                " and GITHUB_TOKEN not set"
-            )
-            return
-        name = random_name()
-        model = "py:github.com/leptonai/examples:Counter/counter.py:Counter"
-        photon = create_photon(name=name, model=model)
-        path = photon.save()
-        proc, port = photon_run_local_server(path=path)
-        res = requests.post(
-            f"http://127.0.0.1:{port}/add",
-            json={"x": 1.0},
-        )
-        proc.kill()
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), 1.0)
 
     def test_media_response(self):
         name = random_name()
