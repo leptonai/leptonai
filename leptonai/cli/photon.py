@@ -577,7 +577,7 @@ def prepare(ctx, path):
                 default=True,
             )
         else:
-            console.print("No `sudo` fond in the system, try proceed without sudo.")
+            console.print("No `sudo` found in the system, try proceed without sudo.")
             confirmed = True
 
         if confirmed:
