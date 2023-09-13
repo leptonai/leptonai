@@ -582,9 +582,12 @@ def prepare(ctx, path):
 
         if confirmed:
             console.print(f"Installing system_dependency:\n{system_dependency}")
+            cmd_prefix = [sudo, apt] if sudo else [apt]
             try:
-                subprocess.check_call([sudo, apt, "update"])
-                subprocess.check_call([sudo, apt, "install", "-y"] + system_dependency)
+                subprocess.check_call(cmd_prefix + ["update"])
+                subprocess.check_call(
+                    cmd_prefix + ["install", "-y"] + system_dependency
+                )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to {apt} install: {e}")
                 sys.exit(1)
