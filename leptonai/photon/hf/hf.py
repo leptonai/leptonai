@@ -744,6 +744,41 @@ class HuggingfaceDepthEstimationPhoton(HuggingfacePhoton):
         return blocks
 
 
+class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
+    hf_task: str = "image-to-text"
+
+    @Photon.handler(
+        "run",
+        example={"images": "http://images.cocodataset.org/val2017/000000039769.jpg"},
+    )
+    def run_handler(
+        self,
+        images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
+        **kwargs,
+    ) -> Union[str, List[str]]:
+        images_is_list = isinstance(images, list)
+        if not images_is_list:
+            images = [images]
+        images_ = []
+        # keep references to NamedTemporaryFile objects so they don't get deleted
+        temp_files = []
+        for img in images:
+            if isinstance(img, FileParam):
+                file = tempfile.NamedTemporaryFile()
+                with open(file.name, "wb") as f:
+                    f.write(img.file.read())
+                    f.flush()
+                temp_files.append(file)
+                images_.append(file.name)
+            else:
+                images_.append(img)
+        res = self.run(
+            images_,
+            **kwargs,
+        )
+        return _get_generated_text(res)
+
+
 def register_hf_photon():
     schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
     type_registry.register(
