@@ -8,6 +8,8 @@ from loguru import logger
 from leptonai.registry import Registry
 from leptonai.photon import FileParam
 
+from .hf_dependencies import hf_no_attention_mask_models
+
 pipeline_registry = Registry()
 
 
@@ -124,22 +126,20 @@ def _create_ggml_transformers_pipeline(task, model, revision):
     try:
         model = AutoModelForCausalLM.from_pretrained(model, revision=revision, **kwargs)
         tokenizer = AutoTokenizer.from_pretrained(model)
-        pipeline = pipeline(task, model=model, tokenizer=tokenizer)
+        pipe = pipeline(task, model=model, tokenizer=tokenizer)
     except Exception as e:
         raise ValueError(
             f"Failed to create pipeline with ggml for task={task}, model={model}: {e}"
         )
     else:
-        return pipeline
+        return pipe
 
 
 def _create_hf_transformers_pipeline(task, model, revision):
-    from transformers import pipeline
+    from transformers import pipeline, AutoTokenizer, AutoConfig, AutoModelForCausalLM
     import torch
 
     kwargs = {"trust_remote_code": True}
-    if torch.cuda.is_available():
-        kwargs["device"] = 0
 
     # audio-classification pipeline doesn't support automatically
     # converting inputs from fp32 to fp16
@@ -149,18 +149,63 @@ def _create_hf_transformers_pipeline(task, model, revision):
         # TODO: check if bfloat16 is well supported
         torch_dtype = torch.float32
 
+    kwargs["torch_dtype"] = torch_dtype
+
+    if task == "text-generation":
+        no_attention_mask = model in hf_no_attention_mask_models
+
+        config = AutoConfig.from_pretrained(model, revision=revision, **kwargs)
+        if no_attention_mask or not config.tokenizer_class:
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    model, revision=revision, **kwargs
+                )
+                if no_attention_mask:
+                    # tokenizer checks if attention_mask is in
+                    # model_input_names to set "return_attention_mask"
+                    # kwargs
+                    tokenizer.model_input_names.remove("attention_mask")
+
+                    model_obj = AutoModelForCausalLM.from_pretrained(
+                        model, revision=revision, **kwargs
+                    )
+
+                    def patch_model_obj(model_obj):
+                        orig_generate = model_obj.generate
+
+                        def no_attention_mask_generate(self, *args, **kwargs):
+                            # remove attention_mask from kwargs
+                            kwargs.pop("attention_mask", None)
+                            return orig_generate(*args, **kwargs)
+
+                        model_obj.generate = no_attention_mask_generate.__get__(
+                            model_obj
+                        )
+
+                    patch_model_obj(model_obj)
+
+                    if torch.cuda.is_available():
+                        model_obj = model_obj.to("cuda")
+            except Exception as e:
+                logger.info(f"Failed to create tokenizer with AutoTokenizer: {e}")
+            else:
+                kwargs["tokenizer"] = tokenizer
+                if no_attention_mask:
+                    kwargs["model"] = model_obj
+
+    if torch.cuda.is_available():
+        kwargs["device"] = 0
+    kwargs.setdefault("model", model)
     try:
-        # try fp16
-        kwargs["torch_dtype"] = torch_dtype
-        pipeline = pipeline(task=task, model=model, revision=revision, **kwargs)
+        pipe = pipeline(task=task, revision=revision, **kwargs)
     except Exception as e:
         logger.info(
             f"Failed to create pipeline with {torch_dtype}: {e}, fallback to fp32"
         )
         # fallback to fp32
         kwargs.pop("torch_dtype")
-        pipeline = pipeline(task=task, model=model, revision=revision, **kwargs)
-    return pipeline
+        pipe = pipeline(task=task, revision=revision, **kwargs)
+    return pipe
 
 
 def create_transformers_pipeline(task, model, revision):

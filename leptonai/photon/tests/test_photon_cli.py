@@ -34,6 +34,7 @@ text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92"
 sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
 audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
 depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstimation"
+microsoft_phi_model = "hf:microsoft/phi-1_5"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -140,9 +141,14 @@ class TestPhotonCli(unittest.TestCase):
             (text2text_generation_model,),
             (sentiment_analysis_model,),
             (depth_estimation_model,),
+            (microsoft_phi_model,),
         ]
     )
     def test_photon_run(self, model):
+        if os.getenv("GITHUB_ACTIONS") and model in [microsoft_phi_model]:
+            logger.warning(f"Skipping {model} test on Github Actions")
+            return
+
         name = random_name()
         proc, port = photon_run_local_server(name=name, model=model)
 
