@@ -571,16 +571,15 @@ def prepare(ctx, path):
             )
             sys.exit(1)
         sudo = shutil.which("sudo")
-        if not sudo:
-            console.print(
-                "Cannot install system dependency because sudo is not available"
+        if sudo:
+            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+                f"Installing system dependency will run with sudo ({sudo}), continue?",
+                default=True,
             )
-            sys.exit(1)
+        else:
+            console.print("No `sudo` fond in the system, try proceed without sudo.")
+            confirmed = True
 
-        confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-            f"Installing system dependency will run with sudo ({sudo}), continue?",
-            default=True,
-        )
         if confirmed:
             console.print(f"Installing system_dependency:\n{system_dependency}")
             try:
