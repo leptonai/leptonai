@@ -5,10 +5,11 @@ from typing import Callable, Dict, List, Set, Optional, Union, Iterable
 from fastapi.encoders import jsonable_encoder
 import httpx
 
-from leptonai._internal.client_utils import (
+from leptonai._internal.client_utils import (  # noqa
     _is_valid_url,
     _get_method_docstring,
     _get_positional_argument_error_message,
+    get_file_content,  # noqa
 )
 from leptonai.api.connection import Connection
 from leptonai.api.workspace import (
