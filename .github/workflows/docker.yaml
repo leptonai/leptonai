@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
       nightly:
-        description: "Whether to build nightly images"
+        description: "Whether to install nightly version of torch"
         type: boolean
         default: false
 
