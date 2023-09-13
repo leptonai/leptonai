@@ -283,6 +283,56 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(res_post_file.status_code, 200)
         self.assertEqual(res_post_url.json(), res_post_file.json())
 
+    def test_photon_model_spec(self):
+        tmp = tempfile.NamedTemporaryFile(suffix=".py")
+        with open(tmp.name, "w") as f:
+            f.write("""
+from leptonai.photon import Photon
+
+class CustomPhoton(Photon):
+    @Photon.handler
+    def run(self, input: str) -> str:
+        return "custom" + input
+""")
+
+        # (model str, valid)
+        test_cases = [
+            # with "py:" schema and class name
+            (f"py:{tmp.name}:CustomPhoton", True),
+            # no class name
+            (f"py:{tmp.name}", True),
+            # no "py:" schema
+            (f"{tmp.name}:CustomPhoton", True),
+            # just filename
+            (tmp.name, True),
+            # use variable
+            ("leptonai.photon.prebuilt.Echo", True),
+            # should specify class name when using variable
+            ("leptonai.photon.prebuilt", False),
+            # with "py:" schema
+            ("py:leptonai.photon.prebuilt.Echo", True),
+            # invalid
+            (random_name(), False),
+            # hf
+            (transformers_model, True),
+            # hf without "hf:"
+            (transformers_model[3:], False),
+            ("leptonai.photon.hf.hf.HuggingFacePhoton", False),
+            ("leptonai.photon.hf.hf.HuggingfaceTextGenerationPhoton", False),
+        ]
+
+        for model, valid in test_cases:
+            try:
+                proc = None
+                proc, _ = photon_run_local_server(name=random_name(), model=model)
+            except Exception:
+                self.assertFalse(valid, f"Model {model} should be invalid")
+            else:
+                self.assertTrue(valid, f"Model {model} should be valid")
+            finally:
+                if proc is not None:
+                    proc.kill()
+
 
 if __name__ == "__main__":
     unittest.main()
