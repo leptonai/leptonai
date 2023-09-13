@@ -672,7 +672,7 @@ class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
         return res
 
 
-class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
+class HuggingfaceDepthEstimationPhoton(HuggingfacePhoton):
     hf_task: str = "depth-estimation"
 
     @Photon.handler(
