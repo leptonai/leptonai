@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 import re
+import sys
 from typing import Any
 
 import click
@@ -15,6 +16,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import deployment as api
+from leptonai.api import photon as photon_api
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_DEPLOYMENT_URL
 
@@ -268,7 +270,12 @@ def log(name, replica):
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to update.", required=True)
-@click.option("--id", "-i", help="The new photon id to update to.", default=None)
+@click.option(
+    "--id",
+    "-i",
+    help="The new photon id to update to. Use `latest` for the latest id.",
+    default=None,
+)
 @click.option(
     "--min-replicas",
     help=(
@@ -307,6 +314,40 @@ def update(name, min_replicas, resource_shape, public, tokens, id):
     old tokens are replaced by the new set of tokens.
     """
     conn = get_connection_or_die()
+    if id == "latest":
+        # This is a special case where we also need to find the corresponding
+        # photon id.
+        dep_info = guard_api(
+            api.get_deployment(conn, name),
+            detail=True,
+            msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
+        )
+        current_photon_id = dep_info["photon_id"]
+        photons = guard_api(
+            photon_api.list_remote(conn),
+            detail=True,
+            msg=(
+                "Failed to list photons in workspace"
+                f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
+            ),
+        )
+        for photon in photons:
+            if photon["id"] == current_photon_id:
+                current_photon_name = photon["name"]
+                break
+        else:
+            console.print(
+                f"Cannot find current photon ([red]{current_photon_id}[/]) in workspace"
+                f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
+            )
+            sys.exit(1)
+        records = [
+            (photon["name"], photon["model"], photon["id"], photon["created_at"])
+            for photon in photons
+            if photon["name"] == current_photon_name
+        ]
+        id = sorted(records, key=lambda x: x[3])[-1][2]
+        console.print(f"Updating to latest photon id [green]{id}[/].")
     guard_api(
         api.update_deployment(
             conn,
