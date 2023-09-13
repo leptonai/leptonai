@@ -5,7 +5,7 @@ on:
     inputs:
       version:
         description: "Photon Runner Version"
-        required: true
+        required: false
       build_base:
         description: "Whether to (re)build base images"
         type: boolean
@@ -63,15 +63,17 @@ jobs:
           VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
         run: |
           echo "HEAD SHA=$(git rev-parse --short HEAD)"
-          echo "VERSION_TAG=${VERSION_TAG}"
 
           if [ "${{ inputs.nightly }}" == 'true' ]; then
-            base_tag = "${{ steps.vars.outputs.base_image }}-nightly"
-            tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}-nightly"
+            base_tag="${{ steps.vars.outputs.base_image }}-nightly"
+            VERSION_TAG="nightly"
           else
-            base_tag = "${{ steps.vars.outputs.base_image }}"
-            tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
+            base_tag="${{ steps.vars.outputs.base_image }}"
           fi
+
+          echo "VERSION_TAG=${VERSION_TAG}"
+
+          tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
           docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}"
           if [ "${{ inputs.is_release }}" == 'true' ]; then
               docker push ${tag}
