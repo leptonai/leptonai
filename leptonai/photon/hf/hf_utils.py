@@ -6,7 +6,7 @@ from typing import List
 from loguru import logger
 
 from leptonai.registry import Registry
-from leptonai.photon import FileParam
+from leptonai.photon import FileParam, HTTPException
 
 from .hf_dependencies import hf_no_attention_mask_models
 
@@ -267,3 +267,27 @@ def hf_missing_package_error_message(
         " [https://github.com/leptonai/leptonai-sdk/blob/main/leptonai/photon/hf/hf_dependencies.py]"
         " for more details)"
     )
+
+
+def hf_try_explain_run_exception(e: Exception) -> Exception:
+    """
+    Try to categorize the exception and provide a more user-friendly error message.
+    """
+    if isinstance(e, TypeError):
+        if "'NoneType' object is not callable" in str(e):
+            new_e = HTTPException(
+                status_code=503,
+                detail=(
+                    "Your pipeline encountered a runtime error that is known to not be"
+                    " a bug of LeptonAI. Specifically, the text generation pipeline"
+                    " that you are running did not specify tokenizer_class in its"
+                    " model's config.json file, and causing the pipeline to not be able"
+                    " to automatically determine the tokenizer class. If you are the"
+                    " author of the pipeline, consider adding tokenizer_class to your"
+                    " model's config.json file."
+                ),
+            )
+            new_e.__cause__ = e
+            return new_e
+    # Finall falback: return the original exception
+    return e

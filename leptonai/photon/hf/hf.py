@@ -16,6 +16,7 @@ from .hf_utils import (
     pipeline_registry,
     img_param_to_img,
     hf_missing_package_error_message,
+    hf_try_explain_run_exception,
 )
 from .hf_dependencies import hf_pipeline_dependencies
 
@@ -295,20 +296,23 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
         do_sample: bool = True,
         **kwargs,
     ) -> Union[str, List[str]]:
-        res = self.run(
-            inputs,
-            top_k=top_k,
-            top_p=top_p,
-            temperature=temperature,
-            repetition_penalty=repetition_penalty,
-            max_new_tokens=max_new_tokens,
-            max_time=max_time,
-            return_full_text=return_full_text,
-            num_return_sequences=num_return_sequences,
-            do_sample=do_sample,
-            **kwargs,
-        )
-        return _get_generated_text(res)
+        try:
+            res = self.run(
+                inputs,
+                top_k=top_k,
+                top_p=top_p,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                max_new_tokens=max_new_tokens,
+                max_time=max_time,
+                return_full_text=return_full_text,
+                num_return_sequences=num_return_sequences,
+                do_sample=do_sample,
+                **kwargs,
+            )
+            return _get_generated_text(res)
+        except Exception as e:
+            raise hf_try_explain_run_exception(e)
 
     def answer(self, question, history):
         history.append({"role": "user", "content": question})
