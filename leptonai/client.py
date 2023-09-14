@@ -6,10 +6,8 @@ from fastapi.encoders import jsonable_encoder
 import httpx
 
 from leptonai._internal.client_utils import (  # noqa
-    _is_valid_url,
     _get_method_docstring,
     _get_positional_argument_error_message,
-    get_file_content,  # noqa
 )
 from leptonai.api.connection import Connection
 from leptonai.api.workspace import (
@@ -17,6 +15,7 @@ from leptonai.api.workspace import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
 )
+from leptonai.util import _is_valid_url
 from .api import deployment, APIError
 
 

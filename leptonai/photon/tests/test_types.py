@@ -1,9 +1,19 @@
+import os
+import tempfile
+
+# Set cache dir to a temp dir before importing anything from leptonai
+tmpdir = tempfile.mkdtemp()
+os.environ["LEPTON_CACHE_DIR"] = tmpdir
+
+import base64
 import multiprocessing
 import time
 from typing import Any
 import unittest
 
 import numpy as np
+
+import requests
 
 try:
     import torch
@@ -18,8 +28,9 @@ from leptonai.photon.types import (
     lepton_pickle,
     lepton_unpickle,
     LeptonPickled,
+    get_file_content,
 )
-from leptonai.photon import Photon, handler, StreamingResponse
+from leptonai.photon import Photon, handler, StreamingResponse, FileParam
 
 from utils import find_free_port
 
@@ -160,6 +171,34 @@ class TestStreamingPhoton(unittest.TestCase):
         result = c.run()
 
         self.assertEqual(result, b"0,1,2,3,4,5,6,7,8,9,")
+
+
+class TestUtil(unittest.TestCase):
+    def test_get_file_content(self):
+        msg = b"some random message"
+        file_param = FileParam(msg)
+        self.assertEqual(get_file_content(file_param), msg)
+
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(msg)
+            f.flush()
+            self.assertEqual(get_file_content(f.name, allow_local_file=True), msg)
+
+        try:
+            content = get_file_content("https://www.google.com/robots.txt")
+        except requests.ConnectionError:
+            pass
+        else:
+            self.assertIn(b"User-agent", content)
+
+        encoded = base64.b64encode(msg).decode("utf-8")
+        self.assertEqual(get_file_content(encoded), msg)
+        self.assertEqual(get_file_content("data:media/txt;base64," + encoded), msg)
+
+        self.assertRaises(TypeError, get_file_content, 1)
+        self.assertRaises(TypeError, get_file_content, [])
+        self.assertRaises(TypeError, get_file_content, {})
+        self.assertRaises(TypeError, get_file_content, [1, 2, 3])
 
 
 if __name__ == "__main__":
