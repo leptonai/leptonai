@@ -6,6 +6,7 @@ import subprocess
 import socket
 import sys
 import tempfile
+import traceback
 from typing import Optional
 
 from rich.console import Console
@@ -518,29 +519,57 @@ def run(
                 " remote execution. They will be ignored for local execution."
             )
         path = str(path)
-        if not os.path.exists(path):
-            console.print(
-                f"You encountered an internal error: photon [red]{path}[/] does not"
-                " exist."
-            )
-            sys.exit(1)
+        check(
+            os.path.exists(path),
+            f"You encountered an internal error: photon [red]{path}[/] does not exist.",
+        )
         metadata = api.load_metadata(path)
 
         if metadata.get(METADATA_VCS_URL_KEY, None):
             workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
             os.chdir(workpath)
-        photon = api.load(path)
 
-        port = _find_available_port(port)
-        console.print(f"Launching photon on port: [green]{port}[/]")
-        if not isinstance(photon, Photon):
-            console.print(
-                f"You encountered an unsupported path: Loaded Photon from {path}"
-                " is not a python runnable Photon object."
-            )
-            sys.exit(1)
-        else:
+        try:
+            photon = api.load(path)
+            port = _find_available_port(port)
+            console.print(f"Launching photon on port: [green]{port}[/]")
+            if not isinstance(photon, Photon):
+                console.print(
+                    f"You encountered an unsupported path: Loaded Photon from {path}"
+                    " is not a python runnable Photon object."
+                )
+                sys.exit(1)
             photon.launch(port=port)
+        except ModuleNotFoundError as e:
+            # We encountered a ModuleNotFoundError. This is likely due to missing
+            # dependencies. We will print out a helpful message and exit.
+            console.print(
+                "While loading and launching photon, some modules are not found."
+                " Details:\n"
+            )
+            traceback.print_exc()
+            console.print(
+                "\nIt seems that you are missing some dependencies. This is not a bug"
+                " of LeptonAI SDK, and is due to the underlying photon requiring"
+                " dependencies. When running photons locally, we intentionally refrain"
+                " from installing these dependencies for you, in order to not mess with"
+                " your local environment. You can manually install the missing"
+                " dependencies by looking at the exception above."
+            )
+            if metadata["requirement_dependency"]:
+                console.print(
+                    "\nAccording to the photon's metadata, dependencies can be"
+                    " installed via:\n\tpip install"
+                    f" {' '.join(metadata['requirement_dependency'])}"
+                )
+            if metadata["system_dependency"]:
+                console.print(
+                    "\nAccording to the photon's metadata, system dependencies can be"
+                    " installed via:\n\tsudo apt-get install"
+                    f" {' '.join(metadata['system_dependency'])}"
+                )
+            console.print("Kindly install the dependencies and try again.")
+            sys.exit(1)
         return
 
 
