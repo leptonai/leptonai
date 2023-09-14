@@ -1,4 +1,4 @@
-<img src="assets/logo.svg" height=100>
+<img src="https://raw.githubusercontent.com/leptonai/leptonai-sdk/main/assets/logo.svg" height=100>
 
 # LeptonAI SDK
 
@@ -124,7 +124,7 @@ For more details, checkout the [documentation](https://lepton.ai/docs/) and the 
 
 ## Contributing
 
-Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](CONTRIBUTING.md) for how to get involved.
+Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](https://github.com/leptonai/leptonai-sdk/blob/main/CONTRIBUTING.md) for how to get involved.
 
 ## License
 
