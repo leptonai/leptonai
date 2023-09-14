@@ -18,7 +18,7 @@ cd leptonai-sdk
 pip install -e .
 ```
 
-`-e` means "editable mode" in pip. With "editable mode" all changes to python code will immediately become effective in current environment.
+`-e` means "editable mode" in pip. With "editable mode" all changes to python code will immediately become effective in the current environment.
 
 ## Testing
 
