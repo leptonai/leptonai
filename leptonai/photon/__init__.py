@@ -12,6 +12,7 @@ from .photon import (  # noqa: F401
     FileParam,
     StaticFiles,
 )
+from .types import get_file_content  # noqa: F401
 import leptonai.photon.hf  # noqa: F401
 
 
