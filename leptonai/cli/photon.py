@@ -299,7 +299,15 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
 
 @photon.command()
 @click.option("--name", "-n", type=str, help="Name of the photon to run.")
-@click.option("--model", "-m", type=str, help="Model spec of the photon.")
+@click.option(
+    "--model",
+    "-m",
+    type=str,
+    help=(
+        "Model spec of the photon. If model is specified, we will rebuild the photon"
+        " before running."
+    ),
+)
 @click.option(
     "--file", "-f", "path", type=str, help="Path to the specific `.photon` file to run."
 )
@@ -423,7 +431,7 @@ def run(
         conn = WorkspaceInfoLocalRecord.get_current_connection()
         if (name and model) and not id:
             console.print(
-                f"Rebuilding photon with --model {model}.\n If you want to run without"
+                f"Rebuilding photon with --model {model}.\nIf you want to run without"
                 " rebuilding, please remove the --model arg."
             )
             ctx.invoke(create, name=name, model=model)
@@ -489,7 +497,7 @@ def run(
                 )
             else:
                 console.print(
-                    f"Rebuilding photon with --model {model}.\n If you want to run"
+                    f"Rebuilding photon with --model {model}.\nIf you want to run"
                     " without rebuilding, please remove the --model arg."
                 )
             check(
