@@ -121,6 +121,10 @@ c.echo(inputs="hello world")
 
 For more details, checkout the [documentation](https://lepton.ai/docs/) and the [examples](https://github.com/leptonai/examples).
 
+## Contributing
+
+Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](CONTRIBUTING.md) for how to get involved.
+
 ## License
 
 Lepton AI sdk is released under the Apache 2.0 license.
