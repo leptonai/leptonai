@@ -230,7 +230,7 @@ class TestPhotonCli(unittest.TestCase):
         path = find_local_photon(name)
         self.assertIsNotNone(path)
 
-        proc, port = photon_run_local_server(path=path, model=transformers_model)
+        proc, port = photon_run_local_server(path=path)
         res = requests.post(
             f"http://127.0.0.1:{port}/run",
             json={"inputs": "a cat", "max_length": 10},

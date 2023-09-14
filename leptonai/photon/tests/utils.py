@@ -30,6 +30,8 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
         raise ValueError("Either name or path must be specified")
     if name is not None and path is not None:
         raise ValueError("Only one of name or path can be specified")
+    if path is not None and model is not None:
+        raise ValueError("model cannot be specified when path is specified")
     if port is None:
         port = find_free_port()
     cmd = [

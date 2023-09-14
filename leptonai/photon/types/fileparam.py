@@ -38,7 +38,9 @@ class FileParam(BaseModel):
             # when the FileParam is created from a request, content is a base64 encoded string
             if content.startswith(_BASE64FILE_ENCODED_PREFIX):
                 return base64.b64decode(
-                    content[len(_BASE64FILE_ENCODED_PREFIX) :].encode("utf-8")
+                    content[len(_BASE64FILE_ENCODED_PREFIX) :].encode(  # noqa: E203
+                        "utf-8"
+                    )
                 )
             else:
                 return content.encode("utf-8")
