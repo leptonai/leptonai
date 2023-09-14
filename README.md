@@ -4,7 +4,7 @@
 
 **A Pythonic framework to simply AI service building**
 
-<a href="hhttps://dashboard.lepton.ai/playground">API Playground</a> •
+<a href="https://dashboard.lepton.ai/playground">API Playground</a> •
 <a href="https://github.com/leptonai/examples">Examples</a> •
 <a href="https://lepton.ai/docs/">Documentation</a> •
 <a href="https://lepton.ai/references">CLI References</a> •
