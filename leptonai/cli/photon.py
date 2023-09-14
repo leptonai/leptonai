@@ -571,21 +571,23 @@ def prepare(ctx, path):
             )
             sys.exit(1)
         sudo = shutil.which("sudo")
-        if not sudo:
-            console.print(
-                "Cannot install system dependency because sudo is not available"
+        if sudo:
+            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+                f"Installing system dependency will run with sudo ({sudo}), continue?",
+                default=True,
             )
-            sys.exit(1)
+        else:
+            console.print("No `sudo` found in the system, try proceed without sudo.")
+            confirmed = True
 
-        confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-            f"Installing system dependency will run with sudo ({sudo}), continue?",
-            default=True,
-        )
         if confirmed:
             console.print(f"Installing system_dependency:\n{system_dependency}")
+            cmd_prefix = [sudo, apt] if sudo else [apt]
             try:
-                subprocess.check_call([sudo, apt, "update"])
-                subprocess.check_call([sudo, apt, "install", "-y"] + system_dependency)
+                subprocess.check_call(cmd_prefix + ["update"])
+                subprocess.check_call(
+                    cmd_prefix + ["install", "-y"] + system_dependency
+                )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to {apt} install: {e}")
                 sys.exit(1)
