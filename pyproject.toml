@@ -3,6 +3,7 @@ name = "leptonai"
 description = "Lepton AI Platform"
 authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
 dynamic = ["dependencies", "version"]
+readme = "README.md"
 requires-python = ">=3.8"
 
 [project.urls]
