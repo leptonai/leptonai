@@ -35,6 +35,7 @@ sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
 audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
 depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstimation"
 microsoft_phi_model = "hf:microsoft/phi-1_5"
+image_to_text_model = "hf:Salesforce/blip-image-captioning-base"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -142,10 +143,14 @@ class TestPhotonCli(unittest.TestCase):
             (sentiment_analysis_model,),
             (depth_estimation_model,),
             (microsoft_phi_model,),
+            (image_to_text_model,),
         ]
     )
     def test_photon_run(self, model):
-        if os.getenv("GITHUB_ACTIONS") and model in [microsoft_phi_model]:
+        if os.getenv("GITHUB_ACTIONS") and model in [
+            microsoft_phi_model,
+            image_to_text_model,
+        ]:
             logger.warning(f"Skipping {model} test on Github Actions")
             return
 
