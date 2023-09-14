@@ -1,6 +1,12 @@
+import os
+import tempfile
+
+# Set cache dir to a temp dir before importing anything from leptonai
+tmpdir = tempfile.mkdtemp()
+os.environ["LEPTON_CACHE_DIR"] = tmpdir
+
 import base64
 import requests
-import tempfile
 import unittest
 
 from leptonai._internal.client_utils import get_file_content
