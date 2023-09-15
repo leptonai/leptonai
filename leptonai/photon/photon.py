@@ -875,9 +875,18 @@ class Photon(BasePhoton):
                         model_str = f"{model_str}:{cls_name}"
             elif "." in path:
                 module_str, _, cls_name = path.rpartition(".")
-                module = importlib.import_module(module_str)
+                try:
+                    module = importlib.import_module(module_str)
+                except ModuleNotFoundError:
+                    raise ValueError(
+                        f"'{path}' is neither an existing file nor an importable python"
+                        " variable"
+                    )
             else:
-                raise ValueError(f"Can not find file or module: {path}")
+                raise ValueError(
+                    f"'{path}' is neither an existing file nor an importable python"
+                    " variable"
+                )
 
             cloudpickle.register_pickle_by_value(module)
             ph_cls = getattr(module, cls_name)
