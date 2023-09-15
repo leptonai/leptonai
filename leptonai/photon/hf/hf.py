@@ -348,7 +348,7 @@ assistant:
             with gr.Row():
                 txt = gr.Textbox(
                     show_label=False, placeholder="Enter text and press enter"
-                ).style(container=False)
+                )
             txt.submit(self.answer, [txt, state], [chatbot, state])
         return blocks
 
@@ -429,7 +429,7 @@ assistant:
             with gr.Row():
                 txt = gr.Textbox(
                     show_label=False, placeholder="Enter text and press enter"
-                ).style(container=False)
+                )
             txt.submit(self.answer, [txt, state], [chatbot, state])
         return blocks
 
