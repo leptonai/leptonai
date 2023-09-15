@@ -2,7 +2,7 @@
 
 # LeptonAI SDK
 
-**A Pythonic framework to simply AI service building**
+**A Pythonic framework to simplify AI service building**
 
 <a href="https://lepton.ai/">Homepage</a> •
 <a href="https://dashboard.lepton.ai/playground">API Playground</a> •
