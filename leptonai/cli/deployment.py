@@ -130,6 +130,7 @@ def status(name, show_tokens):
     creation_time = datetime.fromtimestamp(dep_info["created_at"] / 1000).strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+
     state = dep_info["status"]["state"]
     if state == "Running":
         state = f"[green]{state}[/]"
@@ -139,6 +140,13 @@ def status(name, show_tokens):
     console.print(f"Created at: {creation_time}")
     console.print(f"Photon ID:  {dep_info['photon_id']}")
     console.print(f"State:      {state}")
+    timeout = (
+        dep_info.get("auto_scaler", {})
+        .get("scale_down", {})
+        .get("no_traffic_timeout", None)
+    )
+    if timeout:
+        console.print(f"Timeout(s): {timeout}")
     if workspace_id:
         web_url = LEPTON_DEPLOYMENT_URL.format(
             workspace_id=workspace_id, deployment_name=name
@@ -307,7 +315,17 @@ def log(name, replica):
     ),
     multiple=True,
 )
-def update(name, min_replicas, resource_shape, public, tokens, id):
+@click.option(
+    "--no-traffic-timeout",
+    type=int,
+    default=None,
+    help=(
+        "If specified, the deployment will be scaled down to 0 replicas after the"
+        " specified number of seconds without traffic. Set to 0 to explicitly change"
+        " the deployment to have no timeout."
+    ),
+)
+def update(name, min_replicas, resource_shape, public, tokens, id, no_traffic_timeout):
     """
     Updates a deployment. Note that for all the update options, changes are made
     as replacements, and not incrementals. For example, if you specify `--tokens`,
@@ -357,6 +375,7 @@ def update(name, min_replicas, resource_shape, public, tokens, id):
             resource_shape=resource_shape,
             is_public=public,
             tokens=tokens,
+            no_traffic_timeout=no_traffic_timeout,
         ),
         detail=True,
         msg=f"Cannot update deployment [red]{name}[/]. See error above.",

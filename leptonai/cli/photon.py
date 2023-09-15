@@ -394,7 +394,8 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     type=int,
     help=(
         "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic."
+        " specified number of seconds without traffic. Note that actual timeout"
+        " may be up to 30 seconds longer than the specified value."
     ),
 )
 @click.pass_context

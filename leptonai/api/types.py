@@ -189,12 +189,19 @@ class AutoScaler(BaseModel):
         no_traffic_timeout: Optional[int] = None,
     ) -> Optional["AutoScaler"]:
         if no_traffic_timeout is None:
+            # None means no change to the autoscaler.
             return None
-        elif no_traffic_timeout <= 0:
+        elif no_traffic_timeout < 0:
             raise ValueError(
-                f"no_traffic_timeout must be positive. Found {no_traffic_timeout}."
+                f"no_traffic_timeout must be non-negative. Found {no_traffic_timeout}."
             )
-        return AutoScaler(scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout))
+        elif no_traffic_timeout == 0:
+            # timeout of 0 means explicitly set no timeout.
+            return AutoScaler(scale_down=ScaleDown(no_traffic_timeout=0))
+        else:
+            return AutoScaler(
+                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout)
+            )
 
 
 # Spec to hold deployment configurations
