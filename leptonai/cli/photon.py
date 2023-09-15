@@ -671,3 +671,4 @@ def fetch(id, path):
 
 def add_command(cli_group):
     cli_group.add_command(photon)
+    cli_group.add_command(run)
