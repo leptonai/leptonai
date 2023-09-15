@@ -98,6 +98,7 @@ def update_deployment(
     resource_shape: Optional[str] = None,
     is_public: Optional[bool] = None,
     tokens: Optional[List[str]] = None,
+    no_traffic_timeout: Optional[int] = None,
 ):
     """
     Update a deployment in a workspace.
@@ -116,6 +117,7 @@ def update_deployment(
             is_public=is_public,
             tokens=tokens,
         ),
+        auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
     )
     deployment_body = deployment_spec.dict(exclude_none=True)
     if not deployment_body:
