@@ -34,6 +34,9 @@ def click_group(*args, **kwargs):
             matches = [x for x in self.list_commands(ctx) if is_abbrev(cmd_name, x)]
 
             if not matches:
+                if ctx.command.name == "lep":
+                    ctx.second_cmd = cmd_name
+                    return self.get_command(ctx, "photon")
                 return None
             elif len(matches) == 1:
                 return click.Group.get_command(self, ctx, matches[0])
@@ -42,6 +45,8 @@ def click_group(*args, **kwargs):
         def resolve_command(self, ctx, args):
             # always return the full command name
             _, cmd, args = super().resolve_command(ctx, args)
+            if getattr(ctx, "second_cmd", None):
+                args = [ctx.second_cmd] + args
             return cmd.name, cmd, args
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
