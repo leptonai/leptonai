@@ -324,6 +324,7 @@ class CustomPhoton(Photon):
             ("py:leptonai.photon.prebuilt.Echo", True),
             # invalid
             (random_name(), False),
+            ("nonexisting.py", False, "file"),
             # hf
             (transformers_model, True),
             # hf without "hf:"
@@ -332,12 +333,20 @@ class CustomPhoton(Photon):
             ("leptonai.photon.hf.hf.HuggingfaceTextGenerationPhoton", False),
         ]
 
-        for model, valid in test_cases:
+        for test_case in test_cases:
+            if len(test_case) == 2:
+                model, valid = test_case
+                msg = None
+            else:
+                model, valid, msg = test_case
+
             try:
                 proc = None
                 proc, _ = photon_run_local_server(name=random_name(), model=model)
-            except Exception:
+            except Exception as e:
                 self.assertFalse(valid, f"Model {model} should be invalid")
+                if msg is not None:
+                    self.assertIn(msg, str(e))
             else:
                 self.assertTrue(valid, f"Model {model} should be valid")
             finally:
