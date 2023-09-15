@@ -103,10 +103,14 @@ class HuggingfacePhoton(Photon):
         if len(model_parts) != 2:
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (can not parse model'
-                " name)"
+                " name). Huggingface model spec should be in the form of"
+                " hf:<model_name>[@<revision>]."
             )
         schema = model_parts[0]
         if schema not in schemas:
+            # In theory, this should not happen - the schema should be
+            # automatically checked by the photon registry, but we'll check it
+            # here just in case.
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (unknown schema:'
                 f' "{schema}")'
@@ -121,17 +125,31 @@ class HuggingfacePhoton(Photon):
         if hf_model_id in _MANUALLY_ANNOTATED_MODEL_TO_TASK:
             hf_task = _MANUALLY_ANNOTATED_MODEL_TO_TASK[hf_model_id]
         else:
-            try:
-                hf_task = mi.pipeline_tag
-            except AttributeError:
-                raise ValueError(
-                    f'Unsupported Huggingface model: "{model_str}" (can not find'
-                    " corresponding task)"
+            hf_task = mi.pipeline_tag
+            if hf_task is None:
+                raise AttributeError(
+                    f'Unsupported Huggingface model: "{model_str}" (the model did not'
+                    " specify a task).\nUsually, this means that the model creator did"
+                    " not intend to publish the model as a pipeline, and is only using"
+                    " HuggingFace Hub as a storage for the model weights and misc"
+                    " files. Thus, it is not possible to run the model automatically."
+                    " This is not a bug of Lepton SDK, but rather a limitation of the"
+                    " hf ecosystem.\n\nAs a possible solution, you can try to access"
+                    " the corresponding model page at"
+                    f" https://huggingface.co/{hf_model_id} and see if the model"
+                    " creator provided any instructions on how to run the model. You"
+                    " can then wrap this model into a custom Photon with relatively"
+                    " easy scaffolding. Check out the documentation at"
+                    " https://www.lepton.ai/docs/walkthrough/anatomy_of_a_photon for"
+                    " more details."
                 )
 
         if hf_task not in SUPPORTED_TASKS:
             raise ValueError(
-                f'Unsupported Huggingface model: "{model_str}" (task: "{hf_task}")'
+                f'Unsupported Huggingface model: "{model_str}" (task: {hf_task}). This'
+                " task is not supported by LeptonAI SDK yet. If you would like us to"
+                " add support for this task type, please let us know by opening an"
+                " issue at https://github.com/lepton/leptonai-sdk/issues/new/choose."
             )
 
         # 8 chars should be enough to identify a commit
