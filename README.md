@@ -27,13 +27,13 @@ Install the SDK with:
 ```shell
 pip install -U leptonai
 ```
-Then, launch a HuggingFace model, say `gpt2`, in one line of code:
+This installs the `leptonai` python library, as well as the commandline interface `lep`. You can then launch a HuggingFace model, say `gpt2`, in one line of code:
 
 ```python
 lep photon run --name gpt2 --model hf:gpt2 --local
 ```
 
-If you have access to the Llama2 model ([apply for access here](https://huggingface.co/meta-llama/Llama-2-7b)) and youh have a reasonably sized GPU, you can launch it with:
+If you have access to the Llama2 model ([apply for access here](https://huggingface.co/meta-llama/Llama-2-7b)) and you have a reasonably sized GPU, you can launch it with:
 
 ```python
 # hint: you can also write `-n` and `-m` for short
@@ -52,7 +52,9 @@ print(c.run.__doc__)
 print(c.run(inputs="I enjoy walking with my cute dog"))
 ```
 
-Due to the high level of customizations, not all HuggingFace models are supported. You can find out more details in the [documentation](https://www.lepton.ai/docs/advanced/prebuilt_photons#hugging-face-photons). If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai-sdk/issues/new).
+Fully managed Llama2 models and CodeLlama models can be found in the [playground](https://dashboard.lepton.ai/playground).
+
+Many standard HuggingFace pipelines are supported - find out more details in the [documentation](https://www.lepton.ai/docs/advanced/prebuilt_photons#hugging-face-photons). Not all HuggingFace models are supported though, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai-sdk/issues/new).
 
 ## Checking out more examples
 
@@ -81,7 +83,7 @@ with open("cat.png", "wb") as fid:
 
 or access the mounted Gradio UI at [http://localhost:8080/ui](http://localhost:8080/ui). Check the [README file](https://github.com/leptonai/examples/blob/main/advanced/sdxl/README.md) for more details.
 
-A fully managed SDXL is hosted at [https://dashboard.lepton.ai/playground/sdxl](https://dashboard.lepton.ai/playground/sdxl).
+A fully managed SDXL is hosted at [https://dashboard.lepton.ai/playground/sdxl](https://dashboard.lepton.ai/playground/sdxl) with API access.
 
 ## Writing your own photons
 
