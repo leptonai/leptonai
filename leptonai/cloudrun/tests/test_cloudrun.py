@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import unittest
 
 from leptonai.cloudrun import Remote
@@ -15,17 +16,16 @@ class MyPhoton(Photon):
 
 try:
     conn = api.workspace.current_connection()
+    version = api.workspace.version()
+    # If there isn't a version, we are in a dev workspace and we assume you know what you are doing.
+    # If the version exists, 0.10.0 is the lowest version that supports timeout.
+    maybe_supports_timeout = version is None or version >= (0, 10, 0)
 except RuntimeError:
     conn = None
+    maybe_supports_timeout = False
 
 
 class TestInline(unittest.TestCase):
-    def tearDown(self) -> None:
-        # Ensure that the Remote objects are properly cleaned.
-        import gc
-
-        gc.collect()
-
     @unittest.skipIf(conn is None, "No connection to Lepton AI cloud")
     def test_inline(self):
         remote_run = Remote(MyPhoton())
@@ -57,6 +57,35 @@ class TestInline(unittest.TestCase):
         sys.path.remove(os.path.dirname(__file__))
         # Without the local file, Foo() will raise an error.
         self.assertRaises(RuntimeError, Remote, Foo())
+
+    @unittest.skipIf(conn is None, "No connection to Lepton AI cloud")
+    @unittest.skipIf(
+        not maybe_supports_timeout,
+        "No timeout support",
+    )
+    def test_timeout(self):
+        remote_run = Remote(MyPhoton(), no_traffic_timeout=10)
+        self.assertTrue(remote_run.healthz())
+        self.assertEqual(remote_run.foo(), "hello world!")
+
+        # The tiemout check is done with +- 30 second margin, so we wait for
+        # a sufficiently long time.
+        time.sleep(60)
+        # Test if it is actually shut down
+        deployment_id = remote_run.deployment_id
+        self.assertIsNotNone(deployment_id)
+        dep_info = api.deployment.get_deployment(
+            api.workspace.current_connection(), str(deployment_id)
+        )
+        self.assertIsInstance(dep_info, dict)
+        self.assertEqual(dep_info["status"]["state"], "Not Ready")
+
+        remote_run.restart()
+        self.assertTrue(remote_run.healthz())
+        self.assertEqual(remote_run.foo(), "hello world!")
+        remote_run.close()
+        self.assertEqual(remote_run.client, None)
+        del remote_run
 
 
 if __name__ == "__main__":

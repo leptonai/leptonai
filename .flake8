@@ -1,0 +1,7 @@
+[flake8]
+# E402: module level import not at top of file
+# This is needed to allow lazy imports in photon code.
+# E501: line too long
+# W503: line break before binary operator
+# We will use black to format the code, and will not need to worry about the above two.
+ignore = E402, E501, W503

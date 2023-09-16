@@ -26,29 +26,6 @@ def workspace():
     pass
 
 
-def _register_and_set(
-    workspace_id: str, workspace_url: str, auth_token: Optional[str] = None
-):
-    # Helper function to register the workspace url and log in. It does not check
-    # duplicates - assuming that it has already been done.
-    if auth_token is None:
-        auth_token = (
-            console.input(
-                f'Please enter the authentication token for "{workspace_id}"'
-                " (ENTER if none): "
-            )
-            or ""
-        )
-    WorkspaceInfoLocalRecord.set_and_save(
-        workspace_id, workspace_url, auth_token=auth_token
-    )
-    console.print(f'Workspace "{workspace_id}" [green]registered[/].')
-    console.print(
-        f"Next time, you can just use `lep workspace login -i {workspace_id}` to"
-        " log in."
-    )
-
-
 @workspace.command()
 @click.option("--workspace-id", "-i", help="The workspace id to log in to.")
 @click.option(

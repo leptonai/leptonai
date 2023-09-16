@@ -1,13 +1,16 @@
 """
 Utility functions to interact with the remote server.
 """
-from collections import defaultdict
+import atexit
+import gc
 import hashlib
 import inspect
 import re
 import time
 from typing import Optional, Union, Type
 import uuid
+import warnings
+import weakref
 
 from loguru import logger
 
@@ -17,28 +20,15 @@ from leptonai.api import APIError
 from leptonai.client import Client, current
 
 
-_unique_process_uuid_value = None
 _unique_name_pattern = re.compile(r"cldrun-[0-9a-f]{25}")
 _unique_photon_id_pattern = re.compile(r"cldrun-[0-9a-f]{25}-[0-9a-z]{8}")
-_refcount = defaultdict(int)
 
 
-def _unique_process_uuid() -> str:
-    """
-    Generate a unique uuid for the current process.
-    """
-    global _unique_process_uuid_value
-    if _unique_process_uuid_value is None:
-        _unique_process_uuid_value = str(uuid.uuid4())
-    return _unique_process_uuid_value
-
-
-def _make_unique_name(content: str) -> str:
+def _make_unique_name() -> str:
     """
     Make a unique name for a photon.
     """
-    m = hashlib.md5(content.encode())
-    m.update(_unique_process_uuid().encode())
+    m = hashlib.md5(uuid.uuid4().bytes)
     return "cldrun-" + m.hexdigest()[7:]
 
 
@@ -48,8 +38,13 @@ class Remote(object):
     """
 
     _MAX_WAIT_TIME = 600  # In the Remote class, we wait for at most 10 minutes for the photon to be ready.
+    _MAX_CLIENT_WAIT_TIME = 30  # In the Remote class, we wait for at most 30 seconds for DNS and other propagation between the deployment being ready and the client being accessable.
     _DEFAULT_TIMEOUT = 600  # In the Remote class, we set the timeout for the deployments to be 10 minutes by default.
     _DEFAULT_WAIT_INTERVAL = 1  # In the Remote class, we wait for 1 second between each check for the photon to be ready.
+
+    # A best-effort global variable for Remote objects, and a best-effort cleanup function.
+    # This is used to make sure that we do clean things up when the program exits.
+    _all_remotes = weakref.WeakSet()
 
     def __init__(self, photon: Union[Type[Photon], str, Photon], **kwargs):
         """
@@ -57,11 +52,28 @@ class Remote(object):
 
         Args:
             Photon: a photon object, or a string representing a photon.
-            **kwargs: Keyword arguments to pass to the photon constructor.
+            **kwargs: Keyword arguments to create the deployment. Currently, they are:
+                resource_shape: str = types.DEFAULT_RESOURCE_SHAPE,
+                min_replicas: int = 1,
+                mounts: Optional[List[str]] = None,
+                env_list: Optional[List[str]] = None,
+                secret_list: Optional[List[str]] = None,
+                no_traffic_timeout: Optional[int] = None,
+            See leptonai.api.deployment.run_remote for details.
         """
+        self._all_remotes.add(self)
         self.photon = photon
         self.kwargs = kwargs
-        self.display_name = ""
+        self.display_name = str(photon)
+        self.unique_name = _make_unique_name()
+        self.conn = api.workspace.current_connection()
+
+        version = api.workspace.version(self.conn)
+        if version and version < (0, 10, 0):
+            warnings.warn(
+                "no_traffic_timeout is not yet released on this workspace."
+                " For now, your deployment will be created without timeout."
+            )
         # local path to the created photon
         self.path: Optional[str] = None
         # photon id on the remote server
@@ -70,31 +82,31 @@ class Remote(object):
         self.deployment_id: Optional[str] = None
         # remote photon client
         self.client = None
-        self.start_up()
+        try:
+            self._start_up()
+        except Exception as e:
+            # close things first, and then raise the error.
+            self.close()
+            raise e
 
-    def start_up(self):
+    def _create_and_push_photon(self):
         """
-        Starts up the remote run.
+        Creates and pushes the photon to the remote server.
         """
         # First, create and push the photon
         photon = self.photon
-        logger.debug(f"Remote: creating photon {photon}")
+        logger.debug(f"Remote: creating photon {self.unique_name} ({photon})")
+
         if inspect.isclass(photon) and issubclass(photon, Photon):
-            self.display_name = str(photon)
-            unique_name = _make_unique_name(str(photon))
-            photon_instance: Photon = photon(name=unique_name)
+            photon_instance: Photon = photon(name=self.unique_name)
         elif isinstance(photon, Photon):
             # if the photon is already a Photon object, then directly save it.
-            unique_name = _make_unique_name(str(photon))
             photon_instance: Photon = photon
-            photon_instance.name = unique_name
-            self.display_name = str(photon)
+            photon_instance.name = self.unique_name
         elif isinstance(photon, str):
             # if the photon is a string, then create a Photon object and save it.
-            self.display_name = photon
-            unique_name = _make_unique_name(photon)
             try:
-                created_photon = api.photon.create(name=unique_name, model=photon)
+                created_photon = api.photon.create(name=self.unique_name, model=photon)
                 if not isinstance(created_photon, Photon):
                     raise RuntimeError(
                         "Currently we do not support non-python photons yet."
@@ -102,7 +114,7 @@ class Remote(object):
                 photon_instance: Photon = created_photon
             except Exception as e:
                 raise RuntimeError(
-                    f"Failed to create photon {unique_name} from {photon}"
+                    f"Failed to create photon {self.unique_name} from {photon}"
                 ) from e
         else:
             raise TypeError(
@@ -112,135 +124,182 @@ class Remote(object):
         self.path = photon_instance.save()
 
         # Second, push the photon
-        logger.debug(f"Remote: pushing photon {unique_name}")
-        conn = api.workspace.current_connection()
-        response = api.photon.push(conn, self.path)
+        logger.debug(f"Remote: pushing photon {self.unique_name}")
+        response = api.photon.push(self.conn, self.path)
         if response.status_code in (200, 201):
             # Successfully pushed the photon, or the photon has already existed
             self.photon_id = response.json()["id"]
-        elif response.status_code == 409:
-            pattern = r'photons\.lepton\.ai "(.*?)" already exists'
-            match = re.search(pattern, response.json()["message"])
-            if match:
-                self.photon_id = match.group(1)
-            else:
-                raise RuntimeError(
-                    "You encountered a programming error: the returned 409 message"
-                    " does not have the expected format. Response:"
-                    f" {response} {response.text}"
-                )
-            logger.debug(f"Remote: photon {self.photon_id} already exists, reusing.")
         else:
             raise RuntimeError(
-                f"Failed to push photon {unique_name} to the workspace. Response:"
+                f"Failed to push photon {self.unique_name} to the workspace. Response:"
                 f" {response} {response.text}"
             )
 
-        # Third, run the photon
+    def _run_photon(self, resume: bool = False):
+        if not self.photon_id:
+            raise RuntimeError(
+                "You hit a programming error: _run_photon should not be called before"
+                "photon is created."
+            )
         logger.debug(f"Remote: running photon {self.photon_id}")
-        if "timeout" not in self.kwargs:
+        if "no_traffic_timeout" not in self.kwargs:
             self.kwargs["no_traffic_timeout"] = self._DEFAULT_TIMEOUT
-        response = api.photon.run_remote(
-            conn, id=self.photon_id, deployment_name=unique_name, **self.kwargs
-        )
-        if response.status_code == 201:
-            self.deployment_id = unique_name
-        elif response.status_code == 409:
-            pattern = "deployment (.*?) already exists"
-            match = re.search(pattern, response.json()["message"])
-            if match:
-                self.deployment_id = match.group(1)
+        if resume:
+            # When creating a photon, a missing min_replicas value means it's 1.
+            # When updating the deployment, we will need to explicitly pass in the
+            # min_replicas value, otherwise the backend will think we are trying to
+            # not change it (aka, keeping as 0)
+            if "min_replicas" not in self.kwargs:
+                self.kwargs["min_replicas"] = 1
+            if not self.deployment_id:
+                raise RuntimeError(
+                    "You hit a programming error: _run_photon should not be called"
+                    " with resume=True before deployment is created."
+                )
+            response = api.deployment.update_deployment(
+                self.conn, name=self.deployment_id, **self.kwargs
+            )
+            if isinstance(response, APIError):
+                raise RuntimeError(
+                    f"Failed to resume photon {self.photon_id}. Response:"
+                    f" {response.message}"
+                )
+        else:
+            response = api.photon.run_remote(
+                self.conn,
+                id=self.photon_id,
+                deployment_name=self.unique_name,
+                **self.kwargs,
+            )
+            if response.status_code in (200, 201):
+                self.deployment_id = self.unique_name
             else:
                 raise RuntimeError(
-                    "You encountered a programming error: the returned 409 message"
-                    " does not have the expected format. Response:"
+                    f"Failed to run photon {self.photon_id}. Response:"
                     f" {response} {response.text}"
                 )
-            logger.debug(
-                f"Remote: deployment {self.deployment_id} already exists, reusing."
-            )
-        else:
+        # Wait till the deployment is ready
+        if not self.deployment_id:
             raise RuntimeError(
-                f"Failed to run photon {self.photon_id}. Response:"
-                f" {response} {response.text}"
+                "You hit a programming error: _wait should not be called before"
+                "deployment is created."
             )
-
         # wait for the photon to be ready
         logger.debug(f"Remote: waiting for photon {self.photon_id} to be ready")
         start = time.time()
         is_deployment_ready = False
+        ret = None
         while not is_deployment_ready and time.time() - start < self._MAX_WAIT_TIME:
-            ret = api.deployment.get_deployment(conn, self.deployment_id)
+            ret = api.deployment.get_deployment(self.conn, self.deployment_id)
             if isinstance(ret, APIError):
                 raise RuntimeError(
                     f"Failed to get the status of deployment {self.deployment_id}."
                     f" Response: {ret.message}."
                 )
-            elif ret["status"]["state"] == "Running":  # noqa
+            elif ret["status"]["state"] in ("Running", "Ready"):  # noqa
+                # In earlier versions of the backend we had "Running" as a state.
+                # As a result we will temporarily use both, and in the long run we
+                # will use "Ready". ref: https://github.com/leptonai/lepton/pull/3152
                 is_deployment_ready = True
+                logger.debug(f"Remote: photon {self.deployment_id} is ready")
             else:
                 # Test if there are earlier terminations causing the deployment to fail
-                ret = api.deployment.get_termination(conn, self.deployment_id)
+                ret = api.deployment.get_termination(self.conn, self.deployment_id)
                 if not isinstance(ret, APIError) and len(ret):
                     # Earlier termination detected. Raise an error.
                     raise RuntimeError(
                         f"{self.deployment_id} seems to have failures. Inspect the"
                         f" failure using `lep deployment log -n {self.deployment_id}`."
+                        " After this, you can run cloudrun.clean() to cleanup old"
+                        " deployments and photons."
                     )
                 time.sleep(self._DEFAULT_WAIT_INTERVAL)
         if not is_deployment_ready:
             raise RuntimeError(
                 f"Failed to run photon {self.photon_id} in time. Last state: {ret}"
             )
-
         # Note: we will double check openapi correctness, as there is a little bit of
         # delay between the deployment is ready and the openapi is ready, because the
         # load balancer in front of the deployment may need a bit of startup time.
         self.client = Client(current(), self.deployment_id)
-        while not self.client.openapi and time.time() - start < self._MAX_WAIT_TIME:
-            # logger.debug("Remote: cannot get openapi, recreating client...")
+        start = time.time()
+        while (
+            not self.client.openapi and time.time() - start < self._MAX_CLIENT_WAIT_TIME
+        ):
             time.sleep(self._DEFAULT_WAIT_INTERVAL)
             self.client = Client(current(), self.deployment_id)
         if not self.client.openapi:
             raise RuntimeError(
                 f"Failed to get openapi for photon {self.photon_id} in time."
             )
+        logger.debug(f"Remote: client for {self.deployment_id} is ready")
 
-        global _refcount
-        _refcount[self.deployment_id] += 1
-        logger.debug(f"Remote: photon {self.deployment_id} is ready")
+    def _start_up(self) -> None:
+        """
+        Starts up the remote run.
+        """
+        self._create_and_push_photon()
+        self._run_photon()
 
-    def alive(self) -> bool:
+    def restart(self) -> None:
         """
-        Returns True if the function is alive, False otherwise.
+        Restarts the current run if it has been closed.
         """
-        if self.client is None:
-            return False
-        else:
-            return self.client.healthz()
+        # Note: there is one caveat in the current implementation, in the sense
+        # that, if someone runs a clean() operation between the launch of this
+        # Remote object and the restart, then the underlying photon will have
+        # been removed, and we will have to recreate the photon. Right now,
+        # we will not handle this case, and we will simply raise an error.
+        if self.healthz():
+            # If the service is still up - don't do anything, just return.
+            return
+        try:
+            if not self.deployment_id:
+                # Never started up before, start up.
+                self._start_up()
+            else:
+                # Resume by re-running the photon
+                self._run_photon(resume=True)
+        except Exception as e:
+            # close things first, and then raise the error.
+            self.close()
+            raise e
 
     def close(self):
         """
         Closes the current run.
         """
+        logger.debug(f"Remote: closing remote {self.unique_name}({self.display_name})")
+        # Implementation note: we will not raise any error if the close() operation
+        # fails, as we want to make sure that the close() operation is best-effort.
         self.client = None
-        global _refcount
-        _refcount[self.deployment_id] -= 1
-        if _refcount[self.deployment_id] == 0:
-            # Only when we get to refcount=0 do we remove the deployment and photons.
-            conn = api.workspace.current_connection()
-            if self.deployment_id is not None:
-                logger.debug(f"Remote: removing deployment {self.deployment_id}")
-                api.deployment.remove_deployment(conn, self.deployment_id)
-                self.deployment_id = None
-            if self.photon_id is not None:
-                logger.debug(f"Remote: removing photon {self.photon_id}")
-                api.photon.remove_remote(conn, self.photon_id)
-                self.photon_id = None
-            if self.path is not None:
-                logger.debug(f"Remote: removing local photon {self.path}")
-                api.photon.remove_local(self.path)
-                self.path = None
+        if self.deployment_id is not None:
+            logger.debug(f"Remote: removing deployment {self.deployment_id}")
+            api.deployment.remove_deployment(self.conn, self.deployment_id)
+            self.deployment_id = None
+        if self.photon_id is not None:
+            logger.debug(f"Remote: removing photon {self.photon_id}")
+            api.photon.remove_remote(self.conn, self.photon_id)
+            self.photon_id = None
+        if self.path is not None:
+            logger.debug(f"Remote: removing local photon {self.path}")
+            api.photon.remove_local(self.path)
+            self.path = None
+
+    @classmethod
+    def _atexit_cleanup(cls):
+        """
+        A best-effort cleanup function for the remote objects.
+
+        You should not call this function directly. It is invoked by atexit.
+        """
+        # For any remote items that are explicitly `del`ed but not garbage collected,
+        # we do a garbage collection here.
+        gc.collect()
+        # If there are remaining remote items (i.e. created inside __main__ or the
+        # interpreter), we will try to close them explicitly.
+        for remote in cls._all_remotes:
+            remote.close()
 
     def __str__(self):
         return f"Remote({self.display_name}, deployment_id={self.deployment_id})"
@@ -257,16 +316,22 @@ class Remote(object):
                 f"Cannot find attribute {name}, and the client is not set up yet."
             )
         try:
+            # TODO: wrap the client function in a retry function, so that if the
+            # client call receives an HTTP 503 error, we automatically try to
+            # restart the photon and retry the call.
             return self.client.__getattr__(name)
         except AttributeError:
             raise AttributeError(f"Cannot find attribute {name}.")
 
     def __dir__(self):
-        own_dir = ["close", "client"]
+        own_dir = ["close", "client", "healthz", "restart", "close"]
         if self.client is None:
             return own_dir
         else:
             return own_dir + list(self.client.__dir__())
+
+
+atexit.register(Remote._atexit_cleanup)
 
 
 def clean_deployments(force_remove: bool = False):

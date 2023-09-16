@@ -541,7 +541,7 @@ def run(
                 )
                 sys.exit(1)
             photon.launch(port=port)
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError:
             # We encountered a ModuleNotFoundError. This is likely due to missing
             # dependencies. We will print out a helpful message and exit.
             console.print(

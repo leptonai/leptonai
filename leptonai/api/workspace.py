@@ -1,5 +1,6 @@
+import re
 import requests
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
@@ -92,7 +93,9 @@ class WorkspaceInfoLocalRecord(object):
         if cls._singleton_conn is None:
             url = cls._get_current_workspace_api_url()
             if url is None:
-                raise RuntimeError("No current workspace is set.")
+                raise RuntimeError(
+                    "No current workspace is set. Did you forget to do `lep login`?"
+                )
             auth_token = cls._get_current_workspace_token()
             cls._singleton_conn = Connection(url, auth_token)
         return cls._singleton_conn
@@ -229,9 +232,38 @@ def current_connection() -> Connection:
     return WorkspaceInfoLocalRecord.get_current_connection()
 
 
-def get_workspace_info(conn: Connection):
+def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dict]:
     """
     Gets the runtime information for the given workspace url.
     """
+    conn = conn if conn else current_connection()
     response = conn.get("/workspace")
-    return json_or_error(response)
+    info = json_or_error(response)
+    assert isinstance(info, Union[APIError, Dict])
+    return info
+
+
+_semver_pattern = re.compile(
+    "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+)
+
+
+def version(conn: Optional[Connection] = None) -> Optional[Tuple[int, int, int]]:
+    """
+    Gets the version of the given workspace url, in a tuple (major, minor, patch).
+
+    If this is a dev workspace, this will return None as we don't support versioning for dev workspaces.
+    """
+    conn = conn if conn else current_connection()
+    response = conn.get("/workspace")
+    info = json_or_error(response)
+    assert isinstance(info, Union[APIError, Dict])
+    if isinstance(info, APIError):
+        return None
+    else:
+        match = _semver_pattern.match(info["git_commit"])
+        return (
+            (int(match.group(0)), int(match.group(1)), int(match.group(2)))
+            if match
+            else None
+        )

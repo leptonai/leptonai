@@ -132,7 +132,7 @@ def status(name, show_tokens):
     )
 
     state = dep_info["status"]["state"]
-    if state == "Running":
+    if state in ("Running", "Ready"):
         state = f"[green]{state}[/]"
     else:
         state = f"[yellow]{state}[/]"

@@ -1,9 +1,10 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 import warnings
 
 from . import types
 from .connection import Connection
 from .util import json_or_error, APIError
+from .workspace import version
 
 
 def list_deployment(conn: Connection) -> Union[List, APIError]:
@@ -35,7 +36,9 @@ def get_deployment(conn: Connection, name: str):
     Get a deployment from a workspace.
     """
     response = conn.get("/deployments/" + name)
-    return json_or_error(response)
+    ret = json_or_error(response)
+    assert isinstance(ret, Union[Dict, APIError])
+    return ret
 
 
 def get_readiness(conn: Connection, name: str):
@@ -99,13 +102,20 @@ def update_deployment(
     is_public: Optional[bool] = None,
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
-):
+) -> Union[APIError, Dict]:
     """
     Update a deployment in a workspace.
 
     Currently only supports updating the photon id, the min replicas, and the api tokens.
     For any more complex changes, consider re-run the deployment.
     """
+    if no_traffic_timeout:
+        ws_version = version(conn)
+        if ws_version and ws_version < (0, 10, 0):
+            warnings.warn(
+                "no_traffic_timeout is not yet released on this workspace."
+                " For now, your deployment will be created without timeout."
+            )
     deployment_spec = types.DeploymentSpec(
         name=name,
         photon_id=photon_id,
@@ -129,7 +139,9 @@ def update_deployment(
         "/deployments/" + name,
         json=deployment_body,
     )
-    return json_or_error(response)
+    ret = json_or_error(response)
+    assert isinstance(ret, Union[Dict, APIError])
+    return ret
 
 
 def get_qps(conn: Connection, name: str, by_path: bool = False):
