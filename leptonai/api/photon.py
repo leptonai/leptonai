@@ -19,6 +19,7 @@ from leptonai.util import check_photon_name
 from .connection import Connection
 from . import types
 from .util import APIError, json_or_error
+from .workspace import version
 
 
 def create(name: str, model: Any) -> BasePhoton:
@@ -192,10 +193,12 @@ def run_remote(
     no_traffic_timeout: Optional[int] = None,
 ):
     if no_traffic_timeout:
-        warnings.warn(
-            "no_traffic_timeout is not yet released on the backend, and may come"
-            " later. For now, your deployment will be created without timeout."
-        )
+        ws_version = version(conn)
+        if ws_version and ws_version < (0, 10, 0):
+            warnings.warn(
+                "no_traffic_timeout is not yet released on this workspace."
+                " For now, your deployment will be created without timeout."
+            )
     # TODO: check if the given id is a valid photon id
     deployment_spec = types.DeploymentSpec(
         name=deployment_name,

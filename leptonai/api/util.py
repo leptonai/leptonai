@@ -43,14 +43,10 @@ def json_or_error(
                 response,
                 message=(
                     "You encountered a programming error. Please report this, and"
-                    " include the following debug info:\n*** begin of debug info ***\n"
-                    + additional_debug_info
-                    + "\n"
-                    + "response returned 200 OK, but the content cannot be decoded as"
-                    " json.\n"
-                    "response.text: "
-                    + response.text
-                    + "\n\n*** end of debug info ***"
+                    " include the following debug info:\n*** begin of debug info"
+                    f" ***\n{additional_debug_info}\nresponse returned 200 OK, but the"
+                    " content cannot be decoded as json.\nresponse.text:"
+                    f" {response.text}\n\n*** end of debug info ***"
                 ),
             )
     else:

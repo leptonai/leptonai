@@ -1,5 +1,6 @@
+import re
 import requests
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Tuple
 import yaml
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
@@ -235,3 +236,27 @@ def get_workspace_info(conn: Connection):
     """
     response = conn.get("/workspace")
     return json_or_error(response)
+
+
+_semver_pattern = re.compile(
+    "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+)
+
+
+def version(conn: Connection) -> Optional[Tuple[int, int, int]]:
+    """
+    Gets the version of the given workspace url, in a tuple (major, minor, patch).
+
+    If this is a dev workspace, this will return None as we don't support versioning for dev workspaces.
+    """
+    response = conn.get("/workspace")
+    info = json_or_error(response)
+    if isinstance(info, APIError):
+        return None
+    else:
+        match = _semver_pattern.match(info["git_commit"])
+        return (
+            (int(match.group(0)), int(match.group(1)), int(match.group(2)))
+            if match
+            else None
+        )
