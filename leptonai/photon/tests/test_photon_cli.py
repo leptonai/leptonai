@@ -353,6 +353,12 @@ class CustomPhoton(Photon):
                 if proc is not None:
                     proc.kill()
 
+    def test_top_level_run_cmd(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", "-h"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("runs a photon", result.output.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
