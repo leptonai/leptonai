@@ -16,12 +16,13 @@ class MyPhoton(Photon):
 
 try:
     conn = api.workspace.current_connection()
+    version = api.workspace.version()
+    # If there isn't a version, we are in a dev workspace and we assume you know what you are doing.
+    # If the version exists, 0.10.0 is the lowest version that supports timeout.
+    maybe_supports_timeout = version is None or version >= (0, 10, 0)
 except RuntimeError:
     conn = None
-
-
-_version = api.workspace.version()
-_supports_timeout = _version is None or _version >= (0, 10, 0)
+    maybe_supports_timeout = False
 
 
 class TestInline(unittest.TestCase):
@@ -58,7 +59,10 @@ class TestInline(unittest.TestCase):
         self.assertRaises(RuntimeError, Remote, Foo())
 
     @unittest.skipIf(conn is None, "No connection to Lepton AI cloud")
-    @unittest.skipIf(not _supports_timeout, "No timeout support")
+    @unittest.skipIf(
+        not maybe_supports_timeout,
+        "No timeout support",
+    )
     def test_timeout(self):
         remote_run = Remote(MyPhoton(), no_traffic_timeout=10)
         self.assertTrue(remote_run.healthz())

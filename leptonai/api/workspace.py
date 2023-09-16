@@ -93,7 +93,9 @@ class WorkspaceInfoLocalRecord(object):
         if cls._singleton_conn is None:
             url = cls._get_current_workspace_api_url()
             if url is None:
-                raise RuntimeError("No current workspace is set.")
+                raise RuntimeError(
+                    "No current workspace is set. Did you forget to do `lep login`?"
+                )
             auth_token = cls._get_current_workspace_token()
             cls._singleton_conn = Connection(url, auth_token)
         return cls._singleton_conn
@@ -230,12 +232,15 @@ def current_connection() -> Connection:
     return WorkspaceInfoLocalRecord.get_current_connection()
 
 
-def get_workspace_info(conn: Connection):
+def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dict]:
     """
     Gets the runtime information for the given workspace url.
     """
+    conn = conn if conn else current_connection()
     response = conn.get("/workspace")
-    return json_or_error(response)
+    info = json_or_error(response)
+    assert isinstance(info, Union[APIError, Dict])
+    return info
 
 
 _semver_pattern = re.compile(
