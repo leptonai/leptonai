@@ -1,6 +1,6 @@
 import re
 import requests
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
 from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
@@ -243,14 +243,16 @@ _semver_pattern = re.compile(
 )
 
 
-def version(conn: Connection) -> Optional[Tuple[int, int, int]]:
+def version(conn: Optional[Connection] = None) -> Optional[Tuple[int, int, int]]:
     """
     Gets the version of the given workspace url, in a tuple (major, minor, patch).
 
     If this is a dev workspace, this will return None as we don't support versioning for dev workspaces.
     """
+    conn = conn if conn else current_connection()
     response = conn.get("/workspace")
     info = json_or_error(response)
+    assert isinstance(info, Union[APIError, Dict])
     if isinstance(info, APIError):
         return None
     else:

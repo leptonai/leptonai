@@ -38,7 +38,8 @@ class Remote(object):
     """
 
     _MAX_WAIT_TIME = 600  # In the Remote class, we wait for at most 10 minutes for the photon to be ready.
-    _DEFAULT_TIMEOUT = 30  # In the Remote class, we set the timeout for the deployments to be 10 minutes by default.
+    _MAX_CLIENT_WAIT_TIME = 30  # In the Remote class, we wait for at most 30 seconds for DNS and other propagation between the deployment being ready and the client being accessable.
+    _DEFAULT_TIMEOUT = 600  # In the Remote class, we set the timeout for the deployments to be 10 minutes by default.
     _DEFAULT_WAIT_INTERVAL = 1  # In the Remote class, we wait for 1 second between each check for the photon to be ready.
 
     # A best-effort global variable for Remote objects, and a best-effort cleanup function.
@@ -200,6 +201,7 @@ class Remote(object):
                 # As a result we will temporarily use both, and in the long run we
                 # will use "Ready". ref: https://github.com/leptonai/lepton/pull/3152
                 is_deployment_ready = True
+                logger.debug(f"Remote: photon {self.deployment_id} is ready")
             else:
                 # Test if there are earlier terminations causing the deployment to fail
                 ret = api.deployment.get_termination(self.conn, self.deployment_id)
@@ -216,19 +218,21 @@ class Remote(object):
             raise RuntimeError(
                 f"Failed to run photon {self.photon_id} in time. Last state: {ret}"
             )
-
-    def _create_client(self):
+        # Note: we will double check openapi correctness, as there is a little bit of
+        # delay between the deployment is ready and the openapi is ready, because the
+        # load balancer in front of the deployment may need a bit of startup time.
         self.client = Client(current(), self.deployment_id)
         start = time.time()
-        while not self.client.openapi and time.time() - start < self._MAX_WAIT_TIME:
-            # logger.debug("Remote: cannot get openapi, recreating client...")
+        while (
+            not self.client.openapi and time.time() - start < self._MAX_CLIENT_WAIT_TIME
+        ):
             time.sleep(self._DEFAULT_WAIT_INTERVAL)
             self.client = Client(current(), self.deployment_id)
         if not self.client.openapi:
             raise RuntimeError(
                 f"Failed to get openapi for photon {self.photon_id} in time."
             )
-        logger.debug(f"Remote: photon {self.deployment_id} is ready")
+        logger.debug(f"Remote: client for {self.deployment_id} is ready")
 
     def _start_up(self) -> None:
         """
@@ -236,21 +240,6 @@ class Remote(object):
         """
         self._create_and_push_photon()
         self._run_photon()
-        # Now the photon is ready, we can create the client.
-        # Note: we will double check openapi correctness, as there is a little bit of
-        # delay between the deployment is ready and the openapi is ready, because the
-        # load balancer in front of the deployment may need a bit of startup time.
-        self.client = Client(current(), self.deployment_id)
-        start = time.time()
-        while not self.client.openapi and time.time() - start < self._MAX_WAIT_TIME:
-            # logger.debug("Remote: cannot get openapi, recreating client...")
-            time.sleep(self._DEFAULT_WAIT_INTERVAL)
-            self.client = Client(current(), self.deployment_id)
-        if not self.client.openapi:
-            raise RuntimeError(
-                f"Failed to get openapi for photon {self.photon_id} in time."
-            )
-        logger.debug(f"Remote: photon {self.deployment_id} is ready")
 
     def restart(self) -> None:
         """
@@ -271,8 +260,6 @@ class Remote(object):
             else:
                 # Resume by re-running the photon
                 self._run_photon(resume=True)
-                if not self.client:
-                    self._create_client()
         except Exception as e:
             # close things first, and then raise the error.
             self.close()

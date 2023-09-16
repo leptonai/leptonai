@@ -1,4 +1,4 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 import warnings
 
 from . import types
@@ -36,7 +36,9 @@ def get_deployment(conn: Connection, name: str):
     Get a deployment from a workspace.
     """
     response = conn.get("/deployments/" + name)
-    return json_or_error(response)
+    ret = json_or_error(response)
+    assert isinstance(ret, Union[Dict, APIError])
+    return ret
 
 
 def get_readiness(conn: Connection, name: str):
@@ -100,7 +102,7 @@ def update_deployment(
     is_public: Optional[bool] = None,
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
-):
+) -> Union[APIError, Dict]:
     """
     Update a deployment in a workspace.
 
@@ -137,7 +139,9 @@ def update_deployment(
         "/deployments/" + name,
         json=deployment_body,
     )
-    return json_or_error(response)
+    ret = json_or_error(response)
+    assert isinstance(ret, Union[Dict, APIError])
+    return ret
 
 
 def get_qps(conn: Connection, name: str, by_path: bool = False):
