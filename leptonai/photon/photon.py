@@ -413,7 +413,7 @@ class Photon(BasePhoton):
         The explicit init function that your derived Photon class should implement.
         This function is called when we create a deployment from a photon, and is
         guaranteed to run before the first api call served by the photon.
-        
+
         Your derived Photon class should implement this function to do any initialization
         work, such as loading a model, loading a tokenizer, etc.
         """
