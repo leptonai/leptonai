@@ -61,3 +61,10 @@ if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1
 else:
     PYDANTIC_MAJOR_VERSION = 2
+
+TRUST_REMOTE_CODE = os.environ.get("LEPTON_TRUST_REMOTE_CODE", "true").lower() in (
+    "true",
+    "1",
+    "t",
+    "on",
+)

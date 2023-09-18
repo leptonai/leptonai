@@ -1,4 +1,5 @@
 from ..photon import Photon
+from .vllm import vLLM  # noqa: F401
 
 
 class Echo(Photon):
