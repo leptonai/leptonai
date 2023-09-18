@@ -239,7 +239,7 @@ def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dic
     conn = conn if conn else current_connection()
     response = conn.get("/workspace")
     info = json_or_error(response)
-    assert isinstance(info, Union[APIError, Dict])
+    assert isinstance(info, (dict, APIError))
     return info
 
 
@@ -257,7 +257,7 @@ def version(conn: Optional[Connection] = None) -> Optional[Tuple[int, int, int]]
     conn = conn if conn else current_connection()
     response = conn.get("/workspace")
     info = json_or_error(response)
-    assert isinstance(info, Union[APIError, Dict])
+    assert isinstance(info, (dict, APIError))
     if isinstance(info, APIError):
         return None
     else:

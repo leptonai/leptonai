@@ -37,7 +37,7 @@ def get_deployment(conn: Connection, name: str):
     """
     response = conn.get("/deployments/" + name)
     ret = json_or_error(response)
-    assert isinstance(ret, Union[Dict, APIError])
+    assert isinstance(ret, (dict, APIError))
     return ret
 
 
@@ -140,7 +140,7 @@ def update_deployment(
         json=deployment_body,
     )
     ret = json_or_error(response)
-    assert isinstance(ret, Union[Dict, APIError])
+    assert isinstance(ret, (dict, APIError))
     return ret
 
 
