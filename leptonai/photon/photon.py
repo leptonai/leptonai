@@ -413,10 +413,20 @@ class Photon(BasePhoton):
         The explicit init function that your derived Photon class should implement.
         This function is called when we create a deployment from a photon, and is
         guaranteed to run before the first api call served by the photon.
+        
+        Your derived Photon class should implement this function to do any initialization
+        work, such as loading a model, loading a tokenizer, etc.
         """
         pass
 
     def _call_init_once(self):
+        """
+        Explicitly call the init function once.
+
+        Implementation note: the reason we cannot put everything in the __init__ function
+        is that init() should be called after the derivative classes are created - which
+        is after the Photon class's __init__ function is called.
+        """
         if not self._init_called:
             self._init_called = True
             self._init_res = self.init()
@@ -436,7 +446,8 @@ class Photon(BasePhoton):
             allow_headers=["*"],
         )
 
-    def _create_app(self, load_mount):
+    def _create_app(self, load_mount: bool = True) -> FastAPI:
+        self._call_init_once()
         title = self.name.replace(".", "_")
         app = FastAPI(title=title, description=self.__doc__)
 
