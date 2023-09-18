@@ -571,6 +571,9 @@ def run(
                 )
             console.print("Kindly install the dependencies and try again.")
             sys.exit(1)
+        except Exception as e:
+            console.print(f"Failed to launch photon: {e}")
+            sys.exit(1)
         return
 
 

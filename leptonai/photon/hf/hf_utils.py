@@ -5,6 +5,7 @@ from typing import List
 
 from loguru import logger
 
+from leptonai.config import TRUST_REMOTE_CODE
 from leptonai.registry import Registry
 from leptonai.photon import FileParam, HTTPException
 
@@ -139,7 +140,9 @@ def _create_hf_transformers_pipeline(task, model, revision):
     from transformers import pipeline, AutoTokenizer, AutoConfig, AutoModelForCausalLM
     import torch
 
-    kwargs = {"trust_remote_code": True}
+    kwargs = {}
+    if TRUST_REMOTE_CODE:
+        kwargs["trust_remote_code"] = TRUST_REMOTE_CODE
 
     # audio-classification pipeline doesn't support automatically
     # converting inputs from fp32 to fp16
