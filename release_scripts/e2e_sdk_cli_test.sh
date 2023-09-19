@@ -200,7 +200,7 @@ fi
 echo
 
 echo "## Waiting for the deployment to be up..."
-command="lep deployment list | grep ${COMMON_NAME} | grep Running"
+command="lep deployment list | grep ${COMMON_NAME} | grep Ready"
 RETRY=0
 while ! eval "$command" > /dev/null; do
     echo "Deployment is not up yet. Sleep for 5 seconds."
@@ -214,6 +214,9 @@ while ! eval "$command" > /dev/null; do
     sleep 5
 done
 echo "Done"
+echo
+# sleep for 15 seconds to make sure the deployment is up
+sleep 20
 echo
 
 echo "## Testing deployment status..."
@@ -294,7 +297,7 @@ fi
 echo
 
 echo "## Waiting for the deployment to be up..."
-command="lep deployment list | grep ${COMMON_NAME}-with-env | grep Running"
+command="lep deployment list | grep ${COMMON_NAME}-with-env | grep Ready"
 RETRY=0
 while ! eval "$command" > /dev/null; do
     echo "Deployment is not up yet. Sleep for 5 seconds."
@@ -307,8 +310,8 @@ while ! eval "$command" > /dev/null; do
     fi
     sleep 5
 done
-# sleep for 5 seconds to make sure the deployment is up
-sleep 5
+# sleep for 15 seconds to make sure the deployment is up
+sleep 20
 echo
 
 echo "## Testing if the deployment contains the correct env variables and secrets..."
@@ -318,6 +321,7 @@ command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
               -H 'Authorization: Bearer ${LEPTON_WS_TOKEN}' \
               -d '{\"query\": \"env | grep HELLOENV \"}'"
+
 if eval "$command" | grep "world" > /dev/null; then
     echo "Env variable is correct."
 else
@@ -480,7 +484,7 @@ fi
 echo
 
 echo "## Waiting for the deployment to be up..."
-command="lep deployment list | grep ${COMMON_NAME}-with-storage | grep Running"
+command="lep deployment list | grep ${COMMON_NAME}-with-storage | grep Ready"
 RETRY=0
 while ! eval "$command" > /dev/null; do
     echo "Deployment is not up yet. Sleep for 5 seconds."
@@ -494,9 +498,9 @@ while ! eval "$command" > /dev/null; do
     sleep 5
 done
 # Sometimes, it takes a bit longer time to have the photon running in a stable
-# fashion... before we actually look into it, sleep for 10 seconds to make sure
+# fashion... before we actually look into it, sleep for 15 seconds to make sure
 # things are working.
-sleep 10
+sleep 15
 echo "Done"
 echo
 
@@ -515,6 +519,7 @@ else
     if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 echo "Checking file..."
+sleep 15 # wait for consistency
 command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
