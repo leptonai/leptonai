@@ -230,6 +230,7 @@ def status():
             " contact us by sharing the error message above."
         ),
     )
+    assert isinstance(info, dict)
     # Note: in our backend, right now the "workspace_name" item is actually
     # the workspace id in the frontend definition. If we decide to consolidate
     # naming, consider changing it.

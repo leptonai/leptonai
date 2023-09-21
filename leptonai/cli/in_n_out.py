@@ -76,6 +76,7 @@ def cloud_login(credentials=None):
         ),
     )
 
+    assert isinstance(info, dict)
     console.print(f"Logged in to your workspace [green]{workspace_id}[/].")
     console.print(f"\tbuild time: {info['build_time']}")
     console.print(f"\t   version: {info['git_commit']}")

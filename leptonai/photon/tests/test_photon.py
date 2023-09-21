@@ -46,10 +46,10 @@ import torch
 
 import leptonai
 from leptonai import Client
-from leptonai.api.photon import create as create_photon, load_metadata
 from leptonai.config import ALLOW_ORIGINS_URLS
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
+from leptonai.photon.util import create as create_photon, load_metadata
 from leptonai.util import switch_cwd
 
 
