@@ -232,6 +232,15 @@ class HuggingfacePhoton(Photon):
     def create_from_model_str(cls, name, model_str):
         _, hf_task, _, _ = cls._parse_model_str(model_str)
         task_cls = task_cls_registry.get(hf_task)
+        if task_cls is None:
+            raise ValueError(
+                f"Lepton currently does not support the specified task: {hf_task}. If"
+                " you would like us to support this task, please let us know by"
+                " opening an issue"
+                " at https://github.com/leptonai/leptonai-sdk/issues/new/choose, and"
+                " kindly include the specific model that you are trying to run for"
+                " debugging purposes: {model_str}"
+            )
         return task_cls(name, model_str)
 
     @classmethod
