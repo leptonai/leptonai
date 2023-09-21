@@ -32,7 +32,7 @@ def create(name: str, model: Any) -> BasePhoton:
         if creator is not None:
             return creator(name, model)
     else:
-        for type_checker in type_registry.get_all():
+        for type_checker in type_registry.keys():
             if type_checker(model):
                 creator = type_registry.get(type_checker)
                 return creator(name, model)

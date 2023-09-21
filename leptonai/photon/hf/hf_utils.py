@@ -222,6 +222,7 @@ for task in [
     "audio-classification",
     "automatic-speech-recognition",
     "depth-estimation",
+    "image-classification",
     "image-to-text",
     "sentiment-analysis",
     "summarization",
