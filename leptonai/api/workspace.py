@@ -263,7 +263,7 @@ def version(conn: Optional[Connection] = None) -> Optional[Tuple[int, int, int]]
     else:
         match = _semver_pattern.match(info["git_commit"])
         return (
-            (int(match.group(0)), int(match.group(1)), int(match.group(2)))
+            (int(match.group(1)), int(match.group(2)), int(match.group(3)))
             if match
             else None
         )
