@@ -34,5 +34,5 @@ class Registry:
             return self._map[key]
         return None
 
-    def get_all(self):
+    def keys(self):
         return self._map.keys()

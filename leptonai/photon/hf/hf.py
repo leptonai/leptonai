@@ -23,7 +23,7 @@ from .hf_dependencies import hf_pipeline_dependencies
 task_cls_registry = Registry()
 
 
-SUPPORTED_TASKS = [
+HF_DEFINED_TASKS = [
     # diffusers
     "text-to-image",
     # transformers
@@ -95,7 +95,20 @@ class HuggingfacePhoton(Photon):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        if cls.hf_task not in HF_DEFINED_TASKS:
+            raise ValueError(
+                f"You made a programming error: the task {cls.hf_task} is not a"
+                " supported task defined in HuggingFace. If you believe this is an"
+                " error, please file an issue."
+            )
         task_cls_registry.register(cls.hf_task, cls)
+
+    @classmethod
+    def supported_tasks(cls):
+        """
+        Returns the set of supported tasks.
+        """
+        return task_cls_registry.keys()
 
     @classmethod
     def _parse_model_str(cls, model_str):
@@ -144,12 +157,13 @@ class HuggingfacePhoton(Photon):
                     " more details."
                 )
 
-        if hf_task not in SUPPORTED_TASKS:
+        if hf_task not in HF_DEFINED_TASKS:
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (task: {hf_task}). This'
                 " task is not supported by LeptonAI SDK yet. If you would like us to"
                 " add support for this task type, please let us know by opening an"
                 " issue at https://github.com/lepton/leptonai-sdk/issues/new/choose."
+                f"\nCurrently supported HF tasks are: {cls.supported_tasks()}."
             )
 
         # 8 chars should be enough to identify a commit
@@ -804,6 +818,41 @@ class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
             **kwargs,
         )
         return _get_generated_text(res)
+
+
+class HuggingfaceImageClassificationPhoton(HuggingfacePhoton):
+    hf_task: str = "image-classification"
+
+    @Photon.handler(
+        "run",
+        example={"images": "http://images.cocodataset.org/val2017/000000039769.jpg"},
+    )
+    def run_handler(
+        self,
+        images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
+        **kwargs,
+    ) -> Union[List[Dict], List[List[Dict]]]:
+        images_is_list = isinstance(images, list)
+        if not images_is_list:
+            images = [images]
+        # keep references to NamedTemporaryFile objects so they don't get deleted
+        images_ = []
+        temp_files = []
+        for img in images:
+            if isinstance(img, FileParam):
+                file = tempfile.NamedTemporaryFile()
+                with open(file.name, "wb") as f:
+                    f.write(img.file.read())
+                    f.flush()
+                temp_files.append(file)
+                images_.append(file.name)
+            else:
+                images_.append(img)
+        res = self.run(
+            images_,
+            **kwargs,
+        )
+        return res if images_is_list else res[0]
 
 
 def register_hf_photon():
