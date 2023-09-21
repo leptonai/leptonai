@@ -311,9 +311,21 @@ def log(name, replica):
     "--tokens",
     help=(
         "Access tokens that can be used to access the deployment. See docs for"
-        " details on access control."
+        " details on access control. If no tokens is specified, we will not change the"
+        " tokens of the deployment. If you want to remove all additional tokens, use"
+        "--remove-tokens."
     ),
     multiple=True,
+)
+@click.option(
+    "--remove-tokens",
+    is_flag=True,
+    default=False,
+    help=(
+        "If specified, all additional tokens will be removed, and the deployment will"
+        " be either public (if --public) is specified, or only accessible with the"
+        " workspace token (if --public is not specified)."
+    ),
 )
 @click.option(
     "--no-traffic-timeout",
@@ -325,7 +337,16 @@ def log(name, replica):
         " the deployment to have no timeout."
     ),
 )
-def update(name, min_replicas, resource_shape, public, tokens, id, no_traffic_timeout):
+def update(
+    name,
+    id,
+    min_replicas,
+    resource_shape,
+    public,
+    tokens,
+    remove_tokens,
+    no_traffic_timeout,
+):
     """
     Updates a deployment. Note that for all the update options, changes are made
     as replacements, and not incrementals. For example, if you specify `--tokens`,
@@ -366,6 +387,12 @@ def update(name, min_replicas, resource_shape, public, tokens, id, no_traffic_ti
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]
         console.print(f"Updating to latest photon id [green]{id}[/].")
+    if remove_tokens:
+        # [] means removing all tokens
+        tokens = []
+    elif len(tokens) == 0:
+        # None means no change
+        tokens = None
     guard_api(
         api.update_deployment(
             conn,

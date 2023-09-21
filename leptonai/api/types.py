@@ -95,7 +95,9 @@ class TokenVar(BaseModel):
             return None
         elif is_public and tokens:
             raise ValueError(
-                "Cannot specify both is_public and token at the same time."
+                "For access control, you cannot specify both is_public and token at the"
+                " same time. Please specify either is_public=True with no tokens passed"
+                " in, or is_public=False and tokens as a list."
             )
         else:
             if is_public:
