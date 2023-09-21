@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from leptonai.photon.base import schema_registry, type_registry, BasePhoton
 
 from leptonai.util import check_photon_name
@@ -40,7 +40,7 @@ def create(name: str, model: Any) -> BasePhoton:
     raise ValueError(f"Failed to find Photon creator for name={name} and model={model}")
 
 
-def save(photon: BasePhoton, path: str = None) -> str:
+def save(photon: BasePhoton, path: Optional[str] = None) -> str:
     """
     Save a photon to a file. By default, the file is saved in the
     cache directory (``{CACHE_DIR} / {name}.photon``)

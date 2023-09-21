@@ -19,6 +19,7 @@ from leptonai.api import photon as api
 from leptonai.api import types
 from leptonai.api.deployment import list_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
+from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
 from leptonai.photon.base import (
     find_all_local_photons,
@@ -27,6 +28,7 @@ from leptonai.photon.base import (
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
+
 from .util import (
     click_group,
     guard_api,
@@ -118,12 +120,12 @@ def create(name, model):
     Developer note: insert a link to the photon documentation here.
     """
     try:
-        photon = api.create(name=name, model=model)
+        photon = photon_util.create(name=name, model=model)
     except Exception as e:
         console.print(f"Failed to create photon: [red]{e}[/]")
         sys.exit(1)
     try:
-        api.save(photon)
+        photon_util.save(photon)
     except Exception as e:
         console.print(f"Failed to save photon: [red]{e}[/]")
         sys.exit(1)
@@ -524,7 +526,7 @@ def run(
             os.path.exists(path),
             f"You encountered an internal error: photon [red]{path}[/] does not exist.",
         )
-        metadata = api.load_metadata(path)
+        metadata = photon_util.load_metadata(path)
 
         if metadata.get(METADATA_VCS_URL_KEY, None):
             workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
@@ -586,7 +588,7 @@ def prepare(ctx, path):
     platform to prepare the environment inside the container and not meant to
     be used by users.
     """
-    metadata = api.load_metadata(path, unpack_extra_files=True)
+    metadata = photon_util.load_metadata(path, unpack_extra_files=True)
 
     if metadata.get(METADATA_VCS_URL_KEY, None):
         fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
