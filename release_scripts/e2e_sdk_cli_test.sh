@@ -216,7 +216,7 @@ done
 echo "Done"
 echo
 # sleep for 15 seconds to make sure the deployment is up
-sleep 20
+sleep 15
 echo
 
 echo "## Testing deployment status..."
@@ -311,7 +311,7 @@ while ! eval "$command" > /dev/null; do
     sleep 5
 done
 # sleep for 15 seconds to make sure the deployment is up
-sleep 20
+sleep 15
 echo
 
 echo "## Testing if the deployment contains the correct env variables and secrets..."
