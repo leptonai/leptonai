@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 General utilities for LeptonAI
 """
