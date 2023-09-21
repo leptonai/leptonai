@@ -63,7 +63,7 @@ _MANUALLY_ANNOTATED_MODEL_TO_TASK = {
     "hf-internal-testing/tiny-stable-diffusion-torch": "text-to-image",
 }
 
-schemas = ["hf", "huggingface"]
+HUGGING_FACE_SCHEMAS = ["hf", "huggingface"]
 
 
 def _get_transformers_base_types():
@@ -107,7 +107,7 @@ class HuggingfacePhoton(Photon):
                 " hf:<model_name>[@<revision>]."
             )
         schema = model_parts[0]
-        if schema not in schemas:
+        if schema not in HUGGING_FACE_SCHEMAS:
             # In theory, this should not happen - the schema should be
             # automatically checked by the photon registry, but we'll check it
             # here just in case.
@@ -186,6 +186,12 @@ class HuggingfacePhoton(Photon):
             f"Creating pipeline for {self.hf_task}(model={self.hf_model},"
             f" revision={self.hf_revision}).\n"
             "HuggingFace download might take a while, please be patient..."
+        )
+        logger.info(
+            "Note: HuggingFace caches the downloaded models in ~/.cache/huggingface/"
+            " (or C:\\Users\\<username>\\.cache\\huggingface\\ on Windows). If you"
+            " have already downloaded the model before, the download should be much"
+            " faster. If you run out of disk space, you can delete the cache folder."
         )
         try:
             pipeline = pipeline_creator(
@@ -807,7 +813,9 @@ class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
 
 
 def register_hf_photon():
-    schema_registry.register(schemas, HuggingfacePhoton.create_from_model_str)
+    schema_registry.register(
+        HUGGING_FACE_SCHEMAS, HuggingfacePhoton.create_from_model_str
+    )
     type_registry.register(
         is_transformers_model, HuggingfacePhoton.create_from_model_obj
     )
