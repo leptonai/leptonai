@@ -349,6 +349,7 @@ class Client(object):
         ctx = res if self.stream else contextlib.nullcontext(res)
         # use context to ensure that the response is properly closed.
         with ctx as res:
+            res.raise_for_status()
             if res.headers.get("content-type", None) == "application/json":
                 # For a json response, we will return the json object directly,
                 # as it does not make sense to stream a json object.
@@ -361,7 +362,6 @@ class Client(object):
                 yield False, res.content
 
     def _get_proper_res_content(self, res: httpx.Response):
-        res.raise_for_status()
         content = self._generator(res)
         is_stream, non_stream_content = next(content)
         return content if is_stream else non_stream_content

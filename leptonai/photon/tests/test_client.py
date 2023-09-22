@@ -72,7 +72,10 @@ class TestPathTree(unittest.TestCase):
 
         tree = PathTree(name="root", debug_record=[])
         self.assertFalse(tree)
-        temp_func = lambda x: x
+
+        def temp_func(x):
+            return x
+
         tree._add("foo", temp_func)
         self.assertTrue(tree)
 
