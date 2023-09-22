@@ -41,7 +41,17 @@ class vLLM(Photon):
         )
 
     @Photon.handler(mount=True)
-    def api(self):
+    def api(self, app):
         from vllm.entrypoints.openai import api_server
+
+        orig_openapi = app.openapi
+
+        def openapi():
+            res = orig_openapi()
+            for sub_path, val in api_server.app.openapi()["paths"].items():
+                res["paths"]["/api" + sub_path] = val
+            return res
+
+        app.openapi = openapi
 
         return api_server.app
