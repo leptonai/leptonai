@@ -239,7 +239,7 @@ class HuggingfacePhoton(Photon):
         # access pipeline here to trigger download and load
         self.pipeline
 
-    def run(self, *args, **kwargs):
+    def _run_pipeline(self, *args, **kwargs):
         import torch
 
         if torch.cuda.is_available():
@@ -329,7 +329,7 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
             "top_p": 0.95,
         },
     )
-    def run_handler(
+    def run(
         self,
         inputs: Union[str, List[str]],
         top_k: Optional[int] = None,
@@ -344,7 +344,7 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
         **kwargs,
     ) -> Union[str, List[str]]:
         try:
-            res = self.run(
+            res = self._run_pipeline(
                 inputs,
                 top_k=top_k,
                 top_p=top_p,
@@ -376,7 +376,9 @@ Current conversation:
 
 assistant:
 """
-        response = self.run(prompt, return_full_text=False)[0]["generated_text"]
+        response = self._run_pipeline(prompt, return_full_text=False)[0][
+            "generated_text"
+        ]
         history.append({"role": "assistant", "content": response})
         messages = [
             (history[i]["content"], history[i + 1]["content"])
@@ -415,7 +417,7 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
             "top_p": 0.95,
         },
     )
-    def run_handler(
+    def run(
         self,
         inputs: Union[str, List[str]],
         top_k: Optional[int] = None,
@@ -428,7 +430,7 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
         do_sample: bool = True,
         **kwargs,
     ) -> Union[str, List[str]]:
-        res = self.run(
+        res = self._run_pipeline(
             inputs,
             top_k=top_k,
             top_p=top_p,
@@ -457,7 +459,7 @@ Current conversation:
 
 assistant:
 """
-        response = self.run(prompt)[0]["generated_text"]
+        response = self._run_pipeline(prompt)[0]["generated_text"]
         history.append({"role": "assistant", "content": response})
         messages = [
             (history[i]["content"], history[i + 1]["content"])
@@ -494,7 +496,7 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
             )
         },
     )
-    def run_handler(self, inputs: Union[str, FileParam]) -> str:
+    def run(self, inputs: Union[str, FileParam]) -> str:
         if isinstance(inputs, FileParam):
             file = tempfile.NamedTemporaryFile()
             with open(file.name, "wb") as f:
@@ -502,7 +504,7 @@ class HuggingfaceASRPhoton(HuggingfacePhoton):
                 f.flush()
             inputs = file.name
 
-        res = self.run(inputs)
+        res = self._run_pipeline(inputs)
         return res["text"]
 
 
@@ -527,7 +529,7 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
             "seed": 42,
         },
     )
-    def run_handler(
+    def run(
         self,
         prompt: Union[str, List[str]],
         height: Optional[int] = None,
@@ -549,7 +551,7 @@ class HuggingfaceTextToImagePhoton(HuggingfacePhoton):
         else:
             generator = None
 
-        res = self.run(
+        res = self._run_pipeline(
             prompt,
             height=height,
             width=width,
@@ -574,12 +576,12 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
             "inputs": """The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct."""
         },
     )
-    def run_handler(
+    def run(
         self,
         inputs: Union[str, List[str]],
         **kwargs,
     ) -> Union[str, List[str]]:
-        res = self.run(
+        res = self._run_pipeline(
             inputs,
             **kwargs,
         )
@@ -620,7 +622,7 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
         inputs: Union[str, List[str]],
         **kwargs,
     ) -> Union[List[float], List[List[float]]]:
-        res = self.run(
+        res = self._run_pipeline(
             inputs,
             **kwargs,
         )
@@ -640,7 +642,7 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
             ],
         },
     )
-    def run_handler(
+    def run(
         self,
         source_sentence: str,
         sentences: Union[str, List[str]],
@@ -648,8 +650,8 @@ class HuggingfaceSentenceSimilarityPhoton(HuggingfacePhoton):
     ) -> Union[float, List[float]]:
         from sentence_transformers import util
 
-        sentences_embs = self.run(sentences, **kwargs)
-        source_sentence_emb = self.run(source_sentence, **kwargs)
+        sentences_embs = self._run_pipeline(sentences, **kwargs)
+        source_sentence_emb = self._run_pipeline(source_sentence, **kwargs)
         res = util.cos_sim(source_sentence_emb, sentences_embs)
 
         if res.dim() != 2 or res.size(0) != 1:
@@ -661,12 +663,12 @@ class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
     hf_task: str = "sentiment-analysis"
 
     @Photon.handler(example={"inputs": ["I love you", "I hate you"]})
-    def run_handler(
+    def run(
         self,
         inputs: Union[str, List[str]],
         **kwargs,
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        res = self.run(
+        res = self._run_pipeline(
             inputs,
             **kwargs,
         )
@@ -691,7 +693,7 @@ class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
             )
         },
     )
-    def run_handler(
+    def run(
         self,
         inputs: Union[Union[str, FileParam], List[Union[str, FileParam]]],
         **kwargs,
@@ -714,7 +716,7 @@ class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
                 inputs_.append(file.name)
             else:
                 inputs_.append(inp)
-        res = self.run(
+        res = self._run_pipeline(
             inputs_,
             **kwargs,
         )
@@ -735,7 +737,7 @@ class HuggingfaceDepthEstimationPhoton(HuggingfacePhoton):
             ]
         },
     )
-    def run_handler(
+    def run(
         self,
         images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
         **kwargs,
@@ -746,7 +748,7 @@ class HuggingfaceDepthEstimationPhoton(HuggingfacePhoton):
             images = [images]
         images = [img_param_to_img(img) for img in images]
 
-        res = self.run(
+        res = self._run_pipeline(
             images,
             **kwargs,
         )
@@ -784,7 +786,7 @@ class HuggingfaceDepthEstimationPhoton(HuggingfacePhoton):
             with gr.Row():
                 btn = gr.Button("Depth Estimate", variant="primary")
                 btn.click(
-                    fn=lambda img: self.run(img)["depth"],
+                    fn=lambda img: self._run_pipeline(img)["depth"],
                     inputs=input_image,
                     outputs=output_image,
                 )
@@ -798,7 +800,7 @@ class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
         "run",
         example={"images": "http://images.cocodataset.org/val2017/000000039769.jpg"},
     )
-    def run_handler(
+    def run(
         self,
         images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
         **kwargs,
@@ -819,7 +821,7 @@ class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
                 images_.append(file.name)
             else:
                 images_.append(img)
-        res = self.run(
+        res = self._run_pipeline(
             images_,
             **kwargs,
         )
@@ -833,7 +835,7 @@ class HuggingfaceImageClassificationPhoton(HuggingfacePhoton):
         "run",
         example={"images": "http://images.cocodataset.org/val2017/000000039769.jpg"},
     )
-    def run_handler(
+    def run(
         self,
         images: Union[Union[str, FileParam], List[Union[str, FileParam]]],
         **kwargs,
@@ -854,7 +856,7 @@ class HuggingfaceImageClassificationPhoton(HuggingfacePhoton):
                 images_.append(file.name)
             else:
                 images_.append(img)
-        res = self.run(
+        res = self._run_pipeline(
             images_,
             **kwargs,
         )

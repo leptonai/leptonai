@@ -14,7 +14,7 @@ from utils import random_name
 class TestHF(unittest.TestCase):
     def test_photon_file_metadata(self):
         name = random_name()
-        model = "hf:gpt2"
+        model = "hf:sshleifer/tiny-gpt2@5f91d94"
         ph = create(name, model)
         path = ph.save()
         metadata = load_metadata(path)
@@ -27,6 +27,19 @@ class TestHF(unittest.TestCase):
         self.assertTrue("/run" in metadata["openapi_schema"]["paths"])
         self.assertTrue("py_obj" not in metadata)
         self.assertEqual(len(metadata.get("requirement_dependency")), 1)
+
+    def test_hf_photon_local_run(self):
+        model = "hf:sshleifer/tiny-gpt2@5f91d94"
+        ph = create(random_name(), model)
+        text_input = "Hello world"
+        res = ph.run(text_input)
+        self.assertTrue(isinstance(res, str))
+        self.assertTrue(res.startswith(text_input))
+
+        batched_res = ph.run([text_input, text_input])
+        self.assertTrue(isinstance(batched_res, list))
+        self.assertEqual(len(batched_res), 2)
+        self.assertTrue(batched_res[0].startswith(text_input))
 
 
 if __name__ == "__main__":
