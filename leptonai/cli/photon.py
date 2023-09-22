@@ -179,9 +179,9 @@ def remove(name, local, id_, all_):
             explain_response(
                 api.remove_remote(conn, id_to_remove),
                 f"Photon id [green]{id_to_remove}[/] removed.",
-                f"Photon id [red]{id_to_remove}[/] not removed. Some deployments still"
-                " using it. Remove the deployments first with `lep deployment"
-                " remove`.",
+                f"Photon id [red]{id_to_remove}[/] not removed. Some deployments"
+                " still using it. Remove the deployments first with `lep"
+                " deployment remove`.",
                 f"Photon id [red]{id_to_remove}[/] not removed. See error message"
                 " above.",
                 exit_if_4xx=True,
@@ -450,8 +450,9 @@ def run(
             id = _get_most_recent_photon_id_or_none(conn, name)
             if not id:
                 console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did you"
-                    " intend to run a local photon? If so, please specify --local.",
+                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                    " you intend to run a local photon? If so, please specify"
+                    " --local.",
                 )
                 sys.exit(1)
             console.print(f"Running the most recent version of [green]{name}[/]: {id}")

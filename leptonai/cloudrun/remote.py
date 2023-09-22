@@ -15,6 +15,7 @@ import weakref
 from loguru import logger
 
 from leptonai.photon import Photon
+from leptonai.photon.util import create as create_photon
 from leptonai import api
 from leptonai.api import APIError
 from leptonai.client import Client, current
@@ -106,7 +107,7 @@ class Remote(object):
         elif isinstance(photon, str):
             # if the photon is a string, then create a Photon object and save it.
             try:
-                created_photon = api.photon.create(name=self.unique_name, model=photon)
+                created_photon = create_photon(name=self.unique_name, model=photon)
                 if not isinstance(created_photon, Photon):
                     raise RuntimeError(
                         "Currently we do not support non-python photons yet."
