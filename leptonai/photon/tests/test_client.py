@@ -14,7 +14,8 @@ import httpx
 import respx
 
 from leptonai import Client
-from leptonai.photon import Photon, handler, StreamingResponse
+from leptonai.photon import Photon, handler, StreamingResponse, HTTPException
+from leptonai.client import PathTree
 from utils import random_name, find_free_port, photon_run_local_server
 
 
@@ -44,6 +45,12 @@ class PostAndGet(Photon):
         return f"hello world ({query})"
 
 
+class Throws429(Photon):
+    @handler
+    def run(self):
+        raise HTTPException(status_code=429, detail="Too many requests")
+
+
 def weirdly_named_photon_wrapper(port):
     photon = WeirdlyNamedPhoton()
     photon.launch(port=port)
@@ -52,6 +59,25 @@ def weirdly_named_photon_wrapper(port):
 def post_and_get_wrapper(port):
     photon = PostAndGet()
     photon.launch(port=port)
+
+
+def throws_429_wrapper(port):
+    photon = Throws429()
+    photon.launch(port=port)
+
+
+class TestPathTree(unittest.TestCase):
+    def test_path_tree_bool(self):
+        from leptonai.client import PathTree
+
+        tree = PathTree(name="root", debug_record=[])
+        self.assertFalse(tree)
+
+        def temp_func(x):
+            return x
+
+        tree._add("foo", temp_func)
+        self.assertTrue(tree)
 
 
 class TestClient(unittest.TestCase):
@@ -72,6 +98,24 @@ class TestClient(unittest.TestCase):
         res = client.run(inputs="hello world", do_sample=True, max_length=10)
         self.assertTrue(isinstance(res, str))
         self.assertTrue(res.startswith(inputs))
+
+        # Simulate a case where the client failed to connect and there is no automatically
+        # generated path tree.
+        client._path_cache = PathTree(name="", debug_record=[])
+        try:
+            client.run(inputs=inputs)
+        except AttributeError as e:
+            self.assertTrue(
+                "It is likely that the client was not initialized, or the client"
+                " encountered errors during initialization time."
+                in str(e)
+            )
+        else:
+            self.fail(
+                "Expected AttributeError from no-path-tree client, but it seems to have"
+                " passed."
+            )
+
         proc.kill()
 
     def test_client_with_unique_names(self):
@@ -107,6 +151,18 @@ class TestClient(unittest.TestCase):
         # Tests if we are guarding args - users should use kwargs.
         self.assertRaises(RuntimeError, client.run_post, "post")
         self.assertRaises(RuntimeError, client.run_get, "get")
+        proc.terminate()
+
+    def test_client_with_throw_429(self):
+        port = find_free_port()
+        proc = multiprocessing.Process(target=throws_429_wrapper, args=(port,))
+        proc.start()
+        time.sleep(1)
+        url = f"http://localhost:{port}"
+        client = Client(url)
+        self.assertTrue(client.healthz())
+        self.assertRaises(httpx.HTTPStatusError, client.run)
+
         proc.terminate()
 
     def test_client_with_token(self):

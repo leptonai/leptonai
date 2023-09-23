@@ -65,6 +65,9 @@ class PathTree(object):
                 f" available members are ({','.join(self._path_cache.keys())})."
             )
 
+    def __len__(self):
+        return len(self._path_cache)
+
     def __dir__(self) -> Iterable[str]:
         return self._path_cache.keys()
 
@@ -272,6 +275,25 @@ class Client(object):
                 "Cannot connect to server. This is not an issue of the"
                 f" client, but a network error. More details:\n{e}"
             )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                self._debug_record.append(
+                    "OpenAPI spec does not exist. This is not an issue of the"
+                    " client, but the deployment does not have an openapi"
+                    " specification."
+                )
+            elif e.response.status_code == 429:
+                self._debug_record.append(
+                    "Server returned 429. This is not an issue of the client, but"
+                    " the server is rate limiting the client. Your further requests"
+                    " are likely to be rejected. Please wait for a while and try"
+                    " again."
+                )
+            else:
+                raise ConnectionError(
+                    "Cannot connect to server. This is not an issue of the"
+                    f" client, but a network error. More details:\n{e}"
+                )
         except httpx.HTTPError:
             self._debug_record.append(
                 "OpenAPI spec does not exist. This is not a client bug, but the"
@@ -323,28 +345,26 @@ class Client(object):
         else:
             return self._session.post(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
-    def _get_proper_res_content(self, res: httpx.Response):
-        def generator(res):
-            ctx = res if self.stream else contextlib.nullcontext(res)
-            with ctx as res:
-                res.raise_for_status()
-                if res.headers.get("content-type", None) == "application/json":
-                    res.read()
-                    yield False, res.json()
-                if self.stream and "chunked" in res.headers.get(
-                    "transfer-encoding", ""
-                ):
-                    yield True, None
-                    yield from res.iter_bytes(chunk_size=self.chunk_size)
-                else:
-                    yield False, res.content
+    def _generator(self, res: httpx.Response):
+        ctx = res if self.stream else contextlib.nullcontext(res)
+        # use context to ensure that the response is properly closed.
+        with ctx as res:
+            res.raise_for_status()
+            if res.headers.get("content-type", None) == "application/json":
+                # For a json response, we will return the json object directly,
+                # as it does not make sense to stream a json object.
+                res.read()
+                yield False, res.json()
+            if self.stream and "chunked" in res.headers.get("transfer-encoding", ""):
+                yield True, None
+                yield from res.iter_bytes(chunk_size=self.chunk_size)
+            else:
+                yield False, res.content
 
-        content = generator(res)
+    def _get_proper_res_content(self, res: httpx.Response):
+        content = self._generator(res)
         is_stream, non_stream_content = next(content)
-        if is_stream:
-            return content
-        else:
-            return non_stream_content
+        return content if is_stream else non_stream_content
 
     def _create_post_path(self, path_name: str) -> None:
         """
@@ -363,7 +383,6 @@ class Client(object):
                             self.openapi, path_name, args
                         )
                     )
-
                 res = self._post(
                     path_name,
                     json=jsonable_encoder(kwargs),
@@ -448,6 +467,15 @@ class Client(object):
         return self._debug_record[:]  # return a copy
 
     def __getattr__(self, name: str):
+        if not self._path_cache:
+            raise AttributeError(
+                "No paths found. It is likely that the client was not initialized, or"
+                " the client encountered errors during initialization time. Check the"
+                " following debug message containing issues during initialization:"
+                "\n\n******** begin debug message ********"
+                + "\n\n".join(self._debug_record)
+                + "\n\n******** end debug message ********"
+            )
         try:
             return self._path_cache[name]
         except KeyError:
