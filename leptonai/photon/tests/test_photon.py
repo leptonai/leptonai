@@ -491,6 +491,15 @@ from leptonai.photon import Photon
             res.json(),
             "hello",
         )
+
+        res = requests.get(f"http://127.0.0.1:{port}/openapi.json")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("/myapp/hello", res.json()["paths"])
+
+        client = Client(f"http://127.0.0.1:{port}")
+        res = client.myapp.hello()
+        self.assertEqual(res, "world")
+
         proc.kill()
 
     def test_mount_photon(self):

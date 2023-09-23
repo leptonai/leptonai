@@ -641,11 +641,12 @@ class Photon(BasePhoton):
         except ImportError:
             has_flask = False
 
-        if isinstance(subapp, (FastAPI, StaticFiles)):
+        if isinstance(subapp, FastAPI):
+            app.include_router(subapp.router, prefix=f"/{path}")
+        elif isinstance(subapp, StaticFiles):
             app.mount(f"/{path}", subapp)
         elif isinstance(subapp, Photon):
             subapp_real_app = subapp._create_app(load_mount=True)
-            # app.mount(f"/{path}", subapp_real_app)
             app.include_router(subapp_real_app.router, prefix=f"/{path}")
         elif not has_gradio and not has_flask:
             logger.warning(
