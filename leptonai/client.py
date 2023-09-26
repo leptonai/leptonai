@@ -467,7 +467,7 @@ class Client(object):
         return self._debug_record[:]  # return a copy
 
     def __getattr__(self, name: str):
-        if not self._path_cache:
+        if len(self._path_cache) == 0:
             raise AttributeError(
                 "No paths found. It is likely that the client was not initialized, or"
                 " the client encountered errors during initialization time. Check the"
