@@ -300,6 +300,13 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     return deployment_name
 
 
+def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
+    if x is None or x >= 60:
+        return x
+    else:
+        raise click.BadParameter("Timeout value must be larger than 60 seconds.")
+
+
 @photon.command()
 @click.option("--name", "-n", type=str, help="Name of the photon to run.")
 @click.option(
@@ -396,9 +403,11 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
     type=int,
     help=(
         "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Note that actual timeout"
-        " may be up to 30 seconds longer than the specified value."
+        " specified number of seconds without traffic. Minimum is 60 seconds if set."
+        " Note that actual timeout may be up to 30 seconds longer than the specified"
+        " value."
     ),
+    callback=_timeout_must_be_larger_than_60,
 )
 @click.pass_context
 def run(
