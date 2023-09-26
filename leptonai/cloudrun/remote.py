@@ -230,7 +230,7 @@ class Remote(object):
             try:
                 self.client = Client(current(), self.deployment_id)
                 client_successful = self.client.openapi
-            except ConnectionError as e:
+            except ConnectionError:
                 client_successful = False
             if not client_successful:
                 time.sleep(self._DEFAULT_WAIT_INTERVAL)
