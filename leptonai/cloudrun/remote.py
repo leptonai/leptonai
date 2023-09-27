@@ -68,6 +68,7 @@ class Remote(object):
         self.display_name = str(photon)
         self.unique_name = _make_unique_name()
         self.conn = api.workspace.current_connection()
+        self._last_error = None
 
         version = api.workspace.version(self.conn)
         if version and version < (0, 10, 0):
@@ -189,7 +190,6 @@ class Remote(object):
         logger.debug(f"Remote: waiting for photon {self.photon_id} to be ready")
         start = time.time()
         is_deployment_ready = False
-        ret = None
         while not is_deployment_ready and time.time() - start < self._MAX_WAIT_TIME:
             ret = api.deployment.get_deployment(self.conn, self.deployment_id)
             if isinstance(ret, APIError):
@@ -208,11 +208,10 @@ class Remote(object):
                 ret = api.deployment.get_termination(self.conn, self.deployment_id)
                 if not isinstance(ret, APIError) and len(ret):
                     # Earlier termination detected. Raise an error.
+                    self._last_error = ret
                     raise RuntimeError(
                         f"{self.deployment_id} seems to have failures. Inspect the"
-                        f" failure using `lep deployment log -n {self.deployment_id}`."
-                        " After this, you can run cloudrun.clean() to cleanup old"
-                        " deployments and photons."
+                        " failure using the Remote class's last_error() function."
                     )
                 time.sleep(self._DEFAULT_WAIT_INTERVAL)
         if not is_deployment_ready:
@@ -222,24 +221,27 @@ class Remote(object):
         # Note: we will double check openapi correctness, as there is a little bit of
         # delay between the deployment is ready and the openapi is ready, because the
         # load balancer in front of the deployment may need a bit of startup time.
+        is_client_ready = False
         start = time.time()
-        client_successful = False
-        while (
-            not client_successful and time.time() - start < self._MAX_CLIENT_WAIT_TIME
-        ):
+        while not is_client_ready and time.time() - start < self._MAX_CLIENT_WAIT_TIME:
             try:
                 self.client = Client(current(), self.deployment_id)
-                client_successful = self.client.openapi
+                is_client_ready = bool(self.client.openapi)
             except ConnectionError:
-                client_successful = False
-            if not client_successful:
-                time.sleep(self._DEFAULT_WAIT_INTERVAL)
-
-        if not self.client.openapi:
-            raise RuntimeError(
+                # Temporary solution: Between deployment ready and client ready, sometimes
+                # a 503 server not ready is returned. In this case, we will catch the
+                # connection error and simply retry.
+                continue
+            time.sleep(self._DEFAULT_WAIT_INTERVAL)
+        if self.client is None or not self.client.openapi:
+            self._last_error = (
                 f"Failed to get openapi for photon {self.photon_id} in time."
             )
+            raise RuntimeError(self._last_error)
         logger.debug(f"Remote: client for {self.deployment_id} is ready")
+
+    def last_error(self):
+        return self._last_error
 
     def _start_up(self) -> None:
         """
