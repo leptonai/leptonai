@@ -162,7 +162,7 @@ class HuggingfacePhoton(Photon):
                 f'Unsupported Huggingface model: "{model_str}" (task: {hf_task}). This'
                 " task is not supported by LeptonAI SDK yet. If you would like us to"
                 " add support for this task type, please let us know by opening an"
-                " issue at https://github.com/lepton/leptonai-sdk/issues/new/choose."
+                " issue at https://github.com/lepton/leptonai/issues/new/choose."
                 f"\nCurrently supported HF tasks are: {cls.supported_tasks()}."
             )
 
@@ -257,7 +257,7 @@ class HuggingfacePhoton(Photon):
                 f"Lepton currently does not support the specified task: {hf_task}. If"
                 " you would like us to support this task, please let us know by"
                 " opening an issue"
-                " at https://github.com/leptonai/leptonai-sdk/issues/new/choose, and"
+                " at https://github.com/leptonai/leptonai/issues/new/choose, and"
                 " kindly include the specific model that you are trying to run for"
                 " debugging purposes: {model_str}"
             )
