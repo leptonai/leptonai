@@ -8,13 +8,13 @@ First and foremost, thank you for considering contributing to leptonai! We appre
 First clone the source code from Github
 
 ```
-git clone https://leptonai/leptonai-sdk.git
+git clone https://leptonai/leptonai.git
 ```
 
 Use `pip` to install `leptonai` from source
 
 ```shell
-cd leptonai-sdk
+cd leptonai
 pip install -e .
 ```
 

@@ -34,5 +34,5 @@ jobs:
           fi
           pip install .[test]
           cd ..
-          pytest -x leptonai-sdk
+          pytest -x leptonai
           cd -

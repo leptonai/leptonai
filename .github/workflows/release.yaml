@@ -82,7 +82,7 @@ jobs:
           python -c "import leptonai; print(leptonai)"
 
           echo "Run unittests"
-          pytest -x leptonai-sdk
+          pytest -x leptonai
           cd -
       - name: Run End-To-End Tests
         if: inputs.run_e2e

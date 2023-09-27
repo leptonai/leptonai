@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/leptonai/leptonai-sdk/main/assets/logo.svg" height=100>
+<img src="https://raw.githubusercontent.com/leptonai/leptonai/main/assets/logo.svg" height=100>
 
 # LeptonAI SDK
 
@@ -54,7 +54,7 @@ print(c.run(inputs="I enjoy walking with my cute dog"))
 
 Fully managed Llama2 models and CodeLlama models can be found in the [playground](https://dashboard.lepton.ai/playground).
 
-Many standard HuggingFace pipelines are supported - find out more details in the [documentation](https://www.lepton.ai/docs/advanced/prebuilt_photons#hugging-face-photons). Not all HuggingFace models are supported though, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai-sdk/issues/new).
+Many standard HuggingFace pipelines are supported - find out more details in the [documentation](https://www.lepton.ai/docs/advanced/prebuilt_photons#hugging-face-photons). Not all HuggingFace models are supported though, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai/issues/new).
 
 ## Checking out more examples
 
@@ -126,7 +126,7 @@ For more details, checkout the [documentation](https://lepton.ai/docs/) and the 
 
 ## Contributing
 
-Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](https://github.com/leptonai/leptonai-sdk/blob/main/CONTRIBUTING.md) for how to get involved.
+Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](https://github.com/leptonai/leptonai/blob/main/CONTRIBUTING.md) for how to get involved.
 
 ## License
 
