@@ -2,7 +2,7 @@
 A manually maintained, best-effort map from HuggingFace (HF thereafter)
 pipeline names to their corresponding dependencies.
 
-LeptonAI SDK allows one to remotely run HF pipelines. However, there isn't a
+LeptonAI allows one to remotely run HF pipelines. However, there isn't a
 standard way to pre-determine and install dependencies for HF pipelines yet.
 Therefore, we manually maintain this map to install HF pipeline dependencies
 when necessary, if you are launching the photon on the LeptonAI platform.

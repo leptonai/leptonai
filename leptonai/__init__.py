@@ -1,5 +1,5 @@
 """
-Lepton SDK for Python.
+The Lepton AI python library.
 """
 from . import photon  # noqa: F401
 from .client import Client  # noqa: F401

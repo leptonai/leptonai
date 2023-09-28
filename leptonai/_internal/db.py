@@ -2,7 +2,7 @@
 Database for storing photon information. This is a system component - do not directly
 import this module or operate on the database with direct SQL queries, unless you know
 exactly what you are doing. Use the Lepton CLI instead. Arbitrary changes to the database
-may cause the Lepton SDK metadata to be corrupted.
+may cause the metadata to be corrupted.
 """
 import sqlite3
 

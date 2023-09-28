@@ -146,9 +146,9 @@ class HuggingfacePhoton(Photon):
                     " not intend to publish the model as a pipeline, and is only using"
                     " HuggingFace Hub as a storage for the model weights and misc"
                     " files. Thus, it is not possible to run the model automatically."
-                    " This is not a bug of Lepton SDK, but rather a limitation of the"
-                    " hf ecosystem.\n\nAs a possible solution, you can try to access"
-                    " the corresponding model page at"
+                    " This is not a bug of Lepton AI library, but rather a limitation"
+                    " of the hf ecosystem.\n\nAs a possible solution, you can try to"
+                    " access the corresponding model page at"
                     f" https://huggingface.co/{hf_model_id} and see if the model"
                     " creator provided any instructions on how to run the model. You"
                     " can then wrap this model into a custom Photon with relatively"
@@ -160,7 +160,7 @@ class HuggingfacePhoton(Photon):
         if hf_task not in HF_DEFINED_TASKS:
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (task: {hf_task}). This'
-                " task is not supported by LeptonAI SDK yet. If you would like us to"
+                " task is not supported by the library yet. If you would like us to"
                 " add support for this task type, please let us know by opening an"
                 " issue at https://github.com/lepton/leptonai/issues/new/choose."
                 f"\nCurrently supported HF tasks are: {cls.supported_tasks()}."
