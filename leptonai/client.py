@@ -240,7 +240,7 @@ class Client(object):
             token is None
             and workspace_or_url == WorkspaceInfoLocalRecord.get_current_workspace_id()
         ):
-            token = WorkspaceInfoLocalRecord._get_current_workspace_token()
+            token = WorkspaceInfoLocalRecord.get_current_workspace_token()
         if token is not None:
             headers.update({"Authorization": f"Bearer {token}"})
 
@@ -515,7 +515,7 @@ class Workspace(object):
             workspace_id == WorkspaceInfoLocalRecord.get_current_workspace_id()
             and not token
         ):
-            token = WorkspaceInfoLocalRecord._get_current_workspace_token()
+            token = WorkspaceInfoLocalRecord.get_current_workspace_token()
         self.workspace_id = workspace_id
         api_url = _get_full_workspace_api_url(workspace_id)
         if not api_url:

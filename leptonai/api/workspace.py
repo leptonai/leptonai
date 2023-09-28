@@ -96,7 +96,7 @@ class WorkspaceInfoLocalRecord(object):
                 raise RuntimeError(
                     "No current workspace is set. Did you forget to do `lep login`?"
                 )
-            auth_token = cls._get_current_workspace_token()
+            auth_token = cls.get_current_workspace_token()
             cls._singleton_conn = Connection(url, auth_token)
         return cls._singleton_conn
 
@@ -135,7 +135,7 @@ class WorkspaceInfoLocalRecord(object):
         return workspaces[workspace_id]["display_name"]
 
     @classmethod
-    def _get_current_workspace_token(cls) -> Optional[str]:
+    def get_current_workspace_token(cls) -> Optional[str]:
         """
         Gets the current workspace auth token.
         """
