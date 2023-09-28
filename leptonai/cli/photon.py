@@ -19,6 +19,7 @@ from leptonai.api import photon as api
 from leptonai.api import types
 from leptonai.api.deployment import list_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
+from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
 from leptonai.photon.base import (
@@ -301,7 +302,7 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
 
 
 def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
-    if x is None or x >= 60:
+    if x is None or x == 0 or x >= 60:
         return x
     else:
         raise click.BadParameter("Timeout value must be larger than 60 seconds.")
@@ -330,7 +331,9 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     is_flag=True,
 )
-@click.option("--port", "-p", type=int, help="Port to run on.", default=8080)
+@click.option(
+    "--port", "-p", type=int, help="Port to run on.", default=config.DEFAULT_PORT
+)
 @click.option(
     "--id", "-i", type=str, help="ID of the photon (only required for remote)."
 )
@@ -467,8 +470,23 @@ def run(
             console.print(f"Running the most recent version of [green]{name}[/]: {id}")
         else:
             console.print(f"Running the specified version: [green]{id}[/]")
+
+        if no_traffic_timeout is None and config.DEFAULT_TIMEOUT:
+            console.print(
+                "Lepton is currently set to use a default timeout of [green]1 hour[/]."
+                " This means that when there is no traffic for more than an hour, your"
+                " deployment will automatically scale down to zero. This is to assist"
+                " auto-release of unused debug deployments.\nIf you would like to run a"
+                " long-running photon (e.g. for production), [green]set"
+                " --no-traffic-timeout to 0[/].\nIf you would like to turn off default"
+                " timeout, set the environment variable"
+                " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
+            )
+            no_traffic_timeout = config.DEFAULT_TIMEOUT
+
         # parse environment variables and secrets
         deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
+
         try:
             response = api.run_remote(
                 conn,
