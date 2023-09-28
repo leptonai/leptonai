@@ -77,7 +77,7 @@ def login(
             "Must specify --workspace-id if using --test-only-workspace-url. This"
             " will create a new workspace login with the given workspace url. Also,"
             " you should only use this if you are running unit tests for the Lepton"
-            " SDK.",
+            " AI library.",
         )
         console.print("Using test-only workspace url for internal testing purposes.")
         console.print("Do not use this option unless you know what you are doing.")
@@ -130,7 +130,7 @@ def list():
     table.add_column("Auth Token")
     for workspace_id, info in workspace_info.items():
         url = info["url"]
-        # in older versions of the SDK, "display_name" field does not exist, so we
+        # in older versions of the library, "display_name" field does not exist, so we
         # add a sanity check.
         name = info.get("display_name", "")
         role = "user"

@@ -563,7 +563,7 @@ def run(
             traceback.print_exc()
             console.print(
                 "\nIt seems that you are missing some dependencies. This is not a bug"
-                " of LeptonAI SDK, and is due to the underlying photon requiring"
+                " of LeptonAI library, and is due to the underlying photon requiring"
                 " dependencies. When running photons locally, we intentionally refrain"
                 " from installing these dependencies for you, in order to not mess with"
                 " your local environment. You can manually install the missing"

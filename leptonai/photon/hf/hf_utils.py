@@ -264,9 +264,9 @@ def hf_missing_package_error_message(
         " the missing packages with pip as follows:\n\npip install"
         f" {' '.join(missing_packages)}\n\n(note that some package names and pip names"
         " may be different, and you may need to search pypi for the correct package"
-        " name)\n\n2. If you are using LeptonAI SDK, we maintain a mapping from known"
-        " HuggingFace pipelines to their dependencies. We appreciate if you can send a"
-        " PR to https://github.com/leptonai/leptonai/ to add the missing"
+        " name)\n\n2. If you are using LeptonAI library, we maintain a mapping from"
+        " known HuggingFace pipelines to their dependencies. We appreciate if you can"
+        " send a PR to https://github.com/leptonai/leptonai/ to add the missing"
         f' dependencies.Specifically, it looks like this:\n\n"{pipeline_name}":[\n   '
         f' "{separator.join(missing_packages)}"\n]\n\n(please refer to'
         " [https://github.com/leptonai/leptonai/blob/main/leptonai/photon/hf/hf_dependencies.py]"

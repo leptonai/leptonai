@@ -1,6 +1,6 @@
 # flake8: noqa
 """
-This implements the api for the Lepton AI SDK. It provides an easy wrapper
+This implements the api for the Lepton AI library. It provides an easy wrapper
 around the Lepton AI web API. Note that, the Lepton AI web API is intended to be
 used by "human interactions", and not programmatical interactions. This means
 that there is no SLA guarantee for the api, especially if you plan to use it in

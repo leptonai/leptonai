@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/leptonai/leptonai/main/assets/logo.svg" height=100>
 
-# LeptonAI SDK
+# LeptonAI python library
 
 **A Pythonic framework to simplify AI service building**
 
@@ -12,7 +12,7 @@
 <a href="https://twitter.com/leptonai">Twitter</a> •
 <a href="https://leptonai.medium.com/">Blog</a>
 
-LeptonAI SDK allows you to build an AI service from python code with ease. Key features include:
+The LeptonAI python library allows you to build an AI service from python code with ease. Key features include:
 
 - A pythonic abstraction `Photon`, allowing you to convert research and modeling code into a service with a few lines of code.
 - Simple abstractions to launch models like those on [HuggingFace](https://huggingface.co) in few lines of code.
@@ -22,7 +22,7 @@ LeptonAI SDK allows you to build an AI service from python code with ease. Key f
 - Pythonic configuration specs to be readily shipped in a cloud environment.
 
 ## Getting started with one-liner
-Install the SDK with:
+Install the library with:
 
 ```shell
 pip install -U leptonai
@@ -130,6 +130,6 @@ Contributions and collaborations are welcome and highly appreciated. Please chec
 
 ## License
 
-Lepton AI sdk is released under the Apache 2.0 license.
+The Lepton AI python library is released under the Apache 2.0 license.
 
 Developer Note: early development of LeptonAI was in a separate mono-repo, which is why you may see commits from the `leptonai/lepton` repo. We intend to use this open source repo as the source of truth going forward.
