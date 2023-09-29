@@ -242,7 +242,8 @@ class HuggingfacePhoton(Photon):
     def _run_pipeline(self, *args, **kwargs):
         import torch
 
-        if torch.cuda.is_available():
+        # autocast causes invalid value (and generates black images) for text-to-image
+        if torch.cuda.is_available() and self.hf_task != "text-to-image":
             with torch.autocast(device_type="cuda"):
                 return self.pipeline(*args, **kwargs)
         else:
