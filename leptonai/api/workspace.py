@@ -94,7 +94,9 @@ class WorkspaceInfoLocalRecord(object):
             url = cls._get_current_workspace_api_url()
             if url is None:
                 raise RuntimeError(
-                    "No current workspace is set. Did you forget to do `lep login`?"
+                    "It seems that you are not logged in to any workspace yet."
+                    "Please log in and then retry. To log in, use `lep login`"
+                    " from the commandline."
                 )
             auth_token = cls.get_current_workspace_token()
             cls._singleton_conn = Connection(url, auth_token)
