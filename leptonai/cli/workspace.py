@@ -194,7 +194,7 @@ def token():
     when you want to obtain the workspace token in the command line in e.g.
     a shell script, but do not want to hardcode it in the source file.
     """
-    token = WorkspaceInfoLocalRecord._get_current_workspace_token()
+    token = WorkspaceInfoLocalRecord.get_current_workspace_token()
     console.print(token, end="")
 
 
