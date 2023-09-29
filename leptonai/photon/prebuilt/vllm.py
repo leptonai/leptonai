@@ -7,7 +7,7 @@ from leptonai.config import TRUST_REMOTE_CODE
 
 class vLLM(Photon):
     requirement_dependency = [
-        "vllm",
+        "vllm>=0.2.0",
         "fschat",
     ]
 
@@ -29,7 +29,7 @@ class vLLM(Photon):
         )
         engine = AsyncLLMEngine.from_engine_args(engine_args)
         engine_model_config = asyncio.run(engine.get_model_config())
-        max_model_len = engine_model_config.get_max_model_len()
+        max_model_len = engine_model_config.max_model_len
 
         api_server.served_model = os.environ.get("MODEL_NAME", model)
         api_server.engine = engine
