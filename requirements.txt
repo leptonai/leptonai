@@ -12,6 +12,7 @@ loguru
 requests
 pydantic!=2.1.0 # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
 
+accelerate # needed by low_cpu_mem_usage
 huggingface_hub
 diffusers[torch]
 sentence-transformers
