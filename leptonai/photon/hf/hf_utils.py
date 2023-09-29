@@ -209,12 +209,14 @@ def _create_hf_transformers_pipeline(task, model, revision):
         logger.info(
             f"Failed to create pipeline with {torch_dtype}: {e}, fallback to fp32"
         )
-        if "low_cpu_mem_usage" in str(e).lower() and "low_cpu_mem_usage" in kwargs:
+        if "low_cpu_mem_usage" in str(e).lower():
             logger.info(
                 "error seems to be caused by low_cpu_mem_usage, retry without"
                 " low_cpu_mem_usage"
             )
-            kwargs.pop("low_cpu_mem_usage")
+            kwargs.get("model_kwargs", {}).pop("low_cpu_mem_usage")
+            if not kwargs.get("model_kwargs"):
+                kwargs.pop("model_kwargs")
         # fallback to fp32
         kwargs.pop("torch_dtype")
         pipe = pipeline(task=task, revision=revision, **kwargs)
