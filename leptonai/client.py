@@ -199,6 +199,7 @@ class Client(object):
         token: Optional[str] = None,
         stream: Optional[bool] = None,
         chunk_size: Optional[int] = None,
+        no_check: bool = False,
     ):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
@@ -214,6 +215,8 @@ class Client(object):
                 Note that if stream is specified but the return type is json, we will
                 still return the json object lump sum, instead of a generator.
             chunk_size (int, optional): The chunk size to use when streaming. Defaults to None.
+            no_check: (bool, optional): Whether to skip checking for any errors and print
+                out messages. Defaults to False.
 
         Implementation Note: when one uses a full URL, the client accesses the deployment
         specific endpoint directly. This endpoint may have a certain delay, and may not be
@@ -321,7 +324,7 @@ class Client(object):
                     f"Endpoint {path_name} does not have a post or get method."
                     " Currently we only support post and get methods."
                 )
-        if self._debug_record:
+        if self._debug_record and not no_check:
             logger.warning(
                 "There are issues with the client. Check debug messages with "
                 "`client.debug_record()`."
