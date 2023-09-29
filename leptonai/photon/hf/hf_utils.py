@@ -154,7 +154,9 @@ def _create_hf_transformers_pipeline(task, model, revision):
 
     kwargs["torch_dtype"] = torch_dtype
 
-    kwargs["low_cpu_mem_usage"] = True
+    kwargs["model_kwargs"] = {
+        "low_cpu_mem_usage": True,
+    }
 
     if task == "text-generation":
         no_attention_mask = model in hf_no_attention_mask_models
