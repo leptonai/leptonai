@@ -16,7 +16,7 @@ from loguru import logger
 
 from leptonai.photon import Photon
 from leptonai.photon.util import create as create_photon
-from leptonai import api
+from leptonai import api, config
 from leptonai.api import APIError
 from leptonai.client import Client, current
 
@@ -40,7 +40,9 @@ class Remote(object):
 
     _MAX_WAIT_TIME = 600  # In the Remote class, we wait for at most 10 minutes for the photon to be ready.
     _MAX_CLIENT_WAIT_TIME = 30  # In the Remote class, we wait for at most 30 seconds for DNS and other propagation between the deployment being ready and the client being accessable.
-    _DEFAULT_TIMEOUT = 1200  # In the Remote class, we set the timeout for the deployments to be 10 minutes by default.
+    _DEFAULT_TIMEOUT = (
+        config.CLOUDRUN_DEFAULT_TIMEOUT
+    )  # Similar to the default timeout in the deployment class, we will set the default timeout to 1 hour.
     _DEFAULT_WAIT_INTERVAL = 1  # In the Remote class, we wait for 1 second between each check for the photon to be ready.
 
     # A best-effort global variable for Remote objects, and a best-effort cleanup function.

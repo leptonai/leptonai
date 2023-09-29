@@ -4,6 +4,7 @@ from typing import Callable, Dict, List, Set, Optional, Union, Iterable
 
 from fastapi.encoders import jsonable_encoder
 import httpx
+from loguru import logger
 
 from leptonai._internal.client_utils import (  # noqa
     _get_method_docstring,
@@ -15,11 +16,12 @@ from leptonai.api.workspace import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
 )
+from leptonai.config import DEFAULT_PORT
 from leptonai.util import _is_valid_url
 from .api import deployment, APIError
 
 
-def local(port: int = 8080) -> str:
+def local(port: int = DEFAULT_PORT) -> str:
     """
     Create a connection string for a local deployment. This is useful for testing
     purposes, and does not require you to type the local IP address repeatedly.
@@ -29,7 +31,7 @@ def local(port: int = 8080) -> str:
         client.foo()
 
     Args:
-        port (int, optional): The port number. Defaults to 8080.
+        port (int, optional): The port number. Defaults to leptonai.config.DEFAULT_PORT.
     Returns:
         str: The connection string.
     """
@@ -264,7 +266,7 @@ class Client(object):
         try:
             raw_openapi = self._get("openapi.json")
             try:
-                self.openapi = self._get_proper_res_content(raw_openapi)
+                self.openapi = self._get_proper_res_content(raw_openapi)  # type: ignore
             except httpx.DecodingError:
                 self._debug_record.append(
                     "OpenAPI spec failed to be json decoded. This is not an issue of"
@@ -319,6 +321,11 @@ class Client(object):
                     f"Endpoint {path_name} does not have a post or get method."
                     " Currently we only support post and get methods."
                 )
+        if self._debug_record:
+            logger.warning(
+                "There are issues with the client. Check debug messages with "
+                "`client.debug_record()`."
+            )
 
     def __del__(self):
         self._session.close()
@@ -471,10 +478,10 @@ class Client(object):
             raise AttributeError(
                 "No paths found. It is likely that the client was not initialized, or"
                 " the client encountered errors during initialization time. Check the"
-                " following debug message containing issues during initialization:"
-                "\n\n******** begin debug message ********"
+                " following debug messages, which contain issues during initialization:"
+                "\n\n******** begin debug message ********\n"
                 + "\n\n".join(self._debug_record)
-                + "\n\n******** end debug message ********"
+                + "\n******** end debug message ********"
             )
         try:
             return self._path_cache[name]

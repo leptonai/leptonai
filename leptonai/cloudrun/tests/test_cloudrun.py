@@ -64,13 +64,13 @@ class TestInline(unittest.TestCase):
         "No timeout support",
     )
     def test_timeout(self):
-        remote_run = Remote(MyPhoton(), no_traffic_timeout=10)
+        remote_run = Remote(MyPhoton(), no_traffic_timeout=60)
         self.assertTrue(remote_run.healthz())
         self.assertEqual(remote_run.foo(), "hello world!")
 
         # The tiemout check is done with +- 30 second margin, so we wait for
         # a sufficiently long time.
-        time.sleep(60)
+        time.sleep(90)
         # Test if it is actually shut down
         deployment_id = remote_run.deployment_id
         self.assertIsNotNone(deployment_id)
