@@ -227,7 +227,7 @@ class Remote(object):
         start = time.time()
         while not is_client_ready and time.time() - start < self._MAX_CLIENT_WAIT_TIME:
             try:
-                self.client = Client(current(), self.deployment_id)
+                self.client = Client(current(), self.deployment_id, no_check=True)
                 is_client_ready = bool(self.client.openapi)
             except ConnectionError:
                 # Temporary solution: Between deployment ready and client ready, sometimes
