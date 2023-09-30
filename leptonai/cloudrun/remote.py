@@ -69,6 +69,15 @@ class Remote(object):
         self.kwargs = kwargs
         self.display_name = str(photon)
         self.unique_name = _make_unique_name()
+        # local path to the created photon
+        self.path: Optional[str] = None
+        # photon id on the remote server
+        self.photon_id: Optional[str] = None
+        # deployment id on the remote server
+        self.deployment_id: Optional[str] = None
+        # remote photon client
+        self.client = None
+
         self.conn = api.workspace.current_connection()
         self._last_error = None
 
@@ -78,14 +87,6 @@ class Remote(object):
                 "no_traffic_timeout is not yet released on this workspace."
                 " For now, your deployment will be created without timeout."
             )
-        # local path to the created photon
-        self.path: Optional[str] = None
-        # photon id on the remote server
-        self.photon_id: Optional[str] = None
-        # deployment id on the remote server
-        self.deployment_id: Optional[str] = None
-        # remote photon client
-        self.client = None
         try:
             self._start_up()
         except Exception as e:
