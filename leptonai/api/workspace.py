@@ -95,7 +95,7 @@ class WorkspaceInfoLocalRecord(object):
             if url is None:
                 raise RuntimeError(
                     "It seems that you are not logged in to any workspace yet."
-                    "Please log in and then retry. To log in, use `lep login`"
+                    " Please log in and then retry. To log in, use `lep login`"
                     " from the commandline."
                 )
             auth_token = cls.get_current_workspace_token()
