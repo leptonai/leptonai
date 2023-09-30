@@ -154,7 +154,7 @@ def _create_hf_transformers_pipeline(task, model, revision):
 
     kwargs["torch_dtype"] = torch_dtype
 
-    kwargs["model_kwargs"] = {
+    model_kwargs = {
         "low_cpu_mem_usage": True,
     }
 
@@ -174,7 +174,7 @@ def _create_hf_transformers_pipeline(task, model, revision):
                     tokenizer.model_input_names.remove("attention_mask")
 
                     model_obj = AutoModelForCausalLM.from_pretrained(
-                        model, revision=revision, **kwargs
+                        model, revision=revision, **kwargs, **model_kwargs
                     )
 
                     def patch_model_obj(model_obj):
@@ -199,6 +199,9 @@ def _create_hf_transformers_pipeline(task, model, revision):
                 kwargs["tokenizer"] = tokenizer
                 if no_attention_mask:
                     kwargs["model"] = model_obj
+
+    if "model" not in kwargs:
+        kwargs["model_kwargs"] = model_kwargs
 
     if torch.cuda.is_available():
         kwargs["device"] = 0
