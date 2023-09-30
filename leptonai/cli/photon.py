@@ -288,7 +288,11 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
         " choose another name.",
     )
     if not deployment_name:
-        console.print("Attempting to find a proper deployment name.")
+        console.print(
+            "Attempting to find a proper deployment name. If you want to"
+            " specify a name, please use the --deployment-name (or -dn for short)"
+            " flag."
+        )
         base_name = name if name else id
         # Make sure that deployment name is not longer than 32 characters
         deployment_name = base_name[:32]
@@ -473,11 +477,11 @@ def run(
 
         if no_traffic_timeout is None and config.DEFAULT_TIMEOUT:
             console.print(
-                "Lepton is currently set to use a default timeout of [green]1 hour[/]."
-                " This means that when there is no traffic for more than an hour, your"
-                " deployment will automatically scale down to zero. This is to assist"
-                " auto-release of unused debug deployments.\nIf you would like to run a"
-                " long-running photon (e.g. for production), [green]set"
+                "\nLepton is currently set to use a default timeout of [green]1"
+                " hour[/]. This means that when there is no traffic for more than an"
+                " hour, your deployment will automatically scale down to zero. This is"
+                " to assist auto-release of unused debug deployments.\nIf you would"
+                " like to run a long-running photon (e.g. for production), [green]set"
                 " --no-traffic-timeout to 0[/].\nIf you would like to turn off default"
                 " timeout, set the environment variable"
                 " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
