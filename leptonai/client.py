@@ -314,8 +314,13 @@ class Client(object):
                     " multiple endpoints that maps to the same python name. Found"
                     " duplicated name: {path_name}."
                 )
-                break
-            if "post" in self.openapi["paths"][path_name]:
+            elif path_name == "/":
+                # We currently do not support a direct root path name without a
+                # function name yet. Usually, "/" is a path mounted to something
+                # like a swagger UI or flask service, which is not a function, so
+                # we will ignore it.
+                continue
+            elif "post" in self.openapi["paths"][path_name]:
                 self._create_post_path(path_name)
             elif "get" in self.openapi["paths"][path_name]:
                 self._create_get_path(path_name)
