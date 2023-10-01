@@ -28,6 +28,10 @@ class TestvLLM(unittest.TestCase):
         self.assertEqual(len(metadata.get("requirement_dependency")), 2)
 
     def test_run_vllm_photon(self):
+        import torch
+
+        if not torch.cuda.is_available():
+            raise unittest.SkipTest("Skipping test because CUDA is not available")
         model = "vllm:gpt2"
         proc, port = photon_run_local_server(name=random_name(), model=model)
         client = Client(f"http://127.0.0.1:{port}")

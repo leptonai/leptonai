@@ -18,3 +18,5 @@ diffusers[torch]
 sentence-transformers
 torch
 transformers
+vllm
+fschat

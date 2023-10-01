@@ -41,6 +41,10 @@ class vLLMPhoton(Photon):
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
         from vllm.transformers_utils.tokenizer import get_tokenizer
+        import torch
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("vLLM Photon requires CUDA runtime")
 
         engine_args = AsyncEngineArgs(
             model=self.model_id,
