@@ -18,5 +18,5 @@ diffusers[torch]
 sentence-transformers
 torch
 transformers
-vllm
+vllm>=0.2.0
 fschat
