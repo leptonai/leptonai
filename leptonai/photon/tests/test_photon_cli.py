@@ -331,6 +331,8 @@ class CustomPhoton(Photon):
             (transformers_model[3:], False),
             ("leptonai.photon.hf.hf.HuggingFacePhoton", False),
             ("leptonai.photon.hf.hf.HuggingfaceTextGenerationPhoton", False),
+            # vllm model
+            ("vllm:gpt2", True),
         ]
 
         for test_case in test_cases:

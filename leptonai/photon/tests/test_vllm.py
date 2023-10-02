@@ -35,12 +35,34 @@ class TestvLLM(unittest.TestCase):
         model = "vllm:gpt2"
         proc, port = photon_run_local_server(name=random_name(), model=model)
         client = Client(f"http://127.0.0.1:{port}")
+
+        # completions api
         resp = client.api.v1.completions(
             model="gpt2",
             prompt="Hello world",
             max_tokens=10,
         )
-        print(resp)
+        self.assertIn("choices", resp)
+        self.assertEqual(len(resp["choices"]), 1)
+        self.assertIn("text", resp["choices"][0])
+        self.assertIn("finish_reason", resp["choices"][0])
+        self.assertIn("usage", resp)
+
+        # chat completions api
+        resp = client.api.v1.chat.completions(
+            model="gpt2",
+            messages=[
+                {"role": "user", "content": "Give me a 3 days travel plan for Hawaii"},
+            ],
+            max_tokens=10,
+        )
+        self.assertIn("choices", resp)
+        self.assertEqual(len(resp["choices"]), 1)
+        self.assertIn("message", resp["choices"][0])
+        self.assertIn("role", resp["choices"][0]["message"])
+        self.assertIn("content", resp["choices"][0]["message"])
+        self.assertIn("finish_reason", resp["choices"][0])
+        self.assertIn("usage", resp)
 
 
 if __name__ == "__main__":
