@@ -295,6 +295,8 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(res_post_url.json(), res_post_file.json())
 
     def test_photon_model_spec(self):
+        import torch
+
         tmp = tempfile.NamedTemporaryFile(suffix=".py")
         with open(tmp.name, "w") as f:
             f.write("""
@@ -335,6 +337,8 @@ class CustomPhoton(Photon):
             ("vllm:gpt2", True),
         ]
 
+        cuda_available = torch.cuda.is_available()
+
         for test_case in test_cases:
             if len(test_case) == 2:
                 model, valid = test_case
@@ -342,15 +346,18 @@ class CustomPhoton(Photon):
             else:
                 model, valid, msg = test_case
 
+            if model.startswith("vllm:") and not cuda_available:
+                continue
+
             try:
                 proc = None
                 proc, _ = photon_run_local_server(name=random_name(), model=model)
             except Exception as e:
-                self.assertFalse(valid, f"Model {model} should be invalid")
+                self.assertFalse(valid, f"Model {model} should be valid")
                 if msg is not None:
                     self.assertIn(msg, str(e))
             else:
-                self.assertTrue(valid, f"Model {model} should be valid")
+                self.assertTrue(valid, f"Model {model} should be invalid")
             finally:
                 if proc is not None:
                     proc.kill()
