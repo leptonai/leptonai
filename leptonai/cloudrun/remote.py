@@ -191,6 +191,10 @@ class Remote(object):
             )
         # wait for the photon to be ready
         logger.debug(f"Remote: waiting for photon {self.photon_id} to be ready")
+        logger.debug(
+            "Go to https://dashboard.lepton.ai/ to check detailed progress of the"
+            f" deployment {self.deployment_id}."
+        )
         start = time.time()
         is_deployment_ready = False
         while not is_deployment_ready and time.time() - start < self._MAX_WAIT_TIME:
@@ -214,7 +218,7 @@ class Remote(object):
                     self._last_error = ret
                     raise RuntimeError(
                         f"{self.deployment_id} seems to have failures. Inspect the"
-                        " failure using the Remote class's last_error() function."
+                        " failure using the last_error() function."
                     )
                 time.sleep(self._DEFAULT_WAIT_INTERVAL)
         if not is_deployment_ready:
