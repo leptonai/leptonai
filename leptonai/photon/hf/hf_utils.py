@@ -270,7 +270,6 @@ pipeline_registry.register("sentence-similarity", create_sentence_transformers_p
 def hf_missing_package_error_message(
     pipeline_name: str, missing_packages: List[str]
 ) -> str:
-    separator = '",\n    "'
     return (
         "HuggingFace reported missing packages for the specified pipeline. You can see"
         " the hf error message above. \n\nThis is not a bug of LeptonAI, as"
@@ -283,10 +282,9 @@ def hf_missing_package_error_message(
         " name)\n\n2. If you are using LeptonAI library, we maintain a mapping from"
         " known HuggingFace pipelines to their dependencies. We appreciate if you can"
         " send a PR to https://github.com/leptonai/leptonai/ to add the missing"
-        f' dependencies.Specifically, it looks like this:\n\n"{pipeline_name}":[\n   '
-        f' "{separator.join(missing_packages)}"\n]\n\n(please refer to'
-        " [https://github.com/leptonai/leptonai/blob/main/leptonai/photon/hf/hf_dependencies.py]"
-        " for more details)"
+        " dependencies. please refer to"
+        " https://github.com/leptonai/leptonai/blob/main/leptonai/photon/hf/hf_dependencies.py"
+        " for more details."
     )
 
 
