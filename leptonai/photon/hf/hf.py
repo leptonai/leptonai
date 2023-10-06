@@ -864,6 +864,25 @@ class HuggingfaceImageClassificationPhoton(HuggingfacePhoton):
         return res if images_is_list else res[0]
 
 
+class HuggingfaceFeatureExtractionPhoton(HuggingfacePhoton):
+    hf_task: str = "feature-extraction"
+
+    @Photon.handler(example={"inputs": "The cat sat on the mat"})
+    def run(
+        self,
+        inputs: Union[str, List[str]],
+        **kwargs,
+    ) -> Union[List[List[List[float]]], List[List[List[List[float]]]]]:
+        # output shape:
+        #     [1, sequence_lenth, hidden_dimension] or
+        #     [batch_size, 1, sequence_lenth, hidden_dimension]
+        res = self._run_pipeline(
+            inputs,
+            **kwargs,
+        )
+        return res
+
+
 def register_hf_photon():
     schema_registry.register(
         HUGGING_FACE_SCHEMAS, HuggingfacePhoton.create_from_model_str
