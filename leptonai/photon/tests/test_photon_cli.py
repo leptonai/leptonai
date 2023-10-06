@@ -36,6 +36,7 @@ audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
 depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstimation"
 microsoft_phi_model = "hf:microsoft/phi-1_5"
 image_to_text_model = "hf:Salesforce/blip-image-captioning-base"
+feature_extraction_model = "hf:hf-tiny-model-private/tiny-random-RobertaModel"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -144,6 +145,7 @@ class TestPhotonCli(unittest.TestCase):
             (depth_estimation_model,),
             (microsoft_phi_model,),
             (image_to_text_model,),
+            (feature_extraction_model,),
         ]
     )
     def test_photon_run(self, model):
