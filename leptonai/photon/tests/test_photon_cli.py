@@ -37,6 +37,7 @@ depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstim
 microsoft_phi_model = "hf:microsoft/phi-1_5"
 image_to_text_model = "hf:Salesforce/blip-image-captioning-base"
 feature_extraction_model = "hf:hf-tiny-model-private/tiny-random-RobertaModel"
+question_answering_model = "hf:deepset/tinyroberta-squad2"
 
 
 class TestPhotonCli(unittest.TestCase):
@@ -146,6 +147,7 @@ class TestPhotonCli(unittest.TestCase):
             (microsoft_phi_model,),
             (image_to_text_model,),
             (feature_extraction_model,),
+            (question_answering_model,),
         ]
     )
     def test_photon_run(self, model):

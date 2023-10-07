@@ -245,6 +245,7 @@ for task in [
     "text-classification",
     "text-generation",
     "text2text-generation",
+    "question-answering",
 ]:
     pipeline_registry.register(
         task,

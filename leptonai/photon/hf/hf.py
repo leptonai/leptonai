@@ -883,6 +883,30 @@ class HuggingfaceFeatureExtractionPhoton(HuggingfacePhoton):
         return res
 
 
+class HuggingfaceQuestionAnsweringPhoton(HuggingfacePhoton):
+    hf_task: str = "question-answering"
+
+    @Photon.handler(
+        example={
+            "question": "How many programming languages does BLOOM support?",
+            "context": (
+                "BLOOM has 176 billion parameters and can generate text in 46 languages"
+                " natural languages and 13 programming languages."
+            ),
+        }
+    )
+    def run(
+        self,
+        inputs: Union[Dict[str, str], List[Dict[str, str]]],
+        **kwargs,
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        res = self._run_pipeline(
+            inputs,
+            **kwargs,
+        )
+        return res
+
+
 def register_hf_photon():
     schema_registry.register(
         HUGGING_FACE_SCHEMAS, HuggingfacePhoton.create_from_model_str
