@@ -18,6 +18,8 @@ if you can send a PR to add the pipeline and its dependencies to this map.
 hf_pipeline_dependencies = {
     "baichuan-inc/Baichuan2-7B-Chat": ["bitsandbytes"],
     "baichuan-inc/Baichuan2-7B-Base": ["bitsandbytes"],
+    "baichuan-inc/Baichuan2-13B-Chat": ["bitsandbytes"],
+    "baichuan-inc/Baichuan2-13B-Base": ["bitsandbytes"],
     "microsoft/phi-1": ["einops"],
     "microsoft/phi-1_5": ["einops"],
     "human-centered-summarization/financial-summarization-pegasus": ["protobuf"],
