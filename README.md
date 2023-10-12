@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/leptonai/leptonai/main/assets/logo.svg" height=100>
 
-# LeptonAI python library
+# Lepton AI
 
 **A Pythonic framework to simplify AI service building**
 
