@@ -141,6 +141,8 @@ class Photon(BasePhoton):
     obj_pkl_filename: str = "obj.pkl"
     py_src_filename: str = "py.py"
 
+    background_tasks_max_concurrency: int = 1
+
     # The docker base image to use for the photon. In default, we encourage you to use the
     # default base image, which provides a blazing fast loading time when running photons
     # remotely. On top of the default image, you can then install any additional dependencies
@@ -197,8 +199,9 @@ class Photon(BasePhoton):
             *args, **kwargs: the args and kwargs to pass to the function.
         """
         if self._background_tasks_limiter is None:
-            # NB: Make max_concurrency configurable?
-            self._background_tasks_limiter = create_limiter(max_concurrency=1)
+            self._background_tasks_limiter = create_limiter(
+                max_concurrency=self.background_tasks_max_concurrency
+            )
 
         co = BackgroundTask(func, *args, **kwargs)
         task = asyncio.create_task(co(limiter=self._background_tasks_limiter))
