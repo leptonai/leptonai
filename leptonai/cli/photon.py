@@ -348,6 +348,41 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     default=types.DEFAULT_RESOURCE_SHAPE,
 )
 @click.option(
+    "--replica-cpu",
+    help="Resource CPU requirements per replica (experimental).",
+    type=float,
+    hidden=True,
+    default=None,
+)
+@click.option(
+    "--replica-memory",
+    help="Resource memory requirements per replica (experimental).",
+    type=int,
+    hidden=True,
+    default=None,
+)
+@click.option(
+    "--replica-accelerator-type",
+    help="Accelerator type requirement per replica (experimental).",
+    type=str,
+    hidden=True,
+    default=None,
+)
+@click.option(
+    "--replica-accelerator-num",
+    help="Number of accelerators requirement per replica (experimental).",
+    type=float,
+    hidden=True,
+    default=None,
+)
+@click.option(
+    "--replica-ephemeral-storage-in-gb",
+    help="Ephemeral storage requirement in GB per replica (experimental).",
+    type=int,
+    hidden=True,
+    default=None,
+)
+@click.option(
     "--resource-affinity",
     help="Resource affinity (experimental).",
     type=str,
@@ -426,6 +461,11 @@ def run(
     port,
     id,
     resource_shape,
+    replica_cpu,
+    replica_memory,
+    replica_accelerator_type,
+    replica_accelerator_num,
+    replica_ephemeral_storage_in_gb,
     resource_affinity,
     min_replicas,
     mount,
@@ -497,6 +537,11 @@ def run(
                 id,
                 deployment_name,
                 resource_shape,
+                replica_cpu,
+                replica_memory,
+                replica_accelerator_type,
+                replica_accelerator_num,
+                replica_ephemeral_storage_in_gb,
                 resource_affinity,
                 min_replicas,
                 mount,
