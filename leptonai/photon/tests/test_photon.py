@@ -1023,6 +1023,60 @@ class CustomPhoton2(Photon):
             logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
         self.assertTrue(success)
 
+        class CustomizeMaxConcurrency(Photon):
+            background_tasks_max_concurrency = 4
+
+            def init(self):
+                self._val = 0
+                self._background_thread_ids = set()
+                self._lock = threading.Lock()
+
+            def background_task(self):
+                cur_thread_id = threading.get_ident()
+                with self._lock:
+                    self._background_thread_ids.add(cur_thread_id)
+                    self._val += 1
+
+            @Photon.handler
+            def run(self):
+                for _ in range(20):
+                    self.add_background_task(self.background_task)
+                return self._val
+
+            @Photon.handler
+            def val(self) -> int:
+                return self._val
+
+            @Photon.handler
+            def num_background_threads(self) -> int:
+                return len(self._background_thread_ids)
+
+        ph = CustomizeMaxConcurrency(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+
+        client = Client(f"http://127.0.0.1:{port}")
+        try:
+            self.assertEqual(client.run(), 0)
+            await asyncio.sleep(1)
+            self.assertEqual(client.val(), 20)
+            self.assertEqual(
+                client.num_background_threads(),
+                CustomizeMaxConcurrency.background_tasks_max_concurrency,
+            )
+        except Exception as e:
+            success = False
+            logger.error(f"error: {e}")
+        else:
+            success = True
+        finally:
+            proc.kill()
+
+        if not success:
+            logger.error(f"proc.stdout: {proc.stdout.read().decode()}")
+            logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
+        self.assertTrue(success)
+
     def test_store_py_src_file(self):
         content = """
 from leptonai.photon import Photon
