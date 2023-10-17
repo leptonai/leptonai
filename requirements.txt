@@ -1,6 +1,6 @@
 anyio
 click
-cloudpickle
+cloudpickle==2.2.1
 fastapi
 httpx
 limits
