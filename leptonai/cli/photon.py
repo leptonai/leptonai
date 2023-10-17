@@ -344,7 +344,9 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
 @click.option(
     "--resource-shape",
     type=str,
-    help="Resource shape for the deployment.",
+    help="Resource shape for the deployment. Available types are: '"
+    + "', '".join(types.VALID_SHAPES)
+    + "'.",
     default=types.DEFAULT_RESOURCE_SHAPE,
 )
 @click.option(
