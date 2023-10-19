@@ -1,6 +1,7 @@
 """
 Login is the main module that allows a serverless login.
 """
+
 import webbrowser
 
 from .util import console, guard_api

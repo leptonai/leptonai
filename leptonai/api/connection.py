@@ -1,6 +1,7 @@
 """
 A utility package to abstract away the connection to the Lepton server.
 """
+
 from typing import Dict, Optional
 import requests
 import warnings
