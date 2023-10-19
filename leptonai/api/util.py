@@ -1,6 +1,7 @@
 """
 Utility functions for the Lepton AI API.
 """
+
 import json
 import requests
 from typing import Dict, List, Optional, Union

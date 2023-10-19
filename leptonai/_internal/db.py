@@ -4,6 +4,7 @@ import this module or operate on the database with direct SQL queries, unless yo
 exactly what you are doing. Use the Lepton CLI instead. Arbitrary changes to the database
 may cause the metadata to be corrupted.
 """
+
 import sqlite3
 
 from ..config import DB_PATH
