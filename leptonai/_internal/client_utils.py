@@ -119,8 +119,7 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
                 [f"{k}: {v}" for k, v in schema_strings]
             )
     except KeyError:
-        # If the openapi does not have a schema section, we will just skip.
-        pass
+        docstring += "\n\nInput Schema: None"
 
     # Add example input to the docstring if existing.
     try:
