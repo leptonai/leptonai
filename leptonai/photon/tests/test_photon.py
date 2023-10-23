@@ -1171,6 +1171,22 @@ class StorePySrcFilePhoton(Photon):
         self.assertEqual(res, "slow")
         self.assertRaisesRegex(Exception, "429", client.slow)
 
+    def test_empty_body_handler(self):
+        class EmptyBodyHandler(Photon):
+            @Photon.handler
+            def run(self):
+                return "ok"
+
+        ph = EmptyBodyHandler(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.post(f"http://127.0.0.1:{port}/run")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), "ok")
+        res = requests.post(f"http://127.0.0.1:{port}/run", json={})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), "ok")
+
 
 if __name__ == "__main__":
     unittest.main()
