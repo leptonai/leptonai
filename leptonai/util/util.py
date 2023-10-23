@@ -1,7 +1,9 @@
+import anyio
 from contextlib import contextmanager
-from functools import wraps
+from functools import wraps, partial
 import inspect
 import os
+from typing import Optional
 import re
 from urllib.parse import urlparse
 
@@ -59,11 +61,14 @@ def patch(obj, attr, val):
         setattr(obj, attr, old_val)
 
 
-def asyncfy(func):
+def asyncfy(func, semaphore: Optional[anyio.Semaphore]):
     """Decorator that makes a function async
 
     Args:
         func (function): Function to make async
+        semaphore (anyio.Semaphore): Semaphore to use for concurrency control. If func
+            is already async, this argument is ignored. If func is sync, it will be
+            guarded by the semaphore.
     """
 
     if inspect.iscoroutinefunction(func):
@@ -71,7 +76,13 @@ def asyncfy(func):
 
     @wraps(func)
     async def async_func(*args, **kwargs):
-        return func(*args, **kwargs)
+        if semaphore is None:
+            return await anyio.to_thread.run_sync(
+                partial(func, *args, **kwargs))
+        else:
+            async with semaphore:
+                return await anyio.to_thread.run_sync(
+                    partial(func, *args, **kwargs))
 
     return async_func
 

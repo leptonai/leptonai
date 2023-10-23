@@ -95,6 +95,6 @@ def async_test(f):
 
     @functools.wraps(f)
     def wrapped(*args, **kwargs):
-        return asyncio.run(asyncfy(f)(*args, **kwargs))
+        return asyncio.run(asyncfy(f, None)(*args, **kwargs))
 
     return wrapped

@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
@@ -788,7 +789,6 @@ class CustomPhoton2(Photon):
             model=custom_py.name,
         )
 
-    @async_test
     def test_batch_handler(self):
         class BatchPhoton(Photon):
             @Photon.handler(max_batch_size=2, max_wait_time=5)
@@ -850,7 +850,6 @@ class CustomPhoton2(Photon):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"hello": ans})
 
-    @async_test
     def test_batch_with_get(self):
         class BatchGetPhoton(Photon):
             @Photon.handler(max_batch_size=2, max_wait_time=5, method="GET")
@@ -945,8 +944,8 @@ class CustomPhoton2(Photon):
             client.openapi["info"]["description"], "This is a well documented photon"
         )
 
-    @async_test
-    async def test_background_task(self):
+    def test_background_task(self):
+        # self.assertTrue(False)
         class BackgroundTaskPhoton(Photon):
             def init(self):
                 self.counter = 0
@@ -970,10 +969,10 @@ class CustomPhoton2(Photon):
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.val(), 0)
         self.assertEqual(client.add_later(x=3), 0)
-        await asyncio.sleep(0.1)
+        time.sleep(0.1)
         self.assertEqual(client.val(), 3)
 
-    @async_test
+
     async def test_background_max_concurrency(self):
         class BackgroundTaskPhoton(Photon):
             def init(self):

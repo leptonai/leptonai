@@ -1,3 +1,4 @@
+import anyio
 import asyncio
 from asyncio import Future, Queue, Task, TimeoutError, wait_for
 from functools import wraps
@@ -8,13 +9,16 @@ from uuid import uuid4
 from leptonai.util import asyncfy
 
 
-def batch(max_batch_size, max_wait_time):
+def batch(max_batch_size: int, max_wait_time: float, semaphore: Optional[anyio.Semaphore] = None):
     """Decorator that batches calls to a function
 
     Args:
         max_batch_size (int): Maximum number of calls to batch together
         max_wait_time (float): Maximum time (in seconds) to wait before
             executing a batch
+        semaphore (anyio.Semaphore): Semaphore to use for concurrency control. If func
+            is already async, this argument is ignored. If func is sync, it will be
+            guarded by the semaphore.
     """
 
     if max_batch_size <= 1:
@@ -23,7 +27,7 @@ def batch(max_batch_size, max_wait_time):
         raise ValueError("max_wait_time should be greater than 0")
 
     def decorator(func):
-        func = asyncfy(func)
+        func = asyncfy(func, semaphore)
 
         # list of (request_id, args, kwargs)
         # using list here is a hack to make it mutable inside closures
