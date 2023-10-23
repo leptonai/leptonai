@@ -12,3 +12,5 @@ from .util import (
     _is_local_url,
     _is_valid_url,
 )
+
+from .s3cache import S3Cache

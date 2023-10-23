@@ -31,12 +31,25 @@ def _get_valid_shapes_printout() -> str:
 # Spec to hold resource requirements
 class ResourceRequirement(BaseModel):
     resource_shape: Optional[str] = None
+
+    # resource requirements per replica
+    replica_cpu: Optional[float] = None
+    replica_memory: Optional[int] = None
+    replica_accelerator_type: Optional[str] = None
+    replica_accelerator_num: Optional[float] = None
+    replica_ephemeral_storage_in_gb: Optional[int] = None
+
     resource_affinity: Optional[str] = None
     min_replicas: Optional[int] = None
 
     @staticmethod
     def make_resource_requirement(
         resource_shape: Optional[str] = None,
+        replica_cpu: Optional[float] = None,
+        replica_memory: Optional[int] = None,
+        replica_accelerator_type: Optional[str] = None,
+        replica_accelerator_num: Optional[float] = None,
+        replica_ephemeral_storage_in_gb: Optional[int] = None,
         resource_affinity: Optional[str] = None,
         min_replicas: Optional[int] = None,
     ) -> Optional["ResourceRequirement"]:
@@ -68,6 +81,11 @@ class ResourceRequirement(BaseModel):
         # TODO: validate resource_affinity
         return ResourceRequirement(
             resource_shape=resource_shape,
+            cpu=replica_cpu,
+            memory=replica_memory,
+            accelerator_type=replica_accelerator_type,
+            accelerator_num=replica_accelerator_num,
+            ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
             resource_affinity=resource_affinity,
             min_replicas=min_replicas,
         )

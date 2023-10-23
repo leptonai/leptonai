@@ -7,6 +7,7 @@ triggered by
   - `leptonai._internal.logging.log` call will only be written to the
   log file but not printed to the console.
 """
+
 import os
 
 from loguru import logger
