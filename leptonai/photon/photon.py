@@ -75,37 +75,41 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     ) = inspect.getfullargspec(func)
     if len(args) > 0 and (args[0] == "self" or args[0] == "cls"):
         args = args[1:]  # remove self or cls
-    if defaults is None:
-        defaults = ()
-    non_default_args_count = len(args) - len(defaults)
-    defaults = (...,) * non_default_args_count + defaults
 
-    keyword_only_params = {
-        param: kwonlydefaults.get(param, Any) for param in kwonlyargs
-    }
-    params = {
-        param: (annotations.get(param, Any), default)
-        for param, default in zip(args, defaults)
-    }
+    if len(args) > 0:
+        if defaults is None:
+            defaults = ()
+        non_default_args_count = len(args) - len(defaults)
+        defaults = (...,) * non_default_args_count + defaults
 
-    if varkw:
-        if PYDANTIC_MAJOR_VERSION <= 1:
+        keyword_only_params = {
+            param: kwonlydefaults.get(param, Any) for param in kwonlyargs
+        }
+        params = {
+            param: (annotations.get(param, Any), default)
+            for param, default in zip(args, defaults)
+        }
 
-            class config:  # type: ignore
-                extra = "allow"
+        if varkw:
+            if PYDANTIC_MAJOR_VERSION <= 1:
 
+                class config:  # type: ignore
+                    extra = "allow"
+
+            else:
+                config = pydantic.ConfigDict(extra="allow")  # type: ignore
         else:
-            config = pydantic.ConfigDict(extra="allow")  # type: ignore
-    else:
-        config = None  # type: ignore
+            config = None  # type: ignore
 
-    func_name = func_name or func.__name__
-    request_model = pydantic.create_model(
-        f"{func_name.capitalize()}Input",
-        **params,
-        **keyword_only_params,
-        __config__=config,  # type: ignore
-    )
+        func_name = func_name or func.__name__
+        request_model = pydantic.create_model(
+            f"{func_name.capitalize()}Input",
+            **params,
+            **keyword_only_params,
+            __config__=config,  # type: ignore
+        )
+    else:
+        request_model = None
 
     return_type = inspect.signature(func).return_annotation
 
@@ -708,34 +712,65 @@ class Photon(BasePhoton):
         if http_method.lower() == "post":
             vd = pydantic.decorator.validate_arguments(method).vd
 
-            # for post handler, we change endpoint function's signature to make
-            # it taking json body as input, so do not copy the
-            # `__annotations__` attribute here
-            @functools.wraps(
-                method,
-                assigned=(
-                    wa
-                    for wa in functools.WRAPPER_ASSIGNMENTS
-                    if wa != "__annotations__"
-                ),  # type: ignore
-            )
-            async def typed_handler(request: request_model):  # type: ignore
-                if rate_limiter is not None:
-                    check_rate_limit()
+            if request_model is not None:
+                # for post handler, we change endpoint function's signature to make
+                # it taking json body as input, so do not copy the
+                # `__annotations__` attribute here
+                @functools.wraps(
+                    method,
+                    assigned=(
+                        wa
+                        for wa in functools.WRAPPER_ASSIGNMENTS
+                        if wa != "__annotations__"
+                    ),  # type: ignore
+                )
+                async def typed_handler(request: request_model):  # type: ignore
+                    if rate_limiter is not None:
+                        check_rate_limit()
 
-                try:
-                    res = await vd.execute(request)
-                except Exception as e:
-                    logger.error(traceback.format_exc())
-                    if isinstance(e, HTTPException):
-                        return JSONResponse(
-                            {"error": e.detail}, status_code=e.status_code
-                        )
-                    return JSONResponse({"error": str(e)}, status_code=500)
-                else:
-                    if not isinstance(res, response_class):
-                        res = response_class(res)
-                    return res
+                    try:
+                        res = await vd.execute(request)
+                    except Exception as e:
+                        logger.error(traceback.format_exc())
+                        if isinstance(e, HTTPException):
+                            return JSONResponse(
+                                {"error": e.detail}, status_code=e.status_code
+                            )
+                        return JSONResponse({"error": str(e)}, status_code=500)
+                    else:
+                        if not isinstance(res, response_class):
+                            res = response_class(res)
+                        return res
+
+            else:
+                # for post handler, we change endpoint function's signature to make
+                # it taking json body as input, so do not copy the
+                # `__annotations__` attribute here
+                @functools.wraps(
+                    method,
+                    assigned=(
+                        wa
+                        for wa in functools.WRAPPER_ASSIGNMENTS
+                        if wa != "__annotations__"
+                    ),  # type: ignore
+                )
+                async def typed_handler():  # type: ignore
+                    if rate_limiter is not None:
+                        check_rate_limit()
+
+                    try:
+                        res = await method()
+                    except Exception as e:
+                        logger.error(traceback.format_exc())
+                        if isinstance(e, HTTPException):
+                            return JSONResponse(
+                                {"error": e.detail}, status_code=e.status_code
+                            )
+                        return JSONResponse({"error": str(e)}, status_code=500)
+                    else:
+                        if not isinstance(res, response_class):
+                            res = response_class(res)
+                        return res
 
             delattr(typed_handler, "__wrapped__")
 
