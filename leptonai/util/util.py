@@ -77,12 +77,10 @@ def asyncfy(func, semaphore: Optional[anyio.Semaphore]):
     @wraps(func)
     async def async_func(*args, **kwargs):
         if semaphore is None:
-            return await anyio.to_thread.run_sync(
-                partial(func, *args, **kwargs))
+            return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
         else:
             async with semaphore:
-                return await anyio.to_thread.run_sync(
-                    partial(func, *args, **kwargs))
+                return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
 
     return async_func
 

@@ -9,7 +9,11 @@ from uuid import uuid4
 from leptonai.util import asyncfy
 
 
-def batch(max_batch_size: int, max_wait_time: float, semaphore: Optional[anyio.Semaphore] = None):
+def batch(
+    max_batch_size: int,
+    max_wait_time: float,
+    semaphore: Optional[anyio.Semaphore] = None,
+):
     """Decorator that batches calls to a function
 
     Args:

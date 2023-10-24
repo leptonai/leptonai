@@ -149,7 +149,7 @@ class Photon(BasePhoton):
 
     # The maximum number of concurrent requests that the photon can handle. In default when the photon
     # concurrency is 1, all the endpoints defined by @Photon.handler is mutually exclusive, and at any
-    # time only one endpoint is running. This does not include system generated endpoints such as 
+    # time only one endpoint is running. This does not include system generated endpoints such as
     # /openapi.json, /metrics, /healthz, /favicon.ico, etc.
     #
     # This parameter does not apply to any async endpoints you define. In other words, if you define
@@ -159,7 +159,7 @@ class Photon(BasePhoton):
     #       ...
     # then the endpoint is not subject to the photon concurrency limit. You will need to manually
     # limit the concurrency of the endpoint yourself.
-    # 
+    #
     # Note that, similar to the standard multithreading design pattens, the Photon class cannot guarantee
     # thread safety when handler_max_concurrency > 1. The lepton ai framework itself is thread safe, but the
     # thread safety of the methods defines in the Photon class needs to be manually guaranteed by the
@@ -203,10 +203,14 @@ class Photon(BasePhoton):
 
         # TODO(Yangqing): add sanity check to see if the user has set handler_max_concurrency too high to
         # be handled by the default anyio number of threads.
-        self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(self.handler_max_concurrency)
+        self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(
+            self.handler_max_concurrency
+        )
 
         self._background_tasks: Set[BackgroundTask] = set()
-        self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(self.background_tasks_max_concurrency)
+        self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
+            self.background_tasks_max_concurrency
+        )
 
     def _on_background_task_done(self, task):
         """
@@ -234,7 +238,7 @@ class Photon(BasePhoton):
             in_event_loop = True
         except RuntimeError:
             in_event_loop = False
-        
+
         def _run_background_task():
             co = BackgroundTask(func, *args, **kwargs)
             task = asyncio.create_task(co(self._background_task_semaphore))
@@ -480,7 +484,12 @@ class Photon(BasePhoton):
 
     def _create_app(self, load_mount):
         title = self.name.replace(".", "_")
-        app = FastAPI(title=title, description=self.__doc__ if self.__doc__ else f"Lepton AI Photon API {self.name}")
+        app = FastAPI(
+            title=title,
+            description=(
+                self.__doc__ if self.__doc__ else f"Lepton AI Photon API {self.name}"
+            ),
+        )
 
         # web hosted cdn and inference api have different domains:
         # https://github.com/leptonai/lepton/issues/358

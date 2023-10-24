@@ -983,7 +983,9 @@ class CustomPhoton2(Photon):
                 # TODO: we should write a more complete test.
                 if self.running_task:
                     raise RuntimeError(
-                        "background tasks is having a concurrency, which should not happen.")
+                        "background tasks is having a concurrency, which should not"
+                        " happen."
+                    )
                 self.running_task = 1
                 time.sleep(0.1)
                 self._val += 1
