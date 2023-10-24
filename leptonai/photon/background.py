@@ -1,12 +1,9 @@
+import asyncio
 import inspect
 import functools
 
 import anyio
 from loguru import logger
-
-
-def create_limiter(max_concurrency):
-    return anyio.CapacityLimiter(total_tokens=max_concurrency)
 
 
 # Similar to starlette.background.BackgroundTask, but can accept
@@ -15,10 +12,15 @@ class BackgroundTask:
     def __init__(self, func, *args, **kwargs):
         if inspect.iscoroutinefunction(func):
             raise ValueError("Background tasks cannot be async functions.")
+
         self.func = functools.partial(func, *args, **kwargs)
 
-    async def __call__(self, limiter=None):
+    async def __call__(self, semaphore):
         try:
-            return await anyio.to_thread.run_sync(self.func, limiter=limiter)
+            logger.debug(f"Running background task with {self.func}")
+            async with semaphore:
+                result = await anyio.to_thread.run_sync(self.func)
+                return result
+            logger.debug(f"Finished background task with {self.func}")
         except Exception as e:
             logger.exception(e)

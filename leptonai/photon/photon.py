@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import sys
+import time
 import traceback
 from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
@@ -57,7 +58,7 @@ from leptonai.photon.types import (  # noqa: F401
 from leptonai.util import switch_cwd, patch, asyncfy
 from .base import BasePhoton, schema_registry
 from .batcher import batch
-from .background import create_limiter, BackgroundTask
+from .background import BackgroundTask
 from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
@@ -205,13 +206,14 @@ class Photon(BasePhoton):
         self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(self.handler_max_concurrency)
 
         self._background_tasks: Set[BackgroundTask] = set()
-        self._background_tasks_limiter = None
+        self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(self.background_tasks_max_concurrency)
 
     def _on_background_task_done(self, task):
         """
         Internal function to remove the background task when it is done. You
         do not need to call this manually.
         """
+        logger.debug(f"Background task {task} is done and removed")
         self._background_tasks.remove(task)
 
     def add_background_task(self, func, *args, **kwargs):
@@ -227,15 +229,23 @@ class Photon(BasePhoton):
                 thread.
             *args, **kwargs: the args and kwargs to pass to the function.
         """
-        if self._background_tasks_limiter is None:
-            self._background_tasks_limiter = create_limiter(
-                max_concurrency=self.background_tasks_max_concurrency
-            )
+        try:
+            anyio.get_current_task()
+            in_event_loop = True
+        except RuntimeError:
+            in_event_loop = False
+        
+        def _run_background_task():
+            co = BackgroundTask(func, *args, **kwargs)
+            task = asyncio.create_task(co(self._background_task_semaphore))
+            self._background_tasks.add(task)
+            logger.debug(f"Created background task {task} in event loop")
+            task.add_done_callback(self._on_background_task_done)
 
-        co = BackgroundTask(func, *args, **kwargs)
-        task = asyncio.create_task(co(limiter=self._background_tasks_limiter))
-        self._background_tasks.add(task)
-        task.add_done_callback(self._on_background_task_done)
+        if in_event_loop:
+            _run_background_task()
+        else:
+            anyio.from_thread.run_sync(_run_background_task)
 
     @classmethod
     def _gather_routes(cls):
