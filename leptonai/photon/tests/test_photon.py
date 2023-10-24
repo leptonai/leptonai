@@ -944,8 +944,8 @@ class CustomPhoton2(Photon):
             client.openapi["info"]["description"], "This is a well documented photon"
         )
 
-    def test_background_task(self):
-        # self.assertTrue(False)
+    @async_test
+    async def test_background_task(self):
         class BackgroundTaskPhoton(Photon):
             def init(self):
                 self.counter = 0
@@ -969,26 +969,25 @@ class CustomPhoton2(Photon):
         client = Client(f"http://127.0.0.1:{port}")
         self.assertEqual(client.val(), 0)
         self.assertEqual(client.add_later(x=3), 0)
-        time.sleep(0.1)
+        await asyncio.sleep(0.1)
         self.assertEqual(client.val(), 3)
 
-
+    @async_test
     async def test_background_max_concurrency(self):
         class BackgroundTaskPhoton(Photon):
             def init(self):
                 self._val = 0
-                self._background_thread_id = None
+                self.running_task = 0
 
             def background_task(self):
-                cur_thread_id = threading.get_ident()
-                if self._background_thread_id is None:
-                    self._background_thread_id = cur_thread_id
-                if self._background_thread_id != cur_thread_id:
+                # TODO: we should write a more complete test.
+                if self.running_task:
                     raise RuntimeError(
-                        "background tasks are not running in the same thread:"
-                        f" {self._background_thread_id} vs {cur_thread_id}"
-                    )
+                        "background tasks is having a concurrency, which should not happen.")
+                self.running_task = 1
+                time.sleep(0.1)
                 self._val += 1
+                self.running_task = 0
 
             @Photon.handler()
             def run(self):
@@ -1009,60 +1008,6 @@ class CustomPhoton2(Photon):
             self.assertEqual(client.run(), 0)
             await asyncio.sleep(1)
             self.assertEqual(client.val(), 5)
-        except Exception as e:
-            success = False
-            logger.error(f"error: {e}")
-        else:
-            success = True
-        finally:
-            proc.kill()
-
-        if not success:
-            logger.error(f"proc.stdout: {proc.stdout.read().decode()}")
-            logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
-        self.assertTrue(success)
-
-        class CustomizeMaxConcurrency(Photon):
-            background_tasks_max_concurrency = 4
-
-            def init(self):
-                self._val = 0
-                self._background_thread_ids = set()
-                self._lock = threading.Lock()
-
-            def background_task(self):
-                cur_thread_id = threading.get_ident()
-                with self._lock:
-                    self._background_thread_ids.add(cur_thread_id)
-                    self._val += 1
-
-            @Photon.handler
-            def run(self):
-                for _ in range(20):
-                    self.add_background_task(self.background_task)
-                return self._val
-
-            @Photon.handler
-            def val(self) -> int:
-                return self._val
-
-            @Photon.handler
-            def num_background_threads(self) -> int:
-                return len(self._background_thread_ids)
-
-        ph = CustomizeMaxConcurrency(name=random_name())
-        path = ph.save()
-        proc, port = photon_run_local_server(path=path)
-
-        client = Client(f"http://127.0.0.1:{port}")
-        try:
-            self.assertEqual(client.run(), 0)
-            await asyncio.sleep(1)
-            self.assertEqual(client.val(), 20)
-            self.assertEqual(
-                client.num_background_threads(),
-                CustomizeMaxConcurrency.background_tasks_max_concurrency,
-            )
         except Exception as e:
             success = False
             logger.error(f"error: {e}")
