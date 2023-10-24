@@ -14,9 +14,15 @@ Specifically, the following are tested:
 
 import asyncio
 import concurrent.futures
+import os
+import tempfile
 import threading
 import time
 import unittest
+
+# Set cache dir to a temp dir before importing anything from leptonai
+tmpdir = tempfile.mkdtemp()
+os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 from leptonai import Photon
 from leptonai.client import Client, local
