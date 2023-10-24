@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import functools
 
@@ -20,7 +19,7 @@ class BackgroundTask:
             logger.debug(f"Running background task with {self.func}")
             async with semaphore:
                 result = await anyio.to_thread.run_sync(self.func)
+                logger.debug(f"Finished background task with {self.func}")
                 return result
-            logger.debug(f"Finished background task with {self.func}")
         except Exception as e:
             logger.exception(e)

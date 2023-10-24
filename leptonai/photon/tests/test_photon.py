@@ -32,7 +32,6 @@ import concurrent.futures
 from io import BytesIO
 import inspect
 from textwrap import dedent
-import threading
 import shutil
 import subprocess
 import sys
