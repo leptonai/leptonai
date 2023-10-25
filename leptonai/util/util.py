@@ -1,8 +1,9 @@
 import anyio
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from functools import wraps, partial
 import inspect
 import os
+import socket
 from typing import Optional
 import re
 from urllib.parse import urlparse
@@ -118,3 +119,26 @@ def _is_local_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
     return parsed.hostname in local_hosts
+
+
+def find_available_port(port=None):
+    if port is None:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            s.bind(("", 0))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            return s.getsockname()[1]
+
+    def is_port_occupied(port):
+        """
+        Returns True if the port is occupied, False otherwise.
+        """
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(("localhost", port)) == 0
+
+    while is_port_occupied(port):
+        console.print(
+            f"Port [yellow]{port}[/] already in use. Incrementing port number to"
+            " find an available one."
+        )
+        port += 1
+    return port

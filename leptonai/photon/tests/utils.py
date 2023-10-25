@@ -1,24 +1,14 @@
 import asyncio
 import atexit
-from contextlib import closing
 import functools
 import random
-import socket
 import subprocess
 import string
 import time
 
 from loguru import logger
 
-from leptonai.util import asyncfy
-
-
-def find_free_port():
-    # ref: https://stackoverflow.com/a/45690594
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.bind(("", 0))
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return s.getsockname()[1]
+from leptonai.util import asyncfy, find_available_port
 
 
 def random_name():
@@ -33,7 +23,7 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
     if path is not None and model is not None:
         raise ValueError("model cannot be specified when path is specified")
     if port is None:
-        port = find_free_port()
+        port = find_available_port()
     cmd = [
         "lep",
         "photon",
