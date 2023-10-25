@@ -3,6 +3,7 @@ import click
 import leptonai
 from . import deployment
 from . import in_n_out
+from . import lfs
 from . import photon
 from . import secret
 from . import storage
@@ -26,6 +27,7 @@ def lep():
 
 # Add subcommands
 deployment.add_command(lep)
+lfs.add_command(lep)
 photon.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)

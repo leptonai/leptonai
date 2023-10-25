@@ -198,6 +198,7 @@ class Remote(object):
         )
         start = time.time()
         is_deployment_ready = False
+        ret = None
         while not is_deployment_ready and time.time() - start < self._MAX_WAIT_TIME:
             ret = api.deployment.get_deployment(self.conn, self.deployment_id)
             if isinstance(ret, APIError):
@@ -217,10 +218,18 @@ class Remote(object):
                 if not isinstance(ret, APIError) and len(ret):
                     # Earlier termination detected. Raise an error.
                     self._last_error = ret
-                    raise RuntimeError(
-                        f"{self.deployment_id} seems to have failures. Inspect the"
-                        " failure using the last_error() function."
+                    logger.error(
+                        f"{self.deployment_id} seems to have failures. One failure is"
+                        " shown below:"
                     )
+                    print(list(self._last_error.values())[0][0]["message"])  # type: ignore
+                    logger.error(
+                        "Inspect more details of the failure using the last_error()"
+                        " function."
+                    )
+                    # Note: we will not raise an exception, so that we will have a
+                    # chance to inspect the error.
+                    return
                 time.sleep(self._DEFAULT_WAIT_INTERVAL)
         if not is_deployment_ready:
             raise RuntimeError(

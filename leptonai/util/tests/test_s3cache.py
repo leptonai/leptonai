@@ -15,7 +15,7 @@ class TestS3Cache(unittest.TestCase):
     def test_s3cache(self):
         # We import the package here to avoid the boto3 dependency if the test is not run
         # (e.g. if the user does not have AWS credentials)
-        from leptonai.util import S3Cache
+        from leptonai.util.s3cache import S3Cache
 
         cache = S3Cache(
             bucket="leptonai-s3cache-test", local_folder="/tmp/leptonai-s3cache-test"
