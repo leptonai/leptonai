@@ -14,4 +14,7 @@ from .util import (
     _is_valid_url,
 )
 
-from .s3cache import S3Cache
+# Note: we do not import the S3Cache here because it depends on boto3, which is
+# not a dependency of the SDK. If you want to use the S3Cache, you need to
+# install boto3 yourself and explicitly import it.
+# from .s3cache import S3Cache

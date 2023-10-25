@@ -1,6 +1,6 @@
 import contextlib
 import keyword
-from typing import Callable, Dict, List, Set, Optional, Union, Iterable
+from typing import Callable, Any, Dict, List, Set, Optional, Union, Iterable
 
 from fastapi.encoders import jsonable_encoder
 import httpx
@@ -189,8 +189,6 @@ class Client(object):
     aka `https://my.com/foo/bar/function`.
     """
 
-    openapi: Dict = {}
-
     # TODO: add support for creating client with name/id
     def __init__(
         self,
@@ -250,6 +248,7 @@ class Client(object):
             headers.update({"Authorization": f"Bearer {token}"})
 
         self._session = httpx.Client(headers=headers)
+        self.openapi: Dict[str, Any] = {}
         self._debug_record: List = []
         self._path_cache: PathTree = PathTree("", self._debug_record)
         self.stream: Optional[bool] = stream
@@ -347,7 +346,7 @@ class Client(object):
         if self.stream:
             return self._session.stream(
                 "GET", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
-            )
+            )  # type: ignore
         else:
             return self._session.get(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
@@ -356,7 +355,7 @@ class Client(object):
         if self.stream:
             return self._session.stream(
                 "POST", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
-            )
+            )  # type: ignore
         else:
             return self._session.post(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
