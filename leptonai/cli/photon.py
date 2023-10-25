@@ -3,7 +3,6 @@ import os
 import re
 import shutil
 import subprocess
-import socket
 import sys
 import tempfile
 import traceback
@@ -29,6 +28,7 @@ from leptonai.photon.base import (
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
+from leptonai.util import find_available_port
 
 from .util import (
     click_group,
@@ -62,34 +62,6 @@ def _get_most_recent_photon_id_or_none(conn: Connection, name: str) -> Optional[
     """
     photon_ids = _get_ordered_photon_ids_or_none(conn, name)
     return photon_ids[0] if photon_ids else None
-
-
-def _find_available_port(port):
-    # Try to determine if the port is already occupied. If so, we will
-    # increment the port number until we find an available one.
-    # We try to determine the port as late as possible to minimize the risk
-    # of race conditions, although this doesn't completely rule it out.
-    #
-    # The reason we don't wrap the whole photon.launch() in a try/except
-    # block is because we want to catch other exceptions that might be
-    # raised by photon.launch() and print them out. Also, photon.launch()
-    # might take quite some to init, and we don't want to wait that long
-    # before we can tell the user that the port is already occupied. Compared
-    # to developer efficiency, we think this is a reasonable tradeoff.
-    def is_port_occupied(port):
-        """
-        Returns True if the port is occupied, False otherwise.
-        """
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            return s.connect_ex(("localhost", port)) == 0
-
-    while is_port_occupied(port):
-        console.print(
-            f"Port [yellow]{port}[/] already in use. Incrementing port number to"
-            " find an available one."
-        )
-        port += 1
-    return port
 
 
 @click_group()
@@ -613,7 +585,7 @@ def run(
 
         try:
             photon = api.load(path)
-            port = _find_available_port(port)
+            port = find_available_port(port)
             console.print(f"Launching photon on port: [green]{port}[/]")
             if not isinstance(photon, Photon):
                 console.print(

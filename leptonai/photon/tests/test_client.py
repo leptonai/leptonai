@@ -16,7 +16,8 @@ import respx
 from leptonai import Client
 from leptonai.photon import Photon, handler, StreamingResponse, HTTPException
 from leptonai.client import PathTree
-from utils import random_name, find_free_port, photon_run_local_server
+from leptonai.util import find_available_port
+from utils import random_name, photon_run_local_server
 
 
 class WeirdlyNamedPhoton(Photon):
@@ -119,7 +120,7 @@ class TestClient(unittest.TestCase):
         proc.kill()
 
     def test_client_with_unique_names(self):
-        port = find_free_port()
+        port = find_available_port()
         proc = multiprocessing.Process(
             target=weirdly_named_photon_wrapper, args=(port,)
         )
@@ -136,7 +137,7 @@ class TestClient(unittest.TestCase):
         proc.terminate()
 
     def test_client_with_post_and_get(self):
-        port = find_free_port()
+        port = find_available_port()
         proc = multiprocessing.Process(target=post_and_get_wrapper, args=(port,))
         proc.start()
         time.sleep(1)
@@ -154,7 +155,7 @@ class TestClient(unittest.TestCase):
         proc.terminate()
 
     def test_client_with_throw_429(self):
-        port = find_free_port()
+        port = find_available_port()
         proc = multiprocessing.Process(target=throws_429_wrapper, args=(port,))
         proc.start()
         time.sleep(1)
@@ -229,7 +230,7 @@ def streaming_photon_wrapper(port):
 
 class TestStreamingPhotonClient(unittest.TestCase):
     def setUp(self) -> None:
-        self.port = find_free_port()
+        self.port = find_available_port()
         self.proc = multiprocessing.Process(
             target=streaming_photon_wrapper, args=(self.port,)
         )
@@ -281,7 +282,7 @@ def parent_photon_wrapper(port):
 
 class TestNestedPhotonClient(unittest.TestCase):
     def setUp(self) -> None:
-        self.port = find_free_port()
+        self.port = find_available_port()
         self.proc = multiprocessing.Process(
             target=parent_photon_wrapper, args=(self.port,)
         )

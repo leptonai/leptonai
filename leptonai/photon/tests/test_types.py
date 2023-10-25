@@ -32,7 +32,7 @@ from leptonai.photon.types import (
 )
 from leptonai.photon import Photon, handler, StreamingResponse, FileParam
 
-from utils import find_free_port
+from leptonai.util import find_available_port
 
 
 class PicklePhoton(Photon):
@@ -101,7 +101,7 @@ class TestPickle(unittest.TestCase):
 
 class TestPickleWithPhoton(unittest.TestCase):
     def setUp(self) -> None:
-        self.port = find_free_port()
+        self.port = find_available_port()
         self.proc = multiprocessing.Process(
             target=pickle_photon_wrapper, args=(self.port,)
         )
@@ -154,7 +154,7 @@ def streaming_photon_wrapper(port):
 
 class TestStreamingPhoton(unittest.TestCase):
     def setUp(self) -> None:
-        self.port = find_free_port()
+        self.port = find_available_port()
         self.proc = multiprocessing.Process(
             target=streaming_photon_wrapper, args=(self.port,)
         )
