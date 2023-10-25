@@ -12,7 +12,7 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 from leptonai import Client
 from leptonai.photon import Photon, handler
-from utils import find_free_port
+from leptonai.util import find_available_port
 
 
 class PhotonWithDifferentDocs(Photon):
@@ -70,7 +70,7 @@ def photon_with_different_docs_wrapper(port):
 
 class TestClientDocgen(unittest.TestCase):
     def setUp(self) -> None:
-        self.port = find_free_port()
+        self.port = find_available_port()
         self.proc = multiprocessing.Process(
             target=photon_with_different_docs_wrapper, args=(self.port,)
         )
