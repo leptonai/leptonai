@@ -54,7 +54,7 @@ from leptonai.photon.types import (  # noqa: F401
     PNGResponse,
     WAVResponse,
 )
-from leptonai.util import switch_cwd, patch, asyncfy
+from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
@@ -738,7 +738,7 @@ class Photon(BasePhoton):
                 self._handler_semaphore,
             )(method)
         else:
-            method = asyncfy(method, self._handler_semaphore)
+            method = asyncfy_with_semaphore(method, self._handler_semaphore)
 
         if kwargs.get("rate_limit") is not None:
             rate_limiter = RateLimiter(kwargs["rate_limit"])

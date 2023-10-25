@@ -6,7 +6,7 @@ import time
 from typing import List, Optional
 from uuid import uuid4
 
-from leptonai.util import asyncfy
+from leptonai.util import asyncfy_with_semaphore
 
 
 def batch(
@@ -31,7 +31,7 @@ def batch(
         raise ValueError("max_wait_time should be greater than 0")
 
     def decorator(func):
-        func = asyncfy(func, semaphore)
+        func = asyncfy_with_semaphore(func, semaphore)
 
         # list of (request_id, args, kwargs)
         # using list here is a hack to make it mutable inside closures

@@ -61,12 +61,36 @@ def patch(obj, attr, val):
         setattr(obj, attr, old_val)
 
 
-def asyncfy(func, semaphore: Optional[anyio.Semaphore]):
-    """Decorator that makes a function async
+def asyncfy(func):
+    """Decorator that makes a function async. Note that this does not actually make
+    the function asynchroniously running in a separate thread, it just wraps it in
+    an async function. If you want to actually run the function in a separate thread,
+    consider using asyncfy_with_semaphore.
 
     Args:
         func (function): Function to make async
-        semaphore (anyio.Semaphore): Semaphore to use for concurrency control. If func
+    """
+
+    if inspect.iscoroutinefunction(func):
+        return func
+
+    @wraps(func)
+    async def async_func(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return async_func
+
+
+def asyncfy_with_semaphore(func, semaphore: Optional[anyio.Semaphore]):
+    """Decorator that makes a function async, as well as running in a separate thread,
+    with the concurrency controlled by the semaphore. If the function is already async,
+    this decorator is ignored. If Semaphore is None, we do not enforce an upper bound
+    on the number of concurrent calls (but it is still bound by the number of threads
+    that anyio defines as an upper bound).
+
+    Args:
+        func (function): Function to make async
+        semaphore (anyio.Semaphore or None): Semaphore to use for concurrency control. If func
             is already async, this argument is ignored. If func is sync, it will be
             guarded by the semaphore.
     """
