@@ -9,6 +9,7 @@ from .util import (
     check_photon_name,
     patch,
     asyncfy,
+    asyncfy_with_semaphore,
     _is_local_url,
     _is_valid_url,
 )

@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import anyio
 import asyncio
 from collections import OrderedDict
 import copy
@@ -53,10 +54,10 @@ from leptonai.photon.types import (  # noqa: F401
     PNGResponse,
     WAVResponse,
 )
-from leptonai.util import switch_cwd, patch, asyncfy
+from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from .base import BasePhoton, schema_registry
 from .batcher import batch
-from .background import create_limiter, BackgroundTask
+from .background import BackgroundTask
 from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
@@ -145,6 +146,24 @@ class Photon(BasePhoton):
     obj_pkl_filename: str = "obj.pkl"
     py_src_filename: str = "py.py"
 
+    # The maximum number of concurrent requests that the photon can handle. In default when the photon
+    # concurrency is 1, all the endpoints defined by @Photon.handler is mutually exclusive, and at any
+    # time only one endpoint is running. This does not include system generated endpoints such as
+    # /openapi.json, /metrics, /healthz, /favicon.ico, etc.
+    #
+    # This parameter does not apply to any async endpoints you define. In other words, if you define
+    # an endpoint like
+    #   @Photon.handler
+    #   async def foo(self):
+    #       ...
+    # then the endpoint is not subject to the photon concurrency limit. You will need to manually
+    # limit the concurrency of the endpoint yourself.
+    #
+    # Note that, similar to the standard multithreading design pattens, the Photon class cannot guarantee
+    # thread safety when handler_max_concurrency > 1. The lepton ai framework itself is thread safe, but the
+    # thread safety of the methods defines in the Photon class needs to be manually guaranteed by the
+    # author of the photon.
+    handler_max_concurrency: int = 1
     background_tasks_max_concurrency: int = 1
 
     # The docker base image to use for the photon. In default, we encourage you to use the
@@ -181,14 +200,23 @@ class Photon(BasePhoton):
         self._init_called = False
         self._init_res = None
 
+        # TODO(Yangqing): add sanity check to see if the user has set handler_max_concurrency too high to
+        # be handled by the default anyio number of threads.
+        self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(
+            self.handler_max_concurrency
+        )
+
         self._background_tasks: Set[BackgroundTask] = set()
-        self._background_tasks_limiter = None
+        self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
+            self.background_tasks_max_concurrency
+        )
 
     def _on_background_task_done(self, task):
         """
         Internal function to remove the background task when it is done. You
         do not need to call this manually.
         """
+        logger.debug(f"Background task {task} is done and removed")
         self._background_tasks.remove(task)
 
     def add_background_task(self, func, *args, **kwargs):
@@ -199,18 +227,28 @@ class Photon(BasePhoton):
         number of concurrent background tasks to 1.
 
         Args:
-            func: the Callable function to run.
+            func: the Callable function to run. It should be a sync function to not
+                block the main event loop. This function will be called in a separate
+                thread.
             *args, **kwargs: the args and kwargs to pass to the function.
         """
-        if self._background_tasks_limiter is None:
-            self._background_tasks_limiter = create_limiter(
-                max_concurrency=self.background_tasks_max_concurrency
-            )
+        try:
+            anyio.get_current_task()
+            in_event_loop = True
+        except RuntimeError:
+            in_event_loop = False
 
-        co = BackgroundTask(func, *args, **kwargs)
-        task = asyncio.create_task(co(limiter=self._background_tasks_limiter))
-        self._background_tasks.add(task)
-        task.add_done_callback(self._on_background_task_done)
+        def _run_background_task():
+            co = BackgroundTask(func, *args, **kwargs)
+            task = asyncio.create_task(co(self._background_task_semaphore))
+            self._background_tasks.add(task)
+            logger.debug(f"Created background task {task} in event loop")
+            task.add_done_callback(self._on_background_task_done)
+
+        if in_event_loop:
+            _run_background_task()
+        else:
+            anyio.from_thread.run_sync(_run_background_task)
 
     @classmethod
     def _gather_routes(cls):
@@ -445,7 +483,12 @@ class Photon(BasePhoton):
 
     def _create_app(self, load_mount):
         title = self.name.replace(".", "_")
-        app = FastAPI(title=title, description=self.__doc__)
+        app = FastAPI(
+            title=title,
+            description=(
+                self.__doc__ if self.__doc__ else f"Lepton AI Photon API {self.name}"
+            ),
+        )
 
         # web hosted cdn and inference api have different domains:
         # https://github.com/leptonai/lepton/issues/358
@@ -635,14 +678,14 @@ class Photon(BasePhoton):
             raise
 
         try:
-            import gradio as gr
+            import gradio as gr  # type: ignore
 
             has_gradio = True
         except ImportError:
             has_gradio = False
 
         try:
-            from flask import Flask
+            from flask import Flask  # type: ignore
 
             has_flask = True
         except ImportError:
@@ -690,11 +733,12 @@ class Photon(BasePhoton):
 
         if kwargs.get("max_batch_size") is not None:
             method = batch(
-                max_batch_size=kwargs["max_batch_size"],
-                max_wait_time=kwargs["max_wait_time"],
+                kwargs["max_batch_size"],
+                kwargs["max_wait_time"],
+                self._handler_semaphore,
             )(method)
         else:
-            method = asyncfy(method)
+            method = asyncfy_with_semaphore(method, self._handler_semaphore)
 
         if kwargs.get("rate_limit") is not None:
             rate_limiter = RateLimiter(kwargs["rate_limit"])

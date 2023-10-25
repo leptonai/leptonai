@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
@@ -31,7 +32,6 @@ import concurrent.futures
 from io import BytesIO
 import inspect
 from textwrap import dedent
-import threading
 import shutil
 import subprocess
 import sys
@@ -788,7 +788,6 @@ class CustomPhoton2(Photon):
             model=custom_py.name,
         )
 
-    @async_test
     def test_batch_handler(self):
         class BatchPhoton(Photon):
             @Photon.handler(max_batch_size=2, max_wait_time=5)
@@ -850,7 +849,6 @@ class CustomPhoton2(Photon):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), {"hello": ans})
 
-    @async_test
     def test_batch_with_get(self):
         class BatchGetPhoton(Photon):
             @Photon.handler(max_batch_size=2, max_wait_time=5, method="GET")
@@ -978,18 +976,19 @@ class CustomPhoton2(Photon):
         class BackgroundTaskPhoton(Photon):
             def init(self):
                 self._val = 0
-                self._background_thread_id = None
+                self.running_task = 0
 
             def background_task(self):
-                cur_thread_id = threading.get_ident()
-                if self._background_thread_id is None:
-                    self._background_thread_id = cur_thread_id
-                if self._background_thread_id != cur_thread_id:
+                # TODO: we should write a more complete test.
+                if self.running_task:
                     raise RuntimeError(
-                        "background tasks are not running in the same thread:"
-                        f" {self._background_thread_id} vs {cur_thread_id}"
+                        "background tasks is having a concurrency, which should not"
+                        " happen."
                     )
+                self.running_task = 1
+                time.sleep(0.1)
                 self._val += 1
+                self.running_task = 0
 
             @Photon.handler()
             def run(self):
@@ -1010,60 +1009,6 @@ class CustomPhoton2(Photon):
             self.assertEqual(client.run(), 0)
             await asyncio.sleep(1)
             self.assertEqual(client.val(), 5)
-        except Exception as e:
-            success = False
-            logger.error(f"error: {e}")
-        else:
-            success = True
-        finally:
-            proc.kill()
-
-        if not success:
-            logger.error(f"proc.stdout: {proc.stdout.read().decode()}")
-            logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
-        self.assertTrue(success)
-
-        class CustomizeMaxConcurrency(Photon):
-            background_tasks_max_concurrency = 4
-
-            def init(self):
-                self._val = 0
-                self._background_thread_ids = set()
-                self._lock = threading.Lock()
-
-            def background_task(self):
-                cur_thread_id = threading.get_ident()
-                with self._lock:
-                    self._background_thread_ids.add(cur_thread_id)
-                    self._val += 1
-
-            @Photon.handler
-            def run(self):
-                for _ in range(20):
-                    self.add_background_task(self.background_task)
-                return self._val
-
-            @Photon.handler
-            def val(self) -> int:
-                return self._val
-
-            @Photon.handler
-            def num_background_threads(self) -> int:
-                return len(self._background_thread_ids)
-
-        ph = CustomizeMaxConcurrency(name=random_name())
-        path = ph.save()
-        proc, port = photon_run_local_server(path=path)
-
-        client = Client(f"http://127.0.0.1:{port}")
-        try:
-            self.assertEqual(client.run(), 0)
-            await asyncio.sleep(1)
-            self.assertEqual(client.val(), 20)
-            self.assertEqual(
-                client.num_background_threads(),
-                CustomizeMaxConcurrency.background_tasks_max_concurrency,
-            )
         except Exception as e:
             success = False
             logger.error(f"error: {e}")

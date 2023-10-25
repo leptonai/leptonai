@@ -1,7 +1,9 @@
+import anyio
 from contextlib import contextmanager
-from functools import wraps
+from functools import wraps, partial
 import inspect
 import os
+from typing import Optional
 import re
 from urllib.parse import urlparse
 
@@ -60,7 +62,10 @@ def patch(obj, attr, val):
 
 
 def asyncfy(func):
-    """Decorator that makes a function async
+    """Decorator that makes a function async. Note that this does not actually make
+    the function asynchroniously running in a separate thread, it just wraps it in
+    an async function. If you want to actually run the function in a separate thread,
+    consider using asyncfy_with_semaphore.
 
     Args:
         func (function): Function to make async
@@ -72,6 +77,34 @@ def asyncfy(func):
     @wraps(func)
     async def async_func(*args, **kwargs):
         return func(*args, **kwargs)
+
+    return async_func
+
+
+def asyncfy_with_semaphore(func, semaphore: Optional[anyio.Semaphore]):
+    """Decorator that makes a function async, as well as running in a separate thread,
+    with the concurrency controlled by the semaphore. If the function is already async,
+    this decorator is ignored. If Semaphore is None, we do not enforce an upper bound
+    on the number of concurrent calls (but it is still bound by the number of threads
+    that anyio defines as an upper bound).
+
+    Args:
+        func (function): Function to make async
+        semaphore (anyio.Semaphore or None): Semaphore to use for concurrency control. If func
+            is already async, this argument is ignored. If func is sync, it will be
+            guarded by the semaphore.
+    """
+
+    if inspect.iscoroutinefunction(func):
+        return func
+
+    @wraps(func)
+    async def async_func(*args, **kwargs):
+        if semaphore is None:
+            return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
+        else:
+            async with semaphore:
+                return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
 
     return async_func
 
