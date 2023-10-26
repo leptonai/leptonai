@@ -15,6 +15,7 @@ import sys
 import traceback
 from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
+import uuid
 import warnings
 import zipfile
 
@@ -216,7 +217,7 @@ class Photon(BasePhoton):
         Internal function to remove the background task when it is done. You
         do not need to call this manually.
         """
-        logger.debug(f"Background task {task} is done and removed")
+        logger.debug(f"Background task {task.get_name()} is done and removed")
         self._background_tasks.remove(task)
 
     def add_background_task(self, func, *args, **kwargs):
@@ -240,9 +241,11 @@ class Photon(BasePhoton):
 
         def _run_background_task():
             co = BackgroundTask(func, *args, **kwargs)
-            task = asyncio.create_task(co(self._background_task_semaphore))
+            task = asyncio.create_task(
+                co(self._background_task_semaphore), name=uuid.uuid4()
+            )
             self._background_tasks.add(task)
-            logger.debug(f"Created background task {task} in event loop")
+            logger.debug(f"Created background task {task.get_name()} in event loop")
             task.add_done_callback(self._on_background_task_done)
 
         if in_event_loop:
