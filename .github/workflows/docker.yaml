@@ -52,7 +52,7 @@ jobs:
             docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=1 --build-arg CUDA_VERSION=12.1.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
           else
             tag="${{ steps.vars.outputs.base_image }}"
-            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=0 --build-arg CUDA_VERSION=11.7.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
+            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=0 --build-arg CUDA_VERSION=12.1.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
           fi
 
           if [ "${{ inputs.is_release }}" == 'true' ]; then
