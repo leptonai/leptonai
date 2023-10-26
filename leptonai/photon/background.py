@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import functools
 
@@ -16,10 +17,11 @@ class BackgroundTask:
 
     async def __call__(self, semaphore):
         try:
-            logger.debug(f"Running background task with {self.func}")
             async with semaphore:
+                task_name = asyncio.current_task().get_name()
+                logger.debug(f"Running background task {task_name})")
                 result = await anyio.to_thread.run_sync(self.func)
-                logger.debug(f"Finished background task with {self.func}")
+                logger.debug(f"Finished background task {task_name})")
                 return result
         except Exception as e:
             logger.exception(e)
