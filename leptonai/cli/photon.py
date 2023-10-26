@@ -642,7 +642,8 @@ def prepare(ctx, path):
     metadata = photon_util.load_metadata(path, unpack_extra_files=True)
 
     if metadata.get(METADATA_VCS_URL_KEY, None):
-        fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+        os.chdir(workpath)
 
     # pip install
     requirement_dependency = metadata.get("requirement_dependency", [])
