@@ -645,22 +645,6 @@ def prepare(ctx, path):
         workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
         os.chdir(workpath)
 
-    # pip install
-    requirement_dependency = metadata.get("requirement_dependency", [])
-    if requirement_dependency:
-        with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
-            content = "\n".join(requirement_dependency)
-            f.write(content)
-            f.flush()
-            console.print(f"Installing requirement_dependency:\n{content}")
-            try:
-                subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "-r", f.name]
-                )
-            except subprocess.CalledProcessError as e:
-                console.print(f"Failed to install {e}")
-                sys.exit(1)
-
     # TODO: Support yum install
     # apt/apt-get install
     system_dependency = metadata.get("system_dependency", [])
@@ -691,6 +675,22 @@ def prepare(ctx, path):
                 )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to {apt} install: {e}")
+                sys.exit(1)
+
+    # pip install
+    requirement_dependency = metadata.get("requirement_dependency", [])
+    if requirement_dependency:
+        with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
+            content = "\n".join(requirement_dependency)
+            f.write(content)
+            f.flush()
+            console.print(f"Installing requirement_dependency:\n{content}")
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "-r", f.name]
+                )
+            except subprocess.CalledProcessError as e:
+                console.print(f"Failed to install {e}")
                 sys.exit(1)
 
 
