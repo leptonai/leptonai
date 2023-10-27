@@ -106,8 +106,14 @@ BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
+# By default, platform runs lep ph run -f ${photon_file_path}
+BASE_IMAGE_CMD = None
+
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
+
+# Default health check path used by photon server.
+DEFAULT_HEALTH_CHECK_PATH = "/healthz"
 
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.

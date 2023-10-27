@@ -39,8 +39,10 @@ import uvicorn.config
 
 from leptonai.config import (
     BASE_IMAGE,
+    BASE_IMAGE_CMD,
     BASE_IMAGE_ARGS,
     DEFAULT_PORT,
+    DEFAULT_HEALTH_CHECK_PATH,
     ALLOW_ORIGINS_URLS,
     PYDANTIC_MAJOR_VERSION,
 )
@@ -174,7 +176,10 @@ class Photon(BasePhoton):
     image: str = BASE_IMAGE
 
     # The args for the base image.
-    args: list = BASE_IMAGE_ARGS
+    args: List[str] = BASE_IMAGE_ARGS
+    cmd: Optional[List[str]] = BASE_IMAGE_CMD
+    exposed_port: int = DEFAULT_PORT
+    health_check_path: str = DEFAULT_HEALTH_CHECK_PATH
 
     # Required python dependencies that you usually install with `pip install`. For example, if
     # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
@@ -359,8 +364,13 @@ class Photon(BasePhoton):
             {
                 "image": self.image,
                 "args": self.args,
+                "exposed_port": self.exposed_port,
+                "health_check_path": self.health_check_path,
             }
         )
+
+        if self.cmd is not None:
+            res["cmd"] = self.cmd
 
         return res
 
@@ -503,13 +513,12 @@ class Photon(BasePhoton):
         self._collect_metrics(app)
         return app
 
-    @staticmethod
-    def _uvicorn_log_config():
+    def _uvicorn_log_config(self):
         # Filter out /healthz and /metrics from uvicorn access log
         class LogFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
                 return (
-                    record.getMessage().find("/healthz ") == -1
+                    record.getMessage().find(f"{self.health_check_path} ") == -1
                     and record.getMessage().find("/metrics ") == -1
                 )
 
@@ -599,7 +608,7 @@ class Photon(BasePhoton):
 
             # /healthz added at this point will be at the end of `app.routes`,
             # so it will act as a fallback
-            @app.get("/healthz", include_in_schema=False)
+            @app.get(self.health_check_path, include_in_schema=False)
             def healthz():
                 return {"status": "ok"}
 
