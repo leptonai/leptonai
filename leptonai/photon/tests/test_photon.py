@@ -27,6 +27,13 @@ except ImportError:
 else:
     has_hnsqlite = True
 
+try:
+    from asgi_proxy import asgi_proxy
+except ImportError:
+    has_asgi_proxy = False
+else:
+    has_asgi_proxy = True
+
 import asyncio
 import concurrent.futures
 from io import BytesIO
@@ -539,6 +546,20 @@ from leptonai.photon import Photon
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.text, "hello from flask")
         proc.kill()
+
+    @unittest.skipIf(not has_asgi_proxy, "asgi_proxy not installed")
+    def test_mount_asgi_proxy(self):
+        class ASGIProxy(Photon):
+            @Photon.handler(mount=True)
+            def run(self):
+                proxy_app = asgi_proxy("https://google.com")
+                return proxy_app
+
+        ph = ASGIProxy(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.get(f"http://127.0.0.1:{port}/run")
+        self.assertEqual(res.status_code, 200)
 
     @unittest.skipIf(not has_gradio, "gradio not installed")
     def test_mount_gradio(self):
