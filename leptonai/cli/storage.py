@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 
 from rich.console import Console
 from rich.theme import Theme
@@ -6,6 +8,7 @@ from .constants import STORAGE_DISPLAY_PREFIX_LAST, STORAGE_DISPLAY_PREFIX_MIDDL
 import click
 
 from leptonai.api import storage as api
+from leptonai.api.workspace import WorkspaceInfoLocalRecord
 
 from .util import (
     check,
@@ -86,6 +89,36 @@ def du():
     print(usage)
     humanized_usage = sizeof_fmt(usage["totalDiskUsageBytes"])
     console.print(f"Total disk usage: {humanized_usage}")
+
+
+@storage.command()
+def enable_rsync():
+    """
+    Enables rsync for the workspace
+    """
+    conn = get_connection_or_die()
+    response = api.enable_rsync(conn)
+    explain_response(
+        response,
+        "Enabled rsync for the workspace.",
+        "enable rsync failed. See error message above.",
+        "enable rsync failed. Internal service error.",
+    )
+
+
+@storage.command()
+def disable_rsync():
+    """
+    Disables rsync for the workspace
+    """
+    conn = get_connection_or_die()
+    response = api.disable_rsync(conn)
+    explain_response(
+        response,
+        "Disabled rsync for the workspace.",
+        "disable rsync failed. See error message above.",
+        "disable rsync failed. Internal service error.",
+    )
 
 
 @storage.command()
@@ -183,18 +216,101 @@ def mkdir(path):
 @storage.command()
 @click.argument("local_path", type=str)
 @click.argument("remote_path", type=str, default="/")
-def upload(local_path, remote_path):
+@click.option(
+    "--rsync",
+    is_flag=True,
+    help=(
+        "Upload with rsync. Rsync must be enabled for the workspace with storage"
+        " enable-rsync subcommand."
+    ),
+)
+@click.option(
+    "--recursive",
+    "-r",
+    is_flag=True,
+    help="Upload directories recursively. Only supported with --rsync.",
+)
+@click.option(
+    "--progress",
+    "-p",
+    is_flag=True,
+    help="Show progress. Only supported with --rsync.",
+)
+def upload(local_path, remote_path, rsync, recursive, progress):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
     storage. If remote_path is a directory, you need to append a "/", and the
     file will be uploaded to that directory with its local name.
     """
-    conn = get_connection_or_die()
     # if the remote path is a directory, upload the file with its local name to that directory
     if remote_path[-1] == "/":
         remote_path = remote_path + local_path.split("/")[-1]
 
+    if recursive and not rsync:
+        console.print("Cannot use --recursive without --rsync")
+        sys.exit(1)
+    if progress and not rsync:
+        console.print("Cannot use --progress without --rsync")
+        sys.exit(1)
+
+    if rsync:
+        console.print(
+            f"Uploading file(or directory) [green]{local_path}[/] to"
+            f" [green]{remote_path}[/] with rsync..."
+        )
+
+        workspace = WorkspaceInfoLocalRecord.get_current_workspace_id()
+        pwd = WorkspaceInfoLocalRecord.get_current_workspace_token()
+        if len(pwd) > 8:
+            pwd = pwd[:8]
+        url = WorkspaceInfoLocalRecord._get_current_workspace_deployment_url()
+        if url is None or workspace is None or pwd is None:
+            console.print("It seems that you are not logged in yet.")
+            return
+
+        split_url = url.split("//")
+        check(
+            len(split_url) == 2,
+            "[red]Invalid Workspace URL format[/]: Missing protocol",
+        )
+
+        rest = split_url[1]
+        parts = rest.split(".")
+        check(
+            len(parts) >= 3,
+            "[red]Invalid Workspace URL format[/]: Missing domain",
+        )
+
+        root_domain = ".".join(parts[1:])
+        env_vars = {"RSYNC_PASSWORD": pwd}
+        flags = "-v"
+        if recursive:
+            flags += "a"
+        if progress:
+            flags += " --progress"
+        command = (
+            f"rsync {flags}"
+            f" {local_path} rsync://{workspace}@{workspace}-storage-rsync-deployment.{root_domain}:8873/volume{remote_path}"
+        )
+        console.print(f"Running command: [bold]{command}[/]")
+
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env_vars,
+            shell=True,
+            universal_newlines=True,
+        )
+
+        for line in process.stdout:
+            print(line, end="")
+        process.wait()
+
+        return
+
+    conn = get_connection_or_die()
     explain_response(
         api.upload_file(conn, local_path, remote_path),
         f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]",

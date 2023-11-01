@@ -710,6 +710,12 @@ class Photon(BasePhoton):
         elif isinstance(subapp, Photon):
             subapp_real_app = subapp._create_app(load_mount=True)
             app.include_router(subapp_real_app.router, prefix=f"/{path}")
+        if subapp.__module__ == "asgi_proxy" and subapp.__name__ == "asgi_proxy":
+            # asgi_proxy returns a lambda function (`<function
+            # asgi_proxy.asgi_proxy.<locals>.asgi_proxy(scope,
+            # receive, send)>`), it's not easy to type check it, so we
+            # just do name checking here
+            app.mount(f"/{path}", subapp)
         elif not has_gradio and not has_flask:
             logger.warning(
                 f"Skip mounting {path} as none of [`gradio`, `flask`] is"
