@@ -45,8 +45,8 @@ class BasePhoton:
             type_str_registry.register(cls.photon_type, cls.load)
 
     def __init__(self, name: str, model: str):
-        self.name = name
-        self.model = model
+        self._photon_name = name
+        self._photon_model = model
 
     def save(self, path: Optional[str] = None):
         """
@@ -59,14 +59,14 @@ class BasePhoton:
             # assuming maximum 1000 versions for now
             for version in range(1000):
                 if version == 0:
-                    path = str(CACHE_DIR / f"{self.name}.photon")
+                    path = str(CACHE_DIR / f"{self._photon_name}.photon")
                 else:
-                    path = str(CACHE_DIR / f"{self.name}.{version}.photon")
+                    path = str(CACHE_DIR / f"{self._photon_name}.{version}.photon")
                 if not os.path.exists(path):
                     break
             else:
                 raise ValueError(
-                    f"Can not find a valid path for creating photon {self.name}"
+                    f"Can not find a valid path for creating photon {self._photon_name}"
                 )
         with zipfile.ZipFile(path, "w") as f:
             metadata = self.metadata
@@ -93,7 +93,7 @@ class BasePhoton:
                     )
 
         # use path as local id for now
-        add_photon(str(path), self.name, self.model, str(path))
+        add_photon(str(path), self._photon_name, self._photon_model, str(path))
         return path
 
     @staticmethod
@@ -129,7 +129,11 @@ class BasePhoton:
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        return {"name": self.name, "model": self.model, "type": self.photon_type}
+        return {
+            "name": self._photon_name,
+            "model": self._photon_model,
+            "type": self.photon_type,
+        }
 
     @property
     def _extra_files(self):
@@ -160,7 +164,7 @@ class BasePhoton:
         return res
 
     def __str__(self):
-        return f"Photon(name={self.name}, model={self.model})"
+        return f"Photon(name={self._photon_name}, model={self._photon_model})"
 
 
 def add_photon(id: str, name: str, model: str, path: str):

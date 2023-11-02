@@ -485,11 +485,13 @@ class Photon(BasePhoton):
         )
 
     def _create_app(self, load_mount):
-        title = self.name.replace(".", "_")
+        title = self._photon_name.replace(".", "_")
         app = FastAPI(
             title=title,
             description=(
-                self.__doc__ if self.__doc__ else f"Lepton AI Photon API {self.name}"
+                self.__doc__
+                if self.__doc__
+                else f"Lepton AI Photon API {self._photon_name}"
             ),
         )
 
