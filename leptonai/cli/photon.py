@@ -82,6 +82,20 @@ def photon():
 
 
 @photon.command()
+@click.option("--name", "-n", help="Name of the scaffolding file", default="main.py")
+def scaffold(name: str):
+    check(name.endswith(".py"), "Scaffolding file must end with .py")
+    check(
+        not os.path.exists(name),
+        f"File {name} already exists. Please choose another name.",
+    )
+    from leptonai.photon.prebuilt import template
+
+    shutil.copyfile(template.__file__, name)
+    console.print(f"Created scaffolding file [green]{name}[/].")
+
+
+@photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
 @click.option("--model", "-m", help="Model spec", required=True)
 def create(name, model):
