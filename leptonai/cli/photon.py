@@ -747,8 +747,8 @@ def prepare(ctx, path):
             console.print(f"pip {command}ing requirement_dependency:\n{content}")
             try:
                 subprocess.check_call(
-                    [sys.executable, "-m", "pip", command, "-r", f.name] +
-                    (["-y"] if command == "uninstall" else [])
+                    [sys.executable, "-m", "pip", command, "-r", f.name]
+                    + (["-y"] if command == "uninstall" else [])
                 )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to install {e}")
