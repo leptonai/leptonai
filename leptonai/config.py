@@ -108,6 +108,7 @@ BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
+DEFAULT_LIVENESS_PORT = 8079
 
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.

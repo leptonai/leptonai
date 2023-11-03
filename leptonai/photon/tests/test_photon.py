@@ -40,6 +40,7 @@ from io import BytesIO
 import inspect
 from textwrap import dedent
 import shutil
+import socket
 import subprocess
 import sys
 from typing import Dict, List
@@ -283,6 +284,7 @@ class Counter(Photon):
         self.assertEqual(metadata["model"], "CustomPhoton")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
+        self.assertTrue("health_check_liveness_tcp_port" in metadata)
 
         # check for openapi schema
         self.assertTrue("openapi_schema" in metadata)
@@ -307,6 +309,19 @@ class Counter(Photon):
             metadata["py_obj"]["py_version"],
             f"{sys.version_info.major}.{sys.version_info.minor}",
         )
+
+    def test_liveness_check(self):
+        class LivenessCheckPhoton(Photon):
+            pass
+
+        ph = LivenessCheckPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(("localhost", ph.health_check_liveness_tcp_port))
+            s.sendall(b"Hello, world")
+            data = s.recv(1024)
+            self.assertEqual(data, b"Hello, world")
 
     def test_custom_dependency(self):
         name = random_name()

@@ -11,7 +11,9 @@ import inspect
 import logging
 import os
 import re
+import socket
 import sys
+import threading
 import traceback
 from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
@@ -41,6 +43,7 @@ from leptonai.config import (
     BASE_IMAGE,
     BASE_IMAGE_ARGS,
     DEFAULT_PORT,
+    DEFAULT_LIVENESS_PORT,
     ALLOW_ORIGINS_URLS,
     PYDANTIC_MAJOR_VERSION,
 )
@@ -172,6 +175,8 @@ class Photon(BasePhoton):
     # remotely. On top of the default image, you can then install any additional dependencies
     # via `requirement_dependency` or `system_dependency`.
     image: str = BASE_IMAGE
+
+    health_check_liveness_tcp_port: Optional[int] = DEFAULT_LIVENESS_PORT
 
     # The args for the base image.
     args: list = BASE_IMAGE_ARGS
@@ -359,6 +364,12 @@ class Photon(BasePhoton):
             {
                 "image": self.image,
                 "args": self.args,
+            }
+        )
+
+        res.update(
+            {
+                "health_check_liveness_tcp_port": self.health_check_liveness_tcp_port,
             }
         )
 
@@ -630,6 +641,19 @@ class Photon(BasePhoton):
             else:
                 break
 
+    def _run_liveness(self):
+        def run_server():
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(("localhost", self.health_check_liveness_tcp_port))
+            sock.listen()
+            while True:
+                connection, address = sock.accept()
+                buf = connection.recv(4096)
+                connection.send(buf)
+                connection.close()
+
+        threading.Thread(target=run_server, daemon=True).start()
+
     def launch(
         self,
         host: Optional[str] = "0.0.0.0",
@@ -639,6 +663,7 @@ class Photon(BasePhoton):
         """
         Launches the api service for the photon.
         """
+        self._run_liveness()
         self._call_init_once()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(
