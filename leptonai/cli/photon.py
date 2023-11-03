@@ -84,6 +84,12 @@ def photon():
 @photon.command()
 @click.option("--name", "-n", help="Name of the scaffolding file", default="main.py")
 def scaffold(name: str):
+    """
+    Creates a scaffolding main.py file for a new photon. The file serves as a starting
+    point that you can modify to create your own implementations. After implementing
+    your photon, you can use `lep photon create -n [name] -m main.py` to create a
+    photon from the file.
+    """
     check(name.endswith(".py"), "Scaffolding file must end with .py")
     check(
         not os.path.exists(name),
