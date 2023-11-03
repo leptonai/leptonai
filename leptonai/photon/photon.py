@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import traceback
+import types
 from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
 import uuid
@@ -437,7 +438,7 @@ class Photon(BasePhoton):
                     src_str = inspect.getsource(self.__class__)
                 except Exception:
                     pass
-            if src_str is not None:
+            else:
                 with photon_file.open(self.py_src_filename, "w") as src_file_out:
                     src_file_out.write(src_str)
         return path
@@ -732,7 +733,7 @@ class Photon(BasePhoton):
             method, func_name=self.__class__.__name__ + "_" + path
         )
 
-        if http_method.lower() == "post":
+        if http_method.lower() == "post" and request_model is not None:
             if "example" in kwargs:
                 request_model = Annotated[
                     request_model, Body(example=kwargs["example"])
@@ -765,9 +766,55 @@ class Photon(BasePhoton):
             rate_limiter = None
 
         if http_method.lower() == "post":
-            vd = pydantic.decorator.validate_arguments(method).vd
+            # In the post mode, we do the following:
+            # - If the handler specifies "use_raw_args", then we don't wrap the args to a
+            # json body, but instead just pass the raw args up to fastapi.
+            # - Otherwise, we wrap the args to a json body, and use the request_model
+            # as the pydantic model to validate the json body.
+            # - If no args are specified, we don't wrap anything.
+            if kwargs.get("use_raw_args"):
 
-            if request_model is not None:
+                @functools.wraps(
+                    method,
+                    assigned=(
+                        wa
+                        for wa in functools.WRAPPER_ASSIGNMENTS
+                        if wa != "__annotations__"
+                    ),  # type: ignore
+                )
+                async def wrapped_method(*args, **kwargs):
+                    if rate_limiter is not None:
+                        check_rate_limit()
+                    try:
+                        res = await method(*args, **kwargs)
+                    except Exception as e:
+                        logger.error(traceback.format_exc())
+                        if isinstance(e, HTTPException):
+                            return JSONResponse(
+                                {"error": e.detail}, status_code=e.status_code
+                            )
+                        return JSONResponse({"error": str(e)}, status_code=500)
+                    else:
+                        if not isinstance(res, response_class):
+                            res = response_class(res)
+                        return res
+
+                typed_handler = types.FunctionType(
+                    wrapped_method.__code__,
+                    globals(),
+                    "typed_handler",
+                    wrapped_method.__defaults__,
+                    wrapped_method.__closure__,
+                )  # type: ignore
+                # Transfer the defaults and signature from the original method.
+                typed_handler.__annotations__ = method.__annotations__
+                typed_handler.__defaults__ = method.__defaults__  # type: ignore
+                typed_handler.__doc__ = method.__doc__
+                typed_handler.__kwdefaults__ = method.__kwdefaults__  # type: ignore
+                typed_handler.__signature__ = inspect.signature(method)  # type: ignore
+            elif request_model is not None:
+                vd = pydantic.decorator.validate_arguments(method).vd
+
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
                 # `__annotations__` attribute here
@@ -797,6 +844,7 @@ class Photon(BasePhoton):
                             res = response_class(res)
                         return res
 
+                delattr(typed_handler, "__wrapped__")
             else:
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
@@ -812,7 +860,6 @@ class Photon(BasePhoton):
                 async def typed_handler():  # type: ignore
                     if rate_limiter is not None:
                         check_rate_limit()
-
                     try:
                         res = await method()
                     except Exception as e:
@@ -827,7 +874,7 @@ class Photon(BasePhoton):
                             res = response_class(res)
                         return res
 
-            delattr(typed_handler, "__wrapped__")
+                delattr(typed_handler, "__wrapped__")
 
         elif http_method.lower() == "get":
 
