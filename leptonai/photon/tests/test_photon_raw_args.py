@@ -54,13 +54,6 @@ class TestPhotonRawArgs(unittest.TestCase):
             self.assertEqual(resp.status_code, 200, resp.text)
             self.assertEqual(resp.json(), [os.path.basename(__file__)] * 3, resp.json)
 
-        c = Client(local(port=port))
-        print(c.paths())
-        from pprint import pprint
-
-        pprint(c.openapi)
-        print(c.filename.__doc__)
-
 
 if __name__ == "__main__":
     unittest.main()

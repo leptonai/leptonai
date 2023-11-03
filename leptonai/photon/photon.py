@@ -774,6 +774,14 @@ class Photon(BasePhoton):
             # - If no args are specified, we don't wrap anything.
             if kwargs.get("use_raw_args"):
 
+                @functools.wraps(
+                    method,
+                    assigned=(
+                        wa
+                        for wa in functools.WRAPPER_ASSIGNMENTS
+                        if wa != "__annotations__"
+                    ),  # type: ignore
+                )
                 async def wrapped_method(*args, **kwargs):
                     if rate_limiter is not None:
                         check_rate_limit()
@@ -801,6 +809,7 @@ class Photon(BasePhoton):
                 # Transfer the defaults and signature from the original method.
                 typed_handler.__annotations__ = method.__annotations__
                 typed_handler.__defaults__ = method.__defaults__  # type: ignore
+                typed_handler.__doc__ = method.__doc__
                 typed_handler.__kwdefaults__ = method.__kwdefaults__  # type: ignore
                 typed_handler.__signature__ = inspect.signature(method)  # type: ignore
             elif request_model is not None:
