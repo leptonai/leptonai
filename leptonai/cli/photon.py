@@ -82,6 +82,26 @@ def photon():
 
 
 @photon.command()
+@click.option("--name", "-n", help="Name of the scaffolding file", default="main.py")
+def scaffold(name: str):
+    """
+    Creates a scaffolding main.py file for a new photon. The file serves as a starting
+    point that you can modify to create your own implementations. After implementing
+    your photon, you can use `lep photon create -n [name] -m main.py` to create a
+    photon from the file.
+    """
+    check(name.endswith(".py"), "Scaffolding file must end with .py")
+    check(
+        not os.path.exists(name),
+        f"File {name} already exists. Please choose another name.",
+    )
+    from leptonai.photon.prebuilt import template
+
+    shutil.copyfile(template.__file__, name)
+    console.print(f"Created scaffolding file [green]{name}[/].")
+
+
+@photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
 @click.option("--model", "-m", help="Model spec", required=True)
 def create(name, model):
