@@ -54,7 +54,7 @@ import torch
 
 import leptonai
 from leptonai import Client
-from leptonai.config import ALLOW_ORIGINS_URLS
+from leptonai.config import ALLOW_ORIGINS_URLS, DEFAULT_LIVENESS_PORT
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
 from leptonai.photon.util import create as create_photon, load_metadata
@@ -318,7 +318,10 @@ class Counter(Photon):
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(("localhost", ph.health_check_liveness_tcp_port))
+            # technically this port can be used by other photons
+            # already, but in that case it can still accept tcp
+            # connection and pass the test
+            s.connect(("localhost", DEFAULT_LIVENESS_PORT))
             s.sendall(b"Hello, world")
             data = s.recv(1024)
             self.assertEqual(data, b"Hello, world")

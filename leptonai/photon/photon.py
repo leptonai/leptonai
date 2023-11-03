@@ -58,7 +58,7 @@ from leptonai.photon.types import (  # noqa: F401
     PNGResponse,
     WAVResponse,
 )
-from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
+from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore, find_available_port
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
@@ -175,8 +175,6 @@ class Photon(BasePhoton):
     # remotely. On top of the default image, you can then install any additional dependencies
     # via `requirement_dependency` or `system_dependency`.
     image: str = BASE_IMAGE
-
-    health_check_liveness_tcp_port: Optional[int] = DEFAULT_LIVENESS_PORT
 
     # The args for the base image.
     args: list = BASE_IMAGE_ARGS
@@ -364,12 +362,6 @@ class Photon(BasePhoton):
             {
                 "image": self.image,
                 "args": self.args,
-            }
-        )
-
-        res.update(
-            {
-                "health_check_liveness_tcp_port": self.health_check_liveness_tcp_port,
             }
         )
 
@@ -643,8 +635,10 @@ class Photon(BasePhoton):
 
     def _run_liveness(self):
         def run_server():
+            port = find_available_port(DEFAULT_LIVENESS_PORT)
+            logger.info(f"Running liveness server on port {port}")
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(("localhost", self.health_check_liveness_tcp_port))
+            sock.bind(("localhost", port))
             sock.listen()
             while True:
                 connection, address = sock.accept()
