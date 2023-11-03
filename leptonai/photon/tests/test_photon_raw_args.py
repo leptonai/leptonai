@@ -11,7 +11,6 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 from fastapi import UploadFile
 
 from leptonai import Photon
-from leptonai.client import Client, local
 
 from utils import random_name, photon_run_local_server
 
