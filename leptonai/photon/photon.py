@@ -10,7 +10,6 @@ import importlib.util
 import inspect
 import logging
 import os
-import re
 import sys
 import traceback
 import types
@@ -181,6 +180,12 @@ class Photon(BasePhoton):
     # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
     # photon depends on a package installable over github, you can set the dependency to
     # `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
+    #
+    # Experimental feature: if you specify "uninstall xxxxx", instead of installing the library,
+    # we will uninstall the library. This is useful if you want to uninstall a library that is
+    # in conflict with some other libraries, and need to sequentialize a bunch of pip installs
+    # and uninstalls. The exact correctness of this will really depend on pip and the specific
+    # libraries you are installing and uninstalling, so please use this feature with caution.
     requirement_dependency: Optional[List[str]] = None
 
     # System dependencies that can be installed via `apt install`. FOr example, if your photon
@@ -276,27 +281,6 @@ class Photon(BasePhoton):
 
         return res
 
-    @staticmethod
-    def _infer_requirement_dependency():
-        # ref: https://stackoverflow.com/a/31304042
-        try:
-            from pip._internal.operations import freeze
-        except ImportError:  # pip < 10.0
-            from pip.operations import freeze  # type: ignore
-
-        pkgs = freeze.freeze()
-
-        filtered_pkgs = []
-        for pkg in pkgs:
-            if pkg.startswith("-e") or re.search(r"@\s*file://", pkg):
-                # TODO: capture local editable packages
-                continue
-            if pkg.startswith("pytest") or pkg == "parameterized" or pkg == "responses":
-                # test related packages
-                continue
-            filtered_pkgs.append(pkg)
-        return filtered_pkgs
-
     @classmethod
     def _iter_ancestors(cls) -> Iterator[Type["Photon"]]:
         yield cls
@@ -314,14 +298,15 @@ class Photon(BasePhoton):
 
     @property
     def _requirement_dependency(self) -> List[str]:
-        deps = OrderedDict()
+        deps = []
         # We add dependencies from ancestor classes to derived classes
-        # and keep the order, while removing redundant dependencies
+        # and keep the order. Because we now support installation and uninstallation,
+        # we do not remove redundant dependencies automatically.
         for base in reversed(list(self._iter_ancestors())):
             if base.requirement_dependency:
-                deps.update({dep: None for dep in base.requirement_dependency})
+                deps.extend(base.requirement_dependency)
         # Do not sort or uniq pip deps lines, as order matters
-        return list(deps.keys())
+        return deps
 
     @property
     def _system_dependency(self) -> List[str]:

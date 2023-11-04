@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 import traceback
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from rich.console import Console
 from rich.prompt import Confirm
@@ -650,6 +650,42 @@ def run(
         return
 
 
+def _sequentialize_pip_commands(commands: List[str]) -> List[Tuple[str, List[str]]]:
+    """
+    Sequentializes a list of pip commands to a sequence of installation and uninstallations.
+    """
+    chunks = []
+    current_command = None
+    current_list = []
+    LEN_UNINSTALL_PREFIX = len("uninstall ")
+
+    for lib in commands:
+        if lib.startswith("uninstall "):
+            lib = lib[LEN_UNINSTALL_PREFIX:].strip()
+            command = "uninstall"
+        else:
+            lib = lib.strip()
+            command = "install"
+            # If the current command is different or hasn't been set yet
+        if current_command != command:
+            if current_list:
+                # if there's any commands accumulated, add them to the chunks
+                chunks.append((current_command, current_list))
+            current_list = [lib]
+            current_command = command
+        else:
+            # within the same installation/uninstallation group, we can safely
+            # do dedup.
+            if lib not in current_list:
+                current_list.append(lib)
+
+    # Adding any remaining commands
+    if current_list:
+        chunks.append((current_command, current_list))
+
+    return chunks
+
+
 @photon.command(hidden=True)
 @click.option("--file", "-f", "path", help="Path to .photon file")
 @click.pass_context
@@ -665,6 +701,7 @@ def prepare(ctx, path):
         workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
         os.chdir(workpath)
 
+    # Install system dependency before any python dependencies are installed.
     # TODO: Support yum install
     # apt/apt-get install
     system_dependency = metadata.get("system_dependency", [])
@@ -697,17 +734,21 @@ def prepare(ctx, path):
                 console.print(f"Failed to {apt} install: {e}")
                 sys.exit(1)
 
-    # pip install
+    # Installing requirement dependencies
     requirement_dependency = metadata.get("requirement_dependency", [])
-    if requirement_dependency:
+    # breaking down to multiple pip install and uninstall phases, if there are
+    # any dependencies to uninstall.
+    pip_sequence = _sequentialize_pip_commands(requirement_dependency)
+    for command, libraries in pip_sequence:
         with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
-            content = "\n".join(requirement_dependency)
+            content = "\n".join(libraries)
             f.write(content)
             f.flush()
-            console.print(f"Installing requirement_dependency:\n{content}")
+            console.print(f"pip {command}ing requirement_dependency:\n{content}")
             try:
                 subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "-r", f.name]
+                    [sys.executable, "-m", "pip", command, "-r", f.name]
+                    + (["-y"] if command == "uninstall" else [])
                 )
             except subprocess.CalledProcessError as e:
                 console.print(f"Failed to install {e}")
