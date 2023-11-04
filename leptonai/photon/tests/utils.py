@@ -61,7 +61,7 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
         try:
             requests.get(f"http://localhost:{port}/healthz")
         except requests.exceptions.ConnectionError:
-            time.sleep(2)
+            time.sleep(0.5)
         else:
             logger.info(f"Photon server started on port {port}")
             return proc, port
