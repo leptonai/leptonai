@@ -49,7 +49,7 @@ def get_file_content(
         content: the file content in bytes, or a file object if return_file is True.
     """
     if isinstance(src, FileParam):
-        return src.content
+        return _make_temp_file(src.content) if return_file else src.content
     elif isinstance(src, str):
         if _is_valid_url(src):
             # If the source is a valid url, we will download the content and return it.
