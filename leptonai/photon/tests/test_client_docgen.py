@@ -62,6 +62,49 @@ class PhotonWithDifferentDocs(Photon):
     def run10(self) -> Tuple[str, str, int]:
         return ("hello", "world", 1)
 
+    @handler(method="GET")
+    def getrun(self):
+        return "hello world"
+
+    @handler(method="GET")
+    def getrun2(self):
+        """
+        This is the docstring for getrun2.
+        """
+        return "hello world"
+
+    @handler(method="GET", example={"query": "hello"})
+    def getrun3(self, query):
+        return f"hello world {query}"
+
+    @handler(method="GET")
+    def getrun4(self, query: str):
+        return f"hello world {query}"
+
+    @handler(method="GET")
+    def getrun5(self, query: str, query2: int):
+        return f"hello world {query} {query2}"
+
+    @handler(method="GET")
+    def getrun6(self, query: str) -> str:
+        return f"hello world {query}"
+
+    @handler(method="GET")
+    def getrun7(self, query: str, query2: Optional[str] = None) -> str:
+        return f"hello world {query} {query2}"
+
+    @handler(method="GET")
+    def getrun8(self, query: str, query2: str = "test") -> str:
+        return f"hello world {query} {query2}"
+
+    @handler(method="GET")
+    def getrun9(self, query: List[int], query2: Tuple[str, int]) -> str:
+        return f"hello world {query} {query2}"
+
+    @handler(method="GET")
+    def getrun10(self) -> Tuple[str, str, int]:
+        return ("hello", "world", 1)
+
 
 def photon_with_different_docs_wrapper(port):
     photon = PhotonWithDifferentDocs()
@@ -156,6 +199,87 @@ class TestClientDocgen(unittest.TestCase):
             self.assertIn(
                 "Did you mean the following?\n    run5(\n        query='hello',\n  "
                 "      query2=1,\n    )",
+                error_str,
+            )
+
+    def test_client_with_unique_names_get(self):
+        url = f"http://localhost:{self.port}"
+        client = Client(url)
+        self.assertTrue(client.healthz())
+        # Test that the client has the correct documents
+        self.assertIn("Getrun", client.getrun.__doc__)
+        self.assertIn("Input Schema: None", client.getrun.__doc__)
+        self.assertIn("Output Schema:\n  output: Any", client.getrun.__doc__)
+
+        self.assertNotIn("Getrun2", client.getrun2.__doc__)
+        self.assertIn("This is the docstring for getrun2.", client.getrun2.__doc__)
+        self.assertIn("Input Schema: None", client.getrun.__doc__)
+        self.assertIn("Output Schema:\n  output: Any", client.getrun.__doc__)
+
+        self.assertIn("Getrun3", client.getrun3.__doc__)
+        self.assertIn("query*: Any", client.getrun3.__doc__)
+        # Example not supported by get method yet.
+        self.assertNotIn("Example input:", client.getrun3.__doc__)
+        self.assertNotIn("query: hello", client.getrun3.__doc__)
+
+        self.assertIn("Getrun4", client.getrun4.__doc__)
+        self.assertIn("query*: str", client.getrun4.__doc__)
+
+        self.assertIn("Getrun5", client.getrun5.__doc__)
+        self.assertIn("query*: str", client.getrun5.__doc__)
+        self.assertIn("query2*: int", client.getrun5.__doc__)
+
+        self.assertIn("Getrun6", client.getrun6.__doc__)
+        self.assertIn("query*: str", client.getrun6.__doc__)
+        self.assertIn("Output Schema:\n  output: str", client.getrun6.__doc__)
+
+        self.assertIn("Getrun7", client.getrun7.__doc__)
+        self.assertIn("query*: str", client.getrun7.__doc__)
+        # different fastapi versions different typestr for Optional[str], sometimes it's str, sometimes it's (str | None)
+        self.assertTrue(
+            "query2: str" in client.getrun7.__doc__
+            or "query2: (str | None)" in client.getrun7.__doc__,
+            client.getrun7.__doc__,
+        )
+        self.assertIn("Output Schema:\n  output: str", client.getrun7.__doc__)
+
+        self.assertIn("Getrun8", client.getrun8.__doc__)
+        self.assertIn("query*: str", client.getrun8.__doc__)
+        self.assertIn("query2: str (default: test)", client.getrun8.__doc__)
+        self.assertIn("Output Schema:\n  output: str", client.getrun8.__doc__)
+
+        self.assertIn("Getrun9", client.getrun9.__doc__)
+        self.assertIn("query*: array[int]", client.getrun9.__doc__)
+        self.assertTrue(
+            "query2*: array[Any]" in client.getrun9.__doc__
+            or "query2*: array[str, int]" in client.getrun9.__doc__,
+            client.getrun9.__doc__,
+        )
+
+        self.assertIn("Getrun10", client.getrun10.__doc__)
+        self.assertTrue(
+            "output: array[Any]" in client.getrun10.__doc__
+            or "output: array[str, str, int]" in client.getrun10.__doc__,
+            client.getrun10.__doc__,
+        )
+
+        try:
+            client.getrun5("hello")
+        except RuntimeError as e:
+            error_str = str(e)
+            self.assertIn(
+                "Photon methods do not support positional arguments. If your client is"
+                " named `c`, Use `help(c.getrun5)` to see the function signature.",
+                error_str,
+            )
+
+        try:
+            client.getrun5("hello", 1)
+        except RuntimeError as e:
+            error_str = str(e)
+            self.assertIn(
+                "Photon methods do not support positional arguments. If your client is"
+                " named `c`, Use `help(c.getrun5)` to see the function signature.",
                 error_str,
             )
 
