@@ -40,7 +40,6 @@ from io import BytesIO
 import inspect
 from textwrap import dedent
 import shutil
-import socket
 import subprocess
 import sys
 from typing import Dict, List
@@ -284,7 +283,6 @@ class Counter(Photon):
         self.assertEqual(metadata["model"], "CustomPhoton")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
-        self.assertTrue("health_check_liveness_tcp_port" in metadata)
 
         # check for openapi schema
         self.assertTrue("openapi_schema" in metadata)
@@ -317,14 +315,9 @@ class Counter(Photon):
         ph = LivenessCheckPhoton(name=random_name())
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            # technically this port can be used by other photons
-            # already, but in that case it can still accept tcp
-            # connection and pass the test
-            s.connect(("localhost", DEFAULT_LIVENESS_PORT))
-            s.sendall(b"Hello, world")
-            data = s.recv(1024)
-            self.assertEqual(data, b"Hello, world")
+
+        res = requests.get(f"http://localhost:{DEFAULT_LIVENESS_PORT}/livez")
+        self.assertEqual(res.status_code, 200)
 
     def test_custom_dependency(self):
         name = random_name()

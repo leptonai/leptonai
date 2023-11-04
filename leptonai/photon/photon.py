@@ -11,7 +11,6 @@ import inspect
 import logging
 import os
 import re
-import socket
 import sys
 import threading
 import traceback
@@ -633,18 +632,17 @@ class Photon(BasePhoton):
             else:
                 break
 
-    def _run_liveness(self):
+    def _run_liveness_server(self):
         def run_server():
             port = find_available_port(DEFAULT_LIVENESS_PORT)
+            app = FastAPI()
+
+            @app.get("/livez")
+            def livez():
+                return {"status": "ok"}
+
             logger.info(f"Running liveness server on port {port}")
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(("localhost", port))
-            sock.listen()
-            while True:
-                connection, address = sock.accept()
-                buf = connection.recv(4096)
-                connection.send(buf)
-                connection.close()
+            uvicorn.run(app, host="localhost", port=port, log_level="error")
 
         threading.Thread(target=run_server, daemon=True).start()
 
@@ -657,7 +655,7 @@ class Photon(BasePhoton):
         """
         Launches the api service for the photon.
         """
-        self._run_liveness()
+        self._run_liveness_server()
         self._call_init_once()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(
