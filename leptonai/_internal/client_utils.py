@@ -64,7 +64,7 @@ def _get_api_info(openapi: Dict, path_name: str) -> Tuple[Dict, bool]:
     return (api_info, is_post)
 
 
-def _get_post_input_schema(openapi: Dict, api_info: Dict) -> Dict:
+def _get_requestbody_input_schema(openapi: Dict, api_info: Dict) -> Dict:
     """
     Get the input schema from the api info.
 
@@ -90,61 +90,85 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
     # the summary as a backup plan, and if not, we will not add a docstring.
     docstring = api_info.get("description", api_info.get("summary", ""))
 
-    if not is_post:
-        # TODO: add support to parse get methods' parameters.
+    def get_requestbody_docstring(openapi, api_info):
+        docstring = ""
+        try:
+            schema = _get_requestbody_input_schema(openapi, api_info)
+            schema_strings = [
+                (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
+            ]
+            if len(schema_strings) == 0:
+                docstring += "\n\nInput Schema: None"
+            elif "required" in schema:
+                # We will sort the schema strings to make required fields appear first
+                schema_strings = sorted(
+                    schema_strings,
+                    key=lambda x: x[0] in schema["required"],
+                    reverse=True,
+                )
+                docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join(
+                    [
+                        f"{k}{'*' if k in schema['required'] else ''}: {v}"
+                        for k, v in schema_strings
+                    ]
+                )
+            else:
+                docstring += "\n\nInput Schema:\n  " + "\n  ".join(
+                    [f"{k}: {v}" for k, v in schema_strings]
+                )
+        except KeyError:
+            docstring += "\n\nInput Schema: None"
         return docstring
 
-    docstring += "\n\nAutomatically inferred parameters from openapi:"
-    # Add schema to the docstring.
-    try:
-        schema = _get_post_input_schema(openapi, api_info)
-        schema_strings = [
-            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
-        ]
-        if len(schema_strings) == 0:
-            docstring += "\n\nInput Schema: None"
-        elif "required" in schema:
-            # We will sort the schema strings to make required fields appear first
-            schema_strings = sorted(
-                schema_strings, key=lambda x: x[0] in schema["required"], reverse=True
+    if is_post:
+        # parsing for post
+        docstring += "\n\nAutomatically inferred parameters from openapi:"
+        # Add schema to the docstring.
+        docstring += get_requestbody_docstring(openapi, api_info)
+
+        # Add example input to the docstring if existing.
+        try:
+            example = api_info["requestBody"]["content"]["application/json"]["example"]
+            example_string = "\n  ".join(
+                [str(k) + ": " + str(v) for k, v in example.items()]
             )
-            docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join(
+            docstring += f"\n\nExample input:\n  {example_string}"
+        except KeyError:
+            # If the openapi does not have an example section, we will just skip.
+            pass
+    else:
+        # parsing for get
+        docstring += "\n\nAutomatically inferred parameters from openapi:"
+        if "requestBody" in api_info:
+            docstring += get_requestbody_docstring(openapi, api_info)
+        elif "parameters" not in api_info:
+            docstring += "\n\nInput Schema: None"
+        else:
+            parameters = api_info["parameters"]
+            docstring += "\n\nInput Schema: (*=required)\n  " + "\n  ".join(
                 [
-                    f"{k}{'*' if k in schema['required'] else ''}: {v}"
-                    for k, v in schema_strings
+                    f"{p['name']}{'*' if p['required'] else ''}:"
+                    f" {_json_to_type_string(p['schema'])}"
+                    for p in parameters
                 ]
             )
-        else:
-            docstring += "\n\nSchema:\n  " + "\n  ".join(
-                [f"{k}: {v}" for k, v in schema_strings]
-            )
-    except KeyError:
-        docstring += "\n\nInput Schema: None"
-
-    # Add example input to the docstring if existing.
-    try:
-        example = api_info["requestBody"]["content"]["application/json"]["example"]
-        example_string = "\n  ".join(
-            [str(k) + ": " + str(v) for k, v in example.items()]
-        )
-        docstring += f"\n\nExample input:\n  {example_string}\n"
-    except KeyError:
-        # If the openapi does not have an example section, we will just skip.
-        pass
 
     # Add output schema to the docstring.
     try:
-        schema_ref = api_info["responses"]["200"]["content"]["application/json"][
-            "schema"
-        ]["$ref"]
-        schema_name = schema_ref.split("/")[-1]
-        schema = openapi["components"]["schemas"][schema_name]
-        schema_strings = [
-            (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
-        ]
-        docstring += "\n\nOutput Schema:\n  " + "\n  ".join(
-            [f"{k}: {v}" for k, v in schema_strings]
-        )
+        output_content = api_info["responses"]["200"]["content"]
+        if "application/json" in output_content:
+            schema_ref = output_content["application/json"]["schema"]["$ref"]
+            schema_name = schema_ref.split("/")[-1]
+            schema = openapi["components"]["schemas"][schema_name]
+            schema_strings = [
+                (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
+            ]
+            docstring += "\n\nOutput Schema:\n  " + "\n  ".join(
+                [f"{k}: {v}" for k, v in schema_strings]
+            )
+        else:
+            output_type = ",".join(output_content.keys())
+            docstring += f"\n\nOutput Schema:\n  response:{output_type}"
     except KeyError:
         # If the openapi does not have a schema section, we will just skip.
         pass
@@ -164,7 +188,7 @@ def _get_positional_argument_error_message(
             additional_message = ""
             api_info, is_post = _get_api_info(openapi, path_name)
             if is_post:
-                schema = _get_post_input_schema(openapi, api_info)
+                schema = _get_requestbody_input_schema(openapi, api_info)
                 if len(args) <= len(schema["properties"]):
                     additional_message += (
                         "\n\nIt seems that you have passed in positional arguments for"
