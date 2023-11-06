@@ -316,8 +316,8 @@ class Counter(Photon):
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
 
-        # res = requests.get(f"http://localhost:{DEFAULT_LIVENESS_PORT}/livez")
-        # self.assertEqual(res.status_code, 200)
+        res = requests.get(f"http://localhost:{DEFAULT_LIVENESS_PORT}/livez")
+        self.assertEqual(res.status_code, 200)
 
     def test_custom_dependency(self):
         name = random_name()
