@@ -630,7 +630,7 @@ class Photon(BasePhoton):
             logger.info(f"Running liveness server on port {port}")
             uvicorn.run(app, host="localhost", port=port, log_level="error")
 
-        threading.Thread(target=run_server, daemon=True).start()
+        # threading.Thread(target=run_server, daemon=True).start()
 
     def launch(
         self,
