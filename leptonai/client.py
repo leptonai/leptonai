@@ -369,7 +369,7 @@ class Client(object):
 
         try:
             detail = res.json()["error"]
-        except:
+        except Exception:
             detail = res.text
 
         http_error_msg = (
