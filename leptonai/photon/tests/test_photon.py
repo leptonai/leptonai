@@ -316,14 +316,12 @@ class Counter(Photon):
             image = "a:b"
             exposed_port = 8765
             cmd = ["python", "-m", "http.server", str(exposed_port)]
-            health_check_path = "/status"
 
         ph = CustomImage(name=random_name())
         path = ph.save()
         metadata = load_metadata(path)
         self.assertEqual(metadata["image"], CustomImage.image)
         self.assertEqual(metadata["exposed_port"], CustomImage.exposed_port)
-        self.assertEqual(metadata["health_check_path"], CustomImage.health_check_path)
         self.assertEqual(metadata["cmd"], CustomImage.cmd)
 
     def test_custom_dependency(self):
