@@ -39,6 +39,7 @@ import uvicorn.config
 
 from leptonai.config import (
     BASE_IMAGE,
+    BASE_IMAGE_CMD,
     BASE_IMAGE_ARGS,
     DEFAULT_PORT,
     ALLOW_ORIGINS_URLS,
@@ -174,7 +175,9 @@ class Photon(BasePhoton):
     image: str = BASE_IMAGE
 
     # The args for the base image.
-    args: list = BASE_IMAGE_ARGS
+    args: List[str] = BASE_IMAGE_ARGS
+    cmd: Optional[List[str]] = BASE_IMAGE_CMD
+    exposed_port: int = DEFAULT_PORT
 
     # Required python dependencies that you usually install with `pip install`. For example, if
     # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
@@ -345,8 +348,12 @@ class Photon(BasePhoton):
             {
                 "image": self.image,
                 "args": self.args,
+                "exposed_port": self.exposed_port,
             }
         )
+
+        if self.cmd is not None:
+            res["cmd"] = self.cmd
 
         return res
 
