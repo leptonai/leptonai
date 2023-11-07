@@ -498,7 +498,8 @@ class Photon(BasePhoton):
         self._collect_metrics(app)
         return app
 
-    def _uvicorn_log_config(self):
+    @staticmethod
+    def _uvicorn_log_config():
         # Filter out /healthz and /metrics from uvicorn access log
         class LogFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
