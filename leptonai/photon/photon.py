@@ -504,7 +504,7 @@ class Photon(BasePhoton):
         class LogFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
                 return (
-                    record.getMessage().find(f"/healthz ") == -1
+                    record.getMessage().find("/healthz ") == -1
                     and record.getMessage().find("/metrics ") == -1
                 )
 

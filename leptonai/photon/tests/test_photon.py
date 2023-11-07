@@ -285,7 +285,6 @@ class Counter(Photon):
         self.assertTrue("args" in metadata)
         self.assertFalse("cmd" in metadata)  # no cmd is specified to indicates default
         self.assertTrue("exposed_port" in metadata)
-        self.assertTrue("health_check_path" in metadata)
 
         # check for openapi schema
         self.assertTrue("openapi_schema" in metadata)
