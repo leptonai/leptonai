@@ -29,11 +29,11 @@ class TestPhotonSdk(unittest.TestCase):
             ph = photon.create(name=name, model=model_id)
         else:
             ph = photon.create(name=name, model=f"{model_id}@{revision}")
-        self.assertEqual(ph.name, name)
+        self.assertEqual(ph._photon_name, name)
         if revision is not None:
             min_len = min(len(revision), len(ph.hf_revision))
             self.assertEqual(ph.hf_revision[:min_len], revision[:min_len])
-        self.assertEqual(ph.model, f"{model_id}@{ph.hf_revision}")
+        self.assertEqual(ph._photon_model, f"{model_id}@{ph.hf_revision}")
         self.assertEqual(ph.photon_type, "hf")
 
     def test_create(self):
@@ -53,8 +53,8 @@ class TestPhotonSdk(unittest.TestCase):
         revision = ph.hf_revision
         path = photon.save(ph)
         ph = photon.load(path)
-        self.assertTrue(ph.name == "abcdef")
-        self.assertTrue(ph.model == f"{self.test_hf_model_id}@{ph.hf_revision}")
+        self.assertTrue(ph._photon_name == "abcdef")
+        self.assertTrue(ph._photon_model == f"{self.test_hf_model_id}@{ph.hf_revision}")
         self.assertEqual(ph.hf_revision, revision)
         ph.run("a cat")
 
@@ -64,7 +64,7 @@ class TestPhotonSdk(unittest.TestCase):
 
         ph = photon.create(name=random_name(), model=model)
 
-        self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
+        self.assertTrue(ph._photon_model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
     def test_create_from_transformers_pipeline(self):
@@ -73,7 +73,7 @@ class TestPhotonSdk(unittest.TestCase):
 
         ph = photon.create(name=random_name(), model=pipe)
 
-        self.assertTrue(ph.model == f"hf:{model_id}@{ph.hf_revision}")
+        self.assertTrue(ph._photon_model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
     def test_load_metadata(self):

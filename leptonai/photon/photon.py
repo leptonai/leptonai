@@ -10,9 +10,9 @@ import importlib.util
 import inspect
 import logging
 import os
-import re
 import sys
 import traceback
+import types
 from typing import Callable, Any, List, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
 import uuid
@@ -185,6 +185,12 @@ class Photon(BasePhoton):
     # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
     # photon depends on a package installable over github, you can set the dependency to
     # `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
+    #
+    # Experimental feature: if you specify "uninstall xxxxx", instead of installing the library,
+    # we will uninstall the library. This is useful if you want to uninstall a library that is
+    # in conflict with some other libraries, and need to sequentialize a bunch of pip installs
+    # and uninstalls. The exact correctness of this will really depend on pip and the specific
+    # libraries you are installing and uninstalling, so please use this feature with caution.
     requirement_dependency: Optional[List[str]] = None
 
     # System dependencies that can be installed via `apt install`. FOr example, if your photon
@@ -280,27 +286,6 @@ class Photon(BasePhoton):
 
         return res
 
-    @staticmethod
-    def _infer_requirement_dependency():
-        # ref: https://stackoverflow.com/a/31304042
-        try:
-            from pip._internal.operations import freeze
-        except ImportError:  # pip < 10.0
-            from pip.operations import freeze  # type: ignore
-
-        pkgs = freeze.freeze()
-
-        filtered_pkgs = []
-        for pkg in pkgs:
-            if pkg.startswith("-e") or re.search(r"@\s*file://", pkg):
-                # TODO: capture local editable packages
-                continue
-            if pkg.startswith("pytest") or pkg == "parameterized" or pkg == "responses":
-                # test related packages
-                continue
-            filtered_pkgs.append(pkg)
-        return filtered_pkgs
-
     @classmethod
     def _iter_ancestors(cls) -> Iterator[Type["Photon"]]:
         yield cls
@@ -318,14 +303,15 @@ class Photon(BasePhoton):
 
     @property
     def _requirement_dependency(self) -> List[str]:
-        deps = OrderedDict()
+        deps = []
         # We add dependencies from ancestor classes to derived classes
-        # and keep the order, while removing redundant dependencies
+        # and keep the order. Because we now support installation and uninstallation,
+        # we do not remove redundant dependencies automatically.
         for base in reversed(list(self._iter_ancestors())):
             if base.requirement_dependency:
-                deps.update({dep: None for dep in base.requirement_dependency})
+                deps.extend(base.requirement_dependency)
         # Do not sort or uniq pip deps lines, as order matters
-        return list(deps.keys())
+        return deps
 
     @property
     def _system_dependency(self) -> List[str]:
@@ -447,7 +433,7 @@ class Photon(BasePhoton):
                     src_str = inspect.getsource(self.__class__)
                 except Exception:
                     pass
-            if src_str is not None:
+            else:
                 with photon_file.open(self.py_src_filename, "w") as src_file_out:
                     src_file_out.write(src_str)
         return path
@@ -495,11 +481,13 @@ class Photon(BasePhoton):
         )
 
     def _create_app(self, load_mount):
-        title = self.name.replace(".", "_")
+        title = self._photon_name.replace(".", "_")
         app = FastAPI(
             title=title,
             description=(
-                self.__doc__ if self.__doc__ else f"Lepton AI Photon API {self.name}"
+                self.__doc__
+                if self.__doc__
+                else f"Lepton AI Photon API {self._photon_name}"
             ),
         )
 
@@ -710,7 +698,7 @@ class Photon(BasePhoton):
         elif isinstance(subapp, Photon):
             subapp_real_app = subapp._create_app(load_mount=True)
             app.include_router(subapp_real_app.router, prefix=f"/{path}")
-        if subapp.__module__ == "asgi_proxy" and subapp.__name__ == "asgi_proxy":
+        elif subapp.__module__ == "asgi_proxy" and subapp.__name__ == "asgi_proxy":
             # asgi_proxy returns a lambda function (`<function
             # asgi_proxy.asgi_proxy.<locals>.asgi_proxy(scope,
             # receive, send)>`), it's not easy to type check it, so we
@@ -739,7 +727,7 @@ class Photon(BasePhoton):
             method, func_name=self.__class__.__name__ + "_" + path
         )
 
-        if http_method.lower() == "post":
+        if http_method.lower() == "post" and request_model is not None:
             if "example" in kwargs:
                 request_model = Annotated[
                     request_model, Body(example=kwargs["example"])
@@ -772,9 +760,55 @@ class Photon(BasePhoton):
             rate_limiter = None
 
         if http_method.lower() == "post":
-            vd = pydantic.decorator.validate_arguments(method).vd
+            # In the post mode, we do the following:
+            # - If the handler specifies "use_raw_args", then we don't wrap the args to a
+            # json body, but instead just pass the raw args up to fastapi.
+            # - Otherwise, we wrap the args to a json body, and use the request_model
+            # as the pydantic model to validate the json body.
+            # - If no args are specified, we don't wrap anything.
+            if kwargs.get("use_raw_args"):
 
-            if request_model is not None:
+                @functools.wraps(
+                    method,
+                    assigned=(
+                        wa
+                        for wa in functools.WRAPPER_ASSIGNMENTS
+                        if wa != "__annotations__"
+                    ),  # type: ignore
+                )
+                async def wrapped_method(*args, **kwargs):
+                    if rate_limiter is not None:
+                        check_rate_limit()
+                    try:
+                        res = await method(*args, **kwargs)
+                    except Exception as e:
+                        logger.error(traceback.format_exc())
+                        if isinstance(e, HTTPException):
+                            return JSONResponse(
+                                {"error": e.detail}, status_code=e.status_code
+                            )
+                        return JSONResponse({"error": str(e)}, status_code=500)
+                    else:
+                        if not isinstance(res, response_class):
+                            res = response_class(res)
+                        return res
+
+                typed_handler = types.FunctionType(
+                    wrapped_method.__code__,
+                    globals(),
+                    "typed_handler",
+                    wrapped_method.__defaults__,
+                    wrapped_method.__closure__,
+                )  # type: ignore
+                # Transfer the defaults and signature from the original method.
+                typed_handler.__annotations__ = method.__annotations__
+                typed_handler.__defaults__ = method.__defaults__  # type: ignore
+                typed_handler.__doc__ = method.__doc__
+                typed_handler.__kwdefaults__ = method.__kwdefaults__  # type: ignore
+                typed_handler.__signature__ = inspect.signature(method)  # type: ignore
+            elif request_model is not None:
+                vd = pydantic.decorator.validate_arguments(method).vd
+
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
                 # `__annotations__` attribute here
@@ -804,6 +838,7 @@ class Photon(BasePhoton):
                             res = response_class(res)
                         return res
 
+                delattr(typed_handler, "__wrapped__")
             else:
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
@@ -819,7 +854,6 @@ class Photon(BasePhoton):
                 async def typed_handler():  # type: ignore
                     if rate_limiter is not None:
                         check_rate_limit()
-
                     try:
                         res = await method()
                     except Exception as e:
@@ -834,7 +868,7 @@ class Photon(BasePhoton):
                             res = response_class(res)
                         return res
 
-            delattr(typed_handler, "__wrapped__")
+                delattr(typed_handler, "__wrapped__")
 
         elif http_method.lower() == "get":
 
