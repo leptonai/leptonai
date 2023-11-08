@@ -17,6 +17,7 @@ from leptonai.api.workspace import (
     _get_full_workspace_api_url,
 )
 from leptonai.config import DEFAULT_PORT
+from leptonai.photon import FileParam  # noqa
 from leptonai.util import _is_valid_url
 from .api import deployment, APIError
 
@@ -336,6 +337,35 @@ class Client(object):
 
     def __del__(self):
         self._session.close()
+
+    @classmethod
+    def current(cls):
+        """
+        Returns the current workspace id. This is useful for creating a client that
+        calls deployments in the current workspace. Note that when instantiating a
+        client, if the current workspace is used, the token will be automatically
+        set to the current workspace token if not specified. This is an alias of
+        lepton.client.current.
+        """
+        return current()
+
+    @classmethod
+    def local(cls, port: int = DEFAULT_PORT):
+        """
+        Create a connection url for a local deployment. This is useful for testing
+        purposes, and does not require you to type the local IP address repeatedly.
+        This is an alias of lepton.client.local.
+
+        Usage:
+            client = Client(Client.local())
+            client.foo()
+
+        Args:
+            port (int, optional): The port number. Defaults to leptonai.config.DEFAULT_PORT.
+        Returns:
+            str: The connection url.
+        """
+        return local(port)
 
     # Normal usages will go through then `__getattr__` path (which triggers
     # `_post_path` and `_post`). Directly using `_post` and `_get` is
