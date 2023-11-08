@@ -19,11 +19,9 @@ from .util import (
     sizeof_fmt,
 )
 
-custom_theme = Theme(
-    {
-        "directory": "bold cyan",
-    }
-)
+custom_theme = Theme({
+    "directory": "bold cyan",
+})
 
 console = Console(highlight=False, theme=custom_theme)
 

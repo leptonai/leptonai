@@ -184,11 +184,9 @@ class HuggingfacePhoton(Photon):
     def metadata(self):
         res = super().metadata
         res.pop("py_obj")
-        res.update(
-            {
-                "task": self.hf_task,
-            }
-        )
+        res.update({
+            "task": self.hf_task,
+        })
         return res
 
     @cached_property
@@ -367,9 +365,9 @@ class HuggingfaceTextGenerationPhoton(HuggingfacePhoton):
 
         # TODO: should limit the number of history messages to include into the
         # prompt so that it doesn't exceed the max context length of the model
-        history_prompt = os.linesep.join(
-            [f"{h['role']}: {h['content']}" for h in history]
-        )
+        history_prompt = os.linesep.join([
+            f"{h['role']}: {h['content']}" for h in history
+        ])
         prompt = f"""\
 The following is a friendly conversation between a user and an assistant. The assistant is talkative and provides lots of specific details from its context. If the assistant does not know the answer to a question, it truthfully says it does not know.
 Current conversation:
@@ -450,9 +448,9 @@ class HuggingfaceText2TextGenerationPhoton(HuggingfacePhoton):
 
         # TODO: should limit the number of history messages to include into the
         # prompt so that it doesn't exceed the max context length of the model
-        history_prompt = os.linesep.join(
-            [f"{h['role']}: {h['content']}" for h in history]
-        )
+        history_prompt = os.linesep.join([
+            f"{h['role']}: {h['content']}" for h in history
+        ])
         prompt = f"""\
 The following is a friendly conversation between a user and an assistant. The assistant is talkative and provides lots of specific details from its context. If the assistant does not know the answer to a question, it truthfully says it does not know.
 Current conversation:
