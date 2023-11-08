@@ -338,8 +338,8 @@ class Client(object):
     def __del__(self):
         self._session.close()
 
-    @classmethod
-    def current(cls):
+    @staticmethod
+    def current():
         """
         Returns the current workspace id. This is useful for creating a client that
         calls deployments in the current workspace. Note that when instantiating a
@@ -349,8 +349,8 @@ class Client(object):
         """
         return current()
 
-    @classmethod
-    def local(cls, port: int = DEFAULT_PORT):
+    @staticmethod
+    def local(port: int = DEFAULT_PORT):
         """
         Create a connection url for a local deployment. This is useful for testing
         purposes, and does not require you to type the local IP address repeatedly.
