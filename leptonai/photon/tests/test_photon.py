@@ -283,6 +283,8 @@ class Counter(Photon):
         self.assertEqual(metadata["model"], "CustomPhoton")
         self.assertTrue("image" in metadata)
         self.assertTrue("args" in metadata)
+        self.assertFalse("cmd" in metadata)  # no cmd is specified to indicates default
+        self.assertTrue("exposed_port" in metadata)
 
         # check for openapi schema
         self.assertTrue("openapi_schema" in metadata)
@@ -318,6 +320,19 @@ class Counter(Photon):
 
         res = requests.get(f"http://localhost:{DEFAULT_LIVENESS_PORT}/livez")
         self.assertEqual(res.status_code, 200)
+
+    def test_custom_image_photon_metadata(self):
+        class CustomImage(Photon):
+            image = "a:b"
+            exposed_port = 8765
+            cmd = ["python", "-m", "http.server", str(exposed_port)]
+
+        ph = CustomImage(name=random_name())
+        path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(metadata["image"], CustomImage.image)
+        self.assertEqual(metadata["exposed_port"], CustomImage.exposed_port)
+        self.assertEqual(metadata["cmd"], CustomImage.cmd)
 
     def test_custom_dependency(self):
         name = random_name()

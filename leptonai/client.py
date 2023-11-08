@@ -1,6 +1,6 @@
 import contextlib
 import keyword
-from typing import Callable, Any, Dict, List, Set, Optional, Union, Iterable
+from typing import Callable, Dict, List, Set, Optional, Union, Iterable
 
 from fastapi.encoders import jsonable_encoder
 import httpx
@@ -248,7 +248,7 @@ class Client(object):
             headers.update({"Authorization": f"Bearer {token}"})
 
         self._session = httpx.Client(headers=headers)
-        self.openapi: Dict[str, Any] = {}
+        self.openapi: Dict = {}
         self._debug_record: List = []
         self._path_cache: PathTree = PathTree("", self._debug_record)
         self.stream: Optional[bool] = stream
@@ -319,9 +319,9 @@ class Client(object):
                 # like a swagger UI or flask service, which is not a function, so
                 # we will ignore it.
                 continue
-            elif "post" in self.openapi["paths"][path_name]:
+            elif "post" in self.openapi["paths"][path_name]:  # type: ignore
                 self._create_post_path(path_name)
-            elif "get" in self.openapi["paths"][path_name]:
+            elif "get" in self.openapi["paths"][path_name]:  # type: ignore
                 self._create_get_path(path_name)
             else:
                 self._debug_record.append(
@@ -359,11 +359,30 @@ class Client(object):
         else:
             return self._session.post(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
+    def _raise_for_detailed_status(self, res: httpx.Response):
+        """Raises :class:`HTTPError`, if one occurred.
+
+        This is the same as res.raise_for_status(), but appends additional detailed information.
+        """
+        if not res.is_error:
+            return
+
+        try:
+            detail = res.json()["error"]
+        except Exception:
+            detail = res.text
+
+        http_error_msg = (
+            f"{res.status_code}{' Client' if res.is_client_error else ' Server'} Error"
+            f" for url: {self.url}. Detail: {detail}"
+        )
+        raise httpx.HTTPStatusError(http_error_msg, request=res.request, response=res)
+
     def _generator(self, res: httpx.Response):
         ctx = res if self.stream else contextlib.nullcontext(res)
         # use context to ensure that the response is properly closed.
-        with ctx as res:
-            res.raise_for_status()
+        with ctx as res:  # type: ignore
+            self._raise_for_detailed_status(res)
             if res.headers.get("content-type", None) == "application/json":
                 # For a json response, we will return the json object directly,
                 # as it does not make sense to stream a json object.
