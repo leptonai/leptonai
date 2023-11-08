@@ -130,24 +130,22 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertNotIn("abcdef", result.output.lower())
 
-    @sub_test(
-        [
-            (diffusers_model,),
-            (transformers_model,),
-            # FIXME: these models need ffmpeg, but Github CI currently fails to
-            # install it
-            # (whisper_model,),
-            # (audio_classification_model,),
-            (summarization_model,),
-            (sentence_similarity_model,),
-            (text2text_generation_model,),
-            (sentiment_analysis_model,),
-            (depth_estimation_model,),
-            (microsoft_phi_model,),
-            (image_to_text_model,),
-            (feature_extraction_model,),
-        ]
-    )
+    @sub_test([
+        (diffusers_model,),
+        (transformers_model,),
+        # FIXME: these models need ffmpeg, but Github CI currently fails to
+        # install it
+        # (whisper_model,),
+        # (audio_classification_model,),
+        (summarization_model,),
+        (sentence_similarity_model,),
+        (text2text_generation_model,),
+        (sentiment_analysis_model,),
+        (depth_estimation_model,),
+        (microsoft_phi_model,),
+        (image_to_text_model,),
+        (feature_extraction_model,),
+    ])
     def test_photon_run(self, model):
         if os.getenv("GITHUB_ACTIONS") and model in [
             microsoft_phi_model,
