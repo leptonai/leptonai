@@ -1,4 +1,7 @@
 import asyncio
+import os
+
+from loguru import logger
 
 from leptonai.photon import Photon
 from leptonai.config import TRUST_REMOTE_CODE
@@ -10,18 +13,31 @@ VLLM_SCHEMAS = ["vllm"]
 class vLLMPhoton(Photon):
     photon_type: str = "vllm"
 
+    deployment_template = {
+        # At least using gpu.a10.
+        "resource_shape": "gpu.a10",
+        "env": {
+            "LEPTON_VLLM_MODEL": "",
+        },
+    }
+
     requirement_dependency = [
         "vllm>=0.2.0",
         "fschat",
     ]
 
     def __init__(self, name, model):
-        schema, model_id = model.split(":")
+        super().__init__(name, model)
+        if ":" in model:
+            schema, model_id = model.split(":")
+        else:
+            schema = model
+            model_id = ""
+
         if schema not in VLLM_SCHEMAS:
             raise ValueError(
                 f'Unsupported vLLM model: "{model}" (unknown schema: "{schema}")'
             )
-        super().__init__(name, model)
         self.model_id = model_id
 
     @property
@@ -42,6 +58,19 @@ class vLLMPhoton(Photon):
         from vllm.engine.async_llm_engine import AsyncLLMEngine
         from vllm.transformers_utils.tokenizer import get_tokenizer
         import torch
+
+        if os.environ["LEPTON_VLLM_MODEL"] != "":
+            # If we specified LEPTON_VLLM_MODEL, always override.
+            self.model_id = os.environ["LEPTON_VLLM_MODEL"]
+            logger.debug(
+                f"Overriding model id with LEPTON_VLLM_MODEL: {self.model_id}."
+            )
+        if not self.model_id:
+            raise RuntimeError(
+                "You did not specify a model id. Either do it at photon construction "
+                "time with -m vllm:<model_string>, or at runtime with the env "
+                "variable LEPTON_VLLM_MODEL."
+            )
 
         if not torch.cuda.is_available():
             raise RuntimeError("vLLM Photon requires CUDA runtime")

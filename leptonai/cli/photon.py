@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os
 import re
 import shutil
@@ -771,6 +772,20 @@ def push(name):
         f"Photon [yellow]{name}[/] already exists. Skipping pushing.",
         f"Photon [red]{name}[/] failed to push. Internal server error.",
     )
+
+
+@photon.command()
+@click.option("--name", "-n", help="Name of the photon", required=True)
+@click.option("--indent", "-i", type=int, help="Indentation of the json.", default=None)
+def metadata(name, indent):
+    """
+    Returns the metadata json of the photon.
+    """
+    path = find_local_photon(name)
+    check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
+    # loads the metadata
+    metadata = photon_util.load_metadata(path)  # type: ignore
+    console.print(json.dumps(metadata, indent=indent))
 
 
 @photon.command()
