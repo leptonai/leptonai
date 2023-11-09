@@ -809,7 +809,14 @@ def fetch(id, path):
     if isinstance(photon_or_err, APIError):
         console.print(f"Photon [red]{id}[/] failed to fetch: {photon_or_err}")
         sys.exit(1)
-    console.print(f"Photon [green]{photon_or_err.name}:{id}[/] fetched.")
+    else:
+        # backward-compatibility: support the old style photon.name and photon.model,
+        # and the newly updated photon._photon_name and photon._photon_model
+        try:
+            photon_name = photon_or_err._photon_name
+        except AttributeError:
+            photon_name = photon_or_err.name  # type: ignore
+        console.print(f"Photon [green]{photon_name}:{id}[/] fetched.")
 
 
 def add_command(cli_group):
