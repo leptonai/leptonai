@@ -446,6 +446,17 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     callback=_timeout_must_be_larger_than_60,
 )
+@click.option(
+    "--initial-delay-seconds",
+    type=int,
+    help=(
+        "If specified, the deployment will allow the specified amount of seconds for"
+        " the photon to initialize before it starts the service. Usually you should"
+        " not need this. If you have a deployment that takes a long time to initialize,"
+        " set it to a longer value."
+    ),
+    default=None,
+)
 @click.pass_context
 def run(
     ctx,
@@ -470,6 +481,7 @@ def run(
     public,
     tokens,
     no_traffic_timeout,
+    initial_delay_seconds,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -545,6 +557,7 @@ def run(
                 public,
                 tokens,
                 no_traffic_timeout,
+                initial_delay_seconds,
             )
         except ValueError as e:
             console.print(f"Error encountered while parsing configs: {e}")

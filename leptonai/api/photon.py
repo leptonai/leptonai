@@ -121,6 +121,7 @@ def run_remote(
     is_public: Optional[bool] = False,
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
+    initial_delay_seconds: Optional[int] = None,
 ):
     if no_traffic_timeout:
         ws_version = version(conn)
@@ -147,5 +148,6 @@ def run_remote(
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
         api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
         auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
+        health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
     return run_remote_with_spec(conn, deployment_spec)
