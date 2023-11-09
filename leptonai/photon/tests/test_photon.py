@@ -86,10 +86,10 @@ class CustomPhotonWithDepTemplate(Photon):
     deployment_template: Dict = {
         "resource_shape": "gpu.a10",
         "env": {
-            "ENV_A": ENV_VAR_REQUIRED,
-            "ENV_B": "DEFAULT_B",
+            "LEPTON_FOR_TEST_ENV_A": ENV_VAR_REQUIRED,
+            "LEPTON_FOR_TEST_ENV_B": "DEFAULT_B",
         },
-        "secret": ["SECRET_A"],
+        "secret": ["LEPTON_FOR_TEST_SECRET_A"],
     }
 
 
@@ -183,7 +183,31 @@ class TestPhoton(unittest.TestCase):
             ph.deployment_template, {"resource_shape": None, "env": {}, "secret": []}
         )
 
+        if "LEPTON_FOR_TEST_ENV_A" in os.environ:
+            del os.environ["LEPTON_FOR_TEST_ENV_A"]
+        try:
+            ph = CustomPhotonWithDepTemplate(name=name)
+        except RuntimeError as e:
+            # When a required env is not set, this should throw an error.
+            self.assertIn("LEPTON_FOR_TEST_ENV_A", str(e))
+        else:
+            self.fail("RuntimeError not raised when env is not set.")
+
+        os.environ["LEPTON_FOR_TEST_ENV_A"] = "value_a"
+        try:
+            ph = CustomPhotonWithDepTemplate(name=name)
+        except RuntimeError as e:
+            # When a required secret is not set, this should throw an error.
+            self.assertIn("LEPTON_FOR_TEST_SECRET_A", str(e))
+        else:
+            self.fail("RuntimeError not raised when secret is not set.")
+
+        os.environ["LEPTON_FOR_TEST_SECRET_A"] = "value_a"
         ph = CustomPhotonWithDepTemplate(name=name)
+        self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_B"], "DEFAULT_B")
+        self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_A"], "value_a")
+        self.assertEqual(os.environ["LEPTON_FOR_TEST_SECRET_A"], "value_a")
+
         metadata = ph.metadata
 
         self.assertIn("deployment_template", metadata)
@@ -192,10 +216,10 @@ class TestPhoton(unittest.TestCase):
             {
                 "resource_shape": "gpu.a10",
                 "env": {
-                    "ENV_A": ENV_VAR_REQUIRED,
-                    "ENV_B": "DEFAULT_B",
+                    "LEPTON_FOR_TEST_ENV_A": ENV_VAR_REQUIRED,
+                    "LEPTON_FOR_TEST_ENV_B": "DEFAULT_B",
                 },
-                "secret": ["SECRET_A"],
+                "secret": ["LEPTON_FOR_TEST_SECRET_A"],
             },
         )
 

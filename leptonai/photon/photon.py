@@ -183,7 +183,9 @@ class Photon(BasePhoton):
     #         "SECRET_A",
     #       ],
     #     }
-    # Note that this is just a hint: we do not enforce the user to follow the template.
+    # During photon init time, we will check the existence of the env variables and secrets,
+    # issue RuntimeError of the required ones are not set, and set default values for non-existing
+    # env variables that have default values.
     deployment_template: Dict[str, Any] = {
         "resource_shape": None,
         "env": {},
@@ -246,6 +248,20 @@ class Photon(BasePhoton):
         self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
             self.background_tasks_max_concurrency
         )
+
+        envs = self._deployment_template.get("env", {})
+        for key in envs:
+            if os.environ.get(key) is None:
+                if envs[key] == ENV_VAR_REQUIRED:
+                    raise RuntimeError(
+                        f"This photon expects env variable {key} but it s not set."
+                    )
+                else:
+                    os.environ[key] = envs[key]
+        secrets = self._deployment_template.get("secret", [])
+        for s in secrets:
+            if os.environ.get(s) is None:
+                raise RuntimeError(f"This photon expects secret {s} but it s not set.")
 
     def _on_background_task_done(self, task):
         """
