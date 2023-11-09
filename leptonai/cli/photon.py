@@ -384,7 +384,10 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     hidden=True,
     default=None,
 )
-@click.option("--min-replicas", type=int, help="Number of replicas.", default=1)
+@click.option("--min-replicas", type=int, help="Minimum number of replicas.", default=1)
+@click.option(
+    "--max-replicas", type=int, help="Maximum number of replicas.", default=None
+)
 @click.option(
     "--mount",
     help=(
@@ -447,6 +450,17 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     callback=_timeout_must_be_larger_than_60,
 )
 @click.option(
+    "--target-gpu-utilization",
+    type=int,
+    help=(
+        "If min and max replicas are set, if the gpu utilization is higher than the"
+        " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
+        " utilization is lower than the target gpu utilization, autoscaler will scale"
+        " down the replicas. The value should be between 0 and 99."
+    ),
+    default=None,
+)
+@click.option(
     "--initial-delay-seconds",
     type=int,
     help=(
@@ -474,6 +488,7 @@ def run(
     replica_ephemeral_storage_in_gb,
     resource_affinity,
     min_replicas,
+    max_replicas,
     mount,
     deployment_name,
     env,
@@ -481,6 +496,7 @@ def run(
     public,
     tokens,
     no_traffic_timeout,
+    target_gpu_utilization,
     initial_delay_seconds,
 ):
     """
@@ -522,7 +538,11 @@ def run(
         else:
             console.print(f"Running the specified version: [green]{id}[/]")
 
-        if no_traffic_timeout is None and config.DEFAULT_TIMEOUT:
+        if (
+            no_traffic_timeout is None
+            and config.DEFAULT_TIMEOUT
+            and target_gpu_utilization is None
+        ):
             console.print(
                 "\nLepton is currently set to use a default timeout of [green]1"
                 " hour[/]. This means that when there is no traffic for more than an"
@@ -551,12 +571,14 @@ def run(
                 replica_ephemeral_storage_in_gb,
                 resource_affinity,
                 min_replicas,
+                max_replicas,
                 mount,
                 env,
                 secret,
                 public,
                 tokens,
                 no_traffic_timeout,
+                target_gpu_utilization,
                 initial_delay_seconds,
             )
         except ValueError as e:

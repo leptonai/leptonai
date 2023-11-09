@@ -124,12 +124,14 @@ def run_remote(
     replica_ephemeral_storage_in_gb: Optional[int] = None,
     resource_affinity: Optional[str] = None,
     min_replicas: int = 1,
+    max_replicas: Optional[int] = None,
     mounts: Optional[List[str]] = None,
     env_list: Optional[List[str]] = None,
     secret_list: Optional[List[str]] = None,
     is_public: Optional[bool] = False,
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
+    target_gpu_utilization: Optional[int] = None,
     initial_delay_seconds: Optional[int] = None,
 ):
     if no_traffic_timeout:
@@ -152,11 +154,14 @@ def run_remote(
             replica_ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
             resource_affinity=resource_affinity,
             min_replicas=min_replicas,
+            max_replicas=max_replicas,
         ),
         mounts=types.Mount.make_mounts_from_strings(mounts),
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
         api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
-        auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
+        auto_scaler=types.AutoScaler.make_auto_scaler(
+            no_traffic_timeout, target_gpu_utilization
+        ),
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
     return run_remote_with_spec(conn, deployment_spec)
