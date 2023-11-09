@@ -59,37 +59,44 @@ class S3Cache:
         if not os.path.exists(local_folder):
             os.makedirs(local_folder)
 
-    def get(self, s3_path, check_freshness=False):
+    def _remote_is_different(self, local_path, s3_path):
+        """
+        Checks if the local path and the remote S3 path are different, in a best effort
+        and still fast way. This checks the last modified time and the file size. In theory,
+        one can use md5 but S3 does not provide md5 for all files. One has to download the file
+        and then check whether they are really the same.
+        """
+        s3_metadata = self.s3_client.head_object(Bucket=self.s3_bucket, Key=s3_path)
+        local_size = os.path.getsize(local_path)
+        local_file_mtime = datetime.fromtimestamp(
+            os.path.getmtime(local_path), timezone.utc
+        )
+
+        return (local_size != s3_metadata["ContentLength"]) or (
+            local_file_mtime != s3_metadata["LastModified"]
+        )
+
+    def get(self, s3_path, check_file=False):
         """
         Fetches the content from s3://bucketname/s3_path, if it exists.
-        Downloads the file if it does not exist, or it is newer than the local version (if check_freshness is specified).
+        Downloads the file if it does not exist, or it is newer than the local version (if check_file is specified).
 
         Args:
             s3_path: The path to the file in S3.
-            check_freshness: If True, check if the local file is fresher than the S3
-                version, and only download if it is older. Defaults to False. This saves
-                bandwidth, but can cause issues if the S3 file is updated and the local file is not updated.
+            check_file: If True, check if the local file may be different from the S3
+                version, and only download if it is different. Defaults to False. This saves
+                bandwidth, but the check is not exhaustive - it only checks the modified time
+                and the file size.
         """
         local_path = os.path.join(self.local_folder, s3_path)
 
         if os.path.exists(local_path):
             # If the file is in local cache and no check freshness needed, then
             # directly return the path.
-            if not check_freshness:
+            if not check_file:
                 return local_path
-            # Otherwise, check freshness
-            # Fetch the modification time of the local file
-            local_file_mtime = datetime.fromtimestamp(
-                os.path.getmtime(local_path), timezone.utc
-            )
-            # Check the modification time of the S3 object
             try:
-                s3_obj_metadata = self.s3_client.head_object(
-                    Bucket=self.s3_bucket, Key=s3_path
-                )
-                s3_last_modified = s3_obj_metadata["LastModified"]
-                # If the local file is fresher or equally fresh as the S3 version, return the local path
-                if local_file_mtime >= s3_last_modified:
+                if not self._remote_is_different(local_path, s3_path):
                     return local_path
             except self.s3_client.exceptions.NoSuchKey:
                 raise FileNotFoundError(f"{s3_path} not found in S3.")
@@ -107,12 +114,16 @@ class S3Cache:
         except Exception as e:
             raise RuntimeError(f"Error downloading {s3_path} in S3.") from e
 
-    def rsync(self, folder_name):
+    def rsync(self, folder_name, check_file=False):
         """
         Syncs the content of s3://bucketname/folder_name to the local folder.
 
         Args:
             folder_name: The name of the folder in S3 to sync. To sync the whole bucket, use "".
+            check_file: If True, check if the local file may be different from the S3
+                version, and only download if it is different. Defaults to False. This saves
+                bandwidth, but the check is not exhaustive - it only checks the modified time
+                and the file size.
         """
         # Note: currently, this is not using parallel downloads, so if you
         # are downloading large amounts of small files, this might be slow.
@@ -131,6 +142,6 @@ class S3Cache:
                     local_dir = os.path.dirname(local_path)
                     if not os.path.exists(local_dir):
                         os.makedirs(local_dir)
-                    self.s3_client.download_file(self.s3_bucket, file_path, local_path)
+                    self.get(file_path, check_file=check_file)
         except Exception as e:
             raise RuntimeError(f"Error syncing {folder_name} from S3.") from e

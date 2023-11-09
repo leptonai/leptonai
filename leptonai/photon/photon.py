@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 import types
-from typing import Callable, Any, List, Optional, Set, Iterator, Type
+from typing import Callable, Any, List, Dict, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
 import uuid
 import warnings
@@ -38,14 +38,17 @@ import pydantic.decorator
 import uvicorn
 import uvicorn.config
 
-from leptonai.config import (
+from leptonai.config import (  # noqa: F401
+    ALLOW_ORIGINS_URLS,
     BASE_IMAGE,
-    BASE_IMAGE_CMD,
     BASE_IMAGE_ARGS,
+    BASE_IMAGE_CMD,
     DEFAULT_PORT,
     DEFAULT_LIVENESS_PORT,
     ALLOW_ORIGINS_URLS,
+    ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
+    VALID_SHAPES,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -150,6 +153,48 @@ class Photon(BasePhoton):
     obj_pkl_filename: str = "obj.pkl"
     py_src_filename: str = "py.py"
 
+    # Required python dependencies that you usually install with `pip install`. For example, if
+    # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
+    # photon depends on a package installable over github, you can set the dependency to
+    # `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
+    #
+    # Experimental feature: if you specify "uninstall xxxxx", instead of installing the library,
+    # we will uninstall the library. This is useful if you want to uninstall a library that is
+    # in conflict with some other libraries, and need to sequentialize a bunch of pip installs
+    # and uninstalls. The exact correctness of this will really depend on pip and the specific
+    # libraries you are installing and uninstalling, so please use this feature with caution.
+    requirement_dependency: Optional[List[str]] = None
+
+    # System dependencies that can be installed via `apt install`. FOr example, if your photon
+    # depends on `ffmpeg`, you can set `system_dependency=["ffmpeg"]`.
+    system_dependency: Optional[List[str]] = None
+
+    # The deployment template that gives a (soft) reminder to the users about how to use the
+    # photon. For example, if your photon has the following:
+    #   - requires gpu.a10 to run
+    #   - a required env variable called ENV_A, and the user needs to set the value.
+    #   - an optional env variable called ENV_B with default value "DEFAULT_B"
+    #   - a required secret called SECRET_A, and the user needs to choose the secret.
+    # Then, the deployment template should look like:
+    #     deployment_template: Dict = {
+    #       "resource_shape": "gpu.a10",
+    #       "env": {
+    #         "ENV_A": ENV_VAR_REQUIRED,
+    #         "ENV_B": "DEFAULT_B",
+    #       },
+    #       "secret": [
+    #         "SECRET_A",
+    #       ],
+    #     }
+    # During photon init time, we will check the existence of the env variables and secrets,
+    # issue RuntimeError of the required ones are not set, and set default values for non-existing
+    # env variables that have default values.
+    deployment_template: Dict[str, Any] = {
+        "resource_shape": None,
+        "env": {},
+        "secret": [],
+    }
+
     # The maximum number of concurrent requests that the photon can handle. In default when the photon
     # concurrency is 1, all the endpoints defined by @Photon.handler is mutually exclusive, and at any
     # time only one endpoint is running. This does not include system generated endpoints such as
@@ -181,22 +226,6 @@ class Photon(BasePhoton):
     cmd: Optional[List[str]] = BASE_IMAGE_CMD
     exposed_port: int = DEFAULT_PORT
 
-    # Required python dependencies that you usually install with `pip install`. For example, if
-    # your photon depends on `numpy`, you can set `requirement_dependency=["numpy"]`. If your
-    # photon depends on a package installable over github, you can set the dependency to
-    # `requirement_dependency=["git+xxxx"] where `xxxx` is the url to the github repo.
-    #
-    # Experimental feature: if you specify "uninstall xxxxx", instead of installing the library,
-    # we will uninstall the library. This is useful if you want to uninstall a library that is
-    # in conflict with some other libraries, and need to sequentialize a bunch of pip installs
-    # and uninstalls. The exact correctness of this will really depend on pip and the specific
-    # libraries you are installing and uninstalling, so please use this feature with caution.
-    requirement_dependency: Optional[List[str]] = None
-
-    # System dependencies that can be installed via `apt install`. FOr example, if your photon
-    # depends on `ffmpeg`, you can set `system_dependency=["ffmpeg"]`.
-    system_dependency: Optional[List[str]] = None
-
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
 
@@ -222,6 +251,20 @@ class Photon(BasePhoton):
         self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
             self.background_tasks_max_concurrency
         )
+
+        envs = self._deployment_template.get("env", {})
+        for key in envs:
+            if os.environ.get(key) is None:
+                if envs[key] == ENV_VAR_REQUIRED:
+                    raise RuntimeError(
+                        f"This photon expects env variable {key} but it s not set."
+                    )
+                else:
+                    os.environ[key] = envs[key]
+        secrets = self._deployment_template.get("secret", [])
+        for s in secrets:
+            if os.environ.get(s) is None:
+                raise RuntimeError(f"This photon expects secret {s} but it s not set.")
 
     def _on_background_task_done(self, task):
         """
@@ -323,6 +366,62 @@ class Photon(BasePhoton):
         return list(deps.keys())
 
     @property
+    def _deployment_template(self) -> Dict[str, Any]:
+        # Verify and return the deployment template.
+        if self.deployment_template is None:
+            return {}
+        # doing sanity check for the fields
+        sanity_checked_fields = ["resource_shape", "env", "secret"]
+        if any(
+            field not in sanity_checked_fields
+            for field in self.deployment_template.keys()
+        ):
+            raise ValueError(
+                "Deployment template encountered a field that is not supported."
+                f" Supported fields are: {sanity_checked_fields}."
+            )
+        # doing sanity check for the values
+        resource_shape = self.deployment_template.get("resource_shape")
+        if resource_shape is not None:
+            if not isinstance(resource_shape, str):
+                raise ValueError(
+                    "Deployment template resource_shape must be a string. Found"
+                    f" {resource_shape} instead."
+                )
+            if resource_shape not in VALID_SHAPES:
+                # For now, only issue a warning if the user specified a non-standard
+                # shape, and not an error. This is because we want to allow future versions
+                # of the CLI to support more shapes, and we do not want to break the
+                # compatibility.
+                warnings.warn(
+                    "Deployment template resource_shape"
+                    f" {resource_shape} is not one of the"
+                    " standard shapes. Just a kind reminder."
+                )
+        env = self.deployment_template.get("env", {})
+        if not isinstance(env, dict):
+            raise ValueError(
+                f"Deployment template envs must be a dict. Found {env} instead."
+            )
+        for key, value in env.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise ValueError(
+                    "Deployment template envs keys/values must be strings. Found"
+                    f" {key}:{value} instead."
+                )
+        secret = self.deployment_template.get("secret", [])
+        if not isinstance(secret, list):
+            raise ValueError(
+                f"Deployment template secrets must be a list. Found {secret} instead."
+            )
+        if any(not isinstance(s, str) for s in secret):
+            raise ValueError(
+                "Deployment template secrets must be a list of strings. Found"
+                f" {secret} instead."
+            )
+        return self.deployment_template
+
+    @property
     def metadata(self):
         res = super().metadata
 
@@ -345,6 +444,8 @@ class Photon(BasePhoton):
         res.update({"requirement_dependency": self._requirement_dependency})
         res.update({"system_dependency": self._system_dependency})
         res.update({METADATA_VCS_URL_KEY: self.vcs_url})
+
+        res.update({"deployment_template": self._deployment_template})
 
         res.update({
             "image": self.image,
