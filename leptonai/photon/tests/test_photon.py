@@ -53,7 +53,7 @@ import torch
 
 import leptonai
 from leptonai import Client
-from leptonai.config import ALLOW_ORIGINS_URLS
+from leptonai.config import ALLOW_ORIGINS_URLS, ENV_VAR_REQUIRED
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
 from leptonai.photon.util import create as create_photon, load_metadata
@@ -80,6 +80,17 @@ class CustomPhoton(Photon):
     @Photon.handler("")
     def run3(self, x: float) -> float:
         return x * 3
+
+
+class CustomPhotonWithDepTemplate(Photon):
+    deployment_template: Dict = {
+        "resource_shape": "gpu.a10",
+        "env": {
+            "ENV_A": ENV_VAR_REQUIRED,
+            "ENV_B": "DEFAULT_B",
+        },
+        "secret": ["SECRET_A"],
+    }
 
 
 class CustomPhotonWithCustomDeps(Photon):
@@ -164,6 +175,29 @@ class TestPhoton(unittest.TestCase):
             import cloudpickle
 
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+    def test_deployment_template(self):
+        name = random_name()
+        ph = CustomPhoton(name=name)
+        self.assertEqual(
+            ph.deployment_template, {"resource_shape": None, "env": {}, "secret": []}
+        )
+
+        ph = CustomPhotonWithDepTemplate(name=name)
+        metadata = ph.metadata
+
+        self.assertIn("deployment_template", metadata)
+        self.assertEqual(
+            metadata["deployment_template"],
+            {
+                "resource_shape": "gpu.a10",
+                "env": {
+                    "ENV_A": ENV_VAR_REQUIRED,
+                    "ENV_B": "DEFAULT_B",
+                },
+                "secret": ["SECRET_A"],
+            },
+        )
 
     def test_run(self):
         name = random_name()

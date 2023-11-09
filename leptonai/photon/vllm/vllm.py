@@ -10,6 +10,11 @@ VLLM_SCHEMAS = ["vllm"]
 class vLLMPhoton(Photon):
     photon_type: str = "vllm"
 
+    deployment_template = {
+        # At least using gpu.a10.
+        "resource_shape": "gpu.a10",
+    }
+
     requirement_dependency = [
         "vllm>=0.2.0",
         "fschat",

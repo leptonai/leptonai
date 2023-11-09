@@ -20,6 +20,27 @@ class MyPhoton(Photon):
         # "ffmpeg",
     ]
 
+    # Add a deployment template to remind users how to use the photon.
+    # For example, if your photon has the following:
+    #   - requires gpu.a10 to run
+    #   - a required env variable called ENV_A, and the user needs to set the value.
+    #   - an optional env variable called ENV_B with default value "DEFAULT_B"
+    #   - a required secret called SECRET_A, and the user needs to choose the secret.
+    # Then, the deployment template should look like:
+    #     deployment_template: Dict = {
+    #       "resource_shape": "gpu.a10",
+    #       "env": {
+    #         "ENV_A": ENV_VAR_REQUIRED,
+    #         "ENV_B": "DEFAULT_B",
+    #       },
+    #       "secret": ["SECRET_A"],
+    #     }
+    deployment_template = {
+        "resource_shape": None,
+        "env": {},
+        "secret": [],
+    }
+
     # For more information about other configs of the photon, please refer to the
     # documentation at https://www.lepton.ai/docs/walkthrough/anatomy_of_a_photon
 

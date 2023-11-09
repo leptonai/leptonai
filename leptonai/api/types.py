@@ -8,14 +8,13 @@ from typing import List, Optional
 import warnings
 from pydantic import BaseModel
 
-from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
+from leptonai.config import LEPTON_RESERVED_ENV_PREFIX, VALID_SHAPES
 
 
 # Valid shapes is defined as a list instead of a dict intentionally, because
 # we want to preserve the order of the shapes when printing. Granted, this
 # adds a bit of search time, but the list is small enough that it should not
 # matter.
-VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
 DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
 
@@ -230,7 +229,7 @@ class DeploymentSpec(BaseModel):
     The main class that defines the deployment spec.
     """
 
-    name: str
+    name: Optional[str] = None
     photon_id: Optional[str] = None
     resource_requirement: Optional[ResourceRequirement] = None
     auto_scaler: Optional[AutoScaler] = None

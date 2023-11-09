@@ -112,6 +112,12 @@ BASE_IMAGE_CMD = None
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
+# In the photon's deployment template, this means you will need to specify env variables.
+ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"
+
+# Valid resource shapes
+VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
+
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.
 WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
