@@ -44,8 +44,6 @@ from leptonai.config import (  # noqa: F401
     BASE_IMAGE_ARGS,
     BASE_IMAGE_CMD,
     DEFAULT_PORT,
-    DEFAULT_LIVENESS_PORT,
-    ALLOW_ORIGINS_URLS,
     ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
@@ -61,7 +59,7 @@ from leptonai.photon.types import (  # noqa: F401
     PNGResponse,
     WAVResponse,
 )
-from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore, find_available_port
+from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
@@ -225,6 +223,10 @@ class Photon(BasePhoton):
     args: List[str] = BASE_IMAGE_ARGS
     cmd: Optional[List[str]] = BASE_IMAGE_CMD
     exposed_port: int = DEFAULT_PORT
+
+    # Port used for liveness check, use the same
+    # port as the deployment server by default.
+    healthcheck_liveness_tcp_port: Optional[int] = None
 
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
@@ -452,6 +454,9 @@ class Photon(BasePhoton):
             "args": self.args,
             "exposed_port": self.exposed_port,
         })
+
+        if self.healthcheck_liveness_tcp_port is not None:
+            res["healthcheck_liveness_tcp_port"] = self.healthcheck_liveness_tcp_port
 
         if self.cmd is not None:
             res["cmd"] = self.cmd
@@ -689,6 +694,15 @@ class Photon(BasePhoton):
             def healthz():
                 return {"status": "ok"}
 
+            if (
+                self.healthcheck_liveness_tcp_port is None
+                or self.healthcheck_liveness_tcp_port == port
+            ):
+
+                @app.get("/livez", include_in_schema=False)
+                def livez():
+                    return {"status": "ok"}
+
             # /favicon.ico added at this point will be at the end of `app.routes`,
             # so it will act as a fallback
             @app.get("/favicon.ico", include_in_schema=False)
@@ -716,14 +730,14 @@ class Photon(BasePhoton):
 
     def _run_liveness_server(self):
         def run_server():
-            port = find_available_port(DEFAULT_LIVENESS_PORT)
             app = FastAPI()
 
             @app.get("/livez")
             def livez():
                 return {"status": "ok"}
 
-            logger.info(f"Running liveness server on port {port}")
+            port = self.healthcheck_liveness_tcp_port
+            logger.info(f"Launching liveness server on port {port}")
             uvicorn.run(app, host="localhost", port=port, log_level="error")
 
         threading.Thread(target=run_server, daemon=True).start()
@@ -737,7 +751,12 @@ class Photon(BasePhoton):
         """
         Launches the api service for the photon.
         """
-        self._run_liveness_server()
+        if (
+            self.healthcheck_liveness_tcp_port is not None
+            and self.healthcheck_liveness_tcp_port != port
+        ):
+            self._run_liveness_server()
+
         self._call_init_once()
         log_config = self._uvicorn_log_config()
         self._uvicorn_run(

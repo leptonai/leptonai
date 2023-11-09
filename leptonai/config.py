@@ -111,7 +111,6 @@ BASE_IMAGE_CMD = None
 
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
-DEFAULT_LIVENESS_PORT = 8030
 
 # In the photon's deployment template, this means you will need to specify env variables.
 ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"

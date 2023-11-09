@@ -53,13 +53,14 @@ import torch
 
 import leptonai
 from leptonai import Client
-from leptonai.config import ALLOW_ORIGINS_URLS, ENV_VAR_REQUIRED, DEFAULT_LIVENESS_PORT
+from leptonai.config import ALLOW_ORIGINS_URLS, ENV_VAR_REQUIRED
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
-from leptonai.photon.util import create as create_photon, load_metadata
-from leptonai.util import switch_cwd
-
-
+from leptonai.photon.util import (
+    create as create_photon,
+    load_metadata,
+)
+from leptonai.util import switch_cwd, find_available_port
 from utils import random_name, photon_run_local_server, async_test
 
 
@@ -375,9 +376,26 @@ class Counter(Photon):
         ph = LivenessCheckPhoton(name=random_name())
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
+        res = requests.get(f"http://localhost:{port}/livez")
+        self.assertEqual(res.status_code, 200, res.text)
+        proc.kill()
+        logger.info(f"{proc.stdout.read().decode('utf-8')}")
 
-        res = requests.get(f"http://localhost:{DEFAULT_LIVENESS_PORT}/livez")
+        liveness_port = find_available_port()
+
+        class CustomLivenessCheckPhoton(Photon):
+            healthcheck_liveness_tcp_port = liveness_port
+
+        ph = CustomLivenessCheckPhoton(name=random_name())
+        path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(metadata["healthcheck_liveness_tcp_port"], liveness_port)
+        proc, port = photon_run_local_server(path=path)
+
+        res = requests.get(f"http://localhost:{liveness_port}/livez")
         self.assertEqual(res.status_code, 200)
+        proc.kill()
+        logger.info(f"{proc.stdout.read().decode('utf-8')}")
 
     def test_custom_image_photon_metadata(self):
         class CustomImage(Photon):
