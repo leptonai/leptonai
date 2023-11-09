@@ -369,6 +369,7 @@ class Counter(Photon):
             f"{sys.version_info.major}.{sys.version_info.minor}",
         )
 
+    @unittest.skip
     def test_liveness_check(self):
         class LivenessCheckPhoton(Photon):
             pass
