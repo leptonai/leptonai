@@ -588,7 +588,16 @@ def run(
             env_parsed = types.EnvVar.make_env_vars_from_strings(env, [])
             for e in env_parsed if env_parsed else []:
                 os.environ[e.name] = e.value if e.value else ""
-        if mount or secret or tokens:
+        if secret:
+            for secret_name in secret:
+                if secret_name not in os.environ:
+                    console.print(
+                        f"You have specified a secret {secret_name} but it is not"
+                        " defined in your environment. Local execution does not support"
+                        " fetching secrets from the server. Please set the secret in"
+                        " your environment as an env variable and try again."
+                    )
+        if mount or tokens:
             console.print(
                 "Mounts, secrets and access tokens are only supported for"
                 " remote execution. They will be ignored for local execution."
