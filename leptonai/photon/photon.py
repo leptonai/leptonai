@@ -378,42 +378,43 @@ class Photon(BasePhoton):
                 f" Supported fields are: {sanity_checked_fields}."
             )
         # doing sanity check for the values
-        if self.deployment_template["resource_shape"] is not None:
-            if not isinstance(self.deployment_template["resource_shape"], str):
+        resource_shape = self.deployment_template.get("resource_shape")
+        if resource_shape is not None:
+            if not isinstance(resource_shape, str):
                 raise ValueError(
                     "Deployment template resource_shape must be a string. Found"
-                    f" {self.deployment_template['resource_shape']} instead."
+                    f" {resource_shape} instead."
                 )
-            if self.deployment_template["resource_shape"] not in VALID_SHAPES:
+            if resource_shape not in VALID_SHAPES:
                 # For now, only issue a warning if the user specified a non-standard
                 # shape, and not an error. This is because we want to allow future versions
                 # of the CLI to support more shapes, and we do not want to break the
                 # compatibility.
                 warnings.warn(
                     "Deployment template resource_shape"
-                    f" {self.deployment_template['resource_shape']} is not one of the"
+                    f" {resource_shape} is not one of the"
                     " standard shapes. Just a kind reminder."
                 )
-        if not isinstance(self.deployment_template["env"], dict):
+        env = self.deployment_template.get("env", {})
+        if not isinstance(env, dict):
             raise ValueError(
-                "Deployment template envs must be a dict. Found"
-                f" {self.deployment_template['env']} instead."
+                f"Deployment template envs must be a dict. Found {env} instead."
             )
-        for key, value in self.deployment_template["env"].items():
+        for key, value in env.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 raise ValueError(
                     "Deployment template envs keys/values must be strings. Found"
                     f" {key}:{value} instead."
                 )
-        if not isinstance(self.deployment_template["secret"], list):
+        secret = self.deployment_template.get("secret", [])
+        if not isinstance(secret, list):
             raise ValueError(
-                "Deployment template secrets must be a list. Found"
-                f" {self.deployment_template['secret']} instead."
+                f"Deployment template secrets must be a list. Found {secret} instead."
             )
-        if any(not isinstance(s, str) for s in self.deployment_template["secret"]):
+        if any(not isinstance(s, str) for s in secret):
             raise ValueError(
                 "Deployment template secrets must be a list of strings. Found"
-                f" {self.deployment_template['secret']} instead."
+                f" {secret} instead."
             )
         return self.deployment_template
 

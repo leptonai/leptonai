@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from leptonai.photon import Photon
 from leptonai.config import TRUST_REMOTE_CODE
@@ -13,6 +14,9 @@ class vLLMPhoton(Photon):
     deployment_template = {
         # At least using gpu.a10.
         "resource_shape": "gpu.a10",
+        "env": {
+            "LEPTON_VLLM_MODEL": "",
+        },
     }
 
     requirement_dependency = [
@@ -21,12 +25,26 @@ class vLLMPhoton(Photon):
     ]
 
     def __init__(self, name, model):
-        schema, model_id = model.split(":")
+        super().__init__(name, model)
+        if ":" in model:
+            schema, model_id = model.split(":")
+        else:
+            schema = model
+            model_id = ""
+
+        if os.environ["LEPTON_VLLM_MODEL"] != "":
+            # If we specified LEPTON_VLLM_MODEL, always override.
+            model_id = os.environ["LEPTON_VLLM_MODEL"]
+
         if schema not in VLLM_SCHEMAS:
             raise ValueError(
                 f'Unsupported vLLM model: "{model}" (unknown schema: "{schema}")'
             )
-        super().__init__(name, model)
+        if not model_id:
+            raise ValueError(
+                "You did not specify a model id either with photon's -m argument "
+                "or with the env variable LEPTON_VLLM_MODEL."
+            )
         self.model_id = model_id
 
     @property
