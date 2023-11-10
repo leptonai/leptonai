@@ -388,9 +388,15 @@ class Counter(Photon):
         path = ph.save()
         metadata = load_metadata(path)
         self.assertEqual(metadata["health_check_liveness_tcp_port"], liveness_port)
-        # proc, port = photon_run_local_server(path=path)
+        logger.info(f"Starting server at {time.time()}")
+        proc, port = photon_run_local_server(path=path)
+        logger.info(f"Server started at {time.time()}")
 
-        # res = requests.get(f"http://localhost:{liveness_port}/livez")
+        logger.info(f"Sending request at {time.time()}")
+        res = requests.get(f"http://localhost:{liveness_port}/livez")
+        logger.info(f"Received response at {time.time()}")
+
+        raise RuntimeError("test")
         # self.assertEqual(res.status_code, 200)
 
     def test_custom_image_photon_metadata(self):
