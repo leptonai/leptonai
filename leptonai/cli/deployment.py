@@ -54,8 +54,15 @@ def list(pattern):
         detail=True,
         msg="Cannot list deployments. See error message above.",
     )
+    # For the photon id field, we will show either the photon id, or the container
+    # image name if the deployment is an arbitrary container.
     records = [
-        (d["name"], d["photon_id"], d["created_at"] / 1000, d["status"])
+        (
+            d["name"],
+            d.get("photon_id", d.get("container", {}).get("image", "(unknown)")),
+            d["created_at"] / 1000,
+            d["status"],
+        )
         for d in deployments
     ]
     if len(records) == 0:
@@ -69,7 +76,6 @@ def list(pattern):
     table.add_column("photon id")
     table.add_column("created at")
     table.add_column("status")
-    table.add_column("endpoint", overflow="fold")
     for name, photon_id, created_at, status in records:
         if pattern is not None and not re.search(pattern, name):
             continue
@@ -78,7 +84,6 @@ def list(pattern):
             photon_id,
             datetime.fromtimestamp(created_at).strftime("%Y-%m-%d\n%H:%M:%S"),
             status["state"],
-            status["endpoint"]["external_endpoint"],
         )
     console.print(table)
     return 0
