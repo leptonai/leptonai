@@ -2,7 +2,6 @@ import asyncio
 import atexit
 import functools
 import random
-import requests
 import subprocess
 import string
 import time
@@ -42,29 +41,28 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.PIPE,
     )
     atexit.register(proc.kill)
-
-    max_wait = 60
-    start_time = time.time()
-    while True:
-        # ping port to see if it's ready
-        if time.time() - start_time > max_wait:
-            proc.kill()
-            stdout = proc.stdout.read().decode("utf-8")
-            raise RuntimeError(
-                f"Photon server failed to start on port {port} in"
-                f" {max_wait} seconds\n{stdout}"
-            )
-
-        try:
-            requests.get(f"http://localhost:{port}/healthz")
-        except requests.exceptions.ConnectionError:
-            time.sleep(0.1)
-        else:
-            logger.info(f"Photon server started on port {port}")
-            return proc, port
+    lines = []
+    for line in proc.stderr:
+        line = line.decode("utf-8")
+        lines.append(line)
+        if "running" in line.lower():
+            break
+        time.sleep(0.1)
+    else:
+        # "running" never showed up in the output, which means the
+        # server failed to start
+        proc.kill()
+        stdout = proc.stdout.read().decode("utf-8")
+        stderr = "".join(lines)
+        raise RuntimeError(
+            f"Photon server failed to start:\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        )
+    stderr = "".join(lines)
+    logger.info(f"Photon server started:\nstderr:\n{stderr}")
+    return proc, port
 
 
 def sub_test(params_list):
