@@ -146,6 +146,15 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
 PHOTON_HANDLER_PARAMS_KEY = "__photon_handler_params__"
 
 
+# A utility lock for the photons to use when running the _call_init_once function.
+# The reason it is not inside the Photon class is that, the Photon class is going to be
+# cloudpickled, and cloudpickle does not work with threading.Lock.
+# A downside is that, if the user creates multiple photons in the same process, and they
+# all call _call_init_once at the same time, they will be serialized by this lock. This is
+# not a big deal, because the init function is usually not a bottleneck.
+_photon_initialize_lock = threading.Lock()
+
+
 class Photon(BasePhoton):
     photon_type: str = "photon"
     obj_pkl_filename: str = "obj.pkl"
@@ -253,20 +262,6 @@ class Photon(BasePhoton):
         self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
             self.background_tasks_max_concurrency
         )
-
-        envs = self._deployment_template.get("env", {})
-        for key in envs:
-            if os.environ.get(key) is None:
-                if envs[key] == ENV_VAR_REQUIRED:
-                    raise RuntimeError(
-                        f"This photon expects env variable {key} but it s not set."
-                    )
-                else:
-                    os.environ[key] = envs[key]
-        secrets = self._deployment_template.get("secret", [])
-        for s in secrets:
-            if os.environ.get(s) is None:
-                raise RuntimeError(f"This photon expects secret {s} but it s not set.")
 
     def _on_background_task_done(self, task):
         """
@@ -561,12 +556,36 @@ class Photon(BasePhoton):
         This function is called when we create a deployment from a photon, and is
         guaranteed to run before the first api call served by the photon.
         """
-        pass
+        # The Photon init function sets the envs and secrets specified in the deployment template
+        envs = self._deployment_template.get("env", {})
+        for key in envs:
+            if os.environ.get(key) is None:
+                if envs[key] == ENV_VAR_REQUIRED:
+                    raise RuntimeError(
+                        f"This photon expects env variable {key} but it s not set."
+                    )
+                else:
+                    os.environ[key] = envs[key]
+        secrets = self._deployment_template.get("secret", [])
+        for s in secrets:
+            if os.environ.get(s) is None:
+                raise RuntimeError(f"This photon expects secret {s} but it s not set.")
 
     def _call_init_once(self):
+        """
+        Internal function that calls the init function once.
+        """
         if not self._init_called:
-            self._init_called = True
-            self._init_res = self.init()
+            with _photon_initialize_lock:
+                # acquire the lock, and check again.
+                if self._init_called:
+                    return
+                else:
+                    # run Photon's init function.
+                    Photon.init(self)
+                    # run the user-defined init function
+                    self._init_res = self.init()
+                    self._init_called = True
         return self._init_res
 
     @abstractmethod
