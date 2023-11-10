@@ -83,14 +83,23 @@ def fetch(conn: Connection, id: str, path: str):
 
     photon = load(path)
 
+    # backward-compatibility: support the old style photon.name and photon.model,
+    # and the newly updated photon._photon_name and photon._photon_model
+    try:
+        photon_name = photon._photon_name
+        photon_model = photon._photon_model
+    except AttributeError:
+        photon_name = photon.name  # type: ignore
+        photon_model = photon.model  # type: ignore
+
     if need_rename:
-        new_path = CACHE_DIR / f"{photon.name}.{id}.photon"
+        new_path = CACHE_DIR / f"{photon_name}.{id}.photon"
         os.rename(path, new_path)
     else:
         new_path = path
 
     # TODO: use remote creation time
-    add_photon(id, photon.name, photon.model, str(new_path))
+    add_photon(id, photon_name, photon_model, str(new_path))
 
     return photon
 
@@ -121,6 +130,7 @@ def run_remote(
     is_public: Optional[bool] = False,
     tokens: Optional[List[str]] = None,
     no_traffic_timeout: Optional[int] = None,
+    initial_delay_seconds: Optional[int] = None,
 ):
     if no_traffic_timeout:
         ws_version = version(conn)
@@ -147,5 +157,6 @@ def run_remote(
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
         api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
         auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
+        health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
     return run_remote_with_spec(conn, deployment_spec)

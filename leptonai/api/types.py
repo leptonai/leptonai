@@ -223,6 +223,33 @@ class AutoScaler(BaseModel):
             )
 
 
+class HealthCheckLiveness(BaseModel):
+    initial_delay_seconds: Optional[int] = None
+
+
+class HealthCheck(BaseModel):
+    liveness: Optional[HealthCheckLiveness] = None
+
+    @staticmethod
+    def make_health_check(
+        initial_delay_seconds: Optional[int] = None,
+    ) -> Optional["HealthCheck"]:
+        if initial_delay_seconds is None:
+            # None means no change to the health check.
+            return None
+        elif initial_delay_seconds < 0:
+            raise ValueError(
+                "initial_delay_seconds must be non-negative. Found"
+                f" {initial_delay_seconds}."
+            )
+        else:
+            return HealthCheck(
+                liveness=HealthCheckLiveness(
+                    initial_delay_seconds=initial_delay_seconds
+                )
+            )
+
+
 # Spec to hold deployment configurations
 class DeploymentSpec(BaseModel):
     """
@@ -236,3 +263,4 @@ class DeploymentSpec(BaseModel):
     api_tokens: Optional[List[TokenVar]] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
+    health: Optional[HealthCheck] = None

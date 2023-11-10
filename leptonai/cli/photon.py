@@ -446,6 +446,17 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     callback=_timeout_must_be_larger_than_60,
 )
+@click.option(
+    "--initial-delay-seconds",
+    type=int,
+    help=(
+        "If specified, the deployment will allow the specified amount of seconds for"
+        " the photon to initialize before it starts the service. Usually you should"
+        " not need this. If you have a deployment that takes a long time to initialize,"
+        " set it to a longer value."
+    ),
+    default=None,
+)
 @click.pass_context
 def run(
     ctx,
@@ -470,6 +481,7 @@ def run(
     public,
     tokens,
     no_traffic_timeout,
+    initial_delay_seconds,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -545,6 +557,7 @@ def run(
                 public,
                 tokens,
                 no_traffic_timeout,
+                initial_delay_seconds,
             )
         except ValueError as e:
             console.print(f"Error encountered while parsing configs: {e}")
@@ -588,7 +601,16 @@ def run(
             env_parsed = types.EnvVar.make_env_vars_from_strings(env, [])
             for e in env_parsed if env_parsed else []:
                 os.environ[e.name] = e.value if e.value else ""
-        if mount or secret or tokens:
+        if secret:
+            for secret_name in secret:
+                if secret_name not in os.environ:
+                    console.print(
+                        f"You have specified a secret {secret_name} but it is not"
+                        " defined in your environment. Local execution does not support"
+                        " fetching secrets from the server. Please set the secret in"
+                        " your environment as an env variable and try again."
+                    )
+        if mount or tokens:
             console.print(
                 "Mounts, secrets and access tokens are only supported for"
                 " remote execution. They will be ignored for local execution."
@@ -800,7 +822,14 @@ def fetch(id, path):
     if isinstance(photon_or_err, APIError):
         console.print(f"Photon [red]{id}[/] failed to fetch: {photon_or_err}")
         sys.exit(1)
-    console.print(f"Photon [green]{photon_or_err.name}:{id}[/] fetched.")
+    else:
+        # backward-compatibility: support the old style photon.name and photon.model,
+        # and the newly updated photon._photon_name and photon._photon_model
+        try:
+            photon_name = photon_or_err._photon_name
+        except AttributeError:
+            photon_name = photon_or_err.name  # type: ignore
+        console.print(f"Photon [green]{photon_name}:{id}[/] fetched.")
 
 
 def add_command(cli_group):
