@@ -672,61 +672,36 @@ class Photon(BasePhoton):
         )
 
     def _uvicorn_run(self, host, port, log_level, log_config):
-        def run_server():
-            app = self._create_app(load_mount=True)
+        app = self._create_app(load_mount=True)
 
-            @app.post("/lepton-restart", include_in_schema=False)
-            def lepton_restart_handler():
-                global lepton_uvicorn_restart
-                global lepton_uvicorn_server
+        # /healthz added at this point will be at the end of `app.routes`,
+        # so it will act as a fallback
+        @app.get("/healthz", include_in_schema=False)
+        def healthz():
+            return {"status": "ok"}
 
-                lepton_uvicorn_restart = True
-                # to hint uvicorn server to shutdown
-                lepton_uvicorn_server.should_exit = True
+        if (
+            self.health_check_liveness_tcp_port is None
+            or self.health_check_liveness_tcp_port == port
+        ):
 
-            # make sure restart handler takes precedence over other
-            # handlers (e.g. apps mounted at root path)
-            app.routes.insert(0, app.routes.pop())
-
-            # /healthz added at this point will be at the end of `app.routes`,
-            # so it will act as a fallback
-            @app.get("/healthz", include_in_schema=False)
-            def healthz():
+            @app.get("/livez", include_in_schema=False)
+            def livez():
                 return {"status": "ok"}
 
-            if (
-                self.health_check_liveness_tcp_port is None
-                or self.health_check_liveness_tcp_port == port
-            ):
+        # /favicon.ico added at this point will be at the end of `app.routes`,
+        # so it will act as a fallback
+        @app.get("/favicon.ico", include_in_schema=False)
+        def favicon():
+            path = os.path.join(os.path.dirname(__file__), "favicon.ico")
+            if not os.path.exists(path):
+                return Response(status_code=404)
+            return FileResponse(path)
 
-                @app.get("/livez", include_in_schema=False)
-                def livez():
-                    return {"status": "ok"}
-
-            # /favicon.ico added at this point will be at the end of `app.routes`,
-            # so it will act as a fallback
-            @app.get("/favicon.ico", include_in_schema=False)
-            def favicon():
-                path = os.path.join(os.path.dirname(__file__), "favicon.ico")
-                if not os.path.exists(path):
-                    return Response(status_code=404)
-                return FileResponse(path)
-
-            global lepton_uvicorn_restart
-            global lepton_uvicorn_server
-
-            lepton_uvicorn_restart = False
-            config = uvicorn.Config(app, host=host, port=port, log_config=log_config)
-            lepton_uvicorn_server = uvicorn.Server(config=config)
-            self._print_launch_info(host, port, log_level)
-            lepton_uvicorn_server.run()
-
-        while True:
-            run_server()
-            if lepton_uvicorn_restart:
-                logger.info(f"Restarting server on {host}:{port}")
-            else:
-                break
+        config = uvicorn.Config(app, host=host, port=port, log_config=log_config)
+        lepton_uvicorn_server = uvicorn.Server(config=config)
+        self._print_launch_info(host, port, log_level)
+        lepton_uvicorn_server.run()
 
     def _run_liveness_server(self):
         def run_server():
