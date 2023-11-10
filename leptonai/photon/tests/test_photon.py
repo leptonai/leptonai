@@ -186,8 +186,18 @@ class TestPhoton(unittest.TestCase):
 
         if "LEPTON_FOR_TEST_ENV_A" in os.environ:
             del os.environ["LEPTON_FOR_TEST_ENV_A"]
+
         try:
             ph = CustomPhotonWithDepTemplate(name=name)
+        except Exception as e:
+            self.fail(
+                "Although env is missing, creating a photon should not fail."
+                f" Details: {e}"
+            )
+
+        try:
+            ph = CustomPhotonWithDepTemplate(name=name)
+            ph._call_init_once()
         except RuntimeError as e:
             # When a required env is not set, this should throw an error.
             self.assertIn("LEPTON_FOR_TEST_ENV_A", str(e))
@@ -197,6 +207,7 @@ class TestPhoton(unittest.TestCase):
         os.environ["LEPTON_FOR_TEST_ENV_A"] = "value_a"
         try:
             ph = CustomPhotonWithDepTemplate(name=name)
+            ph._call_init_once()
         except RuntimeError as e:
             # When a required secret is not set, this should throw an error.
             self.assertIn("LEPTON_FOR_TEST_SECRET_A", str(e))
@@ -205,6 +216,7 @@ class TestPhoton(unittest.TestCase):
 
         os.environ["LEPTON_FOR_TEST_SECRET_A"] = "value_a"
         ph = CustomPhotonWithDepTemplate(name=name)
+        ph._call_init_once()
         self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_B"], "DEFAULT_B")
         self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_A"], "value_a")
         self.assertEqual(os.environ["LEPTON_FOR_TEST_SECRET_A"], "value_a")

@@ -691,6 +691,9 @@ def run(
             sys.exit(1)
         except Exception as e:
             console.print(f"Failed to launch photon: {e}")
+            console.print("Exception stack:")
+            # print the stack of e
+            traceback.print_exc()
             sys.exit(1)
         return
 
