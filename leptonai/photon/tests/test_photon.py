@@ -378,6 +378,7 @@ class Counter(Photon):
         proc, port = photon_run_local_server(path=path)
         res = requests.get(f"http://localhost:{port}/livez")
         self.assertEqual(res.status_code, 200, res.text)
+        proc.kill()
 
         liveness_port = find_available_port()
 
@@ -396,8 +397,8 @@ class Counter(Photon):
         res = requests.get(f"http://localhost:{liveness_port}/livez")
         logger.info(f"Received response at {time.time()}")
 
-        raise RuntimeError("test")
-        # self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.status_code, 200)
+        proc.kill()
 
     def test_custom_image_photon_metadata(self):
         class CustomImage(Photon):
