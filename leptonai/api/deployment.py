@@ -1,6 +1,8 @@
 from typing import List, Union, Optional, Dict
 import warnings
 
+from loguru import logger
+
 from . import types
 from .connection import Connection
 from .util import json_or_error, APIError
@@ -129,6 +131,8 @@ def update_deployment(
         ),
         auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
     )
+    logger.trace(f"deployment_spec:\n{deployment_spec}")
+
     deployment_body = deployment_spec.dict(exclude_none=True)
     if not deployment_body:
         # If nothing is updated...

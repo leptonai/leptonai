@@ -690,10 +690,10 @@ def run(
             console.print("Kindly install the dependencies and try again.")
             sys.exit(1)
         except Exception as e:
-            console.print(f"Failed to launch photon: {e}")
-            console.print("Exception stack:")
-            # print the stack of e
-            traceback.print_exc()
+            console.print(
+                f"Failed to launch photon: {type(e)}:"
+                f" {e}\nTraceback:\n{traceback.format_exc()}"
+            )
             sys.exit(1)
         return
 

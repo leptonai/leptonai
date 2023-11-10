@@ -4,6 +4,8 @@ import warnings
 
 from leptonai.config import CACHE_DIR
 
+from loguru import logger
+
 # import leptonai.photon to register the schemas and types
 import leptonai.photon  # noqa: F401
 from leptonai.photon.base import (
@@ -164,4 +166,5 @@ def run_remote(
         ),
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
+    logger.trace(f"deployment_spec:\n{deployment_spec}")
     return run_remote_with_spec(conn, deployment_spec)
