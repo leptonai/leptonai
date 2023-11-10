@@ -226,7 +226,7 @@ class Photon(BasePhoton):
 
     # Port used for liveness check, use the same
     # port as the deployment server by default.
-    healthcheck_liveness_tcp_port: Optional[int] = None
+    health_check_liveness_tcp_port: Optional[int] = None
 
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
@@ -455,8 +455,8 @@ class Photon(BasePhoton):
             "exposed_port": self.exposed_port,
         })
 
-        if self.healthcheck_liveness_tcp_port is not None:
-            res["healthcheck_liveness_tcp_port"] = self.healthcheck_liveness_tcp_port
+        if self.health_check_liveness_tcp_port is not None:
+            res["health_check_liveness_tcp_port"] = self.healthcheck_liveness_tcp_port
 
         if self.cmd is not None:
             res["cmd"] = self.cmd
@@ -695,8 +695,8 @@ class Photon(BasePhoton):
                 return {"status": "ok"}
 
             if (
-                self.healthcheck_liveness_tcp_port is None
-                or self.healthcheck_liveness_tcp_port == port
+                self.health_check_liveness_tcp_port is None
+                or self.health_check_liveness_tcp_port == port
             ):
 
                 @app.get("/livez", include_in_schema=False)
@@ -736,7 +736,7 @@ class Photon(BasePhoton):
             def livez():
                 return {"status": "ok"}
 
-            port = self.healthcheck_liveness_tcp_port
+            port = self.health_check_liveness_tcp_port
             logger.info(f"Launching liveness server on port {port}")
             uvicorn.run(app, host="localhost", port=port, log_level="error")
 
@@ -752,8 +752,8 @@ class Photon(BasePhoton):
         Launches the api service for the photon.
         """
         if (
-            self.healthcheck_liveness_tcp_port is not None
-            and self.healthcheck_liveness_tcp_port != port
+            self.health_check_liveness_tcp_port is not None
+            and self.health_check_liveness_tcp_port != port
         ):
             self._run_liveness_server()
 

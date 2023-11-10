@@ -382,12 +382,12 @@ class Counter(Photon):
         liveness_port = find_available_port()
 
         class CustomLivenessCheckPhoton(Photon):
-            healthcheck_liveness_tcp_port = liveness_port
+            health_check_liveness_tcp_port = liveness_port
 
         ph = CustomLivenessCheckPhoton(name=random_name())
         path = ph.save()
         metadata = load_metadata(path)
-        self.assertEqual(metadata["healthcheck_liveness_tcp_port"], liveness_port)
+        self.assertEqual(metadata["health_check_liveness_tcp_port"], liveness_port)
         proc, port = photon_run_local_server(path=path)
 
         # res = requests.get(f"http://localhost:{liveness_port}/livez")
