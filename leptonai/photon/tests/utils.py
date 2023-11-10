@@ -49,6 +49,12 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
     max_wait = 60
     start_time = time.time()
     while True:
+        if proc.poll() is not None:
+            stdout = proc.stdout.read().decode("utf-8")
+            raise RuntimeError(
+                f"Photon server exited with code {proc.returncode}\n{stdout}"
+            )
+
         # ping port to see if it's ready
         if time.time() - start_time > max_wait:
             proc.kill()
