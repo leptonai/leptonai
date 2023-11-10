@@ -32,14 +32,15 @@ class ResourceRequirement(BaseModel):
     resource_shape: Optional[str] = None
 
     # resource requirements per replica
-    replica_cpu: Optional[float] = None
-    replica_memory: Optional[int] = None
-    replica_accelerator_type: Optional[str] = None
-    replica_accelerator_num: Optional[float] = None
-    replica_ephemeral_storage_in_gb: Optional[int] = None
+    cpu: Optional[float] = None
+    memory: Optional[int] = None
+    accelerator_type: Optional[str] = None
+    accelerator_num: Optional[float] = None
+    ephemeral_storage_in_gb: Optional[int] = None
 
     resource_affinity: Optional[str] = None
     min_replicas: Optional[int] = None
+    max_replicas: Optional[int] = None
 
     @staticmethod
     def make_resource_requirement(
@@ -51,6 +52,7 @@ class ResourceRequirement(BaseModel):
         replica_ephemeral_storage_in_gb: Optional[int] = None,
         resource_affinity: Optional[str] = None,
         min_replicas: Optional[int] = None,
+        max_replicas: Optional[int] = None,
     ) -> Optional["ResourceRequirement"]:
         """
         Validates the resource shape and min replicas, and returns a
@@ -77,6 +79,19 @@ class ResourceRequirement(BaseModel):
             raise ValueError(
                 f"min_replicas must be non-negative. Found {min_replicas}."
             )
+        if max_replicas is not None and max_replicas < 0:
+            raise ValueError(
+                f"max_replicas must be non-negative. Found {max_replicas}."
+            )
+        if (
+            min_replicas is not None
+            and max_replicas is not None
+            and min_replicas > max_replicas
+        ):
+            raise ValueError(
+                "min_replicas must be smaller than max_replicas. Found"
+                f" min_replicas={min_replicas}, max_replicas={max_replicas}."
+            )
         # TODO: validate resource_affinity
         return ResourceRequirement(
             resource_shape=resource_shape,
@@ -87,6 +102,7 @@ class ResourceRequirement(BaseModel):
             ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
             resource_affinity=resource_affinity,
             min_replicas=min_replicas,
+            max_replicas=max_replicas,
         )
 
 
@@ -199,28 +215,46 @@ class Mount(BaseModel):
 class ScaleDown(BaseModel):
     no_traffic_timeout: Optional[int] = None
 
-
-class AutoScaler(BaseModel):
-    scale_down: Optional[ScaleDown] = None
-
     @staticmethod
-    def make_auto_scaler(
-        no_traffic_timeout: Optional[int] = None,
-    ) -> Optional["AutoScaler"]:
+    def make_scale_down(no_traffic_timeout: Optional[int] = None):
         if no_traffic_timeout is None:
-            # None means no change to the autoscaler.
+            # None means no change to the scale down.
             return None
         elif no_traffic_timeout < 0:
             raise ValueError(
                 f"no_traffic_timeout must be non-negative. Found {no_traffic_timeout}."
             )
-        elif no_traffic_timeout == 0:
-            # timeout of 0 means explicitly set no timeout.
-            return AutoScaler(scale_down=ScaleDown(no_traffic_timeout=0))
         else:
-            return AutoScaler(
-                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout)
+            return ScaleDown(no_traffic_timeout=no_traffic_timeout)
+
+
+class AutoScaler(BaseModel):
+    scale_down: Optional[ScaleDown] = None
+    target_gpu_utilization_percentage: Optional[int] = None
+
+    @staticmethod
+    def make_auto_scaler(
+        no_traffic_timeout: Optional[int] = None,
+        target_gpu_utilization: Optional[int] = None,
+    ) -> Optional["AutoScaler"]:
+        if no_traffic_timeout is None and target_gpu_utilization is None:
+            # None means no change to the autoscaler.
+            return None
+        if no_traffic_timeout is not None and no_traffic_timeout < 0:
+            raise ValueError(
+                f"no_traffic_timeout must be non-negative. Found {no_traffic_timeout}."
             )
+        if target_gpu_utilization is not None and (
+            target_gpu_utilization < 0 or target_gpu_utilization > 100
+        ):
+            raise ValueError(
+                "target_gpu_utilization must be between 0 and 100. Found"
+                f" {target_gpu_utilization}."
+            )
+        return AutoScaler(
+            scale_down=ScaleDown.make_scale_down(no_traffic_timeout=no_traffic_timeout),
+            target_gpu_utilization_percentage=target_gpu_utilization,
+        )
 
 
 class HealthCheckLiveness(BaseModel):

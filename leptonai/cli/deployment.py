@@ -145,13 +145,22 @@ def status(name, show_tokens):
     console.print(f"Created at: {creation_time}")
     console.print(f"Photon ID:  {dep_info['photon_id']}")
     console.print(f"State:      {state}")
-    timeout = (
-        dep_info.get("auto_scaler", {})
-        .get("scale_down", {})
-        .get("no_traffic_timeout", None)
-    )
-    if timeout:
-        console.print(f"Timeout(s): {timeout}")
+    resource_requirement = dep_info.get("resource_requirement", {})
+    if "max_replicas" in resource_requirement:
+        console.print(
+            f"Replicas:   {resource_requirement['min_replicas']}-"
+            f"{resource_requirement['max_replicas']}"
+        )
+    autoscaler = dep_info.get("auto_scaler", {})
+    if autoscaler:
+        timeout = autoscaler.get("scale_down", {}).get("no_traffic_timeout", None)
+        if timeout:
+            console.print(f"Timeout(s): {timeout}")
+        target_gpu_utilization_percentage = autoscaler.get(
+            "target_gpu_utilization_percentage", None
+        )
+        if target_gpu_utilization_percentage:
+            console.print(f"Target GPU: {target_gpu_utilization_percentage}%")
     if workspace_id:
         web_url = LEPTON_DEPLOYMENT_URL.format(
             workspace_id=workspace_id, deployment_name=name
