@@ -456,7 +456,7 @@ class Photon(BasePhoton):
         })
 
         if self.health_check_liveness_tcp_port is not None:
-            res["health_check_liveness_tcp_port"] = self.healthcheck_liveness_tcp_port
+            res["health_check_liveness_tcp_port"] = self.health_check_liveness_tcp_port
 
         if self.cmd is not None:
             res["cmd"] = self.cmd
