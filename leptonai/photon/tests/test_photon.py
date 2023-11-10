@@ -56,10 +56,11 @@ from leptonai import Client
 from leptonai.config import ALLOW_ORIGINS_URLS, ENV_VAR_REQUIRED
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
-from leptonai.photon.util import create as create_photon, load_metadata
-from leptonai.util import switch_cwd
-
-
+from leptonai.photon.util import (
+    create as create_photon,
+    load_metadata,
+)
+from leptonai.util import switch_cwd, find_available_port
 from utils import random_name, photon_run_local_server, async_test
 
 
@@ -367,6 +368,31 @@ class Counter(Photon):
             metadata["py_obj"]["py_version"],
             f"{sys.version_info.major}.{sys.version_info.minor}",
         )
+
+    def test_liveness_check(self):
+        class LivenessCheckPhoton(Photon):
+            pass
+
+        ph = LivenessCheckPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.get(f"http://localhost:{port}/livez")
+        proc.kill()
+        self.assertEqual(res.status_code, 200, res.text)
+
+        liveness_port = find_available_port()
+
+        class CustomLivenessCheckPhoton(Photon):
+            health_check_liveness_tcp_port = liveness_port
+
+        ph = CustomLivenessCheckPhoton(name=random_name())
+        path = ph.save()
+        metadata = load_metadata(path)
+        self.assertEqual(metadata["health_check_liveness_tcp_port"], liveness_port)
+        proc, port = photon_run_local_server(path=path)
+        res = requests.get(f"http://localhost:{liveness_port}/livez")
+        proc.kill()
+        self.assertEqual(res.status_code, 200)
 
     def test_custom_image_photon_metadata(self):
         class CustomImage(Photon):
