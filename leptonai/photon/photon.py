@@ -732,7 +732,7 @@ class Photon(BasePhoton):
 
             port = self.health_check_liveness_tcp_port
             logger.info(f"Launching liveness server on port {port}")
-            uvicorn.run(app, host="localhost", port=port, log_level="error")
+            uvicorn.run(app, host="0.0.0.0", port=port, log_level="error")
 
         threading.Thread(target=run_server, daemon=True).start()
 
