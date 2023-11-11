@@ -237,6 +237,13 @@ class Photon(BasePhoton):
     # port as the deployment server by default.
     health_check_liveness_tcp_port: Optional[int] = None
 
+    # When the server is shut down, we will wait for all the requests to finish before
+    # shutting down. This is the timeout for the graceful shutdown. If the timeout is
+    # reached, we will force kill the server. If the timeout is None, we will use the
+    # default setting of the uvicorn server, which as of Nov 2023 uses the default of
+    # asyncio.wait_for.
+    timeout_graceful_shutdown: Optional[int] = None
+
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
 
@@ -693,6 +700,16 @@ class Photon(BasePhoton):
     def _uvicorn_run(self, host, port, log_level, log_config):
         app = self._create_app(load_mount=True)
 
+        @app.on_event("startup")
+        async def uvicorn_startup():
+            # Currently, we don't do much in the startup phase.
+            logger.info("Starting photon app - running startup prep code.")
+
+        @app.on_event("shutdown")
+        async def uvicorn_shutdown():
+            # We do not do much in the shutdown phase either.
+            logger.info("Shutting down photon app - running shutdown prep code.")
+
         # /healthz added at this point will be at the end of `app.routes`,
         # so it will act as a fallback
         @app.get("/healthz", include_in_schema=False)
@@ -717,7 +734,13 @@ class Photon(BasePhoton):
                 return Response(status_code=404)
             return FileResponse(path)
 
-        config = uvicorn.Config(app, host=host, port=port, log_config=log_config)
+        config = uvicorn.Config(
+            app,
+            host=host,
+            port=port,
+            log_config=log_config,
+            timeout_graceful_shutdown=self.timeout_graceful_shutdown,
+        )
         lepton_uvicorn_server = uvicorn.Server(config=config)
         self._print_launch_info(host, port, log_level)
         lepton_uvicorn_server.run()
@@ -731,6 +754,12 @@ class Photon(BasePhoton):
                 return {"status": "ok"}
 
             port = self.health_check_liveness_tcp_port
+            if port is None:
+                raise RuntimeError(
+                    "You made a programming error: _run_liveness_server has to be run"
+                    " after you checked that self.health_check_liveness_tcp_port is not"
+                    " None."
+                )
             logger.info(f"Launching liveness server on port {port}")
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="error")
 
@@ -911,12 +940,12 @@ class Photon(BasePhoton):
                         return res
 
                 typed_handler = types.FunctionType(
-                    wrapped_method.__code__,
+                    wrapped_method.__code__,  # type: ignore
                     globals(),
                     "typed_handler",
-                    wrapped_method.__defaults__,
-                    wrapped_method.__closure__,
-                )  # type: ignore
+                    wrapped_method.__defaults__,  # type: ignore
+                    wrapped_method.__closure__,  # type: ignore
+                )
                 # Transfer the defaults and signature from the original method.
                 typed_handler.__annotations__ = method.__annotations__
                 typed_handler.__defaults__ = method.__defaults__  # type: ignore
@@ -924,7 +953,7 @@ class Photon(BasePhoton):
                 typed_handler.__kwdefaults__ = method.__kwdefaults__  # type: ignore
                 typed_handler.__signature__ = inspect.signature(method)  # type: ignore
             elif request_model is not None:
-                vd = pydantic.decorator.validate_arguments(method).vd
+                vd = pydantic.decorator.validate_arguments(method).vd  # type: ignore
 
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
