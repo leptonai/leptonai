@@ -523,6 +523,72 @@ class Counter(Photon):
         self.assertEqual(res.json(), "line 1\n")
         proc.kill()
 
+        temp_dir = tempfile.mkdtemp(dir=tmpdir)
+        with switch_cwd(temp_dir):
+            sub_dir = os.path.join(temp_dir, "repo")
+            os.makedirs(sub_dir)
+
+            layer_dir = sub_dir
+            for layer in range(3):
+                layer_dir = os.path.join(layer_dir, str(layer))
+                os.makedirs(layer_dir)
+                with open(os.path.join(layer_dir, "a.py"), "w") as f:
+                    f.write(str(layer))
+
+            dot_file = os.path.join(temp_dir, "hidden", ".abc.conf")
+            os.makedirs(os.path.dirname(dot_file))
+            with open(dot_file, "w") as f:
+                f.write("abc")
+            dot_file_mode = os.stat(dot_file).st_mode
+
+            class RecursiveIncludePhoton(Photon):
+                extra_files = [os.path.relpath(sub_dir, temp_dir)]
+
+                @Photon.handler(method="GET")
+                def cat(self, path: str) -> str:
+                    with open(path) as f:
+                        return f.read()
+
+                @Photon.handler(method="GET")
+                def mask(self, path: str) -> int:
+                    return os.stat(path).st_mode
+
+            ph = RecursiveIncludePhoton(name=random_name())
+            path = ph.save()
+            proc, port = photon_run_local_server(path=path)
+
+            res = requests.get(
+                f"http://localhost:{port}/cat", params={"path": "repo/0/a.py"}
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), "0")
+
+            res = requests.get(
+                f"http://localhost:{port}/cat", params={"path": "repo/0/1/a.py"}
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), "1")
+
+            res = requests.get(
+                f"http://localhost:{port}/cat", params={"path": "repo/0/1/2/a.py"}
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), "2")
+
+            res = requests.get(
+                f"http://localhost:{port}/cat", params={"path": "hidden/.abc.conf"}
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), "abc")
+
+            res = requests.get(
+                f"http://localhost:{port}/mask", params={"path": "hidden/.abc.conf"}
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(
+                res.json(), dot_file_mode, f"{oct(res.json())} != {oct(dot_file_mode)}"
+            )
+
     def test_git_remote(self):
         # setup a git repo with custom.py
         git_proj = tempfile.mkdtemp(dir=tmpdir)

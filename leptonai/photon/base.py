@@ -146,6 +146,15 @@ class BasePhoton:
         path in the building environment, and the file will be included in the photon with the
         same name and path.
         """
+
+        def recursive_include(dirpath):
+            res = {}
+            for root, _, files in os.walk(dirpath):
+                for file in files:
+                    path = os.path.join(root, file)
+                    res[path] = path
+            return res
+
         res = {}
         if isinstance(self.extra_files, list):
             # Verify if the file exists too.
@@ -154,9 +163,20 @@ class BasePhoton:
                     raise ValueError(
                         f"Can not find extra file {path} in the building environment"
                     )
-                res[path] = path
+                if os.path.isdir(path):
+                    res.update(recursive_include(path))
+                else:
+                    res[path] = path
         elif isinstance(self.extra_files, dict):
-            res.update(self.extra_files)
+            for from_, to_ in self.extra_files.items():
+                if not os.path.exists(to_):
+                    raise ValueError(
+                        f"Can not find extra file {to_} in the building environment"
+                    )
+                if os.path.isdir(to_):
+                    res.update(recursive_include(to_))
+                else:
+                    res[from_] = to_
         else:
             raise ValueError(
                 f"extra_files should be either a dict or a list, got {self.extra_files}"
