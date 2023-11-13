@@ -109,7 +109,7 @@ class TestPickleWithPhoton(unittest.TestCase):
         time.sleep(2)
 
     def tearDown(self) -> None:
-        self.proc.terminate()
+        self.proc.kill()
 
     def test_pickle_with_photon(self):
         url = f"http://localhost:{self.port}"
@@ -162,7 +162,7 @@ class TestStreamingPhoton(unittest.TestCase):
         time.sleep(2)
 
     def tearDown(self) -> None:
-        self.proc.terminate()
+        self.proc.kill()
 
     def test_streaming_photon_type(self):
         url = f"http://localhost:{self.port}"

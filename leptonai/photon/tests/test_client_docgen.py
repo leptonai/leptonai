@@ -121,7 +121,7 @@ class TestClientDocgen(unittest.TestCase):
         time.sleep(1)
 
     def tearDown(self) -> None:
-        self.proc.terminate()
+        self.proc.kill()
 
     def test_client_with_unique_names(self):
         url = f"http://localhost:{self.port}"
