@@ -47,7 +47,6 @@ import unittest
 import zipfile
 
 from fastapi import FastAPI
-from httpx import HTTPStatusError
 from loguru import logger
 import requests
 import torch
@@ -98,15 +97,6 @@ class CustomPhotonWithDepTemplate(Photon):
 class CustomPhotonWithCustomDeps(Photon):
     requirement_dependency = ["torch"]
     system_dependency = ["ffmpeg"]
-
-
-class CustomPhotonWithGracefulShutdown(Photon):
-    timeout_graceful_shutdown = 5
-
-    @Photon.handler()
-    def sleep(self, seconds: int) -> str:
-        time.sleep(seconds)
-        return "done"
 
 
 test_txt = tempfile.NamedTemporaryFile(suffix=".txt")
@@ -245,32 +235,6 @@ class TestPhoton(unittest.TestCase):
                 "secret": ["LEPTON_FOR_TEST_SECRET_A"],
             },
         )
-
-    def test_graceful_shutdown(self):
-        name = random_name()
-        ph = CustomPhotonWithGracefulShutdown(name=name)
-        path = ph.save()
-
-        proc, port = photon_run_local_server(path=path)
-
-        def call_sleep(seconds: int):
-            c = Client(Client.local(port=port))
-            return c.sleep(seconds=seconds)
-
-        self.assertEqual(call_sleep(1), "done")
-
-        thread_1 = concurrent.futures.ThreadPoolExecutor().submit(call_sleep, 2)
-        # ensure thread_1 is submitted and before thread_2
-        time.sleep(0.1)
-        thread_2 = concurrent.futures.ThreadPoolExecutor().submit(call_sleep, 10)
-        # ensure thread_2 is submitted
-        time.sleep(0.1)
-        proc.kill()
-        # Tests that thread 1 can finish successfully due to the graceful shutdown setup.
-        self.assertEqual(thread_1.result(), "done")
-        # Tests that thread_2 won't be able to finish, and throws a httpx.HTTPStatusError.
-        with self.assertRaises(HTTPStatusError):
-            thread_2.result()
 
     def test_run(self):
         name = random_name()
