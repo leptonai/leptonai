@@ -10,10 +10,12 @@ import importlib.util
 import inspect
 import logging
 import os
+import signal
 import sys
 import threading
+import time
 import traceback
-import types
+from types import FunctionType, FrameType
 from typing import Callable, Any, List, Dict, Optional, Set, Iterator, Type
 from typing_extensions import Annotated
 import uuid
@@ -244,6 +246,16 @@ class Photon(BasePhoton):
     # asyncio.wait_for.
     timeout_graceful_shutdown: Optional[int] = None
 
+    # During some deployment environments, the server might run behind a load balancer, and during
+    # the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
+    # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
+    # when the load balancer need to wait for some time to propagate the TERMINATING status to
+    # other components of the distributed system. This parameter controls the grace period before
+    # uvicorn rejects incoming traffic on SIGTERM. We set it to 5 seconds by default,
+    # and if it is set to 0, we will use the default setting of uvicorn, which is to immediately
+    # stop receiving new traffic.
+    incoming_traffic_grace_period: int = 5
+
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
 
@@ -440,7 +452,7 @@ class Photon(BasePhoton):
         try:
             src_file = inspect.getfile(self.__class__)
         except Exception as e:
-            res["py_obj"]["src_file"] = None
+            res["py_obj"]["src_file"] = None  # type: ignore
             res["py_obj"]["src_file_error"] = str(e)
         else:
             res["py_obj"]["src_file"] = src_file
@@ -742,6 +754,44 @@ class Photon(BasePhoton):
             timeout_graceful_shutdown=self.timeout_graceful_shutdown,
         )
         lepton_uvicorn_server = uvicorn.Server(config=config)
+
+        # Replaces the default server signal handler with a custom one that
+        # waits for a given amount time before stopping to receive incoming
+        # traffic.
+        if self.incoming_traffic_grace_period:
+
+            def sleep_and_handle_exit(sig: int, frame: Optional[FrameType]) -> None:
+                if sig == signal.SIGINT:
+                    # SIGINT will always set should_exit to True immediately, and double
+                    # SIGINT will force exit.
+                    if lepton_uvicorn_server.should_exit:
+                        lepton_uvicorn_server.force_exit = True
+                    else:
+                        lepton_uvicorn_server.should_exit = True
+                else:
+                    # SIGTERM and others will trigger a slow shutdown
+                    logger.info(
+                        "Gracefully stopping incoming traffic after "
+                        f"{self.incoming_traffic_grace_period} seconds."
+                    )
+                    time.sleep(self.incoming_traffic_grace_period)
+                    logger.info("Setting should_exit to True.")
+                    lepton_uvicorn_server.should_exit = True
+
+            def handle_exit(sig: int, frame: Optional[FrameType]) -> None:
+                # calls sleep_and_handle_exit in a separate thread to avoid
+                # blocking the main thread
+                th = threading.Thread(
+                    target=sleep_and_handle_exit, args=(sig, frame), daemon=True
+                )
+                th.start()
+
+            logger.info(
+                "Setting up signal handlers for graceful incoming traffic"
+                f" shutdown after {self.incoming_traffic_grace_period} seconds."
+            )
+            lepton_uvicorn_server.handle_exit = handle_exit
+
         self._print_launch_info(host, port, log_level)
         lepton_uvicorn_server.run()
 
@@ -939,7 +989,7 @@ class Photon(BasePhoton):
                             res = response_class(res)
                         return res
 
-                typed_handler = types.FunctionType(
+                typed_handler = FunctionType(
                     wrapped_method.__code__,  # type: ignore
                     globals(),
                     "typed_handler",

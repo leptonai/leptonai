@@ -134,7 +134,7 @@ class TestClient(unittest.TestCase):
         self.assertTrue(res == "hello world")
         res = client.run.with_dashes()
         self.assertTrue(res == "hello world", client.run())
-        proc.terminate()
+        proc.kill()
 
     def test_client_with_post_and_get(self):
         port = find_available_port()
@@ -152,7 +152,7 @@ class TestClient(unittest.TestCase):
         # Tests if we are guarding args - users should use kwargs.
         self.assertRaises(RuntimeError, client.run_post, "post")
         self.assertRaises(RuntimeError, client.run_get, "get")
-        proc.terminate()
+        proc.kill()
 
     def test_client_with_throw_429(self):
         port = find_available_port()
@@ -164,7 +164,7 @@ class TestClient(unittest.TestCase):
         self.assertTrue(client.healthz())
         self.assertRaises(httpx.HTTPStatusError, client.run)
 
-        proc.terminate()
+        proc.kill()
 
     def test_client_with_token(self):
         name = random_name()
@@ -238,7 +238,7 @@ class TestStreamingPhotonClient(unittest.TestCase):
         time.sleep(2)
 
     def tearDown(self) -> None:
-        self.proc.terminate()
+        self.proc.kill()
 
     def test_streaming_client(self):
         url = f"http://localhost:{self.port}"
@@ -290,7 +290,7 @@ class TestNestedPhotonClient(unittest.TestCase):
         time.sleep(2)
 
     def tearDown(self) -> None:
-        self.proc.terminate()
+        self.proc.kill()
 
     def test_nested_photon(self):
         url = f"http://localhost:{self.port}"

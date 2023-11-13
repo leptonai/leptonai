@@ -265,7 +265,7 @@ class TestPhoton(unittest.TestCase):
         thread_2 = concurrent.futures.ThreadPoolExecutor().submit(call_sleep, 10)
         # ensure thread_2 is submitted
         time.sleep(0.1)
-        proc.terminate()
+        proc.kill()
         # Tests that thread 1 can finish successfully due to the graceful shutdown setup.
         self.assertEqual(thread_1.result(), "done")
         # Tests that thread_2 won't be able to finish, and throws a httpx.HTTPStatusError.
