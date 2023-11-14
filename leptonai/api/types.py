@@ -72,7 +72,7 @@ class ResourceRequirement(BaseModel):
                 # user to use the new shapes. One can simply ignore the warning and proceed.
                 warnings.warn(
                     "It seems that you passed in a non-standard resource shape"
-                    " {resource_shape}. Valid shapes supported by the CLI are:"
+                    f" {resource_shape}. Valid shapes supported by the CLI are:"
                     f" {_get_valid_shapes_printout()}."
                 )
         if min_replicas is not None and min_replicas < 0:
