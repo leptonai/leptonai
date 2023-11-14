@@ -530,6 +530,13 @@ class Client(object):
         return self._debug_record[:]  # return a copy
 
     def __getattr__(self, name: str):
+        if name == "_path_cache":
+            raise AttributeError(
+                "You hit an internal error: the client does not have the member"
+                " variable _path_cache, meaning that the client is not properly"
+                " initialized.  Please check the debug messages if any for more"
+                " information, and kindly report an error."
+            )
         if len(self._path_cache) == 0:
             raise AttributeError(
                 "No paths found. It is likely that the client was not initialized, or"
