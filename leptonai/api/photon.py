@@ -1,6 +1,5 @@
 import os
 from typing import List, Optional, Dict, Any
-import warnings
 
 from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED
 
@@ -18,7 +17,6 @@ from leptonai.photon.util import load
 from .connection import Connection
 from . import types
 from .util import APIError, json_or_error
-from .workspace import version
 
 
 def push(conn: Connection, path: str):

@@ -6,7 +6,6 @@ from loguru import logger
 from . import types
 from .connection import Connection
 from .util import json_or_error, APIError
-from .workspace import version
 
 
 def list_deployment(conn: Connection) -> Union[List, APIError]:
@@ -111,13 +110,6 @@ def update_deployment(
     Currently only supports updating the photon id, the min replicas, and the api tokens.
     For any more complex changes, consider re-run the deployment.
     """
-    if no_traffic_timeout:
-        ws_version = version(conn)
-        if ws_version and ws_version < (0, 10, 0):
-            warnings.warn(
-                "no_traffic_timeout is not yet released on this workspace."
-                " For now, your deployment will be created without timeout."
-            )
     deployment_spec = types.DeploymentSpec(
         name=name,
         photon_id=photon_id,

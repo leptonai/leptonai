@@ -14,8 +14,6 @@ from rich.prompt import Confirm
 from rich.table import Table
 import click
 
-from loguru import logger
-
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
 from leptonai.api import types
@@ -216,7 +214,6 @@ def list(local, pattern):
                 f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
             ),
         )
-        logger.debug(f"Photon list response: {photons}")
         # Note: created_at returned by the server is in milliseconds, and as a
         # result we need to divide by 1000 to get seconds that is understandable
         # by the Python CLI.
@@ -557,8 +554,6 @@ def run(
                 " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
             )
             no_traffic_timeout = config.DEFAULT_TIMEOUT
-        elif no_traffic_timeout == 0:
-            no_traffic_timeout = None
 
         metadata = api.fetch_metadata(conn, id)  # type: ignore
         if isinstance(metadata, APIError):
@@ -593,8 +588,8 @@ def run(
                 initial_delay_seconds,
             )
         except ValueError as e:
-            console.print(f"Error encountered while parsing configs: {e}")
             console.print("Failed to launch photon.")
+            console.print(f"Error encountered while processing deployment configs: {e}")
             sys.exit(1)
         explain_response(
             response,
