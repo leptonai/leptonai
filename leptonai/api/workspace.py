@@ -1,12 +1,17 @@
 import re
-import requests
 from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
-from leptonai.config import CACHE_DIR, WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
+from leptonai.config import CACHE_DIR
 from leptonai.util import create_cached_dir_if_needed
 from .connection import Connection
-from .util import APIError, json_or_error
+from .util import (
+    APIError,
+    json_or_error,
+    _get_full_workspace_api_url,
+    _get_workspace_display_name,
+    _get_full_workspace_url,
+)
 
 
 class WorkspaceInfoLocalRecord(object):
@@ -152,84 +157,6 @@ class WorkspaceInfoLocalRecord(object):
 WorkspaceInfoLocalRecord.load_workspace_info()
 
 
-def _get_full_workspace_url(workspace_id) -> str:
-    """
-    Gets the workspace url from the given workspace_id. This calls Lepton's backend server
-    to get the workspace url.
-
-    The workspace url is different from the workspace api url: the workspace url is the url
-    that the client uses to call deployments, while the workspace api url is used to call
-    the Lepton API.
-
-    :param str workspace_id: the workspace_id of the workspace
-    :return: the workspace url, or None if the workspace does not exist
-    :raises RuntimeError: if the backend server returns an error
-    """
-    request_body = {"id": workspace_id}
-    response = json_or_error(
-        requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
-    )
-    if isinstance(response, APIError):
-        raise RuntimeError(
-            "Failed to connect to the Lepton server. Did you connect to the internet?"
-        )
-    elif isinstance(response, list) or "url" not in response:
-        raise RuntimeError(
-            "You hit a programming error: response is not a dictionary. Please report"
-            " this and include the following information: url:"
-            f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}, response:"
-            f" {response}"
-        )
-    else:
-        return response["url"]
-
-
-def _get_workspace_display_name(workspace_id) -> Optional[str]:
-    """
-    Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
-    to get the workspace display name.
-
-    :param str workspace_id: the workspace_id of the workspace
-    :return: the workspace display name, or None if the workspace does not exist
-    :raises RuntimeError: if the backend server returns an error
-    """
-    request_body = {"id": workspace_id}
-    response = json_or_error(
-        requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body),
-        additional_debug_info=(
-            f"url: {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}"
-        ),
-    )
-    if isinstance(response, APIError):
-        raise RuntimeError(
-            "Failed to connect to the Lepton server. Did you connect to the internet?"
-        )
-    elif isinstance(response, list) or "display_name" not in response:
-        raise RuntimeError(
-            "You hit a programming error: response is not a dictionary. Please report"
-            " this and include the following information: url:"
-            f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body}, response:"
-            f" {response}"
-        )
-    else:
-        return response["display_name"]
-
-
-def _get_full_workspace_api_url(workspace_id) -> str:
-    """
-    Get the full URL for the API of a workspace.
-
-    :param str workspace_id: the workspace_id of the workspace
-    :return: the workspace api url, or None if the workspace does not exist
-    :raises APIError: if the backend server returns an error
-    """
-    workspace_url = _get_full_workspace_url(workspace_id)
-    if workspace_url:
-        return workspace_url + WORKSPACE_API_PATH
-    else:
-        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
-
-
 def current_connection() -> Connection:
     return WorkspaceInfoLocalRecord.get_current_connection()
 
@@ -246,7 +173,7 @@ def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dic
 
 
 _semver_pattern = re.compile(
-    "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
 )
 
 
