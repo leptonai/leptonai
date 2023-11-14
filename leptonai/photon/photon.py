@@ -196,7 +196,7 @@ class Photon(BasePhoton):
     #       ],
     #     }
     # During photon init time, we will check the existence of the env variables and secrets,
-    # issue RuntimeError of the required ones are not set, and set default values for non-existing
+    # issue RuntimeError if the required ones are not set, and set default values for non-existing
     # env variables that have default values.
     deployment_template: Dict[str, Any] = {
         "resource_shape": None,
