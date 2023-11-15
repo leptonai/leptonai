@@ -62,7 +62,7 @@ def remove_local(name: str, remove_all: bool = False):
 
 def fetch_metadata(conn: Connection, id: str):
     """
-    Fetch the metadata of a photon fron a workspace.
+    Fetch the metadata of a photon from a workspace.
     :param str id: id of the photon to fetch
     """
     response = conn.get("/photons/" + id)
