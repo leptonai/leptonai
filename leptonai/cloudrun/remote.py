@@ -10,7 +10,6 @@ import re
 import time
 from typing import Optional, Union, Type
 import uuid
-import warnings
 import weakref
 
 from loguru import logger
@@ -82,12 +81,6 @@ class Remote(object):
         self.conn = api.workspace.current_connection()
         self._last_error = None
 
-        version = api.workspace.version(self.conn)
-        if version and version < (0, 10, 0):
-            warnings.warn(
-                "no_traffic_timeout is not yet released on this workspace."
-                " For now, your deployment will be created without timeout."
-            )
         try:
             self._start_up()
         except Exception as e:

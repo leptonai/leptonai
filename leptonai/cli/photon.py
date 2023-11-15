@@ -340,7 +340,7 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     help="Resource shape for the deployment. Available types are: '"
     + "', '".join(types.VALID_SHAPES)
     + "'.",
-    default=types.DEFAULT_RESOURCE_SHAPE,
+    default=None,
 )
 @click.option(
     "--replica-cpu",
@@ -555,6 +555,11 @@ def run(
             )
             no_traffic_timeout = config.DEFAULT_TIMEOUT
 
+        metadata = api.fetch_metadata(conn, id)  # type: ignore
+        if isinstance(metadata, APIError):
+            console.print(f"Photon [red]{name}[/] failed to fetch: {metadata}")
+            sys.exit(1)
+        deployment_template = metadata.get("deployment_template", None)  # type:ignore
         # parse environment variables and secrets
         deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
 
@@ -563,6 +568,7 @@ def run(
                 conn,
                 id,
                 deployment_name,
+                deployment_template,
                 resource_shape,
                 replica_cpu,
                 replica_memory,
@@ -582,8 +588,8 @@ def run(
                 initial_delay_seconds,
             )
         except ValueError as e:
-            console.print(f"Error encountered while parsing configs: {e}")
             console.print("Failed to launch photon.")
+            console.print(f"Error encountered while processing deployment configs: {e}")
             sys.exit(1)
         explain_response(
             response,
@@ -823,15 +829,43 @@ def push(name):
 
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
-@click.option("--indent", "-i", type=int, help="Indentation of the json.", default=None)
-def metadata(name, indent):
+@click.option(
+    "--id",
+    "-i",
+    type=str,
+    help=(
+        "ID of the photon, if the photon is a remote one. If not specified, the latest"
+        " photon will be used."
+    ),
+    default=None,
+)
+@click.option(
+    "--local",
+    "-l",
+    is_flag=True,
+    help="If specified, obtain metadata for the local photon.",
+    default=False,
+)
+@click.option("--indent", type=int, help="Indentation of the json.", default=None)
+def metadata(name, id, local, indent):
     """
     Returns the metadata json of the photon.
     """
-    path = find_local_photon(name)
-    check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
-    # loads the metadata
-    metadata = photon_util.load_metadata(path)  # type: ignore
+    if local:
+        check(id is None, "Cannot specify both --id and --local.")
+        path = find_local_photon(name)
+        check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
+        # loads the metadata
+        metadata = photon_util.load_metadata(path)  # type: ignore
+    else:
+        conn = WorkspaceInfoLocalRecord.get_current_connection()
+        if id is None:
+            id = _get_most_recent_photon_id_or_none(conn, name)
+            check(id, f"Photon [red]{name}[/] does not exist.")
+        metadata = api.fetch_metadata(conn, id)  # type: ignore
+        if isinstance(metadata, APIError):
+            console.print(f"Photon [red]{name}[/] failed to fetch: {metadata}")
+            sys.exit(1)
     console.print(json.dumps(metadata, indent=indent))
 
 

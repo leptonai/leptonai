@@ -1,8 +1,7 @@
 import os
-from typing import List, Optional
-import warnings
+from typing import List, Optional, Dict, Any
 
-from leptonai.config import CACHE_DIR
+from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED
 
 from loguru import logger
 
@@ -18,7 +17,6 @@ from leptonai.photon.util import load
 from .connection import Connection
 from . import types
 from .util import APIError, json_or_error
-from .workspace import version
 
 
 def push(conn: Connection, path: str):
@@ -58,6 +56,15 @@ def remove_remote(conn: Connection, id: str):
 
 def remove_local(name: str, remove_all: bool = False):
     return remove_local_photon(name, remove_all)
+
+
+def fetch_metadata(conn: Connection, id: str):
+    """
+    Fetch the metadata of a photon from a workspace.
+    :param str id: id of the photon to fetch
+    """
+    response = conn.get("/photons/" + id)
+    return json_or_error(response)
 
 
 def fetch(conn: Connection, id: str, path: str):
@@ -118,7 +125,8 @@ def run_remote(
     conn: Connection,
     id: str,
     deployment_name: str,
-    resource_shape: str = types.DEFAULT_RESOURCE_SHAPE,
+    deployment_template: Optional[Dict[str, Any]] = None,
+    resource_shape: Optional[str] = None,
     replica_cpu: Optional[float] = None,
     replica_memory: Optional[int] = None,
     replica_accelerator_type: Optional[str] = None,
@@ -136,13 +144,32 @@ def run_remote(
     target_gpu_utilization: Optional[int] = None,
     initial_delay_seconds: Optional[int] = None,
 ):
-    if no_traffic_timeout:
-        ws_version = version(conn)
-        if ws_version and ws_version < (0, 10, 0):
-            warnings.warn(
-                "no_traffic_timeout is not yet released on this workspace."
-                " For now, your deployment will be created without timeout."
-            )
+    # Deal with deployment template
+    deployment_template = deployment_template or {}
+    logger.trace(f"deployment_template:\n{deployment_template}")
+    if resource_shape is None and "resource_shape" in deployment_template:
+        resource_shape = deployment_template["resource_shape"]
+    else:
+        resource_shape = types.DEFAULT_RESOURCE_SHAPE
+    template_envs = deployment_template.get("env", {})
+    for k, v in template_envs.items():
+        if v == ENV_VAR_REQUIRED:
+            if not any(s.startswith(k + "=") for s in (env_list or [])):
+                raise ValueError(
+                    f"This deployment requires env var {k}, but it's missing."
+                )
+        else:
+            env_list = env_list or []
+            if not any(s.startswith(k + "=") for s in env_list):
+                # Adding default env variable if not specified.
+                env_list.append(f"{k}={v}")
+    template_secrets = deployment_template.get("secret", [])
+    for k in template_secrets:
+        if not any(s.startswith(k) for s in (secret_list or [])) and not any(
+            s.startswith(k) for s in (env_list or [])
+        ):
+            raise ValueError(f"This deployment requires secret {k}, but it's missing.")
+
     # TODO: check if the given id is a valid photon id
     deployment_spec = types.DeploymentSpec(
         name=deployment_name,
@@ -166,5 +193,6 @@ def run_remote(
         ),
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
+
     logger.trace(f"deployment_spec:\n{deployment_spec}")
     return run_remote_with_spec(conn, deployment_spec)
