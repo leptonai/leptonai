@@ -192,12 +192,12 @@ def remove(name, local, id_, all_):
         return
 
 
-@photon.command()
+@photon.command(name="list")
 @click.option("--local", "-l", help="If specified, list local photons", is_flag=True)
 @click.option(
     "--pattern", help="Regular expression pattern to filter photon names", default=None
 )
-def list(local, pattern):
+def list_command(local, pattern):
     """
     Lists all photons. If one has logged in to the Lepton AI cloud via `lep login`,
     this command will list all photons in the Lepton AI cloud. Otherwise, or if
@@ -547,10 +547,10 @@ def run(
                 "\nLepton is currently set to use a default timeout of [green]1"
                 " hour[/]. This means that when there is no traffic for more than an"
                 " hour, your deployment will automatically scale down to zero. This is"
-                " to assist auto-release of unused debug deployments.\nIf you would"
+                " to assist auto-release of unused debug deployments.\n- If you would"
                 " like to run a long-running photon (e.g. for production), [green]set"
-                " --no-traffic-timeout to 0[/].\nIf you would like to turn off default"
-                " timeout, set the environment variable"
+                " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
+                " default timeout, set the environment variable"
                 " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
             )
             no_traffic_timeout = config.DEFAULT_TIMEOUT
@@ -579,8 +579,8 @@ def run(
                 min_replicas,
                 max_replicas,
                 mount,
-                env,
-                secret,
+                list(env),
+                list(secret),
                 public,
                 tokens,
                 no_traffic_timeout,
@@ -588,8 +588,10 @@ def run(
                 initial_delay_seconds,
             )
         except ValueError as e:
+            console.print(
+                f"Error encountered while processing deployment configs:\n[red]{e}[/]."
+            )
             console.print("Failed to launch photon.")
-            console.print(f"Error encountered while processing deployment configs: {e}")
             sys.exit(1)
         explain_response(
             response,
