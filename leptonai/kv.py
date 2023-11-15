@@ -111,7 +111,7 @@ class KV(object):
         :param Connection conn: the connection to use. If None, use the default workspace connection.
         """
         self._conn = conn if conn else workspace_api.current_connection()
-        res = kv_api.list_kvs(self._conn)
+        res = kv_api.list_kv(self._conn)
         if not res.ok:
             raise RuntimeError(
                 f"Failed to access KV server. Error: {res.status_code} {res.content}."

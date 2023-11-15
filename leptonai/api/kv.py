@@ -4,7 +4,7 @@ from typing import Union
 from .connection import Connection
 
 
-def list_kvs(conn: Connection):
+def list_kv(conn: Connection):
     """
     List KVs in the current workspace.
     """
