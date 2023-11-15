@@ -6,12 +6,16 @@ from typing import Dict, Optional
 import requests
 import warnings
 
-from .util import create_header
+from leptonai.util import _is_valid_url
+from .util import create_header, _get_full_workspace_api_url
 
 
 class Connection:
-    def __init__(self, url: str, token: Optional[str] = None):
-        self._url = url
+    def __init__(self, url_or_workspace_id: str, token: Optional[str] = None):
+        if _is_valid_url(url_or_workspace_id):
+            self._url = url_or_workspace_id
+        else:
+            self._url = _get_full_workspace_api_url(url_or_workspace_id)
         self._token = token
         self._header = create_header(token)
         # In default, timeout for the API calls is set to 120 seconds.
