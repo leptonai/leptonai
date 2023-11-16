@@ -15,7 +15,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import secret as api
-from leptonai.config import LEPTON_RESERVED_ENV_PREFIX
+from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 
 
 @click_group()
@@ -48,9 +48,11 @@ def create(name, value):
     check(len(name) == len(value), "Number of names and values must be the same.")
     for n in name:
         check(
-            not n.lower().startswith(LEPTON_RESERVED_ENV_PREFIX),
-            "Secret name cannot start with reserved prefix"
-            f" {LEPTON_RESERVED_ENV_PREFIX}. Found {n}.",
+            not n in LEPTON_RESERVED_ENV_NAMES,
+            "You have used a reserved secret name that is "
+            "used by Lepton internally: {k}. Please use a different name. "
+            "Here is a list of all reserved environment variable names:\n"
+            f"{LEPTON_RESERVED_ENV_NAMES}",
         )
     conn = get_connection_or_die()
     existing_secrets = api.list_secret(conn)

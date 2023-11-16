@@ -8,7 +8,7 @@ from typing import List, Optional
 import warnings
 from pydantic import BaseModel
 
-from leptonai.config import LEPTON_RESERVED_ENV_PREFIX, VALID_SHAPES
+from leptonai.config import LEPTON_RESERVED_ENV_NAMES, VALID_SHAPES
 
 
 # Valid shapes is defined as a list instead of a dict intentionally, because
@@ -165,10 +165,12 @@ class EnvVar(BaseModel):
                 k, v = s.split("=", 1)
             except ValueError:
                 raise ValueError(f"Invalid environment definition: [red]{s}[/]")
-            if k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX):
+            if k in LEPTON_RESERVED_ENV_NAMES:
                 raise ValueError(
-                    "Environment variable name cannot start with reserved prefix"
-                    f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}."
+                    "You have used a reserved environment variable name that is "
+                    "used by Lepton internally: {k}. Please use a different name. "
+                    "Here is a list of all reserved environment variable names:\n"
+                    f"{LEPTON_RESERVED_ENV_NAMES}"
                 )
             env_list.append(EnvVar(name=k, value=v))
         for s in secret if secret else []:
@@ -176,10 +178,12 @@ class EnvVar(BaseModel):
             # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
             # if the local env name and the secret name are the same.
             k, v = s.split("=", 1) if "=" in s else (s, s)
-            if k.lower().startswith(LEPTON_RESERVED_ENV_PREFIX):
+            if k in LEPTON_RESERVED_ENV_NAMES:
                 raise ValueError(
-                    "Secret name cannot start with reserved prefix"
-                    f" {LEPTON_RESERVED_ENV_PREFIX}. Found {k}."
+                    "You have used a reserved secret name that is "
+                    "used by Lepton internally: {k}. Please use a different name. "
+                    "Here is a list of all reserved environment variable names:\n"
+                    f"{LEPTON_RESERVED_ENV_NAMES}"
                 )
             # TODO: sanity check if these secrets exist.
             env_list.append(EnvVar(name=k, value_from=EnvValue(secret_name_ref=v)))
