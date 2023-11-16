@@ -1,6 +1,4 @@
 # Because most of the apis in queue do not return json, we will not use json_or_error here.
-from typing import Union
-
 from .connection import Connection
 
 
