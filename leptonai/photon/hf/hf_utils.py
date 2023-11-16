@@ -38,8 +38,14 @@ def img_param_to_img(param):
 
 
 def create_diffusion_pipeline(task, model, revision, torch_compile=False):
-    from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
-    import torch
+    try:
+        from diffusers import DiffusionPipeline
+        import torch
+    except Exception:
+        raise RuntimeError(
+            "Lepton huggingface photon requires torch and diffusers but they are not"
+            " installed. Please install them with: pip install torch diffusers"
+        )
 
     if torch.cuda.is_available():
         torch_dtype = torch.float16
@@ -60,9 +66,6 @@ def create_diffusion_pipeline(task, model, revision, torch_compile=False):
             model,
             revision=revision,
         )
-    pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
-        pipeline.scheduler.config
-    )
     if torch.cuda.is_available():
         pipeline = pipeline.to("cuda")
         if torch_compile:
