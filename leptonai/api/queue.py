@@ -36,9 +36,9 @@ def receive(conn: Connection, name: str):
     return response
 
 
-def send(conn: Connection, name: str, message: Union[str, bytes]):
+def send(conn: Connection, name: str, message: str):
     """
-    Put a key-value pair in the queue.
+    Put a message in the queue.
     """
     response = conn.post(f"/queue/{name}/messages", json={"message": message})
     return response

@@ -85,6 +85,7 @@ class Queue(object):
         name: str,
         create_if_not_exists: bool = False,
         error_if_exists: bool = False,
+        wait_for_creation: bool = True,
         conn: Optional[Connection] = None,
     ):
         """
@@ -93,16 +94,11 @@ class Queue(object):
         :param str name: the name of the queue
         :param bool create_if_not_exists: if True, create the queue if it does not exist
         :param bool error_if_exists: if True, raise an error if the queue already exists
+        :param wait_for_creation: if True, wait for the queue to be ready
         :param Connection conn: the connection to use. If None, use the default workspace connection.
         """
         self._conn = conn if conn else workspace_api.current_connection()
-        res = queue_api.list_queue(self._conn)
-        if not res.ok:
-            raise RuntimeError(
-                "Failed to access queue server. Error:"
-                f" {res.status_code} {res.content}."
-            )
-        existing_queues = [s["name"] for s in res.json()]
+        existing_queues = Queue.list_queue(self._conn)
         if name in existing_queues:
             if error_if_exists:
                 raise ValueError(
@@ -121,20 +117,19 @@ class Queue(object):
                     )
                 else:
                     self._queue = name
-
-                # wait for the queue to be ready
-                start = time.time()
-                while (
-                    not self.ready()
-                    and time.time() - start < _lepton_readiness_timeout_
-                ):
-                    logger.trace(f"Queue {name} is not ready yet. Waiting...")
-                    time.sleep(_lepton_readiness_wait_time_)
-                if not self.ready():
-                    raise RuntimeError(
-                        f"Queue {name} is not ready after"
-                        f" {time.time() - start} seconds."
-                    )
+                if wait_for_creation:
+                    # wait for the queue to be ready
+                    start = time.time()
+                    while time.time() - start < _lepton_readiness_timeout_:
+                        if self.ready():
+                            break
+                        logger.trace(f"Queue {name} is not ready yet. Waiting...")
+                        time.sleep(_lepton_readiness_wait_time_)
+                    else:
+                        raise RuntimeError(
+                            f"Queue {name} is not ready after"
+                            f" {time.time() - start} seconds."
+                        )
             else:
                 raise ValueError(
                     f"Queue {name} does not exist, and you have specified"
@@ -149,13 +144,15 @@ class Queue(object):
         """
         Returns if the queue is ready to use, but wait for the queue to be ready asynchronously.
         """
-        logger.trace("Waiting for queue to be ready.")
         start = time.time()
-        while not self.ready() and time.time() - start < _lepton_readiness_timeout_:
+        while time.time() - start < _lepton_readiness_timeout_:
+            if self.ready():
+                break
+            logger.trace(f"Queue {self._queue} is not ready yet. Waiting...")
             await asyncio.sleep(_lepton_readiness_wait_time_)
-        if not self.ready():
+        else:
             raise RuntimeError(
-                f"Queue is not ready after {time.time() - start} seconds."
+                f"Queue {self._queue} is not ready after {time.time() - start} seconds."
             )
 
     def receive(self) -> str:
