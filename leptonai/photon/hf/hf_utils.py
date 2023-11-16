@@ -41,7 +41,7 @@ def create_diffusion_pipeline(task, model, revision, torch_compile=False):
     try:
         from diffusers import DiffusionPipeline
         import torch
-    except Exception:
+    except ImportError:
         raise RuntimeError(
             "Lepton huggingface photon requires torch and diffusers but they are not"
             " installed. Please install them with: pip install torch diffusers"
