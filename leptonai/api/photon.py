@@ -156,10 +156,11 @@ def run_remote(
         if v == ENV_VAR_REQUIRED:
             if not any(s.startswith(k + "=") for s in (env_list or [])):
                 raise ValueError(
-                    f"This deployment requires env var {k}, but it's missing."
+                    f"This deployment requires env var {k}, but it's missing. Please"
+                    f" specify it with --env {k}=YOUR_VALUE."
                 )
         else:
-            env_list = env_list or []
+            env_list = list(env_list) if env_list is not None else []
             if not any(s.startswith(k + "=") for s in env_list):
                 # Adding default env variable if not specified.
                 env_list.append(f"{k}={v}")
@@ -168,7 +169,10 @@ def run_remote(
         if not any(s.startswith(k) for s in (secret_list or [])) and not any(
             s.startswith(k) for s in (env_list or [])
         ):
-            raise ValueError(f"This deployment requires secret {k}, but it's missing.")
+            raise ValueError(
+                f"This deployment requires secret {k}, but it's missing. Please set the"
+                f" secret, and specify it with --secret {k}."
+            )
 
     # TODO: check if the given id is a valid photon id
     deployment_spec = types.DeploymentSpec(
