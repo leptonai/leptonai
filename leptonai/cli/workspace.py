@@ -92,13 +92,13 @@ def login(
         if auth_token:
             console.print(f"Will update info for workspace [green]{workspace_id}[/]")
             WorkspaceInfoLocalRecord.set_and_save(
-                workspace_id, workspace_url, auth_token=auth_token
+                workspace_id, url=workspace_url, auth_token=auth_token
             )
         else:
             WorkspaceInfoLocalRecord.set_current(workspace_id)
     else:
         WorkspaceInfoLocalRecord.set_and_save(
-            workspace_id, workspace_url, auth_token=auth_token
+            workspace_id, url=workspace_url, auth_token=auth_token
         )
     console.print(f"Workspace [green]{workspace_id}[/] logged in.")
 
@@ -114,8 +114,8 @@ def logout():
     console.print("[green]Logged out[/]")
 
 
-@workspace.command()
-def list():
+@workspace.command(name="list")
+def list_command():
     """
     List current workspaces and their urls on record. For any workspace displayed
     in the list, you can log in to it by `lep workspace login -i <id>`.
@@ -134,8 +134,6 @@ def list():
         # add a sanity check.
         name = info.get("display_name", "")
         role = "user"
-        if info["terraform_dir"] is not None:
-            role = "creator"
         token = info.get("auth_token", "")
         if token:
             token = f"{token[:2]}****{token[-2:]}" if len(token) > 8 else "******"

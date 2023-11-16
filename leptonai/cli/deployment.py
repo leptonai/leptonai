@@ -37,14 +37,14 @@ def deployment():
     pass
 
 
-@deployment.command()
+@deployment.command(name="list")
 @click.option(
     "--pattern",
     "-p",
     help="Regular expression pattern to filter deployment names.",
     default=None,
 )
-def list(pattern):
+def list_command(pattern):
     """
     Lists all deployments in the current workspace.
     """
