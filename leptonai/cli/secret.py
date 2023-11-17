@@ -71,8 +71,8 @@ def create(name, value):
     )
 
 
-@secret.command()
-def list():
+@secret.command(name="list")
+def list_command():
     """
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.

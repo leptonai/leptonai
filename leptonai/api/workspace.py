@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Any, Optional, Union, Dict, Tuple
 import yaml
@@ -39,7 +40,12 @@ class WorkspaceInfoLocalRecord(object):
         return cls._singleton_dict["workspaces"]
 
     @classmethod
-    def set_and_save(cls, workspace_id, url=None, terraform_dir=None, auth_token=None):
+    def set_and_save(
+        cls,
+        workspace_id: str,
+        auth_token: Optional[str] = None,
+        url: Optional[str] = None,
+    ):
         """
         Saves a workspace by adding it to the workspace info file.
         """
@@ -52,7 +58,6 @@ class WorkspaceInfoLocalRecord(object):
             url = _get_full_workspace_api_url(workspace_id)
         cls._singleton_dict["workspaces"][workspace_id]["url"] = url
         cls._singleton_dict["workspaces"][workspace_id]["display_name"] = display_name
-        cls._singleton_dict["workspaces"][workspace_id]["terraform_dir"] = terraform_dir
         cls._singleton_dict["workspaces"][workspace_id]["auth_token"] = auth_token
         cls.set_current(workspace_id)
         cls._save_to_file()
@@ -159,6 +164,37 @@ WorkspaceInfoLocalRecord.load_workspace_info()
 
 def current_connection() -> Connection:
     return WorkspaceInfoLocalRecord.get_current_connection()
+
+
+def login(
+    workspace_id: Optional[str] = None,
+    auth_token: Optional[str] = None,
+    url: Optional[str] = None,
+):
+    """
+    Logs in to a workspace in the following order:
+    - If workspace_id is given, log in to the given workspace.
+    - If workspace_id is not given, but there is LEPTON_WORKSPACE_ID in the environment,
+      log into that workspace. We will look for LEPTON_WORKSPACE_TOKEN as the auth token,
+      and LEPTON_WORKSPACE_URL as the workspace url, if they exist.
+    - Otherwise, produce an error.
+
+    This function is intended to be used inside lepton deployments to log in to the
+    workspace programmatically.
+    """
+    if workspace_id:
+        WorkspaceInfoLocalRecord.set_and_save(workspace_id, auth_token, url)
+    elif "LEPTON_WORKSPACE_ID" in os.environ:
+        WorkspaceInfoLocalRecord.set_and_save(
+            os.environ["LEPTON_WORKSPACE_ID"],
+            auth_token=os.environ.get("LEPTON_WORKSPACE_TOKEN", None),
+            url=os.environ.get("LEPTON_WORKSPACE_URL", None),
+        )
+    else:
+        raise RuntimeError(
+            "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
+            " environment."
+        )
 
 
 def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dict]:
