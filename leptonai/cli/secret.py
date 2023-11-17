@@ -48,7 +48,7 @@ def create(name, value):
     check(len(name) == len(value), "Number of names and values must be the same.")
     for n in name:
         check(
-            not n in LEPTON_RESERVED_ENV_NAMES,
+            n not in LEPTON_RESERVED_ENV_NAMES,
             "You have used a reserved secret name that is "
             "used by Lepton internally: {k}. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
