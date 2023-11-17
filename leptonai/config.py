@@ -126,7 +126,14 @@ WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
 WORKSPACE_API_PATH = "/api/v1"
 
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
-LEPTON_RESERVED_ENV_PREFIX = "lepton_"
+LEPTON_RESERVED_ENV_NAMES = {
+    "LEPTON_WORKSPACE_ID",
+    "LEPTON_DEPLOYMENT_NAME",
+    "LEPTON_PHOTON_NAME",
+    "LEPTON_PHOTON_ID",
+    "LEPTON_RESOURCE_ACCELERATOR_TYPE",
+}
+
 # Homepage URL
 LEPTON_HOMEPAGE_URL = "https://lepton.ai"
 LEPTON_HOMEPAGE_WWW_URL = "https://www.lepton.ai"
