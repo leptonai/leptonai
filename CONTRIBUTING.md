@@ -8,7 +8,7 @@ First and foremost, thank you for considering contributing to leptonai! We appre
 First clone the source code from Github
 
 ```
-git clone https://leptonai/leptonai.git
+git clone https://github.com/leptonai/leptonai.git
 ```
 
 Use `pip` to install `leptonai` from source
