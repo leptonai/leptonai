@@ -600,11 +600,11 @@ class Photon(BasePhoton):
                 if self._init_called:
                     return
                 else:
+                    self._init_called = True
                     # run Photon's init function.
                     Photon.init(self)
                     # run the user-defined init function
                     self._init_res = self.init()
-                    self._init_called = True
         return self._init_res
 
     @abstractmethod
