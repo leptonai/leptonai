@@ -1,10 +1,7 @@
-import concurrent
 import os
 import tempfile
 import time
 import unittest
-
-import httpx
 
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
