@@ -62,9 +62,7 @@ class vLLMPhoton(Photon):
         if os.environ["VLLM_MODEL"] != "":
             # If we specified VLLM_MODEL, always override.
             self.model_id = os.environ["VLLM_MODEL"]
-            logger.debug(
-                f"Overriding model id with VLLM_MODEL: {self.model_id}."
-            )
+            logger.debug(f"Overriding model id with VLLM_MODEL: {self.model_id}.")
         if not self.model_id:
             raise RuntimeError(
                 "You did not specify a model id. Either do it at photon construction "
