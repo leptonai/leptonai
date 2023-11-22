@@ -147,10 +147,10 @@ def run_remote(
     # Deal with deployment template
     deployment_template = deployment_template or {}
     logger.trace(f"deployment_template:\n{deployment_template}")
-    if resource_shape is None and "resource_shape" in deployment_template:
-        resource_shape = deployment_template["resource_shape"]
-    else:
-        resource_shape = types.DEFAULT_RESOURCE_SHAPE
+    if resource_shape is None:
+        resource_shape = deployment_template.get(
+            "resource_shape", types.DEFAULT_RESOURCE_SHAPE
+        )
     template_envs = deployment_template.get("env", {})
     for k, v in template_envs.items():
         if v == ENV_VAR_REQUIRED:
