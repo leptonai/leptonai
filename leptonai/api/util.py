@@ -88,7 +88,7 @@ def _get_full_workspace_url(workspace_id) -> str:
             f"Lepton server returned an error: {res.status_code} {res.content}."
         )
     elif res.content == b"":
-        raise ValueError(f"Cannot find the workspace with id {workspace_id}.")
+        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
     else:
         content = res.json()
         if isinstance(content, list) or "url" not in content:
@@ -118,7 +118,7 @@ def _get_workspace_display_name(workspace_id) -> Optional[str]:
             f"Lepton server returned an error: {res.status_code} {res.content}."
         )
     elif res.content == b"":
-        raise ValueError(f"Cannot find the workspace with id {workspace_id}.")
+        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
     else:
         content = res.json()
         if isinstance(content, list) or "display_name" not in content:
