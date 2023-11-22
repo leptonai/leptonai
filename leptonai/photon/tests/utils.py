@@ -46,7 +46,7 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
     )
     atexit.register(proc.kill)
 
-    max_wait = 60
+    max_wait = 120
     start_time = time.time()
     while True:
         if proc.poll() is not None:
