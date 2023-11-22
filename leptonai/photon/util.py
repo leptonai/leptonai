@@ -1,5 +1,5 @@
 from typing import Any, Dict, Optional
-from leptonai.photon.base import schema_registry, type_registry, BasePhoton
+from leptonai.photon.base import schema_registry, BasePhoton
 
 from leptonai.util import check_photon_name
 
@@ -31,11 +31,6 @@ def create(name: str, model: Any) -> BasePhoton:
             creator = _find_creator(model)
         if creator is not None:
             return creator(name, model)
-    else:
-        for type_checker in type_registry.keys():
-            if type_checker(model):
-                creator = type_registry.get(type_checker)
-                return creator(name, model)
 
     raise ValueError(f"Failed to find Photon creator for name={name} and model={model}")
 
