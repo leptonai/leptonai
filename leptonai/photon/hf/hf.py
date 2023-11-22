@@ -10,7 +10,7 @@ from huggingface_hub import model_info
 from loguru import logger
 
 from leptonai.registry import Registry
-from leptonai.photon.base import schema_registry, type_registry
+from leptonai.photon.base import schema_registry
 from leptonai.photon import Photon, PNGResponse, FileParam
 from .hf_utils import (
     pipeline_registry,
@@ -261,37 +261,6 @@ class HuggingfacePhoton(Photon):
                 " debugging purposes: {model_str}"
             )
         return task_cls(name, model_str)
-
-    @classmethod
-    def create_from_model_obj(cls, name, model):
-        import transformers
-
-        if not is_transformers_model(model):
-            raise ValueError(f"Unsupported model type: {type(model)}")
-
-        try:
-            if isinstance(model, transformers.Pipeline):
-                model = model.model
-            model_name = model.name_or_path
-        except AttributeError:
-            raise ValueError(
-                f'Unsupported Huggingface model: "{model}" (can not find corresponding'
-                " model name)"
-            )
-
-        try:
-            # NOTE: This is a highly private API in transformers.
-            # We can not guarantee always possible to extract the
-            # revision for sdk usage
-            revision = model.config._get_config_dict(model.name_or_path)[0][
-                "_commit_hash"
-            ]
-            model_name = f"{model_name}@{revision}"
-        except Exception as e:
-            logger.warning(f"Can not get revision for model {model_name}: {e}")
-            revision = None
-
-        return cls.create_from_model_str(name, f"hf:{model_name}")
 
     @classmethod
     def load(cls, photon_file, metadata):
@@ -884,7 +853,4 @@ class HuggingfaceFeatureExtractionPhoton(HuggingfacePhoton):
 def register_hf_photon():
     schema_registry.register(
         HUGGING_FACE_SCHEMAS, HuggingfacePhoton.create_from_model_str
-    )
-    type_registry.register(
-        is_transformers_model, HuggingfacePhoton.create_from_model_obj
     )

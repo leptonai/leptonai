@@ -9,7 +9,6 @@ from leptonai.util import create_cached_dir_if_needed
 from leptonai.registry import Registry
 
 schema_registry = Registry()
-type_registry = Registry()
 type_str_registry = Registry()
 
 

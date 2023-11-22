@@ -8,7 +8,6 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir.name
 import unittest
 
 from loguru import logger
-from transformers import AutoModel, pipeline
 
 from leptonai import config
 from leptonai import photon
@@ -56,24 +55,6 @@ class TestPhotonSdk(unittest.TestCase):
         self.assertTrue(ph._photon_name == "abcdef")
         self.assertTrue(ph._photon_model == f"{self.test_hf_model_id}@{ph.hf_revision}")
         self.assertEqual(ph.hf_revision, revision)
-        ph.run("a cat")
-
-    def test_create_from_transformers_model(self):
-        model_id = "sshleifer/tiny-gpt2"
-        model = AutoModel.from_pretrained(model_id)
-
-        ph = photon.create(name=random_name(), model=model)
-
-        self.assertTrue(ph._photon_model == f"hf:{model_id}@{ph.hf_revision}")
-        ph.run("a cat")
-
-    def test_create_from_transformers_pipeline(self):
-        model_id = "sshleifer/tiny-gpt2"
-        pipe = pipeline(model=model_id)
-
-        ph = photon.create(name=random_name(), model=pipe)
-
-        self.assertTrue(ph._photon_model == f"hf:{model_id}@{ph.hf_revision}")
         ph.run("a cat")
 
     def test_load_metadata(self):
