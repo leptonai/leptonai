@@ -17,7 +17,7 @@ class vLLMPhoton(Photon):
         # At least using gpu.a10.
         "resource_shape": "gpu.a10",
         "env": {
-            "LEPTON_VLLM_MODEL": "",
+            "VLLM_MODEL": "",
         },
     }
 
@@ -59,17 +59,15 @@ class vLLMPhoton(Photon):
         from vllm.transformers_utils.tokenizer import get_tokenizer
         import torch
 
-        if os.environ["LEPTON_VLLM_MODEL"] != "":
-            # If we specified LEPTON_VLLM_MODEL, always override.
-            self.model_id = os.environ["LEPTON_VLLM_MODEL"]
-            logger.debug(
-                f"Overriding model id with LEPTON_VLLM_MODEL: {self.model_id}."
-            )
+        if os.environ["VLLM_MODEL"] != "":
+            # If we specified VLLM_MODEL, always override.
+            self.model_id = os.environ["VLLM_MODEL"]
+            logger.debug(f"Overriding model id with VLLM_MODEL: {self.model_id}.")
         if not self.model_id:
             raise RuntimeError(
                 "You did not specify a model id. Either do it at photon construction "
                 "time with -m vllm:<model_string>, or at runtime with the env "
-                "variable LEPTON_VLLM_MODEL."
+                "variable VLLM_MODEL."
             )
 
         if not torch.cuda.is_available():
