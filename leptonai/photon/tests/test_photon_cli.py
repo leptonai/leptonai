@@ -26,7 +26,7 @@ logger.info(f"Using cache dir: {config.CACHE_DIR}")
 diffusers_model = "hf:hf-internal-testing/tiny-stable-diffusion-torch@a88cdfb"
 transformers_model = "hf:sshleifer/tiny-gpt2@5f91d94"
 whisper_model = "hf:openai/whisper-tiny.en"
-summarization_model = "hf:facebook/bart-large-cnn"
+summarization_model = "hf:jotamunz/billsum_tiny_summarization"
 sentence_similarity_model = (
     "hf:sentence-transformers/paraphrase-albert-small-v2@b8a76dc"
 )
