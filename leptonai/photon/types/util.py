@@ -3,14 +3,34 @@ from io import BytesIO
 import os
 import re
 import tempfile
-from typing import Union, IO
+from typing import Union, IO, Type
 
 from PIL.Image import Image
 import requests
 
 from . import FileParam
 from leptonai.util import _is_valid_url
-from .responses import PNGResponse
+from .responses import StreamingResponse, JPEGResponse, PNGResponse
+
+
+def to_bool(s: str) -> bool:
+    """
+    Convert a string to a boolean value.
+    """
+    if not isinstance(s, str):
+        raise TypeError(f"Expected a string, got {type(s)}")
+    true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
+    false_values = ("no", "false", "f", "0", "n", "off", "nay", "")
+    s = s.lower()
+    if s in true_values:
+        return True
+    elif s in false_values:
+        return False
+    else:
+        raise ValueError(
+            f"Invalid boolean value: {s}. Valid true values: {true_values}. Valid false"
+            f" values: {false_values}."
+        )
 
 
 def _make_temp_file(content: bytes) -> IO:
@@ -104,11 +124,27 @@ def get_file_content(
     )
 
 
+def make_img_response(
+    img: Image, format: str, ResponseType: Type[StreamingResponse]
+) -> StreamingResponse:
+    """
+    Convert an image to a response.
+    """
+    img_byte_array = BytesIO()
+    img.save(img_byte_array, format=format)
+    img_byte_array.seek(0)
+    return ResponseType(img_byte_array)
+
+
+def make_jpeg_response(img: Image) -> JPEGResponse:
+    """
+    Convert an image to a JPEG response.
+    """
+    return make_img_response(img, "JPEG", JPEGResponse)
+
+
 def make_png_response(img: Image) -> PNGResponse:
     """
     Convert an image to a PNG response.
     """
-    img_byte_array = BytesIO()
-    img.save(img_byte_array, format="PNG")
-    img_byte_array.seek(0)
-    return PNGResponse(img_byte_array)
+    return make_img_response(img, "PNG", PNGResponse)

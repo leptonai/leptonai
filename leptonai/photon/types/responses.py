@@ -7,3 +7,7 @@ class PNGResponse(StreamingResponse):
 
 class WAVResponse(StreamingResponse):
     media_type = "audio/wav"
+
+
+class JPEGResponse(StreamingResponse):
+    media_type = "image/jpeg"

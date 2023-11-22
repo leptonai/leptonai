@@ -21,6 +21,7 @@ order).
 import base64
 import pickle
 from typing import Any, Dict
+import warnings
 import zlib
 
 _PICKLED_PREFIX = "lepton_pickled"
@@ -63,6 +64,13 @@ def lepton_pickle(obj: Any, compression: int = -1) -> LeptonPickled:
             "lepton_pickled", and "content" is the pickled string. However, do not
             rely on this format as it may change in the future.
     """
+    warnings.warn(
+        "lepton_pickle is deprecated and may be removed in a future version. "
+        "Pickle is not a cross platform solution, and if you need to explicitly "
+        "pass along pickled objects, consider manually do pickle.dumps and "
+        "pickle.loads.",
+        DeprecationWarning,
+    )
     try:
         content = pickle.dumps(obj)
     except Exception as e:
@@ -88,6 +96,13 @@ def lepton_unpickle(obj: LeptonPickled) -> Any:
     Returns:
         Any: The unpickled object.
     """
+    warnings.warn(
+        "lepton_pickle is deprecated and may be removed in a future version. "
+        "Pickle is not a cross platform solution, and if you need to explicitly "
+        "pass along pickled objects, consider manually do pickle.dumps and "
+        "pickle.loads.",
+        DeprecationWarning,
+    )
     content = base64.b64decode(obj["content"])
     content = zlib.decompress(content)
     try:
