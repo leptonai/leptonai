@@ -29,6 +29,7 @@ from leptonai.photon.types import (
     lepton_unpickle,
     LeptonPickled,
     get_file_content,
+    to_bool,
 )
 from leptonai.photon import Photon, handler, StreamingResponse, FileParam
 
@@ -199,6 +200,43 @@ class TestUtil(unittest.TestCase):
         self.assertRaises(TypeError, get_file_content, [])
         self.assertRaises(TypeError, get_file_content, {})
         self.assertRaises(TypeError, get_file_content, [1, 2, 3])
+
+    def test_to_bool(self):
+        self.assertTrue(to_bool("True"))
+        self.assertTrue(to_bool("true"))
+        self.assertTrue(to_bool("t"))
+        self.assertTrue(to_bool("T"))
+        self.assertTrue(to_bool("1"))
+        self.assertTrue(to_bool("yes"))
+        self.assertTrue(to_bool("Yes"))
+        self.assertTrue(to_bool("y"))
+        self.assertTrue(to_bool("Y"))
+        self.assertTrue(to_bool("on"))
+        self.assertTrue(to_bool("On"))
+        self.assertTrue(to_bool("oN"))
+        self.assertTrue(to_bool("ON"))
+
+        self.assertFalse(to_bool("False"))
+        self.assertFalse(to_bool("false"))
+        self.assertFalse(to_bool("f"))
+        self.assertFalse(to_bool("F"))
+        self.assertFalse(to_bool("0"))
+        self.assertFalse(to_bool("no"))
+        self.assertFalse(to_bool("No"))
+        self.assertFalse(to_bool("n"))
+        self.assertFalse(to_bool("N"))
+        self.assertFalse(to_bool("off"))
+        self.assertFalse(to_bool("Off"))
+        self.assertFalse(to_bool("oFf"))
+        self.assertFalse(to_bool("OFF"))
+        self.assertFalse(to_bool(""))
+
+        self.assertRaises(ValueError, to_bool, "not a boolean value")
+        self.assertRaises(ValueError, to_bool, "2")
+        self.assertRaises(TypeError, to_bool, 2)
+        self.assertRaises(TypeError, to_bool, [])
+        self.assertRaises(TypeError, to_bool, {})
+        self.assertRaises(TypeError, to_bool, [1, 2, 3])
 
 
 if __name__ == "__main__":

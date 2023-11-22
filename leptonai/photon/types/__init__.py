@@ -9,6 +9,6 @@ from .pickled import (
     LeptonPickled,
 )
 
-from .util import get_file_content, make_png_response
+from .util import get_file_content, make_png_response, to_bool
 
 from .responses import PNGResponse, WAVResponse
