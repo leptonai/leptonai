@@ -20,7 +20,7 @@ class InitwithWarmUpCall(Photon):
         self.sleep(seconds=0.1)
 
     @Photon.handler()
-    def sleep(self, seconds: int) -> str:
+    def sleep(self, seconds: float) -> str:
         time.sleep(seconds)
         return "done"
 
