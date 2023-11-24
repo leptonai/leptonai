@@ -59,6 +59,7 @@ from leptonai.photon.types import (  # noqa: F401
     is_pickled,
     LeptonPickled,
     PNGResponse,
+    JPEGResponse,
     WAVResponse,
 )
 from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
