@@ -26,6 +26,14 @@ def delete_queue(conn: Connection, name: str):
     return response
 
 
+def length(conn: Connection, name: str):
+    """
+    Get the length of a queue.
+    """
+    response = conn.get(f"/queue/{name}/length")
+    return response
+
+
 def receive(conn: Connection, name: str):
     """
     Receives a message from a queue.

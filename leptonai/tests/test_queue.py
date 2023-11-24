@@ -45,6 +45,46 @@ class TestQueue(unittest.TestCase):
         new_len = len(Queue.list_queue())
         self.assertEqual(old_len, new_len)
 
+    def test_length(self):
+        logger.debug("Testing length")
+        logger.debug("Testing length with empty queue")
+        self.assertEqual(self.queue_instance.length(), 0)
+        logger.debug("Testing length with non-empty queue")
+
+        self.queue_instance.send("test")
+        remain_wait = 50
+        while self.queue_instance.length() != 1 and remain_wait > 0:
+            time.sleep(0.1)
+            remain_wait -= 1
+        if remain_wait == 0:
+            self.fail("Queue length did not become 1 after 5 seconds")
+
+        self.queue_instance.send("test2")
+        remain_wait = 50
+        while self.queue_instance.length() != 2 and remain_wait > 0:
+            time.sleep(0.1)
+            remain_wait -= 1
+        if remain_wait == 0:
+            self.fail("Queue length did not become 2 after 5 seconds")
+
+        received = []
+        received.append(self.queue_instance.receive())
+        remain_wait = 50
+        while self.queue_instance.length() != 1 and remain_wait > 0:
+            time.sleep(0.1)
+            remain_wait -= 1
+        if remain_wait == 0:
+            self.fail("Queue length did not become 1 after 5 seconds")
+
+        received.append(self.queue_instance.receive())
+        remain_wait = 50
+        while self.queue_instance.length() != 0 and remain_wait > 0:
+            time.sleep(0.1)
+            remain_wait -= 1
+        if remain_wait == 0:
+            self.fail("Queue length did not become 0 after 5 seconds")
+        self.assertEqual(sorted(received), ["test", "test2"])
+
     def test_send_receive(self):
         logger.debug("Testing receive/send")
 

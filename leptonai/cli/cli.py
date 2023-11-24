@@ -5,6 +5,7 @@ from . import deployment
 from . import in_n_out
 from . import lfs
 from . import photon
+from . import queue
 from . import secret
 from . import storage
 from . import workspace
@@ -29,6 +30,7 @@ def lep():
 deployment.add_command(lep)
 lfs.add_command(lep)
 photon.add_command(lep)
+queue.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)
 workspace.add_command(lep)
