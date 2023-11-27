@@ -1347,7 +1347,7 @@ class StorePySrcFilePhoton(Photon):
                     end = time.time()
                     return end - start
                 except asyncio.CancelledError as e:
-                    logger.info("async sleep cancelled due to {e}")
+                    logger.info(f"async sleep cancelled due to {e}")
                     return -1
 
         ph = SleepPhoton(name=random_name())
