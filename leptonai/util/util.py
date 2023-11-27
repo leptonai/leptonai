@@ -101,13 +101,11 @@ def asyncfy_with_semaphore(
             will be enforced. If the function is async, one can catch the CancelledError
             inside the function to handle the timeout.
     """
-
-    semaphore_ctx = semaphore if semaphore is not None else nullcontext()
-
     if inspect.iscoroutinefunction(func):
 
         @wraps(func)
         async def async_func(*args, **kwargs):
+            semaphore_ctx = semaphore if semaphore is not None else nullcontext()
             timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
             with timeout_ctx:
                 async with semaphore_ctx:
@@ -119,6 +117,7 @@ def asyncfy_with_semaphore(
 
         @wraps(func)
         async def async_func(*args, **kwargs):
+            semaphore_ctx = semaphore if semaphore is not None else nullcontext()
             timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
             with timeout_ctx:
                 async with semaphore_ctx:
