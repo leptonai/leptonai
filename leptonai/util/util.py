@@ -99,22 +99,30 @@ def asyncfy_with_semaphore(
             guarded by the semaphore.
     """
 
+    semaphore_ctx = semaphore if semaphore is not None else nullcontext()
+    timeout_ctx = anyio.fail_after(timeout) if timeout is not None else nullcontext()
+
     if inspect.iscoroutinefunction(func):
-        return func
 
-    @wraps(func)
-    async def async_func(*args, **kwargs):
-        semaphore_ctx = semaphore if semaphore is not None else nullcontext()
-        timeout_ctx = (
-            anyio.fail_after(timeout) if timeout is not None else nullcontext()
-        )
-        async with semaphore_ctx:
+        @wraps(func)
+        async def async_func(*args, **kwargs):
             with timeout_ctx:
-                return await anyio.to_thread.run_sync(
-                    partial(func, *args, **kwargs), cancellable=True
-                )
+                async with semaphore_ctx:
+                    return await func(*args, **kwargs)
 
-    return async_func
+        return async_func
+
+    else:
+
+        @wraps(func)
+        async def async_func(*args, **kwargs):
+            with timeout_ctx:
+                async with semaphore_ctx:
+                    return await anyio.to_thread.run_sync(
+                        partial(func, *args, **kwargs), abandon_on_cancel=True
+                    )
+
+        return async_func
 
 
 def _is_valid_url(candidate_str: str) -> bool:
