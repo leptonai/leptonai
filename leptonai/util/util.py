@@ -121,8 +121,9 @@ def asyncfy_with_semaphore(
         async def async_func(*args, **kwargs):
             with timeout_ctx:
                 async with semaphore_ctx:
+                    # TODO: use abandon_on_cancel instead of cancellable=True
                     return await anyio.to_thread.run_sync(
-                        partial(func, *args, **kwargs), abandon_on_cancel=True
+                        partial(func, *args, **kwargs), cancellable=True
                     )
 
         return async_func
