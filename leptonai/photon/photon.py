@@ -223,7 +223,12 @@ class Photon(BasePhoton):
     # thread safety of the methods defines in the Photon class needs to be manually guaranteed by the
     # author of the photon.
     handler_max_concurrency: int = 1
-    handler_timeout: int = 300
+
+    # The default timeout in seconds before the handler returns a timeout error.
+    # Note that this does not actually kill the running user-defined function unless
+    # the user defined function implements the cancellation logic.
+    handler_timeout: int = 600
+
     background_tasks_max_concurrency: int = 1
 
     # The docker base image to use for the photon. In default, we encourage you to use the
