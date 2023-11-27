@@ -1330,6 +1330,32 @@ class StorePySrcFilePhoton(Photon):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json(), "ok")
 
+    def test_handler_timeout(self):
+        class SleepPhoton(Photon):
+            @Photon.handler
+            def sleep(self, seconds: int) -> float:
+                start = time.time()
+                time.sleep(seconds)
+                end = time.time()
+                return end - start
+
+        ph = SleepPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 3})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertGreaterEqual(res.json(), 3)
+
+        class TimeoutSleepPhoton(SleepPhoton):
+            handler_timeout: int = 2
+
+        ph = TimeoutSleepPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 3})
+        self.assertEqual(res.status_code, 504, res.text)
+        self.assertIn("handler timeout", res.text.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

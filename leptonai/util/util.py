@@ -82,7 +82,9 @@ def asyncfy(func):
     return async_func
 
 
-def asyncfy_with_semaphore(func, semaphore: Optional[anyio.Semaphore]):
+def asyncfy_with_semaphore(
+    func, semaphore: Optional[anyio.Semaphore], timeout: Optional[float] = None
+):
     """Decorator that makes a function async, as well as running in a separate thread,
     with the concurrency controlled by the semaphore. If the function is already async,
     this decorator is ignored. If Semaphore is None, we do not enforce an upper bound
@@ -101,11 +103,17 @@ def asyncfy_with_semaphore(func, semaphore: Optional[anyio.Semaphore]):
 
     @wraps(func)
     async def async_func(*args, **kwargs):
-        if semaphore is None:
-            return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
-        else:
-            async with semaphore:
-                return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
+        sempahore_ctx = semaphore if semaphore is not None else contextlib.nullcontext()
+        timeout_ctx = (
+            anyio.fail_after(timeout)
+            if timeout is not None
+            else contextlib.nullcontext()
+        )
+        async with semaphore:
+            with timeout_ctx:
+                return await anyio.to_thread.run_sync(
+                    partial(func, *args, **kwargs), abandon_on_cancel=True
+                )
 
     return async_func
 

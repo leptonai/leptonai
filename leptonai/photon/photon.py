@@ -223,6 +223,7 @@ class Photon(BasePhoton):
     # thread safety of the methods defines in the Photon class needs to be manually guaranteed by the
     # author of the photon.
     handler_max_concurrency: int = 1
+    handler_timeout: int = 300
     background_tasks_max_concurrency: int = 1
 
     # The docker base image to use for the photon. In default, we encourage you to use the
@@ -939,9 +940,12 @@ class Photon(BasePhoton):
                 kwargs["max_batch_size"],
                 kwargs["max_wait_time"],
                 self._handler_semaphore,
+                self.handler_timeout,
             )(method)
         else:
-            method = asyncfy_with_semaphore(method, self._handler_semaphore)
+            method = asyncfy_with_semaphore(
+                method, self._handler_semaphore, self.handler_timeout
+            )
 
         if kwargs.get("rate_limit") is not None:
             rate_limiter = RateLimiter(kwargs["rate_limit"])
@@ -980,6 +984,16 @@ class Photon(BasePhoton):
                         res = await method(*args, **kwargs)
                     except Exception as e:
                         logger.error(traceback.format_exc())
+                        if isinstance(e, TimeoutError):
+                            return JSONResponse(
+                                {
+                                    "error": (
+                                        "handler timeout after"
+                                        f" {self.handler_timeout} seconds"
+                                    )
+                                },
+                                status_code=504,
+                            )
                         if isinstance(e, HTTPException):
                             return JSONResponse(
                                 {"error": e.detail}, status_code=e.status_code
@@ -1025,6 +1039,16 @@ class Photon(BasePhoton):
                         res = await vd.execute(request)
                     except Exception as e:
                         logger.error(traceback.format_exc())
+                        if isinstance(e, TimeoutError):
+                            return JSONResponse(
+                                {
+                                    "error": (
+                                        "handler timeout after"
+                                        f" {self.handler_timeout} seconds"
+                                    )
+                                },
+                                status_code=504,
+                            )
                         if isinstance(e, HTTPException):
                             return JSONResponse(
                                 {"error": e.detail}, status_code=e.status_code
@@ -1055,6 +1079,16 @@ class Photon(BasePhoton):
                         res = await method()
                     except Exception as e:
                         logger.error(traceback.format_exc())
+                        if isinstance(e, TimeoutError):
+                            return JSONResponse(
+                                {
+                                    "error": (
+                                        "handler timeout after"
+                                        f" {self.handler_timeout} seconds"
+                                    )
+                                },
+                                status_code=504,
+                            )
                         if isinstance(e, HTTPException):
                             return JSONResponse(
                                 {"error": e.detail}, status_code=e.status_code
@@ -1078,6 +1112,16 @@ class Photon(BasePhoton):
                     res = await method(*args, **kwargs)
                 except Exception as e:
                     logger.error(traceback.format_exc())
+                    if isinstance(e, TimeoutError):
+                        return JSONResponse(
+                            {
+                                "error": (
+                                    "handler timeout after"
+                                    f" {self.handler_timeout} seconds"
+                                )
+                            },
+                            status_code=504,
+                        )
                     if isinstance(e, HTTPException):
                         return JSONResponse(
                             {"error": e.detail}, status_code=e.status_code
