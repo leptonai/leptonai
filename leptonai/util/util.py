@@ -1,5 +1,5 @@
 import anyio
-from contextlib import contextmanager, closing
+from contextlib import contextmanager, closing, nullcontext
 from functools import wraps, partial
 import inspect
 import os
@@ -103,13 +103,11 @@ def asyncfy_with_semaphore(
 
     @wraps(func)
     async def async_func(*args, **kwargs):
-        sempahore_ctx = semaphore if semaphore is not None else contextlib.nullcontext()
+        semaphore_ctx = semaphore if semaphore is not None else nullcontext()
         timeout_ctx = (
-            anyio.fail_after(timeout)
-            if timeout is not None
-            else contextlib.nullcontext()
+            anyio.fail_after(timeout) if timeout is not None else nullcontext()
         )
-        async with semaphore:
+        async with semaphore_ctx:
             with timeout_ctx:
                 return await anyio.to_thread.run_sync(
                     partial(func, *args, **kwargs), cancellable=True
