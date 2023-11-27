@@ -1375,7 +1375,8 @@ class StorePySrcFilePhoton(Photon):
         # get proc stdout
         proc.terminate()
         stdout, stderr = proc.communicate(timeout=10)
-        self.assertIn("async sleep cancelled", stdout.lower(), stdout)
+        stdout = stdout.decode()
+        self.assertIn("async sleep cancelled", stdout, stdout)
 
 
 if __name__ == "__main__":

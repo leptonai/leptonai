@@ -43,7 +43,6 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
     )
     atexit.register(proc.kill)
 
