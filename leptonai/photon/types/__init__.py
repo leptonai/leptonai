@@ -11,4 +11,4 @@ from .pickled import (
 
 from .util import get_file_content, make_png_response, to_bool
 
-from .responses import PNGResponse, WAVResponse
+from .responses import PNGResponse, JPEGResponse, WAVResponse
