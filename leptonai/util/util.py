@@ -103,12 +103,12 @@ def asyncfy_with_semaphore(
     """
 
     semaphore_ctx = semaphore if semaphore is not None else nullcontext()
-    timeout_ctx = anyio.fail_after(timeout) if timeout is not None else nullcontext()
 
     if inspect.iscoroutinefunction(func):
 
         @wraps(func)
         async def async_func(*args, **kwargs):
+            timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
             with timeout_ctx:
                 async with semaphore_ctx:
                     return await func(*args, **kwargs)
@@ -119,9 +119,9 @@ def asyncfy_with_semaphore(
 
         @wraps(func)
         async def async_func(*args, **kwargs):
+            timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
             with timeout_ctx:
                 async with semaphore_ctx:
-                    # TODO: use abandon_on_cancel instead of cancellable=True
                     return await anyio.to_thread.run_sync(
                         partial(func, *args, **kwargs), cancellable=True
                     )
