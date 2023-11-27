@@ -112,7 +112,7 @@ def asyncfy_with_semaphore(
         async with semaphore:
             with timeout_ctx:
                 return await anyio.to_thread.run_sync(
-                    partial(func, *args, **kwargs), abandon_on_cancel=True
+                    partial(func, *args, **kwargs), cancellable=True
                 )
 
     return async_func
