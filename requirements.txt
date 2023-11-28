@@ -8,7 +8,7 @@ limits
 prometheus-fastapi-instrumentator
 rich
 typing-extensions
-uvicorn
+uvicorn>=0.22.0 # needed by timeout_graceful_shutdown
 loguru
 requests
 pydantic!=2.1.0 # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
