@@ -1005,7 +1005,9 @@ class Photon(BasePhoton):
                             )
                         return JSONResponse({"error": str(e)}, status_code=500)
                     else:
-                        if not isinstance(res, response_class):
+                        if res is None:
+                            return Response(status_code=204)
+                        elif not isinstance(res, response_class):
                             res = response_class(res)
                         return res
 
@@ -1060,7 +1062,9 @@ class Photon(BasePhoton):
                             )
                         return JSONResponse({"error": str(e)}, status_code=500)
                     else:
-                        if not isinstance(res, response_class):
+                        if res is None:
+                            return Response(status_code=204)
+                        elif not isinstance(res, response_class):
                             res = response_class(res)
                         return res
 
@@ -1100,7 +1104,9 @@ class Photon(BasePhoton):
                             )
                         return JSONResponse({"error": str(e)}, status_code=500)
                     else:
-                        if not isinstance(res, response_class):
+                        if res is None:
+                            return Response(status_code=204)
+                        elif not isinstance(res, response_class):
                             res = response_class(res)
                         return res
 
@@ -1133,7 +1139,9 @@ class Photon(BasePhoton):
                         )
                     return JSONResponse({"error": str(e)}, status_code=500)
                 else:
-                    if not isinstance(res, response_class):
+                    if res is None:
+                        return Response(status_code=204)
+                    elif not isinstance(res, response_class):
                         res = response_class(res)
                     return res
 
