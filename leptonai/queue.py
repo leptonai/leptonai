@@ -155,6 +155,19 @@ class Queue(object):
                 f"Queue {self._queue} is not ready after {time.time() - start} seconds."
             )
 
+    def length(self) -> int:
+        """
+        Get the length of the queue.
+        """
+        res = queue_api.length(self._conn, self._queue)
+        if not res.ok:
+            raise RuntimeError(
+                f"Failed to get length of queue {self._queue}. Error:"
+                f" {res.status_code} {res.content}."
+            )
+        else:
+            return res.json()["length"]
+
     def receive(self) -> str:
         """
         Receive a message from the queue. Raises Empty if the queue is empty.
