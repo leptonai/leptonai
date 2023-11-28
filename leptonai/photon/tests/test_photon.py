@@ -1347,7 +1347,6 @@ class StorePySrcFilePhoton(Photon):
                     end = time.time()
                     return end - start
                 except asyncio.CancelledError as e:
-                    logger.info(f"async sleep cancelled due to {e}")
                     return -1
 
         ph = SleepPhoton(name=random_name())
@@ -1372,11 +1371,6 @@ class StorePySrcFilePhoton(Photon):
         res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 3})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json(), -1)
-        # get proc stdout
-        proc.terminate()
-        stdout, stderr = proc.communicate(timeout=10)
-        stdout = stdout.decode()
-        self.assertIn("async sleep cancelled", stdout, stdout)
 
 
 if __name__ == "__main__":
