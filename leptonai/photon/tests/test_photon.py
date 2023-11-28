@@ -1309,6 +1309,7 @@ class StorePySrcFilePhoton(Photon):
         client = Client(f"http://127.0.0.1:{port}")
         for i in range(3):
             self.assertEqual(client.fast(), "fast")
+            time.sleep(0.001)
 
         res = client.slow()
         self.assertEqual(res, "slow")
