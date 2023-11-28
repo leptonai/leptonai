@@ -66,7 +66,6 @@ from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
-from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
@@ -952,18 +951,43 @@ class Photon(BasePhoton):
                 method, self._handler_semaphore, self.handler_timeout
             )
 
-        if kwargs.get("rate_limit") is not None:
-            rate_limiter = RateLimiter(kwargs["rate_limit"])
-
-            def check_rate_limit():
-                if not rate_limiter.hit():
-                    raise HTTPException(
-                        status_code=429,
-                        detail="Rate limit exceeded, please try again later.",
+        async def handle_request(callback, *args, **kwargs):
+            """
+            Common handler for processing requests.
+            """
+            try:
+                res = await callback(*args, **kwargs)
+            except Exception as e:
+                logger.error(traceback.format_exc())
+                if isinstance(e, TimeoutError):
+                    return JSONResponse(
+                        {
+                            "error": (
+                                f"handler timeout after {self.handler_timeout} seconds"
+                            )
+                        },
+                        status_code=504,
                     )
+                elif isinstance(e, HTTPException):
+                    return JSONResponse({"error": e.detail}, status_code=e.status_code)
+                else:
+                    return JSONResponse({"error": str(e)}, status_code=500)
+            else:
+                if res is None:
+                    res = Response(status_code=204)
+                elif not isinstance(res, response_class):
+                    res = response_class(res)
+                return res
 
-        else:
-            rate_limiter = None
+        # for post handler, we change endpoint function's signature to make
+        # it taking json body as input, so do not copy the
+        # `__annotations__` attribute here
+        typed_handler_wrapper = functools.wraps(
+            method,
+            assigned=(
+                wa for wa in functools.WRAPPER_ASSIGNMENTS if wa != "__annotations__"
+            ),  # type: ignore
+        )
 
         if http_method.lower() == "post":
             # In the post mode, we do the following:
@@ -974,42 +998,9 @@ class Photon(BasePhoton):
             # - If no args are specified, we don't wrap anything.
             if kwargs.get("use_raw_args"):
 
-                @functools.wraps(
-                    method,
-                    assigned=(
-                        wa
-                        for wa in functools.WRAPPER_ASSIGNMENTS
-                        if wa != "__annotations__"
-                    ),  # type: ignore
-                )
+                @typed_handler_wrapper
                 async def wrapped_method(*args, **kwargs):
-                    if rate_limiter is not None:
-                        check_rate_limit()
-                    try:
-                        res = await method(*args, **kwargs)
-                    except Exception as e:
-                        logger.error(traceback.format_exc())
-                        if isinstance(e, TimeoutError):
-                            return JSONResponse(
-                                {
-                                    "error": (
-                                        "handler timeout after"
-                                        f" {self.handler_timeout} seconds"
-                                    )
-                                },
-                                status_code=504,
-                            )
-                        if isinstance(e, HTTPException):
-                            return JSONResponse(
-                                {"error": e.detail}, status_code=e.status_code
-                            )
-                        return JSONResponse({"error": str(e)}, status_code=500)
-                    else:
-                        if res is None:
-                            return Response(status_code=204)
-                        elif not isinstance(res, response_class):
-                            res = response_class(res)
-                        return res
+                    return await handle_request(method, *args, **kwargs)
 
                 typed_handler = FunctionType(
                     wrapped_method.__code__,  # type: ignore
@@ -1024,91 +1015,22 @@ class Photon(BasePhoton):
                 typed_handler.__doc__ = method.__doc__
                 typed_handler.__kwdefaults__ = method.__kwdefaults__  # type: ignore
                 typed_handler.__signature__ = inspect.signature(method)  # type: ignore
+
             elif request_model is not None:
                 vd = pydantic.decorator.validate_arguments(method).vd  # type: ignore
 
-                # for post handler, we change endpoint function's signature to make
-                # it taking json body as input, so do not copy the
-                # `__annotations__` attribute here
-                @functools.wraps(
-                    method,
-                    assigned=(
-                        wa
-                        for wa in functools.WRAPPER_ASSIGNMENTS
-                        if wa != "__annotations__"
-                    ),  # type: ignore
-                )
+                @typed_handler_wrapper
                 async def typed_handler(request: request_model):  # type: ignore
-                    if rate_limiter is not None:
-                        check_rate_limit()
-
-                    try:
-                        res = await vd.execute(request)
-                    except Exception as e:
-                        logger.error(traceback.format_exc())
-                        if isinstance(e, TimeoutError):
-                            return JSONResponse(
-                                {
-                                    "error": (
-                                        "handler timeout after"
-                                        f" {self.handler_timeout} seconds"
-                                    )
-                                },
-                                status_code=504,
-                            )
-                        if isinstance(e, HTTPException):
-                            return JSONResponse(
-                                {"error": e.detail}, status_code=e.status_code
-                            )
-                        return JSONResponse({"error": str(e)}, status_code=500)
-                    else:
-                        if res is None:
-                            return Response(status_code=204)
-                        elif not isinstance(res, response_class):
-                            res = response_class(res)
-                        return res
+                    return await handle_request(vd.execute, request)
 
                 delattr(typed_handler, "__wrapped__")
             else:
                 # for post handler, we change endpoint function's signature to make
                 # it taking json body as input, so do not copy the
                 # `__annotations__` attribute here
-                @functools.wraps(
-                    method,
-                    assigned=(
-                        wa
-                        for wa in functools.WRAPPER_ASSIGNMENTS
-                        if wa != "__annotations__"
-                    ),  # type: ignore
-                )
+                @typed_handler_wrapper
                 async def typed_handler():  # type: ignore
-                    if rate_limiter is not None:
-                        check_rate_limit()
-                    try:
-                        res = await method()
-                    except Exception as e:
-                        logger.error(traceback.format_exc())
-                        if isinstance(e, TimeoutError):
-                            return JSONResponse(
-                                {
-                                    "error": (
-                                        "handler timeout after"
-                                        f" {self.handler_timeout} seconds"
-                                    )
-                                },
-                                status_code=504,
-                            )
-                        if isinstance(e, HTTPException):
-                            return JSONResponse(
-                                {"error": e.detail}, status_code=e.status_code
-                            )
-                        return JSONResponse({"error": str(e)}, status_code=500)
-                    else:
-                        if res is None:
-                            return Response(status_code=204)
-                        elif not isinstance(res, response_class):
-                            res = response_class(res)
-                        return res
+                    return await handle_request(method)
 
                 delattr(typed_handler, "__wrapped__")
 
@@ -1116,34 +1038,7 @@ class Photon(BasePhoton):
 
             @functools.wraps(method)
             async def typed_handler(*args, **kwargs):
-                if rate_limiter is not None:
-                    check_rate_limit()
-
-                try:
-                    res = await method(*args, **kwargs)
-                except Exception as e:
-                    logger.error(traceback.format_exc())
-                    if isinstance(e, TimeoutError):
-                        return JSONResponse(
-                            {
-                                "error": (
-                                    "handler timeout after"
-                                    f" {self.handler_timeout} seconds"
-                                )
-                            },
-                            status_code=504,
-                        )
-                    if isinstance(e, HTTPException):
-                        return JSONResponse(
-                            {"error": e.detail}, status_code=e.status_code
-                        )
-                    return JSONResponse({"error": str(e)}, status_code=500)
-                else:
-                    if res is None:
-                        return Response(status_code=204)
-                    elif not isinstance(res, response_class):
-                        res = response_class(res)
-                    return res
+                return await handle_request(method, *args, **kwargs)
 
         else:
             raise ValueError(f"Unsupported http method {http_method}")
