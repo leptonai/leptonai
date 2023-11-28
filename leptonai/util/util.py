@@ -1,5 +1,6 @@
 import anyio
 from contextlib import contextmanager, closing
+from contextlib2 import nullcontext
 from functools import wraps, partial
 import inspect
 import os
@@ -82,32 +83,49 @@ def asyncfy(func):
     return async_func
 
 
-def asyncfy_with_semaphore(func, semaphore: Optional[anyio.Semaphore]):
+def asyncfy_with_semaphore(
+    func, semaphore: Optional[anyio.Semaphore], timeout: Optional[float] = None
+):
     """Decorator that makes a function async, as well as running in a separate thread,
-    with the concurrency controlled by the semaphore. If the function is already async,
-    this decorator is ignored. If Semaphore is None, we do not enforce an upper bound
-    on the number of concurrent calls (but it is still bound by the number of threads
-    that anyio defines as an upper bound).
+    with the concurrency controlled by the semaphore. If Semaphore is None, we do not
+    enforce an upper bound on the number of concurrent calls (but it is still bound by
+    the number of threads that anyio defines as an upper bound).
 
     Args:
-        func (function): Function to make async
-        semaphore (anyio.Semaphore or None): Semaphore to use for concurrency control. If func
-            is already async, this argument is ignored. If func is sync, it will be
-            guarded by the semaphore.
+        func (function): Function to make async. If the function is already async,
+            this function will add semaphore and timeout control to it.
+        semaphore (anyio.Semaphore or None): Semaphore to use for concurrency control.
+            Concurrent calls to this function will be bounded by the semaphore.
+        timeout (float or None): Timeout in seconds. If the function does not return
+            within the timeout, a TimeoutError will be raised. If None, no timeout
+            will be enforced. If the function is async, one can catch the CancelledError
+            inside the function to handle the timeout.
     """
-
     if inspect.iscoroutinefunction(func):
-        return func
 
-    @wraps(func)
-    async def async_func(*args, **kwargs):
-        if semaphore is None:
-            return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
-        else:
-            async with semaphore:
-                return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
+        @wraps(func)
+        async def async_func(*args, **kwargs):
+            semaphore_ctx = semaphore if semaphore is not None else nullcontext()
+            timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
+            with timeout_ctx:
+                async with semaphore_ctx:
+                    return await func(*args, **kwargs)
 
-    return async_func
+        return async_func
+
+    else:
+
+        @wraps(func)
+        async def async_func(*args, **kwargs):
+            semaphore_ctx = semaphore if semaphore is not None else nullcontext()
+            timeout_ctx = anyio.fail_after(timeout) if timeout else nullcontext()
+            with timeout_ctx:
+                async with semaphore_ctx:
+                    return await anyio.to_thread.run_sync(
+                        partial(func, *args, **kwargs), cancellable=True
+                    )
+
+        return async_func
 
 
 def _is_valid_url(candidate_str: str) -> bool:

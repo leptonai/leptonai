@@ -13,6 +13,7 @@ def batch(
     max_batch_size: int,
     max_wait_time: float,
     semaphore: Optional[anyio.Semaphore] = None,
+    timeout: Optional[float] = None,
 ):
     """Decorator that batches calls to a function
 
@@ -31,7 +32,7 @@ def batch(
         raise ValueError("max_wait_time should be greater than 0")
 
     def decorator(func):
-        func = asyncfy_with_semaphore(func, semaphore)
+        func = asyncfy_with_semaphore(func, semaphore=semaphore, timeout=timeout)
 
         # list of (request_id, args, kwargs)
         # using list here is a hack to make it mutable inside closures
