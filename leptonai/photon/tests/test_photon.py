@@ -1341,36 +1341,48 @@ class StorePySrcFilePhoton(Photon):
 
             @Photon.handler
             async def async_sleep(self, seconds: int) -> float:
+                from anyio import get_cancelled_exc_class
+
                 try:
                     start = time.time()
                     await asyncio.sleep(seconds)
                     end = time.time()
                     return end - start
-                except asyncio.CancelledError as e:
+                except get_cancelled_exc_class():
+                    print("async sleep cancelled")
                     return -1
 
         ph = SleepPhoton(name=random_name())
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
-        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 3})
+        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 2})
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertGreaterEqual(res.json(), 3)
-        res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 3})
+        self.assertGreaterEqual(res.json(), 2)
+        res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 2})
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertGreaterEqual(res.json(), 3)
+        self.assertGreaterEqual(res.json(), 2)
 
         class TimeoutSleepPhoton(SleepPhoton):
-            handler_timeout: int = 2
+            handler_timeout: int = 1
 
         ph = TimeoutSleepPhoton(name=random_name())
         path = ph.save()
         proc, port = photon_run_local_server(path=path)
-        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 3})
+        res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 2})
         self.assertEqual(res.status_code, 504, res.text)
         self.assertIn("handler timeout", res.text.lower())
-        res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 3})
-        self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json(), -1)
+        res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 2})
+        # When doing fail_after, the handler is cancelled, but there could
+        # exist a race condition where the handler can return a value fast
+        # enough to get 200. We check either conditions.
+        self.assertIn(res.status_code, [200, 504])
+        if res.ok:
+            self.assertEqual(res.json(), -1)
+        # In any case, the "async sleep cancelled" message should be printed
+        proc.terminate()
+        stdout, _ = proc.communicate()
+        stdout = stdout.decode()
+        self.assertIn("async sleep cancelled", stdout, stdout)
 
 
 if __name__ == "__main__":
