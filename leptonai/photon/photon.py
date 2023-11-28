@@ -66,7 +66,6 @@ from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
-from .rate_limit import RateLimiter
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
@@ -952,23 +951,10 @@ class Photon(BasePhoton):
                 method, self._handler_semaphore, self.handler_timeout
             )
 
-        if kwargs.get("rate_limit") is not None:
-            rate_limiter = RateLimiter(kwargs["rate_limit"], name=path)
-        else:
-            rate_limiter = None
-
         async def handle_request(callback, *args, **kwargs):
             """
             Common handler for processing requests.
             """
-            if rate_limiter is not None and not rate_limiter.hit():
-                raise HTTPException(
-                    status_code=429,
-                    detail=(
-                        f"Rate limit exceeded for {rate_limiter.name or 'undefined'},"
-                        " please try again later."
-                    ),
-                )
             try:
                 res = await callback(*args, **kwargs)
             except Exception as e:
