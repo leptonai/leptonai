@@ -6,9 +6,11 @@ import requests
 import subprocess
 import string
 import time
+from typing import Type
 
 from loguru import logger
 
+from leptonai.photon import Photon
 from leptonai.util import asyncfy, find_available_port
 
 
@@ -71,6 +73,13 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
         else:
             logger.info(f"Photon server started on port {port}")
             return proc, port
+
+
+def photon_run_local_server_simple(photon_class: Type[Photon]):
+    ph = photon_class(name=random_name())
+    path = ph.save()
+    proc, port = photon_run_local_server(path=path)
+    return proc, port
 
 
 def sub_test(params_list):

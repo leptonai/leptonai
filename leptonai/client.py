@@ -198,6 +198,7 @@ class Client(object):
         token: Optional[str] = None,
         stream: Optional[bool] = None,
         chunk_size: Optional[int] = None,
+        timeout: Optional[httpx._types.TimeoutTypes] = None,
         no_check: bool = False,
     ):
         """
@@ -214,6 +215,8 @@ class Client(object):
                 Note that if stream is specified but the return type is json, we will
                 still return the json object lump sum, instead of a generator.
             chunk_size (int, optional): The chunk size to use when streaming. Defaults to None.
+            timeout (httpx._types.TimeoutTypes, optional): The timeout to use. Defaults to None.
+                In most cases, pass in a float number to specify the timeout in seconds.
             no_check: (bool, optional): Whether to skip checking for any errors and print
                 out messages. Defaults to False.
 
@@ -248,7 +251,12 @@ class Client(object):
         if token is not None:
             headers.update({"Authorization": f"Bearer {token}"})
 
-        self._session = httpx.Client(headers=headers)
+        # In default, since AI deployments are usually slow, we don't want to
+        # timeout. httpx's default is 5 seconds, which is too short for AI
+        # deployments.
+        self._session = httpx.Client(
+            headers=headers, timeout=timeout if timeout else httpx.Timeout(None)
+        )
         self.openapi: Dict = {}
         self._debug_record: List = []
         self._path_cache: PathTree = PathTree("", self._debug_record)
@@ -372,7 +380,6 @@ class Client(object):
     # discouraged, only when accessing endpoints that are not defined via
     # Photon.
     def _get(self, path: str, *args, **kwargs) -> httpx.Response:
-        kwargs.setdefault("timeout", None)
         if self.stream:
             return self._session.stream(
                 "GET", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
@@ -381,7 +388,6 @@ class Client(object):
             return self._session.get(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
     def _post(self, path: str, *args, **kwargs) -> httpx.Response:
-        kwargs.setdefault("timeout", None)
         if self.stream:
             return self._session.stream(
                 "POST", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
