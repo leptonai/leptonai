@@ -447,6 +447,8 @@ class Photon(BasePhoton):
     def metadata(self):
         res = super().metadata
 
+        res["cloudpickle_version"] = cloudpickle.__version__
+
         res["openapi_schema"] = self._create_app(load_mount=False).openapi()
 
         res["py_obj"] = {
@@ -569,6 +571,21 @@ class Photon(BasePhoton):
             logger.warning(
                 f"Photon was created with Python {py_version} but now run with Python"
                 f" {cur_py_version}, which may cause unexpected behavior."
+            )
+        cloudpickle_version = metadata.get("cloudpickle_version")
+        if cloudpickle_version:
+            if cloudpickle_version != cloudpickle.__version__:
+                logger.warning(
+                    f"Photon was created with cloudpickle {cloudpickle_version} but now"
+                    f" run with cloudpickle {cloudpickle.__version__}, which may cause"
+                    " unexpected behavior if the versions are not compatible."
+                )
+        else:
+            logger.warning(
+                "Photon was created without cloudpickle version information, and now"
+                " run with cloudpickle {cloudpickle.__version__}. If the versions are"
+                " not compatible, it may cause unexpected behavior, but we cannot"
+                " verify the compatibility."
             )
         obj_pkl_filename = metadata["py_obj"]["obj_pkl_file"]
         with photon_file.open(obj_pkl_filename) as obj_pkl_file:
