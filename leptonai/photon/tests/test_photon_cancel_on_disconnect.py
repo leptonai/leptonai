@@ -10,7 +10,6 @@ tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 from fastapi import UploadFile
-from loguru import logger
 
 from leptonai import Photon
 
@@ -32,13 +31,13 @@ class COD(Photon):
     @Photon.handler(cancel_on_disconnect=0.1)
     def sleep(self, seconds: int) -> str:
         time.sleep(seconds)
-        logger.info("sleep done")
+        print("sleep done")
         return "ok"
 
     @Photon.handler(cancel_on_disconnect=0.1)
     async def async_sleep(self, seconds: int) -> str:
         await anyio.sleep(seconds)
-        logger.info("async_sleep done")
+        print("async_sleep done")
         return "ok"
 
 
