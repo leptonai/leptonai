@@ -59,18 +59,22 @@ async def run_with_cancel_on_disconnect(
         try:
             ret = await callback(*args, **kwargs)
             result.append(ret)
-            raise TaskFinished()
         except anyio.get_cancelled_exc_class():
             # If the task is cancelled, do not raise anything.
             logger.trace("Callback task cancelled.")
-        except TaskFinished:
-            # If the task is finished, simply raise to finish execution.
-            logger.trace("Callback task finished.")
-            raise
+            return
         except Exception as e:
             # For any user code exceptions, we want to raise them and return.
             logger.trace(f"Callback task exception: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+        # If the task is finished, raise TaskFinished.
+        # strictly speaking, there is a race condition here if the cancellation
+        # happens while the following two lines are executing, in which case
+        # both ClientDisconnected and TaskFinished may be raised. However, since
+        # the client is disconnected, whatever result we return will not be used
+        # anyway, so it does not matter.
+        logger.trace("Callback task finished.")
+        raise TaskFinished()
 
     def handle_task_finished(e: ExceptionGroup) -> None:
         logger.trace("Task finished. Return normally.")
