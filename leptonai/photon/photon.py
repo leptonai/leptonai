@@ -23,7 +23,7 @@ import warnings
 import zipfile
 
 import click
-from fastapi import APIRouter, FastAPI, HTTPException, Body
+from fastapi import APIRouter, FastAPI, HTTPException, Body, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -63,6 +63,7 @@ from leptonai.photon.types import (  # noqa: F401
     WAVResponse,
 )
 from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
+from leptonai.util.cancel_on_disconnect import run_with_cancel_on_disconnect
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 from .background import BackgroundTask
@@ -951,14 +952,26 @@ class Photon(BasePhoton):
                 method, self._handler_semaphore, self.handler_timeout
             )
 
-        async def handle_request(callback, *args, **kwargs):
+        async def handle_request(
+            request: Optional[Request],
+            cancel_on_connect_interval,
+            callback,
+            *args,
+            **kwargs,
+        ):
             """
             Common handler for processing requests.
             """
             try:
-                res = await callback(*args, **kwargs)
+                if cancel_on_connect_interval:
+                    assert request is not None
+                    res = await run_with_cancel_on_disconnect(
+                        request, cancel_on_connect_interval, callback, *args, **kwargs
+                    )
+                else:
+                    res = await callback(*args, **kwargs)
             except Exception as e:
-                logger.error(traceback.format_exc())
+                logger.info(f"Exception in handler:\n{traceback.format_exc()}")
                 if isinstance(e, TimeoutError):
                     return JSONResponse(
                         {
@@ -996,11 +1009,28 @@ class Photon(BasePhoton):
             # - Otherwise, we wrap the args to a json body, and use the request_model
             # as the pydantic model to validate the json body.
             # - If no args are specified, we don't wrap anything.
+            cancel_on_disconnect = kwargs.get("cancel_on_disconnect", False)
+            if cancel_on_disconnect and not isinstance(cancel_on_disconnect, float):
+                raise ValueError(
+                    "If you are specifying cancel_on_disconnect, you should specify it"
+                    " as a float number which is the interval in seconds to check if"
+                    " the client is still connected. Got"
+                    f" {cancel_on_disconnect} instead."
+                )
+
             if kwargs.get("use_raw_args"):
+
+                if cancel_on_disconnect:
+                    raise ValueError(
+                        "Cancel_on_disconnect is currently not supported for the "
+                        "use_raw_args mode, as it involves hacking the FastAPI "
+                        "type annotations and is error prone. As a result, we do "
+                        "not recommend using cancel_on_disconnect in this mode."
+                    )
 
                 @typed_handler_wrapper
                 async def wrapped_method(*args, **kwargs):
-                    return await handle_request(method, *args, **kwargs)
+                    return await handle_request(None, False, method, *args, **kwargs)
 
                 typed_handler = FunctionType(
                     wrapped_method.__code__,  # type: ignore
@@ -1020,8 +1050,10 @@ class Photon(BasePhoton):
                 vd = pydantic.decorator.validate_arguments(method).vd  # type: ignore
 
                 @typed_handler_wrapper
-                async def typed_handler(request: request_model):  # type: ignore
-                    return await handle_request(vd.execute, request)
+                async def typed_handler(raw_request: Request, request: request_model):  # type: ignore
+                    return await handle_request(
+                        raw_request, cancel_on_disconnect, vd.execute, request
+                    )
 
                 delattr(typed_handler, "__wrapped__")
             else:
@@ -1029,8 +1061,10 @@ class Photon(BasePhoton):
                 # it taking json body as input, so do not copy the
                 # `__annotations__` attribute here
                 @typed_handler_wrapper
-                async def typed_handler():  # type: ignore
-                    return await handle_request(method)
+                async def typed_handler(raw_request: Request):  # type: ignore
+                    return await handle_request(
+                        raw_request, cancel_on_disconnect, method
+                    )
 
                 delattr(typed_handler, "__wrapped__")
 
@@ -1038,7 +1072,7 @@ class Photon(BasePhoton):
 
             @functools.wraps(method)
             async def typed_handler(*args, **kwargs):
-                return await handle_request(method, *args, **kwargs)
+                return await handle_request(None, False, method, *args, **kwargs)
 
         else:
             raise ValueError(f"Unsupported http method {http_method}")
