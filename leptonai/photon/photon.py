@@ -1020,11 +1020,17 @@ class Photon(BasePhoton):
 
             if kwargs.get("use_raw_args"):
 
-                @typed_handler_wrapper
-                async def wrapped_method(raw_request: Request, *args, **kwargs):
-                    return await handle_request(
-                        raw_request, cancel_on_disconnect, method, *args, **kwargs
+                if cancel_on_disconnect:
+                    raise ValueError(
+                        "Cancel_on_disconnect is currently not supported for the "
+                        "use_raw_args mode, as it involves hacking the FastAPI "
+                        "type annotations and is error prone. As a result, we do "
+                        "not recommend using cancel_on_disconnect in this mode."
                     )
+
+                @typed_handler_wrapper
+                async def wrapped_method(*args, **kwargs):
+                    return await handle_request(None, False, method, *args, **kwargs)
 
                 typed_handler = FunctionType(
                     wrapped_method.__code__,  # type: ignore
