@@ -4,6 +4,7 @@ import leptonai
 from . import deployment
 from . import in_n_out
 from . import job
+from . import kv
 from . import lfs
 from . import photon
 from . import queue
@@ -30,6 +31,7 @@ def lep():
 # Add subcommands
 deployment.add_command(lep)
 job.add_command(lep)
+kv.add_command(lep)
 lfs.add_command(lep)
 photon.add_command(lep)
 queue.add_command(lep)

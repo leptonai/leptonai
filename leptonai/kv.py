@@ -31,7 +31,7 @@ _lepton_max_value_length_ = 256 * 1024
 class KV(object):
     """
     The Lepton Key-Value store. Every named KV can be considered the equivalent of a KV / table / collection,
-    composed of keys as strings and values as bytes..
+    composed of keys as strings and values as bytes.
 
     To create a KV, use the following code:
     ```

@@ -132,13 +132,17 @@ def receive(name):
     """
     conn = get_connection_or_die()
     response = api.receive(conn, name)
-    explain_response(
-        response,
-        f"Successfully received message from queue [green]{name}[/]:",
-        f"Queue [red]{name}[/] does not exist.",
-        f"Failed to receive message from queue [red]{name}[/].",
-    )
-    console.print(response.json()[0]["message"])
+    if response.ok and len(response.json()) == 0:
+        console.print(f"Queue [yellow]{name}[/] is empty.")
+        return
+    else:
+        explain_response(
+            response,
+            f"Successfully received message from queue [green]{name}[/]:",
+            f"Queue [red]{name}[/] does not exist.",
+            f"Failed to receive message from queue [red]{name}[/].",
+        )
+        console.print(response.json()[0]["message"])
 
 
 def add_command(cli_group):

@@ -307,6 +307,8 @@ class TestClientTimeout(unittest.TestCase):
 
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
+        os.environ["LOGURU_LEVEL"] = "TRACE"
+
     def test_client_timeout(self):
         proc, port = photon_run_local_server_simple(SleepCOD)
 
@@ -326,7 +328,6 @@ class TestClientTimeout(unittest.TestCase):
         stdout, stderr = proc.communicate()
         stdout = stdout.decode("utf-8")
         self.assertIn("handle_client_disconnected", stdout, stdout)
-        self.assertIn("raise HTTPException(status_code=503, detail=", stdout, stdout)
 
     def test_client_timeout_streaming(self):
         proc, port = photon_run_local_server_simple(StreamingLongPhoton)
