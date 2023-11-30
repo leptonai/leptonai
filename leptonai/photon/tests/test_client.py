@@ -1,6 +1,6 @@
 from collections.abc import Iterable
-import multiprocessing
 import os
+import sys
 import tempfile
 import time
 
@@ -10,14 +10,13 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 import unittest
 
+import anyio
 import httpx
 import respx
 
-from leptonai import Client
+from leptonai.client import Client, PathTree, local
 from leptonai.photon import Photon, handler, StreamingResponse, HTTPException
-from leptonai.client import PathTree
-from leptonai.util import find_available_port
-from utils import random_name, photon_run_local_server
+from utils import random_name, photon_run_local_server, photon_run_local_server_simple
 
 
 class WeirdlyNamedPhoton(Photon):
@@ -52,22 +51,15 @@ class Throws429(Photon):
         raise HTTPException(status_code=429, detail="Too many requests")
 
 
-def weirdly_named_photon_wrapper(port):
-    photon = WeirdlyNamedPhoton()
-    photon.launch(port=port)
-
-
-def post_and_get_wrapper(port):
-    photon = PostAndGet()
-    photon.launch(port=port)
-
-
-def throws_429_wrapper(port):
-    photon = Throws429()
-    photon.launch(port=port)
-
-
 class TestPathTree(unittest.TestCase):
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
     def test_path_tree_bool(self):
         from leptonai.client import PathTree
 
@@ -83,6 +75,14 @@ class TestPathTree(unittest.TestCase):
 
 class TestClient(unittest.TestCase):
     tiny_hf_model = "hf:sshleifer/tiny-gpt2@5f91d94"
+
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
     def test_client(self):
         # launch server
@@ -117,32 +117,19 @@ class TestClient(unittest.TestCase):
                 " passed."
             )
 
-        proc.kill()
-
     def test_client_with_unique_names(self):
-        port = find_available_port()
-        proc = multiprocessing.Process(
-            target=weirdly_named_photon_wrapper, args=(port,)
-        )
-        proc.start()
-        time.sleep(1)
-        url = f"http://localhost:{port}"
-        client = Client(url)
+        proc, port = photon_run_local_server_simple(WeirdlyNamedPhoton)
+        client = Client(local(port=port))
         self.assertTrue(client.healthz())
         # Tests if run_with_slashes and run_with_dashes are both registered
         res = client.run.with_.slashes()
         self.assertTrue(res == "hello world")
         res = client.run.with_dashes()
         self.assertTrue(res == "hello world", client.run())
-        proc.kill()
 
     def test_client_with_post_and_get(self):
-        port = find_available_port()
-        proc = multiprocessing.Process(target=post_and_get_wrapper, args=(port,))
-        proc.start()
-        time.sleep(1)
-        url = f"http://localhost:{port}"
-        client = Client(url)
+        proc, port = photon_run_local_server_simple(PostAndGet)
+        client = Client(local(port=port))
         self.assertTrue(client.healthz())
         # Tests if run_post and run_get are both registered
         res = client.run_post(query="post")
@@ -152,15 +139,10 @@ class TestClient(unittest.TestCase):
         # Tests if we are guarding args - users should use kwargs.
         self.assertRaises(RuntimeError, client.run_post, "post")
         self.assertRaises(RuntimeError, client.run_get, "get")
-        proc.kill()
 
     def test_client_with_throw_429(self):
-        port = find_available_port()
-        proc = multiprocessing.Process(target=throws_429_wrapper, args=(port,))
-        proc.start()
-        time.sleep(1)
-        url = f"http://localhost:{port}"
-        client = Client(url)
+        proc, port = photon_run_local_server_simple(Throws429)
+        client = Client(local(port=port))
         self.assertTrue(client.healthz())
         self.assertRaises(httpx.HTTPStatusError, client.run)
 
@@ -210,8 +192,6 @@ class TestClient(unittest.TestCase):
             res = client.run(inputs=inputs)
             self.assertTrue(res == {"outputs": outputs})
 
-        proc.kill()
-
 
 class StreamingPhoton(Photon):
     def _simple_generator(self):
@@ -223,26 +203,18 @@ class StreamingPhoton(Photon):
         return StreamingResponse(self._simple_generator())
 
 
-def streaming_photon_wrapper(port):
-    photon = StreamingPhoton()
-    photon.launch(port=port)
-
-
 class TestStreamingPhotonClient(unittest.TestCase):
-    def setUp(self) -> None:
-        self.port = find_available_port()
-        self.proc = multiprocessing.Process(
-            target=streaming_photon_wrapper, args=(self.port,)
-        )
-        self.proc.start()
-        time.sleep(2)
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
 
-    def tearDown(self) -> None:
-        self.proc.kill()
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
-    def test_streaming_client(self):
-        url = f"http://localhost:{self.port}"
-        c = Client(url, stream=True)
+    def test_streaming_photon(self):
+        proc, port = photon_run_local_server_simple(StreamingPhoton)
+        c = Client(local(port=port), stream=True)
 
         result = c.run()
         self.assertIsInstance(result, Iterable)
@@ -251,9 +223,7 @@ class TestStreamingPhotonClient(unittest.TestCase):
         self.assertIsInstance(result_list, list)
         self.assertEqual(b"".join(result_list), b"0,1,2,3,4,5,6,7,8,9,")
 
-    def test_non_streaming_client(self):
-        url = f"http://localhost:{self.port}"
-        c = Client(url, stream=False)
+        c = Client(local(port=port), stream=False)
 
         result = c.run()
         self.assertEqual(result, b"0,1,2,3,4,5,6,7,8,9,")
@@ -275,26 +245,18 @@ class ParentPhoton(Photon):
         return ChildPhoton()
 
 
-def parent_photon_wrapper(port):
-    photon = ParentPhoton()
-    photon.launch(port=port)
-
-
 class TestNestedPhotonClient(unittest.TestCase):
-    def setUp(self) -> None:
-        self.port = find_available_port()
-        self.proc = multiprocessing.Process(
-            target=parent_photon_wrapper, args=(self.port,)
-        )
-        self.proc.start()
-        time.sleep(2)
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
 
-    def tearDown(self) -> None:
-        self.proc.kill()
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
 
     def test_nested_photon(self):
-        url = f"http://localhost:{self.port}"
-        c = Client(url)
+        proc, port = photon_run_local_server_simple(ParentPhoton)
+        c = Client(local(port=port))
 
         result = c.greet()
         self.assertEqual(result, "hello from parent")
@@ -308,6 +270,96 @@ class TestNestedPhotonClient(unittest.TestCase):
 
         result = c.child.greet()
         self.assertEqual(result, "hello from child")
+
+
+class SleepCOD(Photon):
+    @Photon.handler(cancel_on_disconnect=0.1)
+    def sleep(self, seconds: float) -> str:
+        time.sleep(seconds)
+        print("sleep done")
+        return "ok"
+
+    @Photon.handler(cancel_on_disconnect=0.1)
+    async def async_sleep(self, seconds: float) -> str:
+        await anyio.sleep(seconds)
+        print("async_sleep done")
+        return "ok"
+
+
+class StreamingLongPhoton(Photon):
+    def _simple_generator(self):
+        for i in range(10):
+            time.sleep(0.5)
+            print("yielding", i)
+            yield bytes(str(i) + ",", "utf-8")
+
+    @handler
+    def run(self) -> StreamingResponse:
+        return StreamingResponse(self._simple_generator())
+
+
+class TestClientTimeout(unittest.TestCase):
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
+    def test_client_timeout(self):
+        proc, port = photon_run_local_server_simple(SleepCOD)
+
+        # default: no timeout
+        client = Client(local(port=port))
+        # We chose 5.1 because 5 is the httpx default - we want to make sure that
+        # we have overriden the httpx default.
+        self.assertEqual(client.async_sleep(seconds=5.1), "ok")
+        self.assertEqual(client.sleep(seconds=5.1), "ok")
+
+        # timeout
+        client = Client(local(port=port), timeout=0.5)
+        self.assertRaises(httpx.ReadTimeout, client.async_sleep, seconds=6)
+        self.assertRaises(httpx.ReadTimeout, client.sleep, seconds=6)
+
+        proc.terminate()
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        self.assertIn("handle_client_disconnected", stdout, stdout)
+        self.assertIn("raise HTTPException(status_code=503, detail=", stdout, stdout)
+
+    def test_client_timeout_streaming(self):
+        proc, port = photon_run_local_server_simple(StreamingLongPhoton)
+        # default: no timeout
+        client = Client(local(port=port), stream=True)
+        result = client.run()
+        self.assertIsInstance(result, Iterable)
+        result_list = [r for r in result]
+        self.assertIsInstance(result_list, list)
+        self.assertEqual(b"".join(result_list), b"0,1,2,3,4,5,6,7,8,9,", result_list)
+        proc.terminate()
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        for i in range(10):
+            self.assertIn(f"yielding {i}", stdout, stdout)
+
+        # timeout
+        proc, port = photon_run_local_server_simple(StreamingLongPhoton)
+        client = Client(local(port=port), timeout=0.5)
+        with self.assertRaises(httpx.ReadTimeout):
+            result = client.run()
+            for _ in result:
+                pass
+
+        proc.terminate()
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        self.assertIn("yielding 0", stdout, stdout)
+        self.assertNotIn("yielding 9", stdout, stdout)
+        # Since the handler actually returned StreamingResponse, the server
+        # will not raise ClientDisconnected.
+        self.assertIn('"POST /run HTTP/1.1" 200 OK', stdout, stdout)
+        self.assertNotIn("handle_client_disconnected", stdout, stdout)
 
 
 if __name__ == "__main__":
