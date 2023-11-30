@@ -4,6 +4,7 @@ Types for the Lepton AI API.
 These types are used as wrappers of the json payloads used by the API.
 """
 
+from enum import Enum
 from typing import List, Optional
 import warnings
 from pydantic import BaseModel
@@ -302,3 +303,77 @@ class DeploymentSpec(BaseModel):
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
     health: Optional[HealthCheck] = None
+
+
+class LeptonJobState(str, Enum):
+    NotReady = "Not Ready"
+    Running = "Running"
+    Failed = "Failed"
+    Completed = "Completed"
+    Deleting = "Deleting"
+    Unknown = ""
+
+
+class LeptonJobStatus(BaseModel):
+    """
+    The observed state of a Lepton Job.
+    """
+
+    state: LeptonJobState
+    ready: int
+    active: int
+    failed: int
+    succeeded: int
+    completion_time: Optional[int] = None
+
+
+class ContainerPort(BaseModel):
+    """
+    The port spec of a Lepton Job.
+    """
+
+    container_port: int
+    protocol: Optional[str] = None
+
+
+class LeptonContainer(BaseModel):
+    """
+    The container spec of a Lepton Job.
+    """
+
+    image: str
+    ports: Optional[List[ContainerPort]] = None
+    command: Optional[List[str]] = None
+
+
+class LeptonJobSpec(BaseModel):
+    """
+    The desired state of a Lepton Job.
+    """
+
+    resource_shape: Optional[str] = None
+    container: LeptonContainer
+    completions: int
+    parallelism: int
+    envs: List[EnvVar] = []
+    mounts: List[Mount] = []
+
+
+class LeptonMetadata(BaseModel):
+    """
+    The metadata of Lepton types.
+    """
+
+    id: str
+    created_at: Optional[int] = None
+    version: Optional[int] = None
+
+
+class LeptonJob(BaseModel):
+    """
+    The Lepton Job.
+    """
+
+    metadata: LeptonMetadata
+    spec: LeptonJobSpec
+    status: Optional[LeptonJobStatus] = None
