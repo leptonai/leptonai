@@ -2,6 +2,8 @@
 Implements the functionality to cancel a fastapi call when the client disconnects.
 """
 
+import traceback
+
 import anyio
 from exceptiongroup import catch, ExceptionGroup
 from fastapi import Request, HTTPException
@@ -65,7 +67,7 @@ async def run_with_cancel_on_disconnect(
             return
         except Exception as e:
             # For any user code exceptions, we want to raise them and return.
-            logger.trace(f"Callback task exception: {e}")
+            logger.info(f"Task exception:\n{traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
         # If the task is finished, raise TaskFinished.
         # strictly speaking, there is a race condition here if the cancellation
@@ -101,5 +103,5 @@ async def run_with_cancel_on_disconnect(
             tg.start_soon(_disconnect_poller, request, cancel_on_connect_interval)
             tg.start_soon(_callback_task_wrapper)
     # If the above did not raise, we have a result.
-    logger.info(f"Returning result: {result[0]}")
+    logger.trace("Returning result.")
     return result[0]
