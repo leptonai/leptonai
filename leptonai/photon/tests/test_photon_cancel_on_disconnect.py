@@ -50,6 +50,7 @@ class TestPhotonCOD(unittest.TestCase):
             import sys
 
             cloudpickle.register_pickle_by_value(sys.modules[__name__])
+        os.environ["LOGURU_LEVEL"] = "TRACE"
 
     def test_cannot_do_cod_and_raw_args(self):
         p = CODRawArgs()
