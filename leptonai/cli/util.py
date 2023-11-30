@@ -109,7 +109,8 @@ def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
     This is useful for apis that directly return a response object.
     """
     if response.status_code >= 200 and response.status_code <= 299:
-        console.print(if_2xx)
+        if if_2xx:
+            console.print(if_2xx)
         return
     else:
         if response.status_code >= 400 and response.status_code <= 499:
