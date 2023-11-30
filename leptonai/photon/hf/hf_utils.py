@@ -92,6 +92,61 @@ pipeline_registry.register(
 )
 
 
+def create_auto_image_to_image_pipeline(task, model, revision, torch_compile=False):
+    try:
+        from diffusers import AutoPipelineForImage2Image
+        import torch
+    except ImportError:
+        raise RuntimeError(
+            "Lepton huggingface photon requires torch and diffusers but they are not"
+            " installed. Please install them with: pip install torch diffusers"
+        )
+
+    if torch.cuda.is_available():
+        torch_dtype = torch.float16
+    else:
+        torch_dtype = torch.bfloat16
+
+    try:
+        pipeline = AutoPipelineForImage2Image.from_pretrained(
+            model,
+            revision=revision,
+            torch_dtype=torch_dtype,
+        )
+    except Exception as e:
+        logger.info(
+            f"Failed to create pipeline with {torch_dtype}: {e}, fallback to fp32"
+        )
+        pipeline = AutoPipelineForImage2Image.from_pretrained(
+            model,
+            revision=revision,
+        )
+    if torch.cuda.is_available():
+        pipeline = pipeline.to("cuda")
+        if torch_compile:
+            try:
+                torch._dynamo.config.suppress_errors = True
+                pipeline.unet = torch.compile(
+                    pipeline.unet, mode="reduce-overhead", fullgraph=True
+                )
+            except Exception as e:
+                device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+                torch_version = torch.__version__
+                logger.info(
+                    f"Failed to enable torch.compile on device_name={device_name},"
+                    f" torch_version={torch_version}: {e}"
+                )
+            else:
+                logger.info("Enabled torch.compile")
+    return pipeline
+
+
+pipeline_registry.register(
+    "image-to-image",
+    create_auto_image_to_image_pipeline,
+)
+
+
 def _create_ggml_transformers_pipeline(task, model, revision):
     try:
         import ctransformers  # noqa: F401

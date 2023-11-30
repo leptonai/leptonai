@@ -11,7 +11,7 @@ from loguru import logger
 
 from leptonai.registry import Registry
 from leptonai.photon.base import schema_registry
-from leptonai.photon import Photon, PNGResponse, FileParam
+from leptonai.photon import Photon, PNGResponse, FileParam, HTTPException
 from .hf_utils import (
     pipeline_registry,
     img_param_to_img,
@@ -26,6 +26,7 @@ task_cls_registry = Registry()
 HF_DEFINED_TASKS = [
     # diffusers
     "text-to-image",
+    "image-to-image",
     # transformers
     "audio-classification",
     "automatic-speech-recognition",
@@ -113,11 +114,12 @@ class HuggingfacePhoton(Photon):
     @classmethod
     def _parse_model_str(cls, model_str):
         model_parts = model_str.split(":")
-        if len(model_parts) != 2:
+        if len(model_parts) not in (2, 3):
             raise ValueError(
                 f'Unsupported Huggingface model: "{model_str}" (can not parse model'
                 " name). Huggingface model spec should be in the form of"
-                " hf:<model_name>[@<revision>]."
+                " hf:<model_name>[@<revision>], or"
+                " hf:<task_name>:<model_name>[@<revision>]."
             )
         schema = model_parts[0]
         if schema not in HUGGING_FACE_SCHEMAS:
@@ -128,14 +130,25 @@ class HuggingfacePhoton(Photon):
                 f'Unsupported Huggingface model: "{model_str}" (unknown schema:'
                 f' "{schema}")'
             )
-        hf_model_id = model_parts[1]
+        hf_model_id = model_parts[-1]
         if "@" in hf_model_id:
             hf_model_id, revision = hf_model_id.split("@")
         else:
             revision = None
         mi = model_info(hf_model_id, revision=revision)
 
-        if hf_model_id in _MANUALLY_ANNOTATED_MODEL_TO_TASK:
+        if len(model_parts) == 3:
+            hf_task = model_parts[1]
+            logger.info(
+                f"You have explicitly specified the hugging face task as {hf_task}."
+            )
+            if hf_task != mi.pipeline_tag:
+                logger.info(
+                    f"Specified task {hf_task} does not match the task of the model"
+                    f" pipeline tag {mi.pipeline_tag}. Kindly make sure that you have"
+                    " specified the correct task that this model supports."
+                )
+        elif hf_model_id in _MANUALLY_ANNOTATED_MODEL_TO_TASK:
             hf_task = _MANUALLY_ANNOTATED_MODEL_TO_TASK[hf_model_id]
         else:
             hf_task = mi.pipeline_tag
@@ -240,8 +253,9 @@ class HuggingfacePhoton(Photon):
     def _run_pipeline(self, *args, **kwargs):
         import torch
 
-        # autocast causes invalid value (and generates black images) for text-to-image
-        if torch.cuda.is_available() and self.hf_task != "text-to-image":
+        # autocast causes invalid value (and generates black images) for text-to-image and image-to-image
+        no_auto_cast_set = ("text-to-image", "image-to-image")
+        if torch.cuda.is_available() and self.hf_task not in no_auto_cast_set:
             with torch.autocast(device_type="cuda"):
                 return self.pipeline(*args, **kwargs)
         else:
@@ -794,6 +808,79 @@ class HuggingfaceImageToTextPhoton(HuggingfacePhoton):
             **kwargs,
         )
         return _get_generated_text(res)
+
+
+class HuggingfaceImageToImagePhoton(HuggingfacePhoton):
+    hf_task: str = "image-to-image"
+
+    def init(self):
+        super().init()
+
+        import torch
+
+        if torch.cuda.is_available():
+            self._device = "cuda"
+        else:
+            self._device = "cpu"
+
+    @Photon.handler(
+        example={
+            "image": "http://images.cocodataset.org/val2017/000000039769.jpg",
+            "prompt": "Two dogs sleeping on a couch",
+            "num_inference_steps": 25,
+            "guidance_scale": 7.5,
+            "negative_prompt": None,
+            "seed": 42,
+        },
+    )
+    async def run(
+        self,
+        image: Union[Union[str, FileParam], List[Union[str, FileParam]]],
+        prompt: Optional[Union[str, List[str]]] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 7.5,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        seed: Optional[Union[int, List[int]]] = None,
+        **kwargs,
+    ) -> PNGResponse:
+        import torch
+
+        if seed is not None:
+            if not isinstance(seed, list):
+                seed = [seed]
+            generator = [
+                torch.Generator(device=self._device).manual_seed(s) for s in seed
+            ]
+        else:
+            generator = None
+
+        if not isinstance(image, list):
+            image = [image]
+        try:
+            image_ = [img_param_to_img(img) for img in image]
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not load image {image}: {e}",
+            )
+
+        res = self._run_pipeline(
+            prompt,
+            image=image_,
+            height=height,
+            width=width,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            negative_prompt=negative_prompt,
+            generator=generator,
+            **kwargs,
+        )
+        img_io = BytesIO()
+        res.images[0].save(img_io, format="PNG", quality="keep")
+        img_io.seek(0)
+        return PNGResponse(img_io)
 
 
 class HuggingfaceImageClassificationPhoton(HuggingfacePhoton):
