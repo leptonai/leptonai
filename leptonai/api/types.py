@@ -5,7 +5,7 @@ These types are used as wrappers of the json payloads used by the API.
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 import warnings
 from pydantic import BaseModel
 
@@ -341,9 +341,43 @@ class LeptonContainer(BaseModel):
     The container spec of a Lepton Job.
     """
 
-    image: str
+    image: Optional[str] = None
     ports: Optional[List[ContainerPort]] = None
     command: Optional[List[str]] = None
+
+    @staticmethod
+    def make_container(
+        image: str,
+        command: Union[str, List[str]],
+        ports: Optional[List[str]] = None,
+    ) -> "LeptonContainer":
+        """
+        Validates the container spec and returns a LeptonContainer object.
+        """
+        if not image:
+            raise ValueError("image must be specified.")
+        if ports:
+            ports_list = []
+            for port_str in ports:
+                parts = port_str.split(":")
+                if len(parts) == 2:
+                    try:
+                        port = int(parts[0].strip())
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid port definition: {port_str}. Port must be an"
+                            " integer."
+                        )
+                    ports_list.append(
+                        ContainerPort(container_port=port, protocol=parts[1].strip())
+                    )
+                else:
+                    raise ValueError(f"Invalid port definition: {port_str}")
+        else:
+            ports_list = None
+        if isinstance(command, str):
+            command = command.split(" ")
+        return LeptonContainer(image=image, ports=ports_list, command=command)
 
 
 class LeptonJobSpec(BaseModel):
@@ -352,9 +386,9 @@ class LeptonJobSpec(BaseModel):
     """
 
     resource_shape: Optional[str] = None
-    container: LeptonContainer
-    completions: int
-    parallelism: int
+    container: LeptonContainer = LeptonContainer()
+    completions: int = 1
+    parallelism: int = 1
     envs: List[EnvVar] = []
     mounts: List[Mount] = []
 
