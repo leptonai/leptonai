@@ -3,6 +3,7 @@ A utility package to abstract away the connection to the Lepton server.
 """
 
 from typing import Dict, Optional
+import os
 import requests
 import warnings
 
@@ -21,6 +22,13 @@ class Connection:
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
         self._session = requests.Session()
+        if os.environ.get("LEPTON_DEBUG_HEADERS"):
+            # LEPTON_DEBUG_HEADERS should be in the format of comma separated
+            # header_key=header_value pairs.
+            header_pairs = os.environ["LEPTON_DEBUG_HEADERS"].split(",")
+            for pair in header_pairs:
+                key, value = pair.split("=")
+                self._header.setdefault(key, value)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         if "timeout" not in kwargs:
