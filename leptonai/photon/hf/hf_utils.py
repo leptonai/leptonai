@@ -1,14 +1,12 @@
-import base64
+from io import BytesIO
 import os
-import tempfile
 from typing import List, Union
 
 from loguru import logger
 
 from leptonai.config import TRUST_REMOTE_CODE
 from leptonai.registry import Registry
-from leptonai.photon import FileParam, HTTPException
-from leptonai.photon.types import get_file_content
+from leptonai.photon import FileParam, HTTPException, get_file_content
 
 from .hf_dependencies import hf_no_attention_mask_models
 
@@ -16,10 +14,10 @@ pipeline_registry = Registry()
 
 
 def img_param_to_img(param: Union[str, bytes, FileParam]):
-    from diffusers.utils import load_image
+    from PIL import Image
 
-    content = get_file_content(param, return_file=True)
-    return load_image(content.name)
+    content = get_file_content(param)
+    return Image.open(BytesIO(content))
 
 
 def create_diffusion_pipeline(task, model, revision, torch_compile=False):

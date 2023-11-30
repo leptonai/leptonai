@@ -181,7 +181,10 @@ class HuggingfacePhoton(Photon):
 
         # 8 chars should be enough to identify a commit
         hf_revision = mi.sha[:8]
-        model = f"{schema}:{hf_model_id}@{hf_revision}"
+        if len(model_parts) == 3:
+            model = f"{schema}:{hf_task}:{hf_model_id}@{hf_revision}"
+        else:
+            model = f"{schema}:{hf_model_id}@{hf_revision}"
 
         return model, hf_task, hf_model_id, hf_revision
 
@@ -843,6 +846,7 @@ class HuggingfaceImageToImagePhoton(HuggingfacePhoton):
         guidance_scale: float = 7.5,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         seed: Optional[Union[int, List[int]]] = None,
+        strength: float = 0.8,
         **kwargs,
     ) -> PNGResponse:
         import torch
@@ -875,6 +879,7 @@ class HuggingfaceImageToImagePhoton(HuggingfacePhoton):
             guidance_scale=guidance_scale,
             negative_prompt=negative_prompt,
             generator=generator,
+            strength=strength,
             **kwargs,
         )
         img_io = BytesIO()

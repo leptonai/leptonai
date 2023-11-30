@@ -40,6 +40,10 @@ def _make_temp_file(content: bytes) -> IO:
     """
     f = tempfile.NamedTemporaryFile()
     f.write(content)
+    # Flush to make sure that the content is written.
+    f.flush()
+    # Seek to the beginning of the file so that the content can be read.
+    f.seek(0)
     return f
 
 
