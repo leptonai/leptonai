@@ -103,12 +103,9 @@ def get_file_content(
             # Last resort: we will try to decode the string as a base64 string.
             try:
                 content = base64.b64decode(src)
+                return _make_temp_file(content) if return_file else content
             except Exception:
-                raise ValueError(
-                    "Failed to decode base64 string:"
-                    f" {src if len(src) < 100 else src[:100] + '...'}"
-                )
-            return _make_temp_file(content) if return_file else content
+                pass
         # If any of the above fails, we will raise an error.
         raise ValueError(
             "Failed to get file content from source:"

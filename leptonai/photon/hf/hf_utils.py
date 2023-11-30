@@ -1,40 +1,25 @@
 import base64
 import os
 import tempfile
-from typing import List
+from typing import List, Union
 
 from loguru import logger
 
 from leptonai.config import TRUST_REMOTE_CODE
 from leptonai.registry import Registry
 from leptonai.photon import FileParam, HTTPException
+from leptonai.photon.types import get_file_content
 
 from .hf_dependencies import hf_no_attention_mask_models
 
 pipeline_registry = Registry()
 
 
-def img_param_to_img(param):
+def img_param_to_img(param: Union[str, bytes, FileParam]):
     from diffusers.utils import load_image
 
-    if isinstance(param, FileParam):
-        file = tempfile.NamedTemporaryFile()
-        file.write(param.file.read())
-        file.flush()
-        param = file.name
-    elif isinstance(param, str):
-        if param.startswith("http://") or param.startswith("https://"):
-            pass
-        else:
-            # base64
-            file = tempfile.NamedTemporaryFile()
-            file.write(base64.b64decode(param.encode("ascii")))
-            file.flush()
-            param = file.name
-    else:
-        raise ValueError(f"Invalid image param: {param}")
-    image = load_image(param)
-    return image
+    content = get_file_content(param, return_file=True)
+    return load_image(content.name)
 
 
 def create_diffusion_pipeline(task, model, revision, torch_compile=False):
