@@ -6,6 +6,7 @@ from . import in_n_out
 from . import job
 from . import kv
 from . import lfs
+from . import objectstore
 from . import photon
 from . import queue
 from . import secret
@@ -33,6 +34,7 @@ deployment.add_command(lep)
 job.add_command(lep)
 kv.add_command(lep)
 lfs.add_command(lep)
+objectstore.add_command(lep)
 photon.add_command(lep)
 queue.add_command(lep)
 secret.add_command(lep)
