@@ -19,6 +19,7 @@ from leptonai.api import photon as api
 from leptonai.api import types
 from leptonai.api.deployment import list_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
+from leptonai.api.secret import create_secret, list_secret
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
@@ -63,6 +64,26 @@ def _get_most_recent_photon_id_or_none(conn: Connection, name: str) -> Optional[
     """
     photon_ids = _get_ordered_photon_ids_or_none(conn, name)
     return photon_ids[0] if photon_ids else None
+
+
+def _add_workspace_token_secret_var_if_not_existing(conn: Connection):
+    """
+    Adds the workspace token as a secret environment variable.
+    """
+    workspace_token = WorkspaceInfoLocalRecord.get_current_workspace_token() or ""
+    existing_secrets = guard_api(
+        list_secret(conn),
+        msg="Failed to list secrets.",
+    )
+    if "LEPTON_WORKSPACE_TOKEN" not in existing_secrets:
+        response = create_secret(conn, ["LEPTON_WORKSPACE_TOKEN"], [workspace_token])
+        explain_response(
+            response,
+            None,
+            "Failed to create secret LEPTON_WORKSPACE_TOKEN.",
+            "Failed to create secret LEPTON_WORKSPACE_TOKEN.",
+            exit_if_4xx=True,
+        )
 
 
 @click_group()
@@ -471,6 +492,17 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     default=None,
 )
+@click.option(
+    "--include-workspace-token",
+    is_flag=True,
+    help=(
+        "If specified, the workspace token will be included as an environment"
+        " variable. This is used when the photon code uses Lepton SDK capabilities such"
+        " as queue, KV, objectstore etc. Note that you should trust the code in the"
+        " photon, as it will have access to the workspace token."
+    ),
+    default=False,
+)
 @click.pass_context
 def run(
     ctx,
@@ -498,6 +530,7 @@ def run(
     no_traffic_timeout,
     target_gpu_utilization,
     initial_delay_seconds,
+    include_workspace_token,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -562,6 +595,10 @@ def run(
         deployment_template = metadata.get("deployment_template", None)  # type:ignore
         # parse environment variables and secrets
         deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
+
+        if include_workspace_token:
+            console.print("Including the workspace token for the photon execution.")
+            _add_workspace_token_secret_var_if_not_existing(conn)
 
         try:
             response = api.run_remote(
