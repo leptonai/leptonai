@@ -139,12 +139,13 @@ def delete(key, bucket):
 
 @objectstore.command(name="list")
 @click.option("--bucket", "-b", help="Bucket name", type=str, default="private")
-def list_command(bucket):
+@click.option("--prefix", "-p", help="Prefix to filter objects", type=str, default=None)
+def list_command(bucket, prefix):
     """
     Lists all objects in the current workspace.
     """
     conn = get_connection_or_die()
-    response = api.list_objects(conn, bucket)
+    response = api.list_objects(conn, bucket, prefix)
     explain_response(
         response,
         "List of objects in the current workspace:",

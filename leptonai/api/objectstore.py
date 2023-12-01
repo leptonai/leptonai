@@ -1,5 +1,5 @@
 import requests
-from typing import IO
+from typing import IO, Optional
 
 from .connection import Connection
 
@@ -44,11 +44,12 @@ def put(conn: Connection, key: str, file_like: IO, bucket_name: str):
         return response
 
 
-def list_objects(conn: Connection, bucket_name: str):
+def list_objects(conn: Connection, bucket_name: str, prefix: Optional[str] = None):
     """
     List all objects in the current workspace.
     """
-    response = conn.get(f"/object_storage/{bucket_name}/")
+    maybe_prefix = {"prefix": prefix} if prefix else {}
+    response = conn.get(f"/object_storage/{bucket_name}/", params=maybe_prefix)
     return response
 
 
