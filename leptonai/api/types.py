@@ -4,7 +4,8 @@ Types for the Lepton AI API.
 These types are used as wrappers of the json payloads used by the API.
 """
 
-from typing import List, Optional
+from enum import Enum
+from typing import List, Optional, Union
 import warnings
 from pydantic import BaseModel
 
@@ -302,3 +303,111 @@ class DeploymentSpec(BaseModel):
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
     health: Optional[HealthCheck] = None
+
+
+class LeptonJobState(str, Enum):
+    NotReady = "Not Ready"
+    Running = "Running"
+    Failed = "Failed"
+    Completed = "Completed"
+    Deleting = "Deleting"
+    Unknown = ""
+
+
+class LeptonJobStatus(BaseModel):
+    """
+    The observed state of a Lepton Job.
+    """
+
+    state: LeptonJobState
+    ready: int
+    active: int
+    failed: int
+    succeeded: int
+    completion_time: Optional[int] = None
+
+
+class ContainerPort(BaseModel):
+    """
+    The port spec of a Lepton Job.
+    """
+
+    container_port: int
+    protocol: Optional[str] = None
+
+
+class LeptonContainer(BaseModel):
+    """
+    The container spec of a Lepton Job.
+    """
+
+    image: Optional[str] = None
+    ports: Optional[List[ContainerPort]] = None
+    command: Optional[List[str]] = None
+
+    @staticmethod
+    def make_container(
+        image: str,
+        command: Union[str, List[str]],
+        ports: Optional[List[str]] = None,
+    ) -> "LeptonContainer":
+        """
+        Validates the container spec and returns a LeptonContainer object.
+        """
+        if not image:
+            raise ValueError("image must be specified.")
+        if ports:
+            ports_list = []
+            for port_str in ports:
+                parts = port_str.split(":")
+                if len(parts) == 2:
+                    try:
+                        port = int(parts[0].strip())
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid port definition: {port_str}. Port must be an"
+                            " integer."
+                        )
+                    ports_list.append(
+                        ContainerPort(container_port=port, protocol=parts[1].strip())
+                    )
+                else:
+                    raise ValueError(f"Invalid port definition: {port_str}")
+        else:
+            ports_list = None
+        if isinstance(command, str):
+            command = command.split(" ")
+        return LeptonContainer(image=image, ports=ports_list, command=command)
+
+
+class LeptonJobSpec(BaseModel):
+    """
+    The desired state of a Lepton Job.
+    """
+
+    resource_shape: Optional[str] = None
+    container: LeptonContainer = LeptonContainer()
+    completions: int = 1
+    parallelism: int = 1
+    envs: List[EnvVar] = []
+    mounts: List[Mount] = []
+
+
+class LeptonMetadata(BaseModel):
+    """
+    The metadata of Lepton types.
+    """
+
+    id: str
+    created_at: Optional[int] = None
+    version: Optional[int] = None
+
+
+class LeptonJob(BaseModel):
+    """
+    The Lepton Job.
+    """
+
+    metadata: LeptonMetadata
+    spec: LeptonJobSpec
+    status: Optional[LeptonJobStatus] = None
