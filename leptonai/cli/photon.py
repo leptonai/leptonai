@@ -75,7 +75,7 @@ def _add_workspace_token_secret_var_if_not_existing(conn: Connection):
         list_secret(conn),
         msg="Failed to list secrets.",
     )
-    if not "LEPTON_WORKSPACE_TOKEN" in existing_secrets:
+    if "LEPTON_WORKSPACE_TOKEN" not in existing_secrets:
         response = create_secret(conn, ["LEPTON_WORKSPACE_TOKEN"], [workspace_token])
         explain_response(
             response,
