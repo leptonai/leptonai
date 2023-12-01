@@ -182,14 +182,15 @@ def login(
     This function is intended to be used inside lepton deployments to log in to the
     workspace programmatically.
     """
+    # First, update the workspace_id, auth_token, and url if they are None and
+    # there are environment variables.
+    workspace_id = (
+        workspace_id if workspace_id else os.environ.get("LEPTON_WORKSPACE_ID")
+    )
+    auth_token = auth_token if auth_token else os.environ.get("LEPTON_WORKSPACE_TOKEN")
+    url = url if url else os.environ.get("LEPTON_WORKSPACE_URL")
     if workspace_id:
         WorkspaceInfoLocalRecord.set_and_save(workspace_id, auth_token, url)
-    elif "LEPTON_WORKSPACE_ID" in os.environ:
-        WorkspaceInfoLocalRecord.set_and_save(
-            os.environ["LEPTON_WORKSPACE_ID"],
-            auth_token=os.environ.get("LEPTON_WORKSPACE_TOKEN", None),
-            url=os.environ.get("LEPTON_WORKSPACE_URL", None),
-        )
     else:
         raise RuntimeError(
             "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
