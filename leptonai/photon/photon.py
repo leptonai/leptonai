@@ -85,7 +85,7 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     if len(args) > 0 and (args[0] == "self" or args[0] == "cls"):
         args = args[1:]  # remove self or cls
 
-    if len(args) > 0:
+    if args or varkw:
         if defaults is None:
             defaults = ()
         non_default_args_count = len(args) - len(defaults)
@@ -1166,9 +1166,12 @@ class Photon(BasePhoton):
 
     @classmethod
     def _find_photon_subcls_names(cls, module):
+        # cyclic import
+        from .worker import Worker
+
         valid_cls_names = []
         for name, obj in inspect.getmembers(module):
-            if obj is cls:
+            if obj in (cls, Worker):
                 continue
             if inspect.isclass(obj) and issubclass(obj, cls):
                 valid_cls_names.append(name)
