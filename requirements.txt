@@ -2,6 +2,7 @@ anyio
 click
 cloudpickle==2.2.1
 contextlib2 # backports async support in nullcontext
+exceptiongroup
 fastapi
 httpx
 limits
