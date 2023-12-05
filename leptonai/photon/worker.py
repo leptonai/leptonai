@@ -44,9 +44,9 @@ class Worker(Photon):
             raise RuntimeError("kv_name is not set")
         self._kv = KV(self.kv_name, create_if_not_exists=False, wait_for_creation=True)
 
-        # so that `on_task` shares the handler_max_concurrency
+        # so that `on_task` shares the background_tasks_max_concurrency
         self._on_task_handler = asyncfy_with_semaphore(
-            self.on_task, self._handler_semaphore
+            self.on_task, self._background_task_semaphore
         )
 
         self._lepton_worker_thread_should_exit = False

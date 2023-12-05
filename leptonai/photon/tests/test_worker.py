@@ -82,6 +82,67 @@ class TestWorker(unittest.TestCase):
             time.sleep(2)
             self.assertIn("finished_at", res.json())
 
+    def test_graceful_exit(self):
+        class MyWorker(Worker):
+            queue_name = TestWorker.queue_name
+            kv_name = TestWorker.kv_name
+
+            save_result = True
+
+            # speed up test
+            queue_empty_sleep_time = 1
+
+            timeout_graceful_shutdown = 5
+            incoming_traffic_grace_period = 10
+
+            def on_task(self, task_id: str, x: int):
+                time.sleep(2)
+                logger.info(f"Got task {x}")
+                return x * 2
+
+        worker = MyWorker(name=random_name())
+        path = worker.save()
+
+        proc, port = photon_run_local_server(path=path)
+
+        # create a task
+        res = requests.post(f"http://localhost:{port}/task", json={"x": 2})
+        self.assertEqual(res.status_code, 200, res.text)
+        task_id = res.json()
+
+        # wait for the task get picked up by the worker
+        while True:
+            res = requests.get(
+                f"http://localhost:{port}/task", params={"task_id": task_id}
+            )
+            self.assertEqual(res.status_code, 200, res.text)
+            if res.json()["status"] == "CREATED":
+                logger.info("Waiting for worker to pick up the task")
+                time.sleep(0.1)
+            elif res.json()["status"] == "RUNNING":
+                # send SIGTERM to the worker
+                proc.terminate()
+                break
+            else:
+                raise RuntimeError(f"Unexpected task status: {res.json()['status']}")
+        # worker should still be able to finish the task
+        time.sleep(3)
+        res = requests.get(f"http://localhost:{port}/task", params={"task_id": task_id})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["result"], 4)
+
+        # create another task (since incoming_traffic_grace_period is
+        # 10s, server should still accept the task)
+        res = requests.post(f"http://localhost:{port}/task", json={"x": 3})
+        self.assertEqual(res.status_code, 200, res.text)
+        task_id = res.json()
+
+        # but worker should not pick up the task
+        time.sleep(3)
+        res = requests.get(f"http://localhost:{port}/task", params={"task_id": task_id})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["status"], "CREATED")
+
 
 if __name__ == "__main__":
     unittest.main()
