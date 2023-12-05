@@ -833,19 +833,32 @@ def prepare(ctx, path):
     # any dependencies to uninstall.
     pip_sequence = _sequentialize_pip_commands(requirement_dependency)
     for command, libraries in pip_sequence:
+        console.print(f"pip {command}ing requirement_dependency:\n{libraries}")
+        console.print(
+            "First trying to install in one single command to speed up installation."
+        )
         with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
             content = "\n".join(libraries)
             f.write(content)
             f.flush()
-            console.print(f"pip {command}ing requirement_dependency:\n{content}")
             try:
                 subprocess.check_call(
                     [sys.executable, "-m", "pip", command, "-r", f.name]
                     + (["-y"] if command == "uninstall" else [])
                 )
             except subprocess.CalledProcessError as e:
-                console.print(f"Failed to install {e}")
-                sys.exit(1)
+                console.print(f"Failed to pip {command} in one command: {e}")
+                console.print("Trying to install one by one.")
+                for lib in libraries:
+                    try:
+                        subprocess.check_call(
+                            [sys.executable, "-m", "pip", command, lib]
+                            + (["-y"] if command == "uninstall" else [])
+                        )
+                    except subprocess.CalledProcessError as e:
+                        console.print(f"Failed to pip {command} {lib}: {e}")
+                        sys.exit(1)
+                console.print(f"Successfully pip {command}ed requirement_dependency.")
 
 
 @photon.command()
