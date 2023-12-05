@@ -783,41 +783,42 @@ class Photon(BasePhoton):
         # waits for a given amount time before stopping to receive incoming
         # traffic.
         if self.incoming_traffic_grace_period:
-
-            def sleep_and_handle_exit(sig: int, frame: Optional[FrameType]) -> None:
-                if sig == signal.SIGINT:
-                    # SIGINT will always set should_exit to True immediately, and double
-                    # SIGINT will force exit.
-                    if lepton_uvicorn_server.should_exit:
-                        lepton_uvicorn_server.force_exit = True
-                    else:
-                        lepton_uvicorn_server.should_exit = True
-                else:
-                    # SIGTERM and others will trigger a slow shutdown
-                    logger.info(
-                        "Gracefully stopping incoming traffic after "
-                        f"{self.incoming_traffic_grace_period} seconds."
-                    )
-                    time.sleep(self.incoming_traffic_grace_period)
-                    logger.info("Setting should_exit to True.")
-                    lepton_uvicorn_server.should_exit = True
-
-            def handle_exit(sig: int, frame: Optional[FrameType]) -> None:
-                # calls sleep_and_handle_exit in a separate thread to avoid
-                # blocking the main thread
-                th = threading.Thread(
-                    target=sleep_and_handle_exit, args=(sig, frame), daemon=True
-                )
-                th.start()
-
             logger.info(
                 "Setting up signal handlers for graceful incoming traffic"
                 f" shutdown after {self.incoming_traffic_grace_period} seconds."
             )
-            lepton_uvicorn_server.handle_exit = handle_exit
+            lepton_uvicorn_server.handle_exit = functools.partial(
+                self._handle_exit, lepton_uvicorn_server
+            )
 
         self._print_launch_info(host, port, log_level)
         lepton_uvicorn_server.run()
+
+    def _handle_exit(
+        self, uvicorn_server: uvicorn.Server, sig: int, frame: FrameType
+    ) -> None:
+        def sleep_and_handle_exit() -> None:
+            if sig == signal.SIGINT:
+                # SIGINT will always set should_exit to True immediately, and double
+                # SIGINT will force exit.
+                if uvicorn_server.should_exit:
+                    uvicorn_server.force_exit = True
+                else:
+                    uvicorn_server.should_exit = True
+            else:
+                # SIGTERM and others will trigger a slow shutdown
+                logger.info(
+                    "Gracefully stopping incoming traffic after "
+                    f"{self.incoming_traffic_grace_period} seconds."
+                )
+                time.sleep(self.incoming_traffic_grace_period)
+                logger.info("Setting should_exit to True.")
+                uvicorn_server.should_exit = True
+
+        # calls sleep_and_handle_exit in a separate thread to avoid
+        # blocking the main thread
+        th = threading.Thread(target=sleep_and_handle_exit, daemon=True)
+        th.start()
 
     def _run_liveness_server(self):
         def run_server():

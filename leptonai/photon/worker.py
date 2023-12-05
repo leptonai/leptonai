@@ -49,7 +49,12 @@ class Worker(Photon):
             self.on_task, self._handler_semaphore
         )
 
+        self._lepton_worker_thread_should_exit = False
         threading.Thread(target=self._worker_loop, daemon=True).start()
+
+    def _handle_exit(self, *args, **kwargs) -> None:
+        self._lepton_worker_thread_should_exit = True
+        super()._handle_exit(*args, **kwargs)
 
     def _worker_loop(self):
         """Keep polling the queue for new tasks, and dispatch them to `on_task` (through `_on_task`)"""
@@ -57,6 +62,9 @@ class Worker(Photon):
         loop = asyncio.new_event_loop()
 
         while True:
+            if self._lepton_worker_thread_should_exit:
+                logger.info("Received worker should exit signal, exiting")
+                break
             try:
                 message = self._queue.receive()
                 payload = json.loads(message)
