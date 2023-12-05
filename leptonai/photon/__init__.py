@@ -14,6 +14,7 @@ from .photon import (  # noqa: F401
     FileParam,
     StaticFiles,
 )
+from .worker import Worker  # noqa: F401
 from .types import get_file_content, make_png_response  # noqa: F401
 import leptonai.photon.hf  # noqa: F401
 import leptonai.photon.vllm  # noqa: F401
