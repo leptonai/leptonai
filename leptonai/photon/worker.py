@@ -31,6 +31,8 @@ class Worker(Photon):
     queue_empty_sleep_time: int = 5
     save_result: bool = False
 
+    # The maximum number of concurrent tasks that the worker can
+    # process. Default to 1 to avoid needing to deal with locks.
     worker_max_concurrency: int = 1
 
     LEPTON_TASK_ID_TAG = "_lepton_task_id"
