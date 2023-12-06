@@ -66,7 +66,9 @@ def _get_most_recent_photon_id_or_none(conn: Connection, name: str) -> Optional[
     return photon_ids[0] if photon_ids else None
 
 
-def _add_workspace_token_secret_var_if_not_existing(conn: Connection):
+def _add_workspace_token_secret_var_if_not_existing(
+    conn: Connection, secret: List[str]
+):
     """
     Adds the workspace token as a secret environment variable.
     """
@@ -84,6 +86,8 @@ def _add_workspace_token_secret_var_if_not_existing(conn: Connection):
             "Failed to create secret LEPTON_WORKSPACE_TOKEN.",
             exit_if_4xx=True,
         )
+    if "LEPTON_WORKSPACE_TOKEN" not in secret:
+        secret.append("LEPTON_WORKSPACE_TOKEN")
 
 
 @click_group()
@@ -598,7 +602,8 @@ def run(
 
         if include_workspace_token:
             console.print("Including the workspace token for the photon execution.")
-            _add_workspace_token_secret_var_if_not_existing(conn)
+            secret = list(secret)
+            _add_workspace_token_secret_var_if_not_existing(conn, secret)
 
         try:
             response = api.run_remote(
