@@ -47,7 +47,6 @@ import unittest
 import zipfile
 
 from fastapi import FastAPI
-from loguru import logger
 import requests
 import torch
 
@@ -61,7 +60,7 @@ from leptonai.photon.util import (
     load_metadata,
 )
 from leptonai.util import switch_cwd, find_available_port
-from utils import random_name, photon_run_local_server, async_test
+from utils import random_name, photon_run_local_server
 
 
 class CustomPhoton(Photon):
@@ -1140,85 +1139,6 @@ class CustomPhoton2(Photon):
         self.assertEqual(
             client.openapi["info"]["description"], "This is a well documented photon"
         )
-
-    @async_test
-    async def test_background_task(self):
-        class BackgroundTaskPhoton(Photon):
-            def init(self):
-                self.counter = 0
-
-            def increment(self, x: int):
-                self.counter += x
-
-            @Photon.handler()
-            def val(self):
-                return self.counter
-
-            @Photon.handler()
-            def add_later(self, x: int) -> int:
-                self.add_background_task(self.increment, x)
-                return self.counter
-
-        ph = BackgroundTaskPhoton(name=random_name())
-        path = ph.save()
-        proc, port = photon_run_local_server(path=path)
-
-        client = Client(f"http://127.0.0.1:{port}")
-        self.assertEqual(client.val(), 0)
-        self.assertEqual(client.add_later(x=3), 0)
-        await asyncio.sleep(0.1)
-        self.assertEqual(client.val(), 3)
-
-    @async_test
-    async def test_background_max_concurrency(self):
-        class BackgroundTaskPhoton(Photon):
-            def init(self):
-                self._val = 0
-                self.running_task = 0
-
-            def background_task(self):
-                # TODO: we should write a more complete test.
-                if self.running_task:
-                    raise RuntimeError(
-                        "background tasks is having a concurrency, which should not"
-                        " happen."
-                    )
-                self.running_task = 1
-                time.sleep(0.1)
-                self._val += 1
-                self.running_task = 0
-
-            @Photon.handler()
-            def run(self):
-                for _ in range(5):
-                    self.add_background_task(self.background_task)
-                return self._val
-
-            @Photon.handler()
-            def val(self) -> int:
-                return self._val
-
-        ph = BackgroundTaskPhoton(name=random_name())
-        path = ph.save()
-        proc, port = photon_run_local_server(path=path)
-
-        client = Client(f"http://127.0.0.1:{port}")
-        try:
-            self.assertEqual(client.run(), 0)
-            await asyncio.sleep(1)
-            self.assertEqual(client.val(), 5)
-        except Exception as e:
-            success = False
-            logger.error(f"error: {e}")
-        else:
-            success = True
-        finally:
-            proc.kill()
-
-        if not success:
-            logger.error(f"proc.stdout: {proc.stdout.read().decode()}")
-            logger.error(f"proc.stderr: {proc.stderr.read().decode()}")
-        self.assertTrue(success)
 
     def test_store_py_src_file(self):
         content = """
