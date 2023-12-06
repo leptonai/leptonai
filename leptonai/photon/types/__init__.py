@@ -2,6 +2,8 @@
 
 from .fileparam import FileParam
 
+from .file import File
+
 from .pickled import (
     lepton_pickle,
     lepton_unpickle,

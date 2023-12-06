@@ -1,5 +1,6 @@
 import base64
 from io import BytesIO
+import warnings
 
 from pydantic import BaseModel, validator
 
@@ -14,6 +15,13 @@ class FileParam(BaseModel):
 
     # allow creating FileParam with position args
     def __init__(self, content: bytes):
+        warnings.warn(
+            "FileParam is deprecated and may be removed in a future version. To upload"
+            " a small file, use leptonai.photon.file.Encode() to pass it to the server"
+            " as a string. To upload a big file (or upload a file and use it many"
+            " times), use leptonai.photon.file.Upload().",
+            DeprecationWarning,
+        )
         super().__init__(content=content)
 
     def __str__(self):

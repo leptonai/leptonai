@@ -1,6 +1,7 @@
 from io import BytesIO
 import os
 from typing import List, Union
+import warnings
 
 from loguru import logger
 
@@ -14,6 +15,10 @@ pipeline_registry = Registry()
 
 
 def img_param_to_img(param: Union[str, bytes, FileParam]):
+    warnings.warn(
+        "img_param_to_img is deprecated and may be removed in a future version. To"
+        " migrate, you should migrate your usage from FileParam to File."
+    )
     from PIL import Image
 
     content = get_file_content(param)
