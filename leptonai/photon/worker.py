@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict
 import uuid
 
+import anyio
 from loguru import logger
 
 from .photon import Photon, HTTPException
@@ -30,6 +31,8 @@ class Worker(Photon):
     queue_empty_sleep_time: int = 5
     save_result: bool = False
 
+    worker_max_concurrency: int = 1
+
     LEPTON_TASK_ID_TAG = "_lepton_task_id"
 
     def init(self):
@@ -44,9 +47,9 @@ class Worker(Photon):
             raise RuntimeError("kv_name is not set")
         self._kv = KV(self.kv_name, create_if_not_exists=False, wait_for_creation=True)
 
-        # so that `on_task` shares the background_tasks_max_concurrency
+        self._worker_semaphore = anyio.Semaphore(self.worker_max_concurrency)
         self._on_task_handler = asyncfy_with_semaphore(
-            self.on_task, self._background_task_semaphore
+            self.on_task, self._worker_semaphore
         )
 
         self._lepton_worker_thread_should_exit = False

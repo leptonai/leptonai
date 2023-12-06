@@ -1,6 +1,4 @@
 from abc import abstractmethod
-import anyio
-import asyncio
 from collections import OrderedDict
 import copy
 import functools
@@ -16,12 +14,12 @@ import threading
 import time
 import traceback
 from types import FunctionType, FrameType
-from typing import Callable, Any, List, Dict, Optional, Set, Iterator, Type
+from typing import Callable, Any, List, Dict, Optional, Iterator, Type
 from typing_extensions import Annotated
-import uuid
 import warnings
 import zipfile
 
+import anyio
 import click
 from fastapi import APIRouter, FastAPI, HTTPException, Body, Request
 from fastapi.staticfiles import StaticFiles
@@ -66,7 +64,6 @@ from leptonai.util import switch_cwd, patch, asyncfy_with_semaphore
 from leptonai.util.cancel_on_disconnect import run_with_cancel_on_disconnect
 from .base import BasePhoton, schema_registry
 from .batcher import batch
-from .background import BackgroundTask
 import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
@@ -229,8 +226,6 @@ class Photon(BasePhoton):
     # the user defined function implements the cancellation logic.
     handler_timeout: int = 600
 
-    background_tasks_max_concurrency: int = 1
-
     # The docker base image to use for the photon. In default, we encourage you to use the
     # default base image, which provides a blazing fast loading time when running photons
     # remotely. On top of the default image, you can then install any additional dependencies
@@ -283,52 +278,6 @@ class Photon(BasePhoton):
         self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(
             self.handler_max_concurrency
         )
-
-        self._background_tasks: Set[BackgroundTask] = set()
-        self._background_task_semaphore: anyio.Semaphore = anyio.Semaphore(
-            self.background_tasks_max_concurrency
-        )
-
-    def _on_background_task_done(self, task):
-        """
-        Internal function to remove the background task when it is done. You
-        do not need to call this manually.
-        """
-        logger.debug(f"Background task {task.get_name()} is done and removed")
-        self._background_tasks.remove(task)
-
-    def add_background_task(self, func, *args, **kwargs):
-        """
-        Adds a background task to the background task queue. Note that to cope
-        with most AI workloads, which are usually compute heavy and mutually exclusive
-        on many resources (including e.g. the PyTorch runtime itself), we limit the
-        number of concurrent background tasks to 1.
-
-        Args:
-            func: the Callable function to run. It should be a sync function to not
-                block the main event loop. This function will be called in a separate
-                thread.
-            *args, **kwargs: the args and kwargs to pass to the function.
-        """
-        try:
-            anyio.get_current_task()
-            in_event_loop = True
-        except RuntimeError:
-            in_event_loop = False
-
-        def _run_background_task():
-            co = BackgroundTask(func, *args, **kwargs)
-            task = asyncio.create_task(
-                co(self._background_task_semaphore), name=uuid.uuid4()
-            )
-            self._background_tasks.add(task)
-            logger.debug(f"Created background task {task.get_name()} in event loop")
-            task.add_done_callback(self._on_background_task_done)
-
-        if in_event_loop:
-            _run_background_task()
-        else:
-            anyio.from_thread.run_sync(_run_background_task)
 
     @classmethod
     def _gather_routes(cls):
