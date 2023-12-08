@@ -4,8 +4,8 @@ import os
 from loguru import logger
 
 from leptonai.photon import Photon
-from leptonai.config import TRUST_REMOTE_CODE
 from leptonai.photon.base import schema_registry
+from leptonai.photon.types import to_bool
 
 VLLM_SCHEMAS = ["vllm"]
 
@@ -18,6 +18,9 @@ class vLLMPhoton(Photon):
         "resource_shape": "gpu.a10",
         "env": {
             "VLLM_MODEL": "",
+            "VLLM_MODEL_REVISION": "",
+            "VLLM_USE_MODELSCOPE": "False",
+            "VLLM_TRUST_REMOTE_CODE": "True",
         },
     }
 
@@ -28,17 +31,21 @@ class vLLMPhoton(Photon):
 
     def __init__(self, name, model):
         super().__init__(name, model)
+        # To select the model, we will first check the model string, and then
+        # the env variable VLLM_MODEL.
         if ":" in model:
             schema, model_id = model.split(":")
         else:
             schema = model
             model_id = ""
-
         if schema not in VLLM_SCHEMAS:
             raise ValueError(
                 f'Unsupported vLLM model: "{model}" (unknown schema: "{schema}")'
             )
         self.model_id = model_id
+        if model_id:
+            # Update the deployment template if the model string specifies a model id.
+            self.deployment_template["env"]["VLLM_MODEL"] = model_id
 
     @property
     def metadata(self):
@@ -75,7 +82,8 @@ class vLLMPhoton(Photon):
 
         engine_args = AsyncEngineArgs(
             model=self.model_id,
-            trust_remote_code=TRUST_REMOTE_CODE,
+            trust_remote_code=to_bool(os.environ["VLLM_TRUST_REMOTE_CODE"]),
+            revision=os.environ["VLLM_MODEL_REVISION"] or None,
         )
         engine = AsyncLLMEngine.from_engine_args(engine_args)
         engine_model_config = asyncio.run(engine.get_model_config())
