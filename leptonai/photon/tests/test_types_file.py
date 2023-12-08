@@ -75,6 +75,15 @@ class EchoFileContent(Photon):
 
 
 class TestFileWithPhotonServer(unittest.TestCase):
+    def setUp(self):
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+            import sys
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
     def test_file_with_photon_server(self):
         name = random_name()
         ph = EchoFileContent(name=name)
