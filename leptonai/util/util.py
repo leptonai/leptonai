@@ -8,6 +8,7 @@ import socket
 from typing import Optional
 import re
 from urllib.parse import urlparse
+import warnings
 
 from rich.console import Console
 
@@ -128,9 +129,15 @@ def asyncfy_with_semaphore(
         return async_func
 
 
-def _is_valid_url(candidate_str: str) -> bool:
+def is_valid_url(candidate_str: str) -> bool:
     parsed = urlparse(candidate_str)
     return parsed.scheme != "" and parsed.netloc != ""
+
+
+# backward compatible function name
+def _is_valid_url(candidate_str: str) -> bool:
+    warnings.warn("_is_valid_url is deprecated. Please use is_valid_url instead.")
+    return is_valid_url(candidate_str)
 
 
 def _is_local_url(candidate_str: str) -> bool:
