@@ -9,7 +9,7 @@ from PIL.Image import Image
 import requests
 
 from . import FileParam
-from leptonai.util import _is_valid_url
+from leptonai.util import is_valid_url
 from .responses import StreamingResponse, JPEGResponse, PNGResponse
 
 
@@ -75,7 +75,7 @@ def get_file_content(
     if isinstance(src, FileParam):
         return _make_temp_file(src.content) if return_file else src.content
     elif isinstance(src, str):
-        if _is_valid_url(src):
+        if is_valid_url(src):
             # If the source is a valid url, we will download the content and return it.
             try:
                 content = requests.get(src).content
