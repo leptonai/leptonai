@@ -553,15 +553,23 @@ class Photon(BasePhoton):
         for key in envs:
             if os.environ.get(key) is None:
                 if envs[key] == ENV_VAR_REQUIRED:
-                    raise RuntimeError(
-                        f"This photon expects env variable {key} but it s not set."
+                    warnings.warn(
+                        f"This photon expects env variable {key}, but it's not set."
+                        " Please set it before running the photon, or you may get"
+                        " unexpected behavior.",
+                        RuntimeWarning,
                     )
                 else:
                     os.environ[key] = envs[key]
         secrets = self._deployment_template.get("secret", [])
         for s in secrets:
             if os.environ.get(s) is None:
-                raise RuntimeError(f"This photon expects secret {s} but it s not set.")
+                warnings.warn(
+                    f"This photon expects secret {s}, but it's not set."
+                    " Please set it before running the photon, or you may get"
+                    " unexpected behavior.",
+                    RuntimeWarning,
+                )
 
     def _call_init_once(self):
         """

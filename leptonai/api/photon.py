@@ -1,9 +1,10 @@
 import os
 from typing import List, Optional, Dict, Any
-
-from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED
+import warnings
 
 from loguru import logger
+
+from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED
 
 # import leptonai.photon to register the schemas and types
 import leptonai.photon  # noqa: F401
@@ -155,9 +156,11 @@ def run_remote(
     for k, v in template_envs.items():
         if v == ENV_VAR_REQUIRED:
             if not any(s.startswith(k + "=") for s in (env_list or [])):
-                raise ValueError(
+                warnings.warn(
                     f"This deployment requires env var {k}, but it's missing. Please"
-                    f" specify it with --env {k}=YOUR_VALUE."
+                    f" specify it with --env {k}=YOUR_VALUE. Otherwise, the deployment"
+                    " may fail.",
+                    RuntimeWarning,
                 )
         else:
             env_list = list(env_list) if env_list is not None else []
@@ -169,9 +172,11 @@ def run_remote(
         if not any(s.startswith(k) for s in (secret_list or [])) and not any(
             s.startswith(k) for s in (env_list or [])
         ):
-            raise ValueError(
+            warnings.warn(
                 f"This deployment requires secret {k}, but it's missing. Please set the"
-                f" secret, and specify it with --secret {k}."
+                f" secret, and specify it with --secret {k}. Otherwise, the deployment"
+                " may fail.",
+                RuntimeWarning,
             )
 
     # TODO: check if the given id is a valid photon id
