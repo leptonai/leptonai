@@ -141,11 +141,11 @@ def make_jpeg_response(img: Image) -> JPEGResponse:
     """
     Convert an image to a JPEG response.
     """
-    return make_img_response(img, "JPEG", JPEGResponse)
+    return make_img_response(img, "JPEG", JPEGResponse)  # type: ignore
 
 
 def make_png_response(img: Image) -> PNGResponse:
     """
     Convert an image to a PNG response.
     """
-    return make_img_response(img, "PNG", PNGResponse)
+    return make_img_response(img, "PNG", PNGResponse)  # type: ignore

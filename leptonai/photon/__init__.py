@@ -11,6 +11,7 @@ from .photon import (  # noqa: F401
     JPEGResponse,
     WAVResponse,
     StreamingResponse,
+    File,
     FileParam,
     StaticFiles,
 )
