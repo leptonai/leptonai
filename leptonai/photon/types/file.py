@@ -126,7 +126,9 @@ class File(BaseModel):
                 return content
             elif re.match(r"^encoded:", content):
                 # old FileParam input format. Convert to new format.
-                return _BASE64FILE_ENCODED_PREFIX + content[len("encoded:"):]
+                return (
+                    _BASE64FILE_ENCODED_PREFIX + content[len("encoded:") :]
+                )  # noqa: E203
             else:
                 raise ValueError(
                     "When the content is a string, it must be a URL or a base64 encoded"

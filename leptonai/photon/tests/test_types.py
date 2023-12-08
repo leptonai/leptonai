@@ -8,19 +8,9 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 import base64
 import multiprocessing
 import time
-from typing import Any
 import unittest
 
-import numpy as np
-
 import requests
-
-try:
-    import torch
-except ImportError:
-    has_torch = False
-else:
-    has_torch = True
 
 from leptonai.client import Client
 from leptonai.photon.types import (
