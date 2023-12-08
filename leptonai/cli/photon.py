@@ -45,11 +45,13 @@ from .util import (
 console = Console(highlight=False)
 
 
-def _get_ordered_photon_ids_or_none(conn: Connection, name: str):
+def _get_ordered_photon_ids_or_none(
+    conn: Connection, name: str, public_photon: bool
+) -> Optional[List[str]]:
     """Returns a list of photon ids for a given name, in the order newest to
     oldest. If no photon of such name exists, returns None.
     """
-    photons = api.list_remote(conn)
+    photons = api.list_remote(conn, public_photon=public_photon)
     guard_api(photons, msg=f"Failed to list photons in workspace [red]{conn._url}[/].")
     target_photons = [p for p in photons if p["name"] == name]  # type: ignore
     if len(target_photons) == 0:
@@ -58,11 +60,13 @@ def _get_ordered_photon_ids_or_none(conn: Connection, name: str):
     return [p["id"] for p in target_photons]
 
 
-def _get_most_recent_photon_id_or_none(conn: Connection, name: str) -> Optional[str]:
+def _get_most_recent_photon_id_or_none(
+    conn: Connection, name: str, public_photon: bool
+) -> Optional[str]:
     """Returns the most recent photon id for a given name. If no photon of such
     name exists, returns None.
     """
-    photon_ids = _get_ordered_photon_ids_or_none(conn, name)
+    photon_ids = _get_ordered_photon_ids_or_none(conn, name, public_photon)
     return photon_ids[0] if photon_ids else None
 
 
@@ -166,7 +170,18 @@ def create(name, model):
 @click.option(
     "--all", "-a", "all_", is_flag=True, help="Remove all versions of the photon."
 )
-def remove(name, local, id_, all_):
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, remove the photon from the public photon registry. Note that"
+        " public photons can only be managed by Lepton, so this option is hidden"
+        " by default, but we provide this helpstring for documentation purposes."
+    ),
+    hidden=True,
+    default=False,
+)
+def remove(name, local, id_, all_, public_photon):
     """
     Removes a photon. The behavior of this command depends on whether one has
     logged in to the Lepton AI cloud via `lep login`. If one has logged in, this
@@ -177,6 +192,10 @@ def remove(name, local, id_, all_):
         not (name and id_), "Cannot specify both --name and --id. Use one or the other."
     )
     check(name or id_, "Must specify either --name or --id.")
+    check(
+        not (public_photon and local),
+        "Cannot specify --public-photon and --local both.",
+    )
 
     if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
         # Remove remote photon.
@@ -184,7 +203,9 @@ def remove(name, local, id_, all_):
         # Find ids that we need to remove
         if name:
             # Remove all versions of the photon.
-            ids = _get_ordered_photon_ids_or_none(conn, name)
+            ids = _get_ordered_photon_ids_or_none(
+                conn, name, public_photon=public_photon
+            )
             check(ids, f"Cannot find photon with name [yellow]{name}[/].")
             ids = [ids[0]] if (not all_) else ids  # type: ignore
         else:
@@ -192,7 +213,7 @@ def remove(name, local, id_, all_):
         # Actually remove the ids
         for id_to_remove in ids:  # type: ignore
             explain_response(
-                api.remove_remote(conn, id_to_remove),
+                api.remove_remote(conn, id_to_remove, public_photon=public_photon),
                 f"Photon id [green]{id_to_remove}[/] removed.",
                 f"Photon id [red]{id_to_remove}[/] not removed. Some deployments"
                 " still using it. Remove the deployments first with `lep"
@@ -218,17 +239,27 @@ def remove(name, local, id_, all_):
 @click.option(
     "--pattern", help="Regular expression pattern to filter photon names", default=None
 )
-def list_command(local, pattern):
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help="If specified, list photons from the public photon registry.",
+    default=False,
+)
+def list_command(local, pattern, public_photon):
     """
     Lists all photons. If one has logged in to the Lepton AI cloud via `lep login`,
     this command will list all photons in the Lepton AI cloud. Otherwise, or if
     `--local` is explicitly specified, it will list all photons in the local
     environment.
     """
+    check(
+        not (public_photon and local),
+        "Cannot specify --public-photon and --local both.",
+    )
     if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
         conn = WorkspaceInfoLocalRecord.get_current_connection()
         photons = guard_api(
-            api.list_remote(conn),
+            api.list_remote(conn, public_photon=public_photon),
             detail=True,
             msg=(
                 "Failed to list photons in workspace"
@@ -530,6 +561,15 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     default=False,
 )
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, get the photon from the public photon registry. This is only"
+        " supported for remote execution."
+    ),
+    default=False,
+)
 @click.pass_context
 def run(
     ctx,
@@ -559,6 +599,7 @@ def run(
     initial_delay_seconds,
     include_workspace_token,
     rerun,
+    public_photon,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -569,6 +610,11 @@ def run(
     among `--name`, `--model`, `--file` and `--id`.
     """
     check(not (name and id), "Must specify either --id or --name, not both.")
+    check(
+        not (public_photon and local),
+        "Cannot specify --public-photon and --local both.",
+    )
+    check(not (public_photon and model), "Cannot specify --public and --model both.")
 
     if not local and WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
         # remote execution.
@@ -587,7 +633,7 @@ def run(
         # TODO: Support push and run if the photon does not exist on remote
         if id is None:
             # look for the latest photon with the given name.
-            id = _get_most_recent_photon_id_or_none(conn, name)
+            id = _get_most_recent_photon_id_or_none(conn, name, public_photon)
             if not id:
                 console.print(
                     f"Photon [red]{name}[/] does not exist in the workspace. Did"
@@ -616,7 +662,7 @@ def run(
             )
             no_traffic_timeout = config.DEFAULT_TIMEOUT
 
-        metadata = api.fetch_metadata(conn, id)  # type: ignore
+        metadata = api.fetch_metadata(conn, id, public_photon=public_photon)  # type: ignore
         if isinstance(metadata, APIError):
             console.print(f"Photon [red]{name}[/] failed to fetch: {metadata}")
             sys.exit(1)
@@ -637,24 +683,25 @@ def run(
                 conn,
                 id,
                 deployment_name,
-                deployment_template,
-                resource_shape,
-                replica_cpu,
-                replica_memory,
-                replica_accelerator_type,
-                replica_accelerator_num,
-                replica_ephemeral_storage_in_gb,
-                resource_affinity,
-                min_replicas,
-                max_replicas,
-                mount,
-                list(env),
-                list(secret),
-                public,
-                tokens,
-                no_traffic_timeout,
-                target_gpu_utilization,
-                initial_delay_seconds,
+                photon_namespace="public" if public_photon else "private",
+                deployment_template=deployment_template,
+                resource_shape=resource_shape,
+                replica_cpu=replica_cpu,
+                replica_memory=replica_memory,
+                replica_accelerator_type=replica_accelerator_type,
+                replica_accelerator_num=replica_accelerator_num,
+                replica_ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
+                resource_affinity=resource_affinity,
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+                mounts=list(mount),
+                env_list=list(env),
+                secret_list=list(secret),
+                is_public=public,
+                tokens=tokens,
+                no_traffic_timeout=no_traffic_timeout,
+                target_gpu_utilization=target_gpu_utilization,
+                initial_delay_seconds=initial_delay_seconds,
             )
         except ValueError as e:
             console.print(
@@ -895,14 +942,25 @@ def prepare(ctx, path):
 
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
-def push(name):
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, remove the photon from the public photon registry. Note that"
+        " public photons can only be managed by Lepton, so this option is hidden"
+        " by default, but we provide this helpstring for documentation purposes."
+    ),
+    hidden=True,
+    default=False,
+)
+def push(name, public_photon):
     """
     Push a photon to the workspace.
     """
     conn = get_connection_or_die()
     path = find_local_photon(name)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
-    response = api.push(conn, path)  # type: ignore
+    response = api.push(conn, path, public_photon=public_photon)  # type: ignore
     explain_response(
         response,
         f"Photon [green]{name}[/] pushed to workspace.",
@@ -931,7 +989,16 @@ def push(name):
     default=False,
 )
 @click.option("--indent", type=int, help="Indentation of the json.", default=None)
-def metadata(name, id, local, indent):
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, get the photon from the public photon registry. This is only"
+        " supported for remote execution."
+    ),
+    default=False,
+)
+def metadata(name, id, local, indent, public_photon):
     """
     Returns the metadata json of the photon.
     """
@@ -944,9 +1011,9 @@ def metadata(name, id, local, indent):
     else:
         conn = WorkspaceInfoLocalRecord.get_current_connection()
         if id is None:
-            id = _get_most_recent_photon_id_or_none(conn, name)
+            id = _get_most_recent_photon_id_or_none(conn, name, public_photon)
             check(id, f"Photon [red]{name}[/] does not exist.")
-        metadata = api.fetch_metadata(conn, id)  # type: ignore
+        metadata = api.fetch_metadata(conn, id, public_photon=public_photon)  # type: ignore
         if isinstance(metadata, APIError):
             console.print(f"Photon [red]{name}[/] failed to fetch: {metadata}")
             sys.exit(1)
