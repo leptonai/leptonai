@@ -182,6 +182,10 @@ def login(
     This function is intended to be used inside lepton deployments to log in to the
     workspace programmatically.
     """
+    if workspace_id is None and auth_token is None and url is None:
+        if WorkspaceInfoLocalRecord.get_current_workspace_id() is not None:
+            # If we are already logged in, do nothing.
+            return
     # First, update the workspace_id, auth_token, and url if they are None and
     # there are environment variables.
     workspace_id = (
