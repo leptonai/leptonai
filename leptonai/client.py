@@ -18,7 +18,7 @@ from leptonai.api.workspace import (
 )
 from leptonai.config import DEFAULT_PORT
 from leptonai.photon import FileParam  # noqa
-from leptonai.util import _is_valid_url
+from leptonai.util import is_valid_url
 from .api import deployment, APIError
 
 
@@ -227,7 +227,7 @@ class Client(object):
         the deployment name as a header. This is the recommended way to use the client.
         We may remove the ability to use a full URL in the future.
         """
-        if _is_valid_url(workspace_or_url):
+        if is_valid_url(workspace_or_url):
             self.url = workspace_or_url.rstrip("/")
         else:
             url = _get_full_workspace_url(workspace_or_url)

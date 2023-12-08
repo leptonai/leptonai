@@ -7,13 +7,13 @@ import os
 import requests
 import warnings
 
-from leptonai.util import _is_valid_url
+from leptonai.util import is_valid_url
 from .util import create_header, _get_full_workspace_api_url
 
 
 class Connection:
     def __init__(self, url_or_workspace_id: str, token: Optional[str] = None):
-        if _is_valid_url(url_or_workspace_id):
+        if is_valid_url(url_or_workspace_id):
             self._url = url_or_workspace_id
         else:
             self._url = _get_full_workspace_api_url(url_or_workspace_id)
