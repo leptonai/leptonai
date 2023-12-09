@@ -1,6 +1,7 @@
 import os
 import tempfile
 import time
+import warnings
 
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
@@ -194,28 +195,19 @@ class TestPhoton(unittest.TestCase):
                 f" Details: {e}"
             )
 
-        try:
-            ph = CustomPhotonWithDepTemplate(name=name)
+        ph = CustomPhotonWithDepTemplate(name=name)
+        with self.assertWarnsRegex(RuntimeWarning, ".*LEPTON_FOR_TEST_ENV_A.*"):
             ph._call_init_once()
-        except RuntimeError as e:
-            # When a required env is not set, this should throw an error.
-            self.assertIn("LEPTON_FOR_TEST_ENV_A", str(e))
-        else:
-            self.fail("RuntimeError not raised when env is not set.")
 
         os.environ["LEPTON_FOR_TEST_ENV_A"] = "value_a"
-        try:
-            ph = CustomPhotonWithDepTemplate(name=name)
+        ph = CustomPhotonWithDepTemplate(name=name)
+        with self.assertWarnsRegex(RuntimeWarning, ".*LEPTON_FOR_TEST_SECRET_A.*"):
             ph._call_init_once()
-        except RuntimeError as e:
-            # When a required secret is not set, this should throw an error.
-            self.assertIn("LEPTON_FOR_TEST_SECRET_A", str(e))
-        else:
-            self.fail("RuntimeError not raised when secret is not set.")
 
         os.environ["LEPTON_FOR_TEST_SECRET_A"] = "value_a"
         ph = CustomPhotonWithDepTemplate(name=name)
-        ph._call_init_once()
+        with warnings.catch_warnings():
+            ph._call_init_once()
         self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_B"], "DEFAULT_B")
         self.assertEqual(os.environ["LEPTON_FOR_TEST_ENV_A"], "value_a")
         self.assertEqual(os.environ["LEPTON_FOR_TEST_SECRET_A"], "value_a")
