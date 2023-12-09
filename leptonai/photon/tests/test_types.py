@@ -61,7 +61,8 @@ class TestStreamingPhoton(unittest.TestCase):
 class TestUtil(unittest.TestCase):
     def test_get_file_content(self):
         msg = b"some random message"
-        file_param = FileParam(msg)
+        with self.assertWarns(DeprecationWarning):
+            file_param = FileParam(msg)
         self.assertEqual(get_file_content(file_param), msg)
 
         with tempfile.NamedTemporaryFile() as f:

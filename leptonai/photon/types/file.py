@@ -127,8 +127,9 @@ class File(BaseModel):
             elif re.match(r"^encoded:", content):
                 # old FileParam input format. Convert to new format.
                 return (
-                    _BASE64FILE_ENCODED_PREFIX + content[len("encoded:") :]
-                )  # noqa: E203
+                    _BASE64FILE_ENCODED_PREFIX
+                    + content[len("encoded:") :]  # noqa: E203
+                )
             else:
                 raise ValueError(
                     "When the content is a string, it must be a URL or a base64 encoded"
@@ -160,7 +161,7 @@ class File(BaseModel):
             json_encoders = {Union[bytes, str, IO]: lambda v: File.encode(v)}
 
     else:
-        from pydantic import field_serializer
+        from pydantic import field_serializer  # type: ignore
 
         @field_serializer("content")
         def _encode_content(self, content: Union[bytes, str], _) -> str:

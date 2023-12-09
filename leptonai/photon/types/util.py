@@ -4,11 +4,12 @@ import os
 import re
 import tempfile
 from typing import Union, IO, Type
+import warnings
 
 from PIL.Image import Image
 import requests
 
-from . import FileParam
+from . import FileParam, File
 from leptonai.util import is_valid_url
 from .responses import StreamingResponse, JPEGResponse, PNGResponse
 
@@ -72,6 +73,16 @@ def get_file_content(
     Returns:
         content: the file content in bytes, or a file object if return_file is True.
     """
+    warnings.warn(
+        "get_file_content is deprecated. If you are building photon, it is recommended"
+        " to use the leptonai.photon.types.File class. If you want to get the content"
+        " bytes of a file, use File.get_content. If you want to get a file-like IO"
+        " object, use File.get_bytesio. If you want to get a temporary file, use"
+        " File.get_temp_file.",
+        DeprecationWarning,
+    )
+    if isinstance(src, File):
+        return src.get_temp_file() if return_file else src.get_content()
     if isinstance(src, FileParam):
         return _make_temp_file(src.content) if return_file else src.content
     elif isinstance(src, str):
@@ -137,15 +148,15 @@ def make_img_response(
     return ResponseType(img_byte_array)
 
 
-def make_jpeg_response(img: Image) -> JPEGResponse:
+def make_jpeg_response(img: Image) -> StreamingResponse:
     """
     Convert an image to a JPEG response.
     """
-    return make_img_response(img, "JPEG", JPEGResponse)  # type: ignore
+    return make_img_response(img, "JPEG", JPEGResponse)
 
 
-def make_png_response(img: Image) -> PNGResponse:
+def make_png_response(img: Image) -> StreamingResponse:
     """
     Convert an image to a PNG response.
     """
-    return make_img_response(img, "PNG", PNGResponse)  # type: ignore
+    return make_img_response(img, "PNG", PNGResponse)

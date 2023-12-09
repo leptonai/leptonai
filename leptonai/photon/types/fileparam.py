@@ -16,10 +16,10 @@ class FileParam(BaseModel):
     # allow creating FileParam with position args
     def __init__(self, content: bytes):
         warnings.warn(
-            "FileParam is deprecated and may be removed in a future version. To upload"
-            " a small file, use leptonai.photon.file.Encode() to pass it to the server"
-            " as a string. To upload a big file (or upload a file and use it many"
-            " times), use leptonai.photon.file.Upload().",
+            "FileParam is deprecated and may be removed in a future version. Instead,"
+            " use lepton.photon.types.File, by passing it a bytes, a file-like object,"
+            " a string representing a URL. File can be a drop-in replacement for"
+            " FileParam.",
             DeprecationWarning,
         )
         super().__init__(content=content)
@@ -68,7 +68,7 @@ class FileParam(BaseModel):
             json_encoders = {bytes: lambda v: FileParam.encode(v)}
 
     else:
-        from pydantic import field_serializer
+        from pydantic import field_serializer  # type: ignore
 
         @field_serializer("content")
         def _encode_content(self, content: bytes, _) -> str:
