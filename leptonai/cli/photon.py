@@ -17,7 +17,7 @@ import click
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
 from leptonai.api import types
-from leptonai.api.deployment import list_deployment
+from leptonai.api.deployment import list_deployment, remove_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.api.secret import create_secret, list_secret
 from leptonai import config
@@ -289,13 +289,29 @@ def list_command(local, pattern):
         console.print("To show local photons, use the `--local` flag.")
 
 
-def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name):
+def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name, rerun):
     deployments = guard_api(
         list_deployment(conn),
         detail=True,
         msg="Failed to list deployments.",
     )
     existing_names = set(d["name"] for d in deployments)
+    if rerun:
+        # Find the first fit deployment name, force remove deployment if it exists,
+        # and return the name.
+        if deployment_name is None:
+            deployment_name = (name if name else id)[:32]
+        if deployment_name in existing_names:
+            console.print(f"Removing deployment {deployment_name}...")
+            explain_response(
+                remove_deployment(conn, deployment_name),
+                f"Deployment {deployment_name} removed.",
+                f"Failed to remove deployment {deployment_name}.",
+                f"Failed to remove deployment {deployment_name}.",
+                exit_if_4xx=True,
+            )
+            return deployment_name
+    # otherwise, try find a new name.
     check(
         deployment_name not in existing_names,
         f"Deployment [red]{deployment_name}[/] already exists. please"
@@ -503,6 +519,17 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     default=False,
 )
+@click.option(
+    "--rerun",
+    is_flag=True,
+    help=(
+        "If specified, shutdown the deployment of the same deployment name and"
+        " rerun it. Note that this may cause downtime of the photon if it is for"
+        " production use, so use with caution. In a production environment, you"
+        " should do photon create, push, and `lep deployment update` instead."
+    ),
+    default=False,
+)
 @click.pass_context
 def run(
     ctx,
@@ -531,6 +558,7 @@ def run(
     target_gpu_utilization,
     initial_delay_seconds,
     include_workspace_token,
+    rerun,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -594,7 +622,9 @@ def run(
             sys.exit(1)
         deployment_template = metadata.get("deployment_template", None)  # type:ignore
         # parse environment variables and secrets
-        deployment_name = _find_deployment_name_or_die(conn, name, id, deployment_name)
+        deployment_name = _find_deployment_name_or_die(
+            conn, name, id, deployment_name, rerun
+        )
 
         if include_workspace_token:
             console.print("Including the workspace token for the photon execution.")
