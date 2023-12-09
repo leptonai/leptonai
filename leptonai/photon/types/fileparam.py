@@ -1,5 +1,6 @@
 import base64
 from io import BytesIO
+import warnings
 
 from pydantic import BaseModel, validator
 
@@ -14,6 +15,13 @@ class FileParam(BaseModel):
 
     # allow creating FileParam with position args
     def __init__(self, content: bytes):
+        warnings.warn(
+            "FileParam is deprecated and may be removed in a future version. Instead,"
+            " use lepton.photon.types.File, by passing it a bytes, a file-like object,"
+            " a string representing a URL. File can be a drop-in replacement for"
+            " FileParam.",
+            DeprecationWarning,
+        )
         super().__init__(content=content)
 
     def __str__(self):
@@ -60,7 +68,7 @@ class FileParam(BaseModel):
             json_encoders = {bytes: lambda v: FileParam.encode(v)}
 
     else:
-        from pydantic import field_serializer
+        from pydantic import field_serializer  # type: ignore
 
         @field_serializer("content")
         def _encode_content(self, content: bytes, _) -> str:

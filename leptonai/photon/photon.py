@@ -51,11 +51,8 @@ from leptonai.config import (  # noqa: F401
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
 from leptonai.photon.types import (  # noqa: F401
+    File,
     FileParam,
-    lepton_pickle,
-    lepton_unpickle,
-    is_pickled,
-    LeptonPickled,
     PNGResponse,
     JPEGResponse,
     WAVResponse,
