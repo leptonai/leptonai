@@ -296,6 +296,7 @@ class DeploymentSpec(BaseModel):
     """
 
     name: Optional[str] = None
+    photon_namespace: Optional[str] = None
     photon_id: Optional[str] = None
     resource_requirement: Optional[ResourceRequirement] = None
     auto_scaler: Optional[AutoScaler] = None

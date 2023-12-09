@@ -20,21 +20,30 @@ from . import types
 from .util import APIError, json_or_error
 
 
-def push(conn: Connection, path: str):
+def _get_photon_endpoint(public_photon: bool) -> str:
+    if public_photon:
+        return "public"
+    else:
+        return "private"
+
+
+def push(conn: Connection, path: str, public_photon: bool = False):
     """
     Push a photon to a workspace.
     :param str path: path to the photon file
     """
     with open(path, "rb") as file:
-        response = conn.post("/photons", files={"file": file})
+        response = conn.post(
+            f"/photons/{_get_photon_endpoint(public_photon)}", files={"file": file}
+        )
         return response
 
 
-def list_remote(conn: Connection):
+def list_remote(conn: Connection, public_photon: bool = False):
     """
     List the photons on a workspace.
     """
-    response = conn.get("/photons")
+    response = conn.get(f"/photons/{_get_photon_endpoint(public_photon)}")
     return json_or_error(response)
 
 
@@ -46,12 +55,12 @@ def list_local():
     return [p[1] for p in photons]
 
 
-def remove_remote(conn: Connection, id: str):
+def remove_remote(conn: Connection, id: str, public_photon: bool = False):
     """
     Remove a photon from a workspace.
     :param str id: id of the photon to remove
     """
-    response = conn.delete("/photons/" + id)
+    response = conn.delete(f"/photons/{_get_photon_endpoint(public_photon)}/" + id)
     return response
 
 
@@ -59,16 +68,16 @@ def remove_local(name: str, remove_all: bool = False):
     return remove_local_photon(name, remove_all)
 
 
-def fetch_metadata(conn: Connection, id: str):
+def fetch_metadata(conn: Connection, id: str, public_photon: bool = False):
     """
     Fetch the metadata of a photon from a workspace.
     :param str id: id of the photon to fetch
     """
-    response = conn.get("/photons/" + id)
+    response = conn.get(f"/photons/{_get_photon_endpoint(public_photon)}/" + id)
     return json_or_error(response)
 
 
-def fetch(conn: Connection, id: str, path: str):
+def fetch(conn: Connection, id: str, path: str, public_photon: bool = False):
     """
     Fetch a photon from a workspace.
     :param str id: id of the photon to fetch
@@ -81,7 +90,7 @@ def fetch(conn: Connection, id: str, path: str):
         need_rename = False
 
     response = conn.get(
-        "/photons/" + id + "?content=true",
+        f"/photons/{_get_photon_endpoint(public_photon)}/" + id + "?content=true",
         stream=True,
     )
 
@@ -126,6 +135,7 @@ def run_remote(
     conn: Connection,
     id: str,
     deployment_name: str,
+    photon_namespace: Optional[str] = None,
     deployment_template: Optional[Dict[str, Any]] = None,
     resource_shape: Optional[str] = None,
     replica_cpu: Optional[float] = None,
@@ -183,6 +193,7 @@ def run_remote(
     deployment_spec = types.DeploymentSpec(
         name=deployment_name,
         photon_id=id,
+        photon_namespace=photon_namespace,
         resource_requirement=types.ResourceRequirement.make_resource_requirement(
             resource_shape=resource_shape,
             replica_cpu=replica_cpu,
