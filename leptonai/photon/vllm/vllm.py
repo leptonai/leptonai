@@ -19,6 +19,7 @@ class vLLMPhoton(Photon):
         "env": {
             "VLLM_MODEL": "",
             "VLLM_MODEL_REVISION": "",
+            "VLLM_TENSOR_PARALLEL_SIZE": "",
             "VLLM_USE_MODELSCOPE": "False",
             "VLLM_TRUST_REMOTE_CODE": "True",
         },
@@ -82,7 +83,7 @@ class vLLMPhoton(Photon):
             raise RuntimeError("vLLM Photon requires CUDA runtime")
 
         tensor_parallel_size = os.environ.get("VLLM_TENSOR_PARALLEL_SIZE", None)
-        if tensor_parallel_size is not None:
+        if tensor_parallel_size:
             try:
                 tensor_parallel_size = int(tensor_parallel_size)
             except ValueError:
