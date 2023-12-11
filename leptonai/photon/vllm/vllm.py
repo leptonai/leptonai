@@ -27,6 +27,7 @@ class vLLMPhoton(Photon):
     requirement_dependency = [
         "vllm>=0.2.0",
         "fschat",
+        "megablocks",
     ]
 
     def __init__(self, name, model):
