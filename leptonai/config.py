@@ -5,6 +5,7 @@ Overall configurations and constants for the Lepton AI python library.
 import os
 from pathlib import Path
 import sys
+import warnings
 
 import pydantic.version
 
@@ -111,6 +112,42 @@ BASE_IMAGE_CMD = None
 
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
+
+
+def set_local_deployment_token(token: str):
+    """
+    Sets the local token used by Lepton deployments. If the token is empty, we will not
+    set the token in the deployment. If the token is set, all local endpoints defined
+    by Photon.handler are protected by the token.
+
+    Note that on the Lepton platform, the token is managed by the platform, so we
+    will ignore the local deployment token.
+    """
+    if token is None:
+        raise RuntimeError(
+            'Token cannot be None. To set an empty token, use empty string ("").'
+        )
+    global _LOCAL_DEPLOYMENT_TOKEN
+    if "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.environ:
+        warnings.warn(
+            "We are running on the Lepton platform, so we will ignore the local"
+            " deployment token."
+        )
+    else:
+        _LOCAL_DEPLOYMENT_TOKEN = token
+
+
+def get_local_deployment_token() -> str:
+    """
+    Gets the local deployment token. If the token is explicitly set by set_local_deployment_token,
+    return the token. Otherwise, return the token from the environment variable LEPTON_LOCAL_DEPLOYMENT_TOKEN.
+    If the environment variable is not set, return an empty string.
+    """
+    if _LOCAL_DEPLOYMENT_TOKEN is None:
+        return os.environ.get("LEPTON_LOCAL_DEPLOYMENT_TOKEN", "")
+    else:
+        return _LOCAL_DEPLOYMENT_TOKEN
+
 
 # In the photon's deployment template, this means you will need to specify env variables.
 ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"

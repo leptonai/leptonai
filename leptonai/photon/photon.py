@@ -21,7 +21,7 @@ import zipfile
 
 import anyio
 import click
-from fastapi import APIRouter, FastAPI, HTTPException, Body, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Body, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -47,6 +47,7 @@ from leptonai.config import (  # noqa: F401
     ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
+    get_local_deployment_token,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -599,6 +600,28 @@ class Photon(BasePhoton):
             allow_headers=["*"],
         )
 
+    def _add_auth_middleware_if_needed(self, app):
+        local_token = copy.deepcopy(get_local_deployment_token())
+        if not local_token:
+            # no need to add auth middleware.
+            return
+        else:
+            from starlette.middleware.base import BaseHTTPMiddleware
+
+            class AuthMiddleware(BaseHTTPMiddleware):
+                async def dispatch(self, request: Request, call_next):
+                    authorization: Optional[str] = request.headers.get("Authorization")
+                    token = authorization.split(" ")[-1] if authorization else ""
+                    if token != local_token:
+                        return JSONResponse(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            content={"detail": "Invalid or expired token"},
+                        )
+                    else:
+                        return await call_next(request)
+
+            app.add_middleware(AuthMiddleware)
+
     def _create_app(self, load_mount):
         title = self._photon_name.replace(".", "_")
         app = FastAPI(
@@ -615,6 +638,8 @@ class Photon(BasePhoton):
         # TODO: remove this once our Ingress is capable of handling all these
         # and make all communication internal from the deployment point of view
         self._add_cors_middlewares(app)
+        # Add the authentication middleware if local token is specified.
+        self._add_auth_middleware_if_needed(app)
 
         self._register_routes(app, load_mount)
         self._collect_metrics(app)
