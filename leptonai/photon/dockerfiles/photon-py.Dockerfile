@@ -27,8 +27,6 @@ ARG PYTHON_VERSION
 ENV LEPTON_VIRTUAL_ENV=/opt/lepton/venv
 
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_base.sh
-RUN sudo apt-get update && sudo apt-get install -y libgl1 ffmpeg libgoogle-perftools-dev
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4"
 
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
 ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
