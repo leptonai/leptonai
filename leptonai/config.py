@@ -113,6 +113,8 @@ BASE_IMAGE_CMD = None
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
+_LOCAL_DEPLOYMENT_TOKEN = None
+
 
 def set_local_deployment_token(token: str):
     """
@@ -127,13 +129,13 @@ def set_local_deployment_token(token: str):
         raise RuntimeError(
             'Token cannot be None. To set an empty token, use empty string ("").'
         )
-    global _LOCAL_DEPLOYMENT_TOKEN
     if "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.environ:
         warnings.warn(
             "We are running on the Lepton platform, so we will ignore the local"
             " deployment token."
         )
     else:
+        global _LOCAL_DEPLOYMENT_TOKEN
         _LOCAL_DEPLOYMENT_TOKEN = token
 
 
