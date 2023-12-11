@@ -77,6 +77,7 @@ class TestPhotonAuth(unittest.TestCase):
         self.assertEqual(c.hello(name="world"), "Hello world")
 
         proc.kill()
+        set_local_deployment_token("")
 
 
 if __name__ == "__main__":
