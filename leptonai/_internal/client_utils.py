@@ -111,9 +111,9 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
                     for k, v in schema_strings
                 ])
             else:
-                docstring += "\n\nInput Schema:\n  " + "\n  ".join([
-                    f"{k}: {v}" for k, v in schema_strings
-                ])
+                docstring += "\n\nInput Schema:\n  " + "\n  ".join(
+                    [f"{k}: {v}" for k, v in schema_strings]
+                )
         except KeyError:
             docstring += "\n\nInput Schema: None"
         return docstring
@@ -127,9 +127,9 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
         # Add example input to the docstring if existing.
         try:
             example = api_info["requestBody"]["content"]["application/json"]["example"]
-            example_string = "\n  ".join([
-                str(k) + ": " + str(v) for k, v in example.items()
-            ])
+            example_string = "\n  ".join(
+                [str(k) + ": " + str(v) for k, v in example.items()]
+            )
             docstring += f"\n\nExample input:\n  {example_string}"
         except KeyError:
             # If the openapi does not have an example section, we will just skip.
@@ -159,9 +159,9 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
             schema_strings = [
                 (k, _json_to_type_string(v)) for k, v in schema["properties"].items()
             ]
-            docstring += "\n\nOutput Schema:\n  " + "\n  ".join([
-                f"{k}: {v}" for k, v in schema_strings
-            ])
+            docstring += "\n\nOutput Schema:\n  " + "\n  ".join(
+                [f"{k}: {v}" for k, v in schema_strings]
+            )
         else:
             output_type = ",".join(output_content.keys())
             docstring += f"\n\nOutput Schema:\n  response:{output_type}"
