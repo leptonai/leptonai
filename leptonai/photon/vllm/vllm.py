@@ -26,6 +26,7 @@ class vLLMPhoton(Photon):
     }
 
     requirement_dependency = [
+        "transformers>=4.36.0",
         "vllm>=0.2.0",
         "fschat",
         "megablocks",
