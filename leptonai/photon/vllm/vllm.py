@@ -18,6 +18,7 @@ class vLLMPhoton(Photon):
         "resource_shape": "gpu.a10",
         "env": {
             "VLLM_MODEL": "",
+            "VLLM_MODEL_NAME": "",
             "VLLM_MODEL_REVISION": "",
             "VLLM_TENSOR_PARALLEL_SIZE": "",
             "VLLM_USE_MODELSCOPE": "False",
@@ -112,7 +113,7 @@ class vLLMPhoton(Photon):
         engine_model_config = asyncio.run(engine.get_model_config())
         max_model_len = engine_model_config.max_model_len
 
-        api_server.served_model = self.model_id
+        api_server.served_model = os.environ["VLLM_MODEL_NAME"] or self.model_id
         api_server.engine = engine
         api_server.max_model_len = max_model_len
         api_server.tokenizer = get_tokenizer(
