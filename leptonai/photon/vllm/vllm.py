@@ -13,6 +13,9 @@ VLLM_SCHEMAS = ["vllm"]
 class vLLMPhoton(Photon):
     photon_type: str = "vllm"
 
+    # model downloading can take long time
+    health_check_liveness_tcp_port = 8765
+
     deployment_template = {
         # At least using gpu.a10.
         "resource_shape": "gpu.a10",
