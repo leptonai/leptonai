@@ -845,8 +845,8 @@ class Photon(BasePhoton):
         latency_lowr_buckets = tuple(
             # 0 ~ 1s: 10ms per bucket
             [ms / 1000 for ms in range(10, 1000, 10)]
-            # 1 ~ 10s: 100ms per bucket
-            + [ms / 1000 for ms in range(1000, 10 * 1000, 100)]
+            # 1 ~ 20s: 100ms per bucket
+            + [ms / 1000 for ms in range(1000, 20 * 1000, 100)]
         )
         instrumentator = Instrumentator().instrument(
             app, latency_lowr_buckets=latency_lowr_buckets
