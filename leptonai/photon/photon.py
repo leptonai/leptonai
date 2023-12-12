@@ -622,6 +622,18 @@ class Photon(BasePhoton):
 
             app.add_middleware(AuthMiddleware)
 
+    def _replace_openapi_if_needed(self, app):
+        # If the class has a `openapi` method, we replace the default openapi
+        # schema with the one returned by the `openapi` method.
+        if hasattr(self, "openapi"):
+            logger.debug(
+                "Replacing the default openapi schema with the one returned by the"
+                " `openapi` method. Note: you are responsible yourself to ensure"
+                " that the schema returned by the `openapi` method is a valid"
+                "  Callable[[], Dict[str, Any]] type."
+            )
+            app.openapi = self.openapi()  # type: ignore
+
     def _create_app(self, load_mount):
         title = self._photon_name.replace(".", "_")
         app = FastAPI(
@@ -643,6 +655,7 @@ class Photon(BasePhoton):
 
         self._register_routes(app, load_mount)
         self._collect_metrics(app)
+
         return app
 
     @staticmethod
@@ -714,6 +727,8 @@ class Photon(BasePhoton):
 
     def _uvicorn_run(self, host, port, log_level, log_config):
         app = self._create_app(load_mount=True)
+
+        self._replace_openapi_if_needed(app)
 
         @app.on_event("startup")
         async def uvicorn_startup():
@@ -857,7 +872,7 @@ class Photon(BasePhoton):
             instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
 
     # helper function of _register_routes
-    def _mount_route(self, app, path, func):
+    def _mount_route(self, app, path, func, use_router_if_possible=True):
         num_params = len(inspect.signature(func).parameters)
         if num_params > 2:
             raise ValueError(
@@ -892,12 +907,18 @@ class Photon(BasePhoton):
             has_flask = False
 
         if isinstance(subapp, FastAPI):
-            app.include_router(subapp.router, prefix=f"/{path}")
+            if use_router_if_possible:
+                app.include_router(subapp.router, prefix=f"/{path}")
+            else:
+                app.mount(f"/{path}", subapp)
         elif isinstance(subapp, StaticFiles):
             app.mount(f"/{path}", subapp)
         elif isinstance(subapp, Photon):
             subapp_real_app = subapp._create_app(load_mount=True)
-            app.include_router(subapp_real_app.router, prefix=f"/{path}")
+            if use_router_if_possible:
+                app.include_router(subapp_real_app.router, prefix=f"/{path}")
+            else:
+                app.mount(f"/{path}", subapp_real_app)
         elif subapp.__module__ == "asgi_proxy" and subapp.__name__ == "asgi_proxy":
             # asgi_proxy returns a lambda function (`<function
             # asgi_proxy.asgi_proxy.<locals>.asgi_proxy(scope,
@@ -1099,7 +1120,14 @@ class Photon(BasePhoton):
             for method, (func, kwargs) in routes.items():
                 if kwargs.get("mount"):
                     if load_mount:
-                        self._mount_route(app, path, func)
+                        self._mount_route(
+                            app,
+                            path,
+                            func,
+                            use_router_if_possible=kwargs.get(
+                                "use_router_if_possible", True
+                            ),
+                        )
                 else:
                     self._add_route(api_router, path, method, func, kwargs)
         app.include_router(api_router)
