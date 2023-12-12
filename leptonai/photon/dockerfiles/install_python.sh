@@ -22,4 +22,4 @@ sudo add-apt-repository -y ppa:deadsnakes/ppa
 sudo apt-get update
 sudo apt install -y python${python_version} python${python_version}-dev python${python_version}-venv python-is-python3
 python${python_version} -m venv ${LEPTON_VIRTUAL_ENV}
-${LEPTON_VIRTUAL_ENV}/bin/pip install -U pip setuptools
+${LEPTON_VIRTUAL_ENV}/bin/pip install -U pip setuptools wheel
