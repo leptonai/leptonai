@@ -19,6 +19,7 @@ class vLLMPhoton(Photon):
         "env": {
             "VLLM_MODEL": "",
             "VLLM_MODEL_REVISION": "",
+            "VLLM_TENSOR_PARALLEL_SIZE": "",
             "VLLM_USE_MODELSCOPE": "False",
             "VLLM_TRUST_REMOTE_CODE": "True",
         },
@@ -27,6 +28,7 @@ class vLLMPhoton(Photon):
     requirement_dependency = [
         "vllm>=0.2.0",
         "fschat",
+        "megablocks",
     ]
 
     def __init__(self, name, model):
@@ -80,10 +82,30 @@ class vLLMPhoton(Photon):
         if not torch.cuda.is_available():
             raise RuntimeError("vLLM Photon requires CUDA runtime")
 
+        tensor_parallel_size = os.environ["VLLM_TENSOR_PARALLEL_SIZE"] or None
+        if tensor_parallel_size:
+            try:
+                tensor_parallel_size = int(tensor_parallel_size)
+            except ValueError:
+                raise ValueError(
+                    "VLLM_TENSOR_PARALLEL_SIZE must be an integer, got"
+                    f" {tensor_parallel_size}"
+                )
+            if tensor_parallel_size <= 0:
+                raise ValueError(
+                    "VLLM_TENSOR_PARALLEL_SIZE must be positive, got"
+                    f" {tensor_parallel_size}"
+                )
+        else:
+            tensor_parallel_size = torch.cuda.device_count()
+
+        logger.info(f"Using tensor_parallel_size={tensor_parallel_size}")
+
         engine_args = AsyncEngineArgs(
             model=self.model_id,
             trust_remote_code=to_bool(os.environ["VLLM_TRUST_REMOTE_CODE"]),
             revision=os.environ["VLLM_MODEL_REVISION"] or None,
+            tensor_parallel_size=tensor_parallel_size,
         )
         engine = AsyncLLMEngine.from_engine_args(engine_args)
         engine_model_config = asyncio.run(engine.get_model_config())
