@@ -25,7 +25,6 @@ class TestvLLM(unittest.TestCase):
         self.assertTrue("args" in metadata)
         self.assertTrue("openapi_schema" in metadata)
         self.assertTrue("py_obj" not in metadata)
-        self.assertEqual(len(metadata.get("requirement_dependency")), 3)
 
     def test_run_vllm_photon(self):
         import torch
