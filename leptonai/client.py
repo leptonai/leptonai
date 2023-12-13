@@ -200,6 +200,7 @@ class Client(object):
         chunk_size: Optional[int] = None,
         timeout: Optional[httpx._types.TimeoutTypes] = None,
         no_check: bool = False,
+        http2: bool = True,
     ):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
@@ -255,7 +256,9 @@ class Client(object):
         # timeout. httpx's default is 5 seconds, which is too short for AI
         # deployments.
         self._session = httpx.Client(
-            headers=headers, timeout=timeout if timeout else httpx.Timeout(None)
+            headers=headers,
+            timeout=timeout if timeout else httpx.Timeout(None),
+            http2=http2,
         )
         self.openapi: Dict = {}
         self._debug_record: List = []
