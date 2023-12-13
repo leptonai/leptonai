@@ -1,6 +1,7 @@
 """
 Photon is an open-source format for packaging Machine Learning models and applications.
 """
+
 from fastapi import HTTPException  # noqa: F401
 from fastapi.responses import StreamingResponse  # noqa: F401
 from fastapi.staticfiles import StaticFiles  # noqa: F401

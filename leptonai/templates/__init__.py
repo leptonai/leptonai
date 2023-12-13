@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 Templates is a set of example photons that is prebuilt and ready to use with
 the Lepton SDK. On the Lepton platform, you can find these as templates ready

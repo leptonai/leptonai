@@ -203,7 +203,7 @@ class WhisperX(Photon):
         Runs transcription, alignment, and diarization for the input.
 
         - Inputs:
-            - input: a string that is an url containing the audio file, or a base64-encoded 
+            - input: a string that is an url containing the audio file, or a base64-encoded
             string containing an audio file content.
             - language(optional): the language code for the input. If not provided, the model
                 will try to detect the language automatically (note this runs more slowly)
