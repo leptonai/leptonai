@@ -60,6 +60,7 @@ def remove_remote(conn: Connection, id: str, public_photon: bool = False):
     Remove a photon from a workspace.
     :param str id: id of the photon to remove
     """
+    print("ddddd ", f"/photons/{_get_photon_endpoint(public_photon)}/" + id )
     response = conn.delete(f"/photons/{_get_photon_endpoint(public_photon)}/" + id)
     return response
 

@@ -6,3 +6,5 @@ to be used as deployments. See the website for more detail.
 If you are contributing to the templates repository, please see the README.md
 file in the root of the repository for more information on how to contribute.
 """
+
+from .whisperx import WhisperX

@@ -1,12 +1,14 @@
 import os
 import sys
 import time
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from threading import Lock
 import numpy as np
 
-from leptonai.photon import Photon, FileParam, HTTPException, get_file_content
+from leptonai.photon import Photon, HTTPException
+from leptonai.photon.types import File
+
 from loguru import logger
 
 
@@ -22,6 +24,7 @@ class WhisperX(Photon):
     # with non-version-pinned torch and torchaudio. As a result, we will pin all three versions
     # here.
     requirement_dependency = [
+        "numpy",
         "torchaudio",
         "pyannote.audio==3.1.1",
         "git+https://github.com/m-bain/whisperx.git@e9c507ce5dea0f93318746411c03fed0926b70be",
@@ -190,7 +193,7 @@ class WhisperX(Photon):
     )
     def run(
         self,
-        input: Union[FileParam, str],
+        input: str,
         language: Optional[str] = "en",
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
@@ -200,9 +203,8 @@ class WhisperX(Photon):
         Runs transcription, alignment, and diarization for the input.
 
         - Inputs:
-            - input: a url containing the audio file, or a base64-encoded string containing an
-                audio file, or a lepton.photon.FileParam, or a local file path if running
-                locally.
+            - input: a string that is an url containing the audio file, or a base64-encoded 
+            string containing an audio file content.
             - language(optional): the language code for the input. If not provided, the model
                 will try to detect the language automatically (note this runs more slowly)
             - min_speakers(optional): the hint for minimum number of speakers for diarization.
@@ -240,7 +242,7 @@ class WhisperX(Photon):
 
         start_time = time.time()
         logger.debug(f"Start processing audio {input}")
-        audio_file = get_file_content(input, return_file=True)
+        audio_file = File(input).get_temp_file()
         audio = whisperx.load_audio(audio_file.name)
         if audio.size > self.MAX_LENGTH_IN_SECONDS * 16000:
             raise HTTPException(

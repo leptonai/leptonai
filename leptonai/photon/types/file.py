@@ -48,7 +48,7 @@ _BASE64FILE_ENCODED_PREFIX = "data:application/octet-stream;base64,"
 
 
 class File(BaseModel):
-    content: Union[bytes, str]
+    content: str
 
     def __init__(self, content: Union[IO, bytes, str]):
         if hasattr(content, "read"):
@@ -77,9 +77,9 @@ class File(BaseModel):
                     raise ValueError(
                         f"Failed to download content from url: {self.content}"
                     )
-                self.content = res.content
+                self.content = res.content  # type: ignore
             elif re.match(r"^data:.*;base64,", self.content):
-                self.content = base64.b64decode(self.content.split(",")[1])
+                self.content = base64.b64decode(self.content.split(",")[1])  # type: ignore
             else:
                 raise RuntimeError(
                     "You encountered a programming error. The File object passed"
