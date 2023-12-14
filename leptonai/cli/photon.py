@@ -216,7 +216,7 @@ def remove(name, local, id_, all_, public_photon):
                 api.remove_remote(conn, id_to_remove, public_photon=public_photon),
                 f"Photon id [green]{id_to_remove}[/] removed.",
                 f"Photon id [red]{id_to_remove}[/] not removed. Some deployments"
-                " still using it. Remove the deployments first with `lep"
+                " may still be using it. Remove the deployments first with `lep"
                 " deployment remove`.",
                 f"Photon id [red]{id_to_remove}[/] not removed. See error message"
                 " above.",
