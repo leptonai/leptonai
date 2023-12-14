@@ -100,11 +100,37 @@ CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "le
 DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
 
+
+def _is_rocm():
+    """
+    Detects if we are using rocm.
+
+    If the user specified LEPTON_BASE_IMAGE_FORCE_ROCM to any true values, then
+    _is_rocm() returns True. If it is not specified, we rely on cuda to see if
+    we are building rocm. This function is only intended to be used to determine
+    the base image type, and you should directly use torch.version.hip in your
+    user code.
+    """
+
+    if "LEPTON_BASE_IMAGE_FORCE_ROCM" in os.environ:
+        true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
+        return os.environ["LEPTON_BASE_IMAGE_FORCE_ROCM"].lower() in true_values
+    else:
+        # Now, importing the whole torch might be an overkill if the user is not
+        # using any torch capabilities, but most of lepton use cases would probably
+        # involve torch, and we will just use it.
+        import torch
+
+        return torch.cuda.is_available() and torch.version.hip
+
+
 # Lepton's base image and image repository location.
 BASE_IMAGE_VERSION = "0.14.5"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
-BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
+BASE_IMAGE = (
+    f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
+)
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
 # By default, platform runs lep ph run -f ${photon_file_path}
