@@ -53,7 +53,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: echo "base_image=${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}" >> $GITHUB_OUTPUT
       - name: Compute ROCm Vars
-        id: rocm-vars
+        id: rocm_vars
         env:
           ECR_REPOSITORY: lepton
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -96,7 +96,7 @@ jobs:
       - name: Build ROCm Base Images
         if: inputs.build_rocm_base
         run: |
-          tag="${{ steps.vars.outputs.base_rocm_image }}"
+          tag="${{ steps.rocm_vars.outputs.rocm_base_image }}"
           docker build . \
               --build-arg PYTHON_VERSION=${{ matrix.python_version }} \
               --build-arg ROCM_VERSION=5.6 \
@@ -110,8 +110,8 @@ jobs:
           VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
         run: |
           echo "HEAD SHA=$(git rev-parse --short HEAD)"
-          base_tag="${{ steps.vars.outputs.base_rocm_image }}"
-          tag="${{ steps.vars.outputs.base_rocm_image }}-runner-${VERSION_TAG}"
+          base_tag="${{ steps.rocm_vars.outputs.rocm_base_image }}"
+          tag="${{ steps.rocm_vars.outputs.rocm_base_image }}-runner-${VERSION_TAG}"
           docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-rocm-runner.Dockerfile --tag "${tag}"
           if [ "${{ inputs.is_release }}" == 'true' ]; then
               docker push ${tag}
