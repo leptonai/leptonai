@@ -101,7 +101,7 @@ DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
 
 
-def _is_rocm():
+def _is_rocm() -> bool:
     """
     Detects if we are using rocm.
 
@@ -121,7 +121,7 @@ def _is_rocm():
         # involve torch, and we will just use it.
         import torch
 
-        return torch.cuda.is_available() and torch.version.hip
+        return torch.cuda.is_available() and (torch.version.hip is not None)
 
 
 # Lepton's base image and image repository location.
