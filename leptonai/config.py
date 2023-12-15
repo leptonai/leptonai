@@ -139,6 +139,10 @@ BASE_IMAGE_CMD = None
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
+# Whether to forward proxy headers in uvicorn.
+UVICORN_PROXY_HEADERS = True
+FORWARDED_ALLOW_IPS = None
+
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 

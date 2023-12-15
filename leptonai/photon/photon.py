@@ -48,6 +48,8 @@ from leptonai.config import (  # noqa: F401
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
     get_local_deployment_token,
+    UVICORN_PROXY_HEADERS,
+    FORWARDED_ALLOW_IPS,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -769,6 +771,8 @@ class Photon(BasePhoton):
             host=host,
             port=port,
             log_config=log_config,
+            proxy_headers=UVICORN_PROXY_HEADERS,
+            forwarded_allow_ips=FORWARDED_ALLOW_IPS,
             timeout_graceful_shutdown=self.timeout_graceful_shutdown,
         )
         lepton_uvicorn_server = uvicorn.Server(config=config)
