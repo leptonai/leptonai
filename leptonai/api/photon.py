@@ -60,10 +60,11 @@ def remove_remote(conn: Connection, id: str, public_photon: bool = False):
     Remove a photon from a workspace.
     :param str id: id of the photon to remove
     """
-    raise NotImplementedError(
-        "remove_remote is not implemented in the backend yet. Will remove this once"
-        " done."
-    )
+    if public_photon:
+        raise NotImplementedError(
+            "remove_remote is not implemented in the backend yet. Will remove this once"
+            " done."
+        )
     response = conn.delete(f"/photons/{_get_photon_endpoint(public_photon)}/" + id)
     return response
 
