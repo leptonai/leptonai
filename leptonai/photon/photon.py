@@ -770,6 +770,10 @@ class Photon(BasePhoton):
             port=port,
             log_config=log_config,
             timeout_graceful_shutdown=self.timeout_graceful_shutdown,
+            # so that we can get the real client IP address in the
+            # access logs (and `X-Forwarded-For` header)
+            proxy_headers=True,
+            forwarded_allow_ips="*",
         )
         lepton_uvicorn_server = uvicorn.Server(config=config)
 
