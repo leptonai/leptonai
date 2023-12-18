@@ -3,7 +3,6 @@ Utility functions to help with the tools api commonly used in LLMs.
 """
 
 import inspect
-import json
 from typing import Callable, Optional, Dict, List, Any, get_type_hints, get_origin
 
 _type_map = {
@@ -61,8 +60,8 @@ def _get_type_spec(param_type, description):
             return {"type": type_name, "description": description}
         elif (
             len(description) == 2
-            and type(description[0]) == str
-            and type(description[1]) == list
+            and isinstance(description[0], str)
+            and isinstance(description[1], list)
         ):
             # string type with enum
             if not all(isinstance(v, str) for v in description[1]):
@@ -77,10 +76,10 @@ def _get_type_spec(param_type, description):
             }
         else:
             raise TypeError(
-                f"For string type, value must be a"
-                f" string containing the description of the field, or a tuple of length"
-                f" 2 where the first element is the description of the field and the"
-                f" second element is a list of strings representing the enum."
+                "For string type, value must be a string containing the description of"
+                " the field, or a tuple of length 2 where the first element is the"
+                " description of the field and the second element is a list of strings"
+                " representing the enum."
             )
     else:
         if not isinstance(description, str):
