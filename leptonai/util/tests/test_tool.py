@@ -1,5 +1,11 @@
 import json
-from typing import List, Any, Annotated
+from typing import List, Any
+try:
+    # For Python 3.9 and later
+    from typing import Annotated  # type: ignore
+except ImportError:
+    # For Python versions below 3.9
+    from typing_extensions import Annotated  # type: ignore
 import unittest
 
 from leptonai.util import tool
