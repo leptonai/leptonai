@@ -21,6 +21,19 @@ _type_map = {
 }
 
 
+def _original_type_backward_compatibility(param_type):
+    """
+    This function is for backward compatibility with Python 3.8 and below.
+    It returns the original type of the parameter, which is the same as the
+    param_type if the Python version is 3.9 and above, but is the __origin__ of
+    the param_type if the Python version is 3.8 and below.
+    """
+    try:
+        return param_type.__origin__
+    except AttributeError:
+        return param_type
+
+
 def _get_type_spec(param_type, param_annotation, default_value):
     """
     Gets the type spec in json format for a specific parameter type.
@@ -68,12 +81,12 @@ def _get_type_spec(param_type, param_annotation, default_value):
         array_description = {"type": "object", "properties": {}}
         for i, v in enumerate(description):
             if len(v) == 2:
-                sub_param_name = v[0]
+                sub_param_name = _original_type_backward_compatibility(v[0])
                 sub_param_annotation = v[1]
                 sub_param_type = v[1].__origin__
                 sub_param_default_value = inspect.Parameter.empty
             elif len(v) == 3:
-                sub_param_name = v[0]
+                sub_param_name = _original_type_backward_compatibility(v[0])
                 sub_param_annotation = v[1]
                 sub_param_type = v[1]
                 sub_param_default_value = v[2]
@@ -169,7 +182,7 @@ def get_tools_spec(func: Callable, name: Optional[str] = None) -> Dict[str, Any]
     for param_name, param in parameters.items():
         # Determine the type of the parameter
         try:
-            param_type = type_hints[param_name]
+            param_type = _original_type_backward_compatibility(type_hints[param_name])
         except KeyError:
             raise TypeError(f"Parameter {param_name} does not have a type annotation.")
         # Determine the annotation of the parameter
