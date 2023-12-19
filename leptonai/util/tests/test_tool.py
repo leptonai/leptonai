@@ -1,5 +1,6 @@
 import json
 from typing import List, Any
+
 try:
     # For Python 3.9 and later
     from typing import Annotated  # type: ignore
