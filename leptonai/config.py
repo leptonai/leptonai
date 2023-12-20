@@ -118,6 +118,7 @@ def _is_rocm() -> bool:
     else:
         return False
 
+
 # Lepton's base image and image repository location.
 BASE_IMAGE_VERSION = "0.14.6"
 BASE_IMAGE_REGISTRY = "default"
