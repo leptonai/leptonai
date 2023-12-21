@@ -32,6 +32,10 @@ class SAM(Photon):
         "Pillow",
     ]
 
+    deployment_template = {
+        "resource_shape": "gpu.a10",
+    }
+
     # Similar to regular python, you can add custom member variables to the photon class.
     # In this case, we will specify where we can download the checkpoint for the model.
     # We will also specify where we will cache the checkpoint.
