@@ -116,12 +116,7 @@ def _is_rocm() -> bool:
         true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
         return os.environ["LEPTON_BASE_IMAGE_FORCE_ROCM"].lower() in true_values
     else:
-        # Now, importing the whole torch might be an overkill if the user is not
-        # using any torch capabilities, but most of lepton use cases would probably
-        # involve torch, and we will just use it.
-        import torch
-
-        return torch.cuda.is_available() and (torch.version.hip is not None)
+        return False
 
 
 # Lepton's base image and image repository location.
