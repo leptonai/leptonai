@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Check if PASSWORD_ACCESS variable is set to "true"
+if [[ "$PASSWORD_ACCESS" == "true" ]]; then
+    # Enable password authentication in SSH configuration
+    sed -i '/^#PasswordAuthentication/c\PasswordAuthentication yes' /etc/ssh/sshd_config
+    sed -i '/^PasswordAuthentication/c\PasswordAuthentication yes' /etc/ssh/sshd_config
+
+    # Display a message indicating that user/password SSH access is enabled
+    echo "User/password SSH access is enabled."
+fi
+
+# Set root password if ROOT_PASSWORD is provided
+if [[ -n "$ROOT_PASSWORD" ]]; then
+    echo "root:${ROOT_PASSWORD}" | chpasswd
+    echo "Root password has been set."
+fi
+
+# Check if PUBLIC_KEY variable is set and not empty
+if [[ -n "$PUBLIC_KEY" ]]; then
+    # Check if the public key is not already present in authorized_keys
+    if ! grep -q "${PUBLIC_KEY}" /config/.ssh/authorized_keys; then
+        # Append the public key to authorized_keys
+        echo "$PUBLIC_KEY" >> /config/.ssh/authorized_keys
+        echo "Public key from env variable added."
+    fi
+fi
+
+# Check if PERMIT_ROOT_LOGIN is enabled
+if [[ "$PERMIT_ROOT_LOGIN" == "true" ]]; then
+    # Enable root login in SSH configuration
+    sed -i '/^#PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config
+    sed -i '/^PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config
+    echo "Root login is enabled."
+fi
+
+echo "Starting sshD"
+exec /usr/sbin/sshd -D
