@@ -1,0 +1,27 @@
+<!--
+PLEASE REMOVE THIS BLOCK WHEN THIS FILE IS ACTUALLY FILLED OUT.
+Scaffold for the readme.md files that goes with the lepton templates.
+-->
+
+# NAME_OF_THE_TEMPLATE
+
+One liner description of the template.
+
+# Example Usage
+
+Description and example 
+
+# Configurations
+
+This deployment will require a GPU. As a result, make sure you use a GPU resource shape.
+
+To customize the deployment, you can set the following environmental variables.
+
+* `ENV_VAR_1` - Description of the variable
+* `ENV_VAR_2` - Description of the variable
+
+This deployment also requires the following secrets to run:
+
+* `SECRET_1` - Description of the secret
+* `SECRET_2` - Description of the secret
+
