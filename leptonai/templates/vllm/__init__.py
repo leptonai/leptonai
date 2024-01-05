@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 vLLM implementation is actually in the first-class leptonai/photon/vllm folder.
 """
