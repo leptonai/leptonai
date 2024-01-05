@@ -50,7 +50,9 @@ _BASE64FILE_ENCODED_PREFIX = "data:application/octet-stream;base64,"
 class File(BaseModel):
     content: Union[bytes, str]
 
-    def __init__(self, content: Union[IO, bytes, str]):
+    def __init__(self, content: Union[IO, bytes, str, "File"]):
+        if isinstance(content, File):
+            content = content.content
         if hasattr(content, "read"):
             content = content.read()  # type: ignore
         super().__init__(content=content)
@@ -159,6 +161,9 @@ class File(BaseModel):
 
         class Config:
             json_encoders = {Union[bytes, str, IO]: lambda v: File.encode(v)}
+            # Backward compatibility to run smart_union if pydantic version is old.
+            # See https://docs.pydantic.dev/1.10/usage/model_config/#smart-union for more details.
+            smart_union = True
 
     else:
         from pydantic import field_serializer  # type: ignore
