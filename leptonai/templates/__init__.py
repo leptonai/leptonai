@@ -9,3 +9,4 @@ file in the root of the repository for more information on how to contribute.
 """
 
 from .whisperx.whisperx import WhisperX
+from .vllm import vLLM

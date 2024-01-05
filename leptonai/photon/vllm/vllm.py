@@ -27,6 +27,9 @@ class vLLMPhoton(Photon):
             "VLLM_USE_MODELSCOPE": "False",
             "VLLM_TRUST_REMOTE_CODE": "True",
         },
+        "secret": [
+            "HUGGING_FACE_HUB_TOKEN",
+        ],
     }
 
     requirement_dependency = [
