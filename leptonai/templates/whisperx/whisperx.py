@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from threading import Lock
 import numpy as np
@@ -193,7 +193,7 @@ class WhisperX(Photon):
     )
     def run(
         self,
-        input: str,
+        input: Union[str, File],
         language: Optional[str] = "en",
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
@@ -242,7 +242,9 @@ class WhisperX(Photon):
 
         start_time = time.time()
         logger.debug(f"Start processing audio {input}")
-        audio_file = File(input).get_temp_file()
+        if isinstance(input, str):
+            input = File(input)
+        audio_file = input.get_temp_file()
         audio = whisperx.load_audio(audio_file.name)
         if audio.size > self.MAX_LENGTH_IN_SECONDS * 16000:
             raise HTTPException(
