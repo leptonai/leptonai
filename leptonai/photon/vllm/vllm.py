@@ -29,7 +29,7 @@ class vLLMPhoton(Photon):
         },
         "secret": [
             "HUGGING_FACE_HUB_TOKEN",
-        ]
+        ],
     }
 
     requirement_dependency = [
