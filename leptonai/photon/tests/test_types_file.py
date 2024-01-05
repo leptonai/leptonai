@@ -20,6 +20,13 @@ class TestFile(unittest.TestCase):
         file_object = File(content)
         self.assertEqual(file_object.get_content(), content)
 
+    def test_file_from_file(self):
+        content = b"hello world"
+        file_object = File(BytesIO(content))
+        self.assertEqual(file_object.get_content(), content)
+        ff = File(file_object)
+        self.assertEqual(ff.get_content(), content)
+
     def test_file_str(self):
         # illegal string
         content = "hello world"
