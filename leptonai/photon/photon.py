@@ -774,6 +774,7 @@ class Photon(BasePhoton):
             # access logs (and `X-Forwarded-For` header)
             proxy_headers=True,
             forwarded_allow_ips="*",
+            timeout_keep_alive=120,  # 2 minutes, default was 5s
         )
         lepton_uvicorn_server = uvicorn.Server(config=config)
 
