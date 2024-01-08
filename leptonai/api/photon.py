@@ -123,6 +123,10 @@ def fetch(conn: Connection, id: str, path: str, public_photon: bool = False):
         new_path = path
 
     # TODO: use remote creation time
+    logger.trace(
+        "Adding photon to local cache:"
+        f" {id} {photon_name} {photon_model} {str(new_path)}"
+    )
     add_photon(id, photon_name, photon_model, str(new_path))
 
     return photon
