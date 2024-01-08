@@ -1,5 +1,5 @@
 # Because most of the apis in kv do not return json, we will not use json_or_error here.
-from typing import Union
+from typing import Union, Optional
 
 from .connection import Connection
 
@@ -33,6 +33,23 @@ def get_key(conn: Connection, name: str, key: str):
     Get the value of a key in the KV.
     """
     response = conn.get(f"/kv/namespaces/{name}/values/{key}")
+    return response
+
+
+def list_key(
+    conn: Connection,
+    name: str,
+    cursor: Optional[int] = 0,
+    limit: Optional[int] = 0,
+    prefix: Optional[str] = None,
+):
+    """
+    List keys in the KV.
+    """
+    response = conn.get(
+        f"/kv/namespaces/{name}/keys",
+        params={"cursor": cursor, "limit": limit, "prefix": prefix},
+    )
     return response
 
 
