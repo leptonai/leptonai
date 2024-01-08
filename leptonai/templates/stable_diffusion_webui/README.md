@@ -25,7 +25,7 @@ Once you load the WebUI by visiting the deployment URL, you’ll be able to gene
 
 # Add your own models
 
-If you’d like to add a model including checkpoint, Lora, or VAE from Civital, you could use the CIvitai Helper tool on top to do so. You can find this tool at the top of the screen. 
+If you’d like to add a model including checkpoint, Lora, or VAE from Civitai, you could use the Civitai Helper tool on top to do so. You can find this tool at the top of the screen. 
 
 To download a model from Civitai, copy the link from browser and paste to the `Civtal URL` , then click `1.Get Model info by Civital URL` button on the right to fetch the model info.
 
