@@ -1,7 +1,9 @@
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, Tuple
 import zipfile
+
+from loguru import logger
 
 from leptonai.config import CACHE_DIR
 from leptonai._internal.db import DB
@@ -200,7 +202,13 @@ def find_all_local_photons():
     return records
 
 
-def find_local_photon(name: str) -> Optional[str]:
+def find_local_photon(
+    name: str, return_path: str = True
+) -> Optional[Union[str, Tuple]]:
+    """
+    Finds the local photon of the given name, and returns the most recent one. If return_path is True,
+    returns the path of the photon, otherwise returns the record.
+    """
     res = (
         DB()
         .cursor()
@@ -209,10 +217,14 @@ def find_local_photon(name: str) -> Optional[str]:
         )
     )
     record_or_none = res.fetchone()
+    logger.trace(f"find local photon: {record_or_none}")
     if record_or_none is None:
         return None
     else:
-        return record_or_none[0]
+        if return_path:
+            return record_or_none[3]
+        else:
+            return record_or_none
 
 
 def remove_local_photon(name: str, remove_all: bool = False):
