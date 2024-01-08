@@ -134,6 +134,10 @@ BASE_IMAGE_CMD = None
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
+DEFAULT_TIMEOUT_KEEP_ALIVE = os.environ.get(
+    "LEPTON_DEFAULT_TIMEOUT_KEEP_ALIVE", 30 * 60
+)  # 30 minutes
+
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 
