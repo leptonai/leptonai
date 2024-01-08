@@ -18,10 +18,7 @@ This deployment may also require the following secret(s) to run:
 
 Once these fields are set, click `Deploy` button at the bottom of the page to create the deployment. You can see the deployment has now been created under [Deployments](https://dashboard.lepton.ai/workspace-redirect/deployments).
 
-# Using the model
-
-## Using OpenAI SDK
-
+# Using the model with OpenAI SDK
 Our deployment is fully compatible with the OpenAI SDK. If you have not installed it, do it via:
 
 ```bash
