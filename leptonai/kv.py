@@ -6,7 +6,7 @@ For example, you can use the KV API and the Queue API to build a distributed tas
 
 import asyncio
 import time
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from loguru import logger
 
@@ -52,6 +52,20 @@ class KV(object):
     value of a key, and `my_kv.delete(key)` to delete a key-value pair. The key should be
     a valid python string and the value should be either a valid python string or bytes.
     """
+
+    @staticmethod
+    def list_kv(conn: Optional[Connection] = None) -> List[str]:
+        """
+        List KVs in the current workspace.
+        """
+        conn = conn if conn else workspace_api.current_connection()
+        res = kv_api.list_kv(conn)
+        if not res.ok:
+            raise RuntimeError(
+                "Failed to list KVs in the current workspace. Error:"
+                f" {res.status_code} {res.content}."
+            )
+        return [s["name"] for s in res.json()]
 
     @staticmethod
     def create_kv(
@@ -192,6 +206,23 @@ class KV(object):
                 f"KV {self._kv} is not ready after {time.time() - start} seconds."
             )
 
+    def keys(
+        self,
+        cursor: Optional[int] = 0,
+        limit: Optional[int] = 0,
+        prefix: Optional[str] = None,
+    ):
+        """
+        List keys in the KV.
+        """
+        res = kv_api.list_key(self._conn, self._kv, cursor, limit, prefix)
+        if not res.ok:
+            raise RuntimeError(
+                f"Failed to list keys in KV {self._kv}. Error:"
+                f" {res.status_code} {res.content}."
+            )
+        return res.json()
+
     def get(self, key: str) -> bytes:
         """
         Get the value of a key in the KV.
@@ -244,3 +275,12 @@ class KV(object):
                 f"Failed to delete key {key} in KV {self._kv}. Error:"
                 f" {res.status_code} {res.content}."
             )
+
+    def __getitem__(self, key: str) -> bytes:
+        return self.get(key)
+
+    def __setitem__(self, key: str, value: Union[str, bytes]):
+        self.put(key, value)
+
+    def __delitem__(self, key: str):
+        self.delete(key)

@@ -41,6 +41,7 @@ class TestKV(unittest.TestCase):
         logger.debug("Testing put/get")
         key = self.prefix + "-key"
         value = (self.prefix + "-value").encode("utf-8")
+        # test KV interface
         logger.debug("Testing get with non-existing key")
         with self.assertRaises(KeyError):
             self.kv_instance.get(key)
@@ -53,6 +54,36 @@ class TestKV(unittest.TestCase):
         logger.debug("Testing get with deleted key")
         with self.assertRaises(KeyError):
             self.kv_instance.get(key)
+        # test dict-like interface
+        with self.assertRaises(ValueError):
+            _ = self.kv_instance[key]
+        self.kv_instance[key] = value
+        self.assertEqual(self.kv_instance[key], value)
+        del self.kv_instance[key]
+        with self.assertRaises(KeyError):
+            _ = self.kv_instance[key]
+
+    def test_keys_kv(self):
+        logger.debug("Testing list")
+        key = self.prefix + "-key"
+        value = (self.prefix + "-value").encode("utf-8")
+        logger.debug("Testing list with empty namespace")
+        self.assertEqual(self.kv_instance.keys(), [])
+        logger.debug("Testing list with non-empty namespace")
+        self.kv_instance.put(key, value)
+        self.assertEqual(self.kv_instance.keys()["keys"], [key])
+        self.kv_instance.delete(key)
+        for i in range(10):
+            self.kv_instance.put(str(i), str(i))
+        keys = self.kv_instance.keys()["keys"]
+        self.assertEqual(len(keys), 10)
+        self.assertEqual(set(keys), set([str(i) for i in range(10)]))
+        logger.debug("Testing list with limit")
+        keys = self.kv_instance.keys(limit=5)["keys"]
+        self.assertEqual(len(keys), 5)
+        logger.debug("Testing list with deleted namespace")
+        with self.assertRaises(ValueError):
+            self.kv_instance.list()
 
 
 if __name__ == "__main__":
