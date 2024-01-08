@@ -62,7 +62,7 @@ A: It depends if your files are mounted with storage. Files within Lepton Storag
 
 Q: Can I turn this into API so I can make generation with code rather then WebUI?
 
-A: We don’t support using Stable Diffusion Web UI as API at the moment. If you do need to do so,  you can contact us via info@lepton.ai
+A: We don’t support using Stable Diffusion Web UI directly as API, but we do provide API for Stable Diffusion as Stable Diffusion Farm where you can find in templates as well. If you’d like to use Stable Diffusion Farm, you can contact us via info@lepton.ai.
 
 Q: Can I share this environment with my team members?
 
@@ -70,4 +70,4 @@ A: Yes. Users within the same workspace will have access to the deployments. If 
 
 Q: If I’ve used products like RunDiffusion with Large or Max shape, what’s the corresponding configuration here?
 
-A: For Large or Max shape on RunDiffusion, set resource type as `gpu.a10` will have a better performance.
+A: We do not know the exact shape of the underlying computation resources for RunDiffusion or other providers. In our experience, `gpu.a10` is on par or slightly better than the Large and Max shape.
