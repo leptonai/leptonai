@@ -12,10 +12,11 @@ def get(
     stream: bool = False,
 ):
     """
-    Upload a file to the current workspace.
+    Obtains an object url that belongs to the current workspace.
 
     If return_url is True, the function will return the url of the object instead
-    of the content of the object.
+    of the content of the object. Otherwise, the function will return the content
+    of the object.
     """
     presigned_bucket_name = (
         bucket_name if bucket_name == "public" else f"{bucket_name}_presigned"
@@ -41,6 +42,8 @@ def put(conn: Connection, key: str, file_like: IO, bucket_name: str):
         return response
     else:
         # For all other cases, we directly return the response to the caller.
+        # Note that this most likely means that the response is an error, unless
+        # we found a bug in the server.
         return response
 
 
