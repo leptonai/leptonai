@@ -7,3 +7,8 @@ from .cloudrun import Remote
 from .client import Client
 from .photon import Photon
 from ._version import __version__
+
+# Components that one can use to build applications around Photons.
+from .kv import KV
+from .queue import Queue
+from .objectstore import PrivateObjectStore, PublicObjectStore

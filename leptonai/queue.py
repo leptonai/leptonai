@@ -20,8 +20,7 @@ _lepton_readiness_wait_time_ = 10
 # Timeout limit.
 _lepton_readiness_timeout_ = 60 * 5  # 5 minutes
 
-# max key and value lengths: 256 bytes for key, and 256KB for value.
-_lepton_max_key_length_ = 256
+# max queue value lengths: 256KB for value.
 _lepton_max_value_length_ = 256 * 1024
 
 
@@ -199,6 +198,11 @@ class Queue(object):
     def send(self, message: str):
         """
         Send a message to the queue.
+
+        Note that Lepton queue carries out deduplication: if you send the same message
+        twice, the second message will be discarded. This is useful for distributed fault
+        tolerance. The deduplication is based on the content of the message, and the dedup
+        time window is around 5 minutes.
         """
         if len(message) > _lepton_max_value_length_:
             raise ValueError(
