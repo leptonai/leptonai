@@ -304,6 +304,7 @@ class DeploymentSpec(BaseModel):
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
     health: Optional[HealthCheck] = None
+    is_pod: Optional[bool] = None
 
 
 class LeptonJobState(str, Enum):
