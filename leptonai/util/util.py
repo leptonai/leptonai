@@ -1,6 +1,6 @@
 import anyio
 from contextlib import contextmanager, closing
-from contextlib2 import nullcontext
+from contextlib import nullcontext
 from functools import wraps, partial
 import inspect
 import os
