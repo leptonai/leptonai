@@ -60,7 +60,7 @@ def list_command(pattern):
     records = [
         (
             d["name"],
-            d.get("photon_id", "(unknown)"),
+            d.get("photon_id", d.get("container", {}).get("image", "(unknown)")),
             d["created_at"] / 1000,
             d["status"],
         )

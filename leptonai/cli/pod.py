@@ -134,7 +134,7 @@ def _get_pod_public_ip_or_die(conn, name: str):
 @click.option(
     "--pattern",
     "-p",
-    help="Regular expression pattern to filter deployment names.",
+    help="Regular expression pattern to filter pod names.",
     default=None,
 )
 def list_command(pattern):
@@ -148,8 +148,6 @@ def list_command(pattern):
         msg="Cannot list pods. See error message above.",
     )
     logger.trace(f"Deployments:\n{[d for d in deployments if d.get('is_pod', False)]}")
-    # For the photon id field, we will show either the photon id, or the container
-    # image name if the deployment is an arbitrary container.
     pods = [
         d
         for d in deployments
@@ -185,19 +183,21 @@ def list_command(pattern):
 
     table = Table(title="pods", show_lines=True)
     table.add_column("name")
-    table.add_column("created at")
+    table.add_column("resource shape")
     table.add_column("status")
-    table.add_column("ssh")
-    table.add_column("tcp port map")
+    table.add_column("ssh command")
+    table.add_column("TCP port mapping")
+    table.add_column("created at")
     for pod, ssh_port, tcp_port, pod_ip in zip(pods, ssh_ports, tcp_ports, pod_ips):
         table.add_row(
             pod["name"],
-            datetime.fromtimestamp(pod["created_at"] / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
-            ),
+            pod["resource_requirement"]["resource_shape"],
             pod["status"]["state"],
             f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
             f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
+            datetime.fromtimestamp(pod["created_at"] / 1000).strftime(
+                "%Y-%m-%d\n%H:%M:%S"
+            ),
         )
     console.print(table)
     console.print(
