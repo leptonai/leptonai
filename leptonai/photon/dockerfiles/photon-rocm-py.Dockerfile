@@ -11,6 +11,8 @@ COPY . /tmp/leptonai-sdk
 ARG PYTHON_VERSION
 ENV LEPTON_VIRTUAL_ENV=/opt/lepton/venv
 
+RUN cp /tmp/leptonai-sdk/leptonai/photon/dockerfiles/lepton-sshd /usr/local/bin/lepton-sshd
+
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_base.sh
 
 RUN sudo apt-get update && sudo apt-get install -y libgl1 ffmpeg libgoogle-perftools-dev
