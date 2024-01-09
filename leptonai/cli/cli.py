@@ -8,6 +8,7 @@ from . import kv
 from . import lfs
 from . import objectstore
 from . import photon
+from . import pod
 from . import queue
 from . import secret
 from . import storage
@@ -36,6 +37,7 @@ kv.add_command(lep)
 lfs.add_command(lep)
 objectstore.add_command(lep)
 photon.add_command(lep)
+pod.add_command(lep)
 queue.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)

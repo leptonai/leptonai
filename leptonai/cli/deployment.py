@@ -56,14 +56,16 @@ def list_command(pattern):
     )
     # For the photon id field, we will show either the photon id, or the container
     # image name if the deployment is an arbitrary container.
+    # Note: for pods, we will not show them here.
     records = [
         (
             d["name"],
-            d.get("photon_id", d.get("container", {}).get("image", "(unknown)")),
+            d.get("photon_id", "(unknown)"),
             d["created_at"] / 1000,
             d["status"],
         )
         for d in deployments
+        if not d.get("is_pod", False)
     ]
     if len(records) == 0:
         console.print(
