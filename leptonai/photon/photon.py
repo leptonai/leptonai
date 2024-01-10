@@ -35,8 +35,6 @@ from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import pydantic
 import pydantic.decorator
-import uvicorn
-import uvicorn.config
 
 from leptonai.config import (  # noqa: F401
     ALLOW_ORIGINS_URLS,
@@ -48,6 +46,7 @@ from leptonai.config import (  # noqa: F401
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
     get_local_deployment_token,
+    SERVER_BACKEND,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -66,6 +65,17 @@ import leptonai._internal.logging as internal_logging
 
 schemas = ["py"]
 
+
+if SERVER_BACKEND == "uvicorn":
+    import uvicorn
+    import uvicorn.config
+    server_run = uvicorn.run
+elif SERVER_BACKEND == "hypercorn":
+    import hypercorn
+    import hypercorn.config
+    server_run = hypercorn.run.run
+else:
+    raise RuntimeError(f"Unknown server backend: {SERVER_BACKEND}")
 
 def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     (
@@ -242,17 +252,17 @@ class Photon(BasePhoton):
     # When the server is shut down, we will wait for all the requests to finish before
     # shutting down. This is the timeout for the graceful shutdown. If the timeout is
     # reached, we will force kill the server. If the timeout is None, we will use the
-    # default setting of the uvicorn server, which as of Nov 2023 uses the default of
+    # default setting of the server, which as of Nov 2023 uses the default of
     # asyncio.wait_for.
     timeout_graceful_shutdown: Optional[int] = None
 
     # During some deployment environments, the server might run behind a load balancer, and during
-    # the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
-    # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
+    # the shutdown time, the load balancer will send a SIGTERM to the server to shut down the server.
+    # The default behavior of the server is to immediately stop receiving new traffic, and it is problematic
     # when the load balancer need to wait for some time to propagate the TERMINATING status to
     # other components of the distributed system. This parameter controls the grace period before
-    # uvicorn rejects incoming traffic on SIGTERM. We set it to 5 seconds by default,
-    # and if it is set to 0, we will use the default setting of uvicorn, which is to immediately
+    # the server rejects incoming traffic on SIGTERM. We set it to 5 seconds by default,
+    # and if it is set to 0, we will use the default setting of the server, which is to immediately
     # stop receiving new traffic.
     incoming_traffic_grace_period: int = 5
 
@@ -659,22 +669,26 @@ class Photon(BasePhoton):
         return app
 
     @staticmethod
-    def _uvicorn_log_config():
-        # Filter out /healthz and /metrics from uvicorn access log
-        class LogFilter(logging.Filter):
-            def filter(self, record: logging.LogRecord) -> bool:
-                return (
-                    record.getMessage().find("/healthz ") == -1
-                    and record.getMessage().find("/metrics ") == -1
-                )
+    def _server_log_config():
+        if SERVER_BACKEND == "uvicorn":
+            import uvicorn
+            # Filter out /healthz and /metrics from uvicorn access log
+            class LogFilter(logging.Filter):
+                def filter(self, record: logging.LogRecord) -> bool:
+                    return (
+                        record.getMessage().find("/healthz ") == -1
+                        and record.getMessage().find("/metrics ") == -1
+                    )
 
-        logging.getLogger("uvicorn.access").addFilter(LogFilter())
+            logging.getLogger("uvicorn.access").addFilter(LogFilter())
 
-        # prepend timestamp to log
-        log_config = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
-        for formatter, config in log_config["formatters"].items():
-            config["fmt"] = "%(asctime)s - " + config["fmt"]
-        return log_config
+            # prepend timestamp to log
+            log_config = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
+            for formatter, config in log_config["formatters"].items():
+                config["fmt"] = "%(asctime)s - " + config["fmt"]
+            return log_config
+        elif SERVER_BACKEND == "hypercorn":
+            raise NotImplementedError("Hypercorn logging is not implemented yet.")
 
     @staticmethod
     def _print_launch_info(host, port, log_level):
@@ -725,18 +739,18 @@ class Photon(BasePhoton):
             ])
         )
 
-    def _uvicorn_run(self, host, port, log_level, log_config):
+    def _server_run(self, host, port, log_level, log_config):
         app = self._create_app(load_mount=True)
 
         self._replace_openapi_if_needed(app)
 
         @app.on_event("startup")
-        async def uvicorn_startup():
+        async def server_startup():
             # Currently, we don't do much in the startup phase.
             logger.info("Starting photon app - running startup prep code.")
 
         @app.on_event("shutdown")
-        async def uvicorn_shutdown():
+        async def server_shutdown():
             # We do not do much in the shutdown phase either.
             logger.info("Shutting down photon app - running shutdown prep code.")
 
@@ -763,34 +777,48 @@ class Photon(BasePhoton):
             if not os.path.exists(path):
                 return Response(status_code=404)
             return FileResponse(path)
-
-        config = uvicorn.Config(
-            app,
-            host=host,
-            port=port,
-            log_config=log_config,
-            timeout_graceful_shutdown=self.timeout_graceful_shutdown,
-            # so that we can get the real client IP address in the
-            # access logs (and `X-Forwarded-For` header)
-            proxy_headers=True,
-            forwarded_allow_ips="*",
-        )
-        lepton_uvicorn_server = uvicorn.Server(config=config)
-
-        # Replaces the default server signal handler with a custom one that
-        # waits for a given amount time before stopping to receive incoming
-        # traffic.
-        if self.incoming_traffic_grace_period:
-            logger.info(
-                "Setting up signal handlers for graceful incoming traffic"
-                f" shutdown after {self.incoming_traffic_grace_period} seconds."
+        
+        if SERVER_BACKEND == "uvicorn":
+            config = uvicorn.Config(
+                app,
+                host=host,
+                port=port,
+                log_config=log_config,
+                timeout_graceful_shutdown=self.timeout_graceful_shutdown,
+                # so that we can get the real client IP address in the
+                # access logs (and `X-Forwarded-For` header)
+                proxy_headers=True,
+                forwarded_allow_ips="*",
             )
-            lepton_uvicorn_server.handle_exit = functools.partial(
-                self._handle_exit, lepton_uvicorn_server
-            )
+            lepton_uvicorn_server = uvicorn.Server(config=config)
 
-        self._print_launch_info(host, port, log_level)
-        lepton_uvicorn_server.run()
+            # Replaces the default server signal handler with a custom one that
+            # waits for a given amount time before stopping to receive incoming
+            # traffic.
+            if self.incoming_traffic_grace_period:
+                logger.info(
+                    "Setting up signal handlers for graceful incoming traffic"
+                    f" shutdown after {self.incoming_traffic_grace_period} seconds."
+                )
+                lepton_uvicorn_server.handle_exit = functools.partial(
+                    self._handle_exit, lepton_uvicorn_server
+                )
+
+            self._print_launch_info(host, port, log_level)
+            lepton_uvicorn_server.run()
+        elif SERVER_BACKEND == "hypercorn":
+            config = hypercorn.config.Config()
+            config.bind = [f"{host}:{port}"]
+            config.graceful_timeout = self.timeout_graceful_shutdown
+            
+            from hypercorn.middleware import ProxyFixMiddleware
+            from hypercorn import serve
+
+            fixed_app = ProxyFixMiddleware(app, mode="legacy", trusted_hops=1)
+
+            hypercorn.run.run(fixed_app, config)
+            raise NotImplementedError("Hypercorn server is not implemented yet.")
+
 
     def _handle_exit(
         self, uvicorn_server: uvicorn.Server, sig: int, frame: FrameType
@@ -834,7 +862,7 @@ class Photon(BasePhoton):
                     " None."
                 )
             logger.info(f"Launching liveness server on port {port}")
-            uvicorn.run(app, host="0.0.0.0", port=port, log_level="error")
+            server_run(app, host="0.0.0.0", port=port, log_level="error")
 
         threading.Thread(target=run_server, daemon=True).start()
 
@@ -854,8 +882,8 @@ class Photon(BasePhoton):
             self._run_liveness_server()
 
         self._call_init_once()
-        log_config = self._uvicorn_log_config()
-        self._uvicorn_run(
+        log_config = self._server_log_config()
+        self._server_run(
             host=host, port=port, log_level=log_level, log_config=log_config
         )
 

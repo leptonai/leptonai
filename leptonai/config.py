@@ -34,6 +34,9 @@ TRUST_REMOTE_CODE = os.environ.get("LEPTON_TRUST_REMOTE_CODE", "true").lower() i
     "on",
 )
 
+# Server backend: uvicorn or hypercorn.
+SERVER_BACKEND = os.environ.get("LEPTON_SERVER_BACKEND", "uvicorn")
+
 # Whether to set deployments to have a default timeout of 1 hour. This is often
 # preferred in a development environment. Set the environment variable `LEPTON_DEFAULT_TIMEOUT`
 # to `false` to disable this behavior.
