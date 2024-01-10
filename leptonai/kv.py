@@ -5,6 +5,7 @@ For example, you can use the KV API and the Queue API to build a distributed tas
 """
 
 import asyncio
+from requests import Response
 import time
 from typing import Optional, Union, List
 
@@ -28,6 +29,13 @@ _lepton_max_key_length_ = 256
 _lepton_max_value_length_ = 256 * 1024
 
 
+def _is_a_kv_not_ready_response(response: Response) -> bool:
+    """
+    Returns if the response is equivalent to a KV not ready response.
+    """
+    return response.status_code == 500 and "no such host" in response.json()["message"]
+
+
 class KV(object):
     """
     The Lepton Key-Value store. Every named KV can be considered the equivalent of a KV / table / collection,
@@ -48,9 +56,12 @@ class KV(object):
     await my_kv.async_wait()
     ```
 
-    When the KV is ready, you can use `my_kv.put(key, value)` to put a key-value pair, `my_kv.get(key)` to get the
-    value of a key, and `my_kv.delete(key)` to delete a key-value pair. The key should be
+    When the KV is ready, you can use `my_kv.put(key, value)` to put a key-value pair, `my_kv.get(key)`
+    to get the value of a key, and `my_kv.delete(key)` to delete a key-value pair. The key should be
     a valid python string and the value should be either a valid python string or bytes.
+
+    Alternatively, use `my_kv[key] = value` to put a key-value pair, `my_kv[key]` to get the value of a key,
+    and `del my_kv[key]` to delete a key-value pair.
     """
 
     @staticmethod
@@ -184,8 +195,12 @@ class KV(object):
         )
         logger.trace(f"Readiness probe: {ret.status_code} {ret.content}")
         if ret.ok:
+            try:
+                self.delete(_lepton_readiness_test_key_)
+            except Exception:
+                pass
             return True
-        elif ret.status_code == 500 and "no such host" in ret.json()["message"]:
+        elif _is_a_kv_not_ready_response(ret):
             return False
         else:
             raise RuntimeError(
@@ -218,8 +233,12 @@ class KV(object):
         res = kv_api.list_key(self._conn, self._kv, cursor, limit, prefix)
         if not res.ok:
             raise RuntimeError(
-                f"Failed to list keys in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}."
+                f"KV {self._kv} is not ready."
+                if _is_a_kv_not_ready_response(res)
+                else (
+                    f"Failed to list keys in KV {self._kv}. Error:"
+                    f" {res.status_code} {res.content}."
+                )
             )
         return res.json()
 
@@ -236,8 +255,12 @@ class KV(object):
             raise KeyError(key)
         elif not res.ok:
             raise RuntimeError(
-                f"Failed to get key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}."
+                f"KV {self._kv} is not ready."
+                if _is_a_kv_not_ready_response(res)
+                else (
+                    f"Failed to get key {key} in KV {self._kv}. Error:"
+                    f" {res.status_code} {res.content}."
+                )
             )
         else:
             return res.content
@@ -259,8 +282,12 @@ class KV(object):
         res = kv_api.put_key(self._conn, self._kv, key, value)
         if not res.ok:
             raise RuntimeError(
-                f"Failed to put key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}."
+                f"KV {self._kv} is not ready."
+                if _is_a_kv_not_ready_response(res)
+                else (
+                    f"Failed to put key {key} in KV {self._kv}. Error:"
+                    f" {res.status_code} {res.content}."
+                )
             )
 
     def delete(self, key: str):
@@ -272,8 +299,12 @@ class KV(object):
             raise KeyError(key)
         elif not res.ok:
             raise RuntimeError(
-                f"Failed to delete key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}."
+                f"KV {self._kv} is not ready."
+                if _is_a_kv_not_ready_response(res)
+                else (
+                    f"Failed to delete key {key} in KV {self._kv}. Error:"
+                    f" {res.status_code} {res.content}."
+                )
             )
 
     def __getitem__(self, key: str) -> bytes:

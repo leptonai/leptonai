@@ -5,7 +5,7 @@ from functools import wraps, partial
 import inspect
 import os
 import socket
-from typing import Optional
+from typing import Any, Optional
 import re
 from urllib.parse import urlparse
 import warnings
@@ -129,13 +129,15 @@ def asyncfy_with_semaphore(
         return async_func
 
 
-def is_valid_url(candidate_str: str) -> bool:
+def is_valid_url(candidate_str: Any) -> bool:
+    if not isinstance(candidate_str, str):
+        return False
     parsed = urlparse(candidate_str)
     return parsed.scheme != "" and parsed.netloc != ""
 
 
 # backward compatible function name
-def _is_valid_url(candidate_str: str) -> bool:
+def _is_valid_url(candidate_str: Any) -> bool:
     warnings.warn("_is_valid_url is deprecated. Please use is_valid_url instead.")
     return is_valid_url(candidate_str)
 

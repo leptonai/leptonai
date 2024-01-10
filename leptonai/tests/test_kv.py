@@ -68,10 +68,10 @@ class TestKV(unittest.TestCase):
         key = self.prefix + "-key"
         value = (self.prefix + "-value").encode("utf-8")
         logger.debug("Testing list with empty namespace")
-        self.assertEqual(self.kv_instance.keys(), [])
+        self.assertEqual(self.kv_instance.keys(), {"keys": []})
         logger.debug("Testing list with non-empty namespace")
         self.kv_instance.put(key, value)
-        self.assertEqual(self.kv_instance.keys()["keys"], [key])
+        self.assertEqual(self.kv_instance.keys()["keys"], {"keys": [key]})
         self.kv_instance.delete(key)
         for i in range(10):
             self.kv_instance.put(str(i), str(i))
