@@ -15,7 +15,7 @@ Here are few configurations you can change to suit your needs:
 - Resource Shape : Resource used for running the workload. `gpu.a10` is recommended
     - To run models with A100 / H100 or multiple cards, contact us for reserved computation resources via info@lepton.ai.
 - Environment Variables
-    - `MODELS(Optional)` : Pass in [CivitAI](https://civitai.com/) Model Versions IDs to be pre-loaded into the deployment. You can find the model version ID from the model page. For example, you can pass in `288982` to load [Juggernaut XL V8](https://civitai.com/models/133005?modelVersionId=288982). And you can also pass in multiple model version IDs by separating them with comma, like `288982,281176,276923`.
+    - `MODELS(Optional)` : Pass in [CivitAI](https://civitai.com/) model version IDs to be pre-loaded into the deployment. You can find the model version ID from the model page. For example, you can pass in `288982` to load [Juggernaut XL V8](https://civitai.com/models/133005?modelVersionId=288982). And you can also pass in multiple model version IDs by separating them with comma, like `288982,281176,276923`.
     - `Extensions(Optional)` : Pass in git url to load your choice of extensions. For example, you can pass in `https://github.com/ototadana/sd-face-editor.git@3421017` to load [sd-face-editor](https://github.com/ototadana/sd-face-editor)
     - `CIVITAI_API_KEY(Optional)` : Pass in your [CivitAI](https://civitai.com/) API key to access your private models. 
 
