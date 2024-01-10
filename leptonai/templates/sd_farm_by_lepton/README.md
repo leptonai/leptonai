@@ -54,9 +54,9 @@ Q: Can I use my locally trained models such as checkpoints or loras without usin
 
 A: You can definitely do this. One easier way to do this is to mount storage during the setting up stage, and upload your models into corresponding folders. For instructions to upload models to storage, checkout the [CLI reference](https://www.lepton.ai/references/lep_storage#lep-storage-upload).
 
-Q: Can I use controlNet models for image generation?
+Q: Will the generated images be stored in storage?
 
-A: Yes. You can pass your controlNet arguments via adding `alwayson_scripts` in `txt2img` request body. 
+A: No, the generated images will not be stored in storage. If you want to store the generated images, you can choose upload to your own choice of storage service.
 
 Q: Are there any other APIs are available? For example, can I do image-to-image generation?
 
