@@ -547,7 +547,18 @@ class Photon(BasePhoton):
         This function is called when we create a deployment from a photon, and is
         guaranteed to run before the first api call served by the photon.
         """
-        # The Photon init function sets the envs and secrets specified in the deployment template
+        ####################################
+        # Implementation note: if you are modifying Photon.init() itself, make sure that
+        # the function is idempotent. In other words, if the user calls init() multiple
+        # times, the function should have the same effect as calling it once. This is
+        # because although we guard the init function with _call_init_once() in the
+        # Photon framework itself, the user might stil be explicitly calling it multiple
+        # times, and we do not want side effect to happen.
+        ####################################
+        # sets the envs and secrets specified in the deployment template. For envs, we
+        # set the default values if the env is not set, which helps local deployment and
+        # debugging. For secret, we explicitly require the user to set it before running
+        # the photon (on the platform, secret is filled by the platform if specified).
         envs = self._deployment_template.get("env", {})
         for key in envs:
             if os.environ.get(key) is None:

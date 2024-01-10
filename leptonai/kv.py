@@ -5,9 +5,10 @@ For example, you can use the KV API and the Queue API to build a distributed tas
 """
 
 import asyncio
+from pydantic import BaseModel
 from requests import Response
 import time
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
 from loguru import logger
 
@@ -27,6 +28,30 @@ _lepton_readiness_timeout_ = 60 * 5  # 5 minutes
 # max key and value lengths: 256 bytes for key, and 256KB for value.
 _lepton_max_key_length_ = 256
 _lepton_max_value_length_ = 256 * 1024
+
+_kv_name_resolution_message = """
+You have encountered a name resolution error when accessing the KV. This is likely
+because you are using a relatively new KV, and as our KV backend uses DNS to resolve
+the KV service address, it may take some time for the DNS to be updated and propagated
+to the DNS server you are using. Please try again in a few minutes. This is not
+a bug of our system, but due to the nature of the distributed DNS resolution system.
+"""
+
+
+def _maybe_dns_message(res: Response) -> str:
+    if res.status_code == 500 and "no such host" in res.json()["message"]:
+        return _kv_name_resolution_message
+    else:
+        return ""
+
+
+class PartialKeyList(BaseModel):
+    """
+    A partial list of keys in a KV, also including the cursor for the next page.
+    """
+
+    keys: List[str]
+    cursor: Optional[int] = None
 
 
 def _is_a_kv_not_ready_response(response: Response) -> bool:
@@ -162,6 +187,9 @@ class KV(object):
                     self._kv = name
                 if wait_for_creation:
                     start = time.time()
+                    # It seems to be always good to first sleep for a while for the
+                    # remote KV to have the chance to finish creation.
+                    time.sleep(_lepton_readiness_wait_time_)
                     while (
                         not self.ready()
                         and time.time() - start < _lepton_readiness_timeout_
@@ -200,7 +228,8 @@ class KV(object):
             except Exception:
                 pass
             return True
-        elif _is_a_kv_not_ready_response(ret):
+        elif ret.status_code == 500 and "no such host" in ret.json()["message"]:
+            logger.trace(f"KV not ready: {ret.status_code} {ret.content}")
             return False
         else:
             raise RuntimeError(
@@ -226,46 +255,36 @@ class KV(object):
         cursor: Optional[int] = 0,
         limit: Optional[int] = 0,
         prefix: Optional[str] = None,
-    ):
+    ) -> PartialKeyList:
         """
         List keys in the KV.
         """
         res = kv_api.list_key(self._conn, self._kv, cursor, limit, prefix)
         if not res.ok:
             raise RuntimeError(
-                f"KV {self._kv} is not ready."
-                if _is_a_kv_not_ready_response(res)
-                else (
-                    f"Failed to list keys in KV {self._kv}. Error:"
-                    f" {res.status_code} {res.content}."
-                )
+                f"Failed to list keys in KV {self._kv}. Error:"
+                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
             )
-        return res.json()
+        return PartialKeyList.parse_raw(res.content)
 
     def get(self, key: str) -> bytes:
         """
         Get the value of a key in the KV.
         """
         res = kv_api.get_key(self._conn, self._kv, key)
-        if (
-            res.status_code == 404
-            or res.status_code == 500
-            and "failed to get key" in res.json()["message"]
-        ):
+        if res.status_code == 404:
+            logger.trace(f"key error: {res.status_code} {res.content}")
             raise KeyError(key)
         elif not res.ok:
+            logger.trace(f"key error other than 404: {res.status_code} {res.content}")
             raise RuntimeError(
-                f"KV {self._kv} is not ready."
-                if _is_a_kv_not_ready_response(res)
-                else (
-                    f"Failed to get key {key} in KV {self._kv}. Error:"
-                    f" {res.status_code} {res.content}."
-                )
+                f"Failed to get key {key} in KV {self._kv}. Error:"
+                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
             )
         else:
             return res.content
 
-    def put(self, key: str, value: Union[str, bytes]):
+    def put(self, key: str, value: Union[str, bytes]) -> None:
         """
         Put a key-value pair in the KV.
         """
@@ -281,30 +300,24 @@ class KV(object):
             )
         res = kv_api.put_key(self._conn, self._kv, key, value)
         if not res.ok:
+            logger.trace(f"key put error: {res.status_code} {res.content}")
             raise RuntimeError(
-                f"KV {self._kv} is not ready."
-                if _is_a_kv_not_ready_response(res)
-                else (
-                    f"Failed to put key {key} in KV {self._kv}. Error:"
-                    f" {res.status_code} {res.content}."
-                )
+                f"Failed to put key {key} in KV {self._kv}. Error:"
+                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
             )
 
-    def delete(self, key: str):
+    def delete(self, key: str) -> None:
         """
         Delete a key-value pair in the KV.
+
+        Note that if a key does not exist in the KV, this function will not raise an error.
         """
         res = kv_api.delete_key(self._conn, self._kv, key)
-        if res.status_code == 404:
-            raise KeyError(key)
-        elif not res.ok:
+        if not res.ok:
+            logger.trace(f"key delete error: {res.status_code} {res.content}")
             raise RuntimeError(
-                f"KV {self._kv} is not ready."
-                if _is_a_kv_not_ready_response(res)
-                else (
-                    f"Failed to delete key {key} in KV {self._kv}. Error:"
-                    f" {res.status_code} {res.content}."
-                )
+                f"Failed to delete key {key} in KV {self._kv}. Error:"
+                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
             )
 
     def __getitem__(self, key: str) -> bytes:
