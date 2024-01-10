@@ -108,20 +108,27 @@ class Worker(Photon):
         """Keep polling the queue for new tasks, and dispatch them to `on_task` (through `_on_task`)"""
         loop = asyncio.new_event_loop()
 
+        last_message_received_at = None
         while True:
             if self._lepton_worker_thread_should_exit:
                 logger.info("Received worker should exit signal, exiting")
                 break
             try:
                 message = self._queue.receive()
+
+                if last_message_received_at is not None:
+                    time_since_last_message = (
+                        datetime.datetime.utcnow() - last_message_received_at
+                    ).total_seconds()
+                    logger.info(
+                        f"Received new message after {time_since_last_message} seconds"
+                    )
+                last_message_received_at = datetime.datetime.utcnow()
+
                 payload = json.loads(message)
                 task_id = payload.pop(self.LEPTON_TASK_ID_TAG)
                 loop.run_until_complete(self._on_task(task_id, **payload))
             except Empty:
-                logger.info(
-                    "Queue is empty, sleeping for"
-                    f" {self.queue_empty_sleep_time} seconds"
-                )
                 time.sleep(self.queue_empty_sleep_time)
             except Exception as e:
                 logger.error(f"Error in worker loop: {e}")
