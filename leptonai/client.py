@@ -200,6 +200,7 @@ class Client(object):
         chunk_size: Optional[int] = None,
         timeout: Optional[httpx._types.TimeoutTypes] = None,
         no_check: bool = False,
+        http2: bool = True,
     ):
         """
         Initializes a Lepton client that calls a deployment in a workspace.
@@ -219,6 +220,7 @@ class Client(object):
                 In most cases, pass in a float number to specify the timeout in seconds.
             no_check: (bool, optional): Whether to skip checking for any errors and print
                 out messages. Defaults to False.
+            http2: (bool, optional): Whether to use http2. Defaults to True.
 
         Implementation Note: when one uses a full URL, the client accesses the deployment
         specific endpoint directly. This endpoint may have a certain delay, and may not be
