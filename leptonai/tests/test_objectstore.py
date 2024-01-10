@@ -6,6 +6,7 @@ import tempfile
 
 from leptonai import PrivateObjectStore, PublicObjectStore
 from leptonai.api import workspace as workspace_api
+from leptonai.photon.types.file import File
 
 import unittest
 
@@ -67,6 +68,9 @@ class TestObjectStore(unittest.TestCase):
             self._test_file_like(client, f)
         with StringIO(_content) as f:
             self._test_file_like(client, f)
+
+        f = File(_content.encode("utf-8"))
+        self._test_file_like(client, f)
 
     def test_oss(self):
         self._test_oss_client(PrivateObjectStore())

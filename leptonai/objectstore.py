@@ -13,6 +13,8 @@ from leptonai.api import objectstore as oss_api
 from leptonai.api.connection import Connection
 from leptonai.api import workspace as workspace_api
 
+from leptonai.photon.types.file import File
+
 
 class ObjectStoreClientBase(ABC):
     """
@@ -22,6 +24,7 @@ class ObjectStoreClientBase(ABC):
     """
 
     bucket_name = "this_needs_to_be_overridden_by_derived_classes"
+    is_public = None
 
     def __init__(self, conn: Optional[Connection] = None):
         self._conn = conn if conn else workspace_api.current_connection()
@@ -61,21 +64,23 @@ class ObjectStoreClientBase(ABC):
             f.seek(0)
             return f
 
-    def put(self, key: str, file_like: Union[IO, str]):
+    def put(self, key: str, file_like: Union[IO, str, File]):
         """
         Upload a file to the current workspace with the given key. After the file is uploaded,
         returns the url of the object that can be used to access the object.
 
         Note that if an object with the same key already exists, it will be overwritten.
         """
-        if hasattr(file_like, "read"):
+        if isinstance(file_like, File):
+            context = nullcontext(file_like.get_bytesio())
+        elif hasattr(file_like, "read"):
             context = nullcontext(file_like)
         elif isinstance(file_like, str) and os.path.isfile(file_like):
             context = open(file_like, "rb")
         else:
             raise TypeError(
-                "file_like must be either a string or a file-like object, but got"
-                f" {type(file_like)}."
+                "file_like must be either a string, a lepton File class object, or "
+                f"a file-like object, but got {type(file_like)}."
             )
         with context as opened_file:
             res = oss_api.put(self._conn, key, opened_file, self.bucket_name)
@@ -123,7 +128,24 @@ class ObjectStoreClientBase(ABC):
 
 class PublicObjectStore(ObjectStoreClientBase):
     bucket_name = "public"
+    is_public = True
 
 
 class PrivateObjectStore(ObjectStoreClientBase):
     bucket_name = "private"
+    is_public = False
+
+
+def ObjectStore(bucket: str) -> ObjectStoreClientBase:
+    """
+    Returns an object store client for the given bucket. The bucket can be either
+    "public" or "private".
+    """
+    if bucket == "public":
+        return PublicObjectStore()
+    elif bucket == "private":
+        return PrivateObjectStore()
+    else:
+        raise ValueError(
+            f"Invalid bucket name {bucket}: must be either public or private."
+        )

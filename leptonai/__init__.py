@@ -11,4 +11,4 @@ from ._version import __version__
 # Components that one can use to build applications around Photons.
 from .kv import KV
 from .queue import Queue
-from .objectstore import PrivateObjectStore, PublicObjectStore
+from .objectstore import PrivateObjectStore, PublicObjectStore, ObjectStore
