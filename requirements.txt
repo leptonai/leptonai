@@ -4,7 +4,7 @@ cloudpickle==2.2.1
 contextlib2 # backports async support in nullcontext
 exceptiongroup
 fastapi
-httpx
+httpx[http2]
 limits
 prometheus-fastapi-instrumentator
 rich
