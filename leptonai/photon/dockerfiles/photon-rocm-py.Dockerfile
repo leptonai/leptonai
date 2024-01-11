@@ -29,6 +29,4 @@ RUN sudo apt-get install -y rocm-ml-sdk rocm-openmp-sdk
 
 RUN pip install packaging ninja numpy
 
-RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_rocm_python_libraries.sh
-
 RUN rm -rf /tmp/leptonai-sdk
