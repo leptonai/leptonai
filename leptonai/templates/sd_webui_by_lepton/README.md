@@ -17,6 +17,8 @@ Once these fields are set, click `Deploy` button at the bottom of the page to cr
 Once the status is turned into `Ready` , you’ll be able to use your Stable Diffusion Web UI by visiting the deployment URL:
 - ![image](deployment_url.png)
 
+You will see an environment variable `LEPTON_ENABLE_AUTH_BY_COOKIE`. This enables you to access the Web UI in the deployment via the workspace UI. When enabled, click the URL on the deployment card to access it. If you would like the deployment to be accessible by anyone, you can edit the deployment, and make it public.
+
 # Generate your first image
 
 Once you load the WebUI by visiting the deployment URL, you’ll be able to generate your first image by keying in a few prompts to the Prompt text box. Then click Generate button on the right to generate your image, and you’ll see the result shortly.
