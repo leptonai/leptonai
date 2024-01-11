@@ -3,6 +3,7 @@ import os
 
 from loguru import logger
 
+from leptonai.config import ENV_VAR_REQUIRED
 from leptonai.photon import Photon
 from leptonai.photon.base import schema_registry
 from leptonai.photon.types import to_bool
@@ -20,7 +21,7 @@ class vLLMPhoton(Photon):
         # At least using gpu.a10.
         "resource_shape": "gpu.a10",
         "env": {
-            "VLLM_MODEL": "",
+            "VLLM_MODEL": ENV_VAR_REQUIRED,
             "VLLM_MODEL_NAME": "",
             "VLLM_MODEL_REVISION": "",
             "VLLM_TENSOR_PARALLEL_SIZE": "",
