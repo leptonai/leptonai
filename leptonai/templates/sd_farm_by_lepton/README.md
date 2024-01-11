@@ -15,7 +15,7 @@ Here are few configurations you can change to suit your needs:
 - Resource Shape : Resource used for running the workload. `gpu.a10` is recommended
     - To run models with A100 / H100 or multiple cards, contact us for reserved computation resources via info@lepton.ai.
 - Environment Variables
-    - `MODELS(Optional)` : Pass in [CivitAI](https://civitai.com/) model version IDs to be pre-loaded into the deployment. You can find the model version ID from the model page. For example, you can pass in `288982` to load [Juggernaut XL V8](https://civitai.com/models/133005?modelVersionId=288982). And you can also pass in multiple model version IDs by separating them with comma, like `288982,281176,276923`.
+    - `MODELS(Optional)` : Pass in [CivitAI](https://civitai.com/) model version IDs to be pre-loaded into the deployment. You can find the model version ID from the model page. For example, you can pass in `288982` to load [Juggernaut XL V8](https://civitai.com/models/133005?modelVersionId=288982). And you can also pass in multiple model version IDs by separating them with comma, like `288982,281176,276923`. The moodel version could be found here: ![image](model_version_id.png)
     - `Extensions(Optional)` : Pass in git url to load your choice of extensions. For example, you can pass in `https://github.com/ototadana/sd-face-editor.git@3421017` to load [sd-face-editor](https://github.com/ototadana/sd-face-editor)
     - `CIVITAI_API_KEY(Optional)` : Pass in your [CivitAI](https://civitai.com/) API key to access your private models. 
 
@@ -34,7 +34,12 @@ client = Client("YOUR_WORKSPACE_ID", "my-stable-diffusion-farm", token=api_token
 result = client.txt2img(
   model="258380", # You can also use other checkpoint model version ids even it's not specified in the environment variables. We will download it for you. 
   clip_skip=1,
-  prompt="amateur cellphone photography cute Wisdom Years woman with Golden blond Rope braid hair at day care building . f8.0, samsung galaxy, noise, jpeg artefacts, poor lighting,  low light, underexposed, high contrast <lora:263231:1>", # for using loras, you can pass in lora id like <lora:263231:1>.
+  # for using loras, you can pass in lora id with weights like <lora:263231:1>.
+  prompt="""amateur cellphone photography cute Wisdom Years woman with
+  Golden blond Rope braid hair at day care building . f8.0, samsung galaxy,
+  noise, jpeg artefacts, poor lighting,  low light, underexposed, high
+  contrast <lora:263231:1>
+  """
   negative_prompt="(watermark:1.2), (text:1.2), (logo:1.2), (3d render:1.2), drawing, painting, crayon",
   sampler_name="DPM++ SDE Karras",
   height=512,
