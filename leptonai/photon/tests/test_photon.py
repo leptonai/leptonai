@@ -42,6 +42,7 @@ import inspect
 from textwrap import dedent
 import shutil
 import subprocess
+import threading
 import sys
 from typing import Dict, List
 import unittest
@@ -1274,6 +1275,41 @@ class StorePySrcFilePhoton(Photon):
         stdout, _ = proc.communicate()
         stdout = stdout.decode()
         self.assertIn("async sleep cancelled", stdout, stdout)
+
+    def test_queue_length(self):
+        class SleepPhoton(Photon):
+            @Photon.handler
+            def run(self, seconds: int) -> int:
+                time.sleep(seconds)
+                return seconds
+
+        ph = SleepPhoton(name=random_name())
+        path = ph.save()
+        proc, port = photon_run_local_server(path=path)
+
+        # send sleep request in separate thread
+        def sleep(seconds):
+            threading.Thread(
+                target=lambda: requests.post(
+                    f"http://localhost:{port}/run", json={"seconds": seconds}
+                )
+            ).start()
+
+        def get_queue_length():
+            res = requests.get(f"http://localhost:{port}/queue-length")
+            res.raise_for_status()
+            return res.json()
+
+        self.assertEqual(get_queue_length(), 0)
+        sleep(2)
+        self.assertEqual(get_queue_length(), 1)
+        sleep(2)
+        self.assertEqual(get_queue_length(), 2)
+        time.sleep(2)
+        self.assertEqual(get_queue_length(), 1)
+        time.sleep(2)
+        self.assertEqual(get_queue_length(), 0)
+        proc.kill()
 
 
 if __name__ == "__main__":
