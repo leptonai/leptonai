@@ -780,7 +780,9 @@ class Photon(BasePhoton):
         def queue_length():
             num_tasks = len(lepton_uvicorn_server.server_state.tasks)
             # subtract 1 for the current task
-            return num_tasks or num_tasks - 1
+            if num_tasks > 0:
+                num_tasks -= 1
+            return num_tasks
 
         config = uvicorn.Config(
             app,
