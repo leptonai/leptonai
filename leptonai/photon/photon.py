@@ -1116,6 +1116,11 @@ class Photon(BasePhoton):
             "response_model": response_model,
             "response_class": response_class,
         }
+
+        # Programming note: explicitly add other kwargs here if needed.
+        if "include_in_schema" in kwargs:
+            typed_handler_kwargs["include_in_schema"] = kwargs["include_in_schema"]
+
         return typed_handler, typed_handler_kwargs
 
     # helper function of _register_routes
