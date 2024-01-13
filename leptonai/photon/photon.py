@@ -68,7 +68,9 @@ import leptonai._internal.logging as internal_logging
 schemas = ["py"]
 
 
-def create_model_for_func(func: Callable, func_name: Optional[str] = None):
+def create_model_for_func(
+    func: Callable, func_name: Optional[str] = None, use_raw_args: bool = False
+):
     (
         args,
         _,
@@ -81,7 +83,7 @@ def create_model_for_func(func: Callable, func_name: Optional[str] = None):
     if len(args) > 0 and (args[0] == "self" or args[0] == "cls"):
         args = args[1:]  # remove self or cls
 
-    if args or varkw:
+    if not use_raw_args and (args or varkw):
         if defaults is None:
             defaults = ()
         non_default_args_count = len(args) - len(defaults)
@@ -962,7 +964,9 @@ class Photon(BasePhoton):
         method = func.__get__(self, self.__class__)
 
         request_model, response_model, response_class = create_model_for_func(
-            method, func_name=self.__class__.__name__ + "_" + path
+            method,
+            func_name=self.__class__.__name__ + "_" + path,
+            use_raw_args=kwargs.get("use_raw_args"),
         )
 
         if http_method.lower() == "post" and request_model is not None:
@@ -1104,6 +1108,9 @@ class Photon(BasePhoton):
                 delattr(typed_handler, "__wrapped__")
 
         elif http_method.lower() == "get":
+
+            if kwargs.get("use_raw_args"):
+                raise ValueError("use_raw_args is not supported for get handler")
 
             @functools.wraps(method)
             async def typed_handler(*args, **kwargs):
