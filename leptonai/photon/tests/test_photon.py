@@ -95,6 +95,30 @@ class CustomPhotonWithDepTemplate(Photon):
     }
 
 
+class CustomPhotonWithInvalidDepTemplateEnv(Photon):
+    deployment_template: Dict = {
+        "resource_shape": "gpu.a10",
+        "env": {
+            # Note: intentional single quote simulating user input error
+            "LEPTON_FOR_TEST_ENV_A'": ENV_VAR_REQUIRED,
+            "LEPTON_FOR_TEST_ENV_B": "DEFAULT_B",
+        },
+        "secret": ["LEPTON_FOR_TEST_SECRET_A"],
+    }
+
+
+class CustomPhotonWithInvalidDepTemplateSecret(Photon):
+    deployment_template: Dict = {
+        "resource_shape": "gpu.a10",
+        "env": {
+            "LEPTON_FOR_TEST_ENV_A": ENV_VAR_REQUIRED,
+            "LEPTON_FOR_TEST_ENV_B": "DEFAULT_B",
+        },
+        # Note: intentional single quote simulating user input error
+        "secret": ["LEPTON_FOR_TEST_SECRET_A'"],
+    }
+
+
 class CustomPhotonWithCustomDeps(Photon):
     requirement_dependency = ["torch"]
     system_dependency = ["ffmpeg"]
@@ -227,6 +251,16 @@ class TestPhoton(unittest.TestCase):
                 "secret": ["LEPTON_FOR_TEST_SECRET_A"],
             },
         )
+
+    def test_deployment_template_invalid_env_or_secret(self):
+        name = random_name()
+        ph = CustomPhotonWithInvalidDepTemplateEnv(name=name)
+        with self.assertRaisesRegex(ValueError, "LEPTON_FOR_TEST_ENV_A'"):
+            ph._deployment_template()
+
+        ph = CustomPhotonWithInvalidDepTemplateSecret(name=name)
+        with self.assertRaisesRegex(ValueError, "LEPTON_FOR_TEST_SECRET_A'"):
+            ph._deployment_template()
 
     def test_run(self):
         name = random_name()

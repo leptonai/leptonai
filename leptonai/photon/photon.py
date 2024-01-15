@@ -8,6 +8,7 @@ import importlib.util
 import inspect
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -382,16 +383,28 @@ class Photon(BasePhoton):
                     "Deployment template envs keys/values must be strings. Found"
                     f" {key}:{value} instead."
                 )
+            # Check if key is a legal env variable name.
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", key):
+                raise ValueError(
+                    f"Deployment template envs key {key} is not a valid env variable"
+                    " name."
+                )
         secret = self.deployment_template.get("secret", [])
         if not isinstance(secret, list):
             raise ValueError(
                 f"Deployment template secrets must be a list. Found {secret} instead."
             )
-        if any(not isinstance(s, str) for s in secret):
-            raise ValueError(
-                "Deployment template secrets must be a list of strings. Found"
-                f" {secret} instead."
-            )
+        for key in secret:
+            if not isinstance(key, str):
+                raise ValueError(
+                    "Deployment template secrets must be a list of strings. Found"
+                    f"invalid secret name: {key}."
+                )
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", key):
+                raise ValueError(
+                    f"Deployment template secrets key {key} is not a valid env variable"
+                    " name."
+                )
         return self.deployment_template
 
     @property
