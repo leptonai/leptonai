@@ -392,6 +392,7 @@ class LeptonJobSpec(BaseModel):
     parallelism: int = 1
     envs: List[EnvVar] = []
     mounts: List[Mount] = []
+    intra_job_communication: bool = False
 
 
 class LeptonMetadata(BaseModel):
