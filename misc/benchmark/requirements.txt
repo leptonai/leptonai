@@ -1,0 +1,4 @@
+openai>=1.0.0
+num2words
+pandas
+transformers
