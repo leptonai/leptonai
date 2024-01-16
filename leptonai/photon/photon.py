@@ -45,7 +45,6 @@ from leptonai.config import (  # noqa: F401
     BASE_IMAGE_ARGS,
     BASE_IMAGE_CMD,
     DEFAULT_PORT,
-    DEFAULT_TIMEOUT_KEEP_ALIVE,
     ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
@@ -809,7 +808,6 @@ class Photon(BasePhoton):
             # access logs (and `X-Forwarded-For` header)
             proxy_headers=True,
             forwarded_allow_ips="*",
-            timeout_keep_alive=DEFAULT_TIMEOUT_KEEP_ALIVE,
         )
         lepton_uvicorn_server = uvicorn.Server(config=config)
 
