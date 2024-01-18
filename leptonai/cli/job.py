@@ -65,8 +65,22 @@ def job():
 @click.option(
     "--command", type=str, help="Command string to run for the job.", default=None
 )
+@click.option(
+    "--intra_job_communication",
+    type=bool,
+    help="Enable intra-job communication.",
+    default=False,
+)
 def create(
-    name, file, resource_shape, completions, parallelism, container_image, port, command
+    name,
+    file,
+    resource_shape,
+    completions,
+    parallelism,
+    container_image,
+    port,
+    command,
+    intra_job_communication,
 ):
     """
     Creates a job.
@@ -94,6 +108,8 @@ def create(
             ports=port or job_spec.container.ports,
             command=command or job_spec.container.command,
         )
+    if intra_job_communication:
+        job_spec.intra_job_communication = intra_job_communication
 
     job = LeptonJob(spec=job_spec, metadata=LeptonMetadata(id=name))
     conn = get_connection_or_die()
