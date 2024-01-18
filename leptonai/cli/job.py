@@ -1,6 +1,8 @@
 import click
+from datetime import datetime
 import json
 
+from loguru import logger
 from rich.table import Table
 
 from .util import (
@@ -125,6 +127,8 @@ def list_command():
     conn = get_connection_or_die()
     jobs = guard_api(api.list_jobs(conn), detail=True)
 
+    logger.trace(f"Jobs: {jobs}")
+
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Name")
     table.add_column("Created At")
@@ -132,8 +136,10 @@ def list_command():
     for job in jobs:
         status = job["status"]
         table.add_row(
-            job["metadata"]["name"],
-            job["metadata"]["creationTimestamp"],
+            job["metadata"]["id"],
+            datetime.fromtimestamp(job["metadata"]["created_at"] / 1000).strftime(
+                "%Y-%m-%d\n%H:%M:%S"
+            ),
             f'{status["state"]} ({status["ready"]},{status["active"]},{status["succeeded"]},{status["failed"]})',
         )
     table.title = "Jobs"
