@@ -66,11 +66,21 @@ def job():
     "--command", type=str, help="Command string to run for the job.", default=None
 )
 @click.option(
-    "--intra_job_communication", type=bool, help="Enable intra-job communication.", default=False
+    "--intra_job_communication",
+    type=bool,
+    help="Enable intra-job communication.",
+    default=False,
 )
 def create(
-    name, file, resource_shape, completions, parallelism, container_image, port, command,
-    intra_job_communication
+    name,
+    file,
+    resource_shape,
+    completions,
+    parallelism,
+    container_image,
+    port,
+    command,
+    intra_job_communication,
 ):
     """
     Creates a job.
