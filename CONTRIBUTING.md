@@ -24,10 +24,10 @@ pip install -e .
 
 We highly recommend writing tests for new features or bug fixes and ensure all tests passing before submitting a PR.
 
-To run tests locally, frist install test driver by doing
+To run tests locally, first install test driver by doing
 
 ```shell
-pip install -e .[test]
+pip install -e ".[test]"
 ```
 
 To run all existing test cases together, simply run
@@ -47,7 +47,7 @@ Ensure your code is clean, readable, and well-commented. We use [black](https://
 To run lint locally, first install linters by doing
 
 ```shell
-pip install -e .[lint]
+pip install -e ".[lint]"
 ```
 
 Then run

@@ -4,7 +4,7 @@ description = "Lepton AI Platform"
 authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
 dynamic = ["dependencies", "version"]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.12"
 
 [project.urls]
 Homepage = "https://lepton.ai"
