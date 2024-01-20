@@ -26,6 +26,7 @@ from .util import (
     check,
     get_connection_or_die,
     explain_response,
+    get_only_replica_public_ip_or_die,
 )
 
 
@@ -116,20 +117,6 @@ def create(
     )
 
 
-def _get_pod_public_ip_or_die(conn, name: str):
-    replicas = guard_api(
-        deployment_api.get_replicas(conn, name),
-        detail=True,
-        msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
-    )
-    logger.trace(f"Replicas for {name}:\n{replicas}")
-    check(
-        len(replicas) == 1,
-        f"Pod {name} has more than one replica. This is not supported.",
-    )
-    return replicas[0].get("status", {}).get("public_ip", None)
-
-
 @pod.command(name="list")
 @click.option(
     "--pattern",
@@ -177,7 +164,7 @@ def list_command(pattern):
         if pod["status"]["state"] not in ("Running", "Ready"):
             pod_ips.append(None)
             continue
-        public_ip = _get_pod_public_ip_or_die(conn, pod["name"])
+        public_ip = get_only_replica_public_ip_or_die(conn, pod["name"])
         pod_ips.append(public_ip)
     logger.trace(f"Pod IPs:\n{pod_ips}")
 

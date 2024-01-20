@@ -7,11 +7,13 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 
 import click
+from loguru import logger
 
 from rich.console import Console
 from leptonai.api import APIError
 from leptonai.api.connection import Connection
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
+from leptonai.api import deployment as deploymentapi
 
 
 console = Console(highlight=False)
@@ -148,3 +150,17 @@ def sizeof_fmt(num, suffix="B"):
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
+
+
+def get_only_replica_public_ip_or_die(conn, name: str):
+    replicas = guard_api(
+        deploymentapi.get_replicas(conn, name),
+        detail=True,
+        msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
+    )
+    logger.trace(f"Replicas for {name}:\n{replicas}")
+    check(
+        len(replicas) == 1,
+        f"Pod {name} has more than one replica. This is not supported.",
+    )
+    return replicas[0].get("status", {}).get("public_ip", None)

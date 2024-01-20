@@ -130,17 +130,3 @@ def du(conn: Connection):
     """
     response = conn.get("/storage/du")
     return json_or_error(response)
-
-
-def enable_rsync(conn: Connection):
-    """
-    Enable rsync for the current workspace.
-    """
-    return conn.post("/storage/rsync")
-
-
-def disable_rsync(conn: Connection):
-    """
-    Disable rsync for the current workspace.
-    """
-    return conn.delete("/storage/rsync")
