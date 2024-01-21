@@ -40,7 +40,7 @@ async def endpoint_evaluation_request(client, ep_config):
         )
     else:
         rnd_num = None
-        prompt = "tell me a very long story."
+        prompt = args.prompt
 
     tokens_in = len(tokenizer.encode(prompt))
     words = ""
@@ -61,6 +61,8 @@ async def endpoint_evaluation_request(client, ep_config):
             stream=True,
         )
         async for tok in response:
+            if not tok.choices:
+                continue
             delta = tok.choices[0].delta
             if ttft is None and (delta.role or delta.content):
                 ttft = time.time() - st
@@ -317,6 +319,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Whether to validate the results",
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="tell me a very long story.",
+        help="User prompt to send to the model",
     )
     args = parser.parse_args()
     endpoint_config = {}
