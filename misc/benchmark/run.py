@@ -5,6 +5,7 @@ import os
 import queue
 import re
 import random
+import sys
 import threading
 import time
 
@@ -92,10 +93,9 @@ async def endpoint_evaluation_request(client, ep_config):
     return (valid, ttft, et - st, tokens_in, tokens_out, cause)
 
 
-async def endpoint_evaluation_round(client, ep_config):
+async def endpoint_evaluation_round(client, concur_requests, ep_config):
     results = await asyncio.gather(*(
-        endpoint_evaluation_request(client, ep_config)
-        for _ in range(args.concur_requests)
+        endpoint_evaluation_request(client, ep_config) for _ in range(concur_requests)
     ))
     return results
 
@@ -138,10 +138,9 @@ def endpoint_evaluation(ep_config):
         base_url=ep_config["api_base"], api_key=ep_config["api_key"]
     )
 
-    query_results = []
-    elts = []
-
     if args.qps is not None:
+        query_results = []
+        elts = []
         results_queue = queue.Queue()
         stop_event = threading.Event()
         threading.Thread(
@@ -170,25 +169,29 @@ def endpoint_evaluation(ep_config):
     else:
         loop = asyncio.get_event_loop()
 
-        for _ in range(args.rounds):
-            st = time.time()
-            results = loop.run_until_complete(
-                endpoint_evaluation_round(client, ep_config)
-            )
-            query_results.extend(results)
-            et = time.time()
-            elt = et - st
-            elts.append(elt)
-            tosleep = args.sleep - elt
-            if tosleep > 0:
-                print("Sleeping for %.4f seconds" % tosleep)
-                time.sleep(tosleep)
+        for concur_requests in args.concur_requests:
+            query_results = []
+            elts = []
+            for _ in range(args.rounds):
+                st = time.time()
+                results = loop.run_until_complete(
+                    endpoint_evaluation_round(client, concur_requests, ep_config)
+                )
+                query_results.extend(results)
+                et = time.time()
+                elt = et - st
+                elts.append(elt)
+                tosleep = args.sleep - elt
+                if tosleep > 0:
+                    print("Sleeping for %.4f seconds" % tosleep)
+                    time.sleep(tosleep)
+            results_analysis(query_results, elts, concur_requests)
 
-        results_analysis(query_results, elts)
 
-
-def results_analysis(query_results, elts):
+def results_analysis(query_results, elts, concur_requests=None):
     print("---- Results analysis ----")
+    if concur_requests:
+        print(f"Concurrency: {concur_requests}")
     df = pd.DataFrame(
         query_results,
         columns=[
@@ -273,9 +276,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--concur-requests",
-        type=int,
-        default=10,
-        help="number of concurrent requests",
+        default="10",
+        help="number of concurrent requests, use comma to separate multiple values",
     )
     parser.add_argument(
         "-r", "--rounds", type=int, default=4, help="number of rounds of requests"
@@ -333,6 +335,22 @@ if __name__ == "__main__":
     endpoint_config["api_base"] = args.api_base
     endpoint_config["api_key"] = args.api_key
     endpoint_config["model"] = args.model
+
+    concur_requests = []
+    for c in args.concur_requests.split(","):
+        try:
+            c_int = int(c)
+        except ValueError:
+            print(f"concurent requests must be integers, got {c}")
+            sys.exit(1)
+
+        if c_int <= 0:
+            print(f"concurent requests must be positive integers, got {c}")
+            sys.exit(1)
+
+        concur_requests.append(c_int)
+
+    args.concur_requests = concur_requests
 
     # Endpoint evaluation
     endpoint_evaluation(endpoint_config)
