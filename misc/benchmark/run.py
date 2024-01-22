@@ -39,9 +39,13 @@ async def endpoint_evaluation_request(client, ep_config):
             f" {rnd_num_words}.\nPrint the number first, then tell me a very long"
             " story."
         )
+    elif ep_config["prompt_file"]:
+        with open(ep_config["prompt_file"], "r") as fid:
+            rnd_num = None
+            prompt = fid.read()
     else:
         rnd_num = None
-        prompt = args.prompt
+        prompt = ep_config["prompt"]
 
     tokens_in = len(tokenizer.encode(prompt))
     words = ""
@@ -328,6 +332,15 @@ if __name__ == "__main__":
         default="tell me a very long story.",
         help="User prompt to send to the model",
     )
+    parser.add_argument(
+        "--prompt-file",
+        type=str,
+        default="",
+        help=(
+            "If set, the file that contains the prompt text. Prompt file takes"
+            " precedence over prompt."
+        ),
+    )
     args = parser.parse_args()
     endpoint_config = {}
     if args.random_seed >= 0:
@@ -335,6 +348,8 @@ if __name__ == "__main__":
     endpoint_config["api_base"] = args.api_base
     endpoint_config["api_key"] = args.api_key
     endpoint_config["model"] = args.model
+    endpoint_config["prompt"] = args.prompt
+    endpoint_config["prompt_file"] = args.prompt_file
 
     concur_requests = []
     for c in args.concur_requests.split(","):
