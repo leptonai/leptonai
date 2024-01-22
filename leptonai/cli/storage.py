@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 
+from loguru import logger
 from rich.console import Console
 from rich.theme import Theme
 from .constants import STORAGE_DISPLAY_PREFIX_LAST, STORAGE_DISPLAY_PREFIX_MIDDLE
@@ -61,15 +62,15 @@ def print_dir_contents(dir_path, dir_content_json):
 @click_group()
 def storage():
     """
-    Manage storage on the Lepton AI cloud.
+    Manage File storrage on the Lepton AI cloud.
 
-    Lepton AI provides a storage service that allows you to store files and
+    Lepton AI provides a file storage service that allows you to store files and
     directories on the cloud. The storage is persistent and is associated with
     your workspace. You can mount the storage when you launch a photon and
     access the files and directories from your photon code as if they were on
     a standaord POSIX filesystem.
 
-    The storage commands allow you to list, upload, download, and delete files
+    The file commands allow you to list, upload, download, and delete files
     and directories in your workspace.
     """
     pass
@@ -86,7 +87,7 @@ def du():
         detail=True,
         msg="du failed. See error message above.",
     )
-    print(usage)
+    logger.trace(usage)
     humanized_usage = sizeof_fmt(usage["totalDiskUsageBytes"])
     console.print(f"Total disk usage: {humanized_usage}")
 
@@ -95,7 +96,7 @@ def du():
 @click.argument("path", type=str, default="/")
 def ls(path):
     """
-    List the contents of a directory of the current storage.
+    List the contents of a directory of the current file storage.
     """
     conn = get_connection_or_die()
     check(
@@ -115,7 +116,7 @@ def ls(path):
 @click.argument("path", type=str)
 def rm(path):
     """
-    Delete a file in the storage of the current workspace. Note that wildcard is
+    Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
     """
     conn = get_connection_or_die()
@@ -144,7 +145,7 @@ def rm(path):
 @click.argument("path", type=str)
 def rmdir(path):
     """
-    Delete a directory in the storage of the current workspace. The directory
+    Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
     conn = get_connection_or_die()
@@ -172,7 +173,7 @@ def rmdir(path):
 @click.argument("path", type=str)
 def mkdir(path):
     """
-    Create a directory in the storage of the current workspace.
+    Create a directory in the file storage of the current workspace.
     """
     conn = get_connection_or_die()
     explain_response(
@@ -190,8 +191,9 @@ def mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-        "Upload with rsync. Rsync must be enabled for the workspace with storage"
-        " enable-rsync subcommand."
+        "Upload with rsync. Rsync must be enabled for the workspace with file storage"
+        " enable-rsync subcommand. Note that this feature is for enterprise workspace"
+        " only."
     ),
 )
 @click.option(
@@ -329,4 +331,6 @@ def download(remote_path, local_path):
 
 
 def add_command(click_group):
+    # Backward compatibility: if users stil call "lep storage", keep it working.
     click_group.add_command(storage)
+    click_group.add_command(storage, name="file")
