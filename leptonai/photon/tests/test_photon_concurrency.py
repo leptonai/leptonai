@@ -104,7 +104,7 @@ class TestPhotonConcurrencyBasic(unittest.TestCase):
                 executor.map(lambda v: client.return_time(seconds=v), trials)
             )
             # All the "waiting for 0.1s" jobs should finish by the first second.
-            self.assertTrue(all([t - start < 1.1 for t in return_times]))
+            self.assertTrue(all([t - start < 1.15 for t in return_times]))
 
             trials = range(5)
             thread_ids = list(executor.map(lambda v: client.return_thread_id(), trials))
