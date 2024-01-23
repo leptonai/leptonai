@@ -31,6 +31,10 @@ class WeirdlyNamedPhoton(Photon):
     def run_with_dashes(self):
         return "hello world"
 
+    @handler("/")
+    def root(self):
+        return "hello world"
+
 
 class PostAndGet(Photon):
     def init(self):
@@ -126,6 +130,8 @@ class TestClient(unittest.TestCase):
         self.assertTrue(res == "hello world")
         res = client.run.with_dashes()
         self.assertTrue(res == "hello world", client.run())
+        res = client()
+        self.assertTrue(res == "hello world")
 
     def test_client_with_post_and_get(self):
         proc, port = photon_run_local_server_simple(PostAndGet)
