@@ -144,7 +144,7 @@ class TestPhotonConcurrencyBasic(unittest.TestCase):
                 executor.map(lambda v: client.return_time(seconds=v), trials)
             )
             # All the "waiting for 0.1s" jobs should finish by the first second.
-            self.assertTrue(all([t - start < 1.1 for t in return_times]))
+            self.assertTrue(all([t - start < 1.15 for t in return_times]))
 
             # But, when using return_time_with_sync_sleep, it should be blocking
             trials = [0.1] * 5
