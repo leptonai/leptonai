@@ -234,7 +234,7 @@ def upload(local_path, remote_path, rsync, recursive, progress):
 
         conn = get_connection_or_die()
 
-        name = "storage-rsync-deployment"
+        name = "storage-rsync-by-lepton"
         dep_info = guard_api(
             deploymentapi.get_deployment(conn, name),
             detail=True,
