@@ -130,7 +130,10 @@ class PathTree(object):
         # Remove the leading and trailing slashes, which are not needed.
         path = path.strip("/")
 
-        if "/" in path:
+        if path == "":
+            # This is the default path that the client will call with "__call__()".
+            self._path_cache[""] = func
+        elif "/" in path:
             prefix, remaining = path.split("/", 1)
             prefix = self.rectify_name(prefix)
             if prefix.isidentifier():
@@ -145,7 +148,7 @@ class PathTree(object):
                 # this is to prevent the case where the path is something like
                 # "foo/{bar}" which we don't support yet.
                 self.debug_record.append(
-                    f"Path {path} is not a valid identifier. Ignoring for now."
+                    f"Prefix {path} is not a valid identifier. Ignoring for now."
                 )
                 return
         else:
@@ -324,12 +327,12 @@ class Client(object):
                     " multiple endpoints that maps to the same python name. Found"
                     " duplicated name: {path_name}."
                 )
-            elif path_name == "/":
-                # We currently do not support a direct root path name without a
-                # function name yet. Usually, "/" is a path mounted to something
-                # like a swagger UI or flask service, which is not a function, so
-                # we will ignore it.
-                continue
+            # elif path_name == "/":
+            #     # We currently do not support a direct root path name without a
+            #     # function name yet. Usually, "/" is a path mounted to something
+            #     # like a swagger UI or flask service, which is not a function, so
+            #     # we will ignore it.
+            #     continue
             elif "post" in self.openapi["paths"][path_name]:  # type: ignore
                 self._create_post_path(path_name)
             elif "get" in self.openapi["paths"][path_name]:  # type: ignore
@@ -347,6 +350,14 @@ class Client(object):
 
     def __del__(self):
         self._session.close()
+
+    def __call__(self, *args, **kwargs):
+        if self._path_cache._has(""):
+            return self._path_cache[""](*args, **kwargs)
+        else:
+            raise AttributeError(
+                "This deployment does not have a default endpoint at '/'."
+            )
 
     @staticmethod
     def current():
