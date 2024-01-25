@@ -173,11 +173,14 @@ def login(
 ):
     """
     Logs in to a workspace in the following order:
-    - If workspace_id is given, log in to the given workspace.
+    - If workspace_id is given, log in to the given workspace. Workspace id could
+      also include the token as a complete credential string, which you can obtain
+      from https://dashboard.lepton.ai/credentials.
     - If workspace_id is not given, but there is LEPTON_WORKSPACE_ID in the environment,
       log into that workspace. We will look for LEPTON_WORKSPACE_TOKEN as the auth token,
       and LEPTON_WORKSPACE_URL as the workspace url, if they exist.
-    - Otherwise, produce an error.
+    - If we have depleted all the options and still cannot determine a workspace
+      id, we will throw an error.
 
     This function is intended to be used inside lepton deployments to log in to the
     workspace programmatically.
@@ -192,13 +195,20 @@ def login(
         workspace_id if workspace_id else os.environ.get("LEPTON_WORKSPACE_ID")
     )
     auth_token = auth_token if auth_token else os.environ.get("LEPTON_WORKSPACE_TOKEN")
+    # If workspace_id contains colon, it is a credential that also contains the token.
+    if workspace_id and ":" in workspace_id:
+        workspace_id, auth_token = workspace_id.split(":", 1)
     url = url if url else os.environ.get("LEPTON_WORKSPACE_URL")
     if workspace_id:
+        if not auth_token:
+            logger.warning("Warning: you have not specified an auth token.")
         WorkspaceInfoLocalRecord.set_and_save(workspace_id, auth_token, url)
     else:
         raise RuntimeError(
             "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
-            " environment."
+            " environment. If you do not know your workspace id, go to"
+            " https://dashboard.lepton.ai/credentials and login with the"
+            " credential string via login(credential_string)."
         )
 
 
