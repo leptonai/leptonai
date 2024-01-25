@@ -3,6 +3,8 @@ import re
 from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
+from loguru import logger
+
 from leptonai.config import CACHE_DIR
 from leptonai.util import create_cached_dir_if_needed
 from .connection import Connection
