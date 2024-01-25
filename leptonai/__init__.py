@@ -2,6 +2,10 @@
 """
 The Lepton AI python library.
 """
+
+# common feature: log in to use all other managed features.
+from .api.workspace import login
+
 # Photon, Client and Remote are the main classes that we want to expose.
 from .cloudrun import Remote
 from .client import Client
