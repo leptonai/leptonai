@@ -321,7 +321,7 @@ class TestClientTimeout(unittest.TestCase):
         # default: no timeout
         client = Client(local(port=port))
         # We chose 5.1 because 5 is the httpx default - we want to make sure that
-        # we have overriden the httpx default.
+        # we have overridden the httpx default.
         self.assertEqual(client.async_sleep(seconds=5.1), "ok")
         self.assertEqual(client.sleep(seconds=5.1), "ok")
 
