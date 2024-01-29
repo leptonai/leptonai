@@ -191,9 +191,8 @@ def mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-        "Upload with rsync. Rsync must be enabled for the workspace with file storage"
-        " enable-rsync subcommand. Note that this feature is for enterprise workspace"
-        " only."
+        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+        "only available for standard and enterprise workspace plan."
     ),
 )
 @click.option(
