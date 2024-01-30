@@ -19,7 +19,7 @@ ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4"
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
 ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
 
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm${ROCM_VERSION}
 
 RUN pip install uvicorn[standard] gradio!=3.31.0
 
