@@ -22,6 +22,7 @@ hf_pipeline_dependencies = {
     "baichuan-inc/Baichuan2-13B-Base": ["bitsandbytes"],
     "microsoft/phi-1": ["einops"],
     "microsoft/phi-1_5": ["einops"],
+    "AI4Chem/ChemLLM-7B-Chat": ["einops"],
     "human-centered-summarization/financial-summarization-pegasus": ["protobuf"],
     "elyza/ELYZA-japanese-Llama-2-7b-fast": ["protobuf", "accelerate"],
 }
