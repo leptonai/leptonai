@@ -12,9 +12,9 @@
 <a href="https://twitter.com/leptonai">Twitter</a> •
 <a href="https://leptonai.medium.com/">Blog</a>
 
-The LeptonAI python library allows you to build an AI service from python code with ease. Key features include:
+The LeptonAI Python library allows you to build an AI service from Python code with ease. Key features include:
 
-- A pythonic abstraction `Photon`, allowing you to convert research and modeling code into a service with a few lines of code.
+- A Pythonic abstraction `Photon`, allowing you to convert research and modeling code into a service with a few lines of code.
 - Simple abstractions to launch models like those on [HuggingFace](https://huggingface.co) in few lines of code.
 - Prebuilt examples for common models such as Llama, SDXL, Whisper, and others.
 - AI tailored batteries included such as autobatching, background jobs, etc.
@@ -27,7 +27,7 @@ Install the library with:
 ```shell
 pip install -U leptonai
 ```
-This installs the `leptonai` python library, as well as the commandline interface `lep`. You can then launch a HuggingFace model, say `gpt2`, in one line of code:
+This installs the `leptonai` Python library, as well as the commandline interface `lep`. You can then launch a HuggingFace model, say `gpt2`, in one line of code:
 
 ```python
 lep photon run --name gpt2 --model hf:gpt2 --local
@@ -87,7 +87,7 @@ A fully managed SDXL is hosted at [https://dashboard.lepton.ai/playground/sdxl](
 
 ## Writing your own photons
 
-Writing your own photon is simple: write a python Photon class and decorate functions with `@Photon.handler`. As long as your input and output are JSON serializable, you are good to go. For example, the following code launches a simple echo service:
+Writing your own photon is simple: write a Python Photon class and decorate functions with `@Photon.handler`. As long as your input and output are JSON serializable, you are good to go. For example, the following code launches a simple echo service:
 
 ```python
 # my_photon.py
@@ -130,6 +130,6 @@ Contributions and collaborations are welcome and highly appreciated. Please chec
 
 ## License
 
-The Lepton AI python library is released under the Apache 2.0 license.
+The Lepton AI Python library is released under the Apache 2.0 license.
 
 Developer Note: early development of LeptonAI was in a separate mono-repo, which is why you may see commits from the `leptonai/lepton` repo. We intend to use this open source repo as the source of truth going forward.
