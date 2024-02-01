@@ -24,7 +24,9 @@ def lep():
     Lep is the main entry point for the Lepton AI commandline interface. It provides
     a set of commands to create and develop photons locally, and deploy them to the
     Lepton AI cloud. It also provides a set of commands to manage resources on the
-    cloud, such as workspaces, deployments, secrets, and storage.
+    cloud, such as workspaces, deployments, secrets, and storage. To intall it, run
+
+    `pip install -U leptonai`
     """
     pass
 
