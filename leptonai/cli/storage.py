@@ -62,13 +62,13 @@ def print_dir_contents(dir_path, dir_content_json):
 @click_group()
 def storage():
     """
-    Manage File storrage on the Lepton AI cloud.
+    Manage File storage on the Lepton AI cloud.
 
     Lepton AI provides a file storage service that allows you to store files and
     directories on the cloud. The storage is persistent and is associated with
     your workspace. You can mount the storage when you launch a photon and
     access the files and directories from your photon code as if they were on
-    a standaord POSIX filesystem.
+    a standard POSIX filesystem.
 
     The file commands allow you to list, upload, download, and delete files
     and directories in your workspace.
