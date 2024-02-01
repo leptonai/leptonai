@@ -6,20 +6,16 @@ Stable Diffusion Web UI is a web browser interface tool to easily manage model c
 
 Here are the configurations you can set for your deployment:
 - Name: The name of your deployment, like “my-image-studio”
-- Resource Shape: Resource used for running the Web UI. `gpu.a10` is recommended
-    - To run models with A100 / H100 or multiple cards, contact us for reserved computation resources via info@lepton.ai.
-- Mount Storage: Mount Storage into the Web UI 
-    - You could choose to mount a folder into a specific path within Web UI to persist the models and results into storage. For example, if you have your Loras stored under Storage at `/Lora` , you could mount this folder to `/workspace/stable-diffusion-webui/models/Lora` like this screenshot: 
-    - ![image](mount_storage.png)
-- Environment variable
-    - `LEPTON_ENABLE_AUTH_BY_COOKIE` : set to `true`. This enables you to access the Web UI in the deployment via the workspace UI.
+- Resource Shape: Resource used for running the Web UI. `gpu.a10` is recommended 
 
 Once these fields are set, click `Deploy` button at the bottom of the page to create the deployment. You can see the deployment has now been created under [Deployments](https://dashboard.lepton.ai/workspace-redirect/deployments). Click on the deployment name to check the details. You’ll be able to see the deployment URL and status on this page.
 
 Once the status is turned into `Ready`, click the URL on the deployment card to access it:
+
 ![image](deployment_url.png)
 
 When you first click on it, we will create a deployment token to allow access to the web UI - this token is used only for this deployment, and your web UI stays secure and private. Always access the web UI via the workspace portal to ensure the token is created and passed to the web UI. If you would like the deployment to be accessible by anyone, you can edit the deployment, and make it public:
+
 ![image](deployment_make_public.png)
 
 # Generate your first image
