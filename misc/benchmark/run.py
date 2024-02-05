@@ -39,45 +39,64 @@ async def endpoint_evaluation_request(client, ep_config):
             f" {rnd_num_words}.\nPrint the number first, then tell me a very long"
             " story."
         )
-    elif ep_config["prompt_file"]:
-        with open(ep_config["prompt_file"], "r") as fid:
-            rnd_num = None
-            prompt = fid.read()
     else:
         rnd_num = None
-        prompt = ep_config["prompt"]
+        prompt = args.prompt
 
     tokens_in = len(tokenizer.encode(prompt))
     words = ""
 
-    messages = [
-        {"role": "user", "content": prompt},
-    ]
     try:
         st = time.time()
         ttft = None
-        response = await client.chat.completions.create(
-            model=ep_config["model"],
-            messages=messages,
-            max_tokens=args.max_tokens,
-            # Please keep temp at 0. Otherwise increases the number of mismatches.
-            temperature=0,
-            # Do not set to false. You will get bogus results.
-            stream=True,
-        )
-        async for tok in response:
-            if not tok.choices:
-                continue
-            delta = tok.choices[0].delta
-            if ttft is None and (delta.role or delta.content):
-                ttft = time.time() - st
-            if delta.content:
-                words += tok.choices[0].delta.content
+        if args.use_chat:
+            messages = [
+                {"role": "user", "content": prompt},
+            ]
+            response = await client.chat.completions.create(
+                model=ep_config["model"],
+                messages=messages,
+                max_tokens=args.max_tokens,
+                # Please keep temp at 0. Otherwise increases the number of mismatches.
+                temperature=0,
+                # Do not set to false. You will get bogus results.
+                stream=True,
+            )
+            async for tok in response:
+                if not tok.choices:
+                    continue
+                delta = tok.choices[0].delta
+                if delta.content:
+                    if ttft is None:
+                        ttft = time.time() - st
+                    words += delta.content
+        else:
+            response = await client.completions.create(
+                model=ep_config["model"],
+                prompt=prompt,
+                max_tokens=args.max_tokens,
+                # Please keep temp at 0. Otherwise increases the number of mismatches.
+                temperature=0,
+                # Do not set to false. You will get bogus results.
+                stream=True,
+            )
+            async for tok in response:
+                if not tok.choices:
+                    continue
+                delta = tok.choices[0]
+                if delta.text:
+                    if ttft is None:
+                        ttft = time.time() - st
+                    words += delta.text
         et = time.time()
     except Exception as e:
         return ("Exception", -1, -1, -1, -1, str(e))
 
-    # Get rid of commas.
+    if args.print_response:
+        print("---- Response ----")
+        print(words)
+        print("------------------")
+
     tokens_out = len(tokenizer.encode(words))
     if args.validate:
         nums = re.findall(r"\d+", words)
@@ -141,6 +160,9 @@ def endpoint_evaluation(ep_config):
     client = openai.AsyncOpenAI(
         base_url=ep_config["api_base"], api_key=ep_config["api_key"]
     )
+    for _ in range(args.warmup):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(endpoint_evaluation_request(client, ep_config))
 
     if args.qps is not None:
         query_results = []
@@ -163,7 +185,7 @@ def endpoint_evaluation(ep_config):
                         elts.append(et - st)
                         st = et
                     if len(query_results) % (5 * args.qps) == 0:
-                        results_analysis(query_results, elts)
+                        results_analysis(query_results, elts, qps_mode=True)
                         query_results = []
                         elts = []
                 except queue.Empty:
@@ -192,7 +214,7 @@ def endpoint_evaluation(ep_config):
             results_analysis(query_results, elts, concur_requests)
 
 
-def results_analysis(query_results, elts, concur_requests=None):
+def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
     print("---- Results analysis ----")
     if concur_requests:
         print(f"Concurrency: {concur_requests}")
@@ -219,11 +241,12 @@ def results_analysis(query_results, elts, concur_requests=None):
         max_ttft = cdf["ttft"].max()
         gt_3_ttft = len(cdf[cdf["ttft"] > 3]) / len(cdf)
         print(
-            "Execution time:"
-            f"\n  mean (per request): {cdf.total_time.mean():.2f} s"
-            f"\n  mean (per round): {sum(elts)/len(elts):.2f} s"
-            f"\n  total: {sum(elts):.2f} s"
+            f"Execution time:\n  mean (per request): {cdf.total_time.mean():.2f} s",
+            end="",
         )
+        if not qps_mode:
+            print(f"\n  mean (per round): {sum(elts)/len(elts):.2f} s", end="")
+        print(f"\n  total: {sum(elts):.2f} s")
         print(
             "Throughput:"
             f"\n  mean (per request): {cdf.out_tokens_per_s.mean():.2f} token/s"
@@ -278,6 +301,13 @@ if __name__ == "__main__":
         help="sleep between rounds of requests (to deal with rate limiting)",
     )
     parser.add_argument(
+        "-w",
+        "--warmup",
+        type=int,
+        default=1,
+        help="number of requests to use for warmup",
+    )
+    parser.add_argument(
         "-c",
         "--concur-requests",
         default="10",
@@ -329,8 +359,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prompt",
         type=str,
-        default="tell me a very long story.",
+        default="tell me a very very long story.",
         help="User prompt to send to the model",
+    )
+    parser.add_argument(
+        "-pl",
+        "--prompt-length",
+        default=None,
+        type=int,
+        help="Length of the prompt to send to the model (overrides prompt)",
     )
     parser.add_argument(
         "--prompt-file",
@@ -341,6 +378,18 @@ if __name__ == "__main__":
             " precedence over prompt."
         ),
     )
+    parser.add_argument(
+        "--use-chat",
+        action="store_true",
+        default=False,
+        help="Whether to use the chat endpoint",
+    )
+    parser.add_argument(
+        "--print-response",
+        action="store_true",
+        default=False,
+        help="Whether to print the response",
+    )
     args = parser.parse_args()
     endpoint_config = {}
     if args.random_seed >= 0:
@@ -348,8 +397,17 @@ if __name__ == "__main__":
     endpoint_config["api_base"] = args.api_base
     endpoint_config["api_key"] = args.api_key
     endpoint_config["model"] = args.model
-    endpoint_config["prompt"] = args.prompt
-    endpoint_config["prompt_file"] = args.prompt_file
+    if args.prompt_file:
+        with open(args.prompt_file, "r") as f:
+            args.prompt = f.read()
+    elif args.prompt_length:
+        with open("sonnet.txt", "r") as f:
+            # pick randome lines from the sonnet that total to prompt_length
+            lines = f.readlines()
+            args.prompt = "Pick some lines from these poem lines:\n"
+            while len(tokenizer.encode(args.prompt)) < args.prompt_length:
+                args.prompt += random.choice(lines)
+            args.prompt += "and then tell me a very very long story:"
 
     concur_requests = []
     for c in args.concur_requests.split(","):
