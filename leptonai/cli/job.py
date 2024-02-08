@@ -59,7 +59,10 @@ def job():
 @click.option(
     "--num-workers",
     "-w",
-    help="Number of workers to use for the job. For example, when you do a distributed training job of 4 replicas, use --num-workers 4.",
+    help=(
+        "Number of workers to use for the job. For example, when you do a distributed"
+        " training job of 4 replicas, use --num-workers 4."
+    ),
     type=int,
     default=None,
 )
@@ -78,8 +81,11 @@ def job():
 @click.option(
     "--intra-job-communication",
     type=bool,
-    help="Enable intra-job communication. If --num-workers is set, this is automatically enabled.",
-    default=False,
+    help=(
+        "Enable intra-job communication. If --num-workers is set, this is automatically"
+        " enabled."
+    ),
+    default=None,
 )
 @click.option(
     "--env",
@@ -106,9 +112,33 @@ def job():
     multiple=True,
 )
 @click.option(
-    "--completions", type=int, help="(advanced feature) completion policy for the job. This is supserceded by --num-workers if the latter is set.", default=None
+    "--completions",
+    type=int,
+    help=(
+        "(advanced feature) completion policy for the job. This is supserceded by"
+        " --num-workers if the latter is set."
+    ),
+    default=None,
 )
-@click.option("--parallelism", type=int, help="(advanced feature) parallelism for the job. This is supserceded by --num-workers if the latter is set.", default=None)
+@click.option(
+    "--parallelism",
+    type=int,
+    help=(
+        "(advanced feature) parallelism for the job. This is supserceded by"
+        " --num-workers if the latter is set."
+    ),
+    default=None,
+)
+@click.option(
+    "--ttl-seconds-after-finished",
+    type=int,
+    help=(
+        "(advanced feature) limits the lifetime of a job that has finished execution"
+        " (either Completed or Failed). Ref:"
+        " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
+    ),
+    default=None,
+)
 def create(
     name,
     file,
@@ -123,10 +153,11 @@ def create(
     mount,
     completions,
     parallelism,
+    ttl_seconds_after_finished,
 ):
     """
     Creates a job.
-    
+
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
     if file:
@@ -163,6 +194,8 @@ def create(
         job_spec.env = EnvVar.make_env_vars(env, secret)
     if mount:
         job_spec.mounts = Mount.make_mounts_from_strings(mount)
+    if ttl_seconds_after_finished:
+        job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
 
     job = LeptonJob(spec=job_spec, metadata=LeptonMetadata(id=name))
     conn = get_connection_or_die()

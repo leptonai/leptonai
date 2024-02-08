@@ -378,7 +378,10 @@ class LeptonContainer(BaseModel):
         else:
             ports_list = None
         if isinstance(command, str):
-            command = command.split(" ")
+            # Implementation note: strictly speaking, we should use shlex.split here
+            # to split the command string into a list of arguments. However, we are
+            # not doing that as it may not be bullet proof.
+            command = [command]
         return LeptonContainer(image=image, ports=ports_list, command=command)
 
 
@@ -393,7 +396,8 @@ class LeptonJobSpec(BaseModel):
     parallelism: int = 1
     envs: List[EnvVar] = []
     mounts: List[Mount] = []
-    intra_job_communication: bool = False
+    ttl_seconds_after_finished: Optional[int] = None
+    intra_job_communication: Optional[bool] = None
 
 
 class LeptonMetadata(BaseModel):
