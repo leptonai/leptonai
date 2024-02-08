@@ -69,9 +69,13 @@ def list_command(pattern):
     )
     kvs = response.json()
     if pattern:
-        filtered_kvs = [kv["name"] for kv in kvs if re.match(pattern, kv["name"])]
+        filtered_kvs = [
+            kv["metadata"]["name"]
+            for kv in kvs
+            if re.match(pattern, kv["metadata"]["name"])
+        ]
     else:
-        filtered_kvs = [kv["name"] for kv in kvs]
+        filtered_kvs = [kv["metadata"]["name"] for kv in kvs]
     table = Table(title="KVs", show_lines=True)
     table.add_column("name")
     for name in filtered_kvs:
