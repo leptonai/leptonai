@@ -101,7 +101,8 @@ class KV(object):
                 "Failed to list KVs in the current workspace. Error:"
                 f" {res.status_code} {res.content}."
             )
-        return [s["name"] for s in res.json()]
+        logger.info(f"List of KVs: {res.json()}")
+        return [s["metadata"]["name"] for s in res.json()]
 
     @staticmethod
     def create_kv(
@@ -166,7 +167,7 @@ class KV(object):
             raise RuntimeError(
                 f"Failed to access KV server. Error: {res.status_code} {res.content}."
             )
-        exitsting_kvs = [s["name"] for s in res.json()]
+        exitsting_kvs = [s["metadata"]["name"] for s in res.json()]
         if name in exitsting_kvs:
             if error_if_exists:
                 raise ValueError(
