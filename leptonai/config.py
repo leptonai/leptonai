@@ -153,12 +153,20 @@ DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
 # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
 # when the load balancer need to wait for some time to propagate the TERMINATING status to
 # other components of the distributed system. This parameter controls the grace period before
-# uvicorn rejects incoming traffic on SIGTERM. If not set, this is the default that we will use.
-DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD: int = (
-    int(os.environ["LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"])
-    if os.environ.get("LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD")
-    else 5
-)
+# uvicorn rejects incoming traffic on SIGTERM.
+if os.environ.get("LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"):
+    # If the user has explicitly set the grace period, we will use the user's setting.
+    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = int(
+        os.environ["LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"]
+    )
+elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.environ:
+    # Else, if we are running on the Lepton platform, we will use the default grace period
+    # that we tested on the platform for maximum smoothness in alleviating the distributed
+    # envoy update.
+    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 250
+else:
+    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
+
 
 _LOCAL_DEPLOYMENT_TOKEN = None
 
