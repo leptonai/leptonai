@@ -138,6 +138,28 @@ DEFAULT_TIMEOUT_KEEP_ALIVE = os.environ.get(
     "LEPTON_TIMEOUT_KEEP_ALIVE", 30 * 60
 )  # 30 minutes
 
+# When the server is shut down, we will wait for all the ongoing requests to finish before
+# shutting down. This is the timeout for the graceful shutdown. If the timeout is
+# reached, we will force kill the server. If not set, this is the default that we will use.
+# Implementation note: None means we will use the default behavior of asyncio.
+DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
+    int(os.environ["LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN"])
+    if os.environ.get("LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN")
+    else None
+)
+
+# During some deployment environments, the server might run behind a load balancer, and during
+# the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
+# The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
+# when the load balancer need to wait for some time to propagate the TERMINATING status to
+# other components of the distributed system. This parameter controls the grace period before
+# uvicorn rejects incoming traffic on SIGTERM. If not set, this is the default that we will use.
+DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD: int = (
+    int(os.environ["LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"])
+    if os.environ.get("LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD")
+    else 5
+)
+
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 

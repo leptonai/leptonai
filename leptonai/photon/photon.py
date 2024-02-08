@@ -45,7 +45,9 @@ from leptonai.config import (  # noqa: F401
     BASE_IMAGE_ARGS,
     BASE_IMAGE_CMD,
     DEFAULT_PORT,
+    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD,
     DEFAULT_TIMEOUT_KEEP_ALIVE,
+    DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN,
     ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
@@ -243,11 +245,11 @@ class Photon(BasePhoton):
     # port as the deployment server by default.
     health_check_liveness_tcp_port: Optional[int] = None
 
-    # When the server is shut down, we will wait for all the requests to finish before
+    # When the server is shut down, we will wait for all the ongoing requests to finish before
     # shutting down. This is the timeout for the graceful shutdown. If the timeout is
-    # reached, we will force kill the server. If the timeout is None, we will use the
-    # default setting of the uvicorn server, which as of Nov 2023 uses the default of
-    # asyncio.wait_for.
+    # reached, we will force kill the server. If not set, we use the default setting in
+    # leptonai.config.DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN. If set, this parameter overrides the
+    # default setting.
     timeout_graceful_shutdown: Optional[int] = None
 
     # During some deployment environments, the server might run behind a load balancer, and during
@@ -255,10 +257,9 @@ class Photon(BasePhoton):
     # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
     # when the load balancer need to wait for some time to propagate the TERMINATING status to
     # other components of the distributed system. This parameter controls the grace period before
-    # uvicorn rejects incoming traffic on SIGTERM. We set it to 5 seconds by default,
-    # and if it is set to 0, we will use the default setting of uvicorn, which is to immediately
-    # stop receiving new traffic.
-    incoming_traffic_grace_period: int = 5
+    # uvicorn rejects incoming traffic on SIGTERM. If not set, we use the default setting in
+    # leptonai.config.DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD.
+    incoming_traffic_grace_period: Optional[int] = None
 
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
@@ -804,7 +805,8 @@ class Photon(BasePhoton):
             host=host,
             port=port,
             log_config=log_config,
-            timeout_graceful_shutdown=self.timeout_graceful_shutdown,
+            timeout_graceful_shutdown=self.timeout_graceful_shutdown
+            or DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN,
             # so that we can get the real client IP address in the
             # access logs (and `X-Forwarded-For` header)
             proxy_headers=True,
@@ -814,8 +816,11 @@ class Photon(BasePhoton):
         lepton_uvicorn_server = uvicorn.Server(config=config)
 
         # Replaces the default server signal handler with a custom one that
-        # waits for a given amount time before stopping to receive incoming
+        # waits for a given amount time before we stop receiving incoming
         # traffic.
+        self.incoming_traffic_grace_period = (
+            self.incoming_traffic_grace_period or DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD
+        )
         if self.incoming_traffic_grace_period:
             logger.info(
                 "Setting up signal handlers for graceful incoming traffic"
@@ -1079,7 +1084,6 @@ class Photon(BasePhoton):
                 )
 
             if kwargs.get("use_raw_args"):
-
                 if cancel_on_disconnect:
                     raise ValueError(
                         "Cancel_on_disconnect is currently not supported for the "
@@ -1129,7 +1133,6 @@ class Photon(BasePhoton):
                 delattr(typed_handler, "__wrapped__")
 
         elif http_method.lower() == "get":
-
             if kwargs.get("use_raw_args"):
                 raise ValueError("use_raw_args is not supported for get handler")
 
