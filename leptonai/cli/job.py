@@ -22,6 +22,7 @@ from leptonai.api.types import (
     LeptonMetadata,
     VALID_SHAPES,
 )
+from leptonai.config import BASE_IMAGE
 
 
 @click_group()
@@ -67,7 +68,12 @@ def job():
     default=None,
 )
 @click.option(
-    "--container-image", type=str, help="Container image for the job.", default=None
+    "--container-image",
+    type=str,
+    help=(
+        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
+    ),
+    default=None,
 )
 @click.option(
     "--port",
@@ -186,7 +192,7 @@ def create(
             job_spec.intra_job_communication = intra_job_communication
     if container_image or port or command:
         job_spec.container = LeptonContainer.make_container(
-            image=container_image or job_spec.container.image,
+            image=container_image or BASE_IMAGE,
             ports=port or job_spec.container.ports,
             command=command or job_spec.container.command,
         )
