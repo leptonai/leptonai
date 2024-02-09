@@ -27,7 +27,7 @@ class WhisperX(Photon):
         "numpy",
         "torchaudio",
         "pyannote.audio==3.1.1",
-        "git+https://github.com/m-bain/whisperx.git@e9c507ce5dea0f93318746411c03fed0926b70be",
+        "git+https://github.com/m-bain/whisperx.git@8227807fa9e076901ea4b4fbbf79c9777a6f5e03",
     ]
 
     system_dependencies = ["ffmpeg"]
@@ -67,6 +67,20 @@ class WhisperX(Photon):
         import torch
         import whisperx
         from whisperx.asr import FasterWhisperPipeline
+
+        # This is a temporary workaround on our platform to work around the cuda
+        # 11 issue. If you are running things locally, you can install cuda 11
+        # instead of cuda 12, due to faster-whisper and pyannote.audio's dependency.
+        # Of course, this is flaky - but so far ctranslate2 have been sticking with
+        # standard cuda apis and does not cause much issue.
+        if (
+            "LEPTON_WORKSPACE_ID" in os.environ
+            and "LEPTON_DEPLOYMENT_NAME" in os.environ
+        ):
+            os.system(
+                "ln -s /usr/local/cuda/lib64/libcublas.so.12"
+                " /usr/local/cuda/lib64/libcublas.so.11"
+            )
 
         logger.info("Initializing WhisperX")
 
@@ -206,7 +220,10 @@ class WhisperX(Photon):
             - input: a string that is an url containing the audio file, or a base64-encoded
             string containing an audio file content.
             - language(optional): the language code for the input. If not provided, the model
-                will try to detect the language automatically (note this runs more slowly)
+                will use English ("en") as the default language. Pass in an explicit language
+                string such as "es" or "ja" to specify the language, or pass in an empty string
+                ("") to ask the model to detect the language automatically (note this runs more
+                slowly).
             - min_speakers(optional): the hint for minimum number of speakers for diarization.
             - max_speakers(optional): the hint for maximum number of speakers for diarization.
             - transcribe_only(optional): if True, only transcribe the audio, and skip alignment
@@ -218,8 +235,15 @@ class WhisperX(Photon):
         """
         import whisperx
 
+        # An explicit empty string means auto-detect. Note that we don't use None as
+        # autodetect, because English is actually a more common blind guess - we do not
+        # want users to not specify anything and accidentally route everything to language
+        # autodetection. Instead, language detection needs to be requested manually.
+        if language == "":
+            language = None
+
         # Check input
-        if language is not None and language not in self.SUPPORTED_LANGUAGES:
+        if language and language not in self.SUPPORTED_LANGUAGES:
             raise HTTPException(
                 400,
                 f"Unsupported language: {language}. Supported languages:"

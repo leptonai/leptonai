@@ -18,7 +18,6 @@ from leptonai.api.types import (
     Mount,
     LeptonJobSpec,
     LeptonJob,
-    LeptonContainer,
     LeptonMetadata,
     VALID_SHAPES,
 )
