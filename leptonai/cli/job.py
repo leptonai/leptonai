@@ -191,14 +191,18 @@ def create(
             job_spec.parallelism = parallelism
         if intra_job_communication:
             job_spec.intra_job_communication = intra_job_communication
-    if not command:
+    if command:
+        # For CLI passed in command, we will prepend it with /bin/bash -c
+        command = ["/bin/bash", "-c", command]
+        job_spec.container.command = command
+    elif not job_spec.container.command:
         console.print("You did not specify a command to run the job.")
-        return
-    job_spec.container = LeptonContainer.make_container(
-        image=container_image or BASE_IMAGE,
-        ports=port or job_spec.container.ports,
-        command=["/bin/bash", "-c", command],
-    )
+    if container_image:
+        job_spec.container.image = container_image
+    elif not job_spec.container.image:
+        job_spec.container.image = BASE_IMAGE
+    if port:
+        job_spec.container.ports = port
     if env or secret:
         job_spec.env = EnvVar.make_env_vars(env, secret)
     if mount:

@@ -1,0 +1,22 @@
+{
+  "resource_shape": "cpu.small",
+  "container": {
+    "image": "ubuntu:latest",
+    "command": [
+      "/bin/bash",
+      "-c",
+      "env | grep LEPTON"
+    ]
+  },
+  "completions": 2,
+  "parallelism": 2,
+  "envs": [],
+  "mounts": [
+    {
+      "path": "/",
+      "mount_path": "/test"
+    }
+  ],
+  "ttl_seconds_after_finished": 259200,
+  "intra_job_communication": true
+}
