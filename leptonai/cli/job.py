@@ -14,12 +14,15 @@ from .util import (
 )
 from leptonai.api import job as api
 from leptonai.api.types import (
+    EnvVar,
+    Mount,
     LeptonJobSpec,
     LeptonJob,
     LeptonContainer,
     LeptonMetadata,
     VALID_SHAPES,
 )
+from leptonai.config import BASE_IMAGE
 
 
 @click_group()
@@ -27,7 +30,10 @@ def job():
     """
     Manages Lepton Jobs.
 
-    Jobs is an experimental feature. More details will be added soon.
+    Lepton Jobs are for one-time and one-off tasks that run on one or more machines.
+    For example, one can launch a shell script that does a bunch of data processing
+    as a job, or a distributed ML training job over multiple, connected machines. See
+    the documentation for more details.
     """
     pass
 
@@ -52,11 +58,22 @@ def job():
     default=None,
 )
 @click.option(
-    "--completions", type=int, help="Completion policy for the job.", default=None
+    "--num-workers",
+    "-w",
+    help=(
+        "Number of workers to use for the job. For example, when you do a distributed"
+        " training job of 4 replicas, use --num-workers 4."
+    ),
+    type=int,
+    default=None,
 )
-@click.option("--parallelism", type=int, help="Parallelism for the job.", default=None)
 @click.option(
-    "--container-image", type=str, help="Container image for the job.", default=None
+    "--container-image",
+    type=str,
+    help=(
+        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
+    ),
+    default=None,
 )
 @click.option(
     "--port",
@@ -68,24 +85,87 @@ def job():
     "--command", type=str, help="Command string to run for the job.", default=None
 )
 @click.option(
-    "--intra_job_communication",
+    "--intra-job-communication",
     type=bool,
-    help="Enable intra-job communication.",
-    default=False,
+    help=(
+        "Enable intra-job communication. If --num-workers is set, this is automatically"
+        " enabled."
+    ),
+    default=None,
+)
+@click.option(
+    "--env",
+    "-e",
+    help="Environment variables to pass to the job, in the format `NAME=VALUE`.",
+    multiple=True,
+)
+@click.option(
+    "--secret",
+    "-s",
+    help=(
+        "Secrets to pass to the job, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--mount",
+    help=(
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--completions",
+    type=int,
+    help=(
+        "(advanced feature) completion policy for the job. This is supserceded by"
+        " --num-workers if the latter is set."
+    ),
+    default=None,
+)
+@click.option(
+    "--parallelism",
+    type=int,
+    help=(
+        "(advanced feature) parallelism for the job. This is supserceded by"
+        " --num-workers if the latter is set."
+    ),
+    default=None,
+)
+@click.option(
+    "--ttl-seconds-after-finished",
+    type=int,
+    help=(
+        "(advanced feature) limits the lifetime of a job that has finished execution"
+        " (either Completed or Failed). If not set, we will have it default to 72"
+        " hours. Ref:"
+        " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
+    ),
+    default=259200,
 )
 def create(
     name,
     file,
     resource_shape,
-    completions,
-    parallelism,
+    num_workers,
     container_image,
     port,
     command,
     intra_job_communication,
+    env,
+    secret,
+    mount,
+    completions,
+    parallelism,
+    ttl_seconds_after_finished,
 ):
     """
     Creates a job.
+
+    For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
     if file:
         try:
@@ -100,18 +180,31 @@ def create(
     # Update the spec based on the passed in args
     if resource_shape:
         job_spec.resource_shape = resource_shape
-    if completions:
-        job_spec.completions = completions
-    if parallelism:
-        job_spec.parallelism = parallelism
-    if container_image or port or command:
-        job_spec.container = LeptonContainer.make_container(
-            image=container_image or job_spec.container.image,
-            ports=port or job_spec.container.ports,
-            command=command or job_spec.container.command,
-        )
-    if intra_job_communication:
-        job_spec.intra_job_communication = intra_job_communication
+    if num_workers:
+        job_spec.completions = num_workers
+        job_spec.parallelism = num_workers
+        job_spec.intra_job_communication = True
+    else:
+        if completions:
+            job_spec.completions = completions
+        if parallelism:
+            job_spec.parallelism = parallelism
+        if intra_job_communication:
+            job_spec.intra_job_communication = intra_job_communication
+    if not command:
+        console.print("You did not specify a command to run the job.")
+        return
+    job_spec.container = LeptonContainer.make_container(
+        image=container_image or BASE_IMAGE,
+        ports=port or job_spec.container.ports,
+        command=["bash", "-c", command],
+    )
+    if env or secret:
+        job_spec.env = EnvVar.make_env_vars(env, secret)
+    if mount:
+        job_spec.mounts = Mount.make_mounts_from_strings(mount)
+    if ttl_seconds_after_finished:
+        job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
 
     job = LeptonJob(spec=job_spec, metadata=LeptonMetadata(id=name))
     conn = get_connection_or_die()
