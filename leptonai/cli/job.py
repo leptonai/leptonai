@@ -197,7 +197,7 @@ def create(
     job_spec.container = LeptonContainer.make_container(
         image=container_image or BASE_IMAGE,
         ports=port or job_spec.container.ports,
-        command=["bash", "-c", command],
+        command=["/bin/bash", "-c", command],
     )
     if env or secret:
         job_spec.env = EnvVar.make_env_vars(env, secret)
