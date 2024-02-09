@@ -206,7 +206,10 @@ class WhisperX(Photon):
             - input: a string that is an url containing the audio file, or a base64-encoded
             string containing an audio file content.
             - language(optional): the language code for the input. If not provided, the model
-                will try to detect the language automatically (note this runs more slowly)
+                will use English ("en") as the default language. Pass in an explicit language
+                string such as "es" or "ja" to specify the language, or pass in an empty string
+                ("") to ask the model to detect the language automatically (note this runs more
+                slowly).
             - min_speakers(optional): the hint for minimum number of speakers for diarization.
             - max_speakers(optional): the hint for maximum number of speakers for diarization.
             - transcribe_only(optional): if True, only transcribe the audio, and skip alignment
@@ -218,8 +221,15 @@ class WhisperX(Photon):
         """
         import whisperx
 
+        # An explicit empty string means auto-detect. Note that we don't use None as
+        # autodetect, because English is actually a more common blind guess - we do not
+        # want users to not specify anything and accidentally route everything to language
+        # autodetection. Instead, language detection needs to be requested manually.
+        if language == "":
+            language = None
+
         # Check input
-        if language is not None and language not in self.SUPPORTED_LANGUAGES:
+        if language and language not in self.SUPPORTED_LANGUAGES:
             raise HTTPException(
                 400,
                 f"Unsupported language: {language}. Supported languages:"
