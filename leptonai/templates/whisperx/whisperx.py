@@ -27,7 +27,7 @@ class WhisperX(Photon):
         "numpy",
         "torchaudio",
         "pyannote.audio==3.1.1",
-        "git+https://github.com/m-bain/whisperx.git@e9c507ce5dea0f93318746411c03fed0926b70be",
+        "git+https://github.com/m-bain/whisperx.git@8227807fa9e076901ea4b4fbbf79c9777a6f5e03",
     ]
 
     system_dependencies = ["ffmpeg"]
@@ -67,6 +67,20 @@ class WhisperX(Photon):
         import torch
         import whisperx
         from whisperx.asr import FasterWhisperPipeline
+
+        # This is a temporary workaround on our platform to work around the cuda
+        # 11 issue. If you are running things locally, you can install cuda 11
+        # instead of cuda 12, due to faster-whisper and pyannote.audio's dependency.
+        # Of course, this is flaky - but so far ctranslate2 have been sticking with
+        # standard cuda apis and does not cause much issue.
+        if (
+            "LEPTON_WORKSPACE_ID" in os.environ
+            and "LEPTON_DEPLOYMENT_NAME" in os.environ
+        ):
+            os.system(
+                "ln -s /usr/local/cuda/lib64/libcublas.so.12"
+                " /usr/local/cuda/lib64/libcublas.so.11"
+            )
 
         logger.info("Initializing WhisperX")
 
