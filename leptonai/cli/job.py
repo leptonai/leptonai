@@ -140,10 +140,11 @@ def job():
     type=int,
     help=(
         "(advanced feature) limits the lifetime of a job that has finished execution"
-        " (either Completed or Failed). Ref:"
+        " (either Completed or Failed). If not set, we will have it default to 72"
+        " hours. Ref:"
         " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
     ),
-    default=None,
+    default=259200,
 )
 def create(
     name,
