@@ -17,7 +17,6 @@ python-multipart
 
 accelerate # needed by low_cpu_mem_usage
 huggingface_hub
-hf-transfer
 diffusers[torch]
 sentence-transformers
 torch
