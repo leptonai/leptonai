@@ -5,7 +5,6 @@ contextlib2 # backports async support in nullcontext
 exceptiongroup
 fastapi
 httpx[http2]
-limits
 prometheus-fastapi-instrumentator
 rich
 typing-extensions
