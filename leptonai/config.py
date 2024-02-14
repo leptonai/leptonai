@@ -163,7 +163,7 @@ elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.envi
     # Else, if we are running on the Lepton platform, we will use the default grace period
     # that we tested on the platform for maximum smoothness in alleviating the distributed
     # envoy update.
-    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 250
+    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 300
 else:
     DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
 
