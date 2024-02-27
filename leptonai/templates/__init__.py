@@ -8,5 +8,5 @@ If you are contributing to the templates repository, please see the README.md
 file in the root of the repository for more information on how to contribute.
 """
 
-from .whisperx.whisperx import WhisperX
+from .whisperx.whisperx_photon import WhisperX
 from .vllm import vLLM

@@ -27,7 +27,8 @@ class WhisperX(Photon):
         "numpy",
         "torchaudio",
         "pyannote.audio==3.1.1",
-        "git+https://github.com/m-bain/whisperx.git@8227807fa9e076901ea4b4fbbf79c9777a6f5e03",
+        "speechbrain==0.5.14",  # to overcome recent bug in speechbrain 1.0.0
+        "git+https://github.com/m-bain/whisperx.git@78dcfa",
     ]
 
     system_dependencies = ["ffmpeg"]
@@ -142,9 +143,7 @@ class WhisperX(Photon):
         )
         self._diarize_model_lock = Lock()
 
-    def _transcribe(
-        self, audio: np.ndarray, audio_file, language: Optional[str] = None
-    ):
+    def _transcribe(self, audio: np.ndarray, language: Optional[str] = None):
         logger.debug("transcribe: aquiring lock")
         with self.transcribe_model_lock:
             logger.debug("transcribe: lock acquired")
@@ -212,6 +211,8 @@ class WhisperX(Photon):
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
         transcribe_only: bool = True,
+        align_only: bool = True,
+        text: Optional[str] = None,
     ) -> List:
         """
         Runs transcription, alignment, and diarization for the input.
@@ -228,6 +229,13 @@ class WhisperX(Photon):
             - max_speakers(optional): the hint for maximum number of speakers for diarization.
             - transcribe_only(optional): if True, only transcribe the audio, and skip alignment
                 and diarization. Default to True.
+            - align_only(optional): if True, only does alignment and not diarization. Note that
+                transcribe_only must be set to False if align_only is set. This also depends on
+                the "text" input: if text is None, the model will carry out transcription; if
+                text is not None, we will do alignment on the input text.
+            - text(optional): if not None, will carry out alignment and diarization
+                based on the transcription. If you want to actually run transcription, make sure
+                this is set to None.
 
         - Returns:
             - result: The transcribe and/or aligned and diarized result. If transcribe_only,
@@ -277,17 +285,25 @@ class WhisperX(Photon):
                 f" allowed length {self.MAX_LENGTH_IN_SECONDS} seconds.",
             )
         logger.debug(f"started processing audio of length {len(audio)}.")
-        # Note: audio_file is basically provided so we can run whisper if needed. Whisper
-        # uses a different loading mechanism, and as a result it is slightly different from
-        # the whisperx loaded audio.
-        result = self._transcribe(audio, audio_file, language=language)
-        logger.debug("Transcription done.")
+        if text is None:
+            result = self._transcribe(audio, language=language)
+            logger.debug("Transcription done.")
+        else:
+            logger.debug("Using pre-defined text to run alignment and diarization")
+            result = {
+                "language": language,
+                "segments": [{
+                    "text": text,
+                    "start": 0.0,
+                    "end": audio.size / 16000,
+                }],
+            }
 
         if len(result["segments"]) == 0:
             logger.debug("Empty result from whisperx. Directly return empty.")
             return []
 
-        if transcribe_only:
+        if transcribe_only and text is None:
             total_time = time.time() - start_time
             logger.debug(
                 f"finished processing audio of len {audio.size}. Total"
@@ -296,7 +312,16 @@ class WhisperX(Photon):
             return result["segments"]
 
         # Run alignment and diarization
-        result = self._align(result, audio)
+        try:
+            result = self._align(result, audio)
+        except Exception as e:
+            logger.error(f"Error in alignment: {e}.")
+            raise HTTPException(
+                400, f"Error in running the alignment model. Details: {e}"
+            )
+
+        if align_only:
+            return result["segments"]
 
         # When there is no active diarization, the diarize model throws a KeyError.
         # In this case, we simply skip diarization.
