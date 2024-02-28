@@ -88,7 +88,7 @@ jobs:
 
           base_tag="${{ steps.vars.outputs.base_image }}"
           runner_tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
-          tag=${base_tag%"${{ matrix.python_version }}"}-aigc-${VERSION_TAG}
+          tag=${base_tag%"-py-${{ matrix.python_version }}"}-aigc-${VERSION_TAG}
 
           docker build . --build-arg BASE_IMAGE="${runner_tag}" --file leptonai/photon/dockerfiles/photon-aigc.Dockerfile --tag "${tag}"
 
