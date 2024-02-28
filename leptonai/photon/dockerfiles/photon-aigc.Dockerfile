@@ -10,6 +10,9 @@ ARG SD_WEBUI_CONTROLNET_SHA=679b627
 ARG adetailer=https://github.com/Bing-su/adetailer.git
 ARG ADDETAILER_SHA=8f01dfd
 
+ARG CIVITAI_HELPER_REPO=https://github.com/butaixianran/Stable-Diffusion-Webui-Civitai-Helper.git
+ARG CIVITAI_HELPER_SHA=b358572
+
 RUN if [ ! -d /opt/lepton ]; then echo "/opt/lepton does not exist"; exit 1; fi
 
 RUN git clone --recursive ${WEBUI_REPO} /opt/lepton/stable-diffusion-webui && \
@@ -19,17 +22,25 @@ RUN git clone --recursive ${WEBUI_REPO} /opt/lepton/stable-diffusion-webui && \
 
 RUN mkdir -p /resources/extensions
 
-RUN git clone --recursive ${SD_WEBUI_CONTROLNET_REPO} /resources/extensions/sd-webui-controlnet && \
-    cd /resources/extensions/sd-webui-controlnet && \
+RUN git clone --recursive ${SD_WEBUI_CONTROLNET_REPO} /opt/lepton/stable-diffusion-webui/extensions/sd-webui-controlnet && \
+    cd /opt/lepton/stable-diffusion-webui/extensions/sd-webui-controlnet && \
     git checkout -B lepton ${SD_WEBUI_CONTROLNET_SHA} && \
+    ln -sfT /opt/lepton/stable-diffusion-webui/extensions/sd-webui-controlnet /resources/extensions/sd-webui-controlnet && \
     cd -
 
-RUN git clone --recursive ${adetailer} /resources/extensions/adetailer && \
-    cd /resources/extensions/adetailer && \
+RUN git clone --recursive ${adetailer} /opt/lepton/stable-diffusion-webui/extensions/adetailer && \
+    cd /opt/lepton/stable-diffusion-webui/extensions/adetailer && \
     git checkout -B lepton ${ADDETAILER_SHA} && \
+    ln -sfT /opt/lepton/stable-diffusion-webui/extensions/adetailer /resources/extensions/adetailer && \
     cd -
 
-RUN pip install xformers
+RUN git clone --recursive ${CIVITAI_HELPER_REPO} /opt/lepton/stable-diffusion-webui/extensions/Stable-Diffusion-Webui-Civitai-Helper && \
+    cd /opt/lepton/stable-diffusion-webui/extensions/Stable-Diffusion-Webui-Civitai-Helper && \
+    git checkout -B lepton ${CIVITAI_HELPER_SHA} && \
+    ln -sfT /opt/lepton/stable-diffusion-webui/extensions/Stable-Diffusion-Webui-Civitai-Helper /resources/extensions/Stable-Diffusion-Webui-Civitai-Helper && \
+    cd -
+
+RUN pip install xformers insightface==0.7.3
 RUN cd /opt/lepton/stable-diffusion-webui && \
     venv_dir=- ./webui.sh -f --xformers --data-dir /resources --allow-code --skip-torch-cuda-test --exit && \
     cd -
