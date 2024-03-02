@@ -5,6 +5,23 @@ authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
 dynamic = ["dependencies", "version"]
 readme = "README.md"
 requires-python = ">=3.8,<3.12"
+dependencies = [
+    "anyio>=3.7.0", # we use exceptiongroup
+    "click",
+    "cloudpickle==3.0.0",
+    "contextlib2", # backports async support in nullcontext
+    "exceptiongroup",
+    "fastapi",
+    "httpx[http2]",
+    "prometheus-fastapi-instrumentator",
+    "rich",
+    "typing-extensions",
+    "uvicorn>=0.22.0", # needed by timeout_graceful_shutdown
+    "loguru",
+    "requests",
+    "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
+    "python-multipart",
+]
 
 [project.urls]
 Homepage = "https://lepton.ai"
@@ -23,6 +40,14 @@ test = [
     "responses",
     "respx",
 ]
+runtime = [
+    "accelerate", # needed by low_cpu_mem_usage
+    "huggingface_hub",
+    "diffusers[torch]",
+    "sentence-transformers",
+    "torch",
+    "transformers",
+]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<=7.1.0"]
@@ -36,9 +61,6 @@ write_to = "leptonai/_version.py"
 version_scheme="no-guess-dev"
 # add git commit (and date if working dir is dirty) to the version tag
 local_scheme="node-and-date"
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools]
 include-package-data = false

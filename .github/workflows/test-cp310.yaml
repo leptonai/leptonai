@@ -37,7 +37,7 @@ jobs:
           black --check .
       - name: Test with pytest
         run: |
-          pip install .[test]
+          pip install .[runtime] .[test]
           cd ..
           pytest -x leptonai
           cd -
