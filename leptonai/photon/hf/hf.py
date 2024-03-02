@@ -6,7 +6,6 @@ import re
 import tempfile
 from typing import List, Union, Optional, Dict, Any
 
-from huggingface_hub import model_info
 from loguru import logger
 
 from leptonai.registry import Registry
@@ -113,6 +112,8 @@ class HuggingfacePhoton(Photon):
 
     @classmethod
     def _parse_model_str(cls, model_str):
+        from huggingface_hub import model_info
+
         model_parts = model_str.split(":")
         if len(model_parts) not in (2, 3):
             raise ValueError(

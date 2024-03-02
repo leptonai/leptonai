@@ -23,7 +23,6 @@ dependencies = [
     "python-multipart",
     "pillow",
     "pyyaml",
-    "huggingface_hub",
 ]
 
 [project.urls]
