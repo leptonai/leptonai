@@ -71,16 +71,21 @@ jobs:
       - name: Install Package
         run: |
           pip install leptonai*.whl
-          pip install pytest pytest-cov responses respx flask gradio
-      - name: Run Tests
+      - name: Run Basic Tests
         run: |
           echo "leptonai package version:"
           lep -v
+          lep ph create -n gpt2 -m hf:gpt2
 
           cd ..
           echo "leptonai package path:"
           python -c "import leptonai; print(leptonai)"
-
+          cd -
+      - name: Run Runtime Tests
+        run: |
+          whl_file=(leptonai*.whl)
+          pip install ${whl_file}[runtime] ${whl_file}[test]
+          cd ..
           echo "Run unittests"
           pytest -x leptonai
           cd -

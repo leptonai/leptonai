@@ -37,7 +37,12 @@ jobs:
           black --check .
       - name: Test with pytest
         run: |
-          pip install .[test]
+          pip install .
+          echo "leptonai package version:"
+          lep -v
+          lep ph create -n gpt2 -m hf:gpt2
+
+          pip install .[runtime] .[test]
           cd ..
           pytest -x leptonai
           cd -
