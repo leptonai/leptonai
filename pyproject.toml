@@ -21,6 +21,7 @@ dependencies = [
     "requests",
     "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
     "python-multipart",
+    "pillow",
 ]
 
 [project.urls]
