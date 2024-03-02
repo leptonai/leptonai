@@ -75,6 +75,7 @@ jobs:
         run: |
           echo "leptonai package version:"
           lep -v
+          lep ph create -n gpt2 -m hf:gpt2
 
           cd ..
           echo "leptonai package path:"
