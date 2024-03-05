@@ -540,6 +540,44 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     default=None,
 )
 @click.option(
+    "--target-throughput-qpm",
+    type=int,
+    help=(
+        "If min and max replicas are set, if the throughput is higher than the target"
+        " throughput, autoscaler will scale up the replicas. If the throughput is"
+        " lower than the target throughput, autoscaler will scale down the replicas."
+        " The throughput is evaluated by the number of requests per minute, aka the"
+        " QPM. The value should be a positive integer."
+    ),
+    default=None,
+)
+@click.option(
+    "--target-throughput-methods",
+    type=str,
+    help=(
+        "If --target-throughput-qpm is specified, this is a comma separated list of http"
+        " methods that will be used to evaluate the throughput. If not specified, all"
+        " methods will be used. This is combined with --target-throughput-paths, and eventually"
+        " the throughput is evaluated by the number of requests per minute of requests"
+        " whose (method, path) signature satisfies ((method in target_methods if"
+        " target_methods else True) and (path in target_paths if target_paths else True)."
+    ),
+    default=None,
+)
+@click.option(
+    "--target-throughput-paths",
+    type=str,
+    help=(
+        "If --target-throughput-qpm is specified, this is a comma separated list of http"
+        " paths that will be used to evaluate the throughput. If not specified, all"
+        " paths will be used. This is combined with --target-throughput-methods, and eventually"
+        " the throughput is evaluated by the number of requests per minute of requests"
+        " whose (method, path) signature satisfies ((method in target_methods if"
+        " target_methods else True) and (path in target_paths if target_paths else True)."
+    ),
+    default=None,
+)
+@click.option(
     "--include-workspace-token",
     is_flag=True,
     help=(
@@ -597,6 +635,9 @@ def run(
     no_traffic_timeout,
     target_gpu_utilization,
     initial_delay_seconds,
+    target_througput_qpm,
+    target_throughput_methods,
+    target_throughput_paths,
     include_workspace_token,
     rerun,
     public_photon,
@@ -699,6 +740,15 @@ def run(
                 secret_list=list(secret),
                 is_public=public,
                 tokens=tokens,
+                autoscaler=types.AutoScaler.make_auto_scaler(
+                    no_traffic_timeout=no_traffic_timeout,
+                    target_gpu_utilization=target_gpu_utilization,
+                    target_throughput=types.TargetThroughput.make_target_throughput(
+                        qpm=target_througput_qpm,
+                        methods=target_throughput_methods,
+                        paths=target_throughput_paths,
+                    )
+                ),
                 no_traffic_timeout=no_traffic_timeout,
                 target_gpu_utilization=target_gpu_utilization,
                 initial_delay_seconds=initial_delay_seconds,
