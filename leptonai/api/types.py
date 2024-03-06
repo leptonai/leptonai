@@ -221,7 +221,9 @@ class ScaleDown(BaseModel):
     no_traffic_timeout: Optional[int] = None
 
     @staticmethod
-    def make_scale_down(no_traffic_timeout: Optional[int] = None) -> Optional["ScaleDown"]:
+    def make_scale_down(
+        no_traffic_timeout: Optional[int] = None,
+    ) -> Optional["ScaleDown"]:
         if no_traffic_timeout is None:
             # None means no change to the scale down.
             return None
@@ -259,7 +261,7 @@ class TargetThroughput(BaseModel):
 class AutoScaler(BaseModel):
     scale_down: Optional[ScaleDown] = None
     target_gpu_utilization_percentage: Optional[int] = None
-    target_throughput: Optional[float] = None
+    target_throughput: Optional[TargetThroughput] = None
 
     @staticmethod
     def make_auto_scaler(
@@ -283,14 +285,15 @@ class AutoScaler(BaseModel):
             )
         # Test if multiple scaling rules are set at the same time
         scaler_rules = (
-            int(no_traffic_timeout is not None) +
-            int(target_gpu_utilization is not None) +
-            int(target_throughput is not None)
+            int(no_traffic_timeout is not None and no_traffic_timeout != 0)
+            + int(target_gpu_utilization is not None)
+            + int(target_throughput is not None)
         )
         if scaler_rules > 1:
             raise ValueError(
                 "Multiple scaling rules are set at the same time. Please set only one"
-                " scaling rule at a time."
+                f" scaling rule at a time. Debug: {no_traffic_timeout},"
+                f" {target_gpu_utilization}, {target_throughput}"
             )
         return AutoScaler(
             scale_down=ScaleDown.make_scale_down(no_traffic_timeout=no_traffic_timeout),
