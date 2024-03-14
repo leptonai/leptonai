@@ -46,7 +46,7 @@ test = [
 runtime = [
     "accelerate", # needed by low_cpu_mem_usage
     "huggingface_hub",
-    "diffusers[torch]",
+    "diffusers[torch]>=0.27.0",
     "sentence-transformers",
     "torch",
     "transformers",
