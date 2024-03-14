@@ -227,10 +227,10 @@ class Client(object):
 
         Implementation Note: when one uses a full URL, the client accesses the deployment
         specific endpoint directly. This endpoint may have a certain delay, and may not be
-        immediately available after the deployment is created. when one uses a workspace
-        id and the deployment name, the client accesses the workspace endpoint and uses
-        the deployment name as a header. This is the recommended way to use the client.
-        We may remove the ability to use a full URL in the future.
+        immediately available after the deployment is created. When one uses a workspace
+        id and the deployment name, the client constructs the full url of the endpoint.
+        This is the recommended way to use the client. We may remove the ability to use a
+        full URL in the future.
         """
         if is_valid_url(workspace_or_url):
             self.url = workspace_or_url.rstrip("/")
@@ -241,11 +241,20 @@ class Client(object):
                     f"Workspace {workspace_or_url} does not exist or is not accessible."
                 )
             else:
-                self.url = url.rstrip("/")
+                # construct the full url of the deployment.
+                if deployment is None:
+                    raise ValueError("You must specify the deployment name.")
+                insert_index = url.find(".")
+                if insert_index == -1:
+                    raise ValueError(
+                        f"Workspace {workspace_or_url} seems to have an invalid"
+                        f" url returned: {url}. Please report this as a bug."
+                    )
+                self.url = (
+                    url[:insert_index] + "-" + deployment + url[insert_index:]
+                ).rstrip("/")
 
         headers = {}
-        if deployment:
-            headers.update({"X-Lepton-Deployment": deployment})
         # If we are simply using the current workspace, we will also automatically
         # set the token as the current workspace token.
         if (
