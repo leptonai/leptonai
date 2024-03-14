@@ -272,11 +272,11 @@ class AutoScaler(BaseModel):
         if no_traffic_timeout is None and target_gpu_utilization is None:
             # None means no change to the autoscaler.
             return None
-        if no_traffic_timeout is not None and no_traffic_timeout < 0:
+        if not isinstance(no_traffic_timeout, None) and no_traffic_timeout < 0:
             raise ValueError(
                 f"no_traffic_timeout must be non-negative. Found {no_traffic_timeout}."
             )
-        if target_gpu_utilization is not None and (
+        if not isinstance(target_gpu_utilization, None) and (
             target_gpu_utilization < 0 or target_gpu_utilization > 100
         ):
             raise ValueError(
