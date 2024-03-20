@@ -30,7 +30,10 @@ class Worker(Photon):
     # The queue name and the KV name that the worker will use. The queue and the KV
     # will be created if they don't exist. Note that you are responsible for making
     # sure the uniqueness of queue and kv names. If they are left as None, the deployment
-    # name will serve as the queue name and the kv name.
+    # name will serve as the queue name and the kv name. When runnining the
+    # deployment, make sure to set the LEPTON_WORKSPACE_TOKEN environment variable as the
+    # workspace token. You can also do this by adding --include-workspace-token to the
+    # lep photon run command to include the workspace token in the environment variables.
     queue_name: Optional[str] = None
     kv_name: Optional[str] = None
 
