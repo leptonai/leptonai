@@ -40,7 +40,7 @@ RUN git clone --recursive ${CIVITAI_HELPER_REPO} /opt/lepton/stable-diffusion-we
     ln -sfT /opt/lepton/stable-diffusion-webui/extensions/Stable-Diffusion-Webui-Civitai-Helper /resources/extensions/Stable-Diffusion-Webui-Civitai-Helper && \
     cd -
 
-RUN pip install xformers insightface==0.7.3
+RUN pip install xformers==0.0.24 insightface==0.7.3
 RUN cd /opt/lepton/stable-diffusion-webui && \
     venv_dir=- ./webui.sh -f --xformers --data-dir /resources --allow-code --skip-torch-cuda-test --exit && \
     cd -
