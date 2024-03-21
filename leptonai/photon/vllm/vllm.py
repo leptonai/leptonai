@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 from loguru import logger
@@ -27,6 +26,7 @@ class vLLMPhoton(Photon):
             "VLLM_TENSOR_PARALLEL_SIZE": "",
             "VLLM_USE_MODELSCOPE": "False",
             "VLLM_TRUST_REMOTE_CODE": "True",
+            "VLLM_RESPONSE_ROLE": "assistant",
         },
         "secret": [
             "HUGGING_FACE_HUB_TOKEN",
@@ -34,10 +34,7 @@ class vLLMPhoton(Photon):
     }
 
     requirement_dependency = [
-        "transformers>=4.36.0",
-        "vllm>=0.2.0",
-        "fschat",
-        "megablocks",
+        "vllm>=0.3.3",
     ]
 
     def __init__(self, name, model):
@@ -74,7 +71,9 @@ class vLLMPhoton(Photon):
         from vllm.entrypoints.openai import api_server
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
-        from vllm.transformers_utils.tokenizer import get_tokenizer
+        from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+        from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
+
         import torch
 
         if os.environ["VLLM_MODEL"] != "":
@@ -110,6 +109,9 @@ class vLLMPhoton(Photon):
 
         logger.info(f"Using tensor_parallel_size={tensor_parallel_size}")
 
+        served_model = os.environ["VLLM_MODEL_NAME"] or self.model_id
+        response_role = os.environ["VLLM_RESPONSE_ROLE"]
+
         engine_args = AsyncEngineArgs(
             model=self.model_id,
             trust_remote_code=to_bool(os.environ["VLLM_TRUST_REMOTE_CODE"]),
@@ -117,17 +119,15 @@ class vLLMPhoton(Photon):
             tensor_parallel_size=tensor_parallel_size,
         )
         engine = AsyncLLMEngine.from_engine_args(engine_args)
-        engine_model_config = asyncio.run(engine.get_model_config())
-        max_model_len = engine_model_config.max_model_len
-
-        api_server.served_model = os.environ["VLLM_MODEL_NAME"] or self.model_id
-        api_server.engine = engine
-        api_server.max_model_len = max_model_len
-        api_server.tokenizer = get_tokenizer(
-            engine_args.tokenizer,
-            tokenizer_mode=engine_args.tokenizer_mode,
-            trust_remote_code=engine_args.trust_remote_code,
+        openai_serving_chat = OpenAIServingChat(
+            engine,
+            served_model,
+            response_role,
         )
+        openai_serving_completion = OpenAIServingCompletion(engine, served_model)
+
+        api_server.openai_serving_chat = openai_serving_chat
+        api_server.openai_serving_completion = openai_serving_completion
 
     @Photon.handler(mount=True)
     def api(self):
