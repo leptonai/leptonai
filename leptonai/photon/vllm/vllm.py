@@ -34,7 +34,7 @@ class vLLMPhoton(Photon):
     }
 
     requirement_dependency = [
-        "vllm>=0.3.3",
+        "vllm==0.3.3",
     ]
 
     def __init__(self, name, model):
