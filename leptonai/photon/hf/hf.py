@@ -8,6 +8,7 @@ from typing import List, Union, Optional, Dict, Any
 
 from huggingface_hub import model_info
 from loguru import logger
+import numpy as np
 
 from leptonai.registry import Registry
 from leptonai.photon.base import schema_registry
@@ -663,6 +664,30 @@ class HuggingfaceSentimentAnalysisPhoton(HuggingfacePhoton):
 # text-classification is an alias of sentiment-analysis
 class HuggingfaceTextClassificationPhoton(HuggingfaceSentimentAnalysisPhoton):
     hf_task: str = "text-classification"
+
+
+class HuggingfaceTokenClassificationPhoton(HuggingfacePhoton):
+    hf_task: str = "token-classification"
+
+    @Photon.handler(example={"inputs": "Hugging Face is a French company."})
+    def run(
+        self,
+        inputs: Union[str, List[str]],
+        **kwargs,
+    ) -> Union[List[Dict[str, Any]], List[List[Dict[str, Any]]]]:
+        res = self._run_pipeline(
+            inputs,
+            **kwargs,
+        )
+        # Workaround for some implementation that returns np.float32 instead of
+        # float: we look into the returned dictionary, and if we find np.float32,
+        # we convert it to float.
+        for r in [res] if isinstance(res[0], dict) else res:
+            for d in r:
+                for k, v in d.items():
+                    if type(v) == np.float32:
+                        d[k] = float(v)
+        return res
 
 
 class HuggingfaceAudioClassificationPhoton(HuggingfacePhoton):
