@@ -8,7 +8,6 @@ from typing import List, Union, Optional, Dict, Any
 
 from huggingface_hub import model_info
 from loguru import logger
-import numpy as np
 
 from leptonai.registry import Registry
 from leptonai.photon.base import schema_registry
@@ -682,6 +681,8 @@ class HuggingfaceTokenClassificationPhoton(HuggingfacePhoton):
         # Workaround for some implementation that returns np.float32 instead of
         # float: we look into the returned dictionary, and if we find np.float32,
         # we convert it to float.
+        import numpy as np
+
         for r in [res] if isinstance(res[0], dict) else res:
             for d in r:
                 for k, v in d.items():
