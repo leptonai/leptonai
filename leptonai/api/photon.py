@@ -155,8 +155,7 @@ def run_remote(
     secret_list: Optional[List[str]] = None,
     is_public: Optional[bool] = False,
     tokens: Optional[List[str]] = None,
-    no_traffic_timeout: Optional[int] = None,
-    target_gpu_utilization: Optional[int] = None,
+    autoscaler: Optional[types.AutoScaler] = None,
     initial_delay_seconds: Optional[int] = None,
 ):
     # Deal with deployment template
@@ -212,9 +211,7 @@ def run_remote(
         mounts=types.Mount.make_mounts_from_strings(mounts),
         envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
         api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
-        auto_scaler=types.AutoScaler.make_auto_scaler(
-            no_traffic_timeout, target_gpu_utilization
-        ),
+        auto_scaler=autoscaler,
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
 

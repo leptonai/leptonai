@@ -221,7 +221,9 @@ class ScaleDown(BaseModel):
     no_traffic_timeout: Optional[int] = None
 
     @staticmethod
-    def make_scale_down(no_traffic_timeout: Optional[int] = None):
+    def make_scale_down(
+        no_traffic_timeout: Optional[int] = None,
+    ) -> Optional["ScaleDown"]:
         if no_traffic_timeout is None:
             # None means no change to the scale down.
             return None
@@ -233,32 +235,70 @@ class ScaleDown(BaseModel):
             return ScaleDown(no_traffic_timeout=no_traffic_timeout)
 
 
+class TargetThroughput(BaseModel):
+    qpm: Optional[float] = None
+    paths: Optional[List[str]] = None
+    methods: Optional[List[str]] = None
+
+    @staticmethod
+    def make_target_throughput(
+        qpm: Optional[float] = None,
+        paths: Union[List[str], str, None] = None,
+        methods: Union[List[str], str, None] = None,
+    ) -> Optional["TargetThroughput"]:
+        if qpm is None and paths is None and methods is None:
+            # None means no change to the target throughput.
+            return None
+        if qpm is not None and qpm < 0:
+            raise ValueError(f"qpm must be non-negative. Found {qpm}.")
+        if type(paths) == str:
+            paths = paths.split(",")
+        if type(methods) == str:
+            methods = methods.split(",")
+        return TargetThroughput(qpm=qpm, paths=paths, methods=methods)
+
+
 class AutoScaler(BaseModel):
     scale_down: Optional[ScaleDown] = None
     target_gpu_utilization_percentage: Optional[int] = None
+    target_throughput: Optional[TargetThroughput] = None
 
     @staticmethod
     def make_auto_scaler(
         no_traffic_timeout: Optional[int] = None,
         target_gpu_utilization: Optional[int] = None,
+        target_throughput: Optional[TargetThroughput] = None,
     ) -> Optional["AutoScaler"]:
         if no_traffic_timeout is None and target_gpu_utilization is None:
             # None means no change to the autoscaler.
             return None
-        if no_traffic_timeout is not None and no_traffic_timeout < 0:
+        if not isinstance(no_traffic_timeout, None) and no_traffic_timeout < 0:
             raise ValueError(
                 f"no_traffic_timeout must be non-negative. Found {no_traffic_timeout}."
             )
-        if target_gpu_utilization is not None and (
+        if not isinstance(target_gpu_utilization, None) and (
             target_gpu_utilization < 0 or target_gpu_utilization > 100
         ):
             raise ValueError(
                 "target_gpu_utilization must be between 0 and 100. Found"
                 f" {target_gpu_utilization}."
             )
+        # Test if multiple scaling rules are set at the same time
+        scaler_rules = (
+            int(no_traffic_timeout is not None and no_traffic_timeout != 0)
+            + int(target_gpu_utilization is not None)
+            + int(target_throughput is not None)
+        )
+        if scaler_rules > 1:
+            raise ValueError(
+                "Multiple scaling rules are set at the same time. Please set only one"
+                f" scaling rule at a time. Debug: {no_traffic_timeout},"
+                f" {target_gpu_utilization}, {target_throughput}"
+            )
         return AutoScaler(
             scale_down=ScaleDown.make_scale_down(no_traffic_timeout=no_traffic_timeout),
             target_gpu_utilization_percentage=target_gpu_utilization,
+            target_throughput=target_throughput,
         )
 
 
