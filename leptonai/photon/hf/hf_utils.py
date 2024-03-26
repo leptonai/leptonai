@@ -291,6 +291,7 @@ for task in [
     "text-classification",
     "text-generation",
     "text2text-generation",
+    "token-classification",
 ]:
     pipeline_registry.register(
         task,
