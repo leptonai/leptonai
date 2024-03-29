@@ -3,6 +3,7 @@ KV is a module that provides a way to manage kvs on a workspace.
 """
 
 import click
+from datetime import datetime
 import os
 
 from rich.table import Table
@@ -160,8 +161,15 @@ def list_command(bucket, prefix):
         table = Table(title="Objects", show_lines=True)
         table.add_column("key")
         table.add_column("size")
+        table.add_column("last modified")
         for item in items:
-            table.add_row(item["key"], sizeof_fmt(item["size"]))
+            try:
+                date = datetime.fromtimestamp(item["last_modified"] / 1000).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            except KeyError:
+                date = "N/A"
+            table.add_row(item["key"], sizeof_fmt(item["size"]), date)
         console.print(table)
 
 
