@@ -44,6 +44,8 @@ class Worker(Photon):
 
     # The time to sleep when the queue is empty.
     queue_empty_sleep_time: int = 5
+    # The time to sleep when worker max concurrency is reached.
+    worker_max_concurrency_sleep_time: int = 5
 
     # The maximum number of concurrent tasks that the worker can
     # process. Default to 1 to avoid needing to deal with locks.
@@ -110,12 +112,22 @@ class Worker(Photon):
     def _worker_loop(self):
         """Keep polling the queue for new tasks, and dispatch them to `on_task` (through `_on_task`)"""
         loop = asyncio.new_event_loop()
+        # TODO: Is this the right way to start the loop?
+        threading.Thread(target=loop.run_forever, daemon=True).start()
+
+        pending_futures = set()
 
         last_message_received_at = None
         while True:
             if self._lepton_worker_thread_should_exit:
                 logger.info("Received worker should exit signal, exiting")
+                loop.stop()
                 break
+
+            if len(pending_futures) >= self.worker_max_concurrency:
+                time.sleep(self.worker_max_concurrency_sleep_time)
+                continue
+
             try:
                 message = self._queue.receive()
 
@@ -130,7 +142,12 @@ class Worker(Photon):
 
                 payload = json.loads(message)
                 task_id = payload.pop(self.LEPTON_TASK_ID_TAG)
-                loop.run_until_complete(self._on_task(task_id, **payload))
+
+                future = asyncio.run_coroutine_threadsafe(
+                    self._on_task(task_id, **payload), loop
+                )
+                pending_futures.add(future)
+                future.add_done_callback(pending_futures.remove)
             except Empty:
                 time.sleep(self.queue_empty_sleep_time)
             except Exception as e:

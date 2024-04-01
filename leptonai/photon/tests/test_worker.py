@@ -8,6 +8,7 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 import unittest
 import sys
 import time
+import threading
 
 from loguru import logger
 import requests
@@ -142,6 +143,52 @@ class TestWorker(unittest.TestCase):
         res = requests.get(f"http://localhost:{port}/task", params={"task_id": task_id})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["status"], "CREATED")
+
+    def test_worker_max_concurrency(self):
+        class MyWorker(Worker):
+            queue_name = TestWorker.queue_name
+            kv_name = TestWorker.kv_name
+
+            worker_max_concurrency = 2
+
+            # speed up test
+            queue_empty_sleep_time = 1
+
+            def on_task(self, task_id: str, x: int) -> int:
+                time.sleep(x)
+                return x * 2
+
+        worker = MyWorker(name=random_name())
+        path = worker.save()
+
+        proc, port = photon_run_local_server(path=path)
+
+        start_time = time.time()
+
+        # send 2 tasks in parallel
+        def send():
+            res = requests.post(f"http://localhost:{port}/task", json={"x": 5})
+            self.assertEqual(res.status_code, 200, res.text)
+            task_id = res.json()
+            while True:
+                res = requests.get(
+                    f"http://localhost:{port}/task", params={"task_id": task_id}
+                )
+                self.assertEqual(res.status_code, 200, res.text)
+                if res.json()["status"] == "SUCCESS":
+                    break
+                time.sleep(0.1)
+
+        threads = [threading.Thread(target=send) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        end_time = time.time()
+        # definitely less than 10s, since worker_max_concurrency is 2
+        # should be around 5s, but considering the overhead of the test
+        # it could be a bit more
+        self.assertLess(end_time - start_time, 8)
 
 
 if __name__ == "__main__":
