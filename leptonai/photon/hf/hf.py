@@ -6,7 +6,8 @@ import re
 import tempfile
 from typing import List, Union, Optional, Dict, Any
 
-from huggingface_hub import model_info
+from huggingface_hub import model_info, hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError
 from loguru import logger
 
 from leptonai.registry import Registry
@@ -84,8 +85,48 @@ class HuggingfacePhoton(Photon):
 
     @property
     def _requirement_dependency(self) -> List[str]:
+        """
+        Returns the list of requirements that are needed to run the photon.
+
+        This method also checks huggingface hub for any additional dependencies
+        that is specified in the "requirements.txt" file of the model, to conform
+        with the best practices of the huggingface ecosystem.
+        """
         # First, get the overridden base class requirement_dependency
         deps: List[str] = super()._requirement_dependency
+        # Add the dependencies from the model's requirements.txt file
+        try:
+            logger.trace(
+                "Trying to download the requirements.txt file for"
+                f" {self.hf_model} {self.hf_revision}."
+            )
+            model_deps_file = hf_hub_download(
+                repo_id=self.hf_model,
+                filename="requirements.txt",
+                revision=self.hf_revision,
+            )
+            with open(model_deps_file, "r") as f:
+                model_deps = f.readlines()
+                deps.extend([d.strip() for d in model_deps])
+                logger.trace(
+                    "Adding dependencies from the model's requirements.txt file:"
+                    f" {model_deps}."
+                )
+        except EntryNotFoundError:
+            # If the model does not have a requirements.txt file, we can safely
+            # ignore it.
+            logger.trace("Model does not have a requirements.txt file.")
+            pass
+        except Exception as e:
+            # If any other error occurs, we issue a warning, but don't really
+            # exit loud, to make sure that the users have a good develop experience.
+            logger.warning(
+                "An error occurred while trying to download the requirements.txt"
+                " file from the model's repository. We will ignore this error and"
+                " continue with the default dependencies, but please be noted that"
+                " some of the required dependencies might not be installed. Error"
+                f" details: {e}"
+            )
         # Add manually maintained dependencies to the list.
         if self.hf_model in hf_pipeline_dependencies:
             pipeline_specific_deps = hf_pipeline_dependencies[self.hf_model]
