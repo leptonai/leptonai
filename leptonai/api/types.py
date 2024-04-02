@@ -334,6 +334,28 @@ class ContainerPort(BaseModel):
     The port spec of a Lepton Job.
     """
 
+    @staticmethod
+    def make_container_port(container_port: int, protocol: Optional[str] = None):
+        if protocol and protocol.lower() not in ["tcp", "udp"]:
+            raise ValueError(
+                f"Invalid protocol: {protocol}. Protocol must be either tcp or udp."
+            )
+        return ContainerPort(container_port=container_port, protocol=protocol)
+
+    @staticmethod
+    def make_container_port_from_string(port_str: str):
+        parts = port_str.split(":")
+        if len(parts) == 2:
+            try:
+                port = int(parts[0].strip())
+            except ValueError:
+                raise ValueError(
+                    f"Invalid port definition: {port_str}. Port must be an integer."
+                )
+            return ContainerPort(container_port=port, protocol=parts[1].strip())
+        else:
+            raise ValueError(f"Invalid port definition: {port_str}")
+
     container_port: int
     protocol: Optional[str] = None
 
@@ -358,25 +380,14 @@ class LeptonContainer(BaseModel):
         """
         if not image:
             raise ValueError("image must be specified.")
-        if ports:
-            ports_list = []
-            for port_str in ports:
-                parts = port_str.split(":")
-                if len(parts) == 2:
-                    try:
-                        port = int(parts[0].strip())
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid port definition: {port_str}. Port must be an"
-                            " integer."
-                        )
-                    ports_list.append(
-                        ContainerPort(container_port=port, protocol=parts[1].strip())
-                    )
-                else:
-                    raise ValueError(f"Invalid port definition: {port_str}")
-        else:
-            ports_list = None
+        ports_list = (
+            [
+                ContainerPort.make_container_port_from_string(port_str)
+                for port_str in ports
+            ]
+            if ports
+            else None
+        )
         if isinstance(command, str):
             # Implementation note: strictly speaking, we should use shlex.split here
             # to split the command string into a list of arguments. However, we are
