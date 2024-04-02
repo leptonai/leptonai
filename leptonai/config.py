@@ -210,7 +210,27 @@ def get_local_deployment_token() -> str:
 ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"
 
 # Valid resource shapes
-VALID_SHAPES = ["cpu.small", "cpu.medium", "cpu.large", "gpu.t4", "gpu.a10"]
+VALID_SHAPES = [
+    "cpu.small",
+    "cpu.medium",
+    "cpu.large",
+    "gpu.t4",
+    "gpu.a10",
+    "gpu.a10.6xlarge",
+    "gpu.a100-40gb",
+    "gpu.2xa100-40gb",
+    "gpu.4xa100-40gb",
+    "gpu.8xa100-40gb",
+    "gpu.a100-80gb",
+    "gpu.2xa100-80gb",
+    "gpu.4xa100-80gb",
+    "gpu.8xa100-80gb",
+    "gpu.h100-pcie",
+    "gpu.h100-sxm",
+    "gpu.2xh100-sxm",
+    "gpu.4xh100-sxm",
+    "gpu.8xh100-sxm",
+]
 
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.
