@@ -41,6 +41,20 @@ class TestHF(unittest.TestCase):
         self.assertEqual(len(batched_res), 2)
         self.assertTrue(batched_res[0].startswith(text_input))
 
+    def test_hf_photon_extra_dependency(self):
+        # We know that this one contains "flair"
+        model = "hf:philschmid/flair-ner-english-ontonotes-large"
+        ph = create(random_name(), model)
+        self.assertTrue(
+            any("flair" in dep for dep in ph._requirement_dependency),
+            str(ph._requirement_dependency),
+        )
+        # Also, we check that if a repo has no requirements.txt, things still
+        # work and hf:sshleifer/tiny-gpt2 should only have the default ctransformers dep.
+        model = "hf:sshleifer/tiny-gpt2"
+        ph = create(random_name(), model)
+        self.assertEqual(ph._requirement_dependency, ["ctransformers"])
+
 
 if __name__ == "__main__":
     unittest.main()
