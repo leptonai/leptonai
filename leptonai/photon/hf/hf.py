@@ -125,7 +125,7 @@ class HuggingfacePhoton(Photon):
                 " file from the model's repository. We will ignore this error and"
                 " continue with the default dependencies, but please be noted that"
                 " some of the required dependencies might not be installed. Error"
-                " details: {e}"
+                f" details: {e}"
             )
         # Add manually maintained dependencies to the list.
         if self.hf_model in hf_pipeline_dependencies:
