@@ -14,6 +14,8 @@ from rich.prompt import Confirm
 from rich.table import Table
 import click
 
+from loguru import logger
+
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
 from leptonai.api import types
@@ -130,7 +132,16 @@ def scaffold(name: str):
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
 @click.option("--model", "-m", help="Model spec", required=True)
-def create(name, model):
+@click.option(
+    "--requirements",
+    "-r",
+    help=(
+        "Path to file that contains additional requirements, such as a requirements.txt"
+        " file."
+    ),
+    default=None,
+)
+def create(name, model, requirements):
     """
     Creates a new photon in the local environment.
     For specifics on the model spec, see `leptonai.photon.Photon`. To push a photon
@@ -143,6 +154,14 @@ def create(name, model):
     except Exception as e:
         console.print(f"Failed to create photon: [red]{e}[/]")
         sys.exit(1)
+    if requirements:
+        if not os.path.exists(requirements):
+            console.print(f"Requirements file {requirements} does not exist.")
+            sys.exit(1)
+        with open(requirements, "r") as f:
+            deps = [r.strip() for r in f.readlines()]
+        logger.info(f"Adding requirements from {requirements}: {deps}")
+        photon.requirement_dependency.extend(deps)
     try:
         photon_util.save(photon)
     except Exception as e:
