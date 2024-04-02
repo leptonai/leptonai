@@ -17,6 +17,7 @@ from leptonai.api.types import (
     EnvVar,
     Mount,
     LeptonJobSpec,
+    ContainerPort,
     LeptonJob,
     LeptonMetadata,
     VALID_SHAPES,
@@ -201,7 +202,9 @@ def create(
     elif not job_spec.container.image:
         job_spec.container.image = BASE_IMAGE
     if port:
-        job_spec.container.ports = port
+        job_spec.container.ports = [
+            ContainerPort.make_container_port_from_string(p) for p in port
+        ]
     if env or secret:
         job_spec.env = EnvVar.make_env_vars(env, secret)
     if mount:
