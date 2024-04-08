@@ -29,7 +29,7 @@ def _get_valid_shapes_printout() -> str:
 
 
 # Spec to hold metadata
-class MetadataV2(BaseModel):
+class Metadata(BaseModel):
     """
     The metadata of a deployment.
     """
@@ -448,7 +448,7 @@ class Deployment(BaseModel):
     The main class that defines a deployment.
     """
 
-    metadata: Optional[MetadataV2] = None
+    metadata: Optional[Metadata] = None
     spec: Optional[DeploymentUserSpec] = None
     status: Optional[DeploymentStatus] = None
 
