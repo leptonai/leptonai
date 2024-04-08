@@ -216,7 +216,7 @@ def run_remote(
         ),
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
     )
-    deployment_spec = types.DeploymentSpec(
+    deployment_spec = types.Deployment(
         metadata=types.Metadata(name=deployment_name),
         spec=deployment_user_spec,
     )
