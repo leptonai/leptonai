@@ -303,6 +303,15 @@ class HealthCheck(BaseModel):
             )
 
 
+class LeptonDeploymentState(str, Enum):
+    Ready = "Ready"
+    NotReady = "Not Ready"
+    Starting = "Starting"
+    Updating = "Updating"
+    Deleting = "Deleting"
+    Unknown = ""
+
+
 class LeptonJobState(str, Enum):
     NotReady = "Not Ready"
     Running = "Running"
@@ -427,7 +436,7 @@ class DeploymentEndpoint(BaseModel):
 
 
 class DeploymentStatus(BaseModel):
-    state: str  # LeptonDeploymentState enum
+    state: LeptonDeploymentState
     endpoint: DeploymentEndpoint
     autoscaler_status: Optional[AutoScalerStatus] = None
     with_system_photon: Optional[bool] = None
