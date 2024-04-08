@@ -7,7 +7,7 @@ These types are used as wrappers of the json payloads used by the API.
 from enum import Enum
 from typing import List, Optional, Union
 import warnings
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES, VALID_SHAPES
 
@@ -289,46 +289,6 @@ class HealthCheck(BaseModel):
             )
 
 
-# Spec to hold deployment configurations
-class DeploymentSpec(BaseModel):
-    """
-    The main class that defines the deployment spec.
-    """
-
-    name: Optional[str] = None
-    photon_namespace: Optional[str] = None
-    photon_id: Optional[str] = None
-    resource_requirement: Optional[ResourceRequirement] = None
-    auto_scaler: Optional[AutoScaler] = None
-    api_tokens: Optional[List[TokenVar]] = None
-    envs: Optional[List[EnvVar]] = None
-    mounts: Optional[List[Mount]] = None
-    health: Optional[HealthCheck] = None
-    is_pod: Optional[bool] = None
-
-
-class LeptonJobState(str, Enum):
-    NotReady = "Not Ready"
-    Running = "Running"
-    Failed = "Failed"
-    Completed = "Completed"
-    Deleting = "Deleting"
-    Unknown = ""
-
-
-class LeptonJobStatus(BaseModel):
-    """
-    The observed state of a Lepton Job.
-    """
-
-    state: LeptonJobState
-    ready: int
-    active: int
-    failed: int
-    succeeded: int
-    completion_time: Optional[int] = None
-
-
 class ContainerPort(BaseModel):
     """
     The port spec of a Lepton Job.
@@ -394,6 +354,94 @@ class LeptonContainer(BaseModel):
             # not doing that as it may not be bullet proof.
             command = [command]
         return LeptonContainer(image=image, ports=ports_list, command=command)
+
+
+# Spec to hold deployment configurations
+class MetadataV2(BaseModel):
+    """
+    The metadata of a deployment.
+    """
+
+    id_: Optional[str] = Field(None, alias="id")
+    name: Optional[str] = None
+    created_at: Optional[int] = None
+    version: Optional[int] = None
+    created_by: Optional[str] = None
+    last_modified_by: Optional[str] = None
+
+
+class DeploymentUserSpec(BaseModel):
+    photon_namespace: Optional[str] = None
+    photon_id: Optional[str] = None
+    container: Optional[LeptonContainer] = None
+    resource_requirement: Optional[ResourceRequirement] = None
+    auto_scaler: Optional[AutoScaler] = None
+    api_tokens: Optional[List[TokenVar]] = None
+    envs: Optional[List[EnvVar]] = None
+    mounts: Optional[List[Mount]] = None
+    pull_image_secrets: Optional[List[str]] = None
+    health: Optional[HealthCheck] = None
+    is_pod: Optional[bool] = None
+    privileged: Optional[bool] = None
+
+
+class AutoscalerCondition(BaseModel):
+    status: str
+    type_: str = Field(..., alias="type")
+    last_transition_time: Optional[int] = None
+    message: Optional[str] = None
+
+
+class AutoScalerStatus(BaseModel):
+    desired_replicas: Optional[int] = None
+    last_transition_time: Optional[int] = None
+    conditions: Optional[List[AutoscalerCondition]] = None
+
+
+class DeploymentEndpoint(BaseModel):
+    internal_endpoint: str
+    external_endpoint: str
+    custom_external_endpoint: Optional[List[str]] = None
+
+
+class DeploymentStatus(BaseModel):
+    state: str  # LeptonDeploymentState enum
+    endpoint: DeploymentEndpoint
+    autoscaler_status: Optional[AutoScalerStatus] = None
+    with_system_photon: Optional[bool] = None
+    is_sysetm: Optional[bool] = None
+
+
+class Deployment(BaseModel):
+    """
+    The main class that defines a deployment.
+    """
+
+    metadata: Optional[MetadataV2] = None
+    spec: Optional[DeploymentUserSpec] = None
+    status: Optional[DeploymentStatus] = None
+
+
+class LeptonJobState(str, Enum):
+    NotReady = "Not Ready"
+    Running = "Running"
+    Failed = "Failed"
+    Completed = "Completed"
+    Deleting = "Deleting"
+    Unknown = ""
+
+
+class LeptonJobStatus(BaseModel):
+    """
+    The observed state of a Lepton Job.
+    """
+
+    state: LeptonJobState
+    ready: int
+    active: int
+    failed: int
+    succeeded: int
+    completion_time: Optional[int] = None
 
 
 class LeptonJobSpec(BaseModel):

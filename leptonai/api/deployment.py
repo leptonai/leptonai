@@ -110,8 +110,7 @@ def update_deployment(
     Currently only supports updating the photon id, the min replicas, and the api tokens.
     For any more complex changes, consider re-run the deployment.
     """
-    deployment_spec = types.DeploymentSpec(
-        name=name,
+    deployment_user_spec = types.DeploymentUserSpec(
         photon_id=photon_id,
         resource_requirement=types.ResourceRequirement(
             resource_shape=resource_shape,
@@ -122,6 +121,10 @@ def update_deployment(
             tokens=tokens,
         ),
         auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
+    )
+    deployment_spec = types.Deployment(
+        metadata=types.Metadata(name=name),
+        spec=deployment_user_spec,
     )
     logger.trace(f"deployment_spec:\n{deployment_spec}")
 

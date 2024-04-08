@@ -127,7 +127,7 @@ def fetch(conn: Connection, id: str, path: str, public_photon: bool = False):
     return photon
 
 
-def run_remote_with_spec(conn: Connection, deployment_spec: types.DeploymentSpec):
+def run_remote_with_spec(conn: Connection, deployment_spec: types.Deployment):
     """
     Run a photon on a workspace, with the given deployment spec.
     """
@@ -194,8 +194,7 @@ def run_remote(
             )
 
     # TODO: check if the given id is a valid photon id
-    deployment_spec = types.DeploymentSpec(
-        name=deployment_name,
+    deployment_user_spec = types.DeploymentUserSpec(
         photon_id=id,
         photon_namespace=photon_namespace,
         resource_requirement=types.ResourceRequirement.make_resource_requirement(
@@ -216,6 +215,10 @@ def run_remote(
             no_traffic_timeout, target_gpu_utilization
         ),
         health=types.HealthCheck.make_health_check(initial_delay_seconds),
+    )
+    deployment_spec = types.DeploymentSpec(
+        metadata=types.Metadata(name=deployment_name),
+        spec=deployment_user_spec,
     )
 
     logger.trace(f"deployment_spec:\n{deployment_spec}")
