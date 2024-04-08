@@ -28,6 +28,20 @@ def _get_valid_shapes_printout() -> str:
     return ", ".join(VALID_SHAPES)
 
 
+# Spec to hold metadata
+class MetadataV2(BaseModel):
+    """
+    The metadata of a deployment.
+    """
+
+    id_: Optional[str] = Field(None, alias="id")
+    name: Optional[str] = None
+    created_at: Optional[int] = None
+    version: Optional[int] = None
+    created_by: Optional[str] = None
+    last_modified_by: Optional[str] = None
+
+
 # Spec to hold resource requirements
 class ResourceRequirement(BaseModel):
     resource_shape: Optional[str] = None
@@ -289,6 +303,28 @@ class HealthCheck(BaseModel):
             )
 
 
+class LeptonJobState(str, Enum):
+    NotReady = "Not Ready"
+    Running = "Running"
+    Failed = "Failed"
+    Completed = "Completed"
+    Deleting = "Deleting"
+    Unknown = ""
+
+
+class LeptonJobStatus(BaseModel):
+    """
+    The observed state of a Lepton Job.
+    """
+
+    state: LeptonJobState
+    ready: int
+    active: int
+    failed: int
+    succeeded: int
+    completion_time: Optional[int] = None
+
+
 class ContainerPort(BaseModel):
     """
     The port spec of a Lepton Job.
@@ -356,20 +392,6 @@ class LeptonContainer(BaseModel):
         return LeptonContainer(image=image, ports=ports_list, command=command)
 
 
-# Spec to hold deployment configurations
-class MetadataV2(BaseModel):
-    """
-    The metadata of a deployment.
-    """
-
-    id_: Optional[str] = Field(None, alias="id")
-    name: Optional[str] = None
-    created_at: Optional[int] = None
-    version: Optional[int] = None
-    created_by: Optional[str] = None
-    last_modified_by: Optional[str] = None
-
-
 class DeploymentUserSpec(BaseModel):
     photon_namespace: Optional[str] = None
     photon_id: Optional[str] = None
@@ -420,28 +442,6 @@ class Deployment(BaseModel):
     metadata: Optional[MetadataV2] = None
     spec: Optional[DeploymentUserSpec] = None
     status: Optional[DeploymentStatus] = None
-
-
-class LeptonJobState(str, Enum):
-    NotReady = "Not Ready"
-    Running = "Running"
-    Failed = "Failed"
-    Completed = "Completed"
-    Deleting = "Deleting"
-    Unknown = ""
-
-
-class LeptonJobStatus(BaseModel):
-    """
-    The observed state of a Lepton Job.
-    """
-
-    state: LeptonJobState
-    ready: int
-    active: int
-    failed: int
-    succeeded: int
-    completion_time: Optional[int] = None
 
 
 class LeptonJobSpec(BaseModel):
