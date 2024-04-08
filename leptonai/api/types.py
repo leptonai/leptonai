@@ -7,7 +7,7 @@ These types are used as wrappers of the json payloads used by the API.
 from enum import Enum
 from typing import List, Optional, Union
 import warnings
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES, VALID_SHAPES
 
@@ -26,6 +26,20 @@ def _get_valid_shapes_printout() -> str:
     if len(VALID_SHAPES) > 7:
         return ", ".join(VALID_SHAPES[:7]) + ", ..."
     return ", ".join(VALID_SHAPES)
+
+
+# Spec to hold metadata
+class Metadata(BaseModel):
+    """
+    The metadata of a deployment.
+    """
+
+    id_: Optional[str] = Field(None, alias="id")
+    name: Optional[str] = None
+    created_at: Optional[int] = None
+    version: Optional[int] = None
+    created_by: Optional[str] = None
+    last_modified_by: Optional[str] = None
 
 
 # Spec to hold resource requirements
@@ -289,22 +303,13 @@ class HealthCheck(BaseModel):
             )
 
 
-# Spec to hold deployment configurations
-class DeploymentSpec(BaseModel):
-    """
-    The main class that defines the deployment spec.
-    """
-
-    name: Optional[str] = None
-    photon_namespace: Optional[str] = None
-    photon_id: Optional[str] = None
-    resource_requirement: Optional[ResourceRequirement] = None
-    auto_scaler: Optional[AutoScaler] = None
-    api_tokens: Optional[List[TokenVar]] = None
-    envs: Optional[List[EnvVar]] = None
-    mounts: Optional[List[Mount]] = None
-    health: Optional[HealthCheck] = None
-    is_pod: Optional[bool] = None
+class LeptonDeploymentState(str, Enum):
+    Ready = "Ready"
+    NotReady = "Not Ready"
+    Starting = "Starting"
+    Updating = "Updating"
+    Deleting = "Deleting"
+    Unknown = ""
 
 
 class LeptonJobState(str, Enum):
@@ -394,6 +399,58 @@ class LeptonContainer(BaseModel):
             # not doing that as it may not be bullet proof.
             command = [command]
         return LeptonContainer(image=image, ports=ports_list, command=command)
+
+
+class DeploymentUserSpec(BaseModel):
+    photon_namespace: Optional[str] = None
+    photon_id: Optional[str] = None
+    container: Optional[LeptonContainer] = None
+    resource_requirement: Optional[ResourceRequirement] = None
+    auto_scaler: Optional[AutoScaler] = None
+    api_tokens: Optional[List[TokenVar]] = None
+    envs: Optional[List[EnvVar]] = None
+    mounts: Optional[List[Mount]] = None
+    pull_image_secrets: Optional[List[str]] = None
+    health: Optional[HealthCheck] = None
+    is_pod: Optional[bool] = None
+    privileged: Optional[bool] = None
+
+
+class AutoscalerCondition(BaseModel):
+    status: str
+    type_: str = Field(..., alias="type")
+    last_transition_time: Optional[int] = None
+    message: Optional[str] = None
+
+
+class AutoScalerStatus(BaseModel):
+    desired_replicas: Optional[int] = None
+    last_transition_time: Optional[int] = None
+    conditions: Optional[List[AutoscalerCondition]] = None
+
+
+class DeploymentEndpoint(BaseModel):
+    internal_endpoint: str
+    external_endpoint: str
+    custom_external_endpoint: Optional[List[str]] = None
+
+
+class DeploymentStatus(BaseModel):
+    state: LeptonDeploymentState
+    endpoint: DeploymentEndpoint
+    autoscaler_status: Optional[AutoScalerStatus] = None
+    with_system_photon: Optional[bool] = None
+    is_sysetm: Optional[bool] = None
+
+
+class Deployment(BaseModel):
+    """
+    The main class that defines a deployment.
+    """
+
+    metadata: Optional[Metadata] = None
+    spec: Optional[DeploymentUserSpec] = None
+    status: Optional[DeploymentStatus] = None
 
 
 class LeptonJobSpec(BaseModel):
