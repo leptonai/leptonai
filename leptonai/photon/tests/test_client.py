@@ -166,9 +166,14 @@ class TestClient(unittest.TestCase):
         # Tests if run is registered
         res = client.run()
         self.assertIn(res, ["post", "get"])
-        self.assertTrue(client.run() == "post")
-        # This does not work yet, as client right now still only supports one handler per path.
-        # self.assertTrue(client.run() == "get")
+        # Tests if run_post and run_get are both registered
+        from leptonai.client import _MultipleEndpointWithDefault
+
+        self.assertIsInstance(
+            client.run, _MultipleEndpointWithDefault, client._debug_record
+        )
+        self.assertIn(client.run.post(), "post")
+        self.assertTrue(client.run.get(), "get")
 
     def test_client_with_throw_429(self):
         proc, port = photon_run_local_server_simple(Throws429)
