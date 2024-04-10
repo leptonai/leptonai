@@ -49,6 +49,19 @@ class PostAndGet(Photon):
         return f"hello world ({query})"
 
 
+class PostAndGetSameName(Photon):
+    def init(self):
+        pass
+
+    @handler(path="run", method="POST")
+    def run_post(self) -> str:
+        return f"post"
+
+    @handler(path="run", method="GET")
+    def run_get(self) -> str:
+        return f"get"
+
+
 class Throws429(Photon):
     @handler
     def run(self):
@@ -145,6 +158,17 @@ class TestClient(unittest.TestCase):
         # Tests if we are guarding args - users should use kwargs.
         self.assertRaises(RuntimeError, client.run_post, "post")
         self.assertRaises(RuntimeError, client.run_get, "get")
+
+    def test_client_with_post_and_get_same_name(self):
+        proc, port = photon_run_local_server_simple(PostAndGetSameName)
+        client = Client(local(port=port))
+        self.assertTrue(client.healthz())
+        # Tests if run is registered
+        res = client.run()
+        self.assertIn(res, ["post", "get"])
+        self.assertTrue(client.run() == "post")
+        # This does not work yet, as client right now still only supports one handler per path.
+        # self.assertTrue(client.run() == "get")
 
     def test_client_with_throw_429(self):
         proc, port = photon_run_local_server_simple(Throws429)

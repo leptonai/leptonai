@@ -72,7 +72,7 @@ schemas = ["py"]
 
 
 def create_model_for_func(
-    func: Callable, func_name: Optional[str] = None, use_raw_args: bool = False
+    func: Callable, func_name: str, use_raw_args: bool, http_method: str
 ):
     (
         args,
@@ -113,7 +113,7 @@ def create_model_for_func(
 
         func_name = func_name or func.__name__
         request_model = pydantic.create_model(
-            f"{func_name.capitalize()}Input",
+            f"{func_name.capitalize()}{http_method.capitalize()}Input",
             **params,
             **keyword_only_params,
             __config__=config,  # type: ignore
@@ -139,7 +139,7 @@ def create_model_for_func(
             config = pydantic.ConfigDict(arbitrary_types_allowed=True)  # type: ignore
 
         response_model = pydantic.create_model(
-            f"{func_name.capitalize()}Output",
+            f"{func_name.capitalize()}{http_method.capitalize()}Output",
             output=(return_type, None),
             __config__=config,  # type: ignore
         )
@@ -986,13 +986,16 @@ class Photon(BasePhoton):
             )
         return
 
-    def _create_typed_handler(self, path, http_method, func, kwargs):
+    def _create_typed_handler(
+        self, path: str, http_method: str, func: Callable, kwargs
+    ):
         method = func.__get__(self, self.__class__)
 
         request_model, response_model, response_class = create_model_for_func(
             method,
             func_name=self.__class__.__name__ + "_" + path,
             use_raw_args=kwargs.get("use_raw_args"),
+            http_method=http_method,
         )
 
         if http_method.lower() == "post" and request_model is not None:
@@ -1155,7 +1158,9 @@ class Photon(BasePhoton):
         return typed_handler, typed_handler_kwargs
 
     # helper function of _register_routes
-    def _add_route(self, api_router, path, method, func, kwargs):
+    def _add_route(
+        self, api_router: APIRouter, path: str, method: str, func: Callable, kwargs
+    ):
         typed_handler, typed_handler_kwargs = self._create_typed_handler(
             path, method, func, kwargs
         )
