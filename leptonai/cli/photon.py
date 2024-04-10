@@ -345,7 +345,7 @@ def _find_deployment_name_or_die(conn: Connection, name, id, deployment_name, re
         detail=True,
         msg="Failed to list deployments.",
     )
-    existing_names = set(d["name"] for d in deployments)
+    existing_names = set(d["metadata"]["name"] for d in deployments)
     if rerun:
         # Find the first fit deployment name, force remove deployment if it exists,
         # and return the name.
