@@ -55,11 +55,11 @@ class PostAndGetSameName(Photon):
 
     @handler(path="run", method="POST")
     def run_post(self) -> str:
-        return f"post"
+        return "post"
 
     @handler(path="run", method="GET")
     def run_get(self) -> str:
-        return f"get"
+        return "get"
 
 
 class Throws429(Photon):
