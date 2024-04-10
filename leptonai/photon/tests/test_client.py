@@ -49,6 +49,19 @@ class PostAndGet(Photon):
         return f"hello world ({query})"
 
 
+class PostAndGetSameName(Photon):
+    def init(self):
+        pass
+
+    @handler(path="run", method="POST")
+    def run_post(self) -> str:
+        return "post"
+
+    @handler(path="run", method="GET")
+    def run_get(self) -> str:
+        return "get"
+
+
 class Throws429(Photon):
     @handler
     def run(self):
@@ -73,7 +86,7 @@ class TestPathTree(unittest.TestCase):
         def temp_func(x):
             return x
 
-        tree._add("foo", temp_func)
+        tree._add("foo", temp_func, "get")
         self.assertTrue(tree)
 
 
@@ -145,6 +158,22 @@ class TestClient(unittest.TestCase):
         # Tests if we are guarding args - users should use kwargs.
         self.assertRaises(RuntimeError, client.run_post, "post")
         self.assertRaises(RuntimeError, client.run_get, "get")
+
+    def test_client_with_post_and_get_same_name(self):
+        proc, port = photon_run_local_server_simple(PostAndGetSameName)
+        client = Client(local(port=port))
+        self.assertTrue(client.healthz())
+        # Tests if run is registered
+        res = client.run()
+        self.assertEqual(res, "post")
+        # Tests if run_post and run_get are both registered
+        from leptonai.client import _MultipleEndpointWithDefault
+
+        self.assertIsInstance(
+            client.run, _MultipleEndpointWithDefault, client._debug_record
+        )
+        self.assertEqual(client.run.post(), "post")
+        self.assertTrue(client.run.get(), "get")
 
     def test_client_with_throw_429(self):
         proc, port = photon_run_local_server_simple(Throws429)

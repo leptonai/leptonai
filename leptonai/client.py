@@ -52,9 +52,49 @@ def current() -> str:
     return id
 
 
+class _MultipleEndpointWithDefault(Callable):
+    """
+    A class that wraps multiple endpoints with the same name and different http
+    methods, with a default. DO NOT USE THIS CLASS DIRECTLY. This is an internal
+    utility class.
+    """
+
+    def __init__(self, default: Callable, http_method: str):
+        """
+        A class that represents a multiple endpoint with a default method. This is
+        used when the client encounters multiple endpoints with the same name.
+        """
+        self._default = default
+        self._default_http_method = http_method
+        self.methods: Dict[str, Callable] = {http_method: default}
+
+    def default_http_method(self) -> str:
+        return self._default_http_method
+
+    def _add_method(
+        self, method: Callable, http_method: str
+    ) -> "_MultipleEndpointWithDefault":
+        """
+        Adds a method to the multiple endpoint. This is used when the client
+        encounters multiple endpoints with the same name. Returns self for
+        chaining purposes.
+        """
+        self.methods[http_method] = method
+        return self
+
+    def __call__(self, *args, **kwargs):
+        return self._default(*args, **kwargs)
+
+    def __getattr__(self, http_method: str) -> Callable:
+        if http_method not in self.methods:
+            raise AttributeError(f"No http method called {http_method} exists.")
+        return self.methods[http_method]
+
+
 class PathTree(object):
     def __init__(self, name: str, debug_record: List):
         self._path_cache: Dict[str, Union[Callable, PathTree]] = {}
+        self._method_cache: Dict[str, str] = {}
         self._all_paths: Set[str] = set()
         self.name = name
         self.debug_record = debug_record
@@ -115,16 +155,11 @@ class PathTree(object):
 
     # implementation note: prefixing this function with "_" in case there is
     # an api function that is called "add". Ditto for "_has" above.
-    def _add(self, path: str, func: Callable):
+    def _add(self, path: str, func: Callable, http_method: str) -> None:
         """
         Adds a path to the path tree. The path can contain "/"s, in which each "/"
         will be split and converted to children nodes.
         """
-        if path in self._all_paths:
-            self.debug_record.append(
-                "Adding a path that already exists. This is not an issue of the"
-                " runtime, but a deployment issue."
-            )
         # Record all paths for bookkeeping purposes.
         self._all_paths.add(path)
         # Remove the leading and trailing slashes, which are not needed.
@@ -132,7 +167,16 @@ class PathTree(object):
 
         if path == "":
             # This is the default path that the client will call with "__call__()".
-            self._path_cache[""] = func
+            if "" in self._path_cache:
+                # already existing path: convert the current path to a multiple
+                # endpoint with default.
+                self._path_cache[""] = _MultipleEndpointWithDefault(
+                    self._path_cache[""], self._method_cache[""]
+                )._add_method(func, http_method)
+                self._method_cache[""] = "__multiple__"
+            else:
+                self._path_cache[""] = func
+                self._method_cache[""] = http_method
         elif "/" in path:
             prefix, remaining = path.split("/", 1)
             prefix = self.rectify_name(prefix)
@@ -142,7 +186,8 @@ class PathTree(object):
                         (self.name + "." if self.name else "") + prefix,
                         self.debug_record,
                     )
-                self._path_cache[prefix]._add(remaining, func)
+                    self._method_cache[prefix] = "__intermediate__"
+                self._path_cache[prefix]._add(remaining, func, http_method)
             else:
                 # temporarily ignore this path if it is not a valid identifier.
                 # this is to prevent the case where the path is something like
@@ -154,7 +199,15 @@ class PathTree(object):
         else:
             path = self.rectify_name(path)
             if path.isidentifier():
-                self._path_cache[path] = func
+                if path in self._path_cache:
+                    new_method = _MultipleEndpointWithDefault(
+                        self._path_cache[path], self._method_cache[path]
+                    )._add_method(func, http_method)
+                    self._path_cache[path] = new_method
+                    self._method_cache[path] = "__multiple__"
+                else:
+                    self._path_cache[path] = func
+                    self._method_cache[path] = http_method
             else:
                 # temporarily ignore this path if it is not a valid identifier.
                 # this is to prevent the case where the path is something like
@@ -329,24 +382,14 @@ class Client(object):
 
         # At load time, we will also set up all path caches.
         for path_name in self.paths():
-            if self._path_cache._has(path_name):
-                self._debug_record.append(
-                    "Multiple endpoints with the same name detected. This is not an"
-                    " issue of the runtime - it is caused by the deployment giving"
-                    " multiple endpoints that maps to the same python name. Found"
-                    " duplicated name: {path_name}."
-                )
-            # elif path_name == "/":
-            #     # We currently do not support a direct root path name without a
-            #     # function name yet. Usually, "/" is a path mounted to something
-            #     # like a swagger UI or flask service, which is not a function, so
-            #     # we will ignore it.
-            #     continue
-            elif "post" in self.openapi["paths"][path_name]:  # type: ignore
+            path_dict = self.openapi["paths"][path_name]  # type: ignore
+            # Note: we are not using if-elif here because path_dict might have both
+            # "post" and "get" methods.
+            if "post" in path_dict:
                 self._create_post_path(path_name)
-            elif "get" in self.openapi["paths"][path_name]:  # type: ignore
+            if "get" in path_dict:
                 self._create_get_path(path_name)
-            else:
+            if "post" not in path_dict and "get" not in path_dict:
                 self._debug_record.append(
                     f"Endpoint {path_name} does not have a post or get method."
                     " Currently we only support post and get methods."
@@ -465,25 +508,24 @@ class Client(object):
         :param function_name: the name of the function.
         :return: a method that can be called to call post to the path.
         """
-        if not self._path_cache._has(path_name):
 
-            def _method(*args, **kwargs):
-                if args:
-                    raise RuntimeError(
-                        _get_positional_argument_error_message(
-                            self.openapi, path_name, args
-                        )
+        def _method(*args, **kwargs):
+            if args:
+                raise RuntimeError(
+                    _get_positional_argument_error_message(
+                        self.openapi, path_name, args
                     )
-                res = self._post(
-                    path_name,
-                    json=jsonable_encoder(kwargs),
                 )
-                return self._get_proper_res_content(res)
+            res = self._post(
+                path_name,
+                json=jsonable_encoder(kwargs),
+            )
+            return self._get_proper_res_content(res)
 
-            _method.__name__ = path_name
-            if self.openapi:
-                _method.__doc__ = _get_method_docstring(self.openapi, path_name)
-            self._path_cache._add(path_name, _method)
+        _method.__name__ = path_name
+        if self.openapi:
+            _method.__doc__ = _get_method_docstring(self.openapi, path_name)
+        self._path_cache._add(path_name, _method, "post")
 
     def _create_get_path(self, path_name: str) -> None:
         """
@@ -494,22 +536,21 @@ class Client(object):
         :param function_name: the name of the function.
         :return: a method that can be called to call get to the path.
         """
-        if not self._path_cache._has(path_name):
 
-            def _method(*args, **kwargs):
-                if args:
-                    raise RuntimeError(
-                        _get_positional_argument_error_message(
-                            self.openapi, path_name, args
-                        )
+        def _method(*args, **kwargs):
+            if args:
+                raise RuntimeError(
+                    _get_positional_argument_error_message(
+                        self.openapi, path_name, args
                     )
-                res = self._get(path_name, params=kwargs)
-                return self._get_proper_res_content(res)
+                )
+            res = self._get(path_name, params=kwargs)
+            return self._get_proper_res_content(res)
 
-            _method.__name__ = path_name
-            if self.openapi:
-                _method.__doc__ = _get_method_docstring(self.openapi, path_name)
-            self._path_cache._add(path_name, _method)
+        _method.__name__ = path_name
+        if self.openapi:
+            _method.__doc__ = _get_method_docstring(self.openapi, path_name)
+        self._path_cache._add(path_name, _method, "get")
 
     def paths(self) -> List[str]:
         """
