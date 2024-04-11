@@ -108,12 +108,13 @@ def get_file_content(
             match = pattern.match(src)
             if match:
                 try:
-                    return base64.b64decode(match.group(1))
+                    content = base64.b64decode(match.group(1))
                 except Exception:
                     raise ValueError(
                         "Invalid base64 string:"
                         f" {src if len(src) < 100 else src[:100] + '...'}"
                     )
+                return _make_temp_file(content) if return_file else content
         elif len(src) % 4 == 0 and re.match(r"^[A-Za-z0-9+/]*={0,2}$", src):
             # Last resort: we will try to decode the string as a base64 string.
             try:
