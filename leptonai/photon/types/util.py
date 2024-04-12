@@ -10,28 +10,11 @@ from PIL.Image import Image
 import requests
 
 from . import FileParam, File
+
+# to_bool is defined and used in config to avoid circular imports
+from leptonai.config import _to_bool as to_bool  # noqa: F401
 from leptonai.util import is_valid_url
 from .responses import StreamingResponse, JPEGResponse, PNGResponse
-
-
-def to_bool(s: str) -> bool:
-    """
-    Convert a string to a boolean value.
-    """
-    if not isinstance(s, str):
-        raise TypeError(f"Expected a string, got {type(s)}")
-    true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
-    false_values = ("no", "false", "f", "0", "n", "off", "nay", "")
-    s = s.lower()
-    if s in true_values:
-        return True
-    elif s in false_values:
-        return False
-    else:
-        raise ValueError(
-            f"Invalid boolean value: {s}. Valid true values: {true_values}. Valid false"
-            f" values: {false_values}."
-        )
 
 
 def _make_temp_file(content: bytes) -> IO:
