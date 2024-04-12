@@ -412,7 +412,10 @@ class Photon(BasePhoton):
     def metadata(self):
         res = super().metadata
 
+        # bookkeeping for debugging purposes: check cloudpickle and pydantic version
+        # for creation time and run time sanity check
         res["cloudpickle_version"] = cloudpickle.__version__
+        res["pydantic_version"] = pydantic.__version__
 
         res["openapi_schema"] = self._create_app(load_mount=False).openapi()
 
@@ -537,21 +540,30 @@ class Photon(BasePhoton):
                 f"Photon was created with Python {py_version} but now run with Python"
                 f" {cur_py_version}, which may cause unexpected behavior."
             )
-        cloudpickle_version = metadata.get("cloudpickle_version")
-        if cloudpickle_version:
-            if cloudpickle_version != cloudpickle.__version__:
+
+        def check_version(metadata_version, runtime_version, package: str):
+            if metadata_version:
+                if metadata_version != runtime_version:
+                    logger.warning(
+                        f"Photon was created with {package} {metadata_version} but now"
+                        f" run with {package} {runtime_version}, which may cause"
+                        " unexpected behavior if the versions are not compatible."
+                    )
+            else:
                 logger.warning(
-                    f"Photon was created with cloudpickle {cloudpickle_version} but now"
-                    f" run with cloudpickle {cloudpickle.__version__}, which may cause"
-                    " unexpected behavior if the versions are not compatible."
+                    "Photon was created without {package} version information, and now"
+                    " run with {package} {runtime_version}. If the versions are"
+                    " not compatible, it may cause unexpected behavior, but we cannot"
+                    " verify the compatibility."
                 )
-        else:
-            logger.warning(
-                "Photon was created without cloudpickle version information, and now"
-                " run with cloudpickle {cloudpickle.__version__}. If the versions are"
-                " not compatible, it may cause unexpected behavior, but we cannot"
-                " verify the compatibility."
-            )
+
+        check_version(
+            metadata.get("cloudpickle_version"), cloudpickle.__version__, "cloudpickle"
+        )
+        check_version(
+            metadata.get("pydantic_version"), pydantic.__version__, "pydantic"
+        )
+
         obj_pkl_filename = metadata["py_obj"]["obj_pkl_file"]
         with photon_file.open(obj_pkl_filename) as obj_pkl_file:
             py_obj = cloudpickle.loads(obj_pkl_file.read())
