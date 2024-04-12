@@ -60,18 +60,17 @@ else:
 # In cloudrun, the default timeout is also set to 1 hour. However, even if we set
 # LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
 # cloudrun, because it was expected to be in-process.
-CLOUDRUN_DEFAULT_TIMEOUT = 3600
-if os.environ.get("LEPTON_CLOUDRUN_DEFAULT_TIMEOUT", None) is not None:
-    try:
-        CLOUDRUN_DEFAULT_TIMEOUT = int(
-            os.environ.get("LEPTON_CLOUDRUN_DEFAULT_TIMEOUT")
-        )
-    except ValueError:
-        print(
-            "You have set an invalid value for LEPTON_CLOUDRUN_DEFAULT_TIMEOUT"
-            f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
-            f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
-        )
+try:
+    CLOUDRUN_DEFAULT_TIMEOUT = int(
+        os.environ.get("LEPTON_CLOUDRUN_DEFAULT_TIMEOUT", "3600")
+    )
+except ValueError:
+    CLOUDRUN_DEFAULT_TIMEOUT = 3600  # 1 hour
+    print(
+        "You have set an invalid value for LEPTON_CLOUDRUN_DEFAULT_TIMEOUT"
+        f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
+        f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
+    )
 
 
 ################################################################################
@@ -134,9 +133,16 @@ BASE_IMAGE_CMD = None
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 
-DEFAULT_TIMEOUT_KEEP_ALIVE = os.environ.get(
-    "LEPTON_TIMEOUT_KEEP_ALIVE", 30 * 60
-)  # 30 minutes
+try:
+    DEFAULT_TIMEOUT_KEEP_ALIVE = int(
+        os.environ.get("LEPTON_TIMEOUT_KEEP_ALIVE", "1800")
+    )
+except ValueError:
+    DEFAULT_TIMEOUT_KEEP_ALIVE = 1800  # 30 minutes
+    print(
+        "You have set an invalid value for LEPTON_TIMEOUT_KEEP_ALIVE."
+        f" Using default value of {DEFAULT_TIMEOUT_KEEP_ALIVE} seconds."
+    )
 
 # When the server is shut down, we will wait for all the ongoing requests to finish before
 # shutting down. This is the timeout for the graceful shutdown. If the timeout is
