@@ -746,7 +746,7 @@ def run(
         check(name or path, "Must specify either --name or --file.")
         if path is None:
             path = find_local_photon(name)
-            assert path is None or type(path) == str
+            assert path is None or isinstance(path, str)
         # The criteria to rebuild photon: 1) photon does not exist, 2) model is explicitly specified
         if (not path or not os.path.exists(path)) or model:
             if not path or not os.path.exists(path):
@@ -1013,7 +1013,7 @@ def push(name, public_photon):
     """
     conn = get_connection_or_die()
     path = find_local_photon(name)
-    assert path is None or type(path) == str
+    assert path is None or isinstance(path, str)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
     response = api.push(conn, path, public_photon=public_photon)  # type: ignore
     explain_response(
