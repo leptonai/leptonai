@@ -161,7 +161,11 @@ def create(name, model, requirements):
         with open(requirements, "r") as f:
             deps = [r.strip() for r in f.readlines()]
         logger.info(f"Adding requirements from {requirements}: {deps}")
-        photon.requirement_dependency.extend(deps)
+        if isinstance(photon, Photon):
+            if photon.requirement_dependency is None:
+                photon.requirement_dependency = deps
+            else:
+                photon.requirement_dependency.extend(deps)
     try:
         photon_util.save(photon)
     except Exception as e:
@@ -742,6 +746,7 @@ def run(
         check(name or path, "Must specify either --name or --file.")
         if path is None:
             path = find_local_photon(name)
+            assert path is None or isinstance(path, str)
         # The criteria to rebuild photon: 1) photon does not exist, 2) model is explicitly specified
         if (not path or not os.path.exists(path)) or model:
             if not path or not os.path.exists(path):
@@ -958,6 +963,36 @@ def prepare(ctx, path):
                         sys.exit(1)
                 console.print(f"Successfully pip {command}ed requirement_dependency.")
 
+    if config.FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE:
+        # Force install pydantic and cloudpickle versions that match the
+        # metadata version, if metadata version is specified.
+        console.print(
+            "lep is asked to force install pydantic and cloudpickle versions"
+            " that match the metadata version, if metadata version is specified."
+            " Note that this may cause undefined version conflict behaviors with"
+            " other libraries, so proceed at your own risk."
+        )
+        # other libraries.
+        for lib in ["pydantic", "cloudpickle"]:
+            if f"{lib}_version" in metadata:
+                lib_version = metadata[f"{lib}_version"]
+                console.print(f"Force installing {lib}=={lib_version}")
+                try:
+                    subprocess.check_call([
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        f"{lib}=={lib_version}",
+                    ])
+                except subprocess.CalledProcessError as e:
+                    console.print(f"Failed to pip install {lib}: {e}")
+                    sys.exit(1)
+            else:
+                console.print(
+                    f"{lib}_version is not specified in the metadata, skipping."
+                )
+
 
 @photon.command()
 @click.option("--name", "-n", help="Name of the photon", required=True)
@@ -978,6 +1013,7 @@ def push(name, public_photon):
     """
     conn = get_connection_or_die()
     path = find_local_photon(name)
+    assert path is None or isinstance(path, str)
     check(path and os.path.exists(path), f"Photon [red]{name}[/] does not exist.")
     response = api.push(conn, path, public_photon=public_photon)  # type: ignore
     explain_response(

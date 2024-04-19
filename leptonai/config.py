@@ -100,6 +100,26 @@ DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
 
 
+def _to_bool(s: str) -> bool:
+    """
+    Convert a string to a boolean value.
+    """
+    if not isinstance(s, str):
+        raise TypeError(f"Expected a string, got {type(s)}")
+    true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
+    false_values = ("no", "false", "f", "0", "n", "off", "nay", "")
+    s = s.lower()
+    if s in true_values:
+        return True
+    elif s in false_values:
+        return False
+    else:
+        raise ValueError(
+            f"Invalid boolean value: {s}. Valid true values: {true_values}. Valid false"
+            f" values: {false_values}."
+        )
+
+
 def _is_rocm() -> bool:
     """
     Detects if we are using rocm.
@@ -110,12 +130,7 @@ def _is_rocm() -> bool:
     the base image type, and you should directly use torch.version.hip in your
     user code.
     """
-
-    if "LEPTON_BASE_IMAGE_FORCE_ROCM" in os.environ:
-        true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
-        return os.environ["LEPTON_BASE_IMAGE_FORCE_ROCM"].lower() in true_values
-    else:
-        return False
+    return _to_bool(os.environ.get("LEPTON_BASE_IMAGE_FORCE_ROCM", "false"))
 
 
 # Lepton's base image and image repository location.
@@ -152,6 +167,15 @@ DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
     int(os.environ["LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN"])
     if os.environ.get("LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN")
     else None
+)
+
+# For some advanced users as well as debugging use, the users might hard-code a different
+# pydantic and cloudpickle version in the created photons. This environment variable is used
+# to force photon's prepare() function to install the pydantic and cloudrun version specified
+# in the photon. Note that this leads to untested compatibility issues - since cloudpickle and
+# pydantic are known in not being forward or backward compatible. Use at your own risk.
+FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE = _to_bool(
+    os.environ.get("LEPTON_FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE", "false")
 )
 
 # During some deployment environments, the server might run behind a load balancer, and during

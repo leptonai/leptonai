@@ -203,7 +203,7 @@ def find_all_local_photons():
 
 
 def find_local_photon(
-    name: str, return_path: str = True
+    name: str, return_path: bool = True
 ) -> Optional[Union[str, Tuple]]:
     """
     Finds the local photon of the given name, and returns the most recent one. If return_path is True,
