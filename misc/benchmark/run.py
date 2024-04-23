@@ -12,11 +12,25 @@ import time
 import openai
 from num2words import num2words
 import pandas as pd
-from transformers import LlamaTokenizerFast
 
-os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
-tokenizer = LlamaTokenizerFast.from_pretrained("hf-internal-testing/llama-tokenizer")
+def get_prompt_of_length(prompt_length):
+    os.environ["TOKENIZERS_PARALLELISM"] = "true"
+
+    from transformers import LlamaTokenizerFast
+
+    tokenizer = LlamaTokenizerFast.from_pretrained(
+        "hf-internal-testing/llama-tokenizer"
+    )
+
+    prompt = "Pick some lines from these poem lines:\n"
+    with open("sonnet.txt", "r") as f:
+        # pick randome lines from the sonnet that total to prompt_length
+        lines = f.readlines()
+        while len(tokenizer.encode(prompt)) < args.prompt_length:
+            prompt += random.choice(lines)
+    prompt += "and then tell me a very very long story:"
+    return prompt
 
 
 def rnd_num_generator(num_digits=3) -> str:
@@ -43,9 +57,7 @@ async def endpoint_evaluation_request(client, ep_config):
         rnd_num = None
         prompt = args.prompt
 
-    tokens_in = len(tokenizer.encode(prompt))
     words = ""
-
     try:
         st = time.time()
         ttft = None
@@ -70,6 +82,8 @@ async def endpoint_evaluation_request(client, ep_config):
                     if ttft is None:
                         ttft = time.time() - st
                     words += delta.content
+            tokens_in = tok.usage["prompt_tokens"]
+            tokens_out = tok.usage["completion_tokens"]
         else:
             response = await client.completions.create(
                 model=ep_config["model"],
@@ -88,16 +102,12 @@ async def endpoint_evaluation_request(client, ep_config):
                     if ttft is None:
                         ttft = time.time() - st
                     words += delta.text
+            tokens_in = tok.usage.prompt_tokens
+            tokens_out = tok.usage.completion_tokens
         et = time.time()
     except Exception as e:
         return ("Exception", -1, -1, -1, -1, str(e))
 
-    if args.print_response:
-        print("---- Response ----")
-        print(words)
-        print("------------------")
-
-    tokens_out = len(tokenizer.encode(words))
     if args.validate:
         nums = re.findall(r"\d+", words)
         if len(nums) > 0:
@@ -117,9 +127,12 @@ async def endpoint_evaluation_request(client, ep_config):
 
 
 async def endpoint_evaluation_round(client, concur_requests, ep_config):
-    results = await asyncio.gather(*(
-        endpoint_evaluation_request(client, ep_config) for _ in range(concur_requests)
-    ))
+    results = await asyncio.gather(
+        *(
+            endpoint_evaluation_request(client, ep_config)
+            for _ in range(concur_requests)
+        )
+    )
     return results
 
 
@@ -160,8 +173,18 @@ def endpoint_evaluation(ep_config):
     client = openai.AsyncOpenAI(
         base_url=ep_config["api_base"], api_key=ep_config["api_key"]
     )
+    loop = asyncio.get_event_loop()
+
+    if ep_config["model"] is None:
+
+        async def get_model():
+            async for model in client.models.list():
+                ep_config["model"] = model.id
+                break
+
+        loop.run_until_complete(get_model())
+
     for _ in range(args.warmup):
-        loop = asyncio.get_event_loop()
         loop.run_until_complete(endpoint_evaluation_request(client, ep_config))
 
     if args.qps is not None:
@@ -288,7 +311,7 @@ if __name__ == "__main__":
         "-m",
         "--model",
         type=str,
-        default="meta-llama/Llama-2-70b-chat-hf",
+        default=None,
         help="model name",
     )
     parser.add_argument(
@@ -401,14 +424,7 @@ if __name__ == "__main__":
         with open(args.prompt_file, "r") as f:
             args.prompt = f.read()
     elif args.prompt_length:
-        with open("sonnet.txt", "r") as f:
-            # pick randome lines from the sonnet that total to prompt_length
-            lines = f.readlines()
-            args.prompt = "Pick some lines from these poem lines:\n"
-            while len(tokenizer.encode(args.prompt)) < args.prompt_length:
-                args.prompt += random.choice(lines)
-            args.prompt += "and then tell me a very very long story:"
-
+        args.prompt = get_prompt_of_length(args.prompt_length)
     concur_requests = []
     for c in args.concur_requests.split(","):
         try:
