@@ -59,7 +59,9 @@ def list_command(pattern):
     # Note: for pods, we will not show them here.
     records = [
         (
-            d["name"],
+            (
+                d["name"] if "name" in d else d["metadata"]["name"]
+            ),  # backward compatibility
             d.get("photon_id", d.get("container", {}).get("image", "(unknown)")),
             d["created_at"] / 1000,
             d["status"],
