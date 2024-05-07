@@ -252,8 +252,16 @@ def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
     cdf = df[df.valid != "Exception"].copy()
     if len(cdf) > 0:
         total_out_tokens_per_s = cdf.tokens_out.sum().sum() / sum(elts)
+        # Wall time, counting the ttft
         cdf["out_tokens_per_s"] = cdf.tokens_out / cdf.total_time
         cdf["inter_tokens_delay"] = cdf.total_time / cdf.tokens_out
+        # Not counting the ttft
+        cdf["out_tokens_per_s_no_ttft"] = (cdf.tokens_out - 1) / (
+            cdf.total_time - cdf.ttft
+        )
+        cdf["inter_tokens_delay_no_ttft"] = (cdf.total_time - cdf.ttft) / (
+            cdf.tokens_out - 1
+        )
         mean_tokens_in = int(cdf["tokens_in"].mean())
         mean_tokens_out = int(cdf["tokens_out"].mean())
         mean_ttft = cdf["ttft"].mean()
@@ -268,11 +276,16 @@ def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
             print(f"\n  mean (per round): {sum(elts)/len(elts):.2f} s", end="")
         print(f"\n  total: {sum(elts):.2f} s")
         print(
-            "Throughput:"
-            f"\n  mean (per request): {cdf.out_tokens_per_s.mean():.2f} token/s"
-            f"\n  total: {total_out_tokens_per_s:.2f} token/s"
+            "Throughput:\n  mean (per request):"
+            f" {cdf.out_tokens_per_s.mean():.2f} token/s\n  mean (per request, not"
+            f" counting ttft): {cdf.out_tokens_per_s_no_ttft.mean():.2f} token/s\n "
+            f" total (walltime): {total_out_tokens_per_s:.2f} token/s"
         )
-        print(f"Latency:\n  mean: {cdf.inter_tokens_delay.mean()*1000:.2f} ms/token")
+        print(
+            f"Latency:\n  mean: {cdf.inter_tokens_delay.mean()*1000:.2f} ms/token\n "
+            " mean (not counting ttft):"
+            f" {cdf.inter_tokens_delay_no_ttft.mean()*1000:.2f} ms/token"
+        )
         print(
             "TTFT:"
             f"\n  mean: {mean_ttft*1000:.0f} ms"
