@@ -355,6 +355,15 @@ def log(name, replica):
         " the deployment to have no timeout."
     ),
 )
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, get the photon from the public photon registry. If not"
+        " specified, we will inherit the namespace of the current deployment."
+    ),
+    default=None,
+)
 def update(
     name,
     id,
@@ -364,6 +373,7 @@ def update(
     tokens,
     remove_tokens,
     no_traffic_timeout,
+    public_photon,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -405,6 +415,13 @@ def update(
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]
         console.print(f"Updating to latest photon id [green]{id}[/].")
+    if public_photon is None:
+        dep_info = guard_api(
+            api.get_deployment(conn, name),
+            detail=True,
+            msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
+        )
+        public_photon = dep_info.get("photon_namespace", "private") == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
@@ -416,6 +433,7 @@ def update(
             conn,
             name,
             photon_id=id,
+            photon_namespace="public" if public_photon else "private",
             min_replicas=min_replicas,
             resource_shape=resource_shape,
             is_public=public,
