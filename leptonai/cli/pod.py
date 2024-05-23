@@ -93,14 +93,17 @@ def create(
     """
     conn = get_connection_or_die()
     try:
-        deployment_spec = types.DeploymentSpec(
-            name=name,
+        deployment_user_spec = types.DeploymentUserSpec(
             resource_requirement=types.ResourceRequirement.make_resource_requirement(
                 resource_shape=resource_shape,
             ),
             mounts=types.Mount.make_mounts_from_strings(mount),
             envs=types.EnvVar.make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
+        )
+        deployment_spec = types.Deployment(
+            metadata=types.Metadata(name=name),
+            spec=deployment_user_spec,
         )
     except ValueError as e:
         console.print(f"Error encountered while processing pod configs:\n[red]{e}[/].")
