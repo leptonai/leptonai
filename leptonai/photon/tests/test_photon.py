@@ -1283,10 +1283,11 @@ class StorePySrcFilePhoton(Photon):
         proc, port = photon_run_local_server(path=path)
         res = requests.post(f"http://127.0.0.1:{port}/sleep", json={"seconds": 2})
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertGreaterEqual(res.json(), 2)
+        # sometimes the time measured is not accurate (e.g 1.9999713897705078), so we just roughly check the value here
+        self.assertGreaterEqual(res.json(), 1.99)
         res = requests.post(f"http://127.0.0.1:{port}/async_sleep", json={"seconds": 2})
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertGreaterEqual(res.json(), 2)
+        self.assertGreaterEqual(res.json(), 1.99)
 
         class TimeoutSleepPhoton(SleepPhoton):
             handler_timeout: int = 1
