@@ -62,8 +62,10 @@ def list_command(pattern):
             (
                 d["name"] if "name" in d else d["metadata"]["name"]
             ),  # backward compatibility
-            d.get("photon_id", d.get("container", {}).get("image", "(unknown)")),
-            d["created_at"] / 1000,
+            d["spec"].get(
+                "photon_id", d["spec"].get("container", {}).get("image", "(unknown)")
+            ),
+            d["metadata"]["created_at"] / 1000,
             d["status"],
         )
         for d in deployments
@@ -136,9 +138,9 @@ def status(name, show_tokens):
         msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
     )
     # todo: print a cleaner dep info.
-    creation_time = datetime.fromtimestamp(dep_info["created_at"] / 1000).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    creation_time = datetime.fromtimestamp(
+        dep_info["metadata"]["created_at"] / 1000
+    ).strftime("%Y-%m-%d %H:%M:%S")
 
     state = dep_info["status"]["state"]
     if state in ("Running", "Ready"):
@@ -147,7 +149,10 @@ def status(name, show_tokens):
         state = f"[yellow]{state}[/]"
     console.print(f"Time now:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"Created at: {creation_time}")
-    console.print(f"Photon ID:  {dep_info['photon_id']}")
+    console.print(
+        "Photon ID: "
+        f" {dep_info['spec'].get('photon_id', dep_info['spec'].get('container', {}).get('image', '(unknown)'))}"
+    )
     console.print(f"State:      {state}")
     resource_requirement = dep_info.get("resource_requirement", {})
     if "max_replicas" in resource_requirement:
@@ -172,16 +177,18 @@ def status(name, show_tokens):
         console.print(f"Web UI:     {web_url}/demo")
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
-    console.print(f"Is Public:  {'No' if len(dep_info['api_tokens']) else 'Yes'}")
-    if show_tokens and len(dep_info["api_tokens"]):
+    console.print(f"Is Public:  {'No' if dep_info['spec']['api_tokens'] else 'Yes'}")
+    if show_tokens and dep_info["spec"]["api_tokens"]:
 
         def stringfy_token(x):
             return (
                 x["value"] if "value" in x else f"[{x['value_from']['token_name_ref']}]"
             )
 
-        console.print(f"Tokens:     {stringfy_token(dep_info['api_tokens'][0])}")
-        for token in dep_info["api_tokens"][1:]:
+        console.print(
+            f"Tokens:     {stringfy_token(dep_info['spec']['api_tokens'][0])}"
+        )
+        for token in dep_info["spec"]["api_tokens"][1:]:
             console.print(f"            {stringfy_token(token)}")
     console.print("Replicas List:")
 
