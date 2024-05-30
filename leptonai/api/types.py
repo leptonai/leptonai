@@ -453,11 +453,16 @@ class Deployment(BaseModel):
     status: Optional[DeploymentStatus] = None
 
 
+class LeptonResourceAffinity(BaseModel):
+    allowed_dedicated_node_groups: Optional[List[str]] = None
+
+
 class LeptonJobSpec(BaseModel):
     """
     The desired state of a Lepton Job.
     """
 
+    affinity: Optional[LeptonResourceAffinity] = None
     resource_shape: Optional[str] = None
     container: LeptonContainer = LeptonContainer()
     completions: int = 1
@@ -474,6 +479,7 @@ class LeptonMetadata(BaseModel):
     """
 
     id: str
+    name: Optional[str] = None
     created_at: Optional[int] = None
     version: Optional[int] = None
 
