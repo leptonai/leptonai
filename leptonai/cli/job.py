@@ -13,9 +13,11 @@ from .util import (
     explain_response,
 )
 from leptonai.api import job as api
+from leptonai.api import nodegroup as nodegroup_api
 from leptonai.api.types import (
     EnvVar,
     Mount,
+    LeptonResourceAffinity,
     LeptonJobSpec,
     ContainerPort,
     LeptonJob,
@@ -48,6 +50,14 @@ def job():
         " will update the spec based on the file."
     ),
     type=str,
+)
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help="Node group for the job. If not set, use on-demand resources.",
+    type=str,
+    multiple=True,
 )
 @click.option(
     "--resource-shape",
@@ -149,6 +159,7 @@ def job():
 def create(
     name,
     file,
+    node_groups,
     resource_shape,
     num_workers,
     container_image,
@@ -167,6 +178,8 @@ def create(
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+    conn = get_connection_or_die()
+
     if file:
         try:
             with open(file, "r") as f:
@@ -178,6 +191,23 @@ def create(
     else:
         job_spec = LeptonJobSpec()
     # Update the spec based on the passed in args
+    if node_groups:
+        node_group_ids = []
+        valid_node_groups = {
+            ng["metadata"]["name"]: ng["metadata"]["id"]
+            for ng in guard_api(nodegroup_api.list_nodegroups(conn))
+        }
+        for ng in node_groups:
+            if ng not in valid_node_groups:
+                console.print(
+                    f"Invalid node group: [red]{ng}[/] (valid node groups:"
+                    f" {', '.join(valid_node_groups.keys())})"
+                )
+                return
+            node_group_ids.append(valid_node_groups[ng])
+        job_spec.affinity = LeptonResourceAffinity(
+            allowed_dedicated_node_groups=node_group_ids
+        )
     if resource_shape:
         job_spec.resource_shape = resource_shape
     if num_workers:
@@ -213,7 +243,6 @@ def create(
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
 
     job = LeptonJob(spec=job_spec, metadata=LeptonMetadata(id=name))
-    conn = get_connection_or_die()
     guard_api(api.create_job(conn, job), detail=True)
     console.print(f"Job [green]{name}[/] created successfully.")
 
