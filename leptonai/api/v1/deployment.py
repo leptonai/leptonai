@@ -1,7 +1,4 @@
-from typing import List, Union, Optional
-
-from loguru import logger
-
+from typing import Union
 
 from .common import APIResourse
 from .types.deployment import LeptonDeployment

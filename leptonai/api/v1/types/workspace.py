@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from .quota import TotalResource, TotalService
 

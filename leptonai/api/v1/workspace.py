@@ -12,19 +12,10 @@ import os
 from pydantic import BaseModel
 import re
 import requests
-from threading import Lock
-from typing import Any, Optional, Union, Dict, Tuple, Type, TypeVar, List
-import yaml
+from typing import Optional, Union, Dict, Tuple, Type, TypeVar, List
 import warnings
 
-from loguru import logger
-
-from leptonai.config import CACHE_DIR
-from leptonai.util import create_cached_dir_if_needed
-from leptonai.api.util import (
-    _get_full_workspace_api_url,
-    _get_workspace_display_name,
-)
+from leptonai.api.util import _get_full_workspace_api_url
 
 from .types.workspace import WorkspaceInfo
 
@@ -107,7 +98,7 @@ class Workspace(object):
                 for pair in header_pairs:
                     key, value = pair.split("=")
                     self._header.setdefault(key, value)
-            except:
+            except ValueError:
                 raise RuntimeError(
                     "LEPTON_DEBUG_HEADERS should be in the format of comma separated"
                     " header_key=header_value pairs. Got"
