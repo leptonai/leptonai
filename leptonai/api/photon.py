@@ -4,7 +4,7 @@ import warnings
 
 from loguru import logger
 
-from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED
+from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED, LEPTON_RESERVED_ENV_NAMES
 
 # import leptonai.photon to register the schemas and types
 import leptonai.photon  # noqa: F401
@@ -137,6 +137,68 @@ def run_remote_with_spec(conn: Connection, deployment_spec: types.Deployment):
     return response
 
 
+DEFAULT_RESOURCE_SHAPE = "cpu.small"
+
+
+def make_mounts_from_strings(
+    mounts: Optional[List[str]],
+) -> Optional[List[types.Mount]]:
+    """
+    Parses a list of mount strings into a list of Mount objects.
+    """
+    if not mounts:
+        return None
+    mount_list = []
+    for mount_str in mounts:
+        parts = mount_str.split(":")
+        if len(parts) == 2:
+            # TODO: sanity check if the mount path exists.
+            mount_list.append(
+                types.Mount(path=parts[0].strip(), mount_path=parts[1].strip())
+            )
+        else:
+            raise ValueError(f"Invalid mount definition: {mount_str}")
+    return mount_list
+
+
+def make_env_vars_from_strings(
+    env: Optional[List[str]], secret: Optional[List[str]]
+) -> Optional[List[types.EnvVar]]:
+    if not env and not secret:
+        return None
+    env_list = []
+    for s in env if env else []:
+        try:
+            k, v = s.split("=", 1)
+        except ValueError:
+            raise ValueError(f"Invalid environment definition: [red]{s}[/]")
+        if k in LEPTON_RESERVED_ENV_NAMES:
+            raise ValueError(
+                "You have used a reserved environment variable name that is "
+                "used by Lepton internally: {k}. Please use a different name. "
+                "Here is a list of all reserved environment variable names:\n"
+                f"{LEPTON_RESERVED_ENV_NAMES}"
+            )
+        env_list.append(types.EnvVar(name=k, value=v))
+    for s in secret if secret else []:
+        # We provide the user a shorcut: instead of having to specify
+        # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
+        # if the local env name and the secret name are the same.
+        k, v = s.split("=", 1) if "=" in s else (s, s)
+        if k in LEPTON_RESERVED_ENV_NAMES:
+            raise ValueError(
+                "You have used a reserved secret name that is "
+                "used by Lepton internally: {k}. Please use a different name. "
+                "Here is a list of all reserved environment variable names:\n"
+                f"{LEPTON_RESERVED_ENV_NAMES}"
+            )
+        # TODO: sanity check if these secrets exist.
+        env_list.append(
+            types.EnvVar(name=k, value_from=types.EnvValue(secret_name_ref=v))
+        )
+    return env_list
+
+
 def run_remote(
     conn: Connection,
     id: str,
@@ -166,7 +228,7 @@ def run_remote(
     logger.trace(f"deployment_template:\n{deployment_template}")
     if resource_shape is None:
         resource_shape = deployment_template.get(
-            "resource_shape", types.DEFAULT_RESOURCE_SHAPE
+            "resource_shape", DEFAULT_RESOURCE_SHAPE
         )
     template_envs = deployment_template.get("env", {})
     for k, v in template_envs.items():
@@ -196,27 +258,46 @@ def run_remote(
             )
 
     # TODO: check if the given id is a valid photon id
+    from .deployment import make_token_vars_from_config
+
     deployment_user_spec = types.DeploymentUserSpec(
         photon_id=id,
         photon_namespace=photon_namespace,
-        resource_requirement=types.ResourceRequirement.make_resource_requirement(
+        resource_requirement=types.ResourceRequirement(
             resource_shape=resource_shape,
-            replica_cpu=replica_cpu,
-            replica_memory=replica_memory,
-            replica_accelerator_type=replica_accelerator_type,
-            replica_accelerator_num=replica_accelerator_num,
-            replica_ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
-            resource_affinity=resource_affinity,
+            cpu=replica_cpu,
+            memory=replica_memory,
+            accelerator_type=replica_accelerator_type,
+            accelerator_num=replica_accelerator_num,
+            ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
+            resource_affinity=(
+                types.LeptonResourceAffinity(
+                    allowed_dedicated_node_groups=[resource_affinity]
+                )
+                if resource_affinity
+                else None
+            ),
             min_replicas=min_replicas,
             max_replicas=max_replicas,
         ),
-        mounts=types.Mount.make_mounts_from_strings(mounts),
-        envs=types.EnvVar.make_env_vars_from_strings(env_list, secret_list),
-        api_tokens=types.TokenVar.make_token_vars_from_config(is_public, tokens),
-        auto_scaler=types.AutoScaler.make_auto_scaler(
-            no_traffic_timeout, target_gpu_utilization
+        mounts=make_mounts_from_strings(mounts),
+        envs=make_env_vars_from_strings(env_list, secret_list),
+        api_tokens=make_token_vars_from_config(is_public, tokens),
+        auto_scaler=types.AutoScaler(
+            scale_down=(
+                types.ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                if no_traffic_timeout
+                else None
+            ),
+            target_gpu_utilization_percentage=target_gpu_utilization,
         ),
-        health=types.HealthCheck.make_health_check(initial_delay_seconds),
+        health=types.HealthCheck(
+            liveness=(
+                types.HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                if initial_delay_seconds
+                else None
+            )
+        ),
     )
     deployment_spec = types.Deployment(
         metadata=types.Metadata(name=deployment_name),

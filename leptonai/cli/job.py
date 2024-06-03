@@ -13,15 +13,16 @@ from .util import (
     explain_response,
 )
 from leptonai.api import job as api
+from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.api import nodegroup as nodegroup_api
 from leptonai.api.types import (
     EnvVar,
     Mount,
     LeptonResourceAffinity,
-    LeptonJobSpec,
+    LeptonJobUserSpec,
     ContainerPort,
     LeptonJob,
-    LeptonMetadata,
+    Metadata,
     VALID_SHAPES,
 )
 from leptonai.config import BASE_IMAGE
@@ -38,6 +39,20 @@ def job():
     the documentation for more details.
     """
     pass
+
+
+def make_container_port_from_string(port_str: str):
+    parts = port_str.split(":")
+    if len(parts) == 2:
+        try:
+            port = int(parts[0].strip())
+        except ValueError:
+            raise ValueError(
+                f"Invalid port definition: {port_str}. Port must be an integer."
+            )
+        return ContainerPort(container_port=port, protocol=parts[1].strip())
+    else:
+        raise ValueError(f"Invalid port definition: {port_str}")
 
 
 @job.command()
@@ -184,12 +199,12 @@ def create(
         try:
             with open(file, "r") as f:
                 content = f.read()
-                job_spec = LeptonJobSpec.parse_raw(content)
+                job_spec = LeptonJobUserSpec.parse_raw(content)
         except Exception as e:
             console.print(f"Cannot load job spec from file [red]{file}[/]: {e}")
             return
     else:
-        job_spec = LeptonJobSpec()
+        job_spec = LeptonJobUserSpec()
     # Update the spec based on the passed in args
     if node_groups:
         node_group_ids = []
@@ -232,17 +247,15 @@ def create(
     elif not job_spec.container.image:
         job_spec.container.image = BASE_IMAGE
     if port:
-        job_spec.container.ports = [
-            ContainerPort.make_container_port_from_string(p) for p in port
-        ]
+        job_spec.container.ports = [make_container_port_from_string(p) for p in port]
     if env or secret:
-        job_spec.env = EnvVar.make_env_vars(env, secret)
+        job_spec.envs = make_env_vars_from_strings(env, secret)  # type: ignore
     if mount:
-        job_spec.mounts = Mount.make_mounts_from_strings(mount)
+        job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
 
-    job = LeptonJob(spec=job_spec, metadata=LeptonMetadata(id=name))
+    job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
     guard_api(api.create_job(conn, job), detail=True)
     console.print(f"Job [green]{name}[/] created successfully.")
 

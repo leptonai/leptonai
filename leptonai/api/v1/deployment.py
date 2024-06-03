@@ -14,10 +14,21 @@ class DeploymentAPI(APIResourse):
 
     def create(self, spec: LeptonDeployment):
         """
-        Run a photon with the given deployment spec.
+        Create a deployment with the given deployment spec.
         """
         response = self._post("/deployments", json=self.safe_json(spec))
         return self._ws.ensure_ok(response)
+
+    def create_pod(self, spec: LeptonDeployment):
+        """
+        Creates a pod with the given deployment spec. This is equivalent to creating a deployment
+        with is_pod=True.
+        """
+        if spec.spec is None:
+            raise ValueError("LeptonDeploymentUserSpec must not be None.")
+        spec.spec.is_pod = True
+        # todo: pod-specific fields check if needed.
+        return self.create(spec)
 
     def get(self, name_or_deployment: Union[str, LeptonDeployment]) -> LeptonDeployment:
         name = (

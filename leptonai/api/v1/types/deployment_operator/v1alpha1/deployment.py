@@ -1,6 +1,11 @@
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
+import warnings
+
+from leptonai.config import VALID_SHAPES
+
+from .affinity import LeptonResourceAffinity
 
 
 class EnvValue(BaseModel):
@@ -80,15 +85,73 @@ class ResourceRequirement(BaseModel):
     accelerator_num: Optional[float] = None
 
     shared_memory_size: Optional[int] = None
-    resource_affinity: Optional[str] = None
+    resource_affinity: Optional[LeptonResourceAffinity] = None
     min_replicas: Optional[int] = None
     max_replicas: Optional[int] = None
     host_network: Optional[bool] = None
+
+    @field_validator("resource_shape")
+    def validate_resource_shape(cls, v):
+        if v is None:
+            return v
+        v = v.lower()
+        if v not in VALID_SHAPES:
+            # We will check if the user passed in a valid shape, and if not, we will
+            # print a warning.
+            # However, we do not want to directly go to an error, because there might
+            # be cases when the CLI and the cloud service is out of sync. For example
+            # if the user environment has an older version of the CLI while the cloud
+            # service has been updated to support more shapes, we want to allow the
+            # user to use the new shapes. One can simply ignore the warning and proceed.
+            warnings.warn(
+                "It seems that you passed in a non-standard resource shape"
+                f" {v}. Valid shapes supported by the CLI are:\n"
+                f" {', '.join(VALID_SHAPES)}"
+            )
+        return v
+
+    @field_validator("min_replicas")
+    def validate_min_replicas(cls, min_replicas):
+        if min_replicas is None:
+            return min_replicas
+        if min_replicas < 0:
+            raise ValueError(
+                f"min_replicas must be non-negative. Found {min_replicas}."
+            )
+        return min_replicas
+
+    @field_validator("max_replicas")
+    def validate_max_replicas(cls, max_replicas, values):
+        min_replicas = values.get("min_replicas")
+        if max_replicas is None:
+            return max_replicas
+        if max_replicas < 0:
+            raise ValueError(
+                f"max_replicas must be non-negative. Found {max_replicas}."
+            )
+        if min_replicas is not None and min_replicas > max_replicas:
+            raise ValueError(
+                "min_replicas must be smaller than max_replicas. Found"
+                f" min_replicas={min_replicas}, max_replicas={max_replicas}."
+            )
+        return max_replicas
 
 
 class ScaleDown(BaseModel):
     no_traffic_timeout: Optional[int] = None
     not_ready_timeout: Optional[int] = None
+
+    @field_validator("no_traffic_timeout")
+    def validate_no_traffic_timeout(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError(f"no_traffic_timeout must be non-negative. Found {v}.")
+        return v
+
+    @field_validator("not_ready_timeout")
+    def validate_not_ready_timeout(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError(f"not_ready_timeout must be non-negative. Found {v}.")
+        return v
 
 
 class AutoscalerTargetThroughput(BaseModel):
@@ -101,6 +164,15 @@ class AutoScaler(BaseModel):
     scale_down: Optional[ScaleDown] = None
     target_gpu_utilization_percentage: Optional[int] = None
     target_throughput: Optional[AutoscalerTargetThroughput] = None
+
+    @field_validator("target_gpu_utilization_percentage")
+    def validate_target_gpu_utilization_percentage(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError(
+                "target_gpu_utilization_percentage must be between 0 and 100. Found"
+                f" {v}."
+            )
+        return v
 
 
 class TokenValue(BaseModel):
@@ -173,7 +245,7 @@ class DeploymentEndpoint(BaseModel):
 
 class AutoscalerCondition(BaseModel):
     status: str
-    type: Optional[str] = None
+    type_: Optional[str] = Field(None, alias="type")
     last_transition_time: Optional[int] = None
     message: Optional[str] = None
 
