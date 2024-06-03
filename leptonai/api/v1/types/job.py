@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from .common import Metadata
-from .deployment_operator.v1alpha1.job import LeptonJobUserSpec, LeptonJobStatus
+from .deployment_operator.v1alpha1.job import *  # noqa
 
 
 class LeptonJob(BaseModel):

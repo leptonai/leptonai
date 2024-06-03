@@ -6,7 +6,7 @@ from .deployment_operator.v1alpha1.photon import PhotonDeploymentTemplate, Photo
 
 class Photon(BaseModel):
     # Implementation note: inlined MetadataV1
-    id_: Optional[str] = Field(None, alias="id")
+    id: Optional[str] = None
     created_at: Optional[int] = None
     version: Optional[int] = None
 

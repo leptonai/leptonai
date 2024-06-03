@@ -166,7 +166,7 @@ class DeploymentEndpoint(BaseModel):
 
 class AutoscalerCondition(BaseModel):
     status: str
-    type_: str = Field(..., alias="type")
+    type: Optional[str] = None
     last_transition_time: Optional[int] = None
     message: Optional[str] = None
 

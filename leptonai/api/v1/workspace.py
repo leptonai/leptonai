@@ -32,6 +32,7 @@ from .types.workspace import WorkspaceInfo
 # not import workspace to avoid circular imports.
 from .photon import PhotonAPI
 from .deployment import DeploymentAPI
+from .job import JobAPI
 
 
 class WorkspaceRecord(object):
@@ -220,6 +221,7 @@ class Workspace(object):
         # Add individual APIs
         self.photon = PhotonAPI(self)
         self.deployment = DeploymentAPI(self)
+        self.job = JobAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         if "timeout" not in kwargs:

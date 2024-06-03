@@ -9,7 +9,8 @@ from .types.deployment import LeptonDeployment
 
 class DeploymentAPI(APIResourse):
     def list_all(self):
-        pass
+        response = self._get("/deployments")
+        return self._ws.ensure_list(response, LeptonDeployment)
 
     def create(self, spec: LeptonDeployment):
         """
