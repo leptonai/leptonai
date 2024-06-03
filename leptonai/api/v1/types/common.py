@@ -26,3 +26,8 @@ class Metadata(BaseModel):
     version: Optional[int] = None
     created_by: Optional[str] = None
     last_modified_by: Optional[str] = None
+
+
+class SecretItem(BaseModel):
+    name: str
+    value: str

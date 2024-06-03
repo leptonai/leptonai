@@ -33,6 +33,7 @@ from .types.workspace import WorkspaceInfo
 from .photon import PhotonAPI
 from .deployment import DeploymentAPI
 from .job import JobAPI
+from .secret import SecretAPI
 
 
 class WorkspaceRecord(object):
@@ -222,6 +223,7 @@ class Workspace(object):
         self.photon = PhotonAPI(self)
         self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
+        self.secret = SecretAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         if "timeout" not in kwargs:
@@ -301,6 +303,26 @@ class Workspace(object):
                 f" {response.text}"
             )
         return True
+
+    def ensure_json(self, response):
+        if not response.ok:
+            raise RuntimeError(
+                f"API call failed with status code {response.status_code}. Details:"
+                f" {response.text}"
+            )
+        try:
+            return response.json()
+        except Exception as e:
+            # This should not happen: apis that use json_or_error should make sure
+            # that the response is json. If this happens, it is either a programming
+            # error, or the api has changed, or the lepton ai cloud side has a bug.
+            raise RuntimeError(
+                "You encountered a programming error. Please report this, and include"
+                " the following debug info:\n*** begin of debug info ***\nresponse"
+                " returned 200 OK, but the content cannot be decoded as"
+                f" json.\nresponse.text: {response.text}\n\nexception"
+                f" details:\n{e}\n*** end of debug info ***"
+            )
 
     def info(self) -> WorkspaceInfo:
         """ "
