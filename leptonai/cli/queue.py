@@ -42,8 +42,8 @@ def create(name):
     explain_response(
         response,
         f"Successfully created queue [green]{name}[/].\nNote that queue creation is"
-        " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/] to"
-        " check the status of the queue.",
+        " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/]"
+        " to check the status of the queue.",
         "Failed to create queue [red]{name}[/].",
         "Failed to create queue [red]{name}[/].",
     )
@@ -100,8 +100,8 @@ def remove(name):
     explain_response(
         response,
         f"Successfully deleted queue [green]{name}[/].\nNote that queue deletion is"
-        " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/] to"
-        " check the status of the queue.",
+        " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/]"
+        " to check the status of the queue.",
         f"Queue [red]{name}[/] does not exist.",
         f"Failed to delete queue [red]{name}[/].",
     )

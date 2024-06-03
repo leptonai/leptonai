@@ -32,7 +32,7 @@ class PhotonAPI(APIResourse):
         List all photons on the workspace.
         """
         response = self._get(f"/photons/{_get_photon_endpoint(public_photon)}")
-        return self._ws.ensure_list(response, Photon)
+        return self.ensure_list(response, Photon)
 
     def create(self, path: str, public_photon: bool = False) -> bool:
         if not os.path.exists(path):
@@ -48,7 +48,7 @@ class PhotonAPI(APIResourse):
     ) -> Photon:
         id_ = id_or_photon if isinstance(id_or_photon, str) else id_or_photon.id_
         response = self._get(f"/photons/{_get_photon_endpoint(public_photon)}/{id_}")
-        return self._ws.ensure_type(response, Photon)
+        return self.ensure_type(response, Photon)
 
     def download(
         self,
@@ -103,14 +103,14 @@ class PhotonAPI(APIResourse):
     ) -> bool:
         id_ = id_or_photon if isinstance(id_or_photon, str) else id_or_photon.id_
         response = self._delete(f"/photons/{_get_photon_endpoint(public_photon)}/{id_}")
-        return self._ws.ensure_ok(response)
+        return self.ensure_ok(response)
 
     def run(self, spec: LeptonDeployment) -> bool:
         """
         Run a photon with the given deployment spec.
         """
         response = self._post("/deployments", json=self.safe_json(spec))
-        return self._ws.ensure_ok(response)
+        return self.ensure_ok(response)
 
     def list_local(self):
         """

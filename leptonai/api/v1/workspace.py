@@ -21,6 +21,7 @@ from .types.workspace import WorkspaceInfo
 
 # import the related API resources. Note that in all these files, they should
 # not import workspace to avoid circular imports.
+from .common import APIResourse
 from .photon import PhotonAPI
 from .deployment import DeploymentAPI
 from .job import JobAPI
@@ -140,94 +141,13 @@ class Workspace(object):
     def _head(self, path: str, *args, **kwargs):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
 
-    T = TypeVar("T", bound=BaseModel)
-
-    def ensure_type(self, response, EnsuredType: Type[T]) -> T:
-        """
-        Utility function to ensure that the response is of the given type.
-        """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
-        try:
-            return EnsuredType(**response.json())
-        except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
-
-    def ensure_list(self, response, EnsuredType: Type[T]) -> List[T]:
-        """
-        Utility function to ensure that the response is a list of the given type.
-        """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
-        try:
-            return [EnsuredType(**item) for item in response.json()]
-        except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
-
-    def ensure_ok(self, response) -> bool:
-        """
-        Utility function to ensure that the response is ok.
-        """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
-        return True
-
-    def ensure_json(self, response) -> Union[Dict, List, str]:
-        """
-        Utility function to ensure that the output is a json object (including dict, list, etc.)
-        """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
-        try:
-            return response.json()
-        except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
-
     def info(self) -> WorkspaceInfo:
         """ "
         Returns the workspace info.
         """
+        ws_api = APIResourse(self)
         response = self._get("/workspace")
-        return self.ensure_type(response, WorkspaceInfo)
+        return ws_api.ensure_type(response, WorkspaceInfo)
 
     def version(self) -> Optional[Tuple[int, int, int]]:
         """
@@ -246,7 +166,7 @@ class Workspace(object):
             else None
         )
 
-    def token(self):
+    def token(self) -> Union[str, None]:
         """
         Returns the current workspace token.
         """
