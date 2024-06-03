@@ -130,7 +130,7 @@ def update_deployment(
     )
     logger.trace(f"deployment_spec:\n{deployment_spec}")
 
-    deployment_body = deployment_spec.dict(exclude_none=True)
+    deployment_body = deployment_spec.dict(exclude_none=True, by_alias=True)
     if not deployment_body:
         # If nothing is updated...
         warnings.warn(
