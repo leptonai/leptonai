@@ -205,9 +205,16 @@ class EnvVar(BaseModel):
         return env_list
 
 
+class MountOptions(BaseModel):
+    local_cache_size_mib: Optional[int] = None
+    read_only: Optional[bool] = None
+
+
 class Mount(BaseModel):
-    path: str
+    path: Optional[str]
+    from_: Optional[str] = Field(None, alias="from")
     mount_path: str
+    mount_options: Optional[MountOptions] = None
 
     @staticmethod
     def make_mounts_from_strings(
