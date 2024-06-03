@@ -246,6 +246,12 @@ class Workspace(object):
             else None
         )
 
+    def token(self):
+        """
+        Returns the current workspace token.
+        """
+        return self.auth_token
+
 
 def current() -> Workspace:
     """

@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from typing import Optional, List
 import warnings
 
@@ -121,15 +121,19 @@ class ResourceRequirement(BaseModel):
         return min_replicas
 
     @field_validator("max_replicas")
-    def validate_max_replicas(cls, max_replicas, values):
-        min_replicas = values.get("min_replicas")
+    def validate_max_replicas(cls, max_replicas, values: ValidationInfo):
         if max_replicas is None:
             return max_replicas
         if max_replicas < 0:
             raise ValueError(
                 f"max_replicas must be non-negative. Found {max_replicas}."
             )
-        if min_replicas is not None and min_replicas > max_replicas:
+        if "min_replicas" not in values.data:
+            raise ValueError(
+                "min_replicas must be specified if max_replicas is specified."
+            )
+        min_replicas = values.data["min_replicas"]
+        if min_replicas > max_replicas:
             raise ValueError(
                 "min_replicas must be smaller than max_replicas. Found"
                 f" min_replicas={min_replicas}, max_replicas={max_replicas}."

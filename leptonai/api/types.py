@@ -11,9 +11,9 @@ from pydantic import BaseModel, Field
 
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES, VALID_SHAPES
 
-from v1.types.common import Metadata
+from .v1.types.common import Metadata
 
-from v1.types.deployment_operator_v1alpha1.deployment import (
+from .v1.types.deployment_operator_v1alpha1.deployment import (
     ResourceRequirement,
     TokenValue,
     TokenVar,
@@ -33,11 +33,11 @@ from v1.types.deployment_operator_v1alpha1.deployment import (
     LeptonResourceAffinity,
 )
 
-from v1.types.deployment import (
+from .v1.types.deployment import (
     LeptonDeploymentUserSpec as DeploymentUserSpec,
     DeploymentEndpoint,
     LeptonDeploymentStatus as DeploymentStatus,
     LeptonDeployment as Deployment,
 )
 
-from v1.types.job import LeptonJob, LeptonJobUserSpec, LeptonJobState, LeptonJobStatus
+from .v1.types.job import LeptonJob, LeptonJobUserSpec, LeptonJobState, LeptonJobStatus

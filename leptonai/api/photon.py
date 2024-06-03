@@ -235,9 +235,9 @@ def run_remote(
         if v == ENV_VAR_REQUIRED:
             if not any(s.startswith(k + "=") for s in (env_list or [])):
                 warnings.warn(
-                    f"This deployment requires env var {k}, but it's missing. Please"
-                    f" specify it with --env {k}=YOUR_VALUE. Otherwise, the deployment"
-                    " may fail.",
+                    f"This deployment requires env var {k}, but it's missing."
+                    f" Please specify it with --env {k}=YOUR_VALUE. Otherwise, the"
+                    " deployment may fail.",
                     RuntimeWarning,
                 )
         else:
@@ -251,9 +251,9 @@ def run_remote(
             s.startswith(k) for s in (env_list or [])
         ):
             warnings.warn(
-                f"This deployment requires secret {k}, but it's missing. Please set the"
-                f" secret, and specify it with --secret {k}. Otherwise, the deployment"
-                " may fail.",
+                f"This deployment requires secret {k}, but it's missing. Please set"
+                f" the secret, and specify it with --secret {k}. Otherwise, the"
+                " deployment may fail.",
                 RuntimeWarning,
             )
 
