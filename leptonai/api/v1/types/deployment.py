@@ -2,10 +2,10 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from .common import Metadata
-from .deployment_operator.v1alpha1.deployment import (
-    LeptonDeploymentUserSpec,
-    LeptonDeploymentStatus,
-)
+
+# Implementation note: because users do need to use the deployment specs' detailed
+# classes, we import them all here.
+from .deployment_operator.v1alpha1.deployment import *  # noqa: F401
 
 
 class LeptonDeployment(BaseModel):

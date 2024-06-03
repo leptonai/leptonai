@@ -13,7 +13,7 @@ from pydantic import BaseModel
 import re
 import requests
 from threading import Lock
-from typing import Any, Optional, Union, Dict, Tuple, Type, TypeVar
+from typing import Any, Optional, Union, Dict, Tuple, Type, TypeVar, List
 import yaml
 import warnings
 
@@ -27,6 +27,10 @@ from leptonai.api.util import (
 )
 
 from .types.workspace import WorkspaceInfo
+
+# import the related API resources. Note that in all these files, they should
+# not import workspace to avoid circular imports.
+from .photon import PhotonAPI
 
 
 class WorkspaceRecord(object):
@@ -211,6 +215,7 @@ class Workspace(object):
                     " header_key=header_value pairs. Got"
                     f" {os.environ['LEPTON_DEBUG_HEADERS']}"
                 )
+        self.photon = PhotonAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         if "timeout" not in kwargs:
@@ -232,13 +237,13 @@ class Workspace(object):
     def _patch(self, path: str, *args, **kwargs):
         return self._session.patch(self.url + path, *args, **self._safe_add(kwargs))
 
-    def put(self, path: str, *args, **kwargs):
+    def _put(self, path: str, *args, **kwargs):
         return self._session.put(self.url + path, *args, **self._safe_add(kwargs))
 
-    def delete(self, path: str, *args, **kwargs):
+    def _delete(self, path: str, *args, **kwargs):
         return self._session.delete(self.url + path, *args, **self._safe_add(kwargs))
 
-    def head(self, path: str, *args, **kwargs):
+    def _head(self, path: str, *args, **kwargs):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
 
     T = TypeVar("T", bound=BaseModel)
@@ -262,6 +267,34 @@ class Workspace(object):
                 f" json.\nresponse.text: {response.text}\n\nexception"
                 f" details:\n{e}\n*** end of debug info ***"
             )
+
+    def ensure_list(self, response, EnsuredType: Type[T]) -> List[T]:
+        if not response.ok:
+            raise RuntimeError(
+                f"API call failed with status code {response.status_code}. Details:"
+                f" {response.text}"
+            )
+        try:
+            return [EnsuredType(**item) for item in response.json()]
+        except Exception as e:
+            # This should not happen: apis that use json_or_error should make sure
+            # that the response is json. If this happens, it is either a programming
+            # error, or the api has changed, or the lepton ai cloud side has a bug.
+            raise RuntimeError(
+                "You encountered a programming error. Please report this, and include"
+                " the following debug info:\n*** begin of debug info ***\nresponse"
+                " returned 200 OK, but the content cannot be decoded as"
+                f" json.\nresponse.text: {response.text}\n\nexception"
+                f" details:\n{e}\n*** end of debug info ***"
+            )
+
+    def ensure_ok(self, response):
+        if not response.ok:
+            raise RuntimeError(
+                f"API call failed with status code {response.status_code}. Details:"
+                f" {response.text}"
+            )
+        return True
 
     def info(self) -> WorkspaceInfo:
         """ "
