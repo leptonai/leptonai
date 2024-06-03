@@ -471,13 +471,18 @@ class LeptonJobSpec(BaseModel):
 
     affinity: Optional[LeptonResourceAffinity] = None
     resource_shape: Optional[str] = None
+    shared_memory_size: Optional[int] = None
     container: LeptonContainer = LeptonContainer()
     completions: int = 1
     parallelism: int = 1
+    max_failure_retry: Optional[int] = None
+    max_job_failure_retry: Optional[int] = None
     envs: List[EnvVar] = []
     mounts: List[Mount] = []
+    image_pull_secrets: List[str] = []
     ttl_seconds_after_finished: Optional[int] = None
     intra_job_communication: Optional[bool] = None
+    privileged: Optional[bool] = None
 
 
 class LeptonMetadata(BaseModel):
