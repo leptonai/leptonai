@@ -16,7 +16,7 @@ class DeploymentAPI(APIResourse):
         """
         Run a photon with the given deployment spec.
         """
-        response = self._post("/deployments", json=spec.dict(exclude_none=True))
+        response = self._post("/deployments", json=self.safe_json(spec))
         return self._ws.ensure_ok(response)
 
     def get(self, name_or_deployment: Union[str, LeptonDeployment]) -> LeptonDeployment:
@@ -36,9 +36,7 @@ class DeploymentAPI(APIResourse):
             if isinstance(name_or_deployment, str)
             else name_or_deployment.metadata.name
         )
-        response = self._patch(
-            f"/deployments/{name}", json=spec.dict(exclude_none=True)
-        )
+        response = self._patch(f"/deployments/{name}", json=self.safe_json(spec))
         return self._ws.ensure_type(response, LeptonDeployment)
 
     def delete(self, name_or_deployment: Union[str, LeptonDeployment]) -> bool:

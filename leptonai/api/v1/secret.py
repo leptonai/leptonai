@@ -11,11 +11,7 @@ class SecretAPI(APIResourse):
         return self._ws.ensure_json(response)
 
     def create(self, secrets: Union[SecretItem, List[SecretItem]]) -> bool:
-        if isinstance(secrets, SecretItem):
-            serialized = [secrets.dict()]
-        else:
-            serialized = [s.dict() for s in secrets]
-        response = self._post("/secrets", json=serialized)
+        response = self._post("/secrets", json=self.safe_json(secrets))
         return self._ws.ensure_ok(response)
 
     def delete(self, name: str) -> bool:

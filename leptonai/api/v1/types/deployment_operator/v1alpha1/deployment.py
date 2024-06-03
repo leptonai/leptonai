@@ -13,9 +13,16 @@ class EnvVar(BaseModel):
     value_from: Optional[EnvValue] = None
 
 
+class MountOptions(BaseModel):
+    local_cache_size_mib: Optional[int] = None
+    read_only: Optional[bool] = None
+
+
 class Mount(BaseModel):
-    path: str
+    path: Optional[str] = None
+    from_: Optional[str] = Field(None, alias="from")
     mount_path: str
+    mount_options: Optional[MountOptions] = None
 
 
 class ContainerPort(BaseModel):

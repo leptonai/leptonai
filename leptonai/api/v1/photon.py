@@ -109,7 +109,7 @@ class PhotonAPI(APIResourse):
         """
         Run a photon with the given deployment spec.
         """
-        response = self._post("/deployments", json=spec.dict(exclude_none=True))
+        response = self._post("/deployments", json=self.safe_json(spec))
         return self._ws.ensure_ok(response)
 
     def list_local(self):
