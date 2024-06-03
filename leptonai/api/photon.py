@@ -131,7 +131,7 @@ def run_remote_with_spec(conn: Connection, deployment_spec: types.Deployment):
     """
     Run a photon on a workspace, with the given deployment spec.
     """
-    response = conn.post("/deployments", json=deployment_spec.dict(exclude_none=True))
+    response = conn.post("/deployments", json=deployment_spec.dict(exclude_none=True, by_alias=True))
     return response
 
 

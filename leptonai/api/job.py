@@ -15,7 +15,7 @@ def create_job(conn: Connection, job: LeptonJob):
     """
     Create a job on a workspace.
     """
-    response = conn.post("/jobs/", json=job.dict(exclude_none=True))
+    response = conn.post("/jobs/", json=job.dict(exclude_none=True, by_alias=True))
     return json_or_error(response)
 
 
