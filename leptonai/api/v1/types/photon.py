@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
-from .deployment_operator.v1alpha1.photon import PhotonDeploymentTemplate, PhotonStatus
+from .deployment_operator_v1alpha1.photon import PhotonDeploymentTemplate, PhotonStatus
 
 
 class Photon(BaseModel):
