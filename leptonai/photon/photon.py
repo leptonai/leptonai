@@ -551,8 +551,8 @@ class Photon(BasePhoton):
                     )
             else:
                 logger.warning(
-                    "Photon was created without {package} version information, and now"
-                    " run with {package} {runtime_version}. If the versions are"
+                    f"Photon was created without {package} version information, and now"
+                    f" run with {package} {runtime_version}. If the versions are"
                     " not compatible, it may cause unexpected behavior, but we cannot"
                     " verify the compatibility."
                 )
