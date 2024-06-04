@@ -1,9 +1,26 @@
 from pydantic import BaseModel
-from typing import TYPE_CHECKING, Dict, Union, List, Any, TypeVar, Type
+from requests import Response
+from typing import TYPE_CHECKING, Dict, Union, List, Any, TypeVar, Type, NoReturn
 
 if TYPE_CHECKING:
     # only used for type hinting, but avoids circular imports
     from .workspace import Workspace
+
+
+class ClientError(RuntimeError):
+    def __init__(self, response: Response):
+        super().__init__(
+            f"Client error during API call: {response.status_code} {response.text}"
+        )
+        self.response = response
+
+
+class ServerError(RuntimeError):
+    def __init__(self, response: Response):
+        super().__init__(
+            f"Server error during API call: {response.status_code} {response.text}"
+        )
+        self.response = response
 
 
 class APIResourse(object):
@@ -70,84 +87,63 @@ class APIResourse(object):
                 "safe_json only accepts BaseModel or List[BaseModel] as input."
             )
 
+    def _raise_if_not_ok(self, response: Response):
+        """
+        Raise a RuntimeError if the response is not ok. Given the
+        """
+        if response.status_code >= 400 and response.status_code < 500:
+            raise ClientError(response)
+        elif response.status_code >= 500:
+            raise ServerError(response)
+        return response
+
+    def _print_programming_error(self, response: Response, e: Exception) -> NoReturn:
+        """
+        Print a programming error message. This should not happen in production.
+        """
+        raise RuntimeError(
+            "You encountered a programming error. Please report this, and include"
+            " the following debug info:\n*** begin of debug info ***\nresponse"
+            " returned 200 OK, but the content cannot be decoded as"
+            f" json.\nresponse.text: {response.text}\n\nexception"
+            f" details:\n{e}\n*** end of debug info ***"
+        )
+
     T = TypeVar("T", bound=BaseModel)
 
     def ensure_type(self, response, EnsuredType: Type[T]) -> T:
         """
         Utility function to ensure that the response is of the given type.
         """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
+        self._raise_if_not_ok(response)
         try:
             return EnsuredType(**response.json())
         except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
+            self._print_programming_error(response, e)
 
     def ensure_list(self, response, EnsuredType: Type[T]) -> List[T]:
         """
         Utility function to ensure that the response is a list of the given type.
         """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
+        self._raise_if_not_ok(response)
         try:
             return [EnsuredType(**item) for item in response.json()]
         except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
+            self._print_programming_error(response, e)
 
     def ensure_ok(self, response) -> bool:
         """
         Utility function to ensure that the response is ok.
         """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
+        self._raise_if_not_ok(response)
         return True
 
-    def ensure_json(self, response) -> Union[Dict, List, str]:
+    def ensure_json(self, response: Response) -> Any:
         """
         Utility function to ensure that the output is a json object (including dict, list, etc.)
         """
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
+        self._raise_if_not_ok(response)
         try:
             return response.json()
         except Exception as e:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            raise RuntimeError(
-                "You encountered a programming error. Please report this, and include"
-                " the following debug info:\n*** begin of debug info ***\nresponse"
-                " returned 200 OK, but the content cannot be decoded as"
-                f" json.\nresponse.text: {response.text}\n\nexception"
-                f" details:\n{e}\n*** end of debug info ***"
-            )
+            self._print_programming_error(response, e)

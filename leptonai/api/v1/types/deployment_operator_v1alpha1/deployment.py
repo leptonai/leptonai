@@ -1,9 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from typing import Optional, List
-import warnings
-
-from leptonai.config import VALID_SHAPES
 
 from .affinity import LeptonResourceAffinity
 
@@ -95,19 +92,21 @@ class ResourceRequirement(BaseModel):
         if v is None:
             return v
         v = v.lower()
-        if v not in VALID_SHAPES:
-            # We will check if the user passed in a valid shape, and if not, we will
-            # print a warning.
-            # However, we do not want to directly go to an error, because there might
-            # be cases when the CLI and the cloud service is out of sync. For example
-            # if the user environment has an older version of the CLI while the cloud
-            # service has been updated to support more shapes, we want to allow the
-            # user to use the new shapes. One can simply ignore the warning and proceed.
-            warnings.warn(
-                "It seems that you passed in a non-standard resource shape"
-                f" {v}. Valid shapes supported by the CLI are:\n"
-                f" {', '.join(VALID_SHAPES)}"
-            )
+        # due to the following message being a bit too noisy, we will comment it out
+        # for now till a later time when the resource shapes are more constrained.
+        # if v not in VALID_SHAPES:
+        #     # We will check if the user passed in a valid shape, and if not, we will
+        #     # print a warning.
+        #     # However, we do not want to directly go to an error, because there might
+        #     # be cases when the CLI and the cloud service is out of sync. For example
+        #     # if the user environment has an older version of the CLI while the cloud
+        #     # service has been updated to support more shapes, we want to allow the
+        #     # user to use the new shapes. One can simply ignore the warning and proceed.
+        #     warnings.warn(
+        #         "It seems that you passed in a non-standard resource shape"
+        #         f" {v}. Valid shapes supported by the CLI are:\n"
+        #         f" {', '.join(VALID_SHAPES)}"
+        #     )
         return v
 
     @field_validator("min_replicas")
@@ -147,13 +146,13 @@ class ScaleDown(BaseModel):
 
     @field_validator("no_traffic_timeout")
     def validate_no_traffic_timeout(cls, v):
-        if v is not None and v <= 0:
+        if v is not None and v < 0:
             raise ValueError(f"no_traffic_timeout must be non-negative. Found {v}.")
         return v
 
     @field_validator("not_ready_timeout")
     def validate_not_ready_timeout(cls, v):
-        if v is not None and v <= 0:
+        if v is not None and v < 0:
             raise ValueError(f"not_ready_timeout must be non-negative. Found {v}.")
         return v
 

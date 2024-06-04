@@ -12,6 +12,7 @@ class LeptonIngressStatus(BaseModel):
     """
     The status of a Lepton Ingress.
     """
+
     # Inlined v1alpha1.LeptonIngressStatus
     validation_status: Optional[CustomDomainValidationStatus] = None
     message: Optional[str] = None

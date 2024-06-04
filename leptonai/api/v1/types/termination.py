@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 from typing import Dict, List
 
 
@@ -10,5 +10,5 @@ class ReplicaTermination(BaseModel):
     message: str
 
 
-class DeploymentTerminations(BaseModel):
-    __root__: Dict[str, List[ReplicaTermination]]
+class DeploymentTerminations(RootModel[Dict[str, List[ReplicaTermination]]]):
+    root: Dict[str, List[ReplicaTermination]] = {}

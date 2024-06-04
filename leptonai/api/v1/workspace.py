@@ -21,10 +21,13 @@ from .types.workspace import WorkspaceInfo
 # import the related API resources. Note that in all these files, they should
 # not import workspace to avoid circular imports.
 from .common import APIResourse
+from .dedicated_node_groups import DedicatedNodeGroupAPI
 from .photon import PhotonAPI
 from .deployment import DeploymentAPI
 from .job import JobAPI
 from .secret import SecretAPI
+from .kv import KVAPI
+from .queue import QueueAPI
 
 from .workspace_record import WorkspaceRecord
 
@@ -106,10 +109,13 @@ class Workspace(object):
                 )
 
         # Add individual APIs
+        self.nodegroup = DedicatedNodeGroupAPI(self)
         self.photon = PhotonAPI(self)
         self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
         self.secret = SecretAPI(self)
+        self.kv = KVAPI(self)
+        self.queue = QueueAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         if "timeout" not in kwargs:
