@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, Union, List, Any, TypeVar, Type, NoRetur
 
 if TYPE_CHECKING:
     # only used for type hinting, but avoids circular imports
-    from .workspace import Workspace
+    from .client import Client
 
 
 class ClientError(RuntimeError):
@@ -40,22 +40,22 @@ class APIResourse(object):
     See for example leptonai/api/v1/deployment.py for an example.
     """
 
-    _ws: "Workspace"
+    _client: "Client"
 
-    def __init__(self, ws: "Workspace"):
+    def __init__(self, _client: "Client"):
         """
         Initializes the APIResource with the Workspace object. You should not
         need to explicitly call this method. All APIResource classes should
         be initialized by the Workspace object in the Workspace class's __init__
         function.
         """
-        self._ws = ws
-        self._get = ws._get
-        self._post = ws._post
-        self._put = ws._put
-        self._patch = ws._patch
-        self._delete = ws._delete
-        self._head = ws._head
+        self._client = _client
+        self._get = _client._get
+        self._post = _client._post
+        self._put = _client._put
+        self._patch = _client._patch
+        self._delete = _client._delete
+        self._head = _client._head
 
     # A type variable to represent a subclass of BaseModel
     T = TypeVar("T", bound=BaseModel)

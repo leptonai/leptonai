@@ -1,11 +1,7 @@
 """
-The api/v1/workspace module implements two functionalities:
-- a WorkspaceRecord class that manages the local workspace information, so that
-  the user does not have to call the API to get the workspace information every
-  time. This class is also used by the CLI to read and write workspace info.
-- a Workspace class that serves as the single entry point of all apis, holding
-  information such as the url auth token, as well as caching runtime information
-  such as connections. Workspace also holds ehtry points for all the apis.
+The api/v1/client module serves as the single entry point of all apis, holding
+information such as the url auth token, as well as caching runtime objects
+such as http sessions.
 """
 
 import os
@@ -32,10 +28,15 @@ from .queue import QueueAPI
 from .workspace_record import WorkspaceRecord
 
 
-class Workspace(object):
+class APIClient(object):
+    """
+    A Lepton API client that is associated with a workspace. This class holds all
+    the apis callable by the user.
+    """
+
     def __init__(
         self,
-        workspace_id: Optional[str],
+        workspace_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
     ):
@@ -54,42 +55,59 @@ class Workspace(object):
         This function is intended to be used inside lepton deployments to log in to the
         workspace programmatically.
         """
-        # First, update the workspace_id, auth_token, and url if they are None and
-        # there are environment variables.
-        if workspace_id is None:
-            if "LEPTON_WORKSPACE_ID" in os.environ:
-                workspace_id = os.environ["LEPTON_WORKSPACE_ID"]
-            else:
-                raise RuntimeError(
-                    "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
-                    " environment. If you do not know your workspace id, go to"
-                    " https://dashboard.lepton.ai/credentials and login with the"
-                    " credential string."
-                )
-        auth_token = (
-            auth_token if auth_token else os.environ.get("LEPTON_WORKSPACE_TOKEN")
+        # We will resolve workspace id in the following order:
+        #  - user specified one
+        #  - environment variable LEPTON_WORKSPACE_ID
+        #  - current workspace of the workspace record
+        # and if there is still no choice, we will throw an error.
+        workspace_id = (
+            workspace_id
+            or os.environ.get("LEPTON_WORKSPACE_ID")
+            or (WorkspaceRecord.current().id_ if WorkspaceRecord.current() else None)
         )
-        # If workspace_id contains colon, it is a credential that also contains the token.
-        if workspace_id and ":" in workspace_id:
-            workspace_id, auth_token = workspace_id.split(":", 1)
-        url = url if url else os.environ.get("LEPTON_WORKSPACE_URL")
-        if url is None:
-            url = _get_full_workspace_api_url(workspace_id)
-        self.workspace_id: str = workspace_id
-        self.auth_token: Optional[str] = auth_token
-        self.url: str = url
-        if not self.workspace_id:
+        if workspace_id is None:
             raise RuntimeError(
                 "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
-                " environment. If you do not know your workspace id, go to"
+                " environment, or use commandline `lep login` to log in to a "
+                " workspace. If you do not know your workspace credentials, go to"
                 " https://dashboard.lepton.ai/credentials and login with the"
                 " credential string."
             )
-        # Creates a connection for us to use
-
-        self._header = (
-            {"Authorization": "Bearer " + self.auth_token} if self.auth_token else {}
+        # If workspace_id contains colon, it is a credential that also contains the token.
+        if ":" in workspace_id:
+            workspace_id, auth_token = workspace_id.split(":", 1)
+        # We will then resolve the auth token in the following order:
+        # - user specified one
+        # - environment variable LEPTON_WORKSPACE_TOKEN
+        # - auth token of the workspace record
+        auth_token = (
+            auth_token
+            or os.environ.get("LEPTON_WORKSPACE_TOKEN")
+            or (
+                WorkspaceRecord.get(workspace_id).auth_token  # type: ignore
+                if WorkspaceRecord.has(workspace_id)
+                else None
+            )
         )
+        # We will then resolve the url in a similar order.
+        url = (
+            url
+            or os.environ.get("LEPTON_WORKSPACE_URL")
+            or (
+                WorkspaceRecord.get(workspace_id).url  # type: ignore
+                if WorkspaceRecord.has(workspace_id)
+                else None
+            )
+            or _get_full_workspace_api_url(workspace_id)
+        )
+        self.workspace_id: str = workspace_id
+        self.auth_token: Optional[str] = auth_token
+        self.url: str = url
+
+        # Creates a connection for us to use.
+        self._header = {}
+        if self.auth_token:
+            self._header["Authorization"] = "Bearer " + self.auth_token
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
         self._session = requests.Session()
@@ -118,14 +136,14 @@ class Workspace(object):
         self.queue = QueueAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
-        if "timeout" not in kwargs:
-            kwargs["timeout"] = self._timeout
-        if "headers" not in kwargs:
-            kwargs["headers"] = self._header
-        else:
-            if "Authorization" in kwargs["headers"]:
-                warnings.warn("Overriding Authorization header.")
-            kwargs["headers"].update(self._header)
+        """
+        Internal utility function to add default values to the kwargs.
+        """
+        kwargs.setdefault("headers", self._header)
+        kwargs.setdefault("timeout", self._timeout)
+        # if kwargs does have headers, but does not have Authorization, we will add it.
+        for k, v in self._header.items():
+            kwargs["headers"].setdefault(k, v)
         return kwargs
 
     def _get(self, path: str, *args, **kwargs):
@@ -176,26 +194,3 @@ class Workspace(object):
         Returns the current workspace token.
         """
         return self.auth_token
-
-
-def current() -> Workspace:
-    """
-    Returns the current workspace.
-    """
-    return WorkspaceRecord.current()
-
-
-def login(
-    workspace_id: Optional[str] = None,
-    auth_token: Optional[str] = None,
-    url: Optional[str] = None,
-) -> None:
-    """
-    Logs in to a workspace and saves the workspace information.
-    """
-    if workspace_id is None:
-        if WorkspaceRecord._current_workspace_id is None:
-            warnings.warn("You have not set the current workspace yet.", RuntimeWarning)
-    else:
-        ws = Workspace(workspace_id, auth_token, url)
-        WorkspaceRecord.set_and_save(ws.workspace_id, ws.auth_token, ws.url)

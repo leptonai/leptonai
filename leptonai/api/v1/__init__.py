@@ -4,4 +4,4 @@ Lepton API v1 is a cleaned up version of the API that interacts with the platfor
 """
 
 from . import types
-from . import workspace
+from . import client
