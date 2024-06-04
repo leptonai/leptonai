@@ -71,6 +71,10 @@ class WorkspaceRecord(object):
         cls._save_to_file()
 
     @classmethod
+    def count(cls):
+        return len(cls._singleton_dict["workspaces"])
+
+    @classmethod
     def has(cls, workspace_id: str):
         return workspace_id in cls._singleton_dict["workspaces"]
 

@@ -11,7 +11,7 @@ from leptonai.photon.base import (
     find_all_local_photons,
 )
 
-from .common import APIResourse
+from .api_resource import APIResourse
 from .types.photon import Photon as Photon
 from .types.deployment import LeptonDeployment
 

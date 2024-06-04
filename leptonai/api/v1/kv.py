@@ -1,6 +1,6 @@
 from typing import Optional, Union, List
 
-from .common import APIResourse
+from .api_resource import APIResourse
 from .types.kv import ListKeysResponse, KV
 
 

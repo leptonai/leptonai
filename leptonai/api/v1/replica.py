@@ -1,2 +1,3 @@
-# replica should probably be implemented inside deployment and job.
-# todo
+# To view replica data, use Workspace.deployment
+
+raise RuntimeError("You do not need to use this module. Use Workspace.deployment.")

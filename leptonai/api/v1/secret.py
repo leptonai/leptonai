@@ -1,6 +1,6 @@
 from typing import Union, List
 
-from .common import APIResourse
+from .api_resource import APIResourse
 
 from .types.common import SecretItem
 

@@ -1,6 +1,6 @@
 from typing import Union, List, Iterator, Optional
 
-from .common import APIResourse
+from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations

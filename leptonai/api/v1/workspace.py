@@ -20,7 +20,7 @@ from .types.workspace import WorkspaceInfo
 
 # import the related API resources. Note that in all these files, they should
 # not import workspace to avoid circular imports.
-from .common import APIResourse
+from .api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
 from .photon import PhotonAPI
 from .deployment import DeploymentAPI

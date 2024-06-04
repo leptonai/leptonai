@@ -1,7 +1,7 @@
 # todo
 from typing import List, Union
 
-from .common import APIResourse
+from .api_resource import APIResourse
 
 from .types.dedicated_node_group import DedicatedNodeGroup, Node
 
