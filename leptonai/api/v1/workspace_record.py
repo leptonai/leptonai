@@ -6,7 +6,7 @@ time. This class is also used by the CLI to read and write workspace info.
 
 from pydantic import BaseModel, Field
 from threading import Lock
-from typing import Any, Optional, Union, Dict, TYPE_CHECKING
+from typing import Optional, Union, Dict, TYPE_CHECKING
 import yaml
 
 from leptonai.config import CACHE_DIR
