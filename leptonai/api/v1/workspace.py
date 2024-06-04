@@ -9,10 +9,9 @@ The api/v1/workspace module implements two functionalities:
 """
 
 import os
-from pydantic import BaseModel
 import re
 import requests
-from typing import Optional, Union, Dict, Tuple, Type, TypeVar, List
+from typing import Optional, Union, Dict, Tuple
 import warnings
 
 from leptonai.api.util import _get_full_workspace_api_url

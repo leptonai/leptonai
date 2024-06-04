@@ -16,8 +16,6 @@ from leptonai.api import job as api
 from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.api import nodegroup as nodegroup_api
 from leptonai.api.types import (
-    EnvVar,
-    Mount,
     LeptonResourceAffinity,
     LeptonJobUserSpec,
     ContainerPort,
