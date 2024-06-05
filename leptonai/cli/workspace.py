@@ -8,7 +8,7 @@ from rich.table import Table
 
 from leptonai.config import WORKSPACE_API_PATH
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from .util import click_group, get_connection_or_die, check, guard_api, sizeof_fmt
+from .util import click_group, check, sizeof_fmt
 
 console = Console(highlight=False)
 
