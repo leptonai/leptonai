@@ -94,6 +94,33 @@ def get_log(conn: Connection, name: str, replica: str):
         return APIError(response)
 
 
+def make_token_vars_from_config(
+    is_public: Optional[bool], tokens: Optional[List[str]]
+) -> Optional[List[types.TokenVar]]:
+    # Note that None is different from [] here. None means that the tokens are not
+    # changed, while [] means that the tokens are cleared (aka, public deployment)
+    if is_public is None and tokens is None:
+        return None
+    elif is_public and tokens:
+        raise ValueError(
+            "For access control, you cannot specify both is_public and token at the"
+            " same time. Please specify either is_public=True with no tokens passed"
+            " in, or is_public=False and tokens as a list."
+        )
+    else:
+        if is_public:
+            return []
+        else:
+            final_tokens = [
+                types.TokenVar(
+                    value_from=types.TokenValue(token_name_ref="WORKSPACE_TOKEN")
+                )
+            ]
+            if tokens:
+                final_tokens.extend([types.TokenVar(value=token) for token in tokens])
+            return final_tokens
+
+
 def update_deployment(
     conn: Connection,
     name: str,
@@ -118,11 +145,17 @@ def update_deployment(
             resource_shape=resource_shape,
             min_replicas=min_replicas,
         ),
-        api_tokens=types.TokenVar.make_token_vars_from_config(
+        api_tokens=make_token_vars_from_config(
             is_public=is_public,
             tokens=tokens,
         ),
-        auto_scaler=types.AutoScaler.make_auto_scaler(no_traffic_timeout),
+        auto_scaler=(
+            None
+            if no_traffic_timeout is None
+            else types.AutoScaler(
+                scale_down=types.ScaleDown(no_traffic_timeout=no_traffic_timeout)
+            )
+        ),
     )
     deployment_spec = types.Deployment(
         metadata=types.Metadata(name=name),

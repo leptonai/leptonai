@@ -240,7 +240,7 @@ def upload(local_path, remote_path, rsync, recursive, progress):
             detail=True,
             msg="Cannot obtain info for [red]rsync service[/]. See error above.",
         )
-        port = dep_info["container"]["ports"][0]["host_port"]
+        port = dep_info["spec"]["container"]["ports"][0]["host_port"]
         ip = get_only_replica_public_ip_or_die(conn, name)
 
         workspace = WorkspaceInfoLocalRecord.get_current_workspace_id()

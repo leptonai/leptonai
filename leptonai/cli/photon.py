@@ -19,6 +19,7 @@ from loguru import logger
 from leptonai.api.connection import Connection
 from leptonai.api import photon as api
 from leptonai.api import types
+from leptonai.api.photon import make_env_vars_from_strings
 from leptonai.api.deployment import list_deployment, remove_deployment
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.api.secret import create_secret, list_secret
@@ -768,7 +769,7 @@ def run(
 
         # envs: parse and set environment variables
         if env:
-            env_parsed = types.EnvVar.make_env_vars_from_strings(env, [])
+            env_parsed = make_env_vars_from_strings(env, [])
             for e in env_parsed if env_parsed else []:
                 os.environ[e.name] = e.value if e.value else ""
         if secret:

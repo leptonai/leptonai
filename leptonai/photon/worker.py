@@ -13,7 +13,7 @@ import anyio
 from loguru import logger
 
 from .photon import Photon, HTTPException
-from leptonai.api import workspace as ws_api
+from leptonai.api.v1.workspace_record import WorkspaceRecord
 from leptonai.queue import Queue, Empty
 from leptonai.kv import KV
 from leptonai.util import asyncfy_with_semaphore
@@ -71,7 +71,9 @@ class Worker(Photon):
         """
         super().init()
         # Logs in to the workspace if not logged in yet.
-        ws_api.login()
+        if not WorkspaceRecord.current():
+            # Try to log in with the environmental variables.
+            WorkspaceRecord.login_with_env()
         # Starts the loop.
         if not self._loop_started:
             self._loop_started = True
