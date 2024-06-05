@@ -131,7 +131,7 @@ def login(credentials):
                 "It seems that you are running in a non-GUI environment. You can"
                 " manually obtain credentials from"
                 " [green]https://dashboard.lepton.ai/credentials[/] and copy it"
-                " over, or use `lep login -c \[credentials]` to log in."  # noqa: W605
+                r" over, or use `lep login -c \[credentials]` to log in."  # noqa: W605
             )
         while not credentials:
             credentials = input("Credential: ")
