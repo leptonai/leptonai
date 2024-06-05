@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, Union, List, Any, TypeVar, Type, NoRetur
 
 if TYPE_CHECKING:
     # only used for type hinting, but avoids circular imports
-    from .client import Client
+    from .client import APIClient
 
 
 class ClientError(RuntimeError):
@@ -40,9 +40,9 @@ class APIResourse(object):
     See for example leptonai/api/v1/deployment.py for an example.
     """
 
-    _client: "Client"
+    _client: "APIClient"
 
-    def __init__(self, _client: "Client"):
+    def __init__(self, _client: "APIClient"):
         """
         Initializes the APIResource with the Workspace object. You should not
         need to explicitly call this method. All APIResource classes should
