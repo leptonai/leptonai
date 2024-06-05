@@ -11,6 +11,7 @@
 # - If you want the script to pause when an error happens, set PAUSE to true.
 ################################################################################
 PAUSE=false
+CURL="curl --max-time 10"
 
 ################################################################################
 # Utility functions
@@ -109,7 +110,7 @@ sleep 5
 echo
 
 echo "## Testing calling the local photon..."
-if curl -f -s -X "POST" "http://localhost:$PORT/run" -d '{"query": "echo yes"}' -H 'Content-Type: application/json' | grep "yes" > /dev/null; then
+if ${CURL} -f -s -X "POST" "http://localhost:$PORT/run" -d '{"query": "echo yes"}' -H 'Content-Type: application/json' | grep "yes" > /dev/null; then
     echo "Done"
 else
     echo "Local photon failed. This should not happen."
@@ -244,7 +245,7 @@ fi
 echo
 
 echo "## Testing calling the deployment..."
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}' \
@@ -315,7 +316,7 @@ sleep 15
 echo
 
 echo "## Testing if the deployment contains the correct env variables and secrets..."
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
@@ -328,7 +329,7 @@ else
     echo "Did not contain expected env var. Reproduce with: $command"
     if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
@@ -340,7 +341,7 @@ else
     echo "Did not contain expected secret. Reproduce with: $command"
     if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-env' \
@@ -505,7 +506,7 @@ echo "Done"
 echo
 
 echo "## Testing if the deployment contains the correct storage..."
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
@@ -520,7 +521,7 @@ else
 fi
 echo "Checking file..."
 sleep 15 # wait for consistency
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
@@ -533,7 +534,7 @@ else
     if ${PAUSE}; then read -n 1 -s -r -p "Press any key to continue..."; fi; TOTAL_ERRORS=$((TOTAL_ERRORS+1))
 fi
 
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}-with-storage' \
@@ -566,7 +567,7 @@ echo "# Metrics"
 echo "################################################################################"
 
 echo "## Calling the deployment for 2 minutes to generate metrics..."
-command="curl -f -s -X 'POST' ${LEPTON_WS_URL}/run \
+command="${CURL} -f -s -X 'POST' ${LEPTON_WS_URL}/run \
               -H 'Content-Type: application/json' \
               -H 'accept: application/json' \
               -H 'X-Lepton-Deployment: ${COMMON_NAME}' \
@@ -576,6 +577,8 @@ END_TIME=$((SECONDS+120))
 CALL_COUNT=0
 while [ $SECONDS -lt $END_TIME ]; do
     eval "$command" > /dev/null
+    # print a dot for each call but not newline
+    echo -n "."
     CALL_COUNT=$((CALL_COUNT+1))
 done
 echo "2 mins calling done. Total calls: $CALL_COUNT"
