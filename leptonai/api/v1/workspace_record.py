@@ -4,9 +4,10 @@ the user does not have to call the API to get the workspace information every
 time. This class is also used by the CLI to read and write workspace info.
 """
 
+import os
 from pydantic import BaseModel, Field
 from threading import Lock
-from typing import Optional, Union, Dict, TYPE_CHECKING
+from typing import Optional, Union, Dict, TYPE_CHECKING, List
 import yaml
 
 from leptonai.config import CACHE_DIR
@@ -75,6 +76,21 @@ class WorkspaceRecord(object):
                 yaml.safe_dump(cls._singleton_record.dict(by_alias=True), f)
 
     @classmethod
+    def login_with_env(cls):
+        """
+        Logs in to the workspace using the environmental variables.
+        """
+        workspace_id = os.environ.get("LEPTON_WORKSPACE_ID")
+        auth_token = os.environ.get("LEPTON_WORKSPACE_TOKEN")
+        if workspace_id:
+            cls.set(workspace_id, auth_token)
+        else:
+            raise RuntimeError(
+                "LEPTON_WORKSPACE_ID environment variable is not set. Please set it to"
+                " the workspace id you want to log in to."
+            )
+
+    @classmethod
     def set(
         cls,
         workspace_id: str,
@@ -97,8 +113,8 @@ class WorkspaceRecord(object):
         cls._save_to_file()
 
     @classmethod
-    def count(cls):
-        return len(cls._singleton_record.workspaces)
+    def workspaces(cls) -> List[LocalWorkspaceInfo]:
+        return list(cls._singleton_record.workspaces.values())
 
     @classmethod
     def has(cls, workspace_id: str):
@@ -140,6 +156,18 @@ class WorkspaceRecord(object):
             raise ValueError(
                 f"Workspace {workspace_id} does not exist in the local record."
             )
+
+    @classmethod
+    def logout(cls, purge: bool = False):
+        """
+        Logs out of the current workspace.
+        """
+        if cls._singleton_record.current_workspace:
+            if purge:
+                cls.remove(cls._singleton_record.current_workspace)
+            else:
+                cls._singleton_record.current_workspace = None
+        cls._save_to_file()
 
     @classmethod
     def remove(cls, workspace_id: str):
