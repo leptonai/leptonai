@@ -52,10 +52,16 @@ jobs:
 
   test-package:
     needs: build-package
-    runs-on: self-hosted
     strategy:
       matrix:
-        python_version: ["3.8", "3.10", "3.12"]
+        include:
+          - runner: self-hosted
+            python_version: "3.8"
+          - runner: self-hosted
+            python_version: "3.10"
+          - runner: macos-latest
+            python_version: "3.12"
+    runs-on: ${{matrix.runner}}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python Environment
