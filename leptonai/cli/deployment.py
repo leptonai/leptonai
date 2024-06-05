@@ -396,7 +396,7 @@ def update(
             detail=True,
             msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
         )
-        current_photon_id = dep_info["photon_id"]
+        current_photon_id = dep_info["spec"]["photon_id"]
         photons = guard_api(
             photon_api.list_remote(conn),
             detail=True,
@@ -428,7 +428,7 @@ def update(
             detail=True,
             msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
         )
-        public_photon = dep_info.get("photon_namespace", "private") == "public"
+        public_photon = dep_info["spec"].get("photon_namespace", "private") == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
