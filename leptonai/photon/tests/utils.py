@@ -111,3 +111,13 @@ def async_test(f):
         return asyncio.run(asyncfy(f)(*args, **kwargs))
 
     return wrapped
+
+
+def skip_if_macos(f):
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        if os.uname().sysname == "Darwin":
+            return
+        return f(*args, **kwargs)
+
+    return wrapped
