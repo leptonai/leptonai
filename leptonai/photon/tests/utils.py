@@ -1,6 +1,8 @@
 import asyncio
 import atexit
+import copy
 import functools
+import os
 import random
 import requests
 import subprocess
@@ -18,7 +20,7 @@ def random_name():
     return "".join(random.choice(string.ascii_lowercase) for _ in range(5))
 
 
-def photon_run_local_server(name=None, path=None, model=None, port=None):
+def photon_run_local_server(name=None, path=None, model=None, port=None, env=None):
     if name is None and path is None:
         raise ValueError("Either name or path must be specified")
     if name is not None and path is not None:
@@ -41,10 +43,14 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
     if model is not None:
         cmd += ["-m", model]
 
+    if env is not None:
+        env = {**copy.deepcopy(os.environ), **env}
+
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        env=env,
     )
     atexit.register(proc.kill)
 
@@ -75,10 +81,10 @@ def photon_run_local_server(name=None, path=None, model=None, port=None):
             return proc, port
 
 
-def photon_run_local_server_simple(photon_class: Type[Photon]):
+def photon_run_local_server_simple(photon_class: Type[Photon], env=None):
     ph = photon_class(name=random_name())
     path = ph.save()
-    proc, port = photon_run_local_server(path=path)
+    proc, port = photon_run_local_server(path=path, env=env)
     return proc, port
 
 
