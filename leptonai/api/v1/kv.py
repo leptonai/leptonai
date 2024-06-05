@@ -19,7 +19,7 @@ class KVAPI(APIResourse):
 
     def get_namespace(self, name_or_ns: Union[str, KV]) -> KV:
         """
-        Get the value of a key in the KV.
+        Get a KV in the current workspace.
         """
         response = self._get(f"/kv/namespaces/{self._to_name(name_or_ns)}")
         return self.ensure_type(response, KV)

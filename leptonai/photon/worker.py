@@ -14,8 +14,6 @@ from loguru import logger
 
 from .photon import Photon, HTTPException
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.queue import Queue, Empty
-from leptonai.kv import KV
 from leptonai.util import asyncfy_with_semaphore
 
 
@@ -69,6 +67,10 @@ class Worker(Photon):
         If your class does not implement the init function, the Worker's init function
         will be called automatically.
         """
+        # to avoid circular import
+        from leptonai.kv import KV
+        from leptonai.queue import Queue
+
         super().init()
         # Logs in to the workspace if not logged in yet.
         if not WorkspaceRecord.current():
@@ -113,6 +115,8 @@ class Worker(Photon):
 
     def _worker_loop(self):
         """Keep polling the queue for new tasks, and dispatch them to `on_task` (through `_on_task`)"""
+        from leptonai.queue import Empty
+
         loop = asyncio.new_event_loop()
         # TODO: Is this the right way to start the loop?
         threading.Thread(target=loop.run_forever, daemon=True).start()

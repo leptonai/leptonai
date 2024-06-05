@@ -5,21 +5,15 @@ For example, you can use the KV API and the Queue API to build a distributed tas
 """
 
 import asyncio
-from pydantic import BaseModel
-from requests import Response
 import time
 from typing import List, Optional, Union
 
 from loguru import logger
 
-from leptonai.api import kv as kv_api
-from leptonai.api.connection import Connection
-from leptonai.api import workspace as workspace_api
+from leptonai.api.v1.client import APIClient
+from leptonai.api.v1.kv import ListKeysResponse
 
 
-# Key to test the readiness of the KV.
-_lepton_readiness_test_key_ = "_lepton_readiness_test_key_"
-_lepton_readiness_test_value_ = "_lepton_readiness_test_value_"
 # If not ready, wait for this amount of seconds before checking again.
 _lepton_readiness_wait_time_ = 10
 # Timeout limit.
@@ -28,37 +22,6 @@ _lepton_readiness_timeout_ = 60 * 5  # 5 minutes
 # max key and value lengths: 256 bytes for key, and 256KB for value.
 _lepton_max_key_length_ = 256
 _lepton_max_value_length_ = 256 * 1024
-
-_kv_name_resolution_message = """
-You have encountered a name resolution error when accessing the KV. This is likely
-because you are using a relatively new KV, and as our KV backend uses DNS to resolve
-the KV service address, it may take some time for the DNS to be updated and propagated
-to the DNS server you are using. Please try again in a few minutes. This is not
-a bug of our system, but due to the nature of the distributed DNS resolution system.
-"""
-
-
-def _maybe_dns_message(res: Response) -> str:
-    if res.status_code == 500 and "no such host" in res.json()["message"]:
-        return _kv_name_resolution_message
-    else:
-        return ""
-
-
-class PartialKeyList(BaseModel):
-    """
-    A partial list of keys in a KV, also including the cursor for the next page.
-    """
-
-    keys: List[str]
-    cursor: Optional[int] = None
-
-
-def _is_a_kv_not_ready_response(response: Response) -> bool:
-    """
-    Returns if the response is equivalent to a KV not ready response.
-    """
-    return response.status_code == 500 and "no such host" in response.json()["message"]
 
 
 class KV(object):
@@ -90,59 +53,48 @@ class KV(object):
     """
 
     @staticmethod
-    def list_kv(conn: Optional[Connection] = None) -> List[str]:
+    def list_kv() -> List[str]:
         """
         List KVs in the current workspace.
         """
-        conn = conn if conn else workspace_api.current_connection()
-        res = kv_api.list_kv(conn)
-        if not res.ok:
-            raise RuntimeError(
-                "Failed to list KVs in the current workspace. Error:"
-                f" {res.status_code} {res.content}."
-            )
-        logger.info(f"List of KVs: {res.json()}")
-        return [s["metadata"]["name"] for s in res.json()]
+        client = APIClient()
+        kvs = client.kv.list_namespaces()
+        logger.info(f"List of KVs: {kvs}")
+        return [kv.metadata.name for kv in kvs]  # type: ignore
 
     @staticmethod
     def create_kv(
-        name: str, wait_for_creation: bool = True, conn: Optional[Connection] = None
+        name: str,
+        wait_for_creation: bool = True,
     ) -> "KV":
         """
         Create a KV.
         """
-        conn = conn if conn else workspace_api.current_connection()
         kv_instance = KV(
             name,
             create_if_not_exists=True,
             error_if_exists=True,
             wait_for_creation=wait_for_creation,
-            conn=conn,
         )
         return kv_instance
 
     @staticmethod
-    def get_kv(name: str, conn: Optional[Connection] = None) -> "KV":
+    def get_kv(name: str) -> "KV":
         """
         Get an existing KV.
         """
-        conn = conn if conn else workspace_api.current_connection()
-        kv_instance = KV(name, create_if_not_exists=False, conn=conn)
+        kv_instance = KV(name, create_if_not_exists=False)
         return kv_instance
 
     @staticmethod
-    def delete_kv(name: Union["KV", str], conn: Optional[Connection] = None):
+    def delete_kv(name: Union["KV", str]):
         """
         Delete a KV.
         """
-        conn = conn if conn else workspace_api.current_connection()
         if isinstance(name, KV):
             name = name._kv
-        res = kv_api.delete_kv(conn, name)
-        if not res.ok:
-            raise RuntimeError(
-                f"Failed to delete KV {name}. Error: {res.status_code} {res.content}."
-            )
+        client = APIClient()
+        client.kv.delete_namespace(name)
 
     def __init__(
         self,
@@ -150,7 +102,7 @@ class KV(object):
         create_if_not_exists: bool = False,
         error_if_exists: bool = False,
         wait_for_creation: bool = True,
-        conn: Optional[Connection] = None,
+        api_client: Optional[APIClient] = None,
     ):
         """
         Initializes a KV.
@@ -161,14 +113,9 @@ class KV(object):
         :param bool wait_for_creation: if True, wait for the KV to be ready
         :param Connection conn: the connection to use. If None, use the default workspace connection.
         """
-        self._conn = conn if conn else workspace_api.current_connection()
-        res = kv_api.list_kv(self._conn)
-        if not res.ok:
-            raise RuntimeError(
-                f"Failed to access KV server. Error: {res.status_code} {res.content}."
-            )
-        exitsting_kvs = [s["metadata"]["name"] for s in res.json()]
-        if name in exitsting_kvs:
+        self._api_client = api_client or APIClient()
+        kvs = self._api_client.kv.list_namespaces()
+        if any(kv.metadata.name == name for kv in kvs):
             if error_if_exists:
                 raise ValueError(
                     f"KV {name} already exists, and you have specified"
@@ -178,14 +125,8 @@ class KV(object):
                 self._kv = name
         else:
             if create_if_not_exists:
-                res = kv_api.create_kv(self._conn, name)
-                if not res.ok:
-                    raise RuntimeError(
-                        f"Failed to create KV {name}. Error:"
-                        f" {res.status_code} {res.content}."
-                    )
-                else:
-                    self._kv = name
+                self._api_client.kv.create_namespace(name)
+                self._kv = name
                 if wait_for_creation:
                     start = time.time()
                     # It seems to be always good to first sleep for a while for the
@@ -211,32 +152,11 @@ class KV(object):
         """
         Returns if the KV is ready to use.
         """
-        # delete the key if it exists. We'll ignore any error as the delete call does not have side effects.
         try:
-            self.delete(_lepton_readiness_test_key_)
-        except Exception:
-            pass
-        ret = kv_api.put_key(
-            self._conn,
-            self._kv,
-            _lepton_readiness_test_key_,
-            _lepton_readiness_test_value_,
-        )
-        logger.trace(f"Readiness probe: {ret.status_code} {ret.content}")
-        if ret.ok:
-            try:
-                self.delete(_lepton_readiness_test_key_)
-            except Exception:
-                pass
+            _ = self._api_client.kv.get_namespace(self._kv)
             return True
-        elif ret.status_code == 500 and "no such host" in ret.json()["message"]:
-            logger.trace(f"KV not ready: {ret.status_code} {ret.content}")
+        except Exception:
             return False
-        else:
-            raise RuntimeError(
-                "Failed to test the readiness of the KV. Error:"
-                " {ret.status_code} {ret.content}."
-            )
 
     async def async_wait(self):
         """
@@ -256,34 +176,17 @@ class KV(object):
         cursor: Optional[int] = 0,
         limit: Optional[int] = 0,
         prefix: Optional[str] = None,
-    ) -> PartialKeyList:
+    ) -> ListKeysResponse:
         """
         List keys in the KV.
         """
-        res = kv_api.list_key(self._conn, self._kv, cursor, limit, prefix)
-        if not res.ok:
-            raise RuntimeError(
-                f"Failed to list keys in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
-            )
-        return PartialKeyList.parse_raw(res.content)
+        return self._api_client.kv.list_keys(self._kv, cursor, limit, prefix)
 
     def get(self, key: str) -> bytes:
         """
         Get the value of a key in the KV.
         """
-        res = kv_api.get_key(self._conn, self._kv, key)
-        if res.status_code == 404:
-            logger.trace(f"key error: {res.status_code} {res.content}")
-            raise KeyError(key)
-        elif not res.ok:
-            logger.trace(f"key error other than 404: {res.status_code} {res.content}")
-            raise RuntimeError(
-                f"Failed to get key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
-            )
-        else:
-            return res.content
+        return self._api_client.kv.get(self._kv, key)
 
     def put(self, key: str, value: Union[str, bytes]) -> None:
         """
@@ -299,13 +202,7 @@ class KV(object):
                 f"Value length {len(value)} exceeds the maximum allowed length"
                 f" {_lepton_max_value_length_}."
             )
-        res = kv_api.put_key(self._conn, self._kv, key, value)
-        if not res.ok:
-            logger.trace(f"key put error: {res.status_code} {res.content}")
-            raise RuntimeError(
-                f"Failed to put key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
-            )
+        self._api_client.kv.put(self._kv, key, value)
 
     def delete(self, key: str) -> None:
         """
@@ -313,13 +210,7 @@ class KV(object):
 
         Note that if a key does not exist in the KV, this function will not raise an error.
         """
-        res = kv_api.delete_key(self._conn, self._kv, key)
-        if not res.ok:
-            logger.trace(f"key delete error: {res.status_code} {res.content}")
-            raise RuntimeError(
-                f"Failed to delete key {key} in KV {self._kv}. Error:"
-                f" {res.status_code} {res.content}.{_maybe_dns_message(res)}"
-            )
+        self._api_client.kv.delete(self._kv, key)
 
     def __getitem__(self, key: str) -> bytes:
         return self.get(key)
