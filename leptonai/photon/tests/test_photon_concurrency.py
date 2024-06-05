@@ -27,7 +27,7 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 from leptonai import Photon
 from leptonai.client import Client, local
 
-from utils import random_name, photon_run_local_server
+from utils import random_name, photon_run_local_server, skip_if_macos
 
 
 class SimplePhoton(Photon):
@@ -63,6 +63,7 @@ class SimpleAsyncPhoton(Photon):
         return time.time()
 
 
+@skip_if_macos
 class TestPhotonConcurrencyBasic(unittest.TestCase):
     def setUp(self):
         # pytest imports test files as top-level module which becomes

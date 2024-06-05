@@ -1,8 +1,7 @@
 # flask8: noqa
-import multiprocessing
 import os
+import sys
 import tempfile
-import time
 from typing import Optional, List, Tuple
 import unittest
 
@@ -12,7 +11,7 @@ os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 from leptonai import Client
 from leptonai.photon import Photon, handler
-from leptonai.util import find_available_port
+from utils import photon_run_local_server_simple
 
 
 class PhotonWithDifferentDocs(Photon):
@@ -106,19 +105,18 @@ class PhotonWithDifferentDocs(Photon):
         return ("hello", "world", 1)
 
 
-def photon_with_different_docs_wrapper(port):
-    photon = PhotonWithDifferentDocs()
-    photon.launch(port=port)
-
-
 class TestClientDocgen(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
     def setUp(self) -> None:
-        self.port = find_available_port()
-        self.proc = multiprocessing.Process(
-            target=photon_with_different_docs_wrapper, args=(self.port,)
-        )
-        self.proc.start()
-        time.sleep(1)
+        self.proc, self.port = photon_run_local_server_simple(PhotonWithDifferentDocs)
 
     def tearDown(self) -> None:
         self.proc.kill()

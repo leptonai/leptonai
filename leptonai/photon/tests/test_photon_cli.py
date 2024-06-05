@@ -17,7 +17,7 @@ from leptonai import config
 from leptonai.photon import FileParam
 from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
-from utils import random_name, photon_run_local_server, sub_test
+from utils import random_name, photon_run_local_server, sub_test, skip_if_macos
 
 
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
@@ -130,6 +130,7 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertNotIn("abcdef", result.output.lower())
 
+    @skip_if_macos
     @sub_test([
         (diffusers_model,),
         (transformers_model,),
@@ -179,6 +180,7 @@ class TestPhotonCli(unittest.TestCase):
                 self.assertEqual(res.status_code, 200, res.text)
         proc.kill()
 
+    @skip_if_macos
     def test_hf_embed(self):
         name = random_name()
         proc, port = photon_run_local_server(name=name, model=sentence_similarity_model)
@@ -217,6 +219,7 @@ class TestPhotonCli(unittest.TestCase):
 
         proc.kill()
 
+    @skip_if_macos
     def test_photon_run_path(self):
         name = random_name()
 
@@ -242,6 +245,7 @@ class TestPhotonCli(unittest.TestCase):
             logger.warning(f"Server: {proc.stderr.read().decode('utf-8')}")
         self.assertEqual(res.status_code, 200)
 
+    @skip_if_macos
     @unittest.skipIf(not shutil.which("ffmpeg"), "ffmpeg not installed")
     def test_photon_run_post_file(self):
         name = random_name()
@@ -294,6 +298,7 @@ class TestPhotonCli(unittest.TestCase):
         self.assertEqual(res_post_file.status_code, 200)
         self.assertEqual(res_post_url.json(), res_post_file.json())
 
+    @skip_if_macos
     def test_photon_model_spec(self):
         import torch
 

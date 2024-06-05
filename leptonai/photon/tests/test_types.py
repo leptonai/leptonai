@@ -6,8 +6,8 @@ tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 import base64
-import multiprocessing
-import time
+import os
+import sys
 import unittest
 
 import requests
@@ -19,7 +19,7 @@ from leptonai.photon.types import (
 )
 from leptonai.photon import Photon, handler, StreamingResponse, FileParam
 
-from leptonai.util import find_available_port
+from utils import photon_run_local_server_simple
 
 
 class StreamingPhoton(Photon):
@@ -32,19 +32,18 @@ class StreamingPhoton(Photon):
         return StreamingResponse(self._simple_generator())
 
 
-def streaming_photon_wrapper(port):
-    photon = StreamingPhoton()
-    photon.launch(port=port)
-
-
 class TestStreamingPhoton(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # pytest imports test files as top-level module which becomes
+        # unavailable in server process
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import cloudpickle
+
+            cloudpickle.register_pickle_by_value(sys.modules[__name__])
+
     def setUp(self) -> None:
-        self.port = find_available_port()
-        self.proc = multiprocessing.Process(
-            target=streaming_photon_wrapper, args=(self.port,)
-        )
-        self.proc.start()
-        time.sleep(2)
+        self.proc, self.port = photon_run_local_server_simple(StreamingPhoton)
 
     def tearDown(self) -> None:
         self.proc.kill()

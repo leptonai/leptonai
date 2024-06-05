@@ -1,0 +1,41 @@
+name: macos-cp312
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout examples repo
+        uses: actions/checkout@v3
+        with:
+          repository: leptonai/examples
+          path: examples
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          pip install -U pip setuptools
+      - name: Test with pytest
+        env:
+          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 0.0
+        run: |
+          pip install .
+          echo "leptonai package version:"
+          lep -v
+          lep ph create -n gpt2 -m hf:gpt2
+
+          pip install .[runtime] .[test]
+          cd ..
+          pytest -x leptonai
+          cd -

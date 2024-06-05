@@ -1,7 +1,5 @@
-import multiprocessing
 import os
 import tempfile
-import time
 import unittest
 
 # Set cache dir to a temp dir before importing anything from leptonai
@@ -12,9 +10,8 @@ from leptonai import Photon
 from leptonai.client import Client, local
 
 from leptonai.config import set_local_deployment_token
-from leptonai.util import find_available_port
 
-from utils import random_name, photon_run_local_server
+from utils import random_name, photon_run_local_server, photon_run_local_server_simple
 
 
 class MyPhoton(Photon):
@@ -58,15 +55,9 @@ class TestPhotonAuth(unittest.TestCase):
         os.environ["LEPTON_LOCAL_DEPLOYMENT_TOKEN"] = ""
         set_local_deployment_token("test_token2")
 
-        def subprocess_launch_wrapper(port):
-            set_local_deployment_token("test_token2")
-            photon = MyPhoton()
-            photon.launch(port=port)
-
-        port = find_available_port()
-        proc = multiprocessing.Process(target=subprocess_launch_wrapper, args=(port,))
-        proc.start()
-        time.sleep(1)
+        proc, port = photon_run_local_server_simple(
+            MyPhoton, env={"LEPTON_LOCAL_DEPLOYMENT_TOKEN": "test_token2"}
+        )
 
         with self.assertRaises(ConnectionError):
             c = Client(local(port=port))

@@ -62,7 +62,7 @@ from leptonai.photon.util import (
     load_metadata,
 )
 from leptonai.util import switch_cwd, find_available_port
-from utils import random_name, photon_run_local_server
+from utils import random_name, photon_run_local_server, skip_if_macos
 
 
 class CustomPhoton(Photon):
@@ -1311,6 +1311,7 @@ class StorePySrcFilePhoton(Photon):
         stdout = stdout.decode()
         self.assertIn("async sleep cancelled", stdout, stdout)
 
+    @skip_if_macos
     def test_queue_length(self):
         class SleepPhoton(Photon):
             @Photon.handler
