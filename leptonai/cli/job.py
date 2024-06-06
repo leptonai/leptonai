@@ -1,29 +1,24 @@
 import click
 from datetime import datetime
 import json
+import sys
+from typing import Dict
 
 from loguru import logger
 from rich.table import Table
 
-from .util import (
-    console,
-    click_group,
-    guard_api,
-    get_connection_or_die,
-    explain_response,
-)
-from leptonai.api import job as api
+from .util import console, click_group, catch_deprecated_flag
 from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
-from leptonai.api import nodegroup as nodegroup_api
-from leptonai.api.types import (
-    LeptonResourceAffinity,
-    LeptonJobUserSpec,
-    ContainerPort,
-    LeptonJob,
-    Metadata,
-    VALID_SHAPES,
-)
 from leptonai.config import BASE_IMAGE
+
+from leptonai.api.v1.types.common import Metadata
+from leptonai.api.v1.types.job import (
+    LeptonJob,
+    LeptonJobUserSpec,
+    LeptonResourceAffinity,
+)
+from leptonai.api.v1.types.deployment import ContainerPort
+from leptonai.api.v1.client import APIClient
 
 
 @click_group()
@@ -64,6 +59,38 @@ def make_container_port_from_string(port_str: str):
     ),
     type=str,
 )
+# --contianer-image, --container-port (--port), --command defines the container spec.
+@click.option(
+    "--container-image",
+    type=str,
+    help=(
+        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
+    ),
+    default=None,
+)
+@click.option(
+    "--container-port",
+    type=str,
+    help="Ports to expose for the job, in the format portnumber[:protocol].",
+    multiple=True,
+)
+@click.option(
+    "--port",
+    "container_port",
+    type=str,
+    callback=catch_deprecated_flag("port", "container-port"),
+    help="Deprecated flag, use --container-port instead.",
+    multiple=True,
+)
+@click.option(
+    "--command", type=str, help="Command string to run for the job.", default=None
+)
+@click.option(
+    "--resource-shape",
+    type=str,
+    help="Resource shape for the deployment.",
+    default=None,
+)
 @click.option(
     "--node-group",
     "-ng",
@@ -71,14 +98,6 @@ def make_container_port_from_string(port_str: str):
     help="Node group for the job. If not set, use on-demand resources.",
     type=str,
     multiple=True,
-)
-@click.option(
-    "--resource-shape",
-    type=str,
-    help="Resource shape for the deployment. Available types are: '"
-    + "', '".join(VALID_SHAPES)
-    + "'.",
-    default=None,
 )
 @click.option(
     "--num-workers",
@@ -91,29 +110,15 @@ def make_container_port_from_string(port_str: str):
     default=None,
 )
 @click.option(
-    "--container-image",
-    type=str,
-    help=(
-        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
-    ),
+    "--max-failure-retry",
+    type=int,
+    help="Maximum number of failures to retry per worker.",
     default=None,
 )
 @click.option(
-    "--port",
-    type=str,
-    help="Ports to expose for the job, in the format portnumber[:protocol].",
-    multiple=True,
-)
-@click.option(
-    "--command", type=str, help="Command string to run for the job.", default=None
-)
-@click.option(
-    "--intra-job-communication",
-    type=bool,
-    help=(
-        "Enable intra-job communication. If --num-workers is set, this is automatically"
-        " enabled."
-    ),
+    "--max-job-failure-retry",
+    type=int,
+    help="Maximum number of failures to retry per whole job.",
     default=None,
 )
 @click.option(
@@ -141,21 +146,25 @@ def make_container_port_from_string(port_str: str):
     multiple=True,
 )
 @click.option(
-    "--completions",
-    type=int,
+    "--image-pull-secrets",
+    type=str,
+    help="Secrets to use for pulling images.",
+    multiple=True,
+)
+@click.option(
+    "--intra-job-communication",
+    type=bool,
     help=(
-        "(advanced feature) completion policy for the job. This is supserceded by"
-        " --num-workers if the latter is set."
+        "Enable intra-job communication. If --num-workers is set, this is automatically"
+        " enabled."
     ),
     default=None,
 )
 @click.option(
-    "--parallelism",
-    type=int,
-    help=(
-        "(advanced feature) parallelism for the job. This is supserceded by"
-        " --num-workers if the latter is set."
-    ),
+    "--privileged",
+    type=bool,
+    is_flag=True,
+    help="Run the job in privileged mode.",
     default=None,
 )
 @click.option(
@@ -172,18 +181,20 @@ def make_container_port_from_string(port_str: str):
 def create(
     name,
     file,
-    node_groups,
-    resource_shape,
-    num_workers,
     container_image,
-    port,
+    container_port,
     command,
-    intra_job_communication,
+    resource_shape,
+    node_groups,
+    num_workers,
+    max_failure_retry,
+    max_job_failure_retry,
     env,
     secret,
     mount,
-    completions,
-    parallelism,
+    image_pull_secrets,
+    intra_job_communication,
+    privileged,
     ttl_seconds_after_finished,
 ):
     """
@@ -191,8 +202,7 @@ def create(
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
-    conn = get_connection_or_die()
-
+    client = APIClient()
     if file:
         try:
             with open(file, "r") as f:
@@ -205,19 +215,19 @@ def create(
         job_spec = LeptonJobUserSpec()
     # Update the spec based on the passed in args
     if node_groups:
+        valid_ng = client.nodegroup.list_all()
+        valid_ng_map: Dict[str, str] = {ng.metadata.name: ng.metadata.id_ for ng in valid_ng}  # type: ignore
         node_group_ids = []
-        valid_node_groups = {
-            ng["metadata"]["name"]: ng["metadata"]["id"]
-            for ng in guard_api(nodegroup_api.list_nodegroups(conn))
-        }
         for ng in node_groups:
-            if ng not in valid_node_groups:
+            if ng not in valid_ng_map:
                 console.print(
                     f"Invalid node group: [red]{ng}[/] (valid node groups:"
-                    f" {', '.join(valid_node_groups.keys())})"
+                    f" {', '.join(valid_ng_map.keys())})"
                 )
-                return
-            node_group_ids.append(valid_node_groups[ng])
+                sys.exit(1)
+            node_group_ids.append(valid_ng_map[ng])
+        # make sure affinity is initialized
+        job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids
         )
@@ -228,33 +238,40 @@ def create(
         job_spec.parallelism = num_workers
         job_spec.intra_job_communication = True
     else:
-        if completions:
-            job_spec.completions = completions
-        if parallelism:
-            job_spec.parallelism = parallelism
         if intra_job_communication:
             job_spec.intra_job_communication = intra_job_communication
+    if max_failure_retry:
+        job_spec.max_failure_retry = max_failure_retry
+    if max_job_failure_retry:
+        job_spec.max_job_failure_retry = max_job_failure_retry
     if command:
         # For CLI passed in command, we will prepend it with /bin/bash -c
         command = ["/bin/bash", "-c", command]
         job_spec.container.command = command
     elif not job_spec.container.command:
         console.print("You did not specify a command to run the job.")
+        sys.exit(1)
     if container_image:
         job_spec.container.image = container_image
     elif not job_spec.container.image:
         job_spec.container.image = BASE_IMAGE
-    if port:
-        job_spec.container.ports = [make_container_port_from_string(p) for p in port]
+    if container_port:
+        job_spec.container.ports = [
+            make_container_port_from_string(p) for p in container_port
+        ]
     if env or secret:
         job_spec.envs = make_env_vars_from_strings(env, secret)  # type: ignore
     if mount:
         job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+    if image_pull_secrets:
+        job_spec.image_pull_secrets = image_pull_secrets
+    if privileged:
+        job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
 
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
-    guard_api(api.create_job(conn, job), detail=True)
+    client.job.create(job)
     console.print(f"Job [green]{name}[/] created successfully.")
 
 
@@ -263,23 +280,26 @@ def list_command():
     """
     Lists all jobs in the current workspace.
     """
-    conn = get_connection_or_die()
-    jobs = guard_api(api.list_jobs(conn), detail=True)
-
+    client = APIClient()
+    jobs = client.job.list_all()
     logger.trace(f"Jobs: {jobs}")
 
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True)
     table.add_column("Name")
     table.add_column("Created At")
     table.add_column("State (ready,active,succeeded,failed)")
     for job in jobs:
-        status = job["status"]
+        status = job.status
         table.add_row(
-            job["metadata"]["id"],
-            datetime.fromtimestamp(job["metadata"]["created_at"] / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
+            job.metadata.id_,
+            (
+                datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
+                    "%Y-%m-%d\n%H:%M:%S"
+                )
+                if job.metadata.created_at
+                else "N/A"
             ),
-            f'{status["state"]} ({status["ready"]},{status["active"]},{status["succeeded"]},{status["failed"]})',
+            f"{status.state} ({status.ready},{status.active},{status.succeeded},{status.failed})",
         )
     table.title = "Jobs"
     console.print(table)
@@ -291,10 +311,10 @@ def get(name):
     """
     Gets the job with the given name.
     """
-    conn = get_connection_or_die()
-    job = guard_api(api.get_job(conn, name), detail=True)
+    client = APIClient()
+    job = client.job.get(name)
     console.print(f"Job details for [green]{name}[/]:")
-    console.print(json.dumps(job, indent=2))
+    console.print(json.dumps(client.job.safe_json(job), indent=2))
 
 
 @job.command()
@@ -303,14 +323,9 @@ def remove(name):
     """
     Removes the job with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.delete_job(conn, name)
-    explain_response(
-        response,
-        f"Job [green]{name}[/] deleted successfully.",
-        f"Job [yellow]{name}[/] does not exist.",
-        f"{response.text}\nInternal error. See error message above.",
-    )
+    client = APIClient()
+    client.job.delete(name)
+    console.print("Job [green]{name}[/] deleted successfully.")
 
 
 def add_command(cli_group):
