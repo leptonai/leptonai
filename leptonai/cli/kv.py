@@ -7,13 +7,8 @@ import re
 
 from rich.table import Table
 
-from .util import (
-    console,
-    click_group,
-    get_connection_or_die,
-    explain_response,
-)
-from leptonai.api import kv as api
+from leptonai.api.v1.client import APIClient
+from .util import console, click_group
 
 
 @click_group()
@@ -37,15 +32,12 @@ def create(name):
     """
     Creates a KV of the given name.
     """
-    conn = get_connection_or_die()
-    response = api.create_kv(conn, name)
-    explain_response(
-        response,
+    c = APIClient()
+    c.kv.create_namespace(name)
+    console.print(
         f"Successfully created KV [green]{name}[/].\nNote that KV creation is"
         " asynchronous, and may take a few seconds. Use [bold]lepton kv list[/] to"
-        " check the status of the KV.",
-        "Failed to create KV [red]{name}[/].",
-        "Failed to create KV [red]{name}[/].",
+        " check the status of the KV."
     )
 
 
@@ -58,28 +50,14 @@ def list_command(pattern):
     Lists all kvs in the current workspace. Note that the kv values are
     always hidden.
     """
-    conn = get_connection_or_die()
-    response = api.list_kv(conn)
-    explain_response(
-        response,
-        None,
-        "Failed to list KVs.",
-        "Failed to list KVs.",
-        exit_if_4xx=True,
-    )
-    kvs = response.json()
+    c = APIClient()
+    kvs = c.kv.list_namespaces()
     if pattern:
-        filtered_kvs = [
-            kv["metadata"]["name"]
-            for kv in kvs
-            if re.match(pattern, kv["metadata"]["name"])
-        ]
-    else:
-        filtered_kvs = [kv["metadata"]["name"] for kv in kvs]
-    table = Table(title="KVs", show_lines=True)
+        kvs = [kv for kv in kvs if re.match(pattern, kv.metadata.name)]  # type: ignore
+    table = Table(title="KV", show_lines=True)
     table.add_column("name")
-    for name in filtered_kvs:
-        table.add_row(name)
+    for kv in kvs:
+        table.add_row(kv.metadata.name)
     console.print(table)
 
 
@@ -89,15 +67,12 @@ def remove(name):
     """
     Removes the KV with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.delete_kv(conn, name)
-    explain_response(
-        response,
+    c = APIClient()
+    c.kv.delete_namespace(name)
+    console.print(
         f"Successfully deleted KV [green]{name}[/].\nNote that KV deletion is"
         " asynchronous, and may take a few seconds. Use [bold]lepton KV list[/] to"
-        " check the status of the KV.",
-        f"KV [red]{name}[/] does not exist.",
-        f"Failed to delete KV [red]{name}[/].",
+        " check the status of the KV."
     )
 
 
@@ -109,14 +84,9 @@ def putkey(name, key, value):
     """
     Sends a message to the kv with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.put_key(conn, name, key, value)
-    explain_response(
-        response,
-        f"Successfully put {key} to KV [green]{name}[/].",
-        f"KV [red]{name}[/] does not exist.",
-        f"Failed to put key {key} to KV [red]{name}[/].",
-    )
+    c = APIClient()
+    c.kv.put(name, key, value)
+    console.print(f"Successfully put key [green]{key}[/] to KV [green]{name}[/].")
 
 
 @kv.command()
@@ -126,13 +96,11 @@ def getkey(name, key):
     """
     Receives a message from the kv with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.get_key(conn, name, key)
-    explain_response(
-        response,
-        f"Successfully received message from kv [green]{name}[/]:\n{response.text}",
-        f"KV [red]{name}[/] or key [red]{key}[/] does not exist.",
-        f"Failed to get key {key} from [red]{name}[/].",
+    c = APIClient()
+    value = c.kv.get(name, key)
+    console.print(
+        f"Successfully received message from kv [green]{name}[/] and key"
+        f" [green]{key}[/]:\n{value}",
     )
 
 
@@ -143,13 +111,10 @@ def deletekey(name, key):
     """
     Receives a message from the kv with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.delete_key(conn, name, key)
-    explain_response(
-        response,
+    c = APIClient()
+    c.kv.delete(name, key)
+    console.print(
         f"Successfully deleted key {key} from kv [green]{name}[/].",
-        f"KV [red]{name}[/] or key [red]{key}[/] does not exist.",
-        f"Failed to delete key {key} from [red]{name}[/].",
     )
 
 

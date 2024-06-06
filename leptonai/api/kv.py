@@ -1,3 +1,12 @@
+import warnings
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Because most of the apis in kv do not return json, we will not use json_or_error here.
 from typing import Union, Optional
 
