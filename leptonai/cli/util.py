@@ -19,6 +19,18 @@ from leptonai.api import deployment as deploymentapi
 console = Console(highlight=False)
 
 
+def catch_deprecated_flag(old_name, new_name):
+    def warn_old_name(ctx, param, value):
+        if ctx.get_parameter_source(old_name) == click.core.ParameterSource.COMMANDLINE:
+            console.print(
+                f"[yellow]Warning:[/] Flag [yellow]--{old_name}[/] is deprecated. Use"
+                f" [green]--{new_name}[/] instead."
+            )
+        return value
+
+    return warn_old_name
+
+
 def click_group(*args, **kwargs):
     class ClickAliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
