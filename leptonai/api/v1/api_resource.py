@@ -10,7 +10,11 @@ if TYPE_CHECKING:
 class ClientError(RuntimeError):
     def __init__(self, response: Response):
         super().__init__(
-            f"Client error during API call: {response.status_code} {response.text}"
+            f"Client error during API call: {response.status_code} {response.text}.\n"
+            f"  Debug info - headers:\n{response.request.headers}\n"
+            f"  Debug info - body:\n{response.request.body}\n"
+            f"  Debug info - url:\n{response.request.url}\n"
+            f"  Debug info - method:\n{response.request.method}\n"
         )
         self.response = response
 
@@ -19,6 +23,10 @@ class ServerError(RuntimeError):
     def __init__(self, response: Response):
         super().__init__(
             f"Server error during API call: {response.status_code} {response.text}"
+            f"  Debug info - headers:\n{response.request.headers}\n"
+            f"  Debug info - body:\n{response.request.body}\n"
+            f"  Debug info - url:\n{response.request.url}\n"
+            f"  Debug info - method:\n{response.request.method}\n"
         )
         self.response = response
 
