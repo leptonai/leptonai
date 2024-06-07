@@ -114,7 +114,7 @@ class DeploymentAPI(APIResourse):
             if chunk:
                 yield chunk.decode("utf8")
 
-    def get_deployment_events(
+    def get_events(
         self, name_or_deployment: Union[str, LeptonDeployment]
     ) -> List[LeptonEvent]:
         response = self._get(f"/deployments/{self._to_id(name_or_deployment)}/events")

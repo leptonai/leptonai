@@ -35,7 +35,7 @@ class JobAPI(APIResourse):
         response = self._delete(f"/jobs/{self._to_name(name_or_job)}")
         return self.ensure_ok(response)
 
-    def get_job_events(self, name_or_job: Union[str, LeptonJob]) -> List[LeptonEvent]:
+    def get_events(self, name_or_job: Union[str, LeptonJob]) -> List[LeptonEvent]:
         response = self._get(f"/jobs/{self._to_id(name_or_job)}/events")
         return self.ensure_list(response, LeptonEvent)
 
@@ -53,7 +53,7 @@ class JobAPI(APIResourse):
         """
         replica_id = replica if isinstance(replica, str) else replica.metadata.id_
         response = self._get(
-            f"/deployments/{self._to_name(name_or_job)}/replicas/{replica_id}/log",
+            f"/jobs/{self._to_name(name_or_job)}/replicas/{replica_id}/log",
             stream=True,
             timeout=timeout,
         )

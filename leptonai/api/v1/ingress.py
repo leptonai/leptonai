@@ -14,20 +14,6 @@ class IngressAPI(APIResourse):
             else name_or_ingress.metadata.id_
         )
 
-    def _to_deployment_name(
-        self,
-        dname_or_deployment_or_ingressendpoint: Union[
-            str, LeptonDeployment, LeptonIngressEndpoint
-        ],
-    ) -> str:
-        if isinstance(dname_or_deployment_or_ingressendpoint, str):
-            return dname_or_deployment_or_ingressendpoint
-
-        if isinstance(dname_or_deployment_or_ingressendpoint, LeptonDeployment):
-            return dname_or_deployment_or_ingressendpoint.metadata.id_
-
-        return dname_or_deployment_or_ingressendpoint.deployment
-
     def list_all(self):
         response = self._get("/ingress")
         return self.ensure_list(response, LeptonIngress)
@@ -70,9 +56,7 @@ class IngressAPI(APIResourse):
     def delete_endpoint(
         self,
         name_or_ingress: Union[str, LeptonIngress],
-        dname_or_deployment_or_ingressendpoint: Union[
-            str, LeptonDeployment, LeptonIngressEndpoint
-        ],
+        name_or_deployment: Union[str, LeptonDeployment, LeptonIngressEndpoint],
     ) -> LeptonIngress:
         """
         Deletes an endpoint for a given ingress and deployment.
@@ -91,9 +75,7 @@ class IngressAPI(APIResourse):
         """
 
         name = self._to_name(name_or_ingress)
-        deployment_name = self._to_deployment_name(
-            dname_or_deployment_or_ingressendpoint
-        )
+        deployment_name = self._to_name(name_or_deployment)
         url = f"/ingress/{name}/endpoint/deployment/{deployment_name}"
 
         response = self.delete(url)
