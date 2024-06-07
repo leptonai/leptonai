@@ -1,9 +1,10 @@
 # todo
-from typing import Union,List
+from typing import Union
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment
 from .types.deployment_operator_v1alpha1.ingress import LeptonIngressEndpoint
 from .types.ingress import LeptonIngress
+
 
 class IngressAPI(APIResourse):
     def _to_name(self, name_or_ingress: Union[str, LeptonIngress]) -> str:
@@ -13,9 +14,12 @@ class IngressAPI(APIResourse):
             else name_or_ingress.metadata.id_
         )
 
-    def _to_deployment_name(self,
-                            dname_or_deployment_or_ingressendpoint: Union[str, LeptonDeployment, LeptonIngressEndpoint]
-                            ) -> str:
+    def _to_deployment_name(
+        self,
+        dname_or_deployment_or_ingressendpoint: Union[
+            str, LeptonDeployment, LeptonIngressEndpoint
+        ],
+    ) -> str:
         if isinstance(dname_or_deployment_or_ingressendpoint, str):
             return dname_or_deployment_or_ingressendpoint
 
@@ -30,7 +34,7 @@ class IngressAPI(APIResourse):
 
     def create(self, spec: LeptonIngress):
         """
-            Create a ingress with the given Ingress spec.
+        Create a ingress with the given Ingress spec.
         """
         response = self._post("/ingress", json=self.safe_json(spec))
         return self.ensure_ok(response)
@@ -44,48 +48,52 @@ class IngressAPI(APIResourse):
         return self.ensure_ok(response)
 
     def update(
-            self, name_or_ingress: Union[str, LeptonIngress], spec: LeptonIngress
+        self, name_or_ingress: Union[str, LeptonIngress], spec: LeptonIngress
     ) -> Union[LeptonIngress, str]:
         response = self._patch(
-            f"/ingress/{self._to_name(name_or_ingress)}",
-            json=self.safe_json(spec)
+            f"/ingress/{self._to_name(name_or_ingress)}", json=self.safe_json(spec)
         )
         return self.ensure_type(response, LeptonIngress)
 
-    def create_endpoint(self,
-                        name_or_ingress: Union[str, LeptonIngress],
-                        spec: LeptonIngressEndpoint
-                        ) -> LeptonIngress:
+    def create_endpoint(
+        self, name_or_ingress: Union[str, LeptonIngress], spec: LeptonIngressEndpoint
+    ) -> LeptonIngress:
         """
-                    Create a ingressEndpoint with the given LeptonIngress IngressEndpoint spec.
+        Create a ingressEndpoint with the given LeptonIngress IngressEndpoint spec.
         """
-        response = self._post(f"/ingress/{self._to_name(name_or_ingress)}/endpoint/deployment",
-                              json=self.safe_json(spec)
-                              )
+        response = self._post(
+            f"/ingress/{self._to_name(name_or_ingress)}/endpoint/deployment",
+            json=self.safe_json(spec),
+        )
         return self.ensure_type(response, LeptonIngress)
 
-    def delete_endpoint(self,
-                        name_or_ingress: Union[str, LeptonIngress],
-                        dname_or_deployment_or_ingressendpoint: Union[str, LeptonDeployment, LeptonIngressEndpoint]
-                        ) -> LeptonIngress:
+    def delete_endpoint(
+        self,
+        name_or_ingress: Union[str, LeptonIngress],
+        dname_or_deployment_or_ingressendpoint: Union[
+            str, LeptonDeployment, LeptonIngressEndpoint
+        ],
+    ) -> LeptonIngress:
         """
-            Deletes an endpoint for a given ingress and deployment.
+        Deletes an endpoint for a given ingress and deployment.
 
-            Args:
-                name_or_ingress (Union[str, LeptonIngress]): The ingress name or an instance of LeptonIngress.
-                dname_or_deployment_or_ingressendpoint (Union[str, LeptonDeployment, LeptonIngressEndpoint]):
-                    The deployment name,
-                    a string, or an instance of LeptonDeployment, or an instance of LeptonIngressEndpoint.
+        Args:
+            name_or_ingress (Union[str, LeptonIngress]): The ingress name or an instance of LeptonIngress.
+            dname_or_deployment_or_ingressendpoint (Union[str, LeptonDeployment, LeptonIngressEndpoint]):
+                The deployment name,
+                a string, or an instance of LeptonDeployment, or an instance of LeptonIngressEndpoint.
 
-            Returns:
-                LeptonIngress: The response from the deletion request, as a LeptonIngress object.
+        Returns:
+            LeptonIngress: The response from the deletion request, as a LeptonIngress object.
 
-            This method converts the provided ingress and deployment to their respective names,
-            constructs the appropriate URL, sends a DELETE request, and returns the response.
+        This method converts the provided ingress and deployment to their respective names,
+        constructs the appropriate URL, sends a DELETE request, and returns the response.
         """
 
         name = self._to_name(name_or_ingress)
-        deployment_name = self._to_deployment_name(dname_or_deployment_or_ingressendpoint)
+        deployment_name = self._to_deployment_name(
+            dname_or_deployment_or_ingressendpoint
+        )
         url = f"/ingress/{name}/endpoint/deployment/{deployment_name}"
 
         response = self.delete(url)

@@ -2,6 +2,7 @@ from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment
+from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
 from .types.replica import Replica
@@ -112,6 +113,12 @@ class DeploymentAPI(APIResourse):
         for chunk in response.iter_content(chunk_size=None):
             if chunk:
                 yield chunk.decode("utf8")
+
+    def get_deployment_events(
+        self, name_or_deployment: Union[str, LeptonDeployment]
+    ) -> List[LeptonEvent]:
+        response = self._get(f"/deployments/{self._to_id(name_or_deployment)}/events")
+        return self.ensure_list(response, LeptonEvent)
 
     # TODO: implement api for the various metrics, but for now we will simply ask users
     # to view the metrics from the web portal.
