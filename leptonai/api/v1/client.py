@@ -10,6 +10,7 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from leptonai.api.util import _get_full_workspace_api_url
+from .ingress import IngressAPI
 
 from .types.workspace import WorkspaceInfo
 
@@ -133,6 +134,7 @@ class APIClient(object):
         self.secret = SecretAPI(self)
         self.kv = KVAPI(self)
         self.queue = QueueAPI(self)
+        self.ingress = IngressAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
