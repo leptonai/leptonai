@@ -34,14 +34,14 @@ class PhotonAPI(APIResourse):
         response = self._get(f"/photons/{_get_photon_endpoint(public_photon)}")
         return self.ensure_list(response, Photon)
 
-    def create(self, path: str, public_photon: bool = False) -> bool:
+    def create(self, path: str, public_photon: bool = False) -> Photon:
         if not os.path.exists(path):
             raise ValueError(f"Photon file not found: {path}")
         with open(path, "rb") as file:
             response = self._post(
                 f"/photons/{_get_photon_endpoint(public_photon)}", files={"file": file}
             )
-            return response.ok
+            return self.ensure_type(response, Photon)
 
     def get(
         self, id_or_photon: Union[str, Photon], public_photon: bool = False
