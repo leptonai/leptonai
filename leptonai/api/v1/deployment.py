@@ -1,3 +1,4 @@
+import warnings
 from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
@@ -31,6 +32,11 @@ class DeploymentAPI(APIResourse):
         Creates a pod with the given deployment spec. This is equivalent to creating a deployment
         with is_pod=True.
         """
+        warnings.warn(
+            "create_pod is deprecated. Use the api under leptonai.api.v1.pod instead,"
+            " which is more explicit and gives more strict param checking.",
+            DeprecationWarning,
+        )
         if spec.spec is None:
             raise ValueError("LeptonDeploymentUserSpec must not be None.")
         spec.spec.is_pod = True
