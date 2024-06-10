@@ -222,7 +222,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     api_tokens: Optional[List[TokenVar]] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
-    pull_image_secrets: Optional[List[str]] = None
+    image_pull_secrets: Optional[List[str]] = None
     health: Optional[HealthCheck] = None
     is_pod: Optional[bool] = None
     privileged: Optional[bool] = None
