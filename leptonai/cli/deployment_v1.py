@@ -159,7 +159,7 @@ def status(name, show_tokens):
     client = APIClient()
 
     dep_info = client.deployment.get(name)
-    workspace_id = client.workspace_id
+    workspace_id = client.get_workspace_id()
 
     # todo: print a cleaner dep info.
     creation_time = datetime.fromtimestamp(
@@ -234,7 +234,7 @@ def status(name, show_tokens):
     table.add_column("status")
     table.add_column("message")
     ready_count = 0
-    for id, value in reading_issue_root:
+    for id, value in reading_issue_root.items():
         reason = value[0].reason
         message = value[0].message
         # Do we need to display red?

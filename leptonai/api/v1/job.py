@@ -39,6 +39,10 @@ class JobAPI(APIResourse):
         response = self._get(f"/jobs/{self._to_id(name_or_job)}/events")
         return self.ensure_list(response, LeptonEvent)
 
+    def get_replicas(self, name_or_job: Union[str, LeptonJob]) -> List[Replica]:
+        response = self._get(f"/jobs/{self._to_name(name_or_job)}/replicas")
+        return self.ensure_list(response, Replica)
+
     def get_log(
         self,
         name_or_job: Union[str, LeptonJob],
@@ -46,7 +50,7 @@ class JobAPI(APIResourse):
         timeout: Optional[int] = None,
     ) -> Iterator[str]:
         """
-        Gets the log of the given deployment's specified replica. The log is streamed
+        Gets the log of the given job's specified replica. The log is streamed
         in chunks until timeout is reached. If timeout is not specified, the log will be
         streamed indefinitely, although you should not rely on this behavior as connections
         can be dropped when streamed for a long time.

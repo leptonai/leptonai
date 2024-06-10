@@ -7,7 +7,7 @@ from typing import Dict
 from loguru import logger
 from rich.table import Table
 
-from .util import console, click_group, catch_deprecated_flag
+from .util import console, click_group, catch_deprecated_flag, check
 from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE
 
@@ -88,7 +88,7 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--resource-shape",
     type=str,
-    help="Resource shape for the deployment.",
+    help="Resource shape for the job.",
     default=None,
 )
 @click.option(
@@ -140,7 +140,7 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
+        "Persistent storage to be mounted to the job, in the format"
         " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
@@ -326,6 +326,74 @@ def remove(name):
     client = APIClient()
     client.job.delete(name)
     console.print(f"Job [green]{name}[/] deleted successfully.")
+
+
+@job.command()
+@click.option("--name", "-n", help="The job name to get log.", required=True)
+@click.option("--replica", "-r", help="The replica name to get log.", default=None)
+def log(name, replica):
+    """
+    Gets the log of a job. If `replica` is not specified, the first replica
+    is selected. Otherwise, the log of the specified replica is shown. To get the
+    list of replicas, use `lep job status`.
+    """
+
+    if not replica:
+        # obtain replica information, and then select the first one.
+        console.print(
+            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
+            " replica."
+        )
+
+    client = APIClient()
+
+    if not replica:
+        # obtain replica information, and then select the first one.
+        console.print(
+            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
+            " replica."
+        )
+
+        replicas = client.job.get_replicas()
+        check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
+        replica = replicas[0].metadata.id
+        console.print(f"Selected replica [green]{replica}[/].")
+    else:
+        console.print(f"Showing log for replica [green]{replica}[/].")
+    stream_or_err = client.job.get_log(name_or_job=name, replica=replica)
+    # Print the log as a continuous stream until the user presses Ctrl-C.
+    try:
+        for chunk in stream_or_err:
+            console.print(chunk, end="")
+    except KeyboardInterrupt:
+        console.print("Disconnected.")
+    except Exception:
+        console.print("Connection stopped.")
+        return
+    else:
+        console.print(
+            "End of log. It seems that the job has not started, or already" " finished."
+        )
+        console.print(
+            f"Use `lep job status -n {name}` to check the status of the" " job."
+        )
+
+
+@job.command()
+@click.option("--name", "-n", help="The job name to get status.", required=True)
+def replicas(name):
+
+    client = APIClient()
+
+    replicas = client.job.get_replicas(name)
+
+    table = Table(show_header=True, show_lines=False)
+    table.add_column("job name")
+    table.add_column("replica id")
+
+    for replica in replicas:
+        table.add_row(name, replica.metadata.id_)
+    console.print(table)
 
 
 def add_command(cli_group):
