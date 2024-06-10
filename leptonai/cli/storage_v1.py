@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -8,19 +9,11 @@ from rich.theme import Theme
 from .constants import STORAGE_DISPLAY_PREFIX_LAST, STORAGE_DISPLAY_PREFIX_MIDDLE
 import click
 
-from leptonai.api import storage as api
-from leptonai.api import deployment as deploymentapi
-from leptonai.api.workspace import WorkspaceInfoLocalRecord
-
 from .util import (
-    check,
     click_group,
-    guard_api,
-    get_connection_or_die,
-    explain_response,
     sizeof_fmt,
-    get_only_replica_public_ip_or_die,
 )
+from ..api.v1.client import APIClient
 
 custom_theme = Theme({
     "directory": "bold cyan",
@@ -29,7 +22,18 @@ custom_theme = Theme({
 console = Console(highlight=False, theme=custom_theme)
 
 
-def print_dir_contents(dir_path, dir_content_json):
+def _get_only_replica_public_ip(name: str):
+    client = APIClient()
+    replicas = client.deployment.get_replicas(name)
+    logger.trace(f"Replicas for {name}:\n{replicas}")
+
+    if len(replicas) != 1:
+        console.print(f"Pod {name} has more than one replica. This is not supported.")
+        sys.exit(1)
+    return replicas[0].status.public_ip
+
+
+def print_dir_contents(dir_path, dir_infos):
     """
     Format the contents of a directory for printing.
 
@@ -37,22 +41,21 @@ def print_dir_contents(dir_path, dir_content_json):
 
     :param list dir_json: list of files and directories in the parent directory
     """
-    print(dir_content_json)
     num_directories = 0
     num_files = 0
-    for i, item in enumerate(dir_content_json):
+    for i, dir_info in enumerate(dir_infos):
         console.print(f"[directory]{dir_path}[/directory]") if i == 0 else None
         prefix = (
             STORAGE_DISPLAY_PREFIX_LAST
-            if i == len(dir_content_json) - 1
+            if i == len(dir_infos) - 1
             else STORAGE_DISPLAY_PREFIX_MIDDLE
         )
-        if item["type"] == "dir":
+        if dir_info.type == "dir":
             num_directories += 1
-            msg = f'{prefix} [directory]{item["name"]}/[/directory]'
+            msg = f"{prefix} [directory]{dir_info.name}/[/directory]"
         else:
             num_files += 1
-            msg = f'{prefix} {item["name"]}'
+            msg = f"{prefix} {dir_info.name}"
         console.print(msg)
 
     dir_tense = "directory" if num_directories == 1 else "directories"
@@ -61,7 +64,7 @@ def print_dir_contents(dir_path, dir_content_json):
 
 
 @click_group()
-def storage():
+def storage_v1():
     """
     Manage File storage on the Lepton AI cloud.
 
@@ -77,115 +80,97 @@ def storage():
     pass
 
 
-@storage.command()
+@storage_v1.command()
 def du():
     """
     Returns total disk usage of the workspace
     """
-    conn = get_connection_or_die()
-    usage = guard_api(
-        api.du(conn),
-        detail=True,
-        msg="du failed. See error message above.",
-    )
-    logger.trace(usage)
-    humanized_usage = sizeof_fmt(usage["totalDiskUsageBytes"])
+    client = APIClient()
+
+    file_system = client.storage.total_file_system_usage_bytes()
+
+    logger.trace(json.dumps(client.job.safe_json(file_system), indent=2))
+
+    humanized_usage = sizeof_fmt(file_system.status.total_usage_bytes)
+
     console.print(f"Total disk usage: {humanized_usage}")
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("path", type=str, default="/")
 def ls(path):
     """
     List the contents of a directory of the current file storage.
     """
-    conn = get_connection_or_die()
-    check(
-        api.check_path_exists(conn, path),
-        f"[red]{path}[/] not found",
-    )
 
-    path_content = guard_api(
-        api.get_dir(conn, path),
-        detail=True,
-        msg=f"ls [red]{path}[/] failed. See error message above.",
-    )
-    print_dir_contents(path, path_content)
+    client = APIClient()
+
+    if not client.storage.check_exists(path):
+        console.print(f"[red]{path}[/] not found.")
+        sys.exit(1)
+
+    dir_infos = client.storage.get_dir(path)
+
+    print_dir_contents(path, dir_infos)
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("path", type=str)
 def rm(path):
     """
     Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
     """
-    conn = get_connection_or_die()
-    check(
-        api.check_path_exists(conn, path),
-        f"[red]{path}[/] not found.",
-    )
 
-    file_type = api.check_file_type(conn, path)
-    check(file_type is not None, f"[red]{path}[/] not found")
-    check(
-        file_type != "dir",
-        f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
-        " directories.",
-    )
+    client = APIClient()
+    client.storage.check_exists(path)
 
-    explain_response(
-        api.remove_file_or_dir(conn, path),
-        f"Deleted [green]{path}[/].",
-        f"[red]rm {path}[/] failed. See error above",
-        f"[red]rm {path}[/] failed. Internal service error.",
-    )
+    if (client.storage.get_file_type(path)) != "dir":
+        console.print(
+            f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
+            " directories."
+        )
+        sys.exit(1)
+
+    client.storage.delete_file_or_dir(path)
+    console.print(f"Deleted [green]{path}[/].")
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("path", type=str)
 def rmdir(path):
     """
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
-    conn = get_connection_or_die()
-    check(
-        api.check_path_exists(conn, path),
-        f"[red]{path}[/] not found",
-    )
 
-    file_type = api.check_file_type(conn, path)
-    check(file_type is not None, f"[red]{path}[/] not found")
-    check(
-        file_type == "dir",
-        f"[red]{path}[/] is a file. Use [red]rm {path}[/] to delete files.",
-    )
+    client = APIClient()
 
-    explain_response(
-        api.remove_file_or_dir(conn, path),
-        f"Deleted [green]{path}[/].",
-        f"[red]rmdir {path}[/] failed. See error above.",
-        f"[red]rmdir {path}[/] failed. Internal service error.",
-    )
+    client.storage.check_exists(path)
+
+    if (client.storage.get_file_type(path)) == "dir":
+        console.print(
+            f"[red]{path}[/] is a file. Use [red]rm {path}[/] to delete files."
+        )
+        sys.exit(1)
+
+    client.storage.delete_file_or_dir(path)
+    console.print(f"Deleted [green]{path}[/].")
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("path", type=str)
 def mkdir(path):
     """
     Create a directory in the file storage of the current workspace.
     """
-    conn = get_connection_or_die()
-    explain_response(
-        api.create_dir(conn, path),
-        f"Created directory [green]{path}[/].",
-        f"[red]mkdir {path}[/] failed. See error above.",
-        f"[red]mkdir {path}[/] failed. Internal service error.",
-    )
+
+    client = APIClient()
+    client.storage.create_dir(path)
+    console.print(f"Created directory [green]{path}[/].")
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("local_path", type=str)
 @click.argument("remote_path", type=str, default="/")
 @click.option(
@@ -217,6 +202,8 @@ def upload(local_path, remote_path, rsync, recursive, progress):
     file will be uploaded to that directory with its local name.
     """
     # if the remote path is a directory, upload the file with its local name to that directory
+    client = APIClient()
+
     if remote_path[-1] == "/":
         remote_path = remote_path + local_path.split("/")[-1]
 
@@ -233,19 +220,15 @@ def upload(local_path, remote_path, rsync, recursive, progress):
             f" [green]{remote_path}[/] with rsync..."
         )
 
-        conn = get_connection_or_die()
-
         name = "storage-rsync-by-lepton"
-        dep_info = guard_api(
-            deploymentapi.get_deployment(conn, name),
-            detail=True,
-            msg="Cannot obtain info for [red]rsync service[/]. See error above.",
-        )
-        port = dep_info["spec"]["container"]["ports"][0]["host_port"]
-        ip = get_only_replica_public_ip_or_die(conn, name)
 
-        workspace = WorkspaceInfoLocalRecord.get_current_workspace_id()
-        pwd = WorkspaceInfoLocalRecord.get_current_workspace_token()
+        lepton_deployment = client.deployment.get(name)
+        port = lepton_deployment.spec.container.ports[0].host_port
+        ip = client.deployment.get_only_replica_public_ip(name)
+
+        workspace_id = client.get_workspace_id()
+
+        pwd = client.token()
         if len(pwd) > 8:
             pwd = pwd[:8]
         env_vars = {"RSYNC_PASSWORD": pwd}
@@ -256,7 +239,7 @@ def upload(local_path, remote_path, rsync, recursive, progress):
             flags += " --progress"
         command = (
             f"rsync {flags}"
-            f" {local_path} rsync://{workspace}@{ip}:{port}/volume{remote_path}"
+            f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
         )
         console.print(f"Running command: [bold]{command}[/]")
 
@@ -275,16 +258,11 @@ def upload(local_path, remote_path, rsync, recursive, progress):
 
         return
 
-    conn = get_connection_or_die()
-    explain_response(
-        api.upload_file(conn, local_path, remote_path),
-        f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]",
-        f"[red]upload {local_path} to {remote_path}[/] failed. See error above.",
-        f"[red]upload {local_path} to {remote_path}[/] failed. Internal service error.",
-    )
+    client.storage.creat_file(local_path, remote_path)
+    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
 
 
-@storage.command()
+@storage_v1.command()
 @click.argument("remote_path", type=str)
 @click.argument("local_path", type=str, default="")
 def download(remote_path, local_path):
@@ -293,16 +271,12 @@ def download(remote_path, local_path):
     downloaded to the current working directory with the same name as the remote
     file.
     """
-    conn = get_connection_or_die()
+    client = APIClient()
+    client.storage.check_exists(remote_path)
 
-    check(
-        api.check_path_exists(conn, remote_path),
-        f"[red]{remote_path}[/] not found",
-    )
-    check(
-        api.check_file_type(conn, remote_path) == "file",
-        f"[red]{remote_path}[/] is not a file",
-    )
+    if client.storage.get_file_type(remote_path) != "file":
+        console.print(f"[red]{remote_path}[/] is not a file")
+        sys.exit(1)
 
     remote_file_name = remote_path.split("/")[-1]
     # handle no local path specified by using cwd
@@ -315,23 +289,13 @@ def download(remote_path, local_path):
     if os.path.isdir(local_path):
         local_path = os.path.join(local_path, remote_file_name)
     # check if local path's parent directory exists
-    check(
-        os.path.exists(os.path.dirname(local_path)),
-        f"[red]local path {local_path} does not exist[/]",
-    )
+    client.storage.check_exists(os.path.dirname(local_path))
 
-    guard_api(
-        api.download_file(conn, remote_path, local_path),
-        detail=True,
-        msg=(
-            f"[red]download {remote_path} to {local_path} failed[/]. See error message"
-            " above."
-        ),
-    )
+    client.storage.get_file(remote_path, local_path)
     console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 
 def add_command(click_group):
     # Backward compatibility: if users stil call "lep storage", keep it working.
-    click_group.add_command(storage)
-    click_group.add_command(storage, name="file")
+    click_group.add_command(storage_v1)
+    click_group.add_command(storage_v1, name="file")

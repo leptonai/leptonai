@@ -15,3 +15,9 @@ class FileSystemStatus(BaseModel):
 class FileSystem(BaseModel):
     metadata: Optional[Metadata] = None
     status: Optional[FileSystemStatus] = None
+
+
+class DirInfo(BaseModel):
+    type: Optional[str] = None
+    name: Optional[str] = None
+    path: Optional[str] = None

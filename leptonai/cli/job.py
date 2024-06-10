@@ -325,7 +325,7 @@ def remove(name):
     """
     client = APIClient()
     client.job.delete(name)
-    console.print("Job [green]{name}[/] deleted successfully.")
+    console.print(f"Job [green]{name}[/] deleted successfully.")
 
 
 def add_command(cli_group):

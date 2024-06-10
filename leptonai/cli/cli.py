@@ -16,6 +16,9 @@ from . import queue
 from . import secret
 from . import storage
 from . import workspace
+from . import ingress
+from . import deployment_v1
+from . import storage_v1
 from .util import click_group
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -55,6 +58,10 @@ queue.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)
 workspace.add_command(lep)
+
+ingress.add_command(lep)
+deployment_v1.add_command(lep)
+storage_v1.add_command(lep)
 
 
 @lep.command()

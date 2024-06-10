@@ -1,0 +1,37 @@
+{
+  "domain_name": "example.com",
+  "endpoints": [
+    {
+      "deployment": "deployment-name",
+      "weight": 10,
+      "load_balance_config": {
+        "least_request": {
+          "choice_count": 2
+        }
+      }
+    }
+  ],
+  "retelimit_config": {
+    "workspace_tier_ratelimiter": {}
+  },
+  "auth_config": {
+    "lepton_workspace_token_auth": {
+      "remove_authorization_header": true
+    }
+  },
+  "locality": {
+    "region": "us-west-1"
+  },
+  "traffic_shadowing_config": {
+    "percentage": 20,
+    "endpoint": {
+      "deployment": "shadow-deployment",
+      "weight": 5,
+      "load_balance_config": {
+        "least_request": {
+          "choice_count": 1
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,8 @@ from typing import Optional, List
 
 from .affinity import LeptonResourceAffinity
 
+DEFAULT_STORAGE_VOLUME_NAME = "default"
+
 
 class EnvValue(BaseModel):
     secret_name_ref: str
@@ -82,7 +84,11 @@ class ResourceRequirement(BaseModel):
     accelerator_num: Optional[float] = None
 
     shared_memory_size: Optional[int] = None
-    resource_affinity: Optional[LeptonResourceAffinity] = None
+
+    # Deprecated: Please use affinity.
+    resourse_affinity: Optional[str] = None
+
+    affinity: Optional[LeptonResourceAffinity] = None
     min_replicas: Optional[int] = None
     max_replicas: Optional[int] = None
     host_network: Optional[bool] = None

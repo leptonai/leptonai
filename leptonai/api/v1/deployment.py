@@ -117,7 +117,7 @@ class DeploymentAPI(APIResourse):
     def get_events(
         self, name_or_deployment: Union[str, LeptonDeployment]
     ) -> List[LeptonEvent]:
-        response = self._get(f"/deployments/{self._to_id(name_or_deployment)}/events")
+        response = self._get(f"/deployments/{self._to_name(name_or_deployment)}/events")
         return self.ensure_list(response, LeptonEvent)
 
     # TODO: implement api for the various metrics, but for now we will simply ask users

@@ -10,7 +10,7 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from leptonai.api.util import _get_full_workspace_api_url
-from .ingress import IngressAPI
+
 
 from .types.workspace import WorkspaceInfo
 
@@ -24,6 +24,8 @@ from .job import JobAPI
 from .secret import SecretAPI
 from .kv import KVAPI
 from .queue import QueueAPI
+from .ingress import IngressAPI
+from .storage import StorageAPI
 
 from .workspace_record import WorkspaceRecord
 
@@ -135,6 +137,7 @@ class APIClient(object):
         self.kv = KVAPI(self)
         self.queue = QueueAPI(self)
         self.ingress = IngressAPI(self)
+        self.storage = StorageAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
@@ -195,3 +198,6 @@ class APIClient(object):
         Returns the current workspace token.
         """
         return self.auth_token
+
+    def get_workspace_id(self) -> Union[str, None]:
+        return self.workspace_id
