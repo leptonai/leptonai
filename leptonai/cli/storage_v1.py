@@ -12,6 +12,8 @@ import click
 from .util import (
     click_group,
     sizeof_fmt,
+    explain_response,
+    check,
 )
 from ..api.v1.client import APIClient
 
@@ -105,9 +107,10 @@ def ls(path):
 
     client = APIClient()
 
-    if not client.storage.check_exists(path):
-        console.print(f"[red]{path}[/] not found.")
-        sys.exit(1)
+    check(
+        client.storage.check_exists(path),
+        f"[red]{path}[/] not found",
+    )
 
     dir_infos = client.storage.get_dir(path)
 
@@ -123,9 +126,13 @@ def rm(path):
     """
 
     client = APIClient()
-    client.storage.check_exists(path)
 
-    if (client.storage.get_file_type(path)) != "dir":
+    check(
+        client.storage.check_exists(path),
+        f"[red]{path}[/] not found",
+    )
+
+    if (client.storage.get_file_type(path)) == "dir":
         console.print(
             f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
             " directories."
@@ -146,9 +153,12 @@ def rmdir(path):
 
     client = APIClient()
 
-    client.storage.check_exists(path)
+    check(
+        client.storage.check_exists(path),
+        f"[red]{path}[/] not found",
+    )
 
-    if (client.storage.get_file_type(path)) == "dir":
+    if (client.storage.get_file_type(path)) != "dir":
         console.print(
             f"[red]{path}[/] is a file. Use [red]rm {path}[/] to delete files."
         )
@@ -272,7 +282,10 @@ def download(remote_path, local_path):
     file.
     """
     client = APIClient()
-    client.storage.check_exists(remote_path)
+    check(
+        client.storage.check_exists(remote_path),
+        f"[red]{remote_path}[/] not found",
+    )
 
     if client.storage.get_file_type(remote_path) != "file":
         console.print(f"[red]{remote_path}[/] is not a file")
@@ -289,7 +302,10 @@ def download(remote_path, local_path):
     if os.path.isdir(local_path):
         local_path = os.path.join(local_path, remote_file_name)
     # check if local path's parent directory exists
-    client.storage.check_exists(os.path.dirname(local_path))
+    check(
+        os.path.exists(os.path.dirname(local_path)),
+        f"[red]local path {local_path} does not exist[/]",
+    )
 
     client.storage.get_file(remote_path, local_path)
     console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")

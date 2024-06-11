@@ -372,11 +372,9 @@ def log(name, replica):
         return
     else:
         console.print(
-            "End of log. It seems that the job has not started, or already" " finished."
+            "End of log. It seems that the job has not started, or already finished."
         )
-        console.print(
-            f"Use `lep job status -n {name}` to check the status of the" " job."
-        )
+        console.print(f"Use `lep job status -n {name}` to check the status of the job.")
 
 
 @job.command()

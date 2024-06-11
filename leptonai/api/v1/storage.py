@@ -1,6 +1,9 @@
 import os
 
-from typing import List
+from typing import Union, List, Dict
+
+from requests import Response
+
 from leptonai.api.v1.api_resource import APIResourse
 from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
     DEFAULT_STORAGE_VOLUME_NAME,
@@ -16,7 +19,7 @@ def _prepend_separator(file_path):
 
 
 class StorageAPI(APIResourse):
-    def get_file_type(self, file_path: str) -> str:
+    def get_file_type(self, file_path: str) -> Union[str, None]:
         """
         Check if the contents at file_path stored on the remote server are a file or a directory.
 
@@ -39,11 +42,11 @@ class StorageAPI(APIResourse):
                 return dir_info.type
         return None
 
-    def list_storage(self):
+    def list_storage(self) -> List[FileSystem]:
         response = self._get("/storage")
         return self.ensure_list(response, FileSystem)
 
-    def get_file(self, remote_path, local_path):
+    def get_file(self, remote_path: str, local_path: str) -> Dict[str, str]:
         response = self._get(
             f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(remote_path)}",
             stream=True,
@@ -60,13 +63,13 @@ class StorageAPI(APIResourse):
 
         return {"name": local_path}
 
-    def get_dir(self, remote_path) -> List[DirInfo]:
+    def get_dir(self, remote_path: str) -> List[DirInfo]:
         response = self._get(
             f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(remote_path)}",
         )
         return self.ensure_list(response, DirInfo)
 
-    def creat_file(self, local_path=None, remote_path=None) -> bool:
+    def creat_file(self, local_path: str, remote_path: str) -> bool:
         with open(local_path, "rb") as file:
             response = self._post(
                 f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(remote_path)}",
@@ -74,32 +77,25 @@ class StorageAPI(APIResourse):
             )
             return self.ensure_ok(response)
 
-    def create_dir(self, additional_path=None) -> bool:
+    def create_dir(self, additional_path: str) -> bool:
         response = self._put(
             f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
         )
         return self.ensure_ok(response)
 
-    def delete_file_or_dir(self, additional_path=None) -> bool:
+    def delete_file_or_dir(self, additional_path: str) -> bool:
         response = self._delete(
             f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
         )
         return self.ensure_ok(response)
 
-    def check_exists(self, additional_path=None) -> bool:
+    def check_exists(self, additional_path: str) -> bool:
         response = self._head(
             f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
         )
-        return self.ensure_ok(response)
+
+        return response.status_code == 200
 
     def total_file_system_usage_bytes(self) -> FileSystem:
         response = self._get("/storage/du")
         return self.ensure_type(response, FileSystem)
-
-    def enable_rsync(self) -> bool:
-        response = self._post("/storage/rsync")
-        return self.ensure_ok(response)
-
-    def disable_rsync(self) -> bool:
-        response = self._delete("/storage/rsync")
-        return self.ensure_ok(response)

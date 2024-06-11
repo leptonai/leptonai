@@ -36,23 +36,8 @@ def list_all():
     console.print(table)
 
 
-# @ingress.command()
-# @click.option("--domain", help="domain_name", type=str, required=True)
-# def create(file):
-#     # LeptonIngress
-#     # client = APIClient()
-#     if file:
-#         try:
-#             with open(file, "r") as f:
-#                 content = f.read()
-#                 # ingress_spec = LeptonIngressUserSpec.parse_raw(content)
-#         except Exception as e:
-#             console.print(f"Cannot load job spec from file [red]{file}[/]: {e}")
-#             return
-
-
 @ingress.command()
-@click.option("--name", help="name of the ingress", type=str, required=True)
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
 def get(name):
     client = APIClient()
     ingress = client.ingress.get(name)
@@ -61,7 +46,7 @@ def get(name):
 
 
 @ingress.command()
-@click.option("--name", help="name of the ingress", type=str, required=True)
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
 def delete(name):
     client = APIClient()
     client.ingress.delete(name)

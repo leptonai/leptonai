@@ -37,7 +37,6 @@ def print_dir_contents(dir_path, dir_content_json):
 
     :param list dir_json: list of files and directories in the parent directory
     """
-    print(dir_content_json)
     num_directories = 0
     num_files = 0
     for i, item in enumerate(dir_content_json):

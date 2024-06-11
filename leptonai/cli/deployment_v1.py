@@ -174,7 +174,6 @@ def status(name, show_tokens):
     console.print(f"Time now:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"Created at: {creation_time}")
 
-    photon_id = "unknow"
     if dep_info.spec.photon_id is not None:
         photon_id = dep_info.spec.photon_id
     else:
