@@ -4,12 +4,12 @@ ARG UBUNTU_VERSION=22.04
 ARG JUPYTER_VERSION=7.2.1
 ARG PYTHON_VERSION
 
+FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+
 RUN if [ -z "$PYTHON_VERSION" ]; then \
     echo "PYTHON_VERSION is not set"; \
     exit 1; \
     fi
-
-FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION}
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
