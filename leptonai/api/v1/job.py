@@ -36,7 +36,7 @@ class JobAPI(APIResourse):
         return self.ensure_ok(response)
 
     def get_events(self, name_or_job: Union[str, LeptonJob]) -> List[LeptonEvent]:
-        response = self._get(f"/jobs/{self._to_id(name_or_job)}/events")
+        response = self._get(f"/jobs/{self._to_name(name_or_job)}/events")
         return self.ensure_list(response, LeptonEvent)
 
     def get_replicas(self, name_or_job: Union[str, LeptonJob]) -> List[Replica]:

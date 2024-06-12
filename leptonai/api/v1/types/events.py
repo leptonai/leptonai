@@ -1,6 +1,7 @@
 # todo
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 
 class LeptonEvent(BaseModel):
@@ -8,4 +9,4 @@ class LeptonEvent(BaseModel):
     reason: str
     regarding: Optional[Dict[str, Any]] = None  # k8s corev1.ObjectReference
     count: int
-    last_observed_time: int
+    last_observed_time: datetime

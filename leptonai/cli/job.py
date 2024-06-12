@@ -337,14 +337,6 @@ def log(name, replica):
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep job status`.
     """
-
-    if not replica:
-        # obtain replica information, and then select the first one.
-        console.print(
-            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
-            " replica."
-        )
-
     client = APIClient()
 
     if not replica:
@@ -354,9 +346,9 @@ def log(name, replica):
             " replica."
         )
 
-        replicas = client.job.get_replicas()
+        replicas = client.job.get_replicas(name)
         check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
-        replica = replicas[0].metadata.id
+        replica = replicas[0].metadata.id_
         console.print(f"Selected replica [green]{replica}[/].")
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")
@@ -391,6 +383,38 @@ def replicas(name):
 
     for replica in replicas:
         table.add_row(name, replica.metadata.id_)
+    console.print(table)
+
+
+@job.command()
+@click.option("--name", "-n", help="The job name to get status.", required=True)
+@click.option("--replica", "-r", help="The replica of the job.")
+def events(name, replica=None):
+
+    client = APIClient()
+
+    if replica:
+        events = client.job.get_events(name, replica)
+    else:
+        events = client.job.get_events(name)
+
+    table = Table(title="Job Events", show_header=True, show_lines=False)
+    table.add_column("Job Name")
+    table.add_column("Type")
+    table.add_column("Reason")
+    table.add_column("Regarding")
+    table.add_column("Count")
+    table.add_column("Last Observed Time")
+    for event in events:
+        date_string = event.last_observed_time.strftime("%Y-%m-%d %H:%M:%S")
+        table.add_row(
+            name,
+            event.type_,
+            event.reason,
+            str(event.regarding),
+            str(event.count),
+            date_string,
+        )
     console.print(table)
 
 
