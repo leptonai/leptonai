@@ -18,7 +18,7 @@ fi
 jupyter_version=$1
 echo "Jupyter Version is ${jupyter_version}"
 
-pip install jupyter==${jupyter_version}
+pip install notebook==${jupyter_version}
 jupyter contrib nbextension install --system
 jupyter nbextension enable --py widgetsnbextension
 
