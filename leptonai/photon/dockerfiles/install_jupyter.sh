@@ -25,13 +25,14 @@ jupyter nbextension enable --py widgetsnbextension
 if [ ! -f /usr/local/bin/start-jupyter ]; then
     cat >/usr/local/bin/start-jupyter <<'EOF'
 start_jupyter() {
-    if [[ $JUPYTER_PASSWORD ]]; then
-        echo "Starting Jupyter Lab..."
-        mkdir -p /workspace && \
-        cd / && \
-        nohup jupyter lab --allow-root --no-browser --port=18888 --ip=* --FileContentsManager.delete_to_trash=False --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' --ServerApp.token=$JUPYTER_PASSWORD --ServerApp.allow_origin=* --ServerApp.preferred_dir=/workspace &> /jupyter.log &
-        echo "Jupyter Lab started"
+    if [[ -z $JUPYTER_PASSWORD ]]; then
+        echo "JUPYTER_PASSWORD must be set"
+        exit 1
     fi
+    local port=${JUPYTER_PORT:-18888}
+    echo "Starting Jupyter Notebook..."
+    jupyter notebook --allow-root --no-browser --port=${port} --ip=* --FileContentsManager.delete_to_trash=False --NotebookApp.terminado_settings='{"shell_command":["/bin/bash"]}' --NotebookApp.token=${JUPYTER_PASSWORD} --NotebookApp.allow_origin=* --NotebookApp.preferred_dir=/workspace &> /jupyter.log &
+    echo "Jupyter Notebook started"
 }
 
 start_jupyter
