@@ -2,9 +2,36 @@ from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment
+from .types.deployment_operator_v1alpha1.deployment import TokenVar, TokenValue
+from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
 from .types.replica import Replica
+
+
+def make_token_vars_from_config(
+    is_public: Optional[bool], tokens: Optional[List[str]]
+) -> Optional[List[TokenVar]]:
+    # Note that None is different from [] here. None means that the tokens are not
+    # changed, while [] means that the tokens are cleared (aka, public deployment)
+    if is_public is None and tokens is None:
+        return None
+    elif is_public and tokens:
+        raise ValueError(
+            "For access control, you cannot specify both is_public and token at the"
+            " same time. Please specify either is_public=True with no tokens passed"
+            " in, or is_public=False and tokens as a list."
+        )
+    else:
+        if is_public:
+            return []
+        else:
+            final_tokens = [
+                TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))
+            ]
+            if tokens:
+                final_tokens.extend([TokenVar(value=token) for token in tokens])
+            return final_tokens
 
 
 class DeploymentAPI(APIResourse):
@@ -112,6 +139,12 @@ class DeploymentAPI(APIResourse):
         for chunk in response.iter_content(chunk_size=None):
             if chunk:
                 yield chunk.decode("utf8")
+
+    def get_events(
+        self, name_or_deployment: Union[str, LeptonDeployment]
+    ) -> List[LeptonEvent]:
+        response = self._get(f"/deployments/{self._to_name(name_or_deployment)}/events")
+        return self.ensure_list(response, LeptonEvent)
 
     # TODO: implement api for the various metrics, but for now we will simply ask users
     # to view the metrics from the web portal.
