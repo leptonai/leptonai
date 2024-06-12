@@ -4,7 +4,6 @@ ARG UBUNTU_VERSION=22.04
 
 FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION}
 
-ARG JUPYTER_VERSION=6.5.7
 ARG PYTHON_VERSION
 RUN if [ -z "$PYTHON_VERSION" ]; then \
     echo "PYTHON_VERSION is not set"; \
@@ -26,7 +25,7 @@ ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4"
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_python.sh ${PYTHON_VERSION}
 ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
 
-RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_jupyter.sh ${JUPYTER_VERSION}
+RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_jupyter.sh
 
 RUN pip install torch==2.2.0 torchvision torchaudio
 

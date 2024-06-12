@@ -2,23 +2,7 @@
 
 set -e
 
-die() {
-  echo "$@" >&2
-  exit 1
-}
-
-usage() {
-  die "Usage: $0 ${JUPYTER_VERSION}"
-}
-
-if [ $# -ne 1 ]; then
-  usage
-fi
-
-jupyter_version=$1
-echo "Jupyter Version is ${jupyter_version}"
-
-pip install notebook==${jupyter_version} jupyter_contrib_nbextensions widgetsnbextension
+pip install notebook==6.5.7 jupyter_contrib_nbextensions==0.7.0 widgetsnbextension==4.0.11 jupyter-server==1.24.0
 jupyter contrib nbextension install --system
 jupyter nbextension enable --py widgetsnbextension
 
