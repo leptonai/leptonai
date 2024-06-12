@@ -24,6 +24,8 @@ from .secret import SecretAPI
 from .kv import KVAPI
 from .queue import QueueAPI
 from .pod import PodAPI
+from .ingress import IngressAPI
+from .storage import StorageAPI
 
 from .workspace_record import WorkspaceRecord
 
@@ -135,6 +137,8 @@ class APIClient(object):
         self.secret = SecretAPI(self)
         self.kv = KVAPI(self)
         self.queue = QueueAPI(self)
+        self.ingress = IngressAPI(self)
+        self.storage = StorageAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
@@ -180,7 +184,8 @@ class APIClient(object):
         """
         info = self.info()
         _semver_pattern = re.compile(
-            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+            # noqa: W605
         )
 
         match = _semver_pattern.match(info.git_commit)
@@ -195,3 +200,9 @@ class APIClient(object):
         Returns the current workspace token.
         """
         return self.auth_token
+
+    def get_workspace_id(self) -> Union[str, None]:
+        return self.workspace_id
+
+    def get_workspace_name(self) -> Union[str, None]:
+        return WorkspaceRecord.current().display_name
