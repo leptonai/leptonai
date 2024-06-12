@@ -11,7 +11,6 @@ from typing import Optional, Union, Dict, Tuple
 
 from leptonai.api.util import _get_full_workspace_api_url
 
-
 from .types.workspace import WorkspaceInfo
 
 # import the related API resources. Note that in all these files, they should
@@ -183,7 +182,8 @@ class APIClient(object):
         """
         info = self.info()
         _semver_pattern = re.compile(
-            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+            # noqa: W605
         )
 
         match = _semver_pattern.match(info.git_commit)
@@ -201,3 +201,6 @@ class APIClient(object):
 
     def get_workspace_id(self) -> Union[str, None]:
         return self.workspace_id
+
+    def get_workspace_name(self) -> Union[str, None]:
+        return WorkspaceRecord.current().display_name

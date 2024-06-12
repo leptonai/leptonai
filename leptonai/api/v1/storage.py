@@ -2,8 +2,6 @@ import os
 
 from typing import Union, List, Dict
 
-from requests import Response
-
 from leptonai.api.v1.api_resource import APIResourse
 from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
     DEFAULT_STORAGE_VOLUME_NAME,
@@ -69,7 +67,7 @@ class StorageAPI(APIResourse):
         )
         return self.ensure_list(response, DirInfo)
 
-    def creat_file(self, local_path: str, remote_path: str) -> bool:
+    def create_file(self, local_path: str, remote_path: str) -> bool:
         with open(local_path, "rb") as file:
             response = self._post(
                 f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(remote_path)}",
@@ -79,19 +77,19 @@ class StorageAPI(APIResourse):
 
     def create_dir(self, additional_path: str) -> bool:
         response = self._put(
-            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
+            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
     def delete_file_or_dir(self, additional_path: str) -> bool:
         response = self._delete(
-            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
+            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
     def check_exists(self, additional_path: str) -> bool:
         response = self._head(
-            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}/{additional_path}"
+            f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(additional_path)}"
         )
 
         return response.status_code == 200
