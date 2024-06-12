@@ -386,5 +386,37 @@ def replicas(name):
     console.print(table)
 
 
+@job.command()
+@click.option("--name", "-n", help="The job name to get status.", required=True)
+@click.option("--replica", "-r", help="The replica of the job.")
+def events(name, replica=None):
+
+    client = APIClient()
+
+    if replica:
+        events = client.job.get_events(name, replica)
+    else:
+        events = client.job.get_events(name)
+
+    table = Table(title="Job Events", show_header=True, show_lines=False)
+    table.add_column("Job Name")
+    table.add_column("Type")
+    table.add_column("Reason")
+    table.add_column("Regarding")
+    table.add_column("Count")
+    table.add_column("Last Observed Time")
+    for event in events:
+        date_string = event.last_observed_time.strftime("%Y-%m-%d %H:%M:%S")
+        table.add_row(
+            name,
+            event.type_,
+            event.reason,
+            str(event.regarding),
+            str(event.count),
+            date_string,
+        )
+    console.print(table)
+
+
 def add_command(cli_group):
     cli_group.add_command(job)
