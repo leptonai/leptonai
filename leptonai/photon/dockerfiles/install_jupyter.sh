@@ -16,7 +16,7 @@ start_jupyter() {
     local port=${JUPYTER_PORT:-18888}
     echo "Starting Jupyter Notebook..."
     jupyter notebook --allow-root --no-browser --port=${port} --ip=* --FileContentsManager.delete_to_trash=False --NotebookApp.terminado_settings='{"shell_command":["/bin/bash"]}' --NotebookApp.token=${JUPYTER_PASSWORD} --NotebookApp.allow_origin=* --NotebookApp.preferred_dir=/workspace &> /jupyter.log &
-    echo "Jupyter Notebook started"
+    echo "Jupyter Notebook started (port ${port})"
 }
 
 start_jupyter
