@@ -23,6 +23,7 @@ from .job import JobAPI
 from .secret import SecretAPI
 from .kv import KVAPI
 from .queue import QueueAPI
+from .pod import PodAPI
 from .ingress import IngressAPI
 from .storage import StorageAPI
 
@@ -132,6 +133,7 @@ class APIClient(object):
         self.photon = PhotonAPI(self)
         self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
+        self.pod = PodAPI(self)
         self.secret = SecretAPI(self)
         self.kv = KVAPI(self)
         self.queue = QueueAPI(self)
