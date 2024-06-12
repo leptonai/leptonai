@@ -337,14 +337,6 @@ def log(name, replica):
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep job status`.
     """
-
-    if not replica:
-        # obtain replica information, and then select the first one.
-        console.print(
-            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
-            " replica."
-        )
-
     client = APIClient()
 
     if not replica:
@@ -354,9 +346,9 @@ def log(name, replica):
             " replica."
         )
 
-        replicas = client.job.get_replicas()
+        replicas = client.job.get_replicas(name)
         check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
-        replica = replicas[0].metadata.id
+        replica = replicas[0].metadata.id_
         console.print(f"Selected replica [green]{replica}[/].")
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")

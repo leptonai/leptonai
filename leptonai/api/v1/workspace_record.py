@@ -179,6 +179,11 @@ class WorkspaceRecord(object):
             cls._singleton_record.current_workspace = None
         cls._save_to_file()
 
+    @classmethod
+    def get_current_workspace_id(cls) -> Optional[str]:
+        current_workspace = cls.current()
+        return current_workspace.id_ if current_workspace else None
+
 
 # When importing, read the content of the workspace info file as initialization.
 WorkspaceRecord._load_workspace_record()
