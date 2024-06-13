@@ -1,8 +1,7 @@
-from collections import defaultdict
 from datetime import datetime
 import re
 import sys
-from typing import Any
+from typing import Optional, List
 
 import click
 from rich.table import Table
@@ -11,14 +10,45 @@ from .util import (
     console,
     check,
     click_group,
-    guard_api,
-    get_connection_or_die,
-    explain_response,
 )
-from leptonai.api import deployment as api
-from leptonai.api import photon as photon_api
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_DEPLOYMENT_URL
+from ..api.v1.client import APIClient
+from ..api.v1.types.common import Metadata
+from ..api.v1.types.deployment import LeptonDeployment
+from ..api.v1.types.deployment_operator_v1alpha1.deployment import (
+    LeptonDeploymentUserSpec,
+    ResourceRequirement,
+    ScaleDown,
+    AutoScaler,
+    TokenVar,
+    TokenValue,
+)
+
+
+def make_token_vars_from_config(
+    is_public: Optional[bool], tokens: Optional[List[str]]
+) -> Optional[List[TokenVar]]:
+    # Note that None is different from [] here. None means that the tokens are not
+    # changed, while [] means that the tokens are cleared (aka, public deployment)
+    if is_public is None and tokens is None:
+        return None
+    elif is_public and tokens:
+        raise ValueError(
+            "For access control, you cannot specify both is_public and token at the"
+            " same time. Please specify either is_public=True with no tokens passed"
+            " in, or is_public=False and tokens as a list."
+        )
+    else:
+        if is_public:
+            return []
+        else:
+            final_tokens = [
+                TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))
+            ]
+            if tokens:
+                final_tokens.extend([TokenVar(value=token) for token in tokens])
+            return final_tokens
 
 
 @click_group()
@@ -48,28 +78,26 @@ def list_command(pattern):
     """
     Lists all deployments in the current workspace.
     """
-    conn = get_connection_or_die()
-    deployments = guard_api(
-        api.list_deployment(conn),
-        detail=True,
-        msg="Cannot list deployments. See error message above.",
-    )
+
+    client = APIClient()
+
+    deployments = client.deployment.list_all()
     # For the photon id field, we will show either the photon id, or the container
     # image name if the deployment is an arbitrary container.
     # Note: for pods, we will not show them here.
     records = [
         (
+            (d.metadata.name),
             (
-                d["name"] if "name" in d else d["metadata"]["name"]
-            ),  # backward compatibility
-            d["spec"].get(
-                "photon_id", d["spec"].get("container", {}).get("image", "(unknown)")
+                d.spec.photon_id
+                if d.spec.photon_id is not None
+                else (d.spec.container.image or "（unknown）")
             ),
-            d["metadata"]["created_at"] / 1000,
-            d["status"],
+            d.metadata.created_at / 1000,
+            d.status,
         )
         for d in deployments
-        if not d.get("is_pod", False)
+        if not (d.spec.is_pod or False)
     ]
     if len(records) == 0:
         console.print(
@@ -77,7 +105,12 @@ def list_command(pattern):
         )
         return 0
 
-    table = Table(title="deployments", show_lines=True)
+    table = Table(
+        title="deployments",
+        show_lines=True,
+        show_header=True,
+        header_style="bold magenta",
+    )
     table.add_column("name")
     table.add_column("photon id")
     table.add_column("created at")
@@ -89,7 +122,7 @@ def list_command(pattern):
             name,
             photon_id,
             datetime.fromtimestamp(created_at).strftime("%Y-%m-%d\n%H:%M:%S"),
-            status["state"],
+            status.state,
         )
     console.print(table)
     return 0
@@ -101,16 +134,9 @@ def remove(name):
     """
     Removes a deployment.
     """
-    conn = get_connection_or_die()
-    response = api.remove_deployment(conn, name)
-    explain_response(
-        response,
-        f"Deployment [green]{name}[/] removed.",
-        f"Deployment [yellow]{name}[/] does not exist.",
-        f"{response.text}\nFailed to remove deployment [red]{name}[/]. See error"
-        " message above.",
-    )
-    return 0
+    client = APIClient()
+    client.deployment.delete(name)
+    console.print(f"Job [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()
@@ -129,45 +155,55 @@ def status(name, show_tokens):
     Gets the status of a deployment.
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
-    conn = get_connection_or_die()
-    workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
 
-    dep_info = guard_api(
-        api.get_deployment(conn, name),
-        detail=True,
-        msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
-    )
+    client = APIClient()
+
+    dep_info = client.deployment.get(name)
+    workspace_id = client.get_workspace_id()
+
     # todo: print a cleaner dep info.
     creation_time = datetime.fromtimestamp(
-        dep_info["metadata"]["created_at"] / 1000
+        dep_info.metadata.created_at / 1000
     ).strftime("%Y-%m-%d %H:%M:%S")
 
-    state = dep_info["status"]["state"]
+    state = dep_info.status.state
     if state in ("Running", "Ready"):
         state = f"[green]{state}[/]"
     else:
         state = f"[yellow]{state}[/]"
     console.print(f"Time now:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"Created at: {creation_time}")
-    console.print(
-        "Photon ID: "
-        f" {dep_info['spec'].get('photon_id', dep_info['spec'].get('container', {}).get('image', '(unknown)'))}"
-    )
-    console.print(f"State:      {state}")
-    resource_requirement = dep_info.get("resource_requirement", {})
-    if "max_replicas" in resource_requirement:
-        console.print(
-            f"Replicas:   {resource_requirement['min_replicas']}-"
-            f"{resource_requirement['max_replicas']}"
+
+    if dep_info.spec.photon_id is not None:
+        photon_id = dep_info.spec.photon_id
+    else:
+        photon_id = (
+            (dep_info.spec.container.image or "unknow")
+            if dep_info.spec.container
+            else "unknow"
         )
-    autoscaler = dep_info.get("auto_scaler", {})
+
+    console.print("Photon ID: ", photon_id)
+
+    console.print(f"State:      {state}")
+
+    resource_requirement = dep_info.spec.resource_requirement
+
+    if resource_requirement and resource_requirement.max_replicas:
+        console.print(
+            f"Replicas:   {resource_requirement.min_replicas}-"
+            f"{resource_requirement.max_replicas}"
+        )
+
+    autoscaler = dep_info.spec.auto_scaler
+
     if autoscaler:
-        timeout = autoscaler.get("scale_down", {}).get("no_traffic_timeout", None)
+        timeout = (
+            autoscaler.scale_down.no_traffic_timeout if autoscaler.scale_down else None
+        )
         if timeout:
             console.print(f"Timeout(s): {timeout}")
-        target_gpu_utilization_percentage = autoscaler.get(
-            "target_gpu_utilization_percentage", None
-        )
+        target_gpu_utilization_percentage = autoscaler.target_gpu_utilization_percentage
         if target_gpu_utilization_percentage:
             console.print(f"Target GPU: {target_gpu_utilization_percentage}%")
     if workspace_id:
@@ -177,35 +213,29 @@ def status(name, show_tokens):
         console.print(f"Web UI:     {web_url}/demo")
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
-    console.print(f"Is Public:  {'No' if dep_info['spec']['api_tokens'] else 'Yes'}")
-    if show_tokens and dep_info["spec"]["api_tokens"]:
+    console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")
+
+    if show_tokens and dep_info.spec.api_tokens:
 
         def stringfy_token(x):
-            return (
-                x["value"] if "value" in x else f"[{x['value_from']['token_name_ref']}]"
-            )
+            return x.value or f"[{x.value_from.token_name_ref}]"
 
-        console.print(
-            f"Tokens:     {stringfy_token(dep_info['spec']['api_tokens'][0])}"
-        )
-        for token in dep_info["spec"]["api_tokens"][1:]:
+        console.print(f"Tokens:     {stringfy_token(dep_info.spec.api_tokens[0])}")
+        for token in dep_info.spec.api_tokens[1:]:
             console.print(f"            {stringfy_token(token)}")
+
     console.print("Replicas List:")
 
-    rep_info = guard_api(
-        api.get_readiness(conn, name),
-        detail=True,
-        msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
-    )
+    reading_issue_root = client.deployment.get_readiness(name).root
     # Print a table of readiness information.
     table = Table(show_lines=False)
     table.add_column("replica id")
     table.add_column("status")
     table.add_column("message")
     ready_count = 0
-    for id, value in rep_info.items():
-        reason = value[0]["reason"]
-        message = value[0]["message"]
+    for id, value in reading_issue_root.items():
+        reason = value[0].reason
+        message = value[0].message
         # Do we need to display red?
         if reason == "Ready":
             reason = f"[green]{reason}[/]"
@@ -216,31 +246,30 @@ def status(name, show_tokens):
             message = "(empty)"
         table.add_row(id, reason, message)
     console.print(table)
-    console.print(f"[green]{ready_count}[/] out of {len(rep_info)} replicas ready.")
-
-    term_info = guard_api(
-        api.get_termination(conn, name),
-        detail=True,
-        msg=f"Cannot obtain termination info for [red]{name}[/]. See error above.",
+    console.print(
+        f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
     )
-    if len(term_info):
+
+    deployment_terminations_root = client.deployment.get_termination(name).root
+
+    if len(deployment_terminations_root):
         console.print("There are earlier terminations. Detailed Info:")
         table = Table(show_lines=False)
         table.add_column("replica id")
         table.add_column("start/end time")
         table.add_column("reason (code)")
         table.add_column("message")
-        for id, event_list in term_info.items():
+        for id, event_list in deployment_terminations_root:
             for event in event_list:
-                start_time = datetime.fromtimestamp(event["started_at"]).strftime(
+                start_time = datetime.fromtimestamp(event.started_at).strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
-                end_time = datetime.fromtimestamp(event["finished_at"]).strftime(
+                end_time = datetime.fromtimestamp(event.finished_at).strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
-                code = event["exit_code"]
-                reason = event["reason"]
-                message = event["message"] if event["message"] else "(empty)"
+                code = event.exit_code
+                reason = event.reason
+                message = event.message if event.message else "(empty)"
                 table.add_row(
                     id,
                     f"{start_time}\n{end_time}",
@@ -259,28 +288,22 @@ def log(name, replica):
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep deployment status`.
     """
-    conn = get_connection_or_die()
+    client = APIClient()
+
     if not replica:
         # obtain replica information, and then select the first one.
         console.print(
             f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
             " replica."
         )
-        replicas = guard_api(
-            api.get_replicas(conn, name),
-            detail=True,
-            msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
-        )
+
+        replicas = client.deployment.get_replicas(name)
         check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
-        replica = replicas[0]["id"]
+        replica = replicas[0].metadata.id_
         console.print(f"Selected replica [green]{replica}[/].")
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")
-    stream_or_err = guard_api(
-        api.get_log(conn, name, replica),
-        detail=False,
-        msg="Cannot obtain log for [red]{replica}[/]. See error above.",
-    )
+    stream_or_err = client.deployment.get_log(name_or_deployment=name, replica=replica)
     # Print the log as a continuous stream until the user presses Ctrl-C.
     try:
         for chunk in stream_or_err:
@@ -387,27 +410,16 @@ def update(
     as replacements, and not incrementals. For example, if you specify `--tokens`,
     old tokens are replaced by the new set of tokens.
     """
-    conn = get_connection_or_die()
+
+    client = APIClient()
     if id == "latest":
-        # This is a special case where we also need to find the corresponding
-        # photon id.
-        dep_info = guard_api(
-            api.get_deployment(conn, name),
-            detail=True,
-            msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
-        )
-        current_photon_id = dep_info["spec"]["photon_id"]
-        photons = guard_api(
-            photon_api.list_remote(conn),
-            detail=True,
-            msg=(
-                "Failed to list photons in workspace"
-                f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
-            ),
-        )
+        lepton_deployment = client.deployment.get(name)
+        current_photon_id = lepton_deployment.spec.photon_id
+        photons = client.photon.list_all()
+
         for photon in photons:
-            if photon["id"] == current_photon_id:
-                current_photon_name = photon["name"]
+            if photon.id_ == current_photon_id:
+                current_photon_name = photon.name
                 break
         else:
             console.print(
@@ -416,147 +428,84 @@ def update(
             )
             sys.exit(1)
         records = [
-            (photon["name"], photon["model"], photon["id"], photon["created_at"])
+            (photon.name, photon.model, photon.id_, photon.created_at)
             for photon in photons
-            if photon["name"] == current_photon_name
+            if photon.name == current_photon_name
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]
         console.print(f"Updating to latest photon id [green]{id}[/].")
     if public_photon is None:
-        dep_info = guard_api(
-            api.get_deployment(conn, name),
-            detail=True,
-            msg=f"Cannot obtain info for [red]{name}[/]. See error above.",
-        )
-        public_photon = dep_info["spec"].get("photon_namespace", "private") == "public"
+        lepton_deployment = client.deployment.get(name)
+
+        public_photon = (
+            lepton_deployment.spec.photon_namespace or "private"
+        ) == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
     elif len(tokens) == 0:
         # None means no change
         tokens = None
-    guard_api(
-        api.update_deployment(
-            conn,
-            name,
-            photon_id=id,
-            photon_namespace="public" if public_photon else "private",
+
+    lepton_deployment_spec = LeptonDeploymentUserSpec(
+        photon_namespace="public" if public_photon else "private",
+        photon_id=id,
+        resource_requirement=ResourceRequirement(
             min_replicas=min_replicas,
+            max_replicas=min_replicas,
             resource_shape=resource_shape,
+        ),
+        api_tokens=make_token_vars_from_config(
             is_public=public,
             tokens=tokens,
-            no_traffic_timeout=no_traffic_timeout,
         ),
-        detail=True,
-        msg=f"Cannot update deployment [red]{name}[/]. See error above.",
+        auto_scaler=(
+            None
+            if no_traffic_timeout is None
+            else AutoScaler(
+                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
+                target_gpu_utilization_percentage=0,
+            )
+        ),
+    )
+
+    lepton_deployment = LeptonDeployment(
+        metadata=Metadata(id=name), spec=lepton_deployment_spec
+    )
+    client.deployment.update(
+        name_or_deployment=name,
+        spec=lepton_deployment,
     )
     console.print(f"Deployment [green]{name}[/] updated.")
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name.", required=True)
-@click.option("--by-path", "-p", is_flag=True, help="Show detailed QPS info by path.")
-def qps(name, by_path):
+@click.option("--name", "-n", help="The deployment name to get status.", required=True)
+def events(name):
     """
-    Gets the QPS of a deployment.
+    List events of the deployment
     """
-    conn = get_connection_or_die()
-    qps_info = guard_api(
-        api.get_qps(conn, name, by_path=by_path),
-        detail=True,
-        msg=f"Cannot obtain QPS info for [red]{name}[/]. See error above.",
-    )
-    if len(qps_info) == 0:
-        console.print(f"No QPS info found for [yellow]{name}[/].")
-        return
-    if by_path:
-        all_paths = [p["metric"]["handler"] for p in qps_info]
-        all_paths = sorted(all_paths)
-        table = Table(title=f"QPS of [green]{name}[/] per path", show_lines=False)
-        table.add_column("time")
-        for path in all_paths:
-            table.add_column(path)
-        value_path_speed_map: defaultdict[float, defaultdict[str, Any]] = defaultdict(
-            defaultdict
-        )
-        for path_info in qps_info:
-            handler = path_info["metric"]["handler"]
-            values = path_info["values"]
-            for time, value in values:
-                value_path_speed_map[time][handler] = value
-        ordered_time = value_path_speed_map.keys()
-        ordered_time = sorted(ordered_time)
-        for time in ordered_time:
-            row = [datetime.fromtimestamp(time).strftime("%H:%M:%S")]
-            for path in all_paths:
-                row.append(f"{value_path_speed_map[time][path]:.4f}")
-            table.add_row(*row)
-        console.print(table)
-    else:
-        # Print a table of QPS information.
-        table = Table(title=f"QPS of [green]{name}[/]", show_lines=False)
-        table.add_column("time")
-        table.add_column("qps")
-        content = qps_info[0]["values"]
-        for time, qps in content:
-            table.add_row(
-                datetime.fromtimestamp(time).strftime("%H:%M:%S"), f"{qps:.4f}"
-            )
-        console.print(table)
+    client = APIClient()
+    events = client.deployment.get_events(name)
 
-
-@deployment.command()
-@click.option("--name", "-n", help="The deployment name.", required=True)
-@click.option("--by-path", "-p", is_flag=True, help="Show detailed QPS info by path.")
-def latency(name, by_path):
-    """
-    Gets the latency of a deployment.
-    """
-    conn = get_connection_or_die()
-    latency_info = guard_api(
-        api.get_latency(conn, name, by_path=by_path),
-        detail=True,
-        msg=f"Cannot obtain latency info for [red]{name}[/]. See error above.",
-    )
-    if len(latency_info) == 0:
-        console.print(f"No latency info found for [yellow]{name}[/].")
-        return
-    if by_path:
-        all_paths = [p["metric"]["handler"] for p in latency_info]
-        all_paths = sorted(all_paths)
-        table = Table(show_lines=False)
-        table.add_column("time")
-        for path in all_paths:
-            table.add_column(path)
-        value_path_speed_map: defaultdict[float, defaultdict[str, Any]] = defaultdict(
-            defaultdict
+    table = Table(title="Deployment Events", show_header=True, show_lines=False)
+    table.add_column("Deployment Name")
+    table.add_column("Type")
+    table.add_column("Reason")
+    table.add_column("Regarding")
+    table.add_column("Count")
+    table.add_column("Last Observed Time")
+    for event in events:
+        date_string = event.last_observed_time.strftime("%Y-%m-%d %H:%M:%S")
+        table.add_row(
+            name,
+            event.type_,
+            event.reason,
+            str(event.regarding),
+            str(event.count),
+            date_string,
         )
-        for path_info in latency_info:
-            handler = path_info["metric"]["handler"]
-            values = path_info["values"]
-            for time, value in values:
-                value_path_speed_map[time][handler] = value
-        ordered_time = value_path_speed_map.keys()
-        ordered_time = sorted(ordered_time)
-        for time in ordered_time:
-            row = [datetime.fromtimestamp(time).strftime("%H:%M:%S")]
-            for path in all_paths:
-                row.append(f"{value_path_speed_map[time][path]*1000:.2f}")
-            table.add_row(*row)
-        console.print(f"Latency (ms) of [green]{name}[/] per path")
-        console.print(table)
-    else:
-        # Print a table of latency information.
-        table = Table(show_lines=False)
-        table.add_column("time")
-        table.add_column("latency")
-        content = latency_info[0]["values"]
-        for time, latency in content:
-            table.add_row(
-                datetime.fromtimestamp(time).strftime("%H:%M:%S"), f"{latency*1000:.4f}"
-            )
-        console.print(f"Latency (ms) of [green]{name}[/]")
-        console.print(table)
+    console.print(table)
 
 
 def add_command(cli_group):
