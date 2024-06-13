@@ -16,6 +16,8 @@ from .util import (
 )
 from leptonai.api import secret as api
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
+from ..api.v1.client import APIClient
+from ..api.v1.types.common import SecretItem
 
 
 @click_group()
@@ -54,8 +56,9 @@ def create(name, value):
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}",
         )
-    conn = get_connection_or_die()
-    existing_secrets = api.list_secret(conn)
+    client = APIClient()
+    existing_secrets = client.secret.list_all()
+
     if existing_secrets:
         for n in name:
             check(
@@ -64,14 +67,13 @@ def create(name, value):
                 " different name or remove the existing secret with `lep secret"
                 " remove` first.",
             )
-    response = api.create_secret(conn, name, value)
-    explain_response(
-        response,
-        f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/].",
-        f"{response.text}\nCannot create secrets. See error message above.",
-        f"{response.text}\nInternal error. See error message above.",
-    )
 
+    secret_item_list = []
+    for cur_name, cur_value in zip(name, value):
+        secret_item_list.append(SecretItem(name=cur_name, value=cur_value))
+
+    client.secret.create(secret_item_list)
+    console.print(f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/].")
 
 @secret.command(name="list")
 def list_command():
@@ -79,8 +81,8 @@ def list_command():
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.
     """
-    conn = get_connection_or_die()
-    secrets = guard_api(api.list_secret(conn))
+    client = APIClient()
+    secrets = client.secret.list_all()
     secrets.sort()
     table = Table(title="Secrets", show_lines=True)
     table.add_column("ID")
@@ -98,12 +100,10 @@ def remove(name):
     """
     conn = get_connection_or_die()
     response = api.remove_secret(conn, name)
-    explain_response(
-        response,
-        f"Secret [green]{name}[/] deleted successfully.",
-        f"Secret [yellow]{name}[/] does not exist.",
-        f"{response.text}\nInternal error. See error message above.",
-    )
+
+    client = APIClient()
+    client.secret.delete(name)
+    console.print(f"Secret [green]{name}[/] deleted successfully.")
 
 
 def add_command(cli_group):
