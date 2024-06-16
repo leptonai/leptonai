@@ -11,10 +11,11 @@ from leptonai._internal.client_utils import (  # noqa
     _get_positional_argument_error_message,
 )
 from leptonai.api.connection import Connection
-from leptonai.api.workspace import (
-    WorkspaceInfoLocalRecord,
+from leptonai.api.v1.workspace_record import WorkspaceRecord
+from leptonai.api.util import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
+    WorkspaceNotCreatedYet,
 )
 from leptonai.config import DEFAULT_PORT
 from leptonai.photon import FileParam  # noqa
@@ -46,13 +47,13 @@ def current() -> str:
     client, if the current workspace is used, the token will be automatically
     set to the current workspace token if not specified.
     """
-    id = WorkspaceInfoLocalRecord.get_current_workspace_id()
+    id = WorkspaceRecord.get_current_workspace_id()
     if id is None:
         raise RuntimeError("No current workspace is set.")
     return id
 
 
-class _MultipleEndpointWithDefault(Callable):
+class _MultipleEndpointWithDefault(object):
     """
     A class that wraps multiple endpoints with the same name and different http
     methods, with a default. DO NOT USE THIS CLASS DIRECTLY. This is an internal
@@ -312,9 +313,9 @@ class Client(object):
         # set the token as the current workspace token.
         if (
             token is None
-            and workspace_or_url == WorkspaceInfoLocalRecord.get_current_workspace_id()
+            and workspace_or_url == WorkspaceRecord.get_current_workspace_id()
         ):
-            token = WorkspaceInfoLocalRecord.get_current_workspace_token()
+            token = WorkspaceRecord.client().token()
         if token is not None:
             headers.update({"Authorization": f"Bearer {token}"})
 
@@ -504,7 +505,8 @@ class Client(object):
         """
         internal method to create a method that reflects the post path.
 
-        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then "run" is the name used here.
+        :param name: the name of the path. For example, if it is "https://x.lepton.ai/run", then "run"
+        is the name used here.
         :param function_name: the name of the function.
         :return: a method that can be called to call post to the path.
         """
@@ -644,17 +646,17 @@ class Workspace(object):
             token (str, optional): The token to use for authentication. Defaults to None.
         """
         if workspace_id is None:
-            workspace_id = WorkspaceInfoLocalRecord.get_current_workspace_id()
+            workspace_id = WorkspaceRecord.get_current_workspace_id()
             if workspace_id is None:
                 raise ValueError(
                     "No workspace id specified, and it seems that you are not"
                     " logged in."
                 )
         if (
-            workspace_id == WorkspaceInfoLocalRecord.get_current_workspace_id()
+            workspace_id == WorkspaceRecord.get_current_workspace_id()
             and not token
         ):
-            token = WorkspaceInfoLocalRecord.get_current_workspace_token()
+            token = WorkspaceRecord.client().token()
         self.workspace_id = workspace_id
         api_url = _get_full_workspace_api_url(workspace_id)
         if not api_url:

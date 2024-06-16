@@ -79,7 +79,7 @@ def login(credentials):
     need_further_login = False
     if credentials:
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set(workspace_id, auth_token=auth_token)
+        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
     else:
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
@@ -91,7 +91,7 @@ def login(credentials):
             elif len(candidates) == 1:
                 # Only one workspace, so we will simply log in to that one.
                 ws = candidates[0]
-                WorkspaceRecord.set(ws.id_, ws.auth_token, ws.url)  # type: ignore
+                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url)  # type: ignore
             else:
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
@@ -105,7 +105,7 @@ def login(credentials):
                 except ValueError:
                     console.print("Invalid choice. Please enter a number.")
                     sys.exit(1)
-                WorkspaceRecord.set(
+                WorkspaceRecord.set_or_exit(
                     candidates[choice].id_,  # type: ignore
                     candidates[choice].auth_token,
                     candidates[choice].url,
@@ -140,7 +140,7 @@ def login(credentials):
         while not credentials:
             credentials = input("Credential: ")
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set(workspace_id, auth_token=auth_token)
+        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
     info = api_client.info()

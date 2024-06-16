@@ -67,6 +67,15 @@ def create_header(auth_token: Optional[str]) -> Dict[str, str]:
     return {"Authorization": "Bearer " + auth_token} if auth_token else {}
 
 
+class WorkspaceNotCreatedYet(RuntimeError):
+    """
+    An exception that is raised when a workspace is not created yet.
+    """
+
+    def __init__(self, workspace_id: str):
+        super().__init__(f"Workspace {workspace_id} is not created yet.")
+
+
 def _get_full_workspace_url(workspace_id) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
@@ -91,14 +100,27 @@ def _get_full_workspace_url(workspace_id) -> str:
         raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
     else:
         content = res.json()
-        if isinstance(content, list) or "url" not in content:
+        if (not isinstance(content, dict)) or "url" not in content:
             raise RuntimeError(
                 "You hit a programming error: response is not a dictionary. Please"
                 " report this and include the following information: url:"
                 f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body},"
                 f" response: {res}."
             )
+        elif content["url"] == "":
+            raise WorkspaceNotCreatedYet(workspace_id)
         return content["url"]
+    
+
+def _print_workspace_not_created_yet_message(workspace_id: str):
+    """
+    Help message to be used to print a message when a workspace is not created yet.
+    """
+    print(
+        f"Workspace {workspace_id} is registerd, but not set up yet. To set it up,"
+        f" Please visit\n  https://dashboard.lepton.ai/workspace/{workspace_id}/setup\n"
+        " After that, you can log in here and use the workspace via CLI or API."
+    )
 
 
 def _get_workspace_display_name(workspace_id) -> Optional[str]:

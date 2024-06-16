@@ -5,6 +5,7 @@ time. This class is also used by the CLI to read and write workspace info.
 """
 
 import os
+import sys
 from pydantic import BaseModel, Field
 from threading import Lock
 from typing import Optional, Union, Dict, TYPE_CHECKING, List
@@ -15,6 +16,8 @@ from leptonai.util import create_cached_dir_if_needed
 from leptonai.api.util import (
     _get_full_workspace_api_url,
     _get_workspace_display_name,
+    WorkspaceNotCreatedYet,
+    _print_workspace_not_created_yet_message,
 )
 
 # so we avoid circular imports
@@ -111,6 +114,23 @@ class WorkspaceRecord(object):
         )
         cls._singleton_record.current_workspace = workspace_id
         cls._save_to_file()
+    
+    @classmethod
+    def set_or_exit(
+        cls,
+        workspace_id: str,
+        auth_token: Optional[str] = None,
+        url: Optional[str] = None,
+    ):
+        """
+        Sets a workspace, and if it is not set up yet, print a message and exit.
+        This should only be used in CLI.
+        """
+        try:
+            cls.set(workspace_id, auth_token, url)
+        except WorkspaceNotCreatedYet:
+            _print_workspace_not_created_yet_message(workspace_id)
+            sys.exit(1)
 
     @classmethod
     def workspaces(cls) -> List[LocalWorkspaceInfo]:
