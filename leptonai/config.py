@@ -9,7 +9,7 @@ import warnings
 
 import pydantic
 import pydantic.version
-from typing import Dict, List, Generic, TypeVar
+from typing import Generic, TypeVar
 
 # Cache directory for Lepton's local configurations.
 # Usually, you should not need to change this. In cases like unit testing, you
@@ -96,7 +96,14 @@ T = TypeVar("T")
 if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1
     import json
+    import warnings
     from pydantic.class_validators import validator as compatible_field_validator
+
+    warnings.warn(
+        "You are using pydantic 1.x, which is not fully supported by Lepton AI. We"
+        " strongly recommend you to upgrade to pydantic 2.x if possible.",
+        DeprecationWarning,
+    )
 
     def v2only_field_validator(*args, **kwargs):
         """
@@ -143,7 +150,7 @@ if pydantic.version.VERSION < "2.0.0":
 
 else:
     PYDANTIC_MAJOR_VERSION = 2
-    from pydantic import field_validator, ValidationInfo, RootModel  # type: ignore
+    from pydantic import field_validator, ValidationInfo, RootModel  # type: ignore # noqa: F401
 
     compatible_field_validator = field_validator  # type: ignore
     v2only_field_validator = field_validator  # type: ignore

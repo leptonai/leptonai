@@ -127,7 +127,7 @@ class ResourceRequirement(BaseModel):
         return min_replicas
 
     @v2only_field_validator("max_replicas")
-    def validate_max_replicas(cls, max_replicas, values: "ValidationInfo"):  # type: ignore
+    def validate_max_replicas(cls, max_replicas, values: "ValidationInfo"):  # type: ignore # noqa: F821
         if max_replicas is None:
             return max_replicas
         if max_replicas < 0:
