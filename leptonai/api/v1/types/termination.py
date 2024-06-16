@@ -1,5 +1,7 @@
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 from typing import Dict, List
+
+from leptonai.config import CompatibleRootModel
 
 
 class ReplicaTermination(BaseModel):
@@ -10,5 +12,5 @@ class ReplicaTermination(BaseModel):
     message: str
 
 
-class DeploymentTerminations(RootModel[Dict[str, List[ReplicaTermination]]]):
+class DeploymentTerminations(CompatibleRootModel[Dict[str, List[ReplicaTermination]]]):
     root: Dict[str, List[ReplicaTermination]] = {}

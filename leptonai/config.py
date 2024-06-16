@@ -7,7 +7,9 @@ from pathlib import Path
 import sys
 import warnings
 
+import pydantic
 import pydantic.version
+from typing import Dict, List, Generic, TypeVar
 
 # Cache directory for Lepton's local configurations.
 # Usually, you should not need to change this. In cases like unit testing, you
@@ -76,11 +78,83 @@ except ValueError:
 ################################################################################
 # Automatically generated constants. You do not need to change these.
 ################################################################################
+T = TypeVar("T")
 
+# Implementation of three compatible classes / functions for pydantic 1.x and 2.x:
+# 1. compatible_field_validator: A dummy wrapper that is backward compatible with
+# pydantic 1.x. However, this validator only supports very simple field validators
+# where no fancy features other than the field name is used. If you need to use more
+# advanced features, either manually write two separate functions, or use
+# v2only_field_validator.
+# 2. v2only_field_validator: A dummy wrapper that is only compatible with pydantic
+# 2.x. This validator is intended to be used when you need to use advanced features
+# in pydantic 2.x, and you can safely ignore the coverage drop in pydantic 1.x.
+# 3. CompatibleRootModel: A simple RootModel that is compatible with both pydantic
+# 1.x and 2.x. It only supports one field, which is root, and simple functionalities
+# such as dict and json. Note that this class is not fully compatible with pydantic
+# 2.x, and it is only intended to be used in simple cases.
 if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1
+    import json
+    from pydantic.class_validators import validator as compatible_field_validator
+
+    def v2only_field_validator(*args, **kwargs):
+        """
+        A dummy wrapper that is backward compatible with pydantic 1.x. However, this
+        validator will actually do no validation in pydantic 1.x - meaning that coverage
+        will be worse. We recommend users to upgrade to pydantic 2.x if possible.
+        """
+
+        def decorator(f):
+            return f
+
+        return decorator
+
+    class CompatibleRootModel(pydantic.BaseModel, Generic[T]):
+        """
+        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x. It only supports one field, which is root, and simple functionalities such
+        as dict and json. Note that this class is not fully compatible with pydantic 2.x, and it is only intended to be used in simple cases.
+        """
+
+        root: T
+
+        class Config:
+            orm_mode = True
+
+        def dict(self, *args, **kwargs):
+            return self.root
+
+        def json(self, *args, **kwargs):
+            return json.dumps(self.root, separators=(",", ":"))
+
+        @classmethod
+        def parse_obj(cls, obj):
+            return cls(root=obj)
+
+        @classmethod
+        def parse_raw(cls, *args, **kwargs):
+            obj = super().parse_raw(*args, **kwargs)
+            return cls(root=obj)
+
+        @classmethod
+        def parse_file(cls, *args, **kwargs):
+            obj = super().parse_file(*args, **kwargs)
+            return cls(root=obj)
+
 else:
     PYDANTIC_MAJOR_VERSION = 2
+    from pydantic import field_validator, ValidationInfo, RootModel  # type: ignore
+
+    compatible_field_validator = field_validator  # type: ignore
+    v2only_field_validator = field_validator  # type: ignore
+
+    class CompatibleRootModel(RootModel[T], Generic[T]):
+        """
+        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x. It only supports one field, which is root, and simple functionalities such
+        as dict and json. Note that this class is not fully compatible with pydantic 2.x, and it is only intended to be used in simple cases.
+        """
+
+        pass
 
 
 ################################################################################

@@ -1,7 +1,8 @@
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, ValidationInfo
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
+from leptonai.config import compatible_field_validator, v2only_field_validator
 from .affinity import LeptonResourceAffinity
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
@@ -39,13 +40,13 @@ class ContainerPort(BaseModel):
     host_port: Optional[int] = None
     enable_load_balancer: Optional[bool] = None
 
-    @field_validator("container_port")
+    @compatible_field_validator("container_port")
     def validate_container_port(cls, v):
         if v < 0 or v > 65535:
             raise ValueError("Invalid port number. Port must be between 0 and 65535.")
         return v
 
-    @field_validator("protocol")
+    @compatible_field_validator("protocol")
     def validate_protocol(cls, v):
         if v and v.lower() not in ["tcp", "udp"]:
             raise ValueError(
@@ -93,7 +94,7 @@ class ResourceRequirement(BaseModel):
     max_replicas: Optional[int] = None
     host_network: Optional[bool] = None
 
-    @field_validator("resource_shape")
+    @compatible_field_validator("resource_shape")
     def validate_resource_shape(cls, v):
         if v is None:
             return v
@@ -115,7 +116,7 @@ class ResourceRequirement(BaseModel):
         #     )
         return v
 
-    @field_validator("min_replicas")
+    @compatible_field_validator("min_replicas")
     def validate_min_replicas(cls, min_replicas):
         if min_replicas is None:
             return min_replicas
@@ -125,8 +126,8 @@ class ResourceRequirement(BaseModel):
             )
         return min_replicas
 
-    @field_validator("max_replicas")
-    def validate_max_replicas(cls, max_replicas, values: ValidationInfo):
+    @v2only_field_validator("max_replicas")
+    def validate_max_replicas(cls, max_replicas, values: "ValidationInfo"):  # type: ignore
         if max_replicas is None:
             return max_replicas
         if max_replicas < 0:
@@ -150,13 +151,13 @@ class ScaleDown(BaseModel):
     no_traffic_timeout: Optional[int] = None
     not_ready_timeout: Optional[int] = None
 
-    @field_validator("no_traffic_timeout")
+    @compatible_field_validator("no_traffic_timeout")
     def validate_no_traffic_timeout(cls, v):
         if v is not None and v < 0:
             raise ValueError(f"no_traffic_timeout must be non-negative. Found {v}.")
         return v
 
-    @field_validator("not_ready_timeout")
+    @compatible_field_validator("not_ready_timeout")
     def validate_not_ready_timeout(cls, v):
         if v is not None and v < 0:
             raise ValueError(f"not_ready_timeout must be non-negative. Found {v}.")
@@ -174,7 +175,7 @@ class AutoScaler(BaseModel):
     target_gpu_utilization_percentage: Optional[int] = None
     target_throughput: Optional[AutoscalerTargetThroughput] = None
 
-    @field_validator("target_gpu_utilization_percentage")
+    @compatible_field_validator("target_gpu_utilization_percentage")
     def validate_target_gpu_utilization_percentage(cls, v):
         if v is not None and (v < 0 or v > 100):
             raise ValueError(
