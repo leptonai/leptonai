@@ -54,7 +54,7 @@ import torch
 
 import leptonai
 from leptonai import Client
-from leptonai.config import ALLOW_ORIGINS_URLS, ENV_VAR_REQUIRED
+from leptonai.config import ENV_VAR_REQUIRED
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon import Photon, HTTPException, PNGResponse, FileParam, StaticFiles
 from leptonai.photon.util import (
@@ -661,22 +661,33 @@ from leptonai.photon import Photon
 
         proc, port = photon_run_local_server(path=path)
 
-        for url in ALLOW_ORIGINS_URLS:
-            res = requests.post(
-                f"http://127.0.0.1:{port}",
-                json={"x": 1.0},
-                headers={"Origin": url},
-            )
-            self.assertEqual(res.status_code, 200)
-            self.assertEqual(res.headers["Access-Control-Allow-Origin"], url)
+        res = requests.post(
+            f"http://127.0.0.1:{port}",
+            json={"x": 1.0},
+            headers={"Origin": "https://whatever.com"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers["Access-Control-Allow-Origin"], "*")
+        proc.kill()
+
+        proc, port = photon_run_local_server(
+            path=path, env={"LEPTON_ALLOW_ORIGINS": "https://url_a.com"}
+        )
+        res = requests.post(
+            f"http://127.0.0.1:{port}",
+            json={"x": 1.0},
+            headers={"Origin": "https://url_a.com"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Access-Control-Allow-Origin", res.headers)
 
         res = requests.post(
             f"http://127.0.0.1:{port}",
             json={"x": 1.0},
-            headers={"Origin": "https://some_other_url.com"},
+            headers={"Origin": "https://url_b.com"},
         )
         self.assertEqual(res.status_code, 200)
-        self.assertFalse("Access-Control-Allow-Origin" in res.headers)
+        self.assertNotIn("Access-Control-Allow-Origin", res.headers)
         proc.kill()
 
     def test_mount_fastapi(self):

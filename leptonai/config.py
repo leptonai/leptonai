@@ -359,20 +359,12 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
 }
 
-# Homepage URL
-LEPTON_HOMEPAGE_URL = "https://lepton.ai"
-LEPTON_HOMEPAGE_WWW_URL = "https://www.lepton.ai"
-# Dashboard URL
+if "LEPTON_ALLOW_ORIGINS" in os.environ:
+    ALLOW_ORIGINS = os.environ["LEPTON_ALLOW_ORIGINS"].split(",")
+else:
+    ALLOW_ORIGINS = ["*"]
+
 LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
-LEPTON_DASHBOARD_DAILY_URL = "https://dashboard.daily.lepton.ai"
-
-ALLOW_ORIGINS_URLS = [
-    LEPTON_HOMEPAGE_URL,
-    LEPTON_HOMEPAGE_WWW_URL,
-    LEPTON_DASHBOARD_URL,
-    LEPTON_DASHBOARD_DAILY_URL,
-]
-
 # LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
 LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
