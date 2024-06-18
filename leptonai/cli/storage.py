@@ -13,6 +13,7 @@ from .util import (
     click_group,
     sizeof_fmt,
     check,
+    _get_only_replica_public_ip,
 )
 from ..api.v1.client import APIClient
 
@@ -21,17 +22,6 @@ custom_theme = Theme({
 })
 
 console = Console(highlight=False, theme=custom_theme)
-
-
-def _get_only_replica_public_ip(name: str):
-    client = APIClient()
-    replicas = client.deployment.get_replicas(name)
-    logger.trace(f"Replicas for {name}:\n{replicas}")
-
-    if len(replicas) != 1:
-        console.print(f"Pod {name} has more than one replica. This is not supported.")
-        sys.exit(1)
-    return replicas[0].status.public_ip
 
 
 def print_dir_contents(dir_path, dir_infos):
@@ -232,7 +222,7 @@ def upload(local_path, remote_path, rsync, recursive, progress):
 
         lepton_deployment = client.deployment.get(name)
         port = lepton_deployment.spec.container.ports[0].host_port
-        ip = client.deployment.get_only_replica_public_ip(name)
+        ip = _get_only_replica_public_ip(name)
 
         workspace_id = client.get_workspace_id()
 
