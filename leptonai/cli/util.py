@@ -12,6 +12,7 @@ from loguru import logger
 from rich.console import Console
 from leptonai.api import APIError
 from leptonai.api.connection import Connection
+from leptonai.api.v1.client import APIClient
 from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.api import deployment as deploymentapi
 
@@ -176,3 +177,14 @@ def get_only_replica_public_ip_or_die(conn, name: str):
         f"Pod {name} has more than one replica. This is not supported.",
     )
     return replicas[0].get("status", {}).get("public_ip", None)
+
+
+def _get_only_replica_public_ip(name: str):
+    client = APIClient()
+    replicas = client.deployment.get_replicas(name)
+    logger.trace(f"Replicas for {name}:\n{replicas}")
+
+    if len(replicas) != 1:
+        console.print(f"Pod {name} has more than one replica. This is not supported.")
+        sys.exit(1)
+    return replicas[0].status.public_ip
