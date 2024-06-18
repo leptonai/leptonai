@@ -10,11 +10,7 @@ from .util import (
     console,
     check,
     click_group,
-    guard_api,
-    get_connection_or_die,
-    explain_response,
 )
-from leptonai.api import secret as api
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 from ..api.v1.client import APIClient
 from ..api.v1.types.common import SecretItem
@@ -73,7 +69,10 @@ def create(name, value):
         secret_item_list.append(SecretItem(name=cur_name, value=cur_value))
 
     client.secret.create(secret_item_list)
-    console.print(f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/].")
+    console.print(
+        f"Secret created successfully: [green]{'[/], [green]'.join(name)}[/]."
+    )
+
 
 @secret.command(name="list")
 def list_command():
@@ -98,9 +97,6 @@ def remove(name):
     """
     Removes the secret with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.remove_secret(conn, name)
-
     client = APIClient()
     client.secret.delete(name)
     console.print(f"Secret [green]{name}[/] deleted successfully.")

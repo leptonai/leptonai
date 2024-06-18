@@ -1,5 +1,5 @@
 import json
-from typing import Union, List
+from typing import List
 
 from .api_resource import APIResourse
 
