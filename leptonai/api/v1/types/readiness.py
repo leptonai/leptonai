@@ -1,6 +1,8 @@
 from enum import Enum
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 from typing import Dict, List
+
+from leptonai.config import CompatibleRootModel
 
 
 class ReplicaReadinessReason(str, Enum):
@@ -21,5 +23,5 @@ class ReplicaReadinessIssue(BaseModel):
     creationTimestamp: str
 
 
-class ReadinessIssue(RootModel[Dict[str, List[ReplicaReadinessIssue]]]):
+class ReadinessIssue(CompatibleRootModel[Dict[str, List[ReplicaReadinessIssue]]]):
     root: Dict[str, List[ReplicaReadinessIssue]] = {}
