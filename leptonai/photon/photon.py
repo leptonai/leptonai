@@ -40,7 +40,7 @@ import uvicorn
 import uvicorn.config
 
 from leptonai.config import (  # noqa: F401
-    ALLOW_ORIGINS_URLS,
+    ALLOW_ORIGINS,
     BASE_IMAGE,
     BASE_IMAGE_ARGS,
     BASE_IMAGE_CMD,
@@ -634,7 +634,7 @@ class Photon(BasePhoton):
     def _add_cors_middlewares(app):
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=ALLOW_ORIGINS_URLS,
+            allow_origins=ALLOW_ORIGINS,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
