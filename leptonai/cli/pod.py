@@ -17,18 +17,20 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.api import photon as photon_api
-from leptonai.api import deployment as deployment_api
 from leptonai.api import types
 from .util import (
     click_group,
-    guard_api,
     check,
-    get_connection_or_die,
-    explain_response,
-    get_only_replica_public_ip_or_die,
+    _get_only_replica_public_ip,
 )
-
+from ..api.v1.client import APIClient
+from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
+    LeptonDeploymentUserSpec,
+    ResourceRequirement,
+)
+from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.types.common import Metadata
+from ..api.v1.types.deployment import LeptonDeployment
 
 console = Console(highlight=False)
 
@@ -91,18 +93,19 @@ def create(
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
-    conn = get_connection_or_die()
+    client = APIClient()
+
     try:
-        deployment_user_spec = types.DeploymentUserSpec(
-            resource_requirement=types.ResourceRequirement.make_resource_requirement(
+        deployment_user_spec = LeptonDeploymentUserSpec(
+            resource_requirement=ResourceRequirement(
                 resource_shape=resource_shape,
             ),
-            mounts=types.Mount.make_mounts_from_strings(mount),
-            envs=types.EnvVar.make_env_vars_from_strings(list(env), list(secret)),
+            mounts=make_mounts_from_strings(mount),
+            envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
-        deployment_spec = types.Deployment(
-            metadata=types.Metadata(name=name),
+        deployment_spec = LeptonDeployment(
+            metadata=Metadata(name=name),
             spec=deployment_user_spec,
         )
     except ValueError as e:
@@ -110,14 +113,9 @@ def create(
         console.print("Failed to create pod.")
         sys.exit(1)
 
-    response = photon_api.run_remote_with_spec(conn, deployment_spec)
-    explain_response(
-        response,
-        f"Pod launched as [green]{name}[/]. Use `lep pod status -n {name}` to check"
-        " status.",
-        f"Failed to launch pod [red]{name}[/]. See error message above.",
-        f"Failed to launch pod [red]{name}[/]. Internal server error.",
-    )
+    client.photon.run(deployment_spec)
+
+    console.print(f"Pod launched as [green]{name}[/]")
 
 
 @pod.command(name="list")
@@ -131,17 +129,15 @@ def list_command(pattern):
     """
     Lists all pods in the current workspace.
     """
-    conn = get_connection_or_die()
-    deployments = guard_api(
-        deployment_api.list_deployment(conn),
-        detail=True,
-        msg="Cannot list pods. See error message above.",
-    )
-    logger.trace(f"Deployments:\n{[d for d in deployments if d.get('is_pod', False)]}")
+    client = APIClient()
+
+    deployments = client.deployment.list_all()
+
+    logger.trace(f"Deployments:\n{[d for d in deployments if d.spec.is_pod]}")
     pods = [
         d
         for d in deployments
-        if d.get("is_pod", False) and (pattern is None or re.search(pattern, d["name"]))
+        if d.spec.is_pod and (pattern is None or re.search(pattern, d.metadata.name))
     ]
     if len(pods) == 0:
         console.print("No pods found. Use `lep pod create` to create pods.")
@@ -149,11 +145,11 @@ def list_command(pattern):
     ssh_ports = []
     tcp_ports = []
     for pod in pods:
-        ports = pod["container"]["ports"]
-        port_pairs = [(p["container_port"], p["host_port"]) for p in ports]
+        ports = pod.spec.container.ports
+        port_pairs = [(p.container_port, p.host_port) for p in ports]
         check(
             len(port_pairs) == 2,
-            f"Pod {pod['name']} does not have exactly two ports. This is not"
+            f"Pod {pod.metadata.name} does not have exactly two ports. This is not"
             " supported.",
         )
         if port_pairs[0][0] == 2222:
@@ -164,10 +160,10 @@ def list_command(pattern):
             tcp_ports.append(port_pairs[0])
     pod_ips = []
     for pod in pods:
-        if pod["status"]["state"] not in ("Running", "Ready"):
+        if pod.status.state not in ("Running", "Ready"):
             pod_ips.append(None)
             continue
-        public_ip = get_only_replica_public_ip_or_die(conn, pod["name"])
+        public_ip = _get_only_replica_public_ip(pod.metadata.name)
         pod_ips.append(public_ip)
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
@@ -180,12 +176,12 @@ def list_command(pattern):
     table.add_column("created at")
     for pod, ssh_port, tcp_port, pod_ip in zip(pods, ssh_ports, tcp_ports, pod_ips):
         table.add_row(
-            pod["name"],
-            pod["resource_requirement"]["resource_shape"],
-            pod["status"]["state"],
+            pod.metadata.name,
+            pod.spec.resource_requirement.resource_shape,
+            pod.status.state,
             f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
             f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
-            datetime.fromtimestamp(pod["created_at"] / 1000).strftime(
+            datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
             ),
         )
@@ -203,15 +199,12 @@ def remove(name):
     """
     Removes a pod.
     """
-    conn = get_connection_or_die()
-    response = deployment_api.remove_deployment(conn, name)
-    explain_response(
-        response,
-        f"Pod [green]{name}[/] removed.",
-        f"Pod [yellow]{name}[/] does not exist.",
-        f"{response.text}\nFailed to remove Pod [red]{name}[/]. See error"
-        " message above.",
-    )
+
+    client = APIClient()
+
+    client.deployment.delete(name)
+    console.log(f"Pod [green]{name}[/] removed.")
+
     return 0
 
 
