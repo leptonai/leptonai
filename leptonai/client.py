@@ -652,10 +652,7 @@ class Workspace(object):
                     "No workspace id specified, and it seems that you are not"
                     " logged in."
                 )
-        if (
-            workspace_id == WorkspaceRecord.get_current_workspace_id()
-            and not token
-        ):
+        if workspace_id == WorkspaceRecord.get_current_workspace_id() and not token:
             token = WorkspaceRecord.client().token()
         self.workspace_id = workspace_id
         api_url = _get_full_workspace_api_url(workspace_id)

@@ -114,7 +114,7 @@ class WorkspaceRecord(object):
         )
         cls._singleton_record.current_workspace = workspace_id
         cls._save_to_file()
-    
+
     @classmethod
     def set_or_exit(
         cls,

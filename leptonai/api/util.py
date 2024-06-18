@@ -110,7 +110,7 @@ def _get_full_workspace_url(workspace_id) -> str:
         elif content["url"] == "":
             raise WorkspaceNotCreatedYet(workspace_id)
         return content["url"]
-    
+
 
 def _print_workspace_not_created_yet_message(workspace_id: str):
     """
