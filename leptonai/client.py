@@ -15,7 +15,6 @@ from leptonai.api.v1.workspace_record import WorkspaceRecord
 from leptonai.api.util import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
-    WorkspaceNotCreatedYet,
 )
 from leptonai.config import DEFAULT_PORT
 from leptonai.photon import FileParam  # noqa
