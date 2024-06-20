@@ -96,7 +96,6 @@ T = TypeVar("T")
 if pydantic.version.VERSION < "2.0.0":
     PYDANTIC_MAJOR_VERSION = 1
     import json
-    import warnings
     from pydantic.class_validators import validator as compatible_field_validator
 
     warnings.warn(
