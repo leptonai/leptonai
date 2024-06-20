@@ -16,7 +16,7 @@ from .util import (
     sizeof_fmt,
 )
 from leptonai.api import objectstore as api
-
+from ..api.v1.client import APIClient
 
 _max_upload_file_size_limit = 4995 * 1024 * 1024
 
@@ -48,15 +48,13 @@ def get(key, file, bucket, return_url):
     """
     if not file:
         file = os.path.basename(key)
-    conn = get_connection_or_die()
-    response = api.get(conn, key, bucket, return_url=return_url, stream=True)
-    explain_response(
-        response,
-        None,
-        f"Object [red]{key}[/] not found.",
-        f"Failed to download object [red]{key}[/].",
-        exit_if_4xx=True,
-    )
+    # conn = get_connection_or_die()
+    # response = api.get(conn, key, bucket, return_url=return_url, stream=True)
+
+    client = APIClient()
+
+    response = client.object_storage.create_object_url_for_get(key, return_url=return_url)
+
     if return_url:
         console.print(response.headers.get("Location"))
     else:

@@ -10,6 +10,7 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from leptonai.api.util import _get_full_workspace_api_url
+from .object_storage import ObjectStorageAPI
 
 from .types.workspace import WorkspaceInfo
 
@@ -37,10 +38,10 @@ class APIClient(object):
     """
 
     def __init__(
-        self,
-        workspace_id: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        url: Optional[str] = None,
+            self,
+            workspace_id: Optional[str] = None,
+            auth_token: Optional[str] = None,
+            url: Optional[str] = None,
     ):
         """
         Creates a workspace api client by identifying the workspace in the following
@@ -63,9 +64,9 @@ class APIClient(object):
         #  - current workspace of the workspace record
         # and if there is still no choice, we will throw an error.
         workspace_id = (
-            workspace_id
-            or os.environ.get("LEPTON_WORKSPACE_ID")
-            or (WorkspaceRecord.current().id_ if WorkspaceRecord.current() else None)
+                workspace_id
+                or os.environ.get("LEPTON_WORKSPACE_ID")
+                or (WorkspaceRecord.current().id_ if WorkspaceRecord.current() else None)
         )
         if workspace_id is None:
             raise RuntimeError(
@@ -83,24 +84,24 @@ class APIClient(object):
         # - environment variable LEPTON_WORKSPACE_TOKEN
         # - auth token of the workspace record
         auth_token = (
-            auth_token
-            or os.environ.get("LEPTON_WORKSPACE_TOKEN")
-            or (
-                WorkspaceRecord.get(workspace_id).auth_token  # type: ignore
-                if WorkspaceRecord.has(workspace_id)
-                else None
-            )
+                auth_token
+                or os.environ.get("LEPTON_WORKSPACE_TOKEN")
+                or (
+                    WorkspaceRecord.get(workspace_id).auth_token  # type: ignore
+                    if WorkspaceRecord.has(workspace_id)
+                    else None
+                )
         )
         # We will then resolve the url in a similar order.
         url = (
-            url
-            or os.environ.get("LEPTON_WORKSPACE_URL")
-            or (
-                WorkspaceRecord.get(workspace_id).url  # type: ignore
-                if WorkspaceRecord.has(workspace_id)
-                else None
-            )
-            or _get_full_workspace_api_url(workspace_id)
+                url
+                or os.environ.get("LEPTON_WORKSPACE_URL")
+                or (
+                    WorkspaceRecord.get(workspace_id).url  # type: ignore
+                    if WorkspaceRecord.has(workspace_id)
+                    else None
+                )
+                or _get_full_workspace_api_url(workspace_id)
         )
         self.workspace_id: str = workspace_id
         self.auth_token: Optional[str] = auth_token
@@ -139,6 +140,7 @@ class APIClient(object):
         self.queue = QueueAPI(self)
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
+        self.object_storage = ObjectStorageAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
