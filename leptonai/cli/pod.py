@@ -24,13 +24,7 @@ from .util import (
     _get_only_replica_public_ip,
 )
 from ..api.v1.client import APIClient
-from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
-    LeptonDeploymentUserSpec,
-    ResourceRequirement,
-)
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.common import Metadata
-from ..api.v1.types.deployment import LeptonDeployment
 
 console = Console(highlight=False)
 
@@ -96,16 +90,16 @@ def create(
     client = APIClient()
 
     try:
-        deployment_user_spec = LeptonDeploymentUserSpec(
-            resource_requirement=ResourceRequirement(
+        deployment_user_spec = types.DeploymentUserSpec(
+            resource_requirement=types.ResourceRequirement(
                 resource_shape=resource_shape,
             ),
             mounts=make_mounts_from_strings(mount),
             envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
-        deployment_spec = LeptonDeployment(
-            metadata=Metadata(name=name),
+        deployment_spec = types.Deployment(
+            metadata=types.Metadata(name=name),
             spec=deployment_user_spec,
         )
     except ValueError as e:
