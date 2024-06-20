@@ -1,4 +1,3 @@
-import json
 from typing import List
 
 from .api_resource import APIResourse
@@ -13,7 +12,6 @@ class SecretAPI(APIResourse):
 
     def create(self, secrets: List[SecretItem]) -> bool:
         response = self._post("/secrets", json=self.safe_json(secrets))
-        print(json.dumps(self.safe_json(secrets), indent=2))
         return self.ensure_ok(response)
 
     def delete(self, name: str) -> bool:

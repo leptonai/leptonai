@@ -1,7 +1,6 @@
 from datetime import datetime
 import re
 import sys
-from typing import Optional, List
 
 import click
 from rich.table import Table
@@ -11,44 +10,11 @@ from .util import (
     check,
     click_group,
 )
-from leptonai.api.workspace import WorkspaceInfoLocalRecord
 from leptonai.config import LEPTON_DEPLOYMENT_URL
+from ..api import types
 from ..api.v1.client import APIClient
-from ..api.v1.types.common import Metadata
-from ..api.v1.types.deployment import LeptonDeployment
-from ..api.v1.types.deployment_operator_v1alpha1.deployment import (
-    LeptonDeploymentUserSpec,
-    ResourceRequirement,
-    ScaleDown,
-    AutoScaler,
-    TokenVar,
-    TokenValue,
-)
-
-
-def make_token_vars_from_config(
-    is_public: Optional[bool], tokens: Optional[List[str]]
-) -> Optional[List[TokenVar]]:
-    # Note that None is different from [] here. None means that the tokens are not
-    # changed, while [] means that the tokens are cleared (aka, public deployment)
-    if is_public is None and tokens is None:
-        return None
-    elif is_public and tokens:
-        raise ValueError(
-            "For access control, you cannot specify both is_public and token at the"
-            " same time. Please specify either is_public=True with no tokens passed"
-            " in, or is_public=False and tokens as a list."
-        )
-    else:
-        if is_public:
-            return []
-        else:
-            final_tokens = [
-                TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))
-            ]
-            if tokens:
-                final_tokens.extend([TokenVar(value=token) for token in tokens])
-            return final_tokens
+from ..api.v1.deployment import make_token_vars_from_config
+from ..api.v1.workspace_record import WorkspaceRecord
 
 
 @click_group()
@@ -424,7 +390,7 @@ def update(
         else:
             console.print(
                 f"Cannot find current photon ([red]{current_photon_id}[/]) in workspace"
-                f" [red]{WorkspaceInfoLocalRecord.get_current_workspace_id()}[/]."
+                f" [red]{WorkspaceRecord.get_current_workspace_id()}[/]."
             )
             sys.exit(1)
         records = [
@@ -447,10 +413,10 @@ def update(
         # None means no change
         tokens = None
 
-    lepton_deployment_spec = LeptonDeploymentUserSpec(
+    lepton_deployment_spec = types.DeploymentUserSpec(
         photon_namespace="public" if public_photon else "private",
         photon_id=id,
-        resource_requirement=ResourceRequirement(
+        resource_requirement=types.ResourceRequirement(
             min_replicas=min_replicas,
             max_replicas=min_replicas,
             resource_shape=resource_shape,
@@ -462,15 +428,15 @@ def update(
         auto_scaler=(
             None
             if no_traffic_timeout is None
-            else AutoScaler(
-                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
+            else types.AutoScaler(
+                scale_down=types.ScaleDown(no_traffic_timeout=no_traffic_timeout),
                 target_gpu_utilization_percentage=0,
             )
         ),
     )
 
-    lepton_deployment = LeptonDeployment(
-        metadata=Metadata(id=name), spec=lepton_deployment_spec
+    lepton_deployment = types.Deployment(
+        metadata=types.Metadata(id=name), spec=lepton_deployment_spec
     )
     client.deployment.update(
         name_or_deployment=name,
