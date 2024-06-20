@@ -36,6 +36,8 @@ jobs:
           ruff .
           black --check .
       - name: Test with pytest
+        env:
+          TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS: ${{ secrets.TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS }}
         run: |
           pip install .
           echo "leptonai package version:"

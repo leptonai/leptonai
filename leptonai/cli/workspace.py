@@ -57,13 +57,13 @@ def login(
         # already has the info: update the auth token if given.
         info = WorkspaceRecord.get(workspace_id)
         if auth_token or test_only_workspace_url:
-            WorkspaceRecord.set(
+            WorkspaceRecord.set_or_exit(
                 workspace_id, auth_token=auth_token, url=test_only_workspace_url
             )
         else:
-            WorkspaceRecord.set(workspace_id, auth_token=info.auth_token, url=info.url)  # type: ignore
+            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url)  # type: ignore
     else:
-        WorkspaceRecord.set(
+        WorkspaceRecord.set_or_exit(
             workspace_id, auth_token=auth_token, url=test_only_workspace_url
         )
     # Try to login and print the info.
