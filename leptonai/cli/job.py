@@ -388,15 +388,11 @@ def replicas(name):
 
 @job.command()
 @click.option("--name", "-n", help="The job name to get status.", required=True)
-@click.option("--replica", "-r", help="The replica of the job.")
 def events(name, replica=None):
 
     client = APIClient()
 
-    if replica:
-        events = client.job.get_events(name, replica)
-    else:
-        events = client.job.get_events(name)
+    events = client.job.get_events(name)
 
     table = Table(title="Job Events", show_header=True, show_lines=False)
     table.add_column("Job Name")
