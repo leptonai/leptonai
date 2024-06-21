@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import List
 
 from .api_resource import APIResourse
 
@@ -10,7 +10,7 @@ class SecretAPI(APIResourse):
         response = self._get("/secrets")
         return self.ensure_json(response)
 
-    def create(self, secrets: Union[SecretItem, List[SecretItem]]) -> bool:
+    def create(self, secrets: List[SecretItem]) -> bool:
         response = self._post("/secrets", json=self.safe_json(secrets))
         return self.ensure_ok(response)
 

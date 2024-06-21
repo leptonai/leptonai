@@ -14,6 +14,9 @@ def ingress():
 
 @ingress.command(name="list")
 def list_all():
+    """
+    List all ingress
+    """
     client = APIClient()
     ingress_list = client.ingress.list_all()
     table = Table(show_header=True, header_style="bold magenta")
@@ -39,6 +42,9 @@ def list_all():
 @ingress.command()
 @click.option("--name", "-n", help="name of the ingress", type=str, required=True)
 def get(name):
+    """
+    Get a ingress by name and print it in json
+    """
     client = APIClient()
     ingress = client.ingress.get(name)
     console.print(f"Ingress details for [green]{name}[/]:")
@@ -48,6 +54,9 @@ def get(name):
 @ingress.command()
 @click.option("--name", "-n", help="name of the ingress", type=str, required=True)
 def delete(name):
+    """
+    Delete a ingress by name
+    """
     client = APIClient()
     client.ingress.delete(name)
     console.print(f"Ingress [green]{name}[/] deleted successfully.")
