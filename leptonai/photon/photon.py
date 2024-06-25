@@ -264,6 +264,12 @@ class Photon(BasePhoton):
     # The git repository to check out as part of the photon deployment phase.
     vcs_url: Optional[str] = None
 
+    # internal variable to guard against accidental override of the __init__ function.
+    # Sometimes, out of habit, users might override the __init__ function instead of writing the
+    # init() function for the Photon class. In this case, we will issue a warning to the user
+    # to remind them to use the init() function instead.
+    __photon_class_constructor_called = False
+
     def __init__(self, name=None, model=None):
         """
         Initializes a Photon.
@@ -281,6 +287,8 @@ class Photon(BasePhoton):
         self._handler_semaphore: anyio.Semaphore = anyio.Semaphore(
             self.handler_max_concurrency
         )
+
+        self.__photon_class_constructor_called = True
 
     @classmethod
     def _gather_routes(cls):
@@ -613,6 +621,16 @@ class Photon(BasePhoton):
         """
         Internal function that calls the init function once.
         """
+        if not self.__photon_class_constructor_called:
+            raise RuntimeError(
+                "It seems that your photon class has overridden the __init__ function."
+                " Did you accidentally write `def __init__(self)` instead of `def"
+                " init(self)`, aka no underscore? The latter is the correct way to"
+                " define the init function for your photon's application side logic. If"
+                " you indeed mean to override the __init__ function, please make sure"
+                " that inside the __init__ function, you call the super().__init__"
+                " function to ensure the correct initialization of the Photon class."
+            )
         if not self._init_called:
             with _photon_initialize_lock:
                 # acquire the lock, and check again.
