@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class ObjectStorageMetadata(BaseModel):
     """
-    The current status of a Lepton Job.
+    The metadata for a stored object.
     """
 
     key: str

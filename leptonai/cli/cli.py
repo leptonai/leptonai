@@ -6,7 +6,7 @@ from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 
 import leptonai
-from . import deployment, objectstore_old
+from . import deployment
 from . import job
 from . import kv
 from . import objectstore
@@ -58,8 +58,6 @@ storage.add_command(lep)
 workspace.add_command(lep)
 
 ingress.add_command(lep)
-
-objectstore_old.add_command(lep)
 
 
 @lep.command()

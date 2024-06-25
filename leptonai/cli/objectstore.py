@@ -29,7 +29,7 @@ def objectstore():
 @objectstore.command()
 @click.option("--key", "-k", help="Object key", type=str, required=True)
 @click.option("--file", "-f", help="File to write to.", type=str, default=None)
-@click.option("--public", "-p", is_flag=True, default=False, help="Is public-presigned")
+@click.option("--public", "-p", is_flag=True, default=False, help="Is public bucket")
 @click.option(
     "--return-url",
     "-u",
@@ -54,15 +54,18 @@ def get(key, file, public, return_url):
         console.print(response.headers.get("Location"))
     else:
         console.print(f"Downloading object [green]{key}[/] to [green]{file}[/].")
-        with open(file, "wb") as file:
+        with open(file, "wb") as file_writer:
             for chunk in response.iter_content(chunk_size=4096):
                 if chunk:
-                    file.write(chunk)
+                    file_writer.write(chunk)
+    console.print(
+        f"Successfully downloaded object [green]{key}[/] to [green]{file}[/]."
+    )
 
 
 @objectstore.command()
 @click.option("--key", "-k", help="Object key", type=str, required=True)
-@click.option("--public", is_flag=True, default=False, help="Is public-presigned")
+@click.option("--public", is_flag=True, default=False, help="Is public bucket")
 def cat(key, public):
     """
     Gets the object with the given key and prints it to stdout.
@@ -83,7 +86,7 @@ def cat(key, public):
     type=str,
 )
 @click.option("--file", "-f", help="File to upload", type=str, required=True)
-@click.option("--public", is_flag=True, default=False, help="Is public-presigned")
+@click.option("--public", is_flag=True, default=False, help="Is public bucket")
 def put(key, file, public):
     """
     Puts the object with the given key.
@@ -107,7 +110,7 @@ def put(key, file, public):
 
 @objectstore.command()
 @click.option("--key", "-k", help="Object key", type=str, required=True)
-@click.option("--public", is_flag=True, default=False, help="Is public-presigned")
+@click.option("--public", is_flag=True, default=False, help="Is public bucket")
 def delete(key, public):
     """
     Deletes the object with the given key.
@@ -120,7 +123,7 @@ def delete(key, public):
 
 @objectstore.command(name="list")
 @click.option("--prefix", "-p", help="Prefix to filter objects", type=str, default=None)
-@click.option("--public", is_flag=True, default=False, help="Is public-presigned")
+@click.option("--public", is_flag=True, default=False, help="Is public bucket")
 def list_command(prefix, public):
     """
     Lists all objects in the current workspace.
