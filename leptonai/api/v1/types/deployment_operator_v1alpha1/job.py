@@ -51,7 +51,7 @@ class LeptonJobStatusDetails(BaseModel):
     active: int
     failed: int
     succeeded: int
-    creation_time: int
+    creation_time: Optional[int]
     completion_time: Optional[int] = None
 
 
