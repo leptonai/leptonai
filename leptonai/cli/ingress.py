@@ -5,6 +5,9 @@ from datetime import datetime
 from rich.table import Table
 from .util import console, click_group
 from leptonai.api.v1.client import APIClient
+from ..api.v1.types.common import Metadata
+from ..api.v1.types.deployment_operator_v1alpha1.ingress import LeptonIngressUserSpec
+from ..api.v1.types.ingress import LeptonIngress
 
 
 @click_group()
@@ -37,6 +40,23 @@ def list_all():
         )
     table.title = "Ingress"
     console.print(table)
+
+
+@ingress.command()
+@click.option(
+    "--domain-name", "-d", help="domain-name of the ingress", type=str, required=True
+)
+def create(domain_name):
+    """
+    Create an ingress
+    """
+    client = APIClient()
+    lepton_ingress = LeptonIngress(
+        metadata=Metadata(),
+        spec=LeptonIngressUserSpec(domain_name=domain_name),
+    )
+    client.ingress.create(lepton_ingress)
+    console.print(f"Ingress successfully created for [green]{domain_name}[/]:")
 
 
 @ingress.command()
