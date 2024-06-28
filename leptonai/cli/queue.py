@@ -14,6 +14,7 @@ from .util import (
     explain_response,
 )
 from leptonai.api import queue as api
+from ..api.v1.client import APIClient
 
 
 @click_group()
@@ -37,15 +38,12 @@ def create(name):
     """
     Creates a queue of the given name.
     """
-    conn = get_connection_or_die()
-    response = api.create_queue(conn, name)
-    explain_response(
-        response,
+    client = APIClient()
+    client.queue.create(name=name)
+    console.print(
         f"Successfully created queue [green]{name}[/].\nNote that queue creation is"
         " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/]"
-        " to check the status of the queue.",
-        "Failed to create queue [red]{name}[/].",
-        "Failed to create queue [red]{name}[/].",
+        " to check the status of the queue."
     )
 
 
@@ -58,33 +56,25 @@ def list_command(pattern):
     Lists all queues in the current workspace. Note that the queue values are
     always hidden.
     """
-    conn = get_connection_or_die()
-    response = api.list_queue(conn)
-    explain_response(
-        response,
-        None,
-        "Failed to list queues.",
-        "Failed to list queues.",
-        exit_if_4xx=True,
-    )
-    queues = response.json()
+    client = APIClient()
+    queue_list = client.queue.list_all()
+
     if pattern:
         filtered_queues = [
-            queue["name"] for queue in queues if re.match(pattern, queue["name"])
+            queue.name for queue in queue_list if re.match(pattern, queue.name)
         ]
     else:
-        filtered_queues = [queue["name"] for queue in queues]
+        filtered_queues = [queue.name for queue in queue_list]
     table = Table(title="Queues", show_lines=True)
     table.add_column("name")
     table.add_column("length")
     for name in filtered_queues:
         # get length
-        response = api.length(conn, name)
-        if response.ok:
-            length = response.json()["length"]
-            table.add_row(name, str(length))
-        else:
-            table.add_row(name, "[unknown length]")
+        try:
+            queue_length = client.queue.length(name).length
+        except Exception as e:
+            queue_length = "[unknown length]"
+        table.add_row(name, str(queue_length))
 
     console.print(table)
 
@@ -95,15 +85,12 @@ def remove(name):
     """
     Removes the queue with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.delete_queue(conn, name)
-    explain_response(
-        response,
+    client = APIClient()
+    client.queue.delete(name)
+    console.print(
         f"Successfully deleted queue [green]{name}[/].\nNote that queue deletion is"
         " asynchronous, and may take a few seconds. Use [bold]lepton queue list[/]"
-        " to check the status of the queue.",
-        f"Queue [red]{name}[/] does not exist.",
-        f"Failed to delete queue [red]{name}[/].",
+        " to check the status of the queue."
     )
 
 
@@ -114,14 +101,9 @@ def send(name, message):
     """
     Sends a message to the queue with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.send(conn, name, message)
-    explain_response(
-        response,
-        f"Successfully sent message to queue [green]{name}[/].",
-        f"Queue [red]{name}[/] does not exist.",
-        f"Failed to send message to queue [red]{name}[/].",
-    )
+    client = APIClient()
+    client.queue.send(name, message)
+    console.print(f"Successfully sent message to queue [green]{name}[/].")
 
 
 @queue.command()
@@ -130,19 +112,17 @@ def receive(name):
     """
     Receives a message from the queue with the given name.
     """
-    conn = get_connection_or_die()
-    response = api.receive(conn, name)
-    if response.ok and len(response.json()) == 0:
+
+    client = APIClient()
+    queue_message_list = client.queue.receive(name)
+
+    if queue_message_list is not None and len(queue_message_list) == 0:
         console.print(f"Queue [yellow]{name}[/] is empty.")
         return
-    else:
-        explain_response(
-            response,
-            f"Successfully received message from queue [green]{name}[/]:",
-            f"Queue [red]{name}[/] does not exist.",
-            f"Failed to receive message from queue [red]{name}[/].",
-        )
-        console.print(response.json()[0]["message"])
+
+    console.print(f"Successfully received message from queue [green]{name}[/]:")
+    for queue_message in queue_message_list:
+        console.print(queue_message.message)
 
 
 def add_command(cli_group):
