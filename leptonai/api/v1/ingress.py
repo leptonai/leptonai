@@ -20,7 +20,7 @@ class IngressAPI(APIResourse):
 
     def create(self, spec: LeptonIngress):
         """
-        Create a ingress with the given Ingress spec.
+        Create an ingress with the given Ingress spec.
         """
         response = self._post("/ingress", json=self.safe_json(spec))
         return self.ensure_ok(response)

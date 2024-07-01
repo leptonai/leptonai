@@ -72,7 +72,7 @@ def _get_type_spec(param_type, param_annotation, default_value):
     else:
         raise ValueError("Either param_annotation or default_value must be provided.")
 
-    if param_type == list:
+    if param_type is list:
         if not isinstance(description, list):
             raise TypeError(
                 f"For list type {param_type}(aka {type_name}), value must be a list"
@@ -109,7 +109,7 @@ def _get_type_spec(param_type, param_annotation, default_value):
                 )
             array_description["properties"][sub_param_name] = type_spec
         return {"type": "array", "items": array_description}
-    elif param_type == str:
+    elif param_type is str:
         if isinstance(description, str):
             # simple string type
             return {"type": type_name, "description": description}
