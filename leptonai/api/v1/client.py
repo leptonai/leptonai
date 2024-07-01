@@ -10,6 +10,7 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from leptonai.api.util import _get_full_workspace_api_url
+from .object_storage import ObjectStorageAPI
 
 from .types.workspace import WorkspaceInfo
 
@@ -139,6 +140,7 @@ class APIClient(object):
         self.queue = QueueAPI(self)
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
+        self.object_storage = ObjectStorageAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
