@@ -10,10 +10,7 @@ from rich.table import Table
 from .util import (
     console,
     click_group,
-    get_connection_or_die,
-    explain_response,
 )
-from leptonai.api import queue as api
 from ..api.v1.client import APIClient
 
 
@@ -72,7 +69,7 @@ def list_command(pattern):
         # get length
         try:
             queue_length = client.queue.length(name).length
-        except Exception as e:
+        except Exception:
             queue_length = "[unknown length]"
         table.add_row(name, str(queue_length))
 

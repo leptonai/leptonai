@@ -370,7 +370,7 @@ def log(name, replica):
 
 
 @job.command()
-@click.option("--name", "-n", help="The job name to get status.", required=True)
+@click.option("--name", "-n", help="The job name to get replicas.", required=True)
 def replicas(name):
 
     client = APIClient()
@@ -387,7 +387,7 @@ def replicas(name):
 
 
 @job.command()
-@click.option("--name", "-n", help="The job name to get status.", required=True)
+@click.option("--name", "-n", help="The job name to get events.", required=True)
 def events(name, replica=None):
 
     client = APIClient()
