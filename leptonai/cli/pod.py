@@ -49,15 +49,15 @@ def pod():
     "--resource-shape",
     type=str,
     help="Resource shape for the pod. Available types are: '"
-         + "', '".join(types.VALID_SHAPES)
-         + "'.",
+    + "', '".join(types.VALID_SHAPES)
+    + "'.",
     default=None,
 )
 @click.option(
     "--mount",
     help=(
-            "Persistent storage to be mounted to the deployment, in the format"
-            " `STORAGE_PATH:MOUNT_PATH`."
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -71,9 +71,9 @@ def pod():
     "--secret",
     "-s",
     help=(
-            "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-            " secret name is also the environment variable name, you can"
-            " omit it and simply pass `SECRET_NAME`."
+        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
@@ -84,12 +84,12 @@ def pod():
     multiple=True,
 )
 def create(
-        name,
-        resource_shape,
-        mount,
-        env,
-        secret,
-        image_pull_secrets,
+    name,
+    resource_shape,
+    mount,
+    env,
+    secret,
+    image_pull_secrets,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
