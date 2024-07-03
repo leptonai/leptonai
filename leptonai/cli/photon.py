@@ -56,8 +56,13 @@ from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.api.v1.deployment import make_token_vars_from_config
+from leptonai.config import ENV_VAR_REQUIRED
+import warnings
 
 console = Console(highlight=False)
+
+
+DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
 
 def _get_ordered_photon_ids_or_none(
@@ -584,6 +589,12 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     default=False,
 )
+@click.option(
+    "--image-pull-secrets",
+    type=str,
+    help="Secrets to use for pulling images.",
+    multiple=True,
+)
 @click.pass_context
 def run(
     ctx,
@@ -614,6 +625,7 @@ def run(
     include_workspace_token,
     rerun,
     public_photon,
+    image_pull_secrets,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -677,12 +689,9 @@ def run(
             )
             no_traffic_timeout = config.DEFAULT_TIMEOUT
 
-        # metadata = api.fetch_metadata(conn, id, public_photon=public_photon)  # type: ignore
-        # if isinstance(metadata, APIError):
-        #     console.print(f"Photon [red]{name}[/] failed to fetch: {metadata}")
-        #     sys.exit(1)
-        # deployment_template = metadata.get("deployment_template", None)  # type:ignore
-        # parse environment variables and secrets
+        photon = client.photon.get(id, public_photon=public_photon)
+        deployment_template = photon.deployment_template
+
         deployment_name = _find_deployment_name_or_die(name, id, deployment_name, rerun)
 
         if include_workspace_token:
@@ -691,9 +700,47 @@ def run(
             if "LEPTON_WORKSPACE_TOKEN" not in secret:
                 secret += ("LEPTON_WORKSPACE_TOKEN",)
 
+        mounts = list(mount)
+        env_list = list(env)
+        secret_list = list(secret)
+
         try:
+            deployment_template = deployment_template or {}
+            logger.trace(f"deployment_template:\n{deployment_template}")
+            if resource_shape is None:
+                resource_shape = (
+                    deployment_template.resource_shape or DEFAULT_RESOURCE_SHAPE
+                )
+            template_envs = deployment_template.env or {}
+            for k, v in template_envs.items():
+                if v == ENV_VAR_REQUIRED:
+                    if not any(s.startswith(k + "=") for s in (env_list or [])):
+                        warnings.warn(
+                            f"This deployment requires env var {k}, but it's missing."
+                            f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
+                            " the deployment may fail.",
+                            RuntimeWarning,
+                        )
+                else:
+                    env_list = list(env_list) if env_list is not None else []
+                    if not any(s.startswith(k + "=") for s in env_list):
+                        # Adding default env variable if not specified.
+                        env_list.append(f"{k}={v}")
+            template_secrets = deployment_template.secret or []
+            for k in template_secrets:
+                if not any(s.startswith(k) for s in (secret_list or [])) and not any(
+                    s.startswith(k) for s in (env_list or [])
+                ):
+                    warnings.warn(
+                        f"This deployment requires secret {k}, but it's missing. Please"
+                        f" set the secret, and specify it with --secret {k}. Otherwise,"
+                        " the deployment may fail.",
+                        RuntimeWarning,
+                    )
+
             spec = LeptonDeploymentUserSpec(
                 photon_id=id,
+                photon_namespace="public" if public_photon else "private",
                 resource_requirement=ResourceRequirement(
                     resource_shape=resource_shape,
                     cpu=replica_cpu,
@@ -711,8 +758,9 @@ def run(
                     min_replicas=min_replicas,
                     max_replicas=max_replicas,
                 ),
-                mount=make_mounts_from_strings(list(mount)),
-                env_list=make_env_vars_from_strings(list(env), list(secret)),
+                mount=make_mounts_from_strings(mounts),
+                image_pull_secrets=image_pull_secrets,
+                env_list=make_env_vars_from_strings(env_list, secret_list),
                 api_tokens=make_token_vars_from_config(public, tokens),
                 auto_scaler=AutoScaler(
                     scale_down=(

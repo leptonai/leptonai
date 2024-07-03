@@ -77,12 +77,19 @@ def pod():
     ),
     multiple=True,
 )
+@click.option(
+    "--image-pull-secrets",
+    type=str,
+    help="Secrets to use for pulling images.",
+    multiple=True,
+)
 def create(
     name,
     resource_shape,
     mount,
     env,
     secret,
+    image_pull_secrets,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -95,6 +102,7 @@ def create(
                 resource_shape=resource_shape,
             ),
             mounts=make_mounts_from_strings(mount),
+            image_pull_secrets=image_pull_secrets,
             envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
