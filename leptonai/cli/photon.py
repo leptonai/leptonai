@@ -584,6 +584,12 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     default=False,
 )
+@click.option(
+    "--image-pull-secrets",
+    type=str,
+    help="Secrets to use for pulling images.",
+    multiple=True,
+)
 @click.pass_context
 def run(
     ctx,
@@ -614,6 +620,7 @@ def run(
     include_workspace_token,
     rerun,
     public_photon,
+    image_pull_secrets,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
@@ -712,6 +719,7 @@ def run(
                     max_replicas=max_replicas,
                 ),
                 mount=make_mounts_from_strings(list(mount)),
+                image_pull_secrets= image_pull_secrets,
                 env_list=make_env_vars_from_strings(list(env), list(secret)),
                 api_tokens=make_token_vars_from_config(public, tokens),
                 auto_scaler=AutoScaler(
