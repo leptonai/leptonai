@@ -1,7 +1,15 @@
+import warnings
 from typing import List
 
 from .connection import Connection
 from .util import json_or_error
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def create_secret(conn: Connection, names: List[str], values: List[str]):

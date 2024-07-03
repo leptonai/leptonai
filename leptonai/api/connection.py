@@ -10,6 +10,13 @@ import warnings
 from leptonai.util import is_valid_url
 from .util import create_header, _get_full_workspace_api_url
 
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 class Connection:
     def __init__(self, url_or_workspace_id: str, token: Optional[str] = None):

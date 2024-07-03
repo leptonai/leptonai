@@ -1,5 +1,14 @@
 # Because most of the apis in queue do not return json, we will not use json_or_error here.
+import warnings
+
 from .connection import Connection
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def list_queue(conn: Connection):

@@ -1,7 +1,15 @@
 import os
+import warnings
 
 from .connection import Connection
 from .util import json_or_error, APIError
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def _prepend_separator(file_path):

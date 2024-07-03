@@ -1,7 +1,16 @@
+import warnings
+
 import requests
 from typing import IO, Optional
 
 from .connection import Connection
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def get(

@@ -1,5 +1,6 @@
 import os
 import re
+import warnings
 from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
@@ -14,6 +15,13 @@ from .util import (
     _get_full_workspace_api_url,
     _get_workspace_display_name,
     _get_full_workspace_url,
+)
+
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
 

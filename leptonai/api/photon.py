@@ -19,6 +19,13 @@ from .connection import Connection
 from . import types
 from .util import APIError, json_or_error
 
+warnings.warn(
+    "This module is deprecated and will be removed in the future. Please use"
+    " leptonai.api.v1 instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 def _get_photon_endpoint(public_photon: bool) -> str:
     if public_photon:
