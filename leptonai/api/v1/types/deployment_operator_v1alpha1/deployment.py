@@ -9,7 +9,7 @@ DEFAULT_STORAGE_VOLUME_NAME = "default"
 
 
 class EnvValue(BaseModel):
-    secret_name_ref: str
+    secret_name_ref: Optional[str] = None
 
 
 class EnvVar(BaseModel):
