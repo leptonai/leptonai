@@ -767,9 +767,9 @@ def run(
                     min_replicas=min_replicas,
                     max_replicas=max_replicas,
                 ),
-                mount=make_mounts_from_strings(mounts),
+                mounts=make_mounts_from_strings(mounts),
                 image_pull_secrets=image_pull_secrets,
-                env_list=make_env_vars_from_strings(env_list, secret_list),
+                envs=make_env_vars_from_strings(env_list, secret_list),
                 api_tokens=make_token_vars_from_config(public, tokens),
                 auto_scaler=AutoScaler(
                     scale_down=(
@@ -789,11 +789,12 @@ def run(
             )
 
             lepton_deployment = LeptonDeployment(
-                metadata=Metadata(id_=id, name=deployment_name), spec=spec
+                metadata=Metadata(id=id, name=deployment_name), spec=spec
             )
             client.deployment.create(lepton_deployment)
             console.print(
                 f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment"
+                f" status -n {deployment_name}` to check the status."
             )
         except ValueError as e:
             console.print(
