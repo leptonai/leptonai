@@ -595,6 +595,14 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     help="Secrets to use for pulling images.",
     multiple=True,
 )
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help="Node group for the job. If not set, use on-demand resources.",
+    type=str,
+    multiple=True,
+)
 @click.pass_context
 def run(
     ctx,
@@ -626,6 +634,7 @@ def run(
     rerun,
     public_photon,
     image_pull_secrets,
+    node_groups,
 ):
     """
     Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
