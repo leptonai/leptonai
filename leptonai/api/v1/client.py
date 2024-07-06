@@ -77,7 +77,7 @@ class APIClient(object):
                 " credential string."
             )
         # If workspace_id contains colon, it is a credential that also contains the token.
-        if ":" in workspace_id:
+        if ":" in workspace_id and not auth_token:
             workspace_id, auth_token = workspace_id.split(":", 1)
         # We will then resolve the auth token in the following order:
         # - user specified one
