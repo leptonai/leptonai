@@ -122,17 +122,7 @@ def _get_workspace_display_name(workspace_id) -> Optional[str]:
 _workspace_url_cache = {}
 
 
-def _get_or_set_workspace_url_cached(workspace_id: str) -> str:
-    url = _workspace_url_cache.get(workspace_id)
-
-    if not is_valid_url(url):
-        url = _get_full_workspace_url(workspace_id, cached=False)
-        _workspace_url_cache[workspace_id] = url
-
-    return url
-
-
-def _get_full_workspace_url(workspace_id, cached=False) -> str:
+def _get_full_workspace_url(workspace_id, cached=True) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -148,7 +138,13 @@ def _get_full_workspace_url(workspace_id, cached=False) -> str:
     """
 
     if cached:
-        return _get_or_set_workspace_url_cached(workspace_id)
+        url = _workspace_url_cache.get(workspace_id)
+
+        if not is_valid_url(url):
+            url = _get_full_workspace_url(workspace_id, cached=False)
+            _workspace_url_cache[workspace_id] = url
+
+        return url
 
     request_body = {"id": workspace_id}
     res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
@@ -172,7 +168,7 @@ def _get_full_workspace_url(workspace_id, cached=False) -> str:
         return content["url"]
 
 
-def _get_full_workspace_api_url(workspace_id, cached=False) -> str:
+def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
     """
     Get the full URL for the API of a workspace.
 
