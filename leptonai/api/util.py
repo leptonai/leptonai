@@ -7,6 +7,7 @@ import requests
 from typing import Dict, List, Optional, Union
 
 from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
+from leptonai.util import is_valid_url
 
 
 class APIError(object):
@@ -76,7 +77,62 @@ class WorkspaceNotCreatedYet(RuntimeError):
         super().__init__(f"Workspace {workspace_id} is not created yet.")
 
 
-def _get_full_workspace_url(workspace_id) -> str:
+def _print_workspace_not_created_yet_message(workspace_id: str):
+    """
+    Help message to be used to print a message when a workspace is not created yet.
+    """
+    print(
+        f"Workspace {workspace_id} is registerd, but not set up yet. To set it up,"
+        f" Please visit\n  https://dashboard.lepton.ai/workspace/{workspace_id}/setup\n"
+        " After that, you can log in here and use the workspace via CLI or API."
+    )
+
+
+def _get_workspace_display_name(workspace_id) -> Optional[str]:
+    """
+    Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
+    to get the workspace display name.
+
+    :param str workspace_id: the workspace_id of the workspace
+    :return: the workspace display name, or None if the workspace does not exist
+    :raises RuntimeError: if the backend server returns an error
+    :raises ValueError: if the workspace does not exist
+    """
+
+    request_body = {"id": workspace_id}
+    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
+    if not res.ok:
+        raise RuntimeError(
+            f"Lepton server returned an error: {res.status_code} {res.content}."
+        )
+    elif res.content == b"":
+        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
+    else:
+        content = res.json()
+        if isinstance(content, list) or "display_name" not in content:
+            raise RuntimeError(
+                "You hit a programming error: response is not a dictionary. Please"
+                " report this and include the following information: url:"
+                f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body},"
+                f" response: {res}."
+            )
+        return content["display_name"]
+
+
+_workspace_url_cache = {}
+
+
+def _get_or_set_workspace_url_cached(workspace_id: str) -> str:
+    url = _workspace_url_cache.get(workspace_id)
+
+    if not is_valid_url(url):
+        url = _get_full_workspace_url(workspace_id, cached=False)
+        _workspace_url_cache[workspace_id] = url
+
+    return url
+
+
+def _get_full_workspace_url(workspace_id, cached=False) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -90,6 +146,10 @@ def _get_full_workspace_url(workspace_id) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
+
+    if cached:
+        return _get_or_set_workspace_url_cached(workspace_id)
+
     request_body = {"id": workspace_id}
     res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
     if not res.ok:
@@ -112,48 +172,7 @@ def _get_full_workspace_url(workspace_id) -> str:
         return content["url"]
 
 
-def _print_workspace_not_created_yet_message(workspace_id: str):
-    """
-    Help message to be used to print a message when a workspace is not created yet.
-    """
-    print(
-        f"Workspace {workspace_id} is registerd, but not set up yet. To set it up,"
-        f" Please visit\n  https://dashboard.lepton.ai/workspace/{workspace_id}/setup\n"
-        " After that, you can log in here and use the workspace via CLI or API."
-    )
-
-
-def _get_workspace_display_name(workspace_id) -> Optional[str]:
-    """
-    Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
-    to get the workspace display name.
-
-    :param str workspace_id: the workspace_id of the workspace
-    :return: the workspace display name, or None if the workspace does not exist
-    :raises RuntimeError: if the backend server returns an error
-    :raises ValueError: if the workspace does not exist
-    """
-    request_body = {"id": workspace_id}
-    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
-    if not res.ok:
-        raise RuntimeError(
-            f"Lepton server returned an error: {res.status_code} {res.content}."
-        )
-    elif res.content == b"":
-        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
-    else:
-        content = res.json()
-        if isinstance(content, list) or "display_name" not in content:
-            raise RuntimeError(
-                "You hit a programming error: response is not a dictionary. Please"
-                " report this and include the following information: url:"
-                f" {WORKSPACE_URL_RESOLVER_API}, request_body: {request_body},"
-                f" response: {res}."
-            )
-        return content["display_name"]
-
-
-def _get_full_workspace_api_url(workspace_id) -> str:
+def _get_full_workspace_api_url(workspace_id, cached=False) -> str:
     """
     Get the full URL for the API of a workspace.
 
@@ -162,4 +181,4 @@ def _get_full_workspace_api_url(workspace_id) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    return _get_full_workspace_url(workspace_id) + WORKSPACE_API_PATH
+    return _get_full_workspace_url(workspace_id, cached) + WORKSPACE_API_PATH
