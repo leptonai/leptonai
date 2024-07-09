@@ -288,7 +288,7 @@ class Client(object):
         if is_valid_url(workspace_or_url):
             self.url = workspace_or_url.rstrip("/")
         else:
-            url = _get_full_workspace_url(workspace_or_url)
+            url = _get_full_workspace_url(workspace_or_url, cached=True)
             if not url:
                 raise ValueError(
                     f"Workspace {workspace_or_url} does not exist or is not accessible."
@@ -654,7 +654,7 @@ class Workspace(object):
         if workspace_id == WorkspaceRecord.get_current_workspace_id() and not token:
             token = WorkspaceRecord.client().token()
         self.workspace_id = workspace_id
-        api_url = _get_full_workspace_api_url(workspace_id)
+        api_url = _get_full_workspace_api_url(workspace_id, cached=True)
         if not api_url:
             raise ValueError(
                 f"Workspace {workspace_id} does not seem to exist. Did you specify the"
