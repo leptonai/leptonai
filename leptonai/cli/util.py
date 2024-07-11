@@ -3,7 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from urllib.parse import urlparse
 
 import click

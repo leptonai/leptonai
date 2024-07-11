@@ -2,12 +2,17 @@ import click
 from datetime import datetime
 import json
 import sys
-from typing import Dict
 
 from loguru import logger
 from rich.table import Table
 
-from .util import console, click_group, catch_deprecated_flag, check
+from .util import (
+    console,
+    click_group,
+    catch_deprecated_flag,
+    check,
+    _get_valid_nodegroup_ids,
+)
 from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE
 
@@ -215,17 +220,7 @@ def create(
         job_spec = LeptonJobUserSpec()
     # Update the spec based on the passed in args
     if node_groups:
-        valid_ng = client.nodegroup.list_all()
-        valid_ng_map: Dict[str, str] = {ng.metadata.name: ng.metadata.id_ for ng in valid_ng}  # type: ignore
-        node_group_ids = []
-        for ng in node_groups:
-            if ng not in valid_ng_map:
-                console.print(
-                    f"Invalid node group: [red]{ng}[/] (valid node groups:"
-                    f" {', '.join(valid_ng_map.keys())})"
-                )
-                sys.exit(1)
-            node_group_ids.append(valid_ng_map[ng])
+        node_group_ids = _get_valid_nodegroup_ids(node_groups)
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
