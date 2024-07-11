@@ -43,9 +43,9 @@ def workspace():
     default=None,
 )
 def login(
-        workspace_id: str,
-        auth_token: Optional[str] = None,
-        test_only_workspace_url: Optional[str] = None,
+    workspace_id: str,
+    auth_token: Optional[str] = None,
+    test_only_workspace_url: Optional[str] = None,
 ):
     """
     Logs in to a workspace. This also verifies that the workspace is accessible.

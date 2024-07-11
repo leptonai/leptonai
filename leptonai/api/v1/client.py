@@ -172,7 +172,6 @@ class APIClient(object):
     def _head(self, path: str, *args, **kwargs):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
 
-
     def info(self) -> WorkspaceInfo:
         """ "
         Returns the workspace info.
