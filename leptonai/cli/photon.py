@@ -39,6 +39,7 @@ from .util import (
     guard_api,
     check,
     explain_response,
+    _get_valid_nodegroup_ids,
 )
 from leptonai.api.v1.client import APIClient
 from leptonai.api.v1.types.common import Metadata
@@ -464,13 +465,6 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     hidden=True,
     default=None,
 )
-@click.option(
-    "--resource-affinity",
-    help="Resource affinity (experimental).",
-    type=str,
-    hidden=True,
-    default=None,
-)
 @click.option("--min-replicas", type=int, help="Minimum number of replicas.", default=1)
 @click.option(
     "--max-replicas", type=int, help="Maximum number of replicas.", default=None
@@ -618,7 +612,6 @@ def run(
     replica_accelerator_type,
     replica_accelerator_num,
     replica_ephemeral_storage_in_gb,
-    resource_affinity,
     min_replicas,
     max_replicas,
     mount,
@@ -709,6 +702,8 @@ def run(
             if "LEPTON_WORKSPACE_TOKEN" not in secret:
                 secret += ("LEPTON_WORKSPACE_TOKEN",)
 
+        node_group_ids = _get_valid_nodegroup_ids(node_groups) if node_groups else None
+
         mounts = list(mount)
         env_list = list(env)
         secret_list = list(secret)
@@ -759,9 +754,9 @@ def run(
                     ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
                     affinity=(
                         LeptonResourceAffinity(
-                            allowed_dedicated_node_groups=[resource_affinity]
+                            allowed_dedicated_node_groups=node_group_ids
                         )
-                        if resource_affinity
+                        if node_group_ids
                         else None
                     ),
                     min_replicas=min_replicas,

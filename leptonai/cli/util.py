@@ -92,7 +92,7 @@ def check(condition: Any, message: str) -> None:
 
 
 def guard_api(
-        content_or_error: Any, detail: Optional[bool] = False, msg: Optional[str] = None
+    content_or_error: Any, detail: Optional[bool] = False, msg: Optional[str] = None
 ):
     """
     A wrapper around API calls that exits if the call  prints an error message and exits if the call was unsuccessful.
@@ -143,9 +143,9 @@ def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
             console.print(f"{response.status_code}: {response.text}\n{errmsg}")
 
         if (
-                response.status_code >= 400
-                and response.status_code <= 499
-                and not exit_if_4xx
+            response.status_code >= 400
+            and response.status_code <= 499
+            and not exit_if_4xx
         ):
             return
         else:
