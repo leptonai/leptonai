@@ -1,7 +1,10 @@
+from datetime import datetime
+
 import click
 import sys
 import webbrowser
 
+from leptonai.api.workspace import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 
@@ -142,11 +145,50 @@ def login(credentials):
         WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
-    info = api_client.info()
-    console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
-    console.print(f"\t      tier: {info.workspace_tier}")
-    console.print(f"\tbuild time: {info.build_time}")
-    console.print(f"\t   version: {api_client.version()}")
+
+    try:
+        info = api_client.info()
+        console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
+        console.print(f"\t      tier: {info.workspace_tier}")
+        console.print(f"\tbuild time: {info.build_time}")
+        console.print(f"\t   version: {api_client.version()}")
+
+    except WorkspaceUnauthorizedError as e:
+        console.print("\n", e)
+        console.print(f"""
+        [red bold]Invalid Workspace Access Detected[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+
+        [bold]To resolve this issue:[/bold]
+        1. [green]Verify your login credentials above.[/green]
+        
+        [yellow]If using 'lep login' and encountering this error, you might be logging in with a invalid local credential.[/yellow]
+        2.  [yellow]To directly login, use:[/yellow]
+            [green]'lep login -c <workspace_id>:<auth_token>'[/green]
+        
+        3. [yellow]Or list and remove the invalid workspace with:[/yellow]
+            [green]'lep workspace list'[/green]
+            [green]'lep workspace remove -i <workspace_id>'[/green]
+            [yellow]Then, log in again with:[/yellow]
+            [green]'lep login'[/green]
+        """)
+
+    except WorkspaceNotFoundError as e:
+        console.print("\n", e)
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"""
+        [red bold]Workspace Not Found[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+
+        [bold]To resolve this issue:[/bold]
+        1. [green]If the workspace was just created, please wait for 10 minutes. [/green]
+           [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
+           (Current Time: [bold blue]{current_time}[/bold blue])
+        2. [green]Please check the login info you just used above[/green]
+        3. [yellow]Login to the workspace with valid credentials:[/yellow]
+           [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
+        """)
 
 
 @lep.command()
