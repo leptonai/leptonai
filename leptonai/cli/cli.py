@@ -155,6 +155,7 @@ def login(credentials):
 
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"""
         [red bold]Invalid Workspace Access Detected[/]
         [red]Workspace ID:[/red] {e.workspace_id}
@@ -166,11 +167,15 @@ def login(credentials):
         2.  [yellow]To directly login, use:[/yellow]
             [green]'lep login -c <workspace_id>:<auth_token>'[/green]
         
-        3. [yellow]Or list and remove the invalid workspace with:[/yellow]
+        3. [yellow]Or list and remove the invalid local workspace credential with:[/yellow]
             [green]'lep workspace list'[/green]
             [green]'lep workspace remove -i <workspace_id>'[/green]
             [yellow]Then, log in again with:[/yellow]
             [green]'lep login'[/green]
+            
+        4. [green]If the workspace was just created, please wait for 5 - 10 minutes. [/green]
+           [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
+           (Current Time: [bold blue]{current_time}[/bold blue])
         """)
 
     except WorkspaceNotFoundError as e:

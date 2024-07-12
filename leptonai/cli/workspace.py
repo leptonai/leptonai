@@ -79,6 +79,7 @@ def login(
         console.print(f"\t   version: {api_client.version()}")
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"""
         [red bold]Invalid Workspace Access Detected[/]
         [red]Workspace ID:[/red] {e.workspace_id}
@@ -87,6 +88,9 @@ def login(
         1. [yellow]Please check the login info you just used above[/yellow]
         2. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
+        3. [green]If the workspace was just created, please wait for 5 - 10 minutes. [/green]
+           [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
+           (Current Time: [bold blue]{current_time}[/bold blue])
         """)
 
     except WorkspaceNotFoundError as e:
@@ -162,6 +166,20 @@ def remove(workspace_id: str):
         return
     WorkspaceRecord.remove(workspace_id)
     console.print(f"Successfully removed workspace: [green]{workspace_id}.[/]")
+
+
+@workspace.command()
+# @click.option("--workspace-id", "-i", help="ID of the workspace", required=True)
+def removeall():
+    """
+    Remove a workspace from the record. After removal, the locally stored
+    url and auth token will be deleted. If the workspace is currently logged in,
+    you will be logged out.
+    """
+    workspace_list = WorkspaceRecord.workspaces()
+    for info in workspace_list:
+        WorkspaceRecord.remove(info.id_)
+    # console.print(f"Successfully removed workspace: [green]{workspace_id}.[/]")
 
 
 @workspace.command()
