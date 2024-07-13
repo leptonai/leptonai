@@ -321,8 +321,7 @@ def create(
             if not photon_id:
                 console.print(
                     f"Photon [red]{name}[/] does not exist in the workspace. Did"
-                    " you intend to run a local photon? If so, please specify"
-                    " --local.",
+                    " you forget to push the photon?",
                 )
                 sys.exit(1)
             console.print(
