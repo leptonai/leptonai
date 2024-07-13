@@ -8,7 +8,6 @@ import sys
 import tempfile
 import traceback
 from typing import Optional, List, Tuple
-import warnings
 
 from rich.console import Console
 from rich.prompt import Confirm
@@ -18,11 +17,7 @@ import click
 from loguru import logger
 
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.connection import Connection
 from leptonai.api import photon as api
-from leptonai.api import types
-from leptonai.api.workspace import WorkspaceInfoLocalRecord
-from leptonai.api.secret import create_secret, list_secret
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
@@ -37,27 +32,10 @@ from leptonai.util import find_available_port
 
 from .util import (
     click_group,
-    guard_api,
     check,
-    explain_response,
 )
 from leptonai.api.v1.client import APIClient
-from leptonai.api.v1.types.common import Metadata
-from leptonai.api.v1.types.deployment import LeptonDeployment
-from leptonai.api.v1.types.deployment_operator_v1alpha1.affinity import (
-    LeptonResourceAffinity,
-)
-from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
-    LeptonDeploymentUserSpec,
-    ResourceRequirement,
-    AutoScaler,
-    ScaleDown,
-    HealthCheck,
-    HealthCheckLiveness,
-)
-from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from leptonai.api.v1.deployment import make_token_vars_from_config
-from leptonai.config import ENV_VAR_REQUIRED
+from leptonai.api.v1.photon import make_env_vars_from_strings
 
 from .deployment import create as deployment_create
 
