@@ -225,6 +225,9 @@ BASE_IMAGE_ARGS = ["--shm-size=1g"]
 # By default, platform runs lep ph run -f ${photon_file_path}
 BASE_IMAGE_CMD = None
 
+# Default shape used by the Lepton deployments.
+DEFAULT_RESOURCE_SHAPE = "cpu.small"
+
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
 

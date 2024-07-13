@@ -1,8 +1,10 @@
 from datetime import datetime
 import re
 import sys
+from typing import List, Optional, Union
 
 import click
+from loguru import logger
 from rich.table import Table
 
 from .util import (
@@ -10,11 +12,26 @@ from .util import (
     check,
     click_group,
 )
-from leptonai.config import LEPTON_DEPLOYMENT_URL
+
+from leptonai.config import (
+    LEPTON_DEPLOYMENT_URL,
+    DEFAULT_TIMEOUT,
+    DEFAULT_RESOURCE_SHAPE,
+    ENV_VAR_REQUIRED,
+)
 from ..api import types
 from ..api.v1.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
+from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.workspace_record import WorkspaceRecord
+from ..api.v1.types.deployment import (
+    LeptonDeployment,
+    LeptonDeploymentUserSpec,
+    LeptonContainer,
+    ResourceRequirement,
+    ContainerPort,
+)
+from ..api.v1.types.photon import PhotonDeploymentTemplate
 
 
 @click_group()
@@ -31,6 +48,412 @@ def deployment():
     the Lepton AI cloud.
     """
     pass
+
+
+def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
+    if x is None or x == 0 or x >= 60:
+        return x
+    else:
+        raise click.BadParameter("Timeout value must be larger than 60 seconds.")
+
+
+def _get_ordered_photon_ids_or_none(
+    name: str, public_photon: bool
+) -> Union[List[str], None]:
+    """Returns a list of photon ids for a given name, in the order newest to
+    oldest. If no photon of such name exists, returns None.
+    """
+
+    client = APIClient()
+
+    photons = client.photon.list_all(public_photon=public_photon)
+
+    target_photons = [p for p in photons if p.name == name]  # type: ignore
+    if len(target_photons) == 0:
+        return None
+    target_photons.sort(key=lambda p: p.created_at, reverse=True)  # type: ignore
+    return [p.id_ for p in target_photons]  # type: ignore
+
+
+def _get_most_recent_photon_id_or_none(name: str, public_photon: bool) -> Optional[str]:
+    """Returns the most recent photon id for a given name. If no photon of such
+    name exists, returns None.
+    """
+    photon_ids = _get_ordered_photon_ids_or_none(name, public_photon)
+    return photon_ids[0] if photon_ids else None
+
+
+def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
+    """
+    Adds the workspace token as a secret environment variable.
+    """
+    from ..api.v1.types.common import SecretItem
+
+    secrets = client.secret.list_all()
+    if "LEPTON_WORKSPACE_TOKEN" not in secrets:
+        current_ws = WorkspaceRecord.current()
+        if current_ws is None:
+            console.print(
+                "Error: you are not logged in yet. Log into your workspace before"
+                " using --include-workspace-token."
+            )
+            sys.exit(1)
+        else:
+            token = current_ws.auth_token
+            # TODO: there woudln't be a case when token is empty, but we will add a check
+            # here just in case.
+            if token:
+                client.secret.create(
+                    [SecretItem(name="LEPTON_WORKSPACE_TOKEN", value=token)]
+                )
+
+
+@deployment.command()
+@click.option("--name", "-n", type=str, help="Name of the photon to run.")
+@click.option("--photon", "-p", type=str, help="Name of the photon to run.")
+@click.option(
+    "--photon-id",
+    "-i",
+    type=str,
+    help=(
+        "Specific version id of the photon to run. If not specified, we will run the"
+        " most recent version of the photon."
+    ),
+)
+@click.option("--container-image", type=str, help="Container image to run.")
+@click.option(
+    "--container-port",
+    type=int,
+    help=(
+        "Guest OS port to listen to in the container. If not specified, default to"
+        " 8080."
+    ),
+)
+@click.option(
+    "--container-command",
+    type=str,
+    help=(
+        "Command to run in the container. Your command should listen to the port"
+        " specified by --container-port."
+    ),
+)
+@click.option(
+    "--resource-shape",
+    type=str,
+    help="Resource shape for the deployment. Available types are: '"
+    + "', '".join(types.VALID_SHAPES)
+    + "'.",
+    default=None,
+)
+@click.option("--min-replicas", type=int, help="Minimum number of replicas.", default=1)
+@click.option(
+    "--max-replicas", type=int, help="Maximum number of replicas.", default=None
+)
+@click.option(
+    "--mount",
+    help=(
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--env",
+    "-e",
+    help="Environment variables to pass to the deployment, in the format `NAME=VALUE`.",
+    multiple=True,
+)
+@click.option(
+    "--secret",
+    "-s",
+    help=(
+        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--public",
+    is_flag=True,
+    help=(
+        "If specified, the photon will be publicly accessible. See docs for details "
+        "on access control."
+    ),
+)
+@click.option(
+    "--tokens",
+    help=(
+        "Additional tokens that can be used to access the photon. See docs for details "
+        "on access control."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--no-traffic-timeout",
+    type=int,
+    help=(
+        "If specified, the deployment will be scaled down to 0 replicas after the"
+        " specified number of seconds without traffic. Minimum is 60 seconds if set."
+        " Note that actual timeout may be up to 30 seconds longer than the specified"
+        " value."
+    ),
+    callback=_timeout_must_be_larger_than_60,
+)
+@click.option(
+    "--target-gpu-utilization",
+    type=int,
+    help=(
+        "If min and max replicas are set, if the gpu utilization is higher than the"
+        " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
+        " utilization is lower than the target gpu utilization, autoscaler will scale"
+        " down the replicas. The value should be between 0 and 99."
+    ),
+    default=None,
+)
+@click.option(
+    "--initial-delay-seconds",
+    type=int,
+    help=(
+        "If specified, the deployment will allow the specified amount of seconds for"
+        " the photon to initialize before it starts the service. Usually you should"
+        " not need this. If you have a deployment that takes a long time to initialize,"
+        " set it to a longer value."
+    ),
+    default=None,
+)
+@click.option(
+    "--include-workspace-token",
+    is_flag=True,
+    help=(
+        "If specified, the workspace token will be included as an environment"
+        " variable. This is used when the photon code uses Lepton SDK capabilities such"
+        " as queue, KV, objectstore etc. Note that you should trust the code in the"
+        " photon, as it will have access to the workspace token."
+    ),
+    default=False,
+)
+@click.option(
+    "--rerun",
+    is_flag=True,
+    help=(
+        "If specified, shutdown the deployment of the same deployment name and"
+        " rerun it. Note that this may cause downtime of the photon if it is for"
+        " production use, so use with caution. In a production environment, you"
+        " should do photon create, push, and `lep deployment update` instead."
+    ),
+    default=False,
+)
+@click.option(
+    "--public-photon",
+    is_flag=True,
+    help=(
+        "If specified, get the photon from the public photon registry. This is only"
+        " supported for remote execution."
+    ),
+    default=False,
+)
+@click.option(
+    "--image-pull-secrets",
+    type=str,
+    help="Secrets to use for pulling images.",
+    multiple=True,
+)
+def create(
+    name,
+    photon,
+    photon_id,
+    container_image,
+    container_port,
+    container_command,
+    resource_shape,
+    min_replicas,
+    max_replicas,
+    mount,
+    env,
+    secret,
+    public,
+    tokens,
+    no_traffic_timeout,
+    target_gpu_utilization,
+    initial_delay_seconds,
+    include_workspace_token,
+    rerun,
+    public_photon,
+    image_pull_secrets,
+):
+    """
+    Creates a deployment from either a photon or container image.
+    """
+
+    client = APIClient()
+    spec = LeptonDeploymentUserSpec()
+
+    # Check if the deployment already exists.
+    existing_deployments = client.deployment.list_all()
+    if name in [d.metadata.name for d in existing_deployments]:
+        if rerun:
+            console.print(
+                f"Deployment [green]{name}[/] already exists. Shutting down the"
+                " existing deployment and rerunning."
+            )
+            client.deployment.delete(name)
+        else:
+            console.print(
+                f"Deployment [green]{name}[/] already exists. Use `lep deployment"
+                f" update -n {name}` to update the deployment, or add `--rerun` to"
+                " shutdown the existing deployment and rerun it."
+            )
+            sys.exit(1)
+
+    # First, check whether the input is photon or container. We will prioritize using
+    # photon if both are specified.
+    if photon is not None or photon_id is not None:
+        # We will use photon.
+        if container_image is not None or container_command is not None:
+            console.print(
+                "Warning: both photon and container image are specified. We will use"
+                " the photon."
+            )
+        if photon_id is None:
+            # look for the latest photon with the given name.
+            photon_id = _get_most_recent_photon_id_or_none(name, public_photon)
+            if not photon_id:
+                console.print(
+                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                    " you intend to run a local photon? If so, please specify"
+                    " --local.",
+                )
+                sys.exit(1)
+            console.print(
+                f"Running the most recent version of [green]{name}[/]: {photon_id}"
+            )
+        else:
+            console.print(f"Running the specified version: [green]{photon_id}[/]")
+        spec.photon_id = photon_id
+        spec.photon_namespace = "public" if public_photon else "private"
+
+        # get deployment template
+        photon = client.photon.get(photon_id, public_photon=public_photon)  # type: ignore
+        deployment_template = photon.deployment_template
+    elif container_image is not None or container_command is not None:
+        # We will use container.
+        if container_image is None or container_command is None:
+            console.print(
+                "Error: container image and command must be specified together."
+            )
+            sys.exit(1)
+        spec.container = LeptonContainer(
+            image=container_image,
+            command=container_command.split(" "),
+        )
+        if container_port:
+            spec.container.ports = [ContainerPort(container_port=container_port)]
+        # container based deployment won't have the deployment template as photons do.
+        # So we will simply create an empty one.
+        deployment_template = PhotonDeploymentTemplate()
+
+    # default timeout
+    if (
+        no_traffic_timeout is None
+        and DEFAULT_TIMEOUT
+        and target_gpu_utilization is None
+    ):
+        console.print(
+            "\nLepton is currently set to use a default timeout of [green]1"
+            " hour[/]. This means that when there is no traffic for more than an"
+            " hour, your deployment will automatically scale down to zero. This is"
+            " to assist auto-release of unused debug deployments.\n- If you would"
+            " like to run a long-running photon (e.g. for production), [green]set"
+            " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
+            " default timeout, set the environment variable"
+            " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
+        )
+        no_traffic_timeout = DEFAULT_TIMEOUT
+
+    # resources
+    spec.resource_requirement = ResourceRequirement(
+        resource_shape=resource_shape
+        or deployment_template.resource_shape
+        or DEFAULT_RESOURCE_SHAPE,
+        min_replicas=min_replicas,
+        max_replicas=max_replicas,
+    )
+
+    # include workspace token
+    if include_workspace_token:
+        console.print("Including the workspace token for the photon execution.")
+        _create_workspace_token_secret_var_if_not_existing(client)
+        if "LEPTON_WORKSPACE_TOKEN" not in secret:
+            secret += [
+                "LEPTON_WORKSPACE_TOKEN",
+            ]
+
+    try:
+        logger.trace(f"deployment_template:\n{deployment_template}")
+        template_envs = deployment_template.env or {}
+        env_list = env or []
+        secret_list = secret or []
+        mount_list = mount or []
+        for k, v in template_envs.items():
+            if v == ENV_VAR_REQUIRED:
+                if not any(s.startswith(k + "=") for s in (env or [])):
+                    console.print(
+                        f"This deployment requires env var {k}, but it's missing."
+                        f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
+                        " the deployment may fail."
+                    )
+            else:
+                if not any(s.startswith(k + "=") for s in env_list):
+                    # Adding default env variable if not specified.
+                    env_list.append(f"{k}={v}")
+        template_secrets = deployment_template.secret or []
+        for k in template_secrets:
+            if k not in secret_list:
+                console.print(
+                    f"This deployment requires secret {k}, but it's missing. Please"
+                    f" set the secret, and specify it with --secret {k}. Otherwise,"
+                    " the deployment may fail."
+                )
+        spec.envs = make_env_vars_from_strings(env_list, secret_list)
+        spec.mounts = make_mounts_from_strings(mount_list)
+        spec.api_tokens = make_token_vars_from_config(public, tokens)
+        spec.image_pull_secrets = list(image_pull_secrets)
+        spec.auto_scaler = types.AutoScaler(
+            scale_down=(
+                types.ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                if no_traffic_timeout
+                else None
+            ),
+            target_gpu_utilization_percentage=target_gpu_utilization,
+        )
+
+        spec.health = types.HealthCheck(
+            liveness=(
+                types.HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                if initial_delay_seconds
+                else None
+            )
+        )
+        print("debug")
+        import json
+
+        print(json.dumps(spec.model_dump(exclude_none=True), indent=2))
+    except ValueError as e:
+        console.print(
+            f"Error encountered while processing deployment configs:\n[red]{e}[/]."
+        )
+        console.print("Failed to launch deployment.")
+        sys.exit(1)
+
+    lepton_deployment = LeptonDeployment(
+        metadata=types.Metadata(id=name, name=name), spec=spec
+    )
+    client.deployment.create(lepton_deployment)
+    console.print(
+        f"Deployment created as [green]{name}[/]. Use `lep deployment"
+        f" status -n {name}` to check the status."
+    )
 
 
 @deployment.command(name="list")
