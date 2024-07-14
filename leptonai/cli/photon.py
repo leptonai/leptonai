@@ -490,7 +490,7 @@ def run(
     multiple=True,
 )
 @click.pass_context
-def run_local(
+def runlocal(
     ctx,
     name,
     model,

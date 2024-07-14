@@ -1,5 +1,6 @@
 from datetime import datetime
 import re
+import shlex
 import sys
 from typing import List, Optional, Union
 
@@ -344,7 +345,7 @@ def create(
             sys.exit(1)
         spec.container = LeptonContainer(
             image=container_image,
-            command=container_command.split(" "),
+            command=shlex.split(container_command),
         )
         if container_port:
             spec.container.ports = [ContainerPort(container_port=container_port)]
@@ -434,10 +435,6 @@ def create(
                 else None
             )
         )
-        print("debug")
-        import json
-
-        print(json.dumps(spec.model_dump(exclude_none=True), indent=2))
     except ValueError as e:
         console.print(
             f"Error encountered while processing deployment configs:\n[red]{e}[/]."
