@@ -169,17 +169,14 @@ def remove(workspace_id: str):
 
 
 @workspace.command()
-# @click.option("--workspace-id", "-i", help="ID of the workspace", required=True)
 def removeall():
     """
-    Remove a workspace from the record. After removal, the locally stored
-    url and auth token will be deleted. If the workspace is currently logged in,
-    you will be logged out.
+    Remove all workspaces.
     """
     workspace_list = WorkspaceRecord.workspaces()
     for info in workspace_list:
         WorkspaceRecord.remove(info.id_)
-    # console.print(f"Successfully removed workspace: [green]{workspace_id}.[/]")
+        console.print(f"Successfully removed workspace: [green]{info.id_}.[/]")
 
 
 @workspace.command()
