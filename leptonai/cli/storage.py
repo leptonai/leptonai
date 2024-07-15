@@ -105,6 +105,29 @@ def ls(path):
     print_dir_contents(path, dir_infos)
 
 
+def join_path(path, file_name):
+    if not path.endswith('/'):
+        path = path + '/'
+    return path + file_name
+
+
+@storage.command()
+@click.argument("path", type=str, default="/")
+@click.option("--name", type=str, required=True)
+def find(path, name):
+    joined_path = join_path(path, name)
+    if not storage_find(path, filename=name):
+        console.print(f"[red]{joined_path}[/] not found")
+    else:
+        console.print(f"[green]{joined_path}[/]")
+
+
+def storage_find(path, filename):
+    client = APIClient()
+    joined_path = join_path(path, filename)
+    return client.storage.check_exists(joined_path)
+
+
 @storage.command()
 @click.argument("path", type=str)
 def rm(path):
@@ -175,9 +198,9 @@ def mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
-        "only available for standard and enterprise workspace plan. Add -p to show "
-        "the progress."
+            "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+            "only available for standard and enterprise workspace plan. Add -p to show "
+            "the progress."
     ),
 )
 @click.option(
@@ -200,10 +223,10 @@ def upload(local_path, remote_path, rsync, recursive, progress):
     file will be uploaded to that directory with its local name.
     """
     # if the remote path is a directory, upload the file with its local name to that directory
-    upload(local_path, remote_path, rsync, recursive, progress)
+    storage_upload(local_path, remote_path, rsync, recursive, progress)
 
 
-def upload(local_path, remote_path, rsync, recursive, progress):
+def storage_upload(local_path, remote_path, rsync, recursive, progress):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the

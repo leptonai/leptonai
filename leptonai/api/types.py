@@ -14,7 +14,7 @@ from leptonai.config import LEPTON_RESERVED_ENV_NAMES, VALID_SHAPES
 
 from .v1.types.common import Metadata
 
-from .v1.types.deployment_operator_v1alpha1.deployment import (
+from .v1.types.deployment import (
     ResourceRequirement,
     TokenValue,
     TokenVar,

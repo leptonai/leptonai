@@ -29,6 +29,7 @@ from .ingress import IngressAPI
 from .storage import StorageAPI
 
 from .workspace_record import WorkspaceRecord
+from ..workspace import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 
 
 class APIClient(object):
@@ -172,11 +173,31 @@ class APIClient(object):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
 
     def info(self) -> WorkspaceInfo:
-        """ "
+        """
         Returns the workspace info.
         """
         ws_api = APIResourse(self)
         response = self._get("/workspace")
+        auth_token_hint = (
+            self.auth_token[:2] + "****" + self.auth_token[-2:]
+            if self.auth_token
+            else ""
+        )
+
+        if response.status_code == 401:
+            raise WorkspaceUnauthorizedError(
+                workspace_id=self.workspace_id,
+                workspace_url=self.url,
+                auth_token=auth_token_hint,
+            )
+
+        if response.status_code == 404:
+            raise WorkspaceNotFoundError(
+                workspace_id=self.workspace_id,
+                workspace_url=self.url,
+                auth_token=auth_token_hint,
+            )
+
         return ws_api.ensure_type(response, WorkspaceInfo)
 
     def version(self) -> Optional[Tuple[int, int, int]]:
