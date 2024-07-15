@@ -200,6 +200,17 @@ def upload(local_path, remote_path, rsync, recursive, progress):
     file will be uploaded to that directory with its local name.
     """
     # if the remote path is a directory, upload the file with its local name to that directory
+    upload(local_path, remote_path, rsync, recursive, progress)
+
+
+def upload(local_path, remote_path, rsync, recursive, progress):
+    """
+    Upload a local file to the storage of the current workspace. If remote_path
+    is not specified, the file will be uploaded to the root directory of the
+    storage. If remote_path is a directory, you need to append a "/", and the
+    file will be uploaded to that directory with its local name.
+    """
+    # if the remote path is a directory, upload the file with its local name to that directory
     client = APIClient()
 
     if remote_path[-1] == "/":
