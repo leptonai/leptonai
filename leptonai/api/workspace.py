@@ -17,6 +17,44 @@ from .util import (
 )
 
 
+class WorkspaceError(Exception):
+    def __init__(self, message, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(message)
+        self.workspace_id = workspace_id
+        self.workspace_url = workspace_url
+        self.auth_token = auth_token
+
+    def __str__(self):
+        details = ", ".join(
+            f"{key.replace('_', ' ').title()}: {value}"
+            for key, value in vars(self).items()
+            if value and key != "args"
+        )
+        return f"{self.args[0]} ({details})" if details else self.args[0]
+
+
+class WorkspaceUnauthorizedError(WorkspaceError):
+    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(
+            "Unauthorized access to the workspace",
+            workspace_id,
+            workspace_url,
+            auth_token,
+        )
+
+
+class WorkspaceNotFoundError(WorkspaceError):
+    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(
+            "Workspace not found. If the workspace was just created, please wait for 10"
+            " minutes. Contact us if the workspace remains unavailable after 10"
+            " minutes.",
+            workspace_id,
+            workspace_url,
+            auth_token,
+        )
+
+
 class WorkspaceInfoLocalRecord(object):
     _singleton_dict: Dict[str, Any] = {"workspaces": {}, "current_workspace": None}
     _singleton_conn: Optional[Connection] = None
