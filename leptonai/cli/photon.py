@@ -17,11 +17,7 @@ import click
 from loguru import logger
 
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.connection import Connection
 from leptonai.api import photon as api
-from leptonai.api import types
-from leptonai.api.workspace import WorkspaceInfoLocalRecord
-from leptonai.api.secret import create_secret, list_secret
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
@@ -36,28 +32,13 @@ from leptonai.util import find_available_port
 
 from .util import (
     click_group,
-    guard_api,
     check,
-    explain_response,
 )
 from leptonai.api.v1.client import APIClient
-from leptonai.api.v1.types.common import Metadata
-from leptonai.api.v1.types.deployment import LeptonDeployment
-from leptonai.api.v1.types.deployment_operator_v1alpha1.affinity import (
-    LeptonResourceAffinity,
-)
-from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
-    LeptonDeploymentUserSpec,
-    ResourceRequirement,
-    AutoScaler,
-    ScaleDown,
-    HealthCheck,
-    HealthCheckLiveness,
-)
-from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from leptonai.api.v1.deployment import make_token_vars_from_config
-from leptonai.config import ENV_VAR_REQUIRED
-import warnings
+from leptonai.api.v1.photon import make_env_vars_from_strings
+
+from .deployment import create as deployment_create
+
 
 console = Console(highlight=False)
 
@@ -89,26 +70,6 @@ def _get_most_recent_photon_id_or_none(name: str, public_photon: bool) -> Option
     """
     photon_ids = _get_ordered_photon_ids_or_none(name, public_photon)
     return photon_ids[0] if photon_ids else None
-
-
-def _create_workspace_token_secret_var_if_not_existing(conn: Connection):
-    """
-    Adds the workspace token as a secret environment variable.
-    """
-    workspace_token = WorkspaceInfoLocalRecord.get_current_workspace_token() or ""
-    existing_secrets = guard_api(
-        list_secret(conn),
-        msg="Failed to list secrets.",
-    )
-    if "LEPTON_WORKSPACE_TOKEN" not in existing_secrets:
-        response = create_secret(conn, ["LEPTON_WORKSPACE_TOKEN"], [workspace_token])
-        explain_response(
-            response,
-            None,
-            "Failed to create secret LEPTON_WORKSPACE_TOKEN.",
-            "Failed to create secret LEPTON_WORKSPACE_TOKEN.",
-            exit_if_4xx=True,
-        )
 
 
 @click_group()
@@ -385,11 +346,114 @@ def _find_deployment_name_or_die(name, id, deployment_name, rerun):
     return deployment_name
 
 
-def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
-    if x is None or x == 0 or x >= 60:
-        return x
+@photon.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
+@click.option("--name", "-n", type=str, help="Name of the photon to run.")
+@click.option(
+    "--model",
+    "-m",
+    type=str,
+    help=(
+        "Model spec of the photon. If model is specified, we will rebuild the photon"
+        " before running."
+    ),
+)
+@click.option(
+    "--id",
+    "-i",
+    "photon_id",
+    type=str,
+    help="ID of the photon (only required for remote).",
+)
+@click.option(
+    "--deployment-name",
+    "-dn",
+    help=(
+        "Optional name for the deployment. If not specified, we will attempt to use the"
+        " name (if specified) or id as the base name, and find the first non-conflict"
+        " name by appending a number."
+    ),
+    default=None,
+)
+@click.option(
+    "--rerun",
+    is_flag=True,
+    help=(
+        "If specified, shutdown the deployment of the same deployment name and"
+        " rerun it. Note that this may cause downtime of the photon if it is for"
+        " production use, so use with caution. In a production environment, you"
+        " should do photon create, push, and `lep deployment update` instead."
+    ),
+    default=False,
+)
+@click.pass_context
+def run(
+    ctx,
+    name,
+    model,
+    photon_id,
+    deployment_name,
+    rerun,
+):
+    """
+    Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
+    the photon will be run on the cloud. Otherwise, or if `--local` is specified,
+    the photon will be run locally.
+
+    Refer to the documentation for a more detailed description on the choices
+    among `--name`, `--model`, `--file` and `--id`.
+    """
+    # backward warning.
+    if "--local" in ctx.args:
+        console.print(
+            "lep photon run --local is deprecated. Please use lep photon runlocal"
+            " instead."
+        )
+        sys.exit(1)
+
+    check(not (name and photon_id), "Must specify either --id or --name, not both.")
+
+    # remote execution.
+    if (name and model) and not photon_id:
+        console.print(
+            f"Rebuilding photon with --model {model}.\nIf you want to run without"
+            " rebuilding, please remove the --model arg."
+        )
+        ctx.invoke(create, name=name, model=model)
+        ctx.invoke(push, name=name)
+    # We first check if id is specified - this is the most specific way to
+    # refer to a photon. If not, we will check if name is specified - this
+    # might lead to multiple photons, so we will pick the latest one to run
+    # as the default behavior.
+    # TODO: Support push and run if the photon does not exist on remote
+    if photon_id is None:
+        # look for the latest photon with the given name.
+        photon_id = _get_most_recent_photon_id_or_none(name, False)
+        if not photon_id:
+            console.print(
+                f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                " you forget to push the photon?",
+            )
+            sys.exit(1)
+        console.print(
+            f"Running the most recent version of [green]{name}[/]: {photon_id}"
+        )
     else:
-        raise click.BadParameter("Timeout value must be larger than 60 seconds.")
+        console.print(f"Running the specified version: [green]{photon_id}[/]")
+
+    deployment_name = _find_deployment_name_or_die(
+        name, photon_id, deployment_name, rerun
+    )
+    deployment_ctx = deployment_create.make_context(
+        "lep deployment create", args=ctx.args
+    )
+    deployment_ctx.params["name"] = deployment_name
+    deployment_ctx.params["photon_id"] = photon_id
+    ctx.invoke(deployment_create, **deployment_ctx.params)
 
 
 @photon.command()
@@ -407,91 +471,7 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     "--file", "-f", "path", type=str, help="Path to the specific `.photon` file to run."
 )
 @click.option(
-    "--local",
-    "-l",
-    help=(
-        "If specified, run photon locally (note that this can only run locally stored"
-        " photons)"
-    ),
-    is_flag=True,
-)
-@click.option(
     "--port", "-p", type=int, help="Port to run on.", default=config.DEFAULT_PORT
-)
-@click.option(
-    "--id", "-i", type=str, help="ID of the photon (only required for remote)."
-)
-@click.option(
-    "--resource-shape",
-    type=str,
-    help="Resource shape for the deployment. Available types are: '"
-    + "', '".join(types.VALID_SHAPES)
-    + "'.",
-    default=None,
-)
-@click.option(
-    "--replica-cpu",
-    help="Resource CPU requirements per replica (experimental).",
-    type=float,
-    hidden=True,
-    default=None,
-)
-@click.option(
-    "--replica-memory",
-    help="Resource memory requirements per replica (experimental).",
-    type=int,
-    hidden=True,
-    default=None,
-)
-@click.option(
-    "--replica-accelerator-type",
-    help="Accelerator type requirement per replica (experimental).",
-    type=str,
-    hidden=True,
-    default=None,
-)
-@click.option(
-    "--replica-accelerator-num",
-    help="Number of accelerators requirement per replica (experimental).",
-    type=float,
-    hidden=True,
-    default=None,
-)
-@click.option(
-    "--replica-ephemeral-storage-in-gb",
-    help="Ephemeral storage requirement in GB per replica (experimental).",
-    type=int,
-    hidden=True,
-    default=None,
-)
-@click.option(
-    "--resource-affinity",
-    help="Resource affinity (experimental).",
-    type=str,
-    hidden=True,
-    default=None,
-)
-@click.option("--min-replicas", type=int, help="Minimum number of replicas.", default=1)
-@click.option(
-    "--max-replicas", type=int, help="Maximum number of replicas.", default=None
-)
-@click.option(
-    "--mount",
-    help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--deployment-name",
-    "-dn",
-    help=(
-        "Optional name for the deployment. If not specified, we will attempt to use the"
-        " name (if specified) or id as the base name, and find the first non-conflict"
-        " name by appending a number."
-    ),
-    default=None,
 )
 @click.option(
     "--env",
@@ -509,394 +489,116 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     ),
     multiple=True,
 )
-@click.option(
-    "--public",
-    is_flag=True,
-    help=(
-        "If specified, the photon will be publicly accessible. See docs for details "
-        "on access control."
-    ),
-)
-@click.option(
-    "--tokens",
-    help=(
-        "Additional tokens that can be used to access the photon. See docs for details "
-        "on access control."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--no-traffic-timeout",
-    type=int,
-    help=(
-        "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Minimum is 60 seconds if set."
-        " Note that actual timeout may be up to 30 seconds longer than the specified"
-        " value."
-    ),
-    callback=_timeout_must_be_larger_than_60,
-)
-@click.option(
-    "--target-gpu-utilization",
-    type=int,
-    help=(
-        "If min and max replicas are set, if the gpu utilization is higher than the"
-        " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
-        " utilization is lower than the target gpu utilization, autoscaler will scale"
-        " down the replicas. The value should be between 0 and 99."
-    ),
-    default=None,
-)
-@click.option(
-    "--initial-delay-seconds",
-    type=int,
-    help=(
-        "If specified, the deployment will allow the specified amount of seconds for"
-        " the photon to initialize before it starts the service. Usually you should"
-        " not need this. If you have a deployment that takes a long time to initialize,"
-        " set it to a longer value."
-    ),
-    default=None,
-)
-@click.option(
-    "--include-workspace-token",
-    is_flag=True,
-    help=(
-        "If specified, the workspace token will be included as an environment"
-        " variable. This is used when the photon code uses Lepton SDK capabilities such"
-        " as queue, KV, objectstore etc. Note that you should trust the code in the"
-        " photon, as it will have access to the workspace token."
-    ),
-    default=False,
-)
-@click.option(
-    "--rerun",
-    is_flag=True,
-    help=(
-        "If specified, shutdown the deployment of the same deployment name and"
-        " rerun it. Note that this may cause downtime of the photon if it is for"
-        " production use, so use with caution. In a production environment, you"
-        " should do photon create, push, and `lep deployment update` instead."
-    ),
-    default=False,
-)
-@click.option(
-    "--public-photon",
-    is_flag=True,
-    help=(
-        "If specified, get the photon from the public photon registry. This is only"
-        " supported for remote execution."
-    ),
-    default=False,
-)
-@click.option(
-    "--image-pull-secrets",
-    type=str,
-    help="Secrets to use for pulling images.",
-    multiple=True,
-)
 @click.pass_context
-def run(
+def runlocal(
     ctx,
     name,
     model,
     path,
-    local,
     port,
-    id,
-    resource_shape,
-    replica_cpu,
-    replica_memory,
-    replica_accelerator_type,
-    replica_accelerator_num,
-    replica_ephemeral_storage_in_gb,
-    resource_affinity,
-    min_replicas,
-    max_replicas,
-    mount,
-    deployment_name,
     env,
     secret,
-    public,
-    tokens,
-    no_traffic_timeout,
-    target_gpu_utilization,
-    initial_delay_seconds,
-    include_workspace_token,
-    rerun,
-    public_photon,
-    image_pull_secrets,
 ):
     """
-    Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
-    the photon will be run on the cloud. Otherwise, or if `--local` is specified,
-    the photon will be run locally.
-
-    Refer to the documentation for a more detailed description on the choices
-    among `--name`, `--model`, `--file` and `--id`.
+    Run a photon locally.
     """
-
-    check(not (name and id), "Must specify either --id or --name, not both.")
-    check(
-        not (public_photon and local),
-        "Cannot specify --public-photon and --local both.",
-    )
-    check(not (public_photon and model), "Cannot specify --public and --model both.")
-
-    if not local and WorkspaceRecord.get_current_workspace_id() is not None:
-        client = APIClient()
-        # remote execution.
-        if (name and model) and not id:
+    # local execution
+    check(name or path, "Must specify either --name or --file.")
+    if path is None:
+        path = find_local_photon(name)
+        assert path is None or isinstance(path, str)
+    # The criteria to rebuild photon: 1) photon does not exist, 2) model is explicitly specified
+    if (not path or not os.path.exists(path)) or model:
+        if not path or not os.path.exists(path):
             console.print(
-                f"Rebuilding photon with --model {model}.\nIf you want to run without"
-                " rebuilding, please remove the --model arg."
+                f"Photon [yellow]{name if name is not None else path}[/] does not"
+                f" exist, trying to create with --model {model}."
             )
-            ctx.invoke(create, name=name, model=model)
-            ctx.invoke(push, name=name)
-        # We first check if id is specified - this is the most specific way to
-        # refer to a photon. If not, we will check if name is specified - this
-        # might lead to multiple photons, so we will pick the latest one to run
-        # as the default behavior.
-        # TODO: Support push and run if the photon does not exist on remote
-        if id is None:
-            # look for the latest photon with the given name.
-            id = _get_most_recent_photon_id_or_none(name, public_photon)
-            if not id:
-                console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
-                    " you intend to run a local photon? If so, please specify"
-                    " --local.",
-                )
-                sys.exit(1)
-            console.print(f"Running the most recent version of [green]{name}[/]: {id}")
         else:
-            console.print(f"Running the specified version: [green]{id}[/]")
-
-        if (
-            no_traffic_timeout is None
-            and config.DEFAULT_TIMEOUT
-            and target_gpu_utilization is None
-        ):
             console.print(
-                "\nLepton is currently set to use a default timeout of [green]1"
-                " hour[/]. This means that when there is no traffic for more than an"
-                " hour, your deployment will automatically scale down to zero. This is"
-                " to assist auto-release of unused debug deployments.\n- If you would"
-                " like to run a long-running photon (e.g. for production), [green]set"
-                " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
-                " default timeout, set the environment variable"
-                " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
+                f"Rebuilding photon with --model {model}.\nIf you want to run"
+                " without rebuilding, please remove the --model arg."
             )
-            no_traffic_timeout = config.DEFAULT_TIMEOUT
-
-        photon = client.photon.get(id, public_photon=public_photon)
-        deployment_template = photon.deployment_template
-
-        deployment_name = _find_deployment_name_or_die(name, id, deployment_name, rerun)
-
-        if include_workspace_token:
-            console.print("Including the workspace token for the photon execution.")
-            _create_workspace_token_secret_var_if_not_existing()
-            if "LEPTON_WORKSPACE_TOKEN" not in secret:
-                secret += ("LEPTON_WORKSPACE_TOKEN",)
-
-        mounts = list(mount)
-        env_list = list(env)
-        secret_list = list(secret)
-
-        try:
-            deployment_template = deployment_template or {}
-            logger.trace(f"deployment_template:\n{deployment_template}")
-            if resource_shape is None:
-                resource_shape = (
-                    deployment_template.resource_shape or DEFAULT_RESOURCE_SHAPE
-                )
-            template_envs = deployment_template.env or {}
-            for k, v in template_envs.items():
-                if v == ENV_VAR_REQUIRED:
-                    if not any(s.startswith(k + "=") for s in (env_list or [])):
-                        warnings.warn(
-                            f"This deployment requires env var {k}, but it's missing."
-                            f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
-                            " the deployment may fail.",
-                            RuntimeWarning,
-                        )
-                else:
-                    env_list = list(env_list) if env_list is not None else []
-                    if not any(s.startswith(k + "=") for s in env_list):
-                        # Adding default env variable if not specified.
-                        env_list.append(f"{k}={v}")
-            template_secrets = deployment_template.secret or []
-            for k in template_secrets:
-                if not any(s.startswith(k) for s in (secret_list or [])) and not any(
-                    s.startswith(k) for s in (env_list or [])
-                ):
-                    warnings.warn(
-                        f"This deployment requires secret {k}, but it's missing. Please"
-                        f" set the secret, and specify it with --secret {k}. Otherwise,"
-                        " the deployment may fail.",
-                        RuntimeWarning,
-                    )
-
-            spec = LeptonDeploymentUserSpec(
-                photon_id=id,
-                photon_namespace="public" if public_photon else "private",
-                resource_requirement=ResourceRequirement(
-                    resource_shape=resource_shape,
-                    cpu=replica_cpu,
-                    memory=replica_memory,
-                    accelerator_type=replica_accelerator_type,
-                    accelerator_num=replica_accelerator_num,
-                    ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
-                    affinity=(
-                        LeptonResourceAffinity(
-                            allowed_dedicated_node_groups=[resource_affinity]
-                        )
-                        if resource_affinity
-                        else None
-                    ),
-                    min_replicas=min_replicas,
-                    max_replicas=max_replicas,
-                ),
-                mounts=make_mounts_from_strings(mounts),
-                image_pull_secrets=image_pull_secrets,
-                envs=make_env_vars_from_strings(env_list, secret_list),
-                api_tokens=make_token_vars_from_config(public, tokens),
-                auto_scaler=AutoScaler(
-                    scale_down=(
-                        ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                        if no_traffic_timeout
-                        else None
-                    ),
-                    target_gpu_utilization_percentage=target_gpu_utilization,
-                ),
-                health=HealthCheck(
-                    liveness=(
-                        HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
-                        if initial_delay_seconds
-                        else None
-                    )
-                ),
-            )
-
-            lepton_deployment = LeptonDeployment(
-                metadata=Metadata(id=id, name=deployment_name), spec=spec
-            )
-            client.deployment.create(lepton_deployment)
-            console.print(
-                f"Photon launched as [green]{deployment_name}[/]. Use `lep deployment"
-                f" status -n {deployment_name}` to check the status."
-            )
-        except ValueError as e:
-            console.print(
-                f"Error encountered while processing deployment configs:\n[red]{e}[/]."
-            )
-            console.print("Failed to launch photon.")
-            sys.exit(1)
-
-    else:
-        # local execution
-        check(name or path, "Must specify either --name or --file.")
-        if path is None:
-            path = find_local_photon(name)
-            assert path is None or isinstance(path, str)
-        # The criteria to rebuild photon: 1) photon does not exist, 2) model is explicitly specified
-        if (not path or not os.path.exists(path)) or model:
-            if not path or not os.path.exists(path):
-                console.print(
-                    f"Photon [yellow]{name if name is not None else path}[/] does not"
-                    f" exist, trying to create with --model {model}."
-                )
-            else:
-                console.print(
-                    f"Rebuilding photon with --model {model}.\nIf you want to run"
-                    " without rebuilding, please remove the --model arg."
-                )
-            check(
-                name and model,
-                "Must specify both --name and --model to create a new photon.",
-            )
-            ctx.invoke(create, name=name, model=model)
-            path = find_local_photon(name)
-
-        # envs: parse and set environment variables
-        if env:
-            env_parsed = make_env_vars_from_strings(env, [])
-            for e in env_parsed if env_parsed else []:
-                os.environ[e.name] = e.value if e.value else ""
-        if secret:
-            for secret_name in secret:
-                if secret_name not in os.environ:
-                    console.print(
-                        f"You have specified a secret {secret_name} but it is not"
-                        " defined in your environment. Local execution does not support"
-                        " fetching secrets from the server. Please set the secret in"
-                        " your environment as an env variable and try again."
-                    )
-        if mount or tokens:
-            console.print(
-                "Mounts, secrets and access tokens are only supported for"
-                " remote execution. They will be ignored for local execution."
-            )
-        path = str(path)
         check(
-            os.path.exists(path),
-            f"You encountered an internal error: photon [red]{path}[/] does not exist.",
+            name and model,
+            "Must specify both --name and --model to create a new photon.",
         )
-        metadata = photon_util.load_metadata(path)
+        ctx.invoke(create, name=name, model=model)
+        path = find_local_photon(name)
 
-        if metadata.get(METADATA_VCS_URL_KEY, None):
-            workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
-            os.chdir(workpath)
+    # envs: parse and set environment variables
+    if env:
+        env_parsed = make_env_vars_from_strings(env, [])
+        for e in env_parsed if env_parsed else []:
+            os.environ[e.name] = e.value if e.value else ""
+    if secret:
+        for secret_name in secret:
+            if secret_name not in os.environ:
+                console.print(
+                    f"You have specified a secret {secret_name} but it is not"
+                    " defined in your environment. Local execution does not support"
+                    " fetching secrets from the server. Please set the secret in"
+                    " your environment as an env variable and try again."
+                )
 
-        try:
-            photon = api.load(path)
-            port = find_available_port(port)
-            console.print(f"Launching photon on port: [green]{port}[/]")
-            if not isinstance(photon, Photon):
-                console.print(
-                    f"You encountered an unsupported path: Loaded Photon from {path}"
-                    " is not a python runnable Photon object."
-                )
-                sys.exit(1)
-            photon.launch(port=port)
-        except ModuleNotFoundError:
-            # We encountered a ModuleNotFoundError. This is likely due to missing
-            # dependencies. We will print out a helpful message and exit.
+    path = str(path)
+    check(
+        os.path.exists(path),
+        f"You encountered an internal error: photon [red]{path}[/] does not exist.",
+    )
+    metadata = photon_util.load_metadata(path)
+
+    if metadata.get(METADATA_VCS_URL_KEY, None):
+        workpath = fetch_code_from_vcs(metadata[METADATA_VCS_URL_KEY])
+        os.chdir(workpath)
+
+    try:
+        photon = api.load(path)
+        port = find_available_port(port)
+        console.print(f"Launching photon on port: [green]{port}[/]")
+        if not isinstance(photon, Photon):
             console.print(
-                "While loading and launching photon, some modules are not found."
-                " Details:\n"
-            )
-            traceback.print_exc()
-            console.print(
-                "\nIt seems that you are missing some dependencies. This is not a bug"
-                " of LeptonAI library, and is due to the underlying photon requiring"
-                " dependencies. When running photons locally, we intentionally refrain"
-                " from installing these dependencies for you, in order to not mess with"
-                " your local environment. You can manually install the missing"
-                " dependencies by looking at the exception above."
-            )
-            if metadata["requirement_dependency"]:
-                console.print(
-                    "\nAccording to the photon's metadata, dependencies can be"
-                    " installed via:\n\tpip install"
-                    f" {' '.join(metadata['requirement_dependency'])}"
-                )
-            if metadata["system_dependency"]:
-                console.print(
-                    "\nAccording to the photon's metadata, system dependencies can be"
-                    " installed via:\n\tsudo apt-get install"
-                    f" {' '.join(metadata['system_dependency'])}"
-                )
-            console.print("Kindly install the dependencies and try again.")
-            sys.exit(1)
-        except Exception as e:
-            console.print(
-                f"Failed to launch photon: {type(e)}:"
-                f" {e}\nTraceback:\n{traceback.format_exc()}"
+                f"You encountered an unsupported path: Loaded Photon from {path}"
+                " is not a python runnable Photon object."
             )
             sys.exit(1)
-        return
+        photon.launch(port=port)
+    except ModuleNotFoundError:
+        # We encountered a ModuleNotFoundError. This is likely due to missing
+        # dependencies. We will print out a helpful message and exit.
+        console.print(
+            "While loading and launching photon, some modules are not found. Details:\n"
+        )
+        traceback.print_exc()
+        console.print(
+            "\nIt seems that you are missing some dependencies. This is not a bug"
+            " of LeptonAI library, and is due to the underlying photon requiring"
+            " dependencies. When running photons locally, we intentionally refrain"
+            " from installing these dependencies for you, in order to not mess with"
+            " your local environment. You can manually install the missing"
+            " dependencies by looking at the exception above."
+        )
+        if metadata["requirement_dependency"]:
+            console.print(
+                "\nAccording to the photon's metadata, dependencies can be"
+                " installed via:\n\tpip install"
+                f" {' '.join(metadata['requirement_dependency'])}"
+            )
+        if metadata["system_dependency"]:
+            console.print(
+                "\nAccording to the photon's metadata, system dependencies can be"
+                " installed via:\n\tsudo apt-get install"
+                f" {' '.join(metadata['system_dependency'])}"
+            )
+        console.print("Kindly install the dependencies and try again.")
+        sys.exit(1)
+    except Exception as e:
+        console.print(
+            f"Failed to launch photon: {type(e)}:"
+            f" {e}\nTraceback:\n{traceback.format_exc()}"
+        )
+        sys.exit(1)
+    return
 
 
 def _sequentialize_pip_commands(commands: List[str]) -> List[Tuple[str, List[str]]]:
