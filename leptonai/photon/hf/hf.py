@@ -727,7 +727,7 @@ class HuggingfaceTokenClassificationPhoton(HuggingfacePhoton):
         for r in [res] if isinstance(res[0], dict) else res:
             for d in r:
                 for k, v in d.items():
-                    if type(v) == np.float32:
+                    if type(v) is np.float32:
                         d[k] = float(v)
         return res
 
