@@ -33,6 +33,12 @@ def catch_deprecated_flag(old_name, new_name):
 
 
 def click_group(*args, **kwargs):
+    """
+    A wrapper around click.group that allows for command shorthands as long as
+    they are unambiguous. For example, in the lepton case, the command `lep deployment`
+    can be shortened to `lep depl` as `depl` uniquely identifies the `deployment` command.
+    """
+
     class ClickAliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
             rv = click.Group.get_command(self, ctx, cmd_name)

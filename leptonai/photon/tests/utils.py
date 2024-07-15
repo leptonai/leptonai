@@ -32,8 +32,7 @@ def photon_run_local_server(name=None, path=None, model=None, port=None, env=Non
     cmd = [
         "lep",
         "photon",
-        "run",
-        "--local",
+        "runlocal",
     ]
     if name:
         cmd += ["-n", name]

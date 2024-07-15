@@ -14,7 +14,7 @@ class Photon(BaseModel):
     name: str
     model: str
     requirement_dependency: List[str]
-    deployment_template: Optional[PhotonDeploymentTemplate] = None
+    deployment_template: Optional[PhotonDeploymentTemplate] = PhotonDeploymentTemplate()
     image: str
     cmd: Optional[List[str]] = None
     healthcheck_liveness_tcp_port: Optional[int] = None
