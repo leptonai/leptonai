@@ -12,7 +12,7 @@ from leptonai.photon.base import (
 )
 
 from .api_resource import APIResourse
-from .types.deployment_operator_v1alpha1.deployment import Mount, EnvVar, EnvValue
+from .types.deployment import Mount, EnvVar, EnvValue
 from .types.photon import Photon as Photon
 from .types.deployment import LeptonDeployment
 

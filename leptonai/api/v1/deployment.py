@@ -2,8 +2,7 @@ import warnings
 from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
-from .types.deployment import LeptonDeployment
-from .types.deployment_operator_v1alpha1.deployment import TokenVar, TokenValue
+from .types.deployment import LeptonDeployment, TokenVar, TokenValue
 from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
