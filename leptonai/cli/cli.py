@@ -141,9 +141,12 @@ def login(credentials):
             )
         while not credentials:
             credentials = input("Credential: ")
-            if ':' not in credentials:
+            if ":" not in credentials:
                 credentials = None
-                console.print("[red]A credential should be formatted as <workspace_id>:<auth_token>[/]")
+                console.print(
+                    "[red]A credential should be formatted as"
+                    " <workspace_id>:<auth_token>[/]"
+                )
         workspace_id, auth_token = credentials.split(":", 1)
         WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
     # Try to login and print the info.
