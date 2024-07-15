@@ -2,7 +2,7 @@
 from typing import Union
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment
-from .types.deployment_operator_v1alpha1.ingress import LeptonIngressEndpoint
+from .types.ingress import LeptonIngressEndpoint
 from .types.ingress import LeptonIngress
 
 

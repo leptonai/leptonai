@@ -1,16 +1,13 @@
-from typing import List, Optional, IO
+from typing import Optional, IO
 
 from leptonai.api.v1.api_resource import APIResourse
-from leptonai.api.v1.types.deployment_operator_v1alpha1.object_storage import (
-    ObjectStorageMetadata,
-    ListObjectsResponse,
-)
+from leptonai.api.v1.types.object_storage import ListObjectsResponse
 
 
 class ObjectStorageAPI(APIResourse):
     def list(
         self, prefix: Optional[str] = None, is_public=False
-    ) -> List[ObjectStorageMetadata]:
+    ) -> ListObjectsResponse:
         bucket_param = "public" if is_public else "private"
         maybe_prefix = {"prefix": prefix} if prefix else {}
         response = self._get(f"/object_storage/{bucket_param}", params=maybe_prefix)

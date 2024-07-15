@@ -3,7 +3,7 @@ import os
 from typing import Union, List, Dict
 
 from leptonai.api.v1.api_resource import APIResourse
-from leptonai.api.v1.types.deployment_operator_v1alpha1.deployment import (
+from leptonai.api.v1.types.deployment import (
     DEFAULT_STORAGE_VOLUME_NAME,
 )
 from leptonai.api.v1.types.storage import FileSystem, DirInfo

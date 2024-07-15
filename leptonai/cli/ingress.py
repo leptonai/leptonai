@@ -6,8 +6,7 @@ from rich.table import Table
 from .util import console, click_group
 from leptonai.api.v1.client import APIClient
 from ..api.v1.types.common import Metadata
-from ..api.v1.types.deployment_operator_v1alpha1.ingress import LeptonIngressUserSpec
-from ..api.v1.types.ingress import LeptonIngress
+from ..api.v1.types.ingress import LeptonIngress, LeptonIngressUserSpec
 
 
 @click_group()

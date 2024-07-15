@@ -1,7 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
-from .deployment_operator_v1alpha1.photon import PhotonDeploymentTemplate, PhotonStatus
+
+class PhotonDeploymentTemplate(BaseModel):
+    resource_shape: Optional[str] = None
+    env: Optional[Dict[str, str]] = None
+    secret: Optional[List[str]] = None
+
+
+class PhotonStatus(BaseModel):
+    system_photon: Optional[bool] = None
 
 
 class Photon(BaseModel):
