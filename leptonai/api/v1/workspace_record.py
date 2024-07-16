@@ -13,7 +13,7 @@ import yaml
 
 from leptonai.config import CACHE_DIR
 from leptonai.util import create_cached_dir_if_needed
-from leptonai.api.util import (
+from .utils import (
     _get_full_workspace_api_url,
     _get_workspace_display_name,
     WorkspaceNotCreatedYet,

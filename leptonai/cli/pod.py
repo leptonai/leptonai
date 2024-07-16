@@ -17,7 +17,8 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.api import types
+from leptonai.config import VALID_SHAPES
+from leptonai.api.v1 import types
 from .util import (
     click_group,
     check,
@@ -49,7 +50,7 @@ def pod():
     "--resource-shape",
     type=str,
     help="Resource shape for the pod. Available types are: '"
-    + "', '".join(types.VALID_SHAPES)
+    + "', '".join(VALID_SHAPES)
     + "'.",
     default=None,
 )
@@ -97,8 +98,8 @@ def create(
     client = APIClient()
 
     try:
-        deployment_user_spec = types.DeploymentUserSpec(
-            resource_requirement=types.ResourceRequirement(
+        deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
+            resource_requirement=types.deployment.ResourceRequirement(
                 resource_shape=resource_shape,
             ),
             mounts=make_mounts_from_strings(mount),
@@ -106,8 +107,8 @@ def create(
             envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
-        deployment_spec = types.Deployment(
-            metadata=types.Metadata(name=name),
+        deployment_spec = types.deployment.LeptonDeployment(
+            metadata=types.common.Metadata(name=name),
             spec=deployment_user_spec,
         )
     except ValueError as e:

@@ -46,9 +46,9 @@ class WorkspaceUnauthorizedError(WorkspaceError):
 class WorkspaceNotFoundError(WorkspaceError):
     def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
         super().__init__(
-            "Workspace not found. If the workspace was just created, please wait for 10"
-            " minutes. Contact us if the workspace remains unavailable after 10"
-            " minutes.",
+            "Workspace not found. If the workspace was just created, please wait"
+            " for 10 minutes. Contact us if the workspace remains unavailable after"
+            " 10 minutes.",
             workspace_id,
             workspace_url,
             auth_token,
@@ -264,7 +264,7 @@ def get_workspace_info(conn: Optional[Connection] = None) -> Union[APIError, Dic
 
 
 _semver_pattern = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: W605, E501
 )
 
 

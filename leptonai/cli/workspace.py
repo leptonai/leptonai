@@ -10,7 +10,7 @@ from rich.table import Table
 from leptonai.config import WORKSPACE_API_PATH
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
-from ..api.workspace import WorkspaceNotFoundError, WorkspaceUnauthorizedError
+from ..api.v1.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
 
 console = Console(highlight=False)
 

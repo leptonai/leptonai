@@ -20,7 +20,7 @@ class Metadata(BaseModel):
     The metadata field, corresponding to httptypes.MetadataV2.
     """
 
-    id_: Optional[str] = Field(None, alias="id")
+    id_: Optional[str] = Field(default=None, alias="id")
     name: Optional[str] = None
     created_at: Optional[int] = None
     version: Optional[int] = None

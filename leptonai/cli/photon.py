@@ -17,11 +17,11 @@ import click
 from loguru import logger
 
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api import photon as api
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
 from leptonai.photon.base import (
+    BasePhoton,
     find_all_local_photons,
     find_local_photon,
     remove_local_photon,
@@ -407,6 +407,18 @@ def run(
     Refer to the documentation for a more detailed description on the choices
     among `--name`, `--model`, `--file` and `--id`.
     """
+
+    if WorkspaceRecord.current() is None:
+        console.print(
+            "You are not logged into any workspace. lep photon run will automatically"
+            " be converted to lep photon runlocal. In the future, we may deprecate"
+            " this behavior and require you to explicitly do runlocal instead."
+        )
+        runlocal_ctx = runlocal.make_context("lep photon runlocal", args=ctx.args)
+        runlocal_ctx.params["name"] = name
+        runlocal_ctx.params["model"] = model
+        return ctx.invoke(runlocal, **runlocal_ctx.params)
+
     # backward warning.
     if "--local" in ctx.args:
         console.print(
@@ -453,7 +465,7 @@ def run(
     )
     deployment_ctx.params["name"] = deployment_name
     deployment_ctx.params["photon_id"] = photon_id
-    ctx.invoke(deployment_create, **deployment_ctx.params)
+    return ctx.invoke(deployment_create, **deployment_ctx.params)
 
 
 @photon.command()
@@ -553,7 +565,7 @@ def runlocal(
         os.chdir(workpath)
 
     try:
-        photon = api.load(path)
+        photon = BasePhoton.load(path)
         port = find_available_port(port)
         console.print(f"Launching photon on port: [green]{port}[/]")
         if not isinstance(photon, Photon):

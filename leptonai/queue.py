@@ -11,9 +11,9 @@ from typing import Optional, Union
 
 from loguru import logger
 
-from leptonai.api import queue as queue_api
-from leptonai.api.connection import Connection
-from leptonai.api import workspace as workspace_api
+from leptonai.api.v0 import queue as queue_api
+from leptonai.api.v0.connection import Connection
+from leptonai.api.v0 import workspace as workspace_api
 
 # If not ready, wait for this amount of seconds before checking again.
 _lepton_readiness_wait_time_ = 10

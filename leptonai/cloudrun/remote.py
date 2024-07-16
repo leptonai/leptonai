@@ -16,8 +16,9 @@ from loguru import logger
 
 from leptonai.photon import Photon
 from leptonai.photon.util import create as create_photon
-from leptonai import api, config
-from leptonai.api import APIError
+from leptonai import config
+from leptonai.api import v0 as api_v0
+from leptonai.api.v0.util import APIError
 from leptonai.client import Client, current
 
 
@@ -38,12 +39,15 @@ class Remote(object):
     Remote: experimental feature to run a photon remotely.
     """
 
-    _MAX_WAIT_TIME = 600  # In the Remote class, we wait for at most 10 minutes for the photon to be ready.
-    _MAX_CLIENT_WAIT_TIME = 30  # In the Remote class, we wait for at most 30 seconds for DNS and other propagation between the deployment being ready and the client being accessable.
-    _DEFAULT_TIMEOUT = (
-        config.CLOUDRUN_DEFAULT_TIMEOUT
-    )  # Similar to the default timeout in the deployment class, we will set the default timeout to 1 hour.
-    _DEFAULT_WAIT_INTERVAL = 1  # In the Remote class, we wait for 1 second between each check for the photon to be ready.
+    # In the Remote class, we wait for at most 10 minutes for the photon to be ready.
+    _MAX_WAIT_TIME = 600
+    # In the Remote class, we wait for at most 30 seconds for DNS and other
+    # propagation between the deployment being ready and the client being accessable.
+    _MAX_CLIENT_WAIT_TIME = 30
+    # Similar to the default timeout in the deployment class, we will set the default timeout to 1 hour.
+    _DEFAULT_TIMEOUT = config.CLOUDRUN_DEFAULT_TIMEOUT
+    # In the Remote class, we wait for 1 second between each check for the photon to be ready.
+    _DEFAULT_WAIT_INTERVAL = 1
 
     # A best-effort global variable for Remote objects, and a best-effort cleanup function.
     # This is used to make sure that we do clean things up when the program exits.
@@ -62,7 +66,7 @@ class Remote(object):
                 env_list: Optional[List[str]] = None,
                 secret_list: Optional[List[str]] = None,
                 no_traffic_timeout: Optional[int] = None,
-            See leptonai.api.deployment.run_remote for details.
+            See leptonai.api_v0.deployment.run_remote for details.
         """
         self._all_remotes.add(self)
         self.photon = photon
@@ -78,7 +82,7 @@ class Remote(object):
         # remote photon client
         self.client = None
 
-        self.conn = api.workspace.current_connection()
+        self.conn = api_v0.workspace.current_connection()
         self._last_error = None
 
         try:
@@ -101,7 +105,7 @@ class Remote(object):
         elif isinstance(photon, Photon):
             # if the photon is already a Photon object, then directly save it.
             photon_instance: Photon = photon
-            photon_instance.name = self.unique_name
+            photon_instance._photon_name = self.unique_name
         elif isinstance(photon, str):
             # if the photon is a string, then create a Photon object and save it.
             try:
@@ -124,7 +128,7 @@ class Remote(object):
 
         # Second, push the photon
         logger.debug(f"Remote: pushing photon {self.unique_name}")
-        response = api.photon.push(self.conn, self.path)
+        response = api_v0.photon.push(self.conn, self.path)
         if response.status_code in (200, 201):
             # Successfully pushed the photon, or the photon has already existed
             self.photon_id = response.json()["id"]
@@ -155,7 +159,7 @@ class Remote(object):
                     "You hit a programming error: _run_photon should not be called"
                     " with resume=True before deployment is created."
                 )
-            response = api.deployment.update_deployment(
+            response = api_v0.deployment.update_deployment(
                 self.conn, name=self.deployment_id, **self.kwargs
             )
             if isinstance(response, APIError):
@@ -164,7 +168,7 @@ class Remote(object):
                     f" {response.message}"
                 )
         else:
-            response = api.photon.run_remote(
+            response = api_v0.photon.run_remote(
                 self.conn,
                 id=self.photon_id,
                 deployment_name=self.unique_name,
@@ -193,7 +197,7 @@ class Remote(object):
         is_deployment_ready = False
         ret = None
         while not is_deployment_ready and time.time() - start < self._MAX_WAIT_TIME:
-            ret = api.deployment.get_deployment(self.conn, self.deployment_id)
+            ret = api_v0.deployment.get_deployment(self.conn, self.deployment_id)
             if isinstance(ret, APIError):
                 raise RuntimeError(
                     f"Failed to get the status of deployment {self.deployment_id}."
@@ -207,7 +211,7 @@ class Remote(object):
                 logger.debug(f"Remote: photon {self.deployment_id} is ready")
             else:
                 # Test if there are earlier terminations causing the deployment to fail
-                ret = api.deployment.get_termination(self.conn, self.deployment_id)
+                ret = api_v0.deployment.get_termination(self.conn, self.deployment_id)
                 if not isinstance(ret, APIError) and len(ret):
                     # Earlier termination detected. Raise an error.
                     self._last_error = ret
@@ -294,15 +298,15 @@ class Remote(object):
         self.client = None
         if self.deployment_id is not None:
             logger.debug(f"Remote: removing deployment {self.deployment_id}")
-            api.deployment.remove_deployment(self.conn, self.deployment_id)
+            api_v0.deployment.remove_deployment(self.conn, self.deployment_id)
             self.deployment_id = None
         if self.photon_id is not None:
             logger.debug(f"Remote: removing photon {self.photon_id}")
-            api.photon.remove_remote(self.conn, self.photon_id)
+            api_v0.photon.remove_remote(self.conn, self.photon_id)
             self.photon_id = None
         if self.path is not None:
             logger.debug(f"Remote: removing local photon {self.path}")
-            api.photon.remove_local(self.path)
+            api_v0.photon.remove_local(self.path)
             self.path = None
 
     @classmethod
@@ -357,8 +361,8 @@ def clean_deployments(force_remove: bool = False):
     """
     A utility function to clean the deployments created by cloudrun in the current workspace.
     """
-    conn = api.workspace.current_connection()
-    deployments = api.deployment.list_deployment(conn)
+    conn = api_v0.workspace.current_connection()
+    deployments = api_v0.deployment.list_deployment(conn)
     if isinstance(deployments, APIError):
         raise RuntimeError("Failed to list deployments.")
     else:
@@ -370,33 +374,33 @@ def clean_deployments(force_remove: bool = False):
                     and deployment["resource_requirement"]["min_replicas"] == 0
                 ):
                     # TODO: check if the deployments are being successfully deleted
-                    api.deployment.remove_deployment(conn, deployment["name"])
+                    api_v0.deployment.remove_deployment(conn, deployment["name"])
 
 
 def clean_photons():
     """
     A utility function to clean the photons created by cloudrun in the current workspace.
     """
-    conn = api.workspace.current_connection()
-    photons = api.photon.list_remote(conn)
+    conn = api_v0.workspace.current_connection()
+    photons = api_v0.photon.list_remote(conn)
     if isinstance(photons, APIError):
         raise RuntimeError("Failed to list photons.")
     else:
         for photon in photons:
             if _unique_photon_id_pattern.match(photon["id"]):
                 logger.debug(f"Removing {photon['id']}")
-                api.photon.remove_remote(conn, photon["id"])
+                api_v0.photon.remove_remote(conn, photon["id"])
 
 
 def clean_local_photons():
     """
     A utility function to clean the photons created by
     """
-    photons = api.photon.list_local()
+    photons = api_v0.photon.list_local()
     for p in photons:
         if _unique_name_pattern.match(p):
             logger.debug(f"Removing {p}")
-        api.photon.remove_local(p, remove_all=True)
+        api_v0.photon.remove_local(p, remove_all=True)
 
 
 def clean(force_remove: bool = False):

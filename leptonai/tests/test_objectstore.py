@@ -5,7 +5,7 @@ import string
 import tempfile
 
 from leptonai import PrivateObjectStore, PublicObjectStore
-from leptonai.api import workspace as workspace_api
+from leptonai.api.v0 import workspace as workspace_api
 from leptonai.photon.types.file import File
 
 import unittest

@@ -3,7 +3,7 @@ import string
 
 from loguru import logger
 
-from leptonai.api import workspace as workspace_api
+from leptonai.api.v0 import workspace as workspace_api
 from leptonai.kv import KV
 import unittest
 

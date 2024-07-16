@@ -28,7 +28,7 @@ class MountOptions(BaseModel):
 
 class Mount(BaseModel):
     path: Optional[str] = None
-    from_: Optional[str] = Field(None, alias="from")
+    from_: Optional[str] = Field(default=None, alias="from")
     mount_path: str
     mount_options: Optional[MountOptions] = None
 
@@ -258,7 +258,7 @@ class DeploymentEndpoint(BaseModel):
 
 class AutoscalerCondition(BaseModel):
     status: str
-    type_: Optional[str] = Field(None, alias="type")
+    type_: Optional[str] = Field(default=None, alias="type")
     last_transition_time: Optional[int] = None
     message: Optional[str] = None
 

@@ -8,6 +8,15 @@ from .connection import Connection
 from .util import json_or_error, APIError
 
 
+warnings.warn(
+    "the leptonai.api.deployment module is deprecated. Use leptonai.api.v1.types for a"
+    " more fine grained API service. This backward compatible code might be removed"
+    " in the future.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+
 def list_deployment(conn: Connection) -> Union[List, APIError]:
     """
     List all deployments in a workspace.
@@ -158,7 +167,7 @@ def update_deployment(
         ),
     )
     deployment_spec = types.Deployment(
-        metadata=types.Metadata(name=name),
+        metadata=types.Metadata(id=name, name=name),
         spec=deployment_user_spec,
     )
     logger.trace(f"deployment_spec:\n{deployment_spec}")
