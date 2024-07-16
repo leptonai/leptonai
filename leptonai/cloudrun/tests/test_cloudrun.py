@@ -15,7 +15,7 @@ class MyPhoton(Photon):
 
 
 try:
-    conn = api.workspace.current_connection()
+    conn = api.v0.workspace.current_connection()
 except RuntimeError:
     conn = None
 
@@ -65,8 +65,8 @@ class TestInline(unittest.TestCase):
         # Test if it is actually shut down
         deployment_id = remote_run.deployment_id
         self.assertIsNotNone(deployment_id)
-        dep_info = api.deployment.get_deployment(
-            api.workspace.current_connection(), str(deployment_id)
+        dep_info = api.v0.deployment.get_deployment(
+            api.v0.workspace.current_connection(), str(deployment_id)
         )
         self.assertIsInstance(dep_info, dict)
         self.assertEqual(dep_info["status"]["state"], "Not Ready")
