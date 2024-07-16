@@ -10,16 +10,17 @@ from leptonai._internal.client_utils import (  # noqa
     _get_method_docstring,
     _get_positional_argument_error_message,
 )
-from leptonai.api.connection import Connection
+from leptonai.api.v0.connection import Connection
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.util import (
+from leptonai.api.v0.util import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
 )
 from leptonai.config import DEFAULT_PORT
 from leptonai.photon import FileParam  # noqa
 from leptonai.util import is_valid_url
-from .api import deployment, APIError
+from .api.v0 import deployment
+from .api.v0.util import APIError
 
 
 def local(port: int = DEFAULT_PORT) -> str:

@@ -688,7 +688,7 @@ def log(name, replica):
         console.print(f"Selected replica [green]{replica}[/].")
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")
-    stream_or_err = client.deployment.get_log(name_or_deployment=name, replica=replica)
+    stream_or_err = client.deployment.get_log(name_or_deployment=name, replica=replica)  # type: ignore
     # Print the log as a continuous stream until the user presses Ctrl-C.
     try:
         for chunk in stream_or_err:
@@ -817,7 +817,7 @@ def update(
             for photon in photons
             if photon.name == current_photon_name
         ]
-        id = sorted(records, key=lambda x: x[3])[-1][2]
+        id = sorted(records, key=lambda x: x[3])[-1][2]  # type: ignore
         console.print(f"Updating to latest photon id [green]{id}[/].")
     if public_photon is None:
         lepton_deployment = client.deployment.get(name)

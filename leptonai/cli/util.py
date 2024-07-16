@@ -3,18 +3,14 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import click
 from loguru import logger
 
 from rich.console import Console
-from leptonai.api import APIError
-from leptonai.api.connection import Connection
 from leptonai.api.v1.client import APIClient
-from leptonai.api.workspace import WorkspaceInfoLocalRecord
-from leptonai.api import deployment as deploymentapi
 
 
 console = Console(highlight=False)
@@ -73,19 +69,6 @@ def is_valid_url(candidate_str: str) -> bool:
     return parsed.scheme != "" and parsed.netloc != ""
 
 
-def get_connection_or_die() -> Connection:
-    """
-    Gets the connection to the current workspace, or exits if the connection
-    cannot be established.
-    """
-    try:
-        conn = WorkspaceInfoLocalRecord.get_current_connection()
-    except RuntimeError:
-        console.print("It seems that you are not logged in yet.")
-        sys.exit(1)
-    return conn
-
-
 def check(condition: Any, message: str) -> None:
     """
     Checks a condition and prints a message if the condition is false.
@@ -96,28 +79,6 @@ def check(condition: Any, message: str) -> None:
     if not condition:
         console.print(message)
         sys.exit(1)
-
-
-def guard_api(
-    content_or_error: Any, detail: Optional[bool] = False, msg: Optional[str] = None
-):
-    """
-    A wrapper around API calls that exits if the call  prints an error message and exits if the call was unsuccessful.
-
-    This is useful for apis that return either a JSON response or an APIError.
-
-    :param json_or_error: The json returned by the API call, or an APIError.
-    :param detail: If True, print the error message from the API call.
-    :param msg: If not None, print this message instead of the error message from the API call.
-    """
-    if isinstance(content_or_error, APIError):
-        if detail:
-            console.print(content_or_error)
-        if msg:
-            console.print(msg)
-        sys.exit(1)
-    # If the above are not true, then the API call was successful, and we can return the json.
-    return content_or_error
 
 
 def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
@@ -169,20 +130,6 @@ def sizeof_fmt(num, suffix="B"):
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
-
-
-def get_only_replica_public_ip_or_die(conn, name: str):
-    replicas = guard_api(
-        deploymentapi.get_replicas(conn, name),
-        detail=True,
-        msg=f"Cannot obtain replica info for [red]{name}[/]. See error above.",
-    )
-    logger.trace(f"Replicas for {name}:\n{replicas}")
-    check(
-        len(replicas) == 1,
-        f"Pod {name} has more than one replica. This is not supported.",
-    )
-    return replicas[0].get("status", {}).get("public_ip", None)
 
 
 def _get_only_replica_public_ip(name: str):

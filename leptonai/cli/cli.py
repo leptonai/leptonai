@@ -4,7 +4,7 @@ import click
 import sys
 import webbrowser
 
-from leptonai.api.workspace import WorkspaceUnauthorizedError, WorkspaceNotFoundError
+from leptonai.api.v1.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 
@@ -168,17 +168,18 @@ def login(credentials):
 
         [bold]To resolve this issue:[/bold]
         1. [green]Verify your login credentials above.[/green]
-        
-        [yellow]If using 'lep login' and encountering this error, you might be logging in with a invalid local credential.[/yellow]
+
+        [yellow]If using 'lep login' and encountering this error, you might be logging in with
+        an invalid local credential.[/yellow]
         2.  [yellow]To directly login, use:[/yellow]
             [green]'lep login -c <workspace_id>:<auth_token>'[/green]
-        
+
         3. [yellow]Or list and remove the invalid local workspace credential with:[/yellow]
             [green]'lep workspace list'[/green]
             [green]'lep workspace remove -i <workspace_id>'[/green]
             [yellow]Then, log in again with:[/yellow]
             [green]'lep login'[/green]
-            
+
         4. [green]If the workspace was just created, please wait for 5 - 10 minutes. [/green]
            [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
            (Current Time: [bold blue]{current_time}[/bold blue])
