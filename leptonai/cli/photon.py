@@ -17,11 +17,11 @@ import click
 from loguru import logger
 
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api import photon as api
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
 from leptonai.photon.base import (
+    BasePhoton,
     find_all_local_photons,
     find_local_photon,
     remove_local_photon,
@@ -565,7 +565,7 @@ def runlocal(
         os.chdir(workpath)
 
     try:
-        photon = api.load(path)
+        photon = BasePhoton.load(path)
         port = find_available_port(port)
         console.print(f"Launching photon on port: [green]{port}[/]")
         if not isinstance(photon, Photon):

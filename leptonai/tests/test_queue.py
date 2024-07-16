@@ -4,7 +4,7 @@ import time
 
 from loguru import logger
 
-from leptonai.api import workspace as workspace_api
+from leptonai.api.v0 import workspace as workspace_api
 from leptonai.queue import Queue, Empty
 import unittest
 

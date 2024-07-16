@@ -116,10 +116,12 @@ if pydantic.version.VERSION < "2.0.0":
 
         return decorator
 
-    class CompatibleRootModel(pydantic.BaseModel, Generic[T]):
+    class CompatibleRootModel(pydantic.BaseModel, Generic[T]):  # type: ignore
         """
-        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x. It only supports one field, which is root, and simple functionalities such
-        as dict and json. Note that this class is not fully compatible with pydantic 2.x, and it is only intended to be used in simple cases.
+        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x.
+        It only supports one field, which is root, and simple functionalities such as dict and
+        json. Note that this class is not fully compatible with pydantic 2.x, and it is only
+        intended to be used in simple cases.
         """
 
         root: T
@@ -156,8 +158,10 @@ else:
 
     class CompatibleRootModel(RootModel[T], Generic[T]):
         """
-        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x. It only supports one field, which is root, and simple functionalities such
-        as dict and json. Note that this class is not fully compatible with pydantic 2.x, and it is only intended to be used in simple cases.
+        CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x.
+        It only supports one field, which is root, and simple functionalities such as dict and
+        json. Note that this class is not fully compatible with pydantic 2.x, and it is only
+        intended to be used in simple cases.
         """
 
         pass
@@ -174,7 +178,8 @@ else:
 # function compute, you may not have a directory to write cache into. As a result, we create the cache
 # directory when we need to write to it.
 #
-# If you are in need of accessing the cache directory, use the functions `create_cached_dir_if_needed()` in `leptonai.utils`.
+# If you are in need of accessing the cache directory, use the functions `create_cached_dir_if_needed()`
+# in `leptonai.utils`.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
 DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
@@ -217,9 +222,7 @@ def _is_rocm() -> bool:
 BASE_IMAGE_VERSION = "0.21.3"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
-BASE_IMAGE = (
-    f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"
-)
+BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
 # By default, platform runs lep ph run -f ${photon_file_path}

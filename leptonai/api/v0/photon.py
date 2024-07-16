@@ -270,7 +270,7 @@ def run_remote(
             accelerator_type=replica_accelerator_type,
             accelerator_num=replica_accelerator_num,
             ephemeral_storage_in_gb=replica_ephemeral_storage_in_gb,
-            resource_affinity=(
+            affinity=(
                 types.LeptonResourceAffinity(
                     allowed_dedicated_node_groups=[resource_affinity]
                 )
@@ -300,7 +300,7 @@ def run_remote(
         ),
     )
     deployment_spec = types.Deployment(
-        metadata=types.Metadata(name=deployment_name),
+        metadata=types.Metadata(id=deployment_name, name=deployment_name),
         spec=deployment_user_spec,
     )
 

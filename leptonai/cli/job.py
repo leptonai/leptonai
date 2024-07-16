@@ -8,7 +8,7 @@ from loguru import logger
 from rich.table import Table
 
 from .util import console, click_group, catch_deprecated_flag, check
-from leptonai.api.photon import make_mounts_from_strings, make_env_vars_from_strings
+from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE
 
 from leptonai.api.v1.types.common import Metadata

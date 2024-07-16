@@ -9,7 +9,6 @@ import re
 import requests
 from typing import Optional, Union, Dict, Tuple
 
-from leptonai.api.util import _get_full_workspace_api_url
 from .object_storage import ObjectStorageAPI
 
 from .types.workspace import WorkspaceInfo
@@ -28,8 +27,13 @@ from .pod import PodAPI
 from .ingress import IngressAPI
 from .storage import StorageAPI
 
+
+from .utils import (
+    _get_full_workspace_api_url,
+    WorkspaceUnauthorizedError,
+    WorkspaceNotFoundError,
+)
 from .workspace_record import WorkspaceRecord
-from ..workspace import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 
 
 class APIClient(object):
@@ -207,7 +211,7 @@ class APIClient(object):
         """
         info = self.info()
         _semver_pattern = re.compile(
-            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: E501
             # noqa: W605
         )
 

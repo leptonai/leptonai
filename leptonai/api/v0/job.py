@@ -1,15 +1,16 @@
 import warnings
 
+from .connection import Connection
+from .util import json_or_error
+from .types import LeptonJob
+
+
 warnings.warn(
     "This module is deprecated and will be removed in the future. Please use"
     " leptonai.api.v1 instead.",
     DeprecationWarning,
     stacklevel=2,
 )
-
-from .connection import Connection
-from .util import json_or_error
-from .types import LeptonJob
 
 
 def list_jobs(conn: Connection):
