@@ -15,21 +15,26 @@ from .util import (
 )
 
 from leptonai.config import (
+    VALID_SHAPES,
     LEPTON_DEPLOYMENT_URL,
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
     ENV_VAR_REQUIRED,
 )
-from ..api import types
 from ..api.v1.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.workspace_record import WorkspaceRecord
+from ..api.v1.types.common import Metadata
 from ..api.v1.types.deployment import (
+    AutoScaler,
+    HealthCheck,
+    HealthCheckLiveness,
     LeptonDeployment,
     LeptonDeploymentUserSpec,
     LeptonContainer,
     ResourceRequirement,
+    ScaleDown,
     ContainerPort,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
@@ -142,7 +147,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--resource-shape",
     type=str,
     help="Resource shape for the deployment. Available types are: '"
-    + "', '".join(types.VALID_SHAPES)
+    + "', '".join(VALID_SHAPES)
     + "'.",
     default=None,
 )
@@ -419,18 +424,18 @@ def create(
         spec.mounts = make_mounts_from_strings(mount_list)
         spec.api_tokens = make_token_vars_from_config(public, tokens)
         spec.image_pull_secrets = list(image_pull_secrets)
-        spec.auto_scaler = types.AutoScaler(
+        spec.auto_scaler = AutoScaler(
             scale_down=(
-                types.ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                ScaleDown(no_traffic_timeout=no_traffic_timeout)
                 if no_traffic_timeout
                 else None
             ),
             target_gpu_utilization_percentage=target_gpu_utilization,
         )
 
-        spec.health = types.HealthCheck(
+        spec.health = HealthCheck(
             liveness=(
-                types.HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
                 if initial_delay_seconds
                 else None
             )
@@ -443,7 +448,7 @@ def create(
         sys.exit(1)
 
     lepton_deployment = LeptonDeployment(
-        metadata=types.Metadata(id=name, name=name), spec=spec
+        metadata=Metadata(id=name, name=name), spec=spec
     )
     client.deployment.create(lepton_deployment)
     console.print(
@@ -478,7 +483,8 @@ def list_command(pattern):
                 if d.spec.photon_id is not None
                 else (d.spec.container.image or "（unknown）")
             ),
-            d.metadata.created_at / 1000,
+            d.metadata.created_at
+            / 1000,  # convert to seconds from milliseconds # type: ignore
             d.status,
         )
         for d in deployments
@@ -501,7 +507,7 @@ def list_command(pattern):
     table.add_column("created at")
     table.add_column("status")
     for name, photon_id, created_at, status in records:
-        if pattern is not None and not re.search(pattern, name):
+        if pattern is not None and (name is None or not re.search(pattern, name)):
             continue
         table.add_row(
             name,
@@ -548,7 +554,7 @@ def status(name, show_tokens):
 
     # todo: print a cleaner dep info.
     creation_time = datetime.fromtimestamp(
-        dep_info.metadata.created_at / 1000
+        dep_info.metadata.created_at / 1000  # type: ignore
     ).strftime("%Y-%m-%d %H:%M:%S")
 
     state = dep_info.status.state
@@ -644,7 +650,7 @@ def status(name, show_tokens):
         table.add_column("start/end time")
         table.add_column("reason (code)")
         table.add_column("message")
-        for id, event_list in deployment_terminations_root:
+        for id, event_list in deployment_terminations_root.items():
             for event in event_list:
                 start_time = datetime.fromtimestamp(event.started_at).strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -832,10 +838,10 @@ def update(
         # None means no change
         tokens = None
 
-    lepton_deployment_spec = types.DeploymentUserSpec(
+    lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_namespace="public" if public_photon else "private",
         photon_id=id,
-        resource_requirement=types.ResourceRequirement(
+        resource_requirement=ResourceRequirement(
             min_replicas=min_replicas,
             max_replicas=min_replicas,
             resource_shape=resource_shape,
@@ -847,15 +853,15 @@ def update(
         auto_scaler=(
             None
             if no_traffic_timeout is None
-            else types.AutoScaler(
-                scale_down=types.ScaleDown(no_traffic_timeout=no_traffic_timeout),
+            else AutoScaler(
+                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
                 target_gpu_utilization_percentage=0,
             )
         ),
     )
 
-    lepton_deployment = types.Deployment(
-        metadata=types.Metadata(id=name), spec=lepton_deployment_spec
+    lepton_deployment = LeptonDeployment(
+        metadata=Metadata(id=name, name=name), spec=lepton_deployment_spec
     )
     client.deployment.update(
         name_or_deployment=name,
