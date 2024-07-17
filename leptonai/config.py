@@ -41,7 +41,7 @@ TRUST_REMOTE_CODE = os.environ.get("LEPTON_TRUST_REMOTE_CODE", "true").lower() i
 # to `false` to disable this behavior.
 _DEFAULT_TIMEOUT_IF_NOT_SPECIFIED = 3600
 if os.environ.get(
-    "LEPTON_DEFAULT_TIMEOUT", str(_DEFAULT_TIMEOUT_IF_NOT_SPECIFIED)
+        "LEPTON_DEFAULT_TIMEOUT", str(_DEFAULT_TIMEOUT_IF_NOT_SPECIFIED)
 ).lower() in ("f", "off", "false", "0"):
     # Do not set a default timeout.
     DEFAULT_TIMEOUT = None
@@ -58,7 +58,6 @@ else:
             f" Using default value of {DEFAULT_TIMEOUT} seconds."
         )
 
-
 # In cloudrun, the default timeout is also set to 1 hour. However, even if we set
 # LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
 # cloudrun, because it was expected to be in-process.
@@ -73,7 +72,6 @@ except ValueError:
         f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
         f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
     )
-
 
 ################################################################################
 # Automatically generated constants. You do not need to change these.
@@ -104,6 +102,7 @@ if pydantic.version.VERSION < "2.0.0":
         DeprecationWarning,
     )
 
+
     def v2only_field_validator(*args, **kwargs):
         """
         A dummy wrapper that is backward compatible with pydantic 1.x. However, this
@@ -115,6 +114,7 @@ if pydantic.version.VERSION < "2.0.0":
             return f
 
         return decorator
+
 
     class CompatibleRootModel(pydantic.BaseModel, Generic[T]):  # type: ignore
         """
@@ -156,6 +156,7 @@ else:
     compatible_field_validator = field_validator  # type: ignore
     v2only_field_validator = field_validator  # type: ignore
 
+
     class CompatibleRootModel(RootModel[T], Generic[T]):
         """
         CompatibleRootModel backports a simple RootModel from pydantic 2.x to pydantic 1.x.
@@ -165,7 +166,6 @@ else:
         """
 
         pass
-
 
 ################################################################################
 # Lepton internals. Do not change these as they will change the behavior of the
@@ -283,7 +283,6 @@ elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.envi
 else:
     DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
 
-
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 
@@ -375,3 +374,8 @@ LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
 LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
+
+DEFAULT_TUNA_FOLDER = '/lepton-tuna'
+DEFAULT_TUNA_TRAIN_DATASET_PATH = '/lepton-tuna/dataset-folder'
+DEFAULT_TUNA_MODEL_PATH = '/lepton-tuna/model-folder'
+TUNA_TRAIN_JOB_NAME_PREFIX = 'lepton-tuna-train'

@@ -93,7 +93,10 @@ def ls(path):
     """
     List the contents of a directory of the current file storage.
     """
+    ls(path)
 
+
+def storage_ls(path):
     client = APIClient()
     check(
         client.storage.check_exists(path),
@@ -106,6 +109,8 @@ def ls(path):
 
 
 def join_path(path, file_name):
+    if not file_name:
+        return path
     if not path.endswith('/'):
         path = path + '/'
     return path + file_name
@@ -113,7 +118,7 @@ def join_path(path, file_name):
 
 @storage.command()
 @click.argument("path", type=str, default="/")
-@click.option("--name", type=str, required=True)
+@click.option("--name", '-n', default=None, type=str)
 def find(path, name):
     joined_path = join_path(path, name)
     if not storage_find(path, filename=name):
@@ -122,7 +127,7 @@ def find(path, name):
         console.print(f"[green]{joined_path}[/]")
 
 
-def storage_find(path, filename):
+def storage_find(path, filename=None) -> bool:
     client = APIClient()
     joined_path = join_path(path, filename)
     return client.storage.check_exists(joined_path)
@@ -135,7 +140,11 @@ def rm(path):
     Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
     """
+    storage_rm(path)
+    console.print(f"Deleted [green]{path}[/].")
 
+
+def storage_rm(path):
     client = APIClient()
 
     check(
@@ -151,7 +160,7 @@ def rm(path):
         sys.exit(1)
 
     client.storage.delete_file_or_dir(path)
-    console.print(f"Deleted [green]{path}[/].")
+
 
 
 @storage.command()
@@ -185,10 +194,13 @@ def mkdir(path):
     """
     Create a directory in the file storage of the current workspace.
     """
+    storage_mkdir(path)
+    console.print(f"Created directory [green]{path}[/].")
 
+
+def storage_mkdir(path):
     client = APIClient()
     client.storage.create_dir(path)
-    console.print(f"Created directory [green]{path}[/].")
 
 
 @storage.command()
@@ -224,9 +236,10 @@ def upload(local_path, remote_path, rsync, recursive, progress):
     """
     # if the remote path is a directory, upload the file with its local name to that directory
     storage_upload(local_path, remote_path, rsync, recursive, progress)
+    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
 
 
-def storage_upload(local_path, remote_path, rsync, recursive, progress):
+def storage_upload(local_path, remote_path, rsync=None, recursive=None, progress=None):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
@@ -291,7 +304,6 @@ def storage_upload(local_path, remote_path, rsync, recursive, progress):
         return
 
     client.storage.create_file(local_path, remote_path)
-    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
 
 
 @storage.command()

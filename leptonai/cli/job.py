@@ -54,8 +54,8 @@ def make_container_port_from_string(port_str: str):
     "--file",
     "-f",
     help=(
-        "If specified, load the job spec from the file. Any explicitly passed in arg"
-        " will update the spec based on the file."
+            "If specified, load the job spec from the file. Any explicitly passed in arg"
+            " will update the spec based on the file."
     ),
     type=str,
 )
@@ -64,7 +64,7 @@ def make_container_port_from_string(port_str: str):
     "--container-image",
     type=str,
     help=(
-        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
+            "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
     ),
     default=None,
 )
@@ -103,8 +103,8 @@ def make_container_port_from_string(port_str: str):
     "--num-workers",
     "-w",
     help=(
-        "Number of workers to use for the job. For example, when you do a distributed"
-        " training job of 4 replicas, use --num-workers 4."
+            "Number of workers to use for the job. For example, when you do a distributed"
+            " training job of 4 replicas, use --num-workers 4."
     ),
     type=int,
     default=None,
@@ -131,17 +131,17 @@ def make_container_port_from_string(port_str: str):
     "--secret",
     "-s",
     help=(
-        "Secrets to pass to the job, in the format `NAME=SECRET_NAME`. If"
-        " secret name is also the environment variable name, you can"
-        " omit it and simply pass `SECRET_NAME`."
+            "Secrets to pass to the job, in the format `NAME=SECRET_NAME`. If"
+            " secret name is also the environment variable name, you can"
+            " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+            "Persistent storage to be mounted to the job, in the format"
+            " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -155,8 +155,8 @@ def make_container_port_from_string(port_str: str):
     "--intra-job-communication",
     type=bool,
     help=(
-        "Enable intra-job communication. If --num-workers is set, this is automatically"
-        " enabled."
+            "Enable intra-job communication. If --num-workers is set, this is automatically"
+            " enabled."
     ),
     default=None,
 )
@@ -171,37 +171,77 @@ def make_container_port_from_string(port_str: str):
     "--ttl-seconds-after-finished",
     type=int,
     help=(
-        "(advanced feature) limits the lifetime of a job that has finished execution"
-        " (either Completed or Failed). If not set, we will have it default to 72"
-        " hours. Ref:"
-        " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
+            "(advanced feature) limits the lifetime of a job that has finished execution"
+            " (either Completed or Failed). If not set, we will have it default to 72"
+            " hours. Ref:"
+            " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
     ),
     default=259200,
 )
 def create(
-    name,
-    file,
-    container_image,
-    container_port,
-    command,
-    resource_shape,
-    node_groups,
-    num_workers,
-    max_failure_retry,
-    max_job_failure_retry,
-    env,
-    secret,
-    mount,
-    image_pull_secrets,
-    intra_job_communication,
-    privileged,
-    ttl_seconds_after_finished,
+        name,
+        file,
+        container_image,
+        container_port,
+        command,
+        resource_shape,
+        node_groups,
+        num_workers,
+        max_failure_retry,
+        max_job_failure_retry,
+        env,
+        secret,
+        mount,
+        image_pull_secrets,
+        intra_job_communication,
+        privileged,
+        ttl_seconds_after_finished,
 ):
     """
-    Creates a job.
+        Creates a job.
 
-    For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
+        For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+    job_create(
+        name,
+        file,
+        container_image,
+        container_port,
+        command,
+        resource_shape,
+        node_groups,
+        num_workers,
+        max_failure_retry,
+        max_job_failure_retry,
+        env,
+        secret,
+        mount,
+        image_pull_secrets,
+        intra_job_communication,
+        privileged,
+        ttl_seconds_after_finished,
+    )
+
+
+def job_create(
+        name,
+        file,
+        container_image,
+        container_port,
+        command,
+        resource_shape,
+        node_groups,
+        num_workers,
+        max_failure_retry,
+        max_job_failure_retry,
+        env,
+        secret,
+        mount,
+        image_pull_secrets,
+        intra_job_communication,
+        privileged,
+        ttl_seconds_after_finished,
+):
     client = APIClient()
     if file:
         try:
@@ -372,7 +412,6 @@ def log(name, replica):
 @job.command()
 @click.option("--name", "-n", help="The job name to get replicas.", required=True)
 def replicas(name):
-
     client = APIClient()
 
     replicas = client.job.get_replicas(name)
@@ -389,7 +428,6 @@ def replicas(name):
 @job.command()
 @click.option("--name", "-n", help="The job name to get events.", required=True)
 def events(name, replica=None):
-
     client = APIClient()
 
     events = client.job.get_events(name)
