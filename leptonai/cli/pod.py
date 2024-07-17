@@ -28,6 +28,7 @@ from .util import (
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
+from ..api.v1.types.deployment import ResourceRequirement
 
 console = Console(highlight=False)
 
@@ -108,7 +109,7 @@ def create(
     """
     client = APIClient()
 
-    resource_requriement = types.ResourceRequirement(
+    resource_requriement = ResourceRequirement(
         resource_shape=resource_shape,
     )
 
