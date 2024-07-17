@@ -379,7 +379,7 @@ def create(
     # resources
     spec.resource_requirement = ResourceRequirement(
         resource_shape=resource_shape
-        or deployment_template.resource_shape
+        or (deployment_template.resource_shape if deployment_template else None)
         or DEFAULT_RESOURCE_SHAPE,
         min_replicas=min_replicas,
         max_replicas=max_replicas,

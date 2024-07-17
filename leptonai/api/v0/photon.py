@@ -4,7 +4,12 @@ import warnings
 
 from loguru import logger
 
-from leptonai.config import CACHE_DIR, ENV_VAR_REQUIRED, LEPTON_RESERVED_ENV_NAMES
+from leptonai.config import (
+    CACHE_DIR,
+    ENV_VAR_REQUIRED,
+    LEPTON_RESERVED_ENV_NAMES,
+    DEFAULT_RESOURCE_SHAPE,
+)
 
 # import leptonai.photon to register the schemas and types
 import leptonai.photon  # noqa: F401
@@ -135,9 +140,6 @@ def run_remote_with_spec(conn: Connection, deployment_spec: types.Deployment):
         "/deployments", json=deployment_spec.dict(exclude_none=True, by_alias=True)
     )
     return response
-
-
-DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
 
 def make_mounts_from_strings(
