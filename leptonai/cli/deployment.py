@@ -477,7 +477,7 @@ def list_command(pattern):
     # Note: for pods, we will not show them here.
     records = [
         (
-            (d.metadata.name),
+            d.metadata.name,
             (
                 d.spec.photon_id
                 if d.spec.photon_id is not None

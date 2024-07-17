@@ -3,7 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 import click
@@ -141,3 +141,20 @@ def _get_only_replica_public_ip(name: str):
         console.print(f"Pod {name} has more than one replica. This is not supported.")
         sys.exit(1)
     return replicas[0].status.public_ip
+
+
+def _get_valid_nodegroup_ids(node_groups: [str]):
+    client = APIClient()
+    valid_ng = client.nodegroup.list_all()
+    valid_ng_map: Dict[str, str] = {ng.metadata.name: ng.metadata.id_ for ng in valid_ng}  # type: ignore
+    node_group_ids = []
+    for ng in node_groups:
+        if ng not in valid_ng_map:
+            console.print(
+                f"Invalid node group: [red]{ng}[/] (valid node groups:"
+                f" {', '.join(valid_ng_map.keys())})"
+            )
+            sys.exit(1)
+        node_group_ids.append(valid_ng_map[ng])
+
+    return node_group_ids
