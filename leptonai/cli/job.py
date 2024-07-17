@@ -2,7 +2,6 @@ import click
 from datetime import datetime
 import json
 import sys
-from typing import Dict
 
 from loguru import logger
 from rich.table import Table
