@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import re
 import shlex
@@ -115,8 +116,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 
 
 @deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the photon to run.")
-@click.option("--photon", "-p", type=str, help="Name of the photon to run.")
+@click.option("--name", "-n", type=str, help="Name of the deployment being created.")
+@click.option(
+    "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
+)
 @click.option(
     "--photon-id",
     "-i",
@@ -267,7 +270,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 def create(
     name,
-    photon,
+    photon_name,
     photon_id,
     container_image,
     container_port,
@@ -315,7 +318,7 @@ def create(
     # First, check whether the input is photon or container. We will prioritize using
     # photon if both are specified.
     deployment_template = PhotonDeploymentTemplate()
-    if photon is not None or photon_id is not None:
+    if photon_name is not None or photon_id is not None:
         # We will use photon.
         if container_image is not None or container_command is not None:
             console.print(
@@ -324,7 +327,7 @@ def create(
             )
         if photon_id is None:
             # look for the latest photon with the given name.
-            photon_id = _get_most_recent_photon_id_or_none(name, public_photon)
+            photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
                     f"Photon [red]{name}[/] does not exist in the workspace. Did"
@@ -447,7 +450,7 @@ def create(
         )
         console.print("Failed to launch deployment.")
         sys.exit(1)
-
+    name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
         metadata=Metadata(id=name, name=name), spec=spec
     )
