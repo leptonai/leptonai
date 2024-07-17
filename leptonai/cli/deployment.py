@@ -360,7 +360,17 @@ def create(
         # container based deployment won't have the deployment template as photons do.
         # So we will simply create an empty one.
         deployment_template = PhotonDeploymentTemplate()
-
+    else:
+        # No photon_id, photon_name, container_image, or container_command
+        console.print("""
+            You have not provided a photon_name, photon_id, or container image.
+            Please use one of the following options:
+            -p <photon_name>
+            -i <photon_id>
+            --container-image <container_image> and --container-command <container_command>
+            to specify a photon or container image.
+            """)
+        sys.exit(1)
     # default timeout
     if (
         no_traffic_timeout is None
