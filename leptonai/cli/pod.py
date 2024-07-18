@@ -91,8 +91,10 @@ def pod():
     "--node-group",
     "-ng",
     "node_groups",
-    help="Node group for the pod. If not set, use on-demand resources."
-         " You can repeat this flag multiple times to choose multiple node groups.",
+    help=(
+        "Node group for the pod. If not set, use on-demand resources."
+        " You can repeat this flag multiple times to choose multiple node groups."
+    ),
     type=str,
     multiple=True,
 )
