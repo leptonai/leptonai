@@ -111,14 +111,14 @@ def storage_ls(path):
 def join_path(path, file_name):
     if not file_name:
         return path
-    if not path.endswith('/'):
-        path = path + '/'
+    if not path.endswith("/"):
+        path = path + "/"
     return path + file_name
 
 
 @storage.command()
 @click.argument("path", type=str, default="/")
-@click.option("--name", '-n', default=None, type=str)
+@click.option("--name", "-n", default=None, type=str)
 def find(path, name):
     joined_path = join_path(path, name)
     if not storage_find(path, filename=name):
@@ -160,7 +160,6 @@ def storage_rm(path):
         sys.exit(1)
 
     client.storage.delete_file_or_dir(path)
-
 
 
 @storage.command()
@@ -210,9 +209,9 @@ def storage_mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-            "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
-            "only available for standard and enterprise workspace plan. Add -p to show "
-            "the progress."
+        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+        "only available for standard and enterprise workspace plan. Add -p to show "
+        "the progress."
     ),
 )
 @click.option(

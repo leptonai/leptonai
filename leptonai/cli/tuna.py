@@ -17,18 +17,24 @@ from .util import (
     click_group,
 )
 from ..api.v1.client import APIClient
-from ..config import DEFAULT_TUNA_TRAIN_DATASET_PATH, DEFAULT_TUNA_FOLDER, DEFAULT_TUNA_MODEL_PATH, \
-    TUNA_TRAIN_JOB_NAME_PREFIX, TUNA_IMAGE
+from ..config import (
+    DEFAULT_TUNA_TRAIN_DATASET_PATH,
+    DEFAULT_TUNA_FOLDER,
+    DEFAULT_TUNA_MODEL_PATH,
+    TUNA_TRAIN_JOB_NAME_PREFIX,
+    TUNA_IMAGE,
+)
 
 
 def _generate_train_job_name(model_path, data_filename):
     # Remove all non-alphanumeric characters
-    model_filename_clean = model_path.split('/')[-1]
-    model_filename_clean = re.sub(r'\W+', '', model_filename_clean)
-    data_filename_clean = re.sub(r'\W+', '', data_filename)
+    model_filename_clean = model_path.split("/")[-1]
+    model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
+    data_filename_clean = re.sub(r"\W+", "", data_filename)
 
     # Get the current date and time
-    current_datetime = datetime.now().strftime('%Y%m%d%H%M')
+    current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")
+    current_datetime = current_datetime[2:]
 
     # Concatenate the strings
     result_string = f"{current_datetime}-{model_filename_clean}-{data_filename_clean}"
@@ -40,7 +46,7 @@ def _generate_train_job_name(model_path, data_filename):
 def _save_params_to_json(params, filename=None):
     if filename is None:
         # Create a temporary file if no filename is provided
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.json')
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
         temp_file_path = temp_file.name
     else:
         # Use the provided filename and create the file in a temporary directory
@@ -48,7 +54,7 @@ def _save_params_to_json(params, filename=None):
         temp_file_path = os.path.join(temp_dir, filename)
 
     # Save parameters to the JSON file
-    with open(temp_file_path, 'w') as f:
+    with open(temp_file_path, "w") as f:
         json.dump(params, f, indent=4)
 
     return temp_file_path, filename
@@ -89,8 +95,15 @@ def check_or_create_tuna_folder_tree():
 
 
 @tuna.command()
-@click.option("--local-path", '-l', type=click.Path(), default=None, help="Local data path.")
-@click.option("--for-test-remote-path", type=click.Path(), default=None, help="Remote folder path.")
+@click.option(
+    "--local-path", "-l", type=click.Path(), default=None, help="Local data path."
+)
+@click.option(
+    "--for-test-remote-path",
+    type=click.Path(),
+    default=None,
+    help="Remote folder path.",
+)
 def upload_data(local_path, for_test_remote_path):
     check_or_create_tuna_folder_tree()
 
@@ -98,7 +111,7 @@ def upload_data(local_path, for_test_remote_path):
         for_test_remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH
 
     filename = os.path.basename(local_path)
-    remote_path = for_test_remote_path + '/' + filename
+    remote_path = for_test_remote_path + "/" + filename
 
     storage_upload(
         local_path,
@@ -115,11 +128,17 @@ def list_data():
 
 
 @tuna.command()
-@click.option("--data-file-name", "-n", type=click.Path(), required=True, help="Data file name like [data.json].")
+@click.option(
+    "--data-file-name",
+    "-n",
+    type=click.Path(),
+    required=True,
+    help="Data file name like [data.json].",
+)
 def remove_data(data_file_name):
     check_or_create_tuna_folder_tree()
 
-    data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + '/' + data_file_name
+    data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + data_file_name
     if not storage_find(data_file_path):
         console.print(f"[red]Dataset {data_file_name} not found [/]")
         sys.exit(1)
@@ -147,8 +166,8 @@ def remove_data(data_file_name):
     "--num-workers",
     "-w",
     help=(
-            "Number of workers to use for the job. For example, when you do a distributed"
-            " training job of 4 replicas, use --num-workers 4."
+        "Number of workers to use for the job. For example, when you do a distributed"
+        " training job of 4 replicas, use --num-workers 4."
     ),
     type=int,
     default=None,
@@ -165,8 +184,17 @@ def remove_data(data_file_name):
     help="Environment variables to pass to the job, in the format `NAME=VALUE`.",
     multiple=True,
 )
-@click.option("--model-path", type=click.Path(), default=None, help="Model path.", required=True)
-@click.option("--dataset-file-name", '-dn', type=click.Path(), default=None, help="Data path.", required=True)
+@click.option(
+    "--model-path", type=click.Path(), default=None, help="Model path.", required=True
+)
+@click.option(
+    "--dataset-file-name",
+    "-dn",
+    type=click.Path(),
+    default=None,
+    help="Data path.",
+    required=True,
+)
 @click.option(
     "--purpose", type=str, default=None, help="Purpose: Chat, Instruct. Default: Chat"
 )
@@ -192,8 +220,8 @@ def remove_data(data_file_name):
     "--report-wandb",
     is_flag=True,
     help=(
-            "Report to wandb. Note that WANDB_API_KEY must be set through "
-            "secrets (environment variables). Default: Off"
+        "Report to wandb. Note that WANDB_API_KEY must be set through "
+        "secrets (environment variables). Default: Off"
     ),
 )
 @click.option(
@@ -257,39 +285,38 @@ def remove_data(data_file_name):
     help="Early stop threshold. Default: 0.01",
 )
 def train(
-        # not in cmd
-        node_groups,
-        num_workers,
-        max_job_failure_retry,
-        resource_shape,
-        env,
-        # in cmd
-        model_path,
-        dataset_file_name,
-
-        **kwargs
-        # purpose,
-        # num_train_epochs,
-        # per_device_train_batch_size,
-        # gradient_accumulation_steps,
-        # report_wandb,
-        # wandb_project,
-        # save_steps,
-        # learning_rate,
-        # warmup_ratio,
-        # model_max_length,
-        # low_mem_mode,
-        # lora,
-        # lora_rank,
-        # lora_alpha,
-        # lora_dropout,
-        # medusa,
-        # num_medusa_head,
-        # early_stop_threshold,
+    # not in cmd
+    node_groups,
+    num_workers,
+    max_job_failure_retry,
+    resource_shape,
+    env,
+    # in cmd
+    model_path,
+    dataset_file_name,
+    **kwargs,
+    # purpose,
+    # num_train_epochs,
+    # per_device_train_batch_size,
+    # gradient_accumulation_steps,
+    # report_wandb,
+    # wandb_project,
+    # save_steps,
+    # learning_rate,
+    # warmup_ratio,
+    # model_max_length,
+    # low_mem_mode,
+    # lora,
+    # lora_rank,
+    # lora_alpha,
+    # lora_dropout,
+    # medusa,
+    # num_medusa_head,
+    # early_stop_threshold,
 ):
     # check data_path
 
-    data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + '/' + dataset_file_name
+    data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_file_name
 
     # Build the directory structure
     if not storage_find(data_path):
@@ -299,24 +326,27 @@ def train(
     # Generate a name for the model-data job
     output_model_name = _generate_train_job_name(model_path, dataset_file_name)
 
-    job_name = TUNA_TRAIN_JOB_NAME_PREFIX + '-' + output_model_name
+    job_name = TUNA_TRAIN_JOB_NAME_PREFIX + "-" + output_model_name
 
     console.print(f"[green]{job_name}[/]")
 
     # Generate the output folder
-    model_output_dir = DEFAULT_TUNA_MODEL_PATH + '/' + output_model_name
+    model_output_dir = DEFAULT_TUNA_MODEL_PATH + "/" + output_model_name
     storage_mkdir(model_output_dir)
 
     # Construct the command string
-    cmd = f"run_training --model_name_or_path={model_path} --data_path={data_path} --output_dir={model_output_dir}"
+    cmd = (
+        "run_training"
+        f" --model_name_or_path={model_path} --data_path={data_path} --output_dir={model_output_dir}"
+    )
     for key, value in kwargs.items():
         if value is not None:
             option = f"--{key}"
             if isinstance(value, bool):
                 if value:
-                    cmd += f"v{option}"
+                    cmd += f" {option}"
             elif isinstance(value, str):
-                cmd += f" {option}=\"{value}\""
+                cmd += f' {option}="{value}"'
             else:
                 cmd += f" {option}={value}"
 
@@ -325,36 +355,37 @@ def train(
     # Save all parameters to a JSON file and upload to model path
     params = {
         "train_job_name": job_name,
-        "model_dir": model_output_dir,
         "resource_shape": resource_shape,
         "node_groups": node_groups,
         "num_workers": num_workers,
         "max_job_failure_retry": max_job_failure_retry,
-
         "model_path": model_path,
         "dataset_file_name": dataset_file_name,
         "output_dir": model_output_dir,
-        **kwargs
+        **kwargs,
     }
 
-    model_info_file_path, model_info_file_name = _save_params_to_json(params, job_name + '_info')
+    model_info_file_path, model_info_file_name = _save_params_to_json(
+        params, job_name + "_info"
+    )
 
-    storage_upload(model_info_file_path, model_output_dir + '/' + model_info_file_name)
+    storage_upload(model_info_file_path, model_output_dir + "/" + model_info_file_name)
     print("model_info_file_path", model_info_file_path)
     # Build mount variable
     mount = [f"{DEFAULT_TUNA_FOLDER}:{DEFAULT_TUNA_FOLDER}"]
 
-    job_create(job_name,
-               command=cmd,
-               mount=mount,
-               resource_shape=resource_shape,
-               node_groups=node_groups,
-               num_workers=num_workers,
-               max_job_failure_retry=max_job_failure_retry,
-               env=env,
-               container_image=TUNA_IMAGE,
-               )
-
+    job_create(
+        job_name,
+        command=cmd,
+        mount=mount,
+        resource_shape=resource_shape,
+        node_groups=node_groups,
+        num_workers=num_workers,
+        max_job_failure_retry=max_job_failure_retry,
+        env=env,
+        container_image=TUNA_IMAGE,
+    )
+    console.print(f"Model Training Job [green]{job_name}[/] created successfully.")
 
 @tuna.command()
 # Todo: move this to list() function
