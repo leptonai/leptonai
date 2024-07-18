@@ -316,7 +316,6 @@ def create(
 
     # First, check whether the input is photon or container. We will prioritize using
     # photon if both are specified.
-    deployment_template = PhotonDeploymentTemplate()
     if photon_name is not None or photon_id is not None:
         # We will use photon.
         if container_image is not None or container_command is not None:
