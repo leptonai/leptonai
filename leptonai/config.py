@@ -375,7 +375,11 @@ LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
 LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
 
+
+# TUNA CONFIG
 DEFAULT_TUNA_FOLDER = '/lepton-tuna'
 DEFAULT_TUNA_TRAIN_DATASET_PATH = '/lepton-tuna/dataset-folder'
 DEFAULT_TUNA_MODEL_PATH = '/lepton-tuna/model-folder'
-TUNA_TRAIN_JOB_NAME_PREFIX = 'lepton-tuna-train'
+TUNA_TRAIN_JOB_NAME_PREFIX = 'ltt'
+
+TUNA_IMAGE = "default/lepton:tuna-24.07.7"
