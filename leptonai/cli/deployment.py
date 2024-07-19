@@ -115,8 +115,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 
 
 @deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the photon to run.")
-@click.option("--photon", "-p", type=str, help="Name of the photon to run.")
+@click.option("--name", "-n", type=str, help="Name of the deployment being created.")
+@click.option(
+    "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
+)
 @click.option(
     "--photon-id",
     "-i",
@@ -267,7 +269,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 def create(
     name,
-    photon,
+    photon_name,
     photon_id,
     container_image,
     container_port,
@@ -314,7 +316,7 @@ def create(
 
     # First, check whether the input is photon or container. We will prioritize using
     # photon if both are specified.
-    if photon is not None or photon_id is not None:
+    if photon_name is not None or photon_id is not None:
         # We will use photon.
         if container_image is not None or container_command is not None:
             console.print(
@@ -323,7 +325,7 @@ def create(
             )
         if photon_id is None:
             # look for the latest photon with the given name.
-            photon_id = _get_most_recent_photon_id_or_none(name, public_photon)
+            photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
                     f"Photon [red]{name}[/] does not exist in the workspace. Did"
@@ -357,7 +359,17 @@ def create(
         # container based deployment won't have the deployment template as photons do.
         # So we will simply create an empty one.
         deployment_template = PhotonDeploymentTemplate()
-
+    else:
+        # No photon_id, photon_name, container_image, or container_command
+        console.print("""
+            You have not provided a photon_name, photon_id, or container image.
+            Please use one of the following options:
+            -p <photon_name>
+            -i <photon_id>
+            --container-image <container_image> and --container-command <container_command>
+            to specify a photon or container image.
+            """)
+        sys.exit(1)
     # default timeout
     if (
         no_traffic_timeout is None
@@ -446,7 +458,7 @@ def create(
         )
         console.print("Failed to launch deployment.")
         sys.exit(1)
-
+    name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
         metadata=Metadata(id=name, name=name), spec=spec
     )
