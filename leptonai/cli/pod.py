@@ -23,9 +23,12 @@ from .util import (
     click_group,
     check,
     _get_only_replica_public_ip,
+    _get_valid_nodegroup_ids,
 )
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.types.affinity import LeptonResourceAffinity
+from ..api.v1.types.deployment import ResourceRequirement
 
 console = Console(highlight=False)
 
@@ -84,6 +87,17 @@ def pod():
     help="Secrets to use for pulling images.",
     multiple=True,
 )
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help=(
+        "Node group for the pod. If not set, use on-demand resources."
+        " You can repeat this flag multiple times to choose multiple node groups."
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     resource_shape,
@@ -91,17 +105,27 @@ def create(
     env,
     secret,
     image_pull_secrets,
+    node_groups,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
     client = APIClient()
 
+    resource_requriement = ResourceRequirement(
+        resource_shape=resource_shape,
+    )
+
+    if node_groups:
+        node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        # make sure affinity is initialized
+        resource_requriement.affinity = LeptonResourceAffinity(
+            allowed_dedicated_node_groups=node_group_ids,
+        )
+
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
-            resource_requirement=types.deployment.ResourceRequirement(
-                resource_shape=resource_shape,
-            ),
+            resource_requirement=resource_requriement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
             envs=make_env_vars_from_strings(list(env), list(secret)),
