@@ -43,9 +43,6 @@ from .deployment import create as deployment_create
 console = Console(highlight=False)
 
 
-DEFAULT_RESOURCE_SHAPE = "cpu.small"
-
-
 def _get_ordered_photon_ids_or_none(
     name: str, public_photon: bool
 ) -> Optional[List[str]]:

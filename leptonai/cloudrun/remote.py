@@ -60,7 +60,7 @@ class Remote(object):
         Args:
             Photon: a photon object, or a string representing a photon.
             **kwargs: Keyword arguments to create the deployment. Currently, they are:
-                resource_shape: str = types.DEFAULT_RESOURCE_SHAPE,
+                resource_shape: str = DEFAULT_RESOURCE_SHAPE,
                 min_replicas: int = 1,
                 mounts: Optional[List[str]] = None,
                 env_list: Optional[List[str]] = None,

@@ -229,7 +229,10 @@ BASE_IMAGE_ARGS = ["--shm-size=1g"]
 BASE_IMAGE_CMD = None
 
 # Default shape used by the Lepton deployments.
-DEFAULT_RESOURCE_SHAPE = "cpu.small"
+if os.environ.get("LEPTON_DEFAULT_RESOURCE_SHAPE"):
+    DEFAULT_RESOURCE_SHAPE = os.environ["LEPTON_DEFAULT_RESOURCE_SHAPE"]
+else:
+    DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
 # Default port used by the Lepton deployments.
 DEFAULT_PORT = 8080
