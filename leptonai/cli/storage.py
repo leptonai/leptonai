@@ -96,7 +96,7 @@ def ls(path):
     ls(path)
 
 
-def storage_ls(path):
+def storage_ls(path, do_print=True):
     client = APIClient()
     check(
         client.storage.check_exists(path),
@@ -105,7 +105,10 @@ def storage_ls(path):
 
     dir_infos = client.storage.get_dir(path)
 
-    print_dir_contents(path, dir_infos)
+    if do_print:
+        print_dir_contents(path, dir_infos)
+    else:
+        return dir_infos
 
 
 def join_path(path, file_name):
@@ -169,7 +172,10 @@ def rmdir(path):
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
+    rmdir(path)
 
+
+def storage_rmdir(path, delete_all=False):
     client = APIClient()
 
     check(
@@ -183,7 +189,7 @@ def rmdir(path):
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path)
+    client.storage.delete_file_or_dir(path, delete_all)
     console.print(f"Deleted [green]{path}[/].")
 
 
@@ -209,9 +215,9 @@ def storage_mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
-        "only available for standard and enterprise workspace plan. Add -p to show "
-        "the progress."
+            "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+            "only available for standard and enterprise workspace plan. Add -p to show "
+            "the progress."
     ),
 )
 @click.option(

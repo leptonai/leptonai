@@ -11,12 +11,13 @@ from loguru import logger
 from rich.table import Table
 
 from .job import job_create
-from .storage import storage_upload, storage_find, storage_mkdir, storage_ls, storage_rm
+from .storage import storage_upload, storage_find, storage_mkdir, storage_ls, storage_rm, storage_rmdir
 from .util import (
     console,
     click_group,
 )
 from ..api.v1.client import APIClient
+from ..api.v1.types.job import LeptonJobState
 from ..config import (
     DEFAULT_TUNA_TRAIN_DATASET_PATH,
     DEFAULT_TUNA_FOLDER,
@@ -26,21 +27,24 @@ from ..config import (
 )
 
 
-def _generate_train_job_name(model_path, data_filename):
+def _generate_model_folder_name(model_path, data_filename):
     # Remove all non-alphanumeric characters
     model_filename_clean = model_path.split("/")[-1]
     model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
     data_filename_clean = re.sub(r"\W+", "", data_filename)
 
     # Get the current date and time
-    current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")
-    current_datetime = current_datetime[2:]
+    current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")[2:]
 
     # Concatenate the strings
     result_string = f"{current_datetime}-{model_filename_clean}-{data_filename_clean}"
 
     # make sure the length of the name is less than 32
-    return result_string[:32]
+    return result_string
+
+
+def _get_job_name(model_folder_name):
+    return (TUNA_TRAIN_JOB_NAME_PREFIX + model_folder_name)[:36]
 
 
 def _save_params_to_json(params, filename=None):
@@ -60,6 +64,76 @@ def _save_params_to_json(params, filename=None):
     return temp_file_path, filename
 
 
+def reverse_datetime(current_datetime):
+    # current_datetime format is '240718124530'
+    year = '20' + current_datetime[:2]  # Prefix '20' to the first two characters
+    month = current_datetime[2:4]  # Extract month
+    day = current_datetime[4:6]  # Extract day
+    hour = current_datetime[6:8]  # Extract hour
+    minute = current_datetime[8:10]  # Extract minute
+    second = current_datetime[10:12]  # Extract second
+
+    # Format the string as 'YYYY-MM-DD-HH-MM-SS'
+    formatted_datetime = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+    return formatted_datetime
+
+
+def _check_or_create_tuna_folder_tree():
+    if not storage_find(DEFAULT_TUNA_FOLDER):
+        storage_mkdir(DEFAULT_TUNA_FOLDER)
+    if not storage_find(DEFAULT_TUNA_TRAIN_DATASET_PATH):
+        storage_mkdir(DEFAULT_TUNA_TRAIN_DATASET_PATH)
+    if not storage_find(DEFAULT_TUNA_MODEL_PATH):
+        storage_mkdir(DEFAULT_TUNA_MODEL_PATH)
+
+
+def _get_model_folder_names(train_failed=False, train_succeed=False):
+    if train_failed:
+        client = APIClient()
+        jobs = client.job.list_all()
+        running_job_set = set()
+        for job in jobs:
+            if job.status == LeptonJobState.Running:
+                running_job_set.add(job.metadata.name)
+    dir_infos = storage_ls(DEFAULT_TUNA_MODEL_PATH, do_print=False)
+    model_folder_names = []
+    for dir_info in dir_infos:
+        if dir_info.type == "dir":
+            folder_name = dir_info.name
+            job_name = _get_job_name(folder_name)
+            if not train_failed and not train_succeed:
+                model_folder_names.append(folder_name)
+            elif train_failed and not _model_train_completed(folder_name) and job_name not in running_job_set:
+                model_folder_names.append(folder_name)
+            elif train_succeed and _model_train_completed(train_succeed):
+                model_folder_names.append(folder_name)
+    return model_folder_names
+
+
+def _model_train_completed(model_folder_name: str) -> bool:
+    dir_infos = storage_ls(DEFAULT_TUNA_MODEL_PATH + '/' + model_folder_name, do_print=False)
+    return len(dir_infos) > 1
+
+
+def _get_model_folder_name(job_name):
+    job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX):]
+    model_folder_names = _get_model_folder_names()
+    for model_folder_name in model_folder_names:
+        if job_name in model_folder_name:
+            return model_folder_name
+
+
+def _get_model_basic_info_from_model_folder_name(job_name=None, model_folder_name=None):
+    if job_name:
+        model_folder_name = _get_model_folder_name(job_name)
+    model_folder_name_arr = model_folder_name.split("-") or ""
+    trained_time = model_folder_name_arr[0] if len(model_folder_name_arr) > 0 else "unknown created time"
+    model_name = model_folder_name_arr[1] if len(model_folder_name_arr) > 1 else "unknown model name"
+    data_name = model_folder_name_arr[2] if len(model_folder_name_arr) > 2 else "unknown data name"
+    trained_time = reverse_datetime(trained_time)
+    return trained_time, model_name, data_name
+
+
 @click_group()
 def tuna():
     """
@@ -72,9 +146,9 @@ def tuna():
         ✅remove
 
     train
-        create
-        list
-        stop
+        ✅create
+        ✅list
+        ✅stop
 
     model
         list
@@ -83,15 +157,6 @@ def tuna():
 
     """
     pass
-
-
-def check_or_create_tuna_folder_tree():
-    if not storage_find(DEFAULT_TUNA_FOLDER):
-        storage_mkdir(DEFAULT_TUNA_FOLDER)
-    if not storage_find(DEFAULT_TUNA_TRAIN_DATASET_PATH):
-        storage_mkdir(DEFAULT_TUNA_TRAIN_DATASET_PATH)
-    if not storage_find(DEFAULT_TUNA_MODEL_PATH):
-        storage_mkdir(DEFAULT_TUNA_MODEL_PATH)
 
 
 @tuna.command()
@@ -105,7 +170,7 @@ def check_or_create_tuna_folder_tree():
     help="Remote folder path.",
 )
 def upload_data(local_path, for_test_remote_path):
-    check_or_create_tuna_folder_tree()
+    _check_or_create_tuna_folder_tree()
 
     if not for_test_remote_path:
         for_test_remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH
@@ -122,7 +187,7 @@ def upload_data(local_path, for_test_remote_path):
 
 @tuna.command()
 def list_data():
-    check_or_create_tuna_folder_tree()
+    _check_or_create_tuna_folder_tree()
 
     storage_ls(DEFAULT_TUNA_TRAIN_DATASET_PATH)
 
@@ -136,7 +201,7 @@ def list_data():
     help="Data file name like [data.json].",
 )
 def remove_data(data_file_name):
-    check_or_create_tuna_folder_tree()
+    _check_or_create_tuna_folder_tree()
 
     data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + data_file_name
     if not storage_find(data_file_path):
@@ -166,8 +231,8 @@ def remove_data(data_file_name):
     "--num-workers",
     "-w",
     help=(
-        "Number of workers to use for the job. For example, when you do a distributed"
-        " training job of 4 replicas, use --num-workers 4."
+            "Number of workers to use for the job. For example, when you do a distributed"
+            " training job of 4 replicas, use --num-workers 4."
     ),
     type=int,
     default=None,
@@ -220,8 +285,8 @@ def remove_data(data_file_name):
     "--report-wandb",
     is_flag=True,
     help=(
-        "Report to wandb. Note that WANDB_API_KEY must be set through "
-        "secrets (environment variables). Default: Off"
+            "Report to wandb. Note that WANDB_API_KEY must be set through "
+            "secrets (environment variables). Default: Off"
     ),
 )
 @click.option(
@@ -285,34 +350,34 @@ def remove_data(data_file_name):
     help="Early stop threshold. Default: 0.01",
 )
 def train(
-    # not in cmd
-    node_groups,
-    num_workers,
-    max_job_failure_retry,
-    resource_shape,
-    env,
-    # in cmd
-    model_path,
-    dataset_file_name,
-    **kwargs,
-    # purpose,
-    # num_train_epochs,
-    # per_device_train_batch_size,
-    # gradient_accumulation_steps,
-    # report_wandb,
-    # wandb_project,
-    # save_steps,
-    # learning_rate,
-    # warmup_ratio,
-    # model_max_length,
-    # low_mem_mode,
-    # lora,
-    # lora_rank,
-    # lora_alpha,
-    # lora_dropout,
-    # medusa,
-    # num_medusa_head,
-    # early_stop_threshold,
+        # not in cmd
+        node_groups,
+        num_workers,
+        max_job_failure_retry,
+        resource_shape,
+        env,
+        # in cmd
+        model_path,
+        dataset_file_name,
+        **kwargs,
+        # purpose,
+        # num_train_epochs,
+        # per_device_train_batch_size,
+        # gradient_accumulation_steps,
+        # report_wandb,
+        # wandb_project,
+        # save_steps,
+        # learning_rate,
+        # warmup_ratio,
+        # model_max_length,
+        # low_mem_mode,
+        # lora,
+        # lora_rank,
+        # lora_alpha,
+        # lora_dropout,
+        # medusa,
+        # num_medusa_head,
+        # early_stop_threshold,
 ):
     # check data_path
 
@@ -320,14 +385,14 @@ def train(
 
     # Build the directory structure
     if not storage_find(data_path):
-        console.print(f"[red]{data_path}[/] not found")
+        console.print(f"[red]{data_path}[/] not found. "
+                      f"Please use lep tuna upload-data -l <local_file_path>to upload your data first, "
+                      f"and use lep tuna list-data to check your data.")
         sys.exit(1)
 
     # Generate a name for the model-data job
-    output_model_name = _generate_train_job_name(model_path, dataset_file_name)
-
-    job_name = TUNA_TRAIN_JOB_NAME_PREFIX + "-" + output_model_name
-
+    output_model_name = _generate_model_folder_name(model_path, dataset_file_name)
+    job_name = _get_job_name(output_model_name)
     console.print(f"[green]{job_name}[/]")
 
     # Generate the output folder
@@ -355,7 +420,8 @@ def train(
     # Save all parameters to a JSON file and upload to model path
     params = {
         "train_job_name": job_name,
-        "resource_shape": resource_shape,
+        "model_name": output_model_name,
+        "training_resource_shape": resource_shape,
         "node_groups": node_groups,
         "num_workers": num_workers,
         "max_job_failure_retry": max_job_failure_retry,
@@ -387,6 +453,7 @@ def train(
     )
     console.print(f"Model Training Job [green]{job_name}[/] created successfully.")
 
+
 @tuna.command()
 # Todo: move this to list() function
 def list_train():
@@ -398,12 +465,20 @@ def list_train():
     table.add_column("Name")
     table.add_column("Created At")
     table.add_column("State (ready,active,succeeded,failed)")
+    table.add_column("Model")
+    table.add_column("Data")
+    job_name_set = set()
     for job in train_jobs:
-        if TUNA_TRAIN_JOB_NAME_PREFIX not in job.metadata.id_:
+        if TUNA_TRAIN_JOB_NAME_PREFIX not in job.metadata.name:
             continue
+        if job.status == LeptonJobState.Deleting:
+            job_name_set.add(job.metadata.id_)
+            continue
+        time, model, data = _get_model_basic_info_from_model_folder_name(job_name=job.metadata.id_)
+        job_name_set.add(job.metadata.id_)
         status = job.status
         table.add_row(
-            job.metadata.id_,
+            job.metadata.name,
             (
                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
                     "%Y-%m-%d\n%H:%M:%S"
@@ -412,18 +487,59 @@ def list_train():
                 else "N/A"
             ),
             f"{status.state} ({status.ready},{status.active},{status.succeeded},{status.failed})",
+            model,
+            data,
+        )
+
+    failed_model_folder_names = _get_model_folder_names(train_failed=True)
+
+    # Simulate a job from the failed model folder
+    for failed_model_folder_name in failed_model_folder_names:
+        job_name = _get_job_name(failed_model_folder_name)
+        # If a failed job exists, we remove duplicates
+        if job_name in job_name_set:
+            continue
+        time, model, data = _get_model_basic_info_from_model_folder_name(model_folder_name=failed_model_folder_name)
+
+        table.add_row(
+            job_name,
+            (
+                time
+                if time
+                else "N/A"
+            ),
+            f"{LeptonJobState.Failed} ({0},{0},{0},{1})",
+            model,
+            data,
         )
     table.title = "Model Train Jobs"
     console.print(table)
 
 
 @tuna.command()
-@click.option("--name", "-n", help="Train job name")
+@click.argument("name")
 def delete_train(name):
     client = APIClient()
-    client.job.delete(name)
+    jobs = client.job.list_all()
+    for job in jobs:
+        if job.metadata.name == name:
+            client.job.delete(name)
+    model_folder_name = _get_model_folder_name(name)
+    model_path = DEFAULT_TUNA_MODEL_PATH + '/' + model_folder_name
+    if not _model_train_completed(model_folder_name):
+        storage_rmdir(model_path, delete_all=True)
     console.print(f"Model Train Job [green]{name}[/] deleted successfully.")
 
+
+@tuna.command()
+def clear_failed_train():
+    failed_folder_names = _get_model_folder_names(train_failed=True)
+    for failed_folder_name in failed_folder_names:
+        model_path = DEFAULT_TUNA_MODEL_PATH + '/' + failed_folder_name
+        storage_rmdir(model_path, delete_all=True)
+
+
+#todo get model info / train info
 
 @tuna.command()
 @click.option("--name", "-n", help="model_name")
