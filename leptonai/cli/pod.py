@@ -112,20 +112,20 @@ def create(
     """
     client = APIClient()
 
-    resource_requriement = ResourceRequirement(
+    resource_requirement = ResourceRequirement(
         resource_shape=resource_shape,
     )
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
         # make sure affinity is initialized
-        resource_requriement.affinity = LeptonResourceAffinity(
+        resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
         )
 
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
-            resource_requirement=resource_requriement,
+            resource_requirement=resource_requirement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
             envs=make_env_vars_from_strings(list(env), list(secret)),
