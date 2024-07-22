@@ -320,6 +320,10 @@ def download(remote_path, local_path):
     downloaded to the current working directory with the same name as the remote
     file.
     """
+    storage_download(remote_path, local_path)
+
+
+def storage_download(remote_path, local_path):
     client = APIClient()
     check(
         client.storage.check_exists(remote_path),

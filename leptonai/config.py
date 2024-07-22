@@ -383,6 +383,8 @@ LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_
 DEFAULT_TUNA_FOLDER = '/lepton-tuna'
 DEFAULT_TUNA_TRAIN_DATASET_PATH = '/lepton-tuna/dataset-folder'
 DEFAULT_TUNA_MODEL_PATH = '/lepton-tuna/model-folder'
-TUNA_TRAIN_JOB_NAME_PREFIX = 'ltt-'
+TUNA_TRAIN_JOB_NAME_PREFIX = 'tuna-'
+TUNA_DEPLOYMENT_NAME_PREFIX = 'tuna-'
 
 TUNA_IMAGE = "default/lepton:tuna-24.07.7"
+LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
