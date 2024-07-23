@@ -11,7 +11,8 @@ from rich.table import Table
 from .util import (
     console,
     check,
-    click_group, _get_valid_nodegroup_ids,
+    click_group,
+    _get_valid_nodegroup_ids,
 )
 
 from leptonai.config import (
@@ -400,7 +401,6 @@ def create(
             " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
-
 
     # resources
     spec.resource_requirement = ResourceRequirement(
