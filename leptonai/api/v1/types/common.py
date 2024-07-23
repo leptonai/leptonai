@@ -1,3 +1,4 @@
+from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -15,6 +16,15 @@ class MetadataV1(BaseModel):
     version: Optional[int] = None
 
 
+class LeptonVisibility(str, Enum):
+    """
+    The visibility of a Lepton resource.
+    """
+
+    PUBLIC = "public"
+    PRIVATE = "private"
+
+
 class Metadata(BaseModel):
     """
     The metadata field, corresponding to httptypes.MetadataV2.
@@ -26,6 +36,12 @@ class Metadata(BaseModel):
     version: Optional[int] = None
     created_by: Optional[str] = None
     last_modified_by: Optional[str] = None
+
+    # Implementation note: this is the inlined LeptonMetadata in the backend
+    owner: Optional[str] = None
+    last_modified_at: Optional[int] = None
+    visibility: Optional[LeptonVisibility] = None
+    replica_version: Optional[int] = None
 
 
 class SecretItem(BaseModel):
