@@ -15,7 +15,7 @@ class Node(BaseModel):
 
 class ReplicaStatus(BaseModel):
     public_ip: Optional[str] = None
-    node: Optional[str] = None
+    node: Optional[Node] = None
     domains: Optional[List[ReplicaDomain]] = None
 
 

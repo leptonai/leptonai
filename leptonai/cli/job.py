@@ -100,7 +100,13 @@ def make_container_port_from_string(port_str: str):
     "--node-group",
     "-ng",
     "node_groups",
-    help="Node group for the job. If not set, use on-demand resources.",
+    help=(
+        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
+    ),
     type=str,
     multiple=True,
 )

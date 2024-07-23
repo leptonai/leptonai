@@ -92,8 +92,11 @@ def pod():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the pod. If not set, use on-demand resources."
-        " You can repeat this flag multiple times to choose multiple node groups."
+        "Node group for the pod. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
     ),
     type=str,
     multiple=True,
@@ -112,20 +115,20 @@ def create(
     """
     client = APIClient()
 
-    resource_requriement = ResourceRequirement(
+    resource_requirement = ResourceRequirement(
         resource_shape=resource_shape,
     )
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
         # make sure affinity is initialized
-        resource_requriement.affinity = LeptonResourceAffinity(
+        resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
         )
 
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
-            resource_requirement=resource_requriement,
+            resource_requirement=resource_requirement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
             envs=make_env_vars_from_strings(list(env), list(secret)),
