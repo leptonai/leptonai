@@ -11,7 +11,7 @@ from rich.table import Table
 from .util import (
     console,
     check,
-    click_group,
+    click_group, _get_valid_nodegroup_ids,
 )
 
 from leptonai.config import (
@@ -24,6 +24,7 @@ from leptonai.config import (
 from ..api.v1.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata
 from ..api.v1.types.deployment import (
@@ -267,6 +268,17 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     help="Secrets to use for pulling images.",
     multiple=True,
 )
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help=(
+        "Node group for the pod. If not set, use on-demand resources."
+        " You can repeat this flag multiple times to choose multiple node groups."
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     photon_name,
@@ -289,6 +301,7 @@ def create(
     rerun,
     public_photon,
     image_pull_secrets,
+    node_groups,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -388,6 +401,7 @@ def create(
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
 
+
     # resources
     spec.resource_requirement = ResourceRequirement(
         resource_shape=resource_shape
@@ -396,6 +410,13 @@ def create(
         min_replicas=min_replicas,
         max_replicas=max_replicas,
     )
+
+    if node_groups:
+        node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        # make sure affinity is initialized
+        spec.resource_requirement.affinity = LeptonResourceAffinity(
+            allowed_dedicated_node_groups=node_group_ids,
+        )
 
     # include workspace token
     if include_workspace_token:
