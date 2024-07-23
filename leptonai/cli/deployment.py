@@ -27,7 +27,7 @@ from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.workspace_record import WorkspaceRecord
-from ..api.v1.types.common import Metadata
+from ..api.v1.types.common import Metadata, LeptonVisibility
 from ..api.v1.types.deployment import (
     AutoScaler,
     HealthCheck,
@@ -283,6 +283,14 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=str,
     multiple=True,
 )
+@click.option(
+    "--visibility",
+    type=str,
+    help=(
+        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
+        " deployment will only be viewable by the creator and workspace admin."
+    ),
+)
 def create(
     name,
     photon_name,
@@ -306,6 +314,7 @@ def create(
     public_photon,
     image_pull_secrets,
     node_groups,
+    visibility,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -483,7 +492,12 @@ def create(
         sys.exit(1)
     name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
-        metadata=Metadata(id=name, name=name), spec=spec
+        metadata=Metadata(
+            id=name,
+            name=name,
+            visibility=LeptonVisibility(visibility) if visibility else None,
+        ),
+        spec=spec,
     )
     client.deployment.create(lepton_deployment)
     console.print(
@@ -820,6 +834,14 @@ def log(name, replica):
     ),
     default=None,
 )
+@click.option(
+    "--visibility",
+    type=str,
+    help=(
+        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
+        " deployment will only be viewable by the creator and workspace admin."
+    ),
+)
 def update(
     name,
     id,
@@ -830,6 +852,7 @@ def update(
     remove_tokens,
     no_traffic_timeout,
     public_photon,
+    visibility,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -896,7 +919,12 @@ def update(
     )
 
     lepton_deployment = LeptonDeployment(
-        metadata=Metadata(id=name, name=name), spec=lepton_deployment_spec
+        metadata=Metadata(
+            id=name,
+            name=name,
+            visibility=LeptonVisibility(visibility) if visibility else None,
+        ),
+        spec=lepton_deployment_spec,
     )
     client.deployment.update(
         name_or_deployment=name,
