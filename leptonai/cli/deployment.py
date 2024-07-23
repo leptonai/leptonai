@@ -274,8 +274,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ng",
     "node_groups",
     help=(
-        "Node group for the pod. If not set, use on-demand resources."
-        " You can repeat this flag multiple times to choose multiple node groups."
+        "Node group for the deployment. If not set, use on-demand resources. You can"
+        " repeat this flag multiple times to choose multiple node groups. Multiple node"
+        " group option is currently not supported but coming soon for enterprise users."
+        " Only the first node group will be set if you input multiple node groups at"
+        " this time."
     ),
     type=str,
     multiple=True,
@@ -413,7 +416,6 @@ def create(
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        # make sure affinity is initialized
         spec.resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
         )
