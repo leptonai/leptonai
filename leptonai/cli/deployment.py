@@ -42,6 +42,104 @@ from ..api.v1.types.deployment import (
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
 
+def deprecation_warning(ctx, param, value):
+    if value is not None:
+        click.echo(
+            f"""Warning: The '{param.name}' option will be deprecated in a future release. 
+        Please consider using the new options for replica number and autoscale policy management: 
+        '--fixed-replica <replica_number>' 
+          
+        '--autoscale-down <replica_number>,<timeout>' 
+         
+        '--autoscale-between <min_replica>,<max_replica>,<threshold>' 
+        
+        please use lep deployment create -h for more information.
+        """,
+            err=True,
+        )
+    return value
+
+
+def validate_autoscale_options(ctx):
+    fixed_replica = ctx.params.get("fixed_replica")
+    autoscale_down = ctx.params.get("autoscale_down")
+    autoscale_between = ctx.params.get("autoscale_between")
+    no_traffic_timeout = ctx.params.get("no_traffic_timeout")
+    target_gpu_utilization = ctx.params.get("target_gpu_utilization")
+    min_replicas = ctx.params.get("min_replicas")
+    max_replicas = ctx.params.get("max_replicas")
+    num_new_options = sum(
+        option is not None
+        for option in [fixed_replica, autoscale_down, autoscale_between]
+    )
+    if num_new_options > 1:
+        raise click.UsageError(
+            "You cannot use --fixed-replica, --autoscale-down, and --autoscale-between"
+            " together. Please specify only one."
+        )
+
+    num_new_options = sum(
+        option is not None
+        for option in [
+            no_traffic_timeout,
+            target_gpu_utilization,
+            min_replicas,
+            max_replicas,
+        ]
+    )
+    if num_new_options == 1 and num_new_options >= 1:
+        raise click.UsageError(
+            "You cannot use deprecated autoscale options with new autoscale options."
+            " Please specify only one of the following: --fixed-replica,"
+            " --autoscale-down, or --autoscale-between."
+        )
+
+    if autoscale_down:
+        parts = autoscale_down.split(",")
+        if (
+            len(parts) != 2
+            or not parts[0].isdigit()
+            or not (parts[1].endswith("s") or parts[1].isdigit())
+        ):
+            raise click.BadParameter(
+                "Invalid format for --autoscale-down. Expected format:"
+                " <replicas>,<timeout>s or <replicas>,<timeout>"
+            )
+        try:
+            replicas = int(parts[0])
+            timeout = int(parts[1].rstrip("s"))
+            if replicas < 0 or timeout < 0:
+                raise ValueError
+        except ValueError:
+            raise click.BadParameter(
+                "Replicas and timeout should be positive integers."
+            )
+
+    if autoscale_between:
+        parts = autoscale_between.split(",")
+        if len(parts) != 3 or not (
+            parts[0].isdigit()
+            and parts[1].isdigit()
+            and (parts[2].rstrip("%").isdigit())
+        ):
+            raise click.BadParameter(
+                "Invalid format for --autoscale-between. Expected format:"
+                " <min_replica>,<max_replica>,<threshold>% or"
+                " <min_replica>,<max_replica>,<threshold>"
+            )
+        try:
+            min_replica = int(parts[0])
+            max_replica = int(parts[1])
+            threshold = int(parts[2].rstrip("%"))
+            if min_replica < 0 or max_replica < 0 or not (0 <= threshold <= 99):
+                raise ValueError
+        except ValueError:
+            raise click.BadParameter(
+                "Min_replica, max_replica should be positive integers and threshold"
+                " should be between 0 and 99."
+            )
+
+
 @click_group()
 def deployment():
     """
@@ -59,6 +157,8 @@ def deployment():
 
 
 def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
+    if x is not None:
+        deprecation_warning(unused_ctx, unused_param, x)
     if x is None or x == 0 or x >= 60:
         return x
     else:
@@ -155,9 +255,19 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     + "'.",
     default=None,
 )
-@click.option("--min-replicas", type=int, help="Minimum number of replicas.", default=1)
 @click.option(
-    "--max-replicas", type=int, help="Maximum number of replicas.", default=None
+    "--min-replicas",
+    type=int,
+    help="Minimum number of replicas.",
+    default=1,
+    callback=deprecation_warning,
+)
+@click.option(
+    "--max-replicas",
+    type=int,
+    help="Maximum number of replicas.",
+    default=None,
+    callback=deprecation_warning,
 )
 @click.option(
     "--mount",
@@ -220,6 +330,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " down the replicas. The value should be between 0 and 99."
     ),
     default=None,
+    callback=deprecation_warning,
 )
 @click.option(
     "--initial-delay-seconds",
@@ -291,6 +402,53 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " deployment will only be viewable by the creator and workspace admin."
     ),
 )
+@click.option(
+    "--fixed-replica",
+    "-r",
+    "--replica",
+    type=int,
+    default=None,
+    help="""
+                Use this option if you want a fixed number of replicas and want to turn off autoscaling.
+                For example, to set a fixed number of replicas to 2, you can use: 
+                --fixed-replica 2  or
+                -r 2  or
+                --replica 2 
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-down",
+    "-ad",
+    type=str,
+    default=None,
+    help="""
+                Use this option if you want to have replicas but scale down after a specified time of no traffic.
+                For example, to set 2 replicas and scale down after 3600 seconds of no traffic,
+                use: --autoscale-down 2,3600s or --autoscale-down 2,3600
+                (Note: Do not include spaces around the comma.)
+            """,
+)
+@click.option(
+    "--autoscale-between",
+    "-ab",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for GPU utilization and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
+                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                (Note: Do not include spaces around the comma.)
+
+                If the GPU utilization is higher than the target GPU utilization,
+                the autoscaler will scale up the replicas.
+                If the GPU utilization is lower than the target GPU utilization,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between 0 and 99.
+                
+            """,
+)
 def create(
     name,
     photon_name,
@@ -315,6 +473,9 @@ def create(
     image_pull_secrets,
     node_groups,
     visibility,
+    fixed_replica,
+    autoscale_down,
+    autoscale_between,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -413,6 +574,29 @@ def create(
             " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
+
+    if fixed_replica:
+        min_replicas = fixed_replica
+        max_replicas = fixed_replica
+        no_traffic_timeout = None
+        target_gpu_utilization = None
+
+    if autoscale_down:
+        parts = autoscale_down.split(",")
+        replicas = int(parts[0])
+        timeout = int(parts[1].rstrip("s"))
+        min_replicas = replicas
+        max_replicas = replicas
+        no_traffic_timeout = timeout
+        target_gpu_utilization = None
+
+    if autoscale_between:
+        parts = autoscale_between.split(",")
+        min_replicas = int(parts[0])
+        max_replicas = int(parts[1])
+        threshold = int(parts[2].rstrip("%"))
+        no_traffic_timeout = None
+        target_gpu_utilization = threshold
 
     # resources
     spec.resource_requirement = ResourceRequirement(
