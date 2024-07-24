@@ -49,7 +49,7 @@ def deprecation_warning(ctx, param, value):
             f"""Warning: The '{param.name}' option will be deprecated in a future release. 
         Please consider using the new options for replica number and autoscale policy management: 
         '-r'
-        '--fixed-replicas <replica_number>' 
+        '--replicas-static <replica_number>' 
         
         '-ad'  
         '--autoscale-down <replica_number>,<timeout>' 
@@ -68,7 +68,7 @@ def deprecation_warning(ctx, param, value):
 
 
 def validate_autoscale_options(ctx, param, value):
-    fixed_replicas = ctx.params.get("fixed_replicas")
+    replicas_static = ctx.params.get("replicas_static")
     autoscale_down = ctx.params.get("autoscale_down")
     autoscale_gpu_util = ctx.params.get("autoscale_gpu_util")
     autoscale_qpm = ctx.params.get("autoscale_qpm")
@@ -80,7 +80,7 @@ def validate_autoscale_options(ctx, param, value):
     num_new_options = sum(
         option is not None
         for option in [
-            fixed_replicas,
+            replicas_static,
             autoscale_down,
             autoscale_gpu_util,
             autoscale_qpm,
@@ -88,7 +88,7 @@ def validate_autoscale_options(ctx, param, value):
     )
     if num_new_options > 1:
         raise click.UsageError(
-            "You cannot use --fixed-replicas, --autoscale-down, --autoscale-gpu-util,"
+            "You cannot use --replicas-static, --autoscale-down, --autoscale-gpu-util,"
             " and autoscale-qpm options  together. Please specify only one."
         )
 
@@ -109,7 +109,7 @@ def validate_autoscale_options(ctx, param, value):
             Please specify only one of the following:
             
             '-r'
-            '--fixed-replicas <replica_number>' 
+            '--replicas-static <replica_number>' 
             
             '-ad'  
             '--autoscale-down <replica_number>,<timeout>' 
@@ -463,7 +463,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
-    "--fixed-replicas",
+    "--replicas-static",
     "-r",
     "-replicas",
     type=int,
@@ -471,7 +471,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
                 For example, to set a fixed number of replicas to 2, you can use: 
-                --fixed-replicas 2  or
+                --replicas-static 2  or
                 -r 2
             """,
     callback=validate_autoscale_options,
@@ -554,7 +554,7 @@ def create(
     image_pull_secrets,
     node_groups,
     visibility,
-    fixed_replicas,
+    replicas_static,
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
@@ -642,7 +642,7 @@ def create(
         no_traffic_timeout is None
         and DEFAULT_TIMEOUT
         and target_gpu_utilization is None
-        and fixed_replicas is None
+        and replicas_static is None
         and autoscale_down is None
         and autoscale_gpu_util is None
         and autoscale_qpm is None
@@ -661,9 +661,9 @@ def create(
 
     threshold = None
 
-    if fixed_replicas:
-        min_replicas = fixed_replicas
-        max_replicas = fixed_replicas
+    if replicas_static:
+        min_replicas = replicas_static
+        max_replicas = replicas_static
         no_traffic_timeout = None
 
     if autoscale_down:
@@ -1118,7 +1118,7 @@ def log(name, replica):
     ),
 )
 @click.option(
-    "--fixed-replicas",
+    "--replicas-static",
     "-r",
     "-replicas",
     type=int,
@@ -1126,7 +1126,7 @@ def log(name, replica):
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
                 For example, to set a fixed number of replicas to 2, you can use: 
-                --fixed-replicas 2  or
+                --replicas-static 2  or
                 -r 2
             """,
     callback=validate_autoscale_options,
@@ -1196,7 +1196,7 @@ def update(
     no_traffic_timeout,
     public_photon,
     visibility,
-    fixed_replicas,
+    replicas_static,
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
@@ -1247,9 +1247,9 @@ def update(
     target_gpu_utilization = 0
     no_traffic_timeout = no_traffic_timeout if no_traffic_timeout else 0
     threshold = 0
-    if fixed_replicas:
-        min_replicas = fixed_replicas
-        max_replicas = fixed_replicas
+    if replicas_static:
+        min_replicas = replicas_static
+        max_replicas = replicas_static
 
     if autoscale_down:
         parts = autoscale_down.split(",")
