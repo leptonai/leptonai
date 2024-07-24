@@ -49,7 +49,7 @@ def deprecation_warning(ctx, param, value):
             f"""Warning: The '{param.name}' option will be deprecated in a future release. 
         Please consider using the new options for replica number and autoscale policy management: 
         '-r'
-        '--fixed-replica <replica_number>' 
+        '--fixed-replicas <replica_number>' 
         
         '-ad'  
         '--autoscale-down <replica_number>,<timeout>' 
@@ -88,7 +88,7 @@ def validate_autoscale_options(ctx, param, value):
     )
     if num_new_options > 1:
         raise click.UsageError(
-            "You cannot use --fixed-replica, --autoscale-down, --autoscale-gpu-util,"
+            "You cannot use --fixed-replicas, --autoscale-down, --autoscale-gpu-util,"
             " and autoscale-qpm options  together. Please specify only one."
         )
 
@@ -109,7 +109,7 @@ def validate_autoscale_options(ctx, param, value):
             Please specify only one of the following:
             
             '-r'
-            '--fixed-replica <replica_number>' 
+            '--fixed-replicas <replica_number>' 
             
             '-ad'  
             '--autoscale-down <replica_number>,<timeout>' 
@@ -471,7 +471,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
                 For example, to set a fixed number of replicas to 2, you can use: 
-                --fixed-replica 2  or
+                --fixed-replicas 2  or
                 -r 2
             """,
     callback=validate_autoscale_options,
@@ -1126,7 +1126,7 @@ def log(name, replica):
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
                 For example, to set a fixed number of replicas to 2, you can use: 
-                --fixed-replica 2  or
+                --fixed-replicas 2  or
                 -r 2
             """,
     callback=validate_autoscale_options,
