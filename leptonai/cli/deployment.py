@@ -88,8 +88,8 @@ def validate_autoscale_options(ctx, param, value):
     )
     if num_new_options > 1:
         raise click.UsageError(
-            "You cannot use --fixed-replica, --autoscale-down, --autoscale-gpu-util, and autoscale-qpm options "
-            " together. Please specify only one."
+            "You cannot use --fixed-replica, --autoscale-down, --autoscale-gpu-util,"
+            " and autoscale-qpm options  together. Please specify only one."
         )
 
     num_old_options = sum(
