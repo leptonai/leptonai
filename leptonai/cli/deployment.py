@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import re
 import shlex
@@ -37,7 +38,7 @@ from ..api.v1.types.deployment import (
     LeptonContainer,
     ResourceRequirement,
     ScaleDown,
-    ContainerPort,
+    ContainerPort, AutoscalerTargetThroughput,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -51,7 +52,7 @@ def deprecation_warning(ctx, param, value):
           
         '--autoscale-down <replica_number>,<timeout>' 
          
-        '--autoscale-between <min_replica>,<max_replica>,<threshold>' 
+        '--autoscale-gpu-util <min_replica>,<max_replica>,<gpu-util-threshold>' 
         
         please use lep deployment create -h for more information.
         """,
@@ -60,17 +61,19 @@ def deprecation_warning(ctx, param, value):
     return value
 
 
-def validate_autoscale_options(ctx):
-    fixed_replica = ctx.params.get("fixed_replica")
+def validate_autoscale_options(ctx, param, value):
+    fixed_replicas = ctx.params.get("fixed_replicas")
     autoscale_down = ctx.params.get("autoscale_down")
-    autoscale_between = ctx.params.get("autoscale_between")
+    autoscale_gpu_util = ctx.params.get("autoscale_gpu_util")
+    autoscale_qpm = ctx.params.get("autoscale_qpm")
     no_traffic_timeout = ctx.params.get("no_traffic_timeout")
     target_gpu_utilization = ctx.params.get("target_gpu_utilization")
-    min_replicas = ctx.params.get("min_replicas")
     max_replicas = ctx.params.get("max_replicas")
+    min_replicas = ctx.params.get("min_replicas")
+
     num_new_options = sum(
         option is not None
-        for option in [fixed_replica, autoscale_down, autoscale_between]
+        for option in [fixed_replicas, autoscale_down, autoscale_gpu_util, autoscale_qpm]
     )
     if num_new_options > 1:
         raise click.UsageError(
@@ -78,28 +81,34 @@ def validate_autoscale_options(ctx):
             " together. Please specify only one."
         )
 
-    num_new_options = sum(
+    num_old_options = sum(
         option is not None
         for option in [
             no_traffic_timeout,
             target_gpu_utilization,
-            min_replicas,
             max_replicas,
         ]
     )
-    if num_new_options == 1 and num_new_options >= 1:
+
+    if num_new_options > 0 and (num_old_options >= 1 or (min_replicas is not None and min_replicas > 1)):
         raise click.UsageError(
-            "You cannot use deprecated autoscale options with new autoscale options."
-            " Please specify only one of the following: --fixed-replica,"
-            " --autoscale-down, or --autoscale-between."
+            """You cannot use deprecating autoscale options with new autoscale options.
+            Please specify only one of the following:
+            
+            '--fixed-replica <replica_number>' 
+          
+            '--autoscale-down <replica_number>,<timeout>' 
+         
+            '--autoscale-between <min_replica>,<max_replica>,<threshold>' 
+            """
         )
 
-    if autoscale_down:
-        parts = autoscale_down.split(",")
+    if param.name == "autoscale_down" and value:
+        parts = value.split(",")
         if (
-            len(parts) != 2
-            or not parts[0].isdigit()
-            or not (parts[1].endswith("s") or parts[1].isdigit())
+                len(parts) != 2
+                or not parts[0].isdigit()
+                or not (parts[1].endswith("s") or parts[1].isdigit())
         ):
             raise click.BadParameter(
                 "Invalid format for --autoscale-down. Expected format:"
@@ -115,12 +124,12 @@ def validate_autoscale_options(ctx):
                 "Replicas and timeout should be positive integers."
             )
 
-    if autoscale_between:
-        parts = autoscale_between.split(",")
+    if param.name == "autoscale_gpu_util" and value:
+        parts = value.split(",")
         if len(parts) != 3 or not (
-            parts[0].isdigit()
-            and parts[1].isdigit()
-            and (parts[2].rstrip("%").isdigit())
+                parts[0].isdigit()
+                and parts[1].isdigit()
+                and (parts[2].rstrip("%").isdigit())
         ):
             raise click.BadParameter(
                 "Invalid format for --autoscale-between. Expected format:"
@@ -138,6 +147,39 @@ def validate_autoscale_options(ctx):
                 "Min_replica, max_replica should be positive integers and threshold"
                 " should be between 0 and 99."
             )
+
+    if param.name == "autoscale_qpm" and value:
+        parts = value.split(",")
+        if len(parts) != 3 or not (
+                parts[0].isdigit()
+                and parts[1].isdigit()
+                and is_positive_number(parts[2])
+        ):
+            raise click.BadParameter(
+                "Invalid format for --autoscale-qpm. Expected format:"
+                " <min_replica>,<max_replica>,<threshold>"
+            )
+        try:
+            min_replica = int(parts[0])
+            max_replica = int(parts[1])
+            threshold = float(parts[2])
+            if min_replica < 0 or max_replica < 0 or threshold < 0:
+                raise ValueError
+        except ValueError:
+            raise click.BadParameter(
+                "Min_replica and max_replica should be positive integers and threshold"
+                " should be a positive number."
+            )
+
+    return value
+
+
+def is_positive_number(value):
+    try:
+        num = float(value)
+        return num > 0
+    except ValueError:
+        return False
 
 
 @click_group()
@@ -166,7 +208,7 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
 
 
 def _get_ordered_photon_ids_or_none(
-    name: str, public_photon: bool
+        name: str, public_photon: bool
 ) -> Union[List[str], None]:
     """Returns a list of photon ids for a given name, in the order newest to
     oldest. If no photon of such name exists, returns None.
@@ -226,8 +268,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-i",
     type=str,
     help=(
-        "Specific version id of the photon to run. If not specified, we will run the"
-        " most recent version of the photon."
+            "Specific version id of the photon to run. If not specified, we will run the"
+            " most recent version of the photon."
     ),
 )
 @click.option("--container-image", type=str, help="Container image to run.")
@@ -235,24 +277,24 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--container-port",
     type=int,
     help=(
-        "Guest OS port to listen to in the container. If not specified, default to"
-        " 8080."
+            "Guest OS port to listen to in the container. If not specified, default to"
+            " 8080."
     ),
 )
 @click.option(
     "--container-command",
     type=str,
     help=(
-        "Command to run in the container. Your command should listen to the port"
-        " specified by --container-port."
+            "Command to run in the container. Your command should listen to the port"
+            " specified by --container-port."
     ),
 )
 @click.option(
     "--resource-shape",
     type=str,
     help="Resource shape for the deployment. Available types are: '"
-    + "', '".join(VALID_SHAPES)
-    + "'.",
+         + "', '".join(VALID_SHAPES)
+         + "'.",
     default=None,
 )
 @click.option(
@@ -260,7 +302,6 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help="Minimum number of replicas.",
     default=1,
-    callback=deprecation_warning,
 )
 @click.option(
     "--max-replicas",
@@ -272,8 +313,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+            "Persistent storage to be mounted to the deployment, in the format"
+            " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -287,9 +328,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--secret",
     "-s",
     help=(
-        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-        " secret name is also the environment variable name, you can"
-        " omit it and simply pass `SECRET_NAME`."
+            "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+            " secret name is also the environment variable name, you can"
+            " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
@@ -297,15 +338,15 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "If specified, the photon will be publicly accessible. See docs for details "
-        "on access control."
+            "If specified, the photon will be publicly accessible. See docs for details "
+            "on access control."
     ),
 )
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the photon. See docs for details "
-        "on access control."
+            "Additional tokens that can be used to access the photon. See docs for details "
+            "on access control."
     ),
     multiple=True,
 )
@@ -313,10 +354,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--no-traffic-timeout",
     type=int,
     help=(
-        "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Minimum is 60 seconds if set."
-        " Note that actual timeout may be up to 30 seconds longer than the specified"
-        " value."
+            "If specified, the deployment will be scaled down to 0 replicas after the"
+            " specified number of seconds without traffic. Minimum is 60 seconds if set."
+            " Note that actual timeout may be up to 30 seconds longer than the specified"
+            " value."
     ),
     callback=_timeout_must_be_larger_than_60,
 )
@@ -324,10 +365,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--target-gpu-utilization",
     type=int,
     help=(
-        "If min and max replicas are set, if the gpu utilization is higher than the"
-        " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
-        " utilization is lower than the target gpu utilization, autoscaler will scale"
-        " down the replicas. The value should be between 0 and 99."
+            "If min and max replicas are set, if the gpu utilization is higher than the"
+            " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
+            " utilization is lower than the target gpu utilization, autoscaler will scale"
+            " down the replicas. The value should be between 0 and 99."
     ),
     default=None,
     callback=deprecation_warning,
@@ -336,10 +377,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--initial-delay-seconds",
     type=int,
     help=(
-        "If specified, the deployment will allow the specified amount of seconds for"
-        " the photon to initialize before it starts the service. Usually you should"
-        " not need this. If you have a deployment that takes a long time to initialize,"
-        " set it to a longer value."
+            "If specified, the deployment will allow the specified amount of seconds for"
+            " the photon to initialize before it starts the service. Usually you should"
+            " not need this. If you have a deployment that takes a long time to initialize,"
+            " set it to a longer value."
     ),
     default=None,
 )
@@ -347,10 +388,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--include-workspace-token",
     is_flag=True,
     help=(
-        "If specified, the workspace token will be included as an environment"
-        " variable. This is used when the photon code uses Lepton SDK capabilities such"
-        " as queue, KV, objectstore etc. Note that you should trust the code in the"
-        " photon, as it will have access to the workspace token."
+            "If specified, the workspace token will be included as an environment"
+            " variable. This is used when the photon code uses Lepton SDK capabilities such"
+            " as queue, KV, objectstore etc. Note that you should trust the code in the"
+            " photon, as it will have access to the workspace token."
     ),
     default=False,
 )
@@ -358,10 +399,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--rerun",
     is_flag=True,
     help=(
-        "If specified, shutdown the deployment of the same deployment name and"
-        " rerun it. Note that this may cause downtime of the photon if it is for"
-        " production use, so use with caution. In a production environment, you"
-        " should do photon create, push, and `lep deployment update` instead."
+            "If specified, shutdown the deployment of the same deployment name and"
+            " rerun it. Note that this may cause downtime of the photon if it is for"
+            " production use, so use with caution. In a production environment, you"
+            " should do photon create, push, and `lep deployment update` instead."
     ),
     default=False,
 )
@@ -369,8 +410,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public-photon",
     is_flag=True,
     help=(
-        "If specified, get the photon from the public photon registry. This is only"
-        " supported for remote execution."
+            "If specified, get the photon from the public photon registry. This is only"
+            " supported for remote execution."
     ),
     default=False,
 )
@@ -385,11 +426,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ng",
     "node_groups",
     help=(
-        "Node group for the deployment. If not set, use on-demand resources. You can"
-        " repeat this flag multiple times to choose multiple node groups. Multiple node"
-        " group option is currently not supported but coming soon for enterprise users."
-        " Only the first node group will be set if you input multiple node groups at"
-        " this time."
+            "Node group for the deployment. If not set, use on-demand resources. You can"
+            " repeat this flag multiple times to choose multiple node groups. Multiple node"
+            " group option is currently not supported but coming soon for enterprise users."
+            " Only the first node group will be set if you input multiple node groups at"
+            " this time."
     ),
     type=str,
     multiple=True,
@@ -398,22 +439,21 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--visibility",
     type=str,
     help=(
-        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
-        " deployment will only be viewable by the creator and workspace admin."
+            "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
+            " deployment will only be viewable by the creator and workspace admin."
     ),
 )
 @click.option(
-    "--fixed-replica",
+    "--fixed-replicas",
     "-r",
-    "--replica",
+    "-replicas",
     type=int,
     default=None,
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
                 For example, to set a fixed number of replicas to 2, you can use: 
                 --fixed-replica 2  or
-                -r 2  or
-                --replica 2 
+                -r 2
             """,
     callback=validate_autoscale_options,
 )
@@ -428,10 +468,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 use: --autoscale-down 2,3600s or --autoscale-down 2,3600
                 (Note: Do not include spaces around the comma.)
             """,
+    callback=validate_autoscale_options,
 )
 @click.option(
-    "--autoscale-between",
-    "-ab",
+    "--autoscale-gpu-util",
+    "-agu",
     type=str,
     default=None,
     help="""
@@ -448,42 +489,69 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 The threshold value should be between 0 and 99.
                 
             """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-qpm",
+    "-aq",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for QPM and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
+                use: --autoscale-between 1,3,2.5
+                (Note: Do not include spaces around the comma.)
+
+                If the QPM is higher than the target QPM,
+                the autoscaler will scale up the replicas.
+                If the QPM is lower than the target QPM,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between positive number.
+            """,
+    callback=validate_autoscale_options,
 )
 def create(
-    name,
-    photon_name,
-    photon_id,
-    container_image,
-    container_port,
-    container_command,
-    resource_shape,
-    min_replicas,
-    max_replicas,
-    mount,
-    env,
-    secret,
-    public,
-    tokens,
-    no_traffic_timeout,
-    target_gpu_utilization,
-    initial_delay_seconds,
-    include_workspace_token,
-    rerun,
-    public_photon,
-    image_pull_secrets,
-    node_groups,
-    visibility,
-    fixed_replica,
-    autoscale_down,
-    autoscale_between,
+        name,
+        photon_name,
+        photon_id,
+        container_image,
+        container_port,
+        container_command,
+        resource_shape,
+        min_replicas,
+        max_replicas,
+        mount,
+        env,
+        secret,
+        public,
+        tokens,
+        no_traffic_timeout,
+        target_gpu_utilization,
+        initial_delay_seconds,
+        include_workspace_token,
+        rerun,
+        public_photon,
+        image_pull_secrets,
+        node_groups,
+        visibility,
+        fixed_replicas,
+        autoscale_down,
+        autoscale_gpu_util,
+        autoscale_qpm,
 ):
     """
     Creates a deployment from either a photon or container image.
     """
-
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
 
+    # click.echo(f"Fixed replica: {fixed_replicas}")
+    # click.echo(f"Autoscale down: {autoscale_down}")
+    # click.echo(f"Autoscale between: {autoscale_between}")
+    # click.echo(f"No traffic timeout: {no_traffic_timeout}")
+    # click.echo(f"Target GPU utilization: {target_gpu_utilization}")
+    # click.echo(f"Max replicas: {max_replicas}")
     # Check if the deployment already exists.
     existing_deployments = client.deployment.list_all()
     if name in [d.metadata.name for d in existing_deployments]:
@@ -559,9 +627,9 @@ def create(
         sys.exit(1)
     # default timeout
     if (
-        no_traffic_timeout is None
-        and DEFAULT_TIMEOUT
-        and target_gpu_utilization is None
+            no_traffic_timeout is None
+            and DEFAULT_TIMEOUT
+            and target_gpu_utilization is None
     ):
         console.print(
             "\nLepton is currently set to use a default timeout of [green]1"
@@ -575,11 +643,13 @@ def create(
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
 
-    if fixed_replica:
-        min_replicas = fixed_replica
-        max_replicas = fixed_replica
-        no_traffic_timeout = None
-        target_gpu_utilization = None
+    threshold = None
+    target_gpu_utilization = None
+    no_traffic_timeout = None
+
+    if fixed_replicas:
+        min_replicas = fixed_replicas
+        max_replicas = fixed_replicas
 
     if autoscale_down:
         parts = autoscale_down.split(",")
@@ -588,21 +658,24 @@ def create(
         min_replicas = replicas
         max_replicas = replicas
         no_traffic_timeout = timeout
-        target_gpu_utilization = None
 
-    if autoscale_between:
-        parts = autoscale_between.split(",")
+    if autoscale_gpu_util:
+        parts = autoscale_gpu_util.split(",")
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
-        threshold = int(parts[2].rstrip("%"))
-        no_traffic_timeout = None
-        target_gpu_utilization = threshold
+        target_gpu_utilization = int(parts[2].rstrip("%"))
+
+    if autoscale_qpm:
+        parts = autoscale_qpm.split(",")
+        min_replicas = int(parts[0])
+        max_replicas = int(parts[1])
+        threshold = float(parts[2])
 
     # resources
     spec.resource_requirement = ResourceRequirement(
         resource_shape=resource_shape
-        or (deployment_template.resource_shape if deployment_template else None)
-        or DEFAULT_RESOURCE_SHAPE,
+                       or (deployment_template.resource_shape if deployment_template else None)
+                       or DEFAULT_RESOURCE_SHAPE,
         min_replicas=min_replicas,
         max_replicas=max_replicas,
     )
@@ -659,6 +732,11 @@ def create(
                 else None
             ),
             target_gpu_utilization_percentage=target_gpu_utilization,
+            target_throughput=(
+                AutoscalerTargetThroughput(qpm=threshold)
+                if threshold
+                else None
+            ),
         )
 
         spec.health = HealthCheck(
@@ -683,6 +761,7 @@ def create(
         ),
         spec=spec,
     )
+    print(json.dumps(lepton_deployment.dict(), indent=4))
     client.deployment.create(lepton_deployment)
     console.print(
         f"Deployment created as [green]{name}[/]. Use `lep deployment"
@@ -770,8 +849,8 @@ def remove(name):
     "-t",
     is_flag=True,
     help=(
-        "Show tokens for the deployment. Use with caution as this displays the tokens"
-        " in plain text, and may be visible to others if you log the output."
+            "Show tokens for the deployment. Use with caution as this displays the tokens"
+            " in plain text, and may be visible to others if you log the output."
     ),
 )
 def status(name, show_tokens):
@@ -959,10 +1038,10 @@ def log(name, replica):
 @click.option(
     "--min-replicas",
     help=(
-        "Number of replicas to update to. Pass `0` to scale the number"
-        " of replicas to zero, in which case the deployemnt status page"
-        " will show the deployment to be `not ready` until you scale it"
-        " back with a positive number of replicas."
+            "Number of replicas to update to. Pass `0` to scale the number"
+            " of replicas to zero, in which case the deployemnt status page"
+            " will show the deployment to be `not ready` until you scale it"
+            " back with a positive number of replicas."
     ),
     type=int,
     default=None,
@@ -973,19 +1052,19 @@ def log(name, replica):
     is_flag=True,
     default=None,
     help=(
-        "If --public is specified, the deployment will be made public. If --no-public"
-        " is specified, the deployment will be made non-public, with access tokens"
-        " being the workspace token and the tokens specified by --tokens. If neither is"
-        " specified, no change will be made to the access control of the deployment."
+            "If --public is specified, the deployment will be made public. If --no-public"
+            " is specified, the deployment will be made non-public, with access tokens"
+            " being the workspace token and the tokens specified by --tokens. If neither is"
+            " specified, no change will be made to the access control of the deployment."
     ),
 )
 @click.option(
     "--tokens",
     help=(
-        "Access tokens that can be used to access the deployment. See docs for"
-        " details on access control. If no tokens is specified, we will not change the"
-        " tokens of the deployment. If you want to remove all additional tokens, use"
-        "--remove-tokens."
+            "Access tokens that can be used to access the deployment. See docs for"
+            " details on access control. If no tokens is specified, we will not change the"
+            " tokens of the deployment. If you want to remove all additional tokens, use"
+            "--remove-tokens."
     ),
     multiple=True,
 )
@@ -994,9 +1073,9 @@ def log(name, replica):
     is_flag=True,
     default=False,
     help=(
-        "If specified, all additional tokens will be removed, and the deployment will"
-        " be either public (if --public) is specified, or only accessible with the"
-        " workspace token (if --public is not specified)."
+            "If specified, all additional tokens will be removed, and the deployment will"
+            " be either public (if --public) is specified, or only accessible with the"
+            " workspace token (if --public is not specified)."
     ),
 )
 @click.option(
@@ -1004,17 +1083,18 @@ def log(name, replica):
     type=int,
     default=None,
     help=(
-        "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Set to 0 to explicitly change"
-        " the deployment to have no timeout."
+            "If specified, the deployment will be scaled down to 0 replicas after the"
+            " specified number of seconds without traffic. Set to 0 to explicitly change"
+            " the deployment to have no timeout."
     ),
+    callback=deprecation_warning,
 )
 @click.option(
     "--public-photon",
     is_flag=True,
     help=(
-        "If specified, get the photon from the public photon registry. If not"
-        " specified, we will inherit the namespace of the current deployment."
+            "If specified, get the photon from the public photon registry. If not"
+            " specified, we will inherit the namespace of the current deployment."
     ),
     default=None,
 )
@@ -1022,21 +1102,93 @@ def log(name, replica):
     "--visibility",
     type=str,
     help=(
-        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
-        " deployment will only be viewable by the creator and workspace admin."
+            "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
+            " deployment will only be viewable by the creator and workspace admin."
     ),
 )
+@click.option(
+    "--fixed-replicas",
+    "-r",
+    "-replicas",
+    type=int,
+    default=None,
+    help="""
+                Use this option if you want a fixed number of replicas and want to turn off autoscaling.
+                For example, to set a fixed number of replicas to 2, you can use: 
+                --fixed-replica 2  or
+                -r 2
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-down",
+    "-ad",
+    type=str,
+    default=None,
+    help="""
+                Use this option if you want to have replicas but scale down after a specified time of no traffic.
+                For example, to set 2 replicas and scale down after 3600 seconds of no traffic,
+                use: --autoscale-down 2,3600s or --autoscale-down 2,3600
+                (Note: Do not include spaces around the comma.)
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-gpu-util",
+    "-agu",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for GPU utilization and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
+                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                (Note: Do not include spaces around the comma.)
+
+                If the GPU utilization is higher than the target GPU utilization,
+                the autoscaler will scale up the replicas.
+                If the GPU utilization is lower than the target GPU utilization,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between 0 and 99.
+
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-qpm",
+    "-aq",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for QPM and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
+                use: --autoscale-between 1,3,2.5
+                (Note: Do not include spaces around the comma.)
+
+                If the QPM is higher than the target QPM,
+                the autoscaler will scale up the replicas.
+                If the QPM is lower than the target QPM,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between positive number.
+            """,
+    callback=validate_autoscale_options,
+)
 def update(
-    name,
-    id,
-    min_replicas,
-    resource_shape,
-    public,
-    tokens,
-    remove_tokens,
-    no_traffic_timeout,
-    public_photon,
-    visibility,
+        name,
+        id,
+        min_replicas,
+        resource_shape,
+        public,
+        tokens,
+        remove_tokens,
+        no_traffic_timeout,
+        public_photon,
+        visibility,
+        fixed_replicas,
+        autoscale_down,
+        autoscale_gpu_util,
+        autoscale_qpm,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -1071,8 +1223,8 @@ def update(
         lepton_deployment = client.deployment.get(name)
 
         public_photon = (
-            lepton_deployment.spec.photon_namespace or "private"
-        ) == "public"
+                                lepton_deployment.spec.photon_namespace or "private"
+                        ) == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
@@ -1080,25 +1232,51 @@ def update(
         # None means no change
         tokens = None
 
+    max_replicas = None
+    target_gpu_utilization = 0
+    no_traffic_timeout = 0
+    threshold = 0
+    if fixed_replicas:
+        min_replicas = fixed_replicas
+        max_replicas = fixed_replicas
+        target_gpu_utilization = None
+
+    if autoscale_down:
+        parts = autoscale_down.split(",")
+        replicas = int(parts[0])
+        timeout = int(parts[1].rstrip("s"))
+        min_replicas = replicas
+        max_replicas = replicas
+        no_traffic_timeout = timeout
+
+    if autoscale_gpu_util:
+        parts = autoscale_gpu_util.split(",")
+        min_replicas = int(parts[0])
+        max_replicas = int(parts[1])
+        target_gpu_utilization = int(parts[2].rstrip("%"))
+
+    if autoscale_qpm:
+        parts = autoscale_qpm.split(",")
+        min_replicas = int(parts[0])
+        max_replicas = int(parts[1])
+        threshold = float(parts[2])
+
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_namespace="public" if public_photon else "private",
         photon_id=id,
         resource_requirement=ResourceRequirement(
             min_replicas=min_replicas,
-            max_replicas=min_replicas,
+            max_replicas=max_replicas,
             resource_shape=resource_shape,
         ),
         api_tokens=make_token_vars_from_config(
             is_public=public,
             tokens=tokens,
         ),
-        auto_scaler=(
-            None
-            if no_traffic_timeout is None
-            else AutoScaler(
-                scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
-                target_gpu_utilization_percentage=0,
-            )
+        auto_scaler=AutoScaler(
+            scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
+            target_gpu_utilization_percentage=target_gpu_utilization,
+            target_throughput=AutoscalerTargetThroughput(qpm=threshold)
         ),
     )
 
@@ -1110,6 +1288,10 @@ def update(
         ),
         spec=lepton_deployment_spec,
     )
+
+    lepton_deployment_dict = lepton_deployment.dict()
+    print(json.dumps(lepton_deployment_dict, indent=4))
+
     client.deployment.update(
         name_or_deployment=name,
         spec=lepton_deployment,
