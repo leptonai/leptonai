@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 import re
 import shlex
@@ -775,7 +774,6 @@ def create(
         ),
         spec=spec,
     )
-    print(json.dumps(lepton_deployment.dict(), indent=2))
     client.deployment.create(lepton_deployment)
     console.print(
         f"Deployment created as [green]{name}[/]. Use `lep deployment"
@@ -1190,12 +1188,12 @@ def log(name, replica):
 def update(
     name,
     id,
-min_replicas,
+    min_replicas,
     resource_shape,
     public,
     tokens,
     remove_tokens,
-no_traffic_timeout,
+    no_traffic_timeout,
     public_photon,
     visibility,
     fixed_replicas,
@@ -1272,7 +1270,6 @@ no_traffic_timeout,
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
         threshold = float(parts[2])
-
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_namespace="public" if public_photon else "private",
