@@ -43,7 +43,7 @@ from ..api.v1.types.deployment import (
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
 
-def deprecation_warning(ctx, param, value):
+def autoscale_flag_deprecation_warning(ctx, param, value):
     if value is not None:
         click.echo(
             f"""Warning: The '{param.name}' option will be deprecated in a future release. 
@@ -89,7 +89,7 @@ def validate_autoscale_options(ctx, param, value):
     if num_new_options > 1:
         raise click.UsageError(
             "You cannot use --replicas-static, --autoscale-down, --autoscale-gpu-util,"
-            " and autoscale-qpm options  together. Please specify only one."
+            " and autoscale-qpm options together. Please specify only one."
         )
 
     num_old_options = sum(
@@ -217,7 +217,7 @@ def deployment():
 
 def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
     if x is not None:
-        deprecation_warning(unused_ctx, unused_param, x)
+        autoscale_flag_deprecation_warning(unused_ctx, unused_param, x)
     if x is None or x == 0 or x >= 60:
         return x
     else:
@@ -325,7 +325,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help="(Will be deprecated) Maximum number of replicas.",
     default=None,
-    callback=deprecation_warning,
+    callback=autoscale_flag_deprecation_warning,
 )
 @click.option(
     "--mount",
@@ -371,7 +371,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--no-traffic-timeout",
     type=int,
     help=(
-        "Will be deprecated soon"
+        "(Will be deprecated soon)"
         "If specified, the deployment will be scaled down to 0 replicas after the"
         " specified number of seconds without traffic. Minimum is 60 seconds if set."
         " Note that actual timeout may be up to 30 seconds longer than the specified"
@@ -383,14 +383,14 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--target-gpu-utilization",
     type=int,
     help=(
-        "Will be deprecated soon"
+        "(Will be deprecated soon)"
         "If min and max replicas are set, if the gpu utilization is higher than the"
         " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
         " utilization is lower than the target gpu utilization, autoscaler will scale"
         " down the replicas. The value should be between 0 and 99."
     ),
     default=None,
-    callback=deprecation_warning,
+    callback=autoscale_flag_deprecation_warning,
 )
 @click.option(
     "--initial-delay-seconds",
