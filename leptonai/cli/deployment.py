@@ -225,7 +225,7 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
 
 
 def _get_ordered_photon_ids_or_none(
-        name: str, public_photon: bool
+    name: str, public_photon: bool
 ) -> Union[List[str], None]:
     """Returns a list of photon ids for a given name, in the order newest to
     oldest. If no photon of such name exists, returns None.
@@ -234,7 +234,6 @@ def _get_ordered_photon_ids_or_none(
     client = APIClient()
 
     photons = client.photon.list_all(public_photon=public_photon)
-
     target_photons = [p for p in photons if p.name == name]  # type: ignore
     if len(target_photons) == 0:
         return None
@@ -285,8 +284,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-i",
     type=str,
     help=(
-            "Specific version id of the photon to run. If not specified, we will run the"
-            " most recent version of the photon."
+        "Specific version id of the photon to run. If not specified, we will run the"
+        " most recent version of the photon."
     ),
 )
 @click.option("--container-image", type=str, help="Container image to run.")
@@ -294,24 +293,24 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--container-port",
     type=int,
     help=(
-            "Guest OS port to listen to in the container. If not specified, default to"
-            " 8080."
+        "Guest OS port to listen to in the container. If not specified, default to"
+        " 8080."
     ),
 )
 @click.option(
     "--container-command",
     type=str,
     help=(
-            "Command to run in the container. Your command should listen to the port"
-            " specified by --container-port."
+        "Command to run in the container. Your command should listen to the port"
+        " specified by --container-port."
     ),
 )
 @click.option(
     "--resource-shape",
     type=str,
     help="Resource shape for the deployment. Available types are: '"
-         + "', '".join(VALID_SHAPES)
-         + "'.",
+    + "', '".join(VALID_SHAPES)
+    + "'.",
     default=None,
 )
 @click.option(
@@ -330,8 +329,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--mount",
     help=(
-            "Persistent storage to be mounted to the deployment, in the format"
-            " `STORAGE_PATH:MOUNT_PATH`."
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -345,9 +344,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--secret",
     "-s",
     help=(
-            "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-            " secret name is also the environment variable name, you can"
-            " omit it and simply pass `SECRET_NAME`."
+        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
@@ -355,15 +354,15 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-            "If specified, the photon will be publicly accessible. See docs for details "
-            "on access control."
+        "If specified, the photon will be publicly accessible. See docs for details "
+        "on access control."
     ),
 )
 @click.option(
     "--tokens",
     help=(
-            "Additional tokens that can be used to access the photon. See docs for details "
-            "on access control."
+        "Additional tokens that can be used to access the photon. See docs for details "
+        "on access control."
     ),
     multiple=True,
 )
@@ -396,10 +395,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--initial-delay-seconds",
     type=int,
     help=(
-            "If specified, the deployment will allow the specified amount of seconds for"
-            " the photon to initialize before it starts the service. Usually you should"
-            " not need this. If you have a deployment that takes a long time to initialize,"
-            " set it to a longer value."
+        "If specified, the deployment will allow the specified amount of seconds for"
+        " the photon to initialize before it starts the service. Usually you should"
+        " not need this. If you have a deployment that takes a long time to initialize,"
+        " set it to a longer value."
     ),
     default=None,
 )
@@ -407,10 +406,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--include-workspace-token",
     is_flag=True,
     help=(
-            "If specified, the workspace token will be included as an environment"
-            " variable. This is used when the photon code uses Lepton SDK capabilities such"
-            " as queue, KV, objectstore etc. Note that you should trust the code in the"
-            " photon, as it will have access to the workspace token."
+        "If specified, the workspace token will be included as an environment"
+        " variable. This is used when the photon code uses Lepton SDK capabilities such"
+        " as queue, KV, objectstore etc. Note that you should trust the code in the"
+        " photon, as it will have access to the workspace token."
     ),
     default=False,
 )
@@ -418,10 +417,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--rerun",
     is_flag=True,
     help=(
-            "If specified, shutdown the deployment of the same deployment name and"
-            " rerun it. Note that this may cause downtime of the photon if it is for"
-            " production use, so use with caution. In a production environment, you"
-            " should do photon create, push, and `lep deployment update` instead."
+        "If specified, shutdown the deployment of the same deployment name and"
+        " rerun it. Note that this may cause downtime of the photon if it is for"
+        " production use, so use with caution. In a production environment, you"
+        " should do photon create, push, and `lep deployment update` instead."
     ),
     default=False,
 )
@@ -429,8 +428,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public-photon",
     is_flag=True,
     help=(
-            "If specified, get the photon from the public photon registry. This is only"
-            " supported for remote execution."
+        "If specified, get the photon from the public photon registry. This is only"
+        " supported for remote execution."
     ),
     default=False,
 )
@@ -559,6 +558,67 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
 ):
+
+    deployment_create(
+        name,
+        photon_name,
+        photon_id,
+        container_image,
+        container_port,
+        container_command,
+        resource_shape,
+        min_replicas,
+        max_replicas,
+        mount,
+        env,
+        secret,
+        public,
+        tokens,
+        no_traffic_timeout,
+        target_gpu_utilization,
+        initial_delay_seconds,
+        include_workspace_token,
+        rerun,
+        public_photon,
+        image_pull_secrets,
+        node_groups,
+        visibility,
+        replicas_static,
+        autoscale_down,
+        autoscale_gpu_util,
+        autoscale_qpm,
+    )
+
+
+def deployment_create(
+    name=None,
+    photon_name=None,
+    photon_id=None,
+    container_image=None,
+    container_port=8080,
+    container_command=None,
+    resource_shape=None,
+    min_replicas=1,
+    max_replicas=None,
+    mount=[],
+    env=[],
+    secret=[],
+    public=False,
+    tokens=[],
+    no_traffic_timeout=None,
+    target_gpu_utilization=None,
+    initial_delay_seconds=None,
+    include_workspace_token=False,
+    rerun=False,
+    public_photon=False,
+    image_pull_secrets=[],
+    node_groups=None,
+    visibility=None,
+    replicas_static=None,
+    autoscale_down=None,
+    autoscale_gpu_util=None,
+    autoscale_qpm=None,
+):
     """
     Creates a deployment from either a photon or container image.
     """
@@ -595,12 +655,13 @@ def create(
             photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                    f"Photon [red]{photon_name}[/] does not exist in the workspace. Did"
                     " you forget to push the photon?",
                 )
                 sys.exit(1)
             console.print(
-                f"Running the most recent version of [green]{name}[/]: {photon_id}"
+                f"Running the most recent version of [green]{photon_name}[/]:"
+                f" {photon_id}"
             )
         else:
             console.print(f"Running the specified version: [green]{photon_id}[/]")
@@ -689,8 +750,8 @@ def create(
     # resources
     spec.resource_requirement = ResourceRequirement(
         resource_shape=resource_shape
-                       or (deployment_template.resource_shape if deployment_template else None)
-                       or DEFAULT_RESOURCE_SHAPE,
+        or (deployment_template.resource_shape if deployment_template else None)
+        or DEFAULT_RESOURCE_SHAPE,
         min_replicas=min_replicas,
         max_replicas=max_replicas,
     )
@@ -861,8 +922,8 @@ def remove(name):
     "-t",
     is_flag=True,
     help=(
-            "Show tokens for the deployment. Use with caution as this displays the tokens"
-            " in plain text, and may be visible to others if you log the output."
+        "Show tokens for the deployment. Use with caution as this displays the tokens"
+        " in plain text, and may be visible to others if you log the output."
     ),
 )
 def status(name, show_tokens):
@@ -1050,10 +1111,10 @@ def log(name, replica):
 @click.option(
     "--min-replicas",
     help=(
-            "Number of replicas to update to. Pass `0` to scale the number"
-            " of replicas to zero, in which case the deployemnt status page"
-            " will show the deployment to be `not ready` until you scale it"
-            " back with a positive number of replicas."
+        "Number of replicas to update to. Pass `0` to scale the number"
+        " of replicas to zero, in which case the deployemnt status page"
+        " will show the deployment to be `not ready` until you scale it"
+        " back with a positive number of replicas."
     ),
     type=int,
     default=None,
@@ -1064,19 +1125,19 @@ def log(name, replica):
     is_flag=True,
     default=None,
     help=(
-            "If --public is specified, the deployment will be made public. If --no-public"
-            " is specified, the deployment will be made non-public, with access tokens"
-            " being the workspace token and the tokens specified by --tokens. If neither is"
-            " specified, no change will be made to the access control of the deployment."
+        "If --public is specified, the deployment will be made public. If --no-public"
+        " is specified, the deployment will be made non-public, with access tokens"
+        " being the workspace token and the tokens specified by --tokens. If neither is"
+        " specified, no change will be made to the access control of the deployment."
     ),
 )
 @click.option(
     "--tokens",
     help=(
-            "Access tokens that can be used to access the deployment. See docs for"
-            " details on access control. If no tokens is specified, we will not change the"
-            " tokens of the deployment. If you want to remove all additional tokens, use"
-            "--remove-tokens."
+        "Access tokens that can be used to access the deployment. See docs for"
+        " details on access control. If no tokens is specified, we will not change the"
+        " tokens of the deployment. If you want to remove all additional tokens, use"
+        "--remove-tokens."
     ),
     multiple=True,
 )
@@ -1085,9 +1146,9 @@ def log(name, replica):
     is_flag=True,
     default=False,
     help=(
-            "If specified, all additional tokens will be removed, and the deployment will"
-            " be either public (if --public) is specified, or only accessible with the"
-            " workspace token (if --public is not specified)."
+        "If specified, all additional tokens will be removed, and the deployment will"
+        " be either public (if --public) is specified, or only accessible with the"
+        " workspace token (if --public is not specified)."
     ),
 )
 @click.option(
@@ -1095,17 +1156,17 @@ def log(name, replica):
     type=int,
     default=None,
     help=(
-            "If specified, the deployment will be scaled down to 0 replicas after the"
-            " specified number of seconds without traffic. Set to 0 to explicitly change"
-            " the deployment to have no timeout."
+        "If specified, the deployment will be scaled down to 0 replicas after the"
+        " specified number of seconds without traffic. Set to 0 to explicitly change"
+        " the deployment to have no timeout."
     ),
 )
 @click.option(
     "--public-photon",
     is_flag=True,
     help=(
-            "If specified, get the photon from the public photon registry. If not"
-            " specified, we will inherit the namespace of the current deployment."
+        "If specified, get the photon from the public photon registry. If not"
+        " specified, we will inherit the namespace of the current deployment."
     ),
     default=None,
 )
@@ -1234,8 +1295,8 @@ def update(
         lepton_deployment = client.deployment.get(name)
 
         public_photon = (
-                                lepton_deployment.spec.photon_namespace or "private"
-                        ) == "public"
+            lepton_deployment.spec.photon_namespace or "private"
+        ) == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []

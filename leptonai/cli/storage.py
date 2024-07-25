@@ -215,9 +215,9 @@ def storage_mkdir(path):
     "--rsync",
     is_flag=True,
     help=(
-            "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
-            "only available for standard and enterprise workspace plan. Add -p to show "
-            "the progress."
+        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+        "only available for standard and enterprise workspace plan. Add -p to show "
+        "the progress."
     ),
 )
 @click.option(

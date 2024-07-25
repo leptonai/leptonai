@@ -15,10 +15,17 @@ from pydantic import BaseModel
 from rich.table import Table
 from rich.text import Text
 
-from .deployment import deployment_create
+from .deployment import deployment_create, validate_autoscale_options
 from .job import job_create
-from .storage import storage_upload, storage_find, storage_mkdir, storage_ls, storage_rm, storage_rmdir, \
-    storage_download
+from .storage import (
+    storage_upload,
+    storage_find,
+    storage_mkdir,
+    storage_ls,
+    storage_rm,
+    storage_rmdir,
+    storage_download,
+)
 from .util import (
     console,
     click_group,
@@ -31,7 +38,10 @@ from ..config import (
     DEFAULT_TUNA_FOLDER,
     DEFAULT_TUNA_MODEL_PATH,
     TUNA_TRAIN_JOB_NAME_PREFIX,
-    TUNA_IMAGE, TUNA_DEPLOYMENT_NAME_PREFIX, LLM_BY_LEPTON_PHOTON_NAME, DEFAULT_RESOURCE_SHAPE,
+    TUNA_IMAGE,
+    TUNA_DEPLOYMENT_NAME_PREFIX,
+    LLM_BY_LEPTON_PHOTON_NAME,
+    DEFAULT_RESOURCE_SHAPE,
 )
 
 
@@ -51,7 +61,9 @@ class TunaModel(BaseModel):
     job_name: Optional[str] = None
 
 
-def _generate_model_folder_name(model_path, data_filename, is_lora=False, is_medusa=False):
+def _generate_model_folder_name(
+    model_path, data_filename, is_lora=False, is_medusa=False
+):
     # Remove all non-alphanumeric characters
     model_filename_clean = model_path.split("/")[-1]
     model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
@@ -94,7 +106,7 @@ def _save_params_to_json(params, filename=None):
 
 def reverse_datetime(current_datetime):
     # current_datetime format is '240718124530'
-    year = '20' + current_datetime[:2]  # Prefix '20' to the first two characters
+    year = "20" + current_datetime[:2]  # Prefix '20' to the first two characters
     month = current_datetime[2:4]  # Extract month
     day = current_datetime[4:6]  # Extract day
     hour = current_datetime[6:8]  # Extract hour
@@ -119,40 +131,53 @@ def _get_model_deployment_name(model_folder_name):
     client = APIClient()
     deployments = client.deployment.list_all()
     deployment_names_set = {deployment.metadata.name for deployment in deployments}
-    base_name = (TUNA_DEPLOYMENT_NAME_PREFIX + model_folder_name)
+    base_name = TUNA_DEPLOYMENT_NAME_PREFIX + model_folder_name
     counter = 0
     for i in range(0, 999):
         new_name = f"{base_name[:36 - len(str(counter))]}{counter}"
         if new_name not in deployment_names_set:
             return new_name
         counter += 1
-    random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
+    random_string = "".join(random.choices(string.ascii_letters + string.digits, k=4))
     return (TUNA_DEPLOYMENT_NAME_PREFIX + model_folder_name)[:32] + random_string
 
 
-def _get_model_folder_name_chuck_from_deployment_name(deployment_name):
-    return deployment_name[32:][len(TUNA_DEPLOYMENT_NAME_PREFIX):]
-
-
-def build_shortened_model_deployment_map():
+def build_shortened_model_name_deployment_map():
     client = APIClient()
     deployments = client.deployment.list_all()
-    shortened_model_deployment_map = {}
+    shortened_model_name_deployment_map = {}
 
     for deployment in deployments:
         deployment_name = deployment.metadata.name
-        shortened_model_folder_name = deployment_name[32:][len(TUNA_DEPLOYMENT_NAME_PREFIX):]
+        if TUNA_DEPLOYMENT_NAME_PREFIX not in deployment_name:
+            continue
+        shortened_model_name = deployment_name[:32][len(TUNA_DEPLOYMENT_NAME_PREFIX) :]
+        if (
+            shortened_model_name not in shortened_model_name_deployment_map
+            and deployment.status.state
+            in [
+                LeptonDeploymentState.Ready,
+                LeptonDeploymentState.Starting,
+                LeptonDeploymentState.Updating,
+            ]
+        ):
+            shortened_model_name_deployment_map[shortened_model_name] = [
+                TunaModelState.Running
+            ]
+        elif shortened_model_name not in shortened_model_name_deployment_map:
+            shortened_model_name_deployment_map[shortened_model_name] = [
+                TunaModelState.Stopped
+            ]
+        else:
+            shortened_model_name_deployment_map[shortened_model_name][
+                0
+            ] = TunaModelState.Stopped
 
-        if shortened_model_folder_name not in shortened_model_deployment_map:
-            shortened_model_deployment_map[shortened_model_folder_name] = [TunaModelState.Running]
+        shortened_model_name_deployment_map[shortened_model_name].append(
+            deployment_name + " (" + deployment.status.state + ")"
+        )
 
-        if deployment.status.state is not LeptonDeploymentState.Deleting:
-            shortened_model_deployment_map[shortened_model_folder_name].append(
-                deployment_name + deployment.status.state)
-        if deployment.status.state is LeptonDeploymentState.NotReady:
-            shortened_model_deployment_map[0] = TunaModelState.Stopped
-
-    return shortened_model_deployment_map
+    return shortened_model_name_deployment_map
 
 
 def _get_model_folder_names():
@@ -171,43 +196,59 @@ def _get_models_map():
     running_job_set = set()
     for job in jobs:
         job_status = job.status.state
-        if job_status is LeptonJobState.Running or job_status is LeptonJobState.Starting:
+        if (
+            job_status is LeptonJobState.Running
+            or job_status is LeptonJobState.Starting
+        ):
             running_job_set.add(job.metadata.name)
 
-    model_deployment_map = build_shortened_model_deployment_map()
-
+    model_deployment_map = build_shortened_model_name_deployment_map()
     model_folder_names = _get_model_folder_names()
     model_folder_names_map = {}
     for model_folder_name in model_folder_names:
         job_name = _get_job_name(model_folder_name)
-        if not _model_train_completed(model_folder_name) and job_name not in running_job_set:
-            print(job_name, " not in ", str(running_job_set))
-            model_folder_names_map[model_folder_name] = TunaModel(folder_name=model_folder_name,
-                                                                  tuna_model_status=TunaModelState.trainFailed)
-        elif _model_train_completed(model_folder_name):
-            #todo: if not deployed put it ready else put it running
-            cur_shorten_model_name = model_folder_name[:32 - len(TUNA_DEPLOYMENT_NAME_PREFIX)]
-            if cur_shorten_model_name in model_folder_names_map:
+        if (
+            not _model_train_completed(model_folder_name)
+            and job_name not in running_job_set
+        ):
+            model_folder_names_map[model_folder_name] = TunaModel(
+                folder_name=model_folder_name,
+                tuna_model_status=TunaModelState.trainFailed,
+            )
+        elif job_name not in running_job_set:
+            # todo: if not deployed put it ready else put it running
+            cur_shorten_model_name = model_folder_name[
+                : 32 - len(TUNA_DEPLOYMENT_NAME_PREFIX)
+            ]
+            if cur_shorten_model_name in model_deployment_map:
                 cur_deployment_info = model_deployment_map[cur_shorten_model_name]
-                model_folder_names_map[model_folder_name] = TunaModel(folder_name=model_folder_name,
-                                                                      deployments=cur_deployment_info[1:],
-                                                                      tuna_model_status=cur_deployment_info[0])
-            model_folder_names_map[model_folder_name] = TunaModel(folder_name=model_folder_name,
-                                                                  tuna_model_status=TunaModelState.Ready)
+                model_folder_names_map[model_folder_name] = TunaModel(
+                    folder_name=model_folder_name,
+                    deployments=cur_deployment_info[1:],
+                    tuna_model_status=cur_deployment_info[0],
+                )
+            else:
+                model_folder_names_map[model_folder_name] = TunaModel(
+                    folder_name=model_folder_name,
+                    tuna_model_status=TunaModelState.Ready,
+                )
         else:
-            model_folder_names_map[model_folder_name] = TunaModel(folder_name=model_folder_name,
-                                                                  tuna_model_status=TunaModelState.Training)
+            model_folder_names_map[model_folder_name] = TunaModel(
+                folder_name=model_folder_name, tuna_model_status=TunaModelState.Training
+            )
     return model_folder_names_map
 
 
 def _model_train_completed(model_folder_name: str) -> bool:
     client = APIClient()
-    dir_infos = client.storage.get_dir(DEFAULT_TUNA_MODEL_PATH + '/' + model_folder_name)
+    dir_infos = client.storage.get_dir(
+        DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
+    )
     return len(dir_infos) > 1
 
 
 def _get_model_folder_name(job_name):
-    job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX):]
+    job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX) :]
     models = _get_model_folder_names()
     for model_folder_name in models:
         if job_name in model_folder_name:
@@ -220,23 +261,37 @@ def _get_model_basic_info_from_model_folder_name(job_name=None, model_folder_nam
     if model_folder_name is None:
         return None, None, None
     model_folder_name_arr = model_folder_name.split("-") or ""
-    trained_time = model_folder_name_arr[0] if len(model_folder_name_arr) > 0 else "unknown created time"
-    model_name = model_folder_name_arr[1] if len(model_folder_name_arr) > 1 else "unknown model name"
-    data_name = model_folder_name_arr[2] if len(model_folder_name_arr) > 2 else "unknown data name"
-    lora_or_medusa = model_folder_name_arr[3] if len(model_folder_name_arr) > 3 else None
+    trained_time = (
+        model_folder_name_arr[0]
+        if len(model_folder_name_arr) > 0
+        else "unknown created time"
+    )
+    model_name = (
+        model_folder_name_arr[1]
+        if len(model_folder_name_arr) > 1
+        else "unknown model name"
+    )
+    data_name = (
+        model_folder_name_arr[2]
+        if len(model_folder_name_arr) > 2
+        else "unknown data name"
+    )
+    lora_or_medusa = (
+        model_folder_name_arr[3] if len(model_folder_name_arr) > 3 else None
+    )
     trained_time = reverse_datetime(trained_time)
     return trained_time, model_name, data_name, lora_or_medusa
 
 
-def _get_model_deployments(model_folder_name):
-    deployment_name = _get_model_deployment_name(model_folder_name)
-    client = APIClient()
-    deployments = client.deployment.list_all()
-    this_model_deployments = []
-    for deployment in deployments:
-        if deployment_name in deployment.metadata.name:
-            this_model_deployments.append(deployment)
-    return this_model_deployments
+# def _get_model_deployments(model_folder_name):
+#     deployment_name = _get_model_deployment_name(model_folder_name)
+#     client = APIClient()
+#     deployments = client.deployment.list_all()
+#     this_model_deployments = []
+#     for deployment in deployments:
+#         if deployment_name in deployment.metadata.name:
+#             this_model_deployments.append(deployment)
+#     return this_model_deployments
 
 
 def _get_info_file_name(model_folder_name):
@@ -250,11 +305,12 @@ def _get_model_output_path(model_folder_name):
 # todo finish this function to get model config from json file
 def _get_model_details(model_folder_name):
     info_file_name = _get_info_file_name(model_folder_name)
-    info_path = _get_model_output_path(model_folder_name) + '/' + info_file_name
+    info_path = _get_model_output_path(model_folder_name) + "/" + info_file_name
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
-    storage_download(info_path, temp_file_path)
+    if not os.path.exists(temp_file_path):
+        storage_download(info_path, temp_file_path)
 
     if not os.path.exists(temp_file_path):
         raise FileNotFoundError(f"The file {temp_file_path} does not exist.")
@@ -368,8 +424,8 @@ def remove_data(data_file_name):
     "--num-workers",
     "-w",
     help=(
-            "Number of workers to use for the job. For example, when you do a distributed"
-            " training job of 4 replicas, use --num-workers 4."
+        "Number of workers to use for the job. For example, when you do a distributed"
+        " training job of 4 replicas, use --num-workers 4."
     ),
     type=int,
     default=None,
@@ -422,8 +478,8 @@ def remove_data(data_file_name):
     "--report-wandb",
     is_flag=True,
     help=(
-            "Report to wandb. Note that WANDB_API_KEY must be set through "
-            "secrets (environment variables). Default: Off"
+        "Report to wandb. Note that WANDB_API_KEY must be set through "
+        "secrets (environment variables). Default: Off"
     ),
 )
 @click.option(
@@ -487,34 +543,34 @@ def remove_data(data_file_name):
     help="Early stop threshold. Default: 0.01",
 )
 def train(
-        # not in cmd
-        node_groups,
-        num_workers,
-        max_job_failure_retry,
-        resource_shape,
-        env,
-        # in cmd
-        model_path,
-        dataset_file_name,
-        **kwargs,
-        # purpose,
-        # num_train_epochs,
-        # per_device_train_batch_size,
-        # gradient_accumulation_steps,
-        # report_wandb,
-        # wandb_project,
-        # save_steps,
-        # learning_rate,
-        # warmup_ratio,
-        # model_max_length,
-        # low_mem_mode,
-        # lora,
-        # lora_rank,
-        # lora_alpha,
-        # lora_dropout,
-        # medusa,
-        # num_medusa_head,
-        # early_stop_threshold,
+    # not in cmd
+    node_groups,
+    num_workers,
+    max_job_failure_retry,
+    resource_shape,
+    env,
+    # in cmd
+    model_path,
+    dataset_file_name,
+    **kwargs,
+    # purpose,
+    # num_train_epochs,
+    # per_device_train_batch_size,
+    # gradient_accumulation_steps,
+    # report_wandb,
+    # wandb_project,
+    # save_steps,
+    # learning_rate,
+    # warmup_ratio,
+    # model_max_length,
+    # low_mem_mode,
+    # lora,
+    # lora_rank,
+    # lora_alpha,
+    # lora_dropout,
+    # medusa,
+    # num_medusa_head,
+    # early_stop_threshold,
 ):
     # check data_path
 
@@ -522,15 +578,18 @@ def train(
 
     # Build the directory structure
     if not storage_find(data_path):
-        console.print(f"[red]{data_path}[/] not found. "
-                      f"Please use lep tuna upload-data -l <local_file_path>to upload your data first, "
-                      f"and use lep tuna list-data to check your data.")
+        console.print(
+            f"[red]{data_path}[/] not found. Please use lep tuna upload-data -l"
+            " <local_file_path>to upload your data first, and use lep tuna list-data"
+            " to check your data."
+        )
         sys.exit(1)
 
     # Generate a name for the model-data job
 
-    model_folder_name = _generate_model_folder_name(model_path, dataset_file_name, kwargs.get("lora"),
-                                                    kwargs.get("medusa"))
+    model_folder_name = _generate_model_folder_name(
+        model_path, dataset_file_name, kwargs.get("lora"), kwargs.get("medusa")
+    )
     job_name = _get_job_name(model_folder_name)
     console.print(f"[green]{job_name}[/]")
 
@@ -572,9 +631,7 @@ def train(
 
     model_info_file_name = _get_info_file_name(model_folder_name)
 
-    model_info_file_path = _save_params_to_json(
-        params, model_info_file_name
-    )
+    model_info_file_path = _save_params_to_json(params, model_info_file_name)
 
     storage_upload(model_info_file_path, model_output_path + "/" + model_info_file_name)
     # Build mount variable
@@ -592,7 +649,9 @@ def train(
         container_image=TUNA_IMAGE,
     )
     console.print(
-        f"Model Training Job [green]{job_name}[/] for your model [green]{model_folder_name}[/] created successfully.")
+        f"Model Training Job [green]{job_name}[/] for your model"
+        f" [green]{model_folder_name}[/] created successfully."
+    )
 
 
 # @tuna.command()
@@ -683,75 +742,180 @@ def remove(model_folder_name):
         if job.metadata.name == job_name:
             client.job.delete(job_name)
 
-    model_path = DEFAULT_TUNA_MODEL_PATH + '/' + model_folder_name
+    model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
     if _model_train_completed(model_folder_name):
-        console.print(f"[red]The model '{model_folder_name}' is ready and has been trained successfully.[/]")
-        user_input = input("Do you want to delete this model? (yes/no): ").strip().lower()
-        if user_input == 'no':
+        console.print(
+            f"[red]The model '{model_folder_name}' is ready and has been trained"
+            " successfully.[/]"
+        )
+        user_input = (
+            input("Do you want to delete this model? (yes/no): ").strip().lower()
+        )
+        if user_input == "no":
             sys.exit(0)
     storage_rmdir(model_path, delete_all=True)
-    console.print(f"Model Train Job [green]{model_folder_name}[/] deleted successfully.")
+    console.print(
+        f"Model Train Job [green]{model_folder_name}[/] deleted successfully."
+    )
 
 
 @tuna.command()
 def clear_failed_train():
     for folder_name, tuna_model in _get_models_map().items():
         if tuna_model.tuna_model_status is TunaModelState.trainFailed:
-            model_path = DEFAULT_TUNA_MODEL_PATH + '/' + folder_name
+            model_path = DEFAULT_TUNA_MODEL_PATH + "/" + folder_name
             storage_rmdir(model_path, delete_all=True)
 
 
-#todo get model info / train info
-#todo change time formate
+# todo get model info / train info
+# todo change time formate
 @tuna.command()
 @click.option("--name", "-n", help="--name, also known as the model folder name")
-@click.option("--resource-shape", "-rs", default=DEFAULT_RESOURCE_SHAPE, help="Resource shape of the deployment")
-@click.option("--node-groups", "-ng", default=None, help="Node groups of the deployment")
-@click.option("--hf-transfer",
-              is_flag=True,
-              default=True,
-              help="Set to True for faster uploads and downloads from the Hub using hf_transfer."
-              )
-@click.option("--tuna-step",
-              type=int,
-              default=3,
-              help=""" in streaming mode, the minimum number of tokens to generate in each new chunk. 
+@click.option(
+    "--resource-shape",
+    "-rs",
+    default=DEFAULT_RESOURCE_SHAPE,
+    help="Resource shape of the deployment",
+)
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help=(
+        "Node group for the deployment. If not set, use on-demand resources. You can"
+        " repeat this flag multiple times to choose multiple node groups. Multiple node"
+        " group option is currently not supported but coming soon for enterprise users."
+        " Only the first node group will be set if you input multiple node groups at"
+        " this time."
+    ),
+    type=str,
+    multiple=True,
+)
+@click.option(
+    "--hf-transfer",
+    is_flag=True,
+    default=True,
+    help="Set to True for faster uploads and downloads from the Hub using hf_transfer.",
+)
+@click.option(
+    "--tuna-step",
+    type=int,
+    default=3,
+    help=""" in streaming mode, the minimum number of tokens to generate in each new chunk. 
               Smaller numbers send generated results sooner, but may lead to a slightly higher network overhead. 
-              Default value set to 3. Unless you are hyper-tuning for benchmarks, you can leave this value as default."""
-              )
-@click.option("--use-int",
-              is_flag=True,
-              default=True,
-              help=""""Set to true to apply quantization techniques for reducing GPU memory usage. 
+              Default value set to 3. Unless you are hyper-tuning for benchmarks, you can leave this value as default.""",
+)
+@click.option(
+    "--use-int",
+    is_flag=True,
+    default=True,
+    help=""""Set to true to apply quantization techniques for reducing GPU memory usage. 
               For model size under 7B, or 13B with USE_INT set to true, gpu.a10 is sufficient to run the model, 
-              although you might want to use more powerful computation resources.""")
-@click.option("--huggingface-token",
-              type=str,
-              default="HUGGING_FACE_HUB_TOKEN",
-              help="""
+              although you might want to use more powerful computation resources.""",
+)
+@click.option(
+    "--huggingface-token",
+    type=str,
+    default="HUGGING_FACE_HUB_TOKEN",
+    help="""
               Name of your Hugging Face token. By default, it will be 'HUGGING_FACE_HUB_TOKEN'.
               If you haven't created it in your workspace, use:
               lep secret create -n <secret name> -v <secret value>
-              """)
+              """,
+)
 @click.option(
     "--mount",
     help=(
-            "Persistent storage to be mounted to the deployment, in the format"
-            " `STORAGE_PATH:MOUNT_PATH`."
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
+@click.option(
+    "--autoscale-down",
+    "-ad",
+    type=str,
+    default=None,
+    help="""
+                Use this option if you want to have replicas but scale down after a specified time of no traffic.
+                For example, to set 2 replicas and scale down after 3600 seconds of no traffic,
+                use: --autoscale-down 2,3600s or --autoscale-down 2,3600
+                (Note: Do not include spaces around the comma.)
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-gpu-util",
+    "-agu",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for GPU utilization and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
+                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                (Note: Do not include spaces around the comma.)
+
+                If the GPU utilization is higher than the target GPU utilization,
+                the autoscaler will scale up the replicas.
+                If the GPU utilization is lower than the target GPU utilization,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between 0 and 99.
+
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
+    "--autoscale-qpm",
+    "-aq",
+    type=str,
+    default=None,
+    help="""
+                Use this option to set a threshold for QPM and enable the system to scale between
+                a minimum and maximum number of replicas. For example,
+                to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
+                use: --autoscale-between 1,3,2.5
+                (Note: Do not include spaces around the comma.)
+
+                If the QPM is higher than the target QPM,
+                the autoscaler will scale up the replicas.
+                If the QPM is lower than the target QPM,
+                the autoscaler will scale down the replicas.
+                The threshold value should be between positive number.
+            """,
+    callback=validate_autoscale_options,
+)
 def run(
-        name,
-        resource_shape,
-        node_groups,
-        hf_transfer,
-        tuna_step,
-        use_int,
-        huggingface_token,
-        mount
+    name,
+    resource_shape,
+    node_groups,
+    hf_transfer,
+    tuna_step,
+    use_int,
+    huggingface_token,
+    mount,
+    replicas_static=None,
+    autoscale_down=None,
+    autoscale_gpu_util=None,
+    autoscale_qpm=None,
 ):
     # use deployment create
+
+    client = APIClient()
+    secrets = client.secret.list_all()
+
+    has_secret = False
+    for secret in secrets:
+        if secret == huggingface_token:
+            has_secret = True
+
+    if not has_secret:
+        console.print(f"""[red]{huggingface_token} not exist in your secret,[/]
+                        If you haven't created it in your workspace, use:
+                        lep secret create -n <secret name> -v <secret value>
+                        """)
+        sys.exit(1)
+
     deployment_name = _get_model_deployment_name(name)
 
     base_model_path = _get_model_path_from_info(name)
@@ -760,21 +924,22 @@ def run(
 
     lora = None
     medusa = None
-    if name.endswith("_lora"):
+    if name.endswith("-lora"):
         model_path = "MODEL_PATH=" + base_model_path
-        lora = "LORAS="+model_output_path
-    elif name.endswith("_medusa"):
+        lora = f"LORAS={model_output_path}:{name}"
+    elif name.endswith("-medusa"):
         model_path = "MODEL_PATH=" + base_model_path
-        medusa = "MEDUSA="+model_output_path
+        medusa = "MEDUSA=" + model_output_path
     else:
         model_path = "MODEL_PATH=" + model_output_path
 
     hf_transfer_num_str = "1" if hf_transfer else "0"
-    env = ["HF_HUB_ENABLE_HF_TRANSFER=" + hf_transfer_num_str,
-           model_path,
-           "TUNA_STREAM_CB_STEP=" + str(tuna_step),
-           "USE_INT=" + str(use_int),
-           ]
+    env = [
+        "HF_HUB_ENABLE_HF_TRANSFER=" + hf_transfer_num_str,
+        model_path,
+        "TUNA_STREAM_CB_STEP=" + str(tuna_step),
+        "USE_INT=" + str(use_int),
+    ]
     if lora:
         env.append(lora)
     if medusa:
@@ -783,16 +948,35 @@ def run(
     mount = list(mount)
     mount.append("/lepton-tuna:/lepton-tuna")
 
+    huggingface_token = [huggingface_token]
+
+    # print(f"name: {deployment_name}")
+    # print(f"resource_shape: {resource_shape}")
+    # print(f"photon_name: {LLM_BY_LEPTON_PHOTON_NAME}")
+    # print(f"env: {env}")
+    # print(f"node_groups: {node_groups}")
+    # print(f"secret: {huggingface_token}")
+    # print(f"mount: {mount}")
+    # print(f"public_photon: {True}")
+    # print(f"replicas_static: {replicas_static}")
+    # print(f"autoscale_down: {autoscale_down}")
+    # print(f"autoscale_gpu_util: {autoscale_gpu_util}")
+    # print(f"autoscale_qpm: {autoscale_qpm}")
+
     deployment_create(
-        deployment_name,
+        name=deployment_name,
         resource_shape=resource_shape,
         photon_name=LLM_BY_LEPTON_PHOTON_NAME,
+        env=env,
         node_groups=node_groups,
         secret=huggingface_token,
-        mount=mount
+        mount=mount,
+        public_photon=True,
+        replicas_static=replicas_static,
+        autoscale_down=autoscale_down,
+        autoscale_gpu_util=autoscale_gpu_util,
+        autoscale_qpm=autoscale_qpm,
     )
-
-    pass
 
 
 @tuna.command(name="list")
@@ -801,7 +985,9 @@ def list_command():
     Lists all tuna model in this workspace.
     """
 
-    table = Table(show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1))
+    table = Table(
+        show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
+    )
     table.add_column("Name")
     table.add_column("Trained At")
     table.add_column("Model")
@@ -811,38 +997,32 @@ def list_command():
     table.add_column("Train Job Name")
 
     for model_folder_name, tuna_model in _get_models_map().items():
-        time, model, data, lora_or_medusa = _get_model_basic_info_from_model_folder_name(
-            model_folder_name=model_folder_name)
+        time, model, data, lora_or_medusa = (
+            _get_model_basic_info_from_model_folder_name(
+                model_folder_name=model_folder_name
+            )
+        )
         status = tuna_model.tuna_model_status
-        state_style = "green" if status is TunaModelState.Running \
-            else "yellow" if status is TunaModelState.Training \
-            else "blue" if status is TunaModelState.Ready \
-            else "red"
-
-        # todo change the deployment list method, use env to link to the model
-        current_deployments = (_get_model_deployments(model_folder_name=model_folder_name)
-                               if status is TunaModelState.Running
-                               else None)
-        if current_deployments:
-            cur_deployments_str_list = []
-            for deployment in current_deployments:
-                cur_deployments_str_list.append(deployment.metadata.name + f"({deployment.status.state})")
-
-        else:
-            current_deployments = ""
+        state_style = (
+            "green"
+            if status is TunaModelState.Running
+            else (
+                "yellow"
+                if status is TunaModelState.Training
+                else "blue" if status is TunaModelState.Ready else "red"
+            )
+        )
 
         table.add_row(
             model_folder_name,
-            time if time else "N/A"
-            ,
+            time if time else "N/A",
             model,
             data,
             Text(status, style=state_style),
-            current_deployments,
+            "\n".join(tuna_model.deployments) if tuna_model.deployments else None,
             (
                 Text(_get_job_name(model_folder_name), style="green")
-                if status
-                   is TunaModelState.Training
+                if status is TunaModelState.Training
                 else "Not Training"
             ),
         )

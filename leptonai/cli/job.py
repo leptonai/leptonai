@@ -235,7 +235,6 @@ def create(
     console.print(f"Job [green]{name}[/] created successfully.")
 
 
-
 def job_create(
     name,
     file=None,
