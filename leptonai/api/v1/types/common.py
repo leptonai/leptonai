@@ -41,7 +41,7 @@ class Metadata(BaseModel):
     owner: Optional[str] = None
     last_modified_at: Optional[int] = None
     visibility: Optional[LeptonVisibility] = None
-    replica_version: Optional[int] = None
+    replica_version: Optional[str] = None
 
 
 class SecretItem(BaseModel):
