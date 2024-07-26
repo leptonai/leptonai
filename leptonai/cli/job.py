@@ -365,6 +365,7 @@ def remove(name):
     """
     job_remove(name)
 
+
 def job_remove(name):
     client = APIClient()
     client.job.delete(name)
