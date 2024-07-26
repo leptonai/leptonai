@@ -252,7 +252,7 @@ def job_create(
     image_pull_secrets=None,
     intra_job_communication=None,
     privileged=None,
-    ttl_seconds_after_finished=None,
+    ttl_seconds_after_finished=259200,
 ):
     client = APIClient()
     if file:
@@ -311,7 +311,6 @@ def job_create(
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
-
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
     client.job.create(job)
 

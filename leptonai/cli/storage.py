@@ -93,7 +93,7 @@ def ls(path):
     """
     List the contents of a directory of the current file storage.
     """
-    ls(path)
+    storage_ls(path)
 
 
 def storage_ls(path, do_print=True):
@@ -172,7 +172,8 @@ def rmdir(path):
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
-    rmdir(path)
+    storage_rmdir(path)
+    console.print(f"Deleted [green]{path}[/].")
 
 
 def storage_rmdir(path, delete_all=False):
@@ -190,7 +191,6 @@ def storage_rmdir(path, delete_all=False):
         sys.exit(1)
 
     client.storage.delete_file_or_dir(path, delete_all)
-    console.print(f"Deleted [green]{path}[/].")
 
 
 @storage.command()

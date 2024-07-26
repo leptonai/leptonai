@@ -5,6 +5,7 @@ import re
 import string
 import sys
 import tempfile
+import time
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from rich.table import Table
 from rich.text import Text
 
-from .deployment import deployment_create, validate_autoscale_options
+from .deployment import deployment_create, validate_autoscale_options, deployment_remove
 from .job import job_create
 from .storage import (
     storage_upload,
@@ -56,21 +57,42 @@ class TunaModelState(str, Enum):
 
 class TunaModel(BaseModel):
     folder_name: str
-    tuna_model_status: TunaModelState
+    tuna_model_state: TunaModelState
     deployments: Optional[List[str]] = None
     job_name: Optional[str] = None
 
 
-def _generate_model_folder_name(
-    model_path, data_filename, is_lora=False, is_medusa=False
-):
+def timestamp_to_readable(timestamp):
+    """Convert a timestamp in milliseconds to a readable datetime format."""
+    # Convert milliseconds to seconds
+    timestamp_seconds = timestamp / 1000
+
+    dt = datetime.fromtimestamp(timestamp_seconds)
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _get_info_file_name(model_name):
+    return model_name + "_info.json"
+
+
+def _get_model_output_path(model_name):
+    return DEFAULT_TUNA_MODEL_PATH + "/" + model_name
+
+
+def _get_job_name(model_name):
+    return (TUNA_TRAIN_JOB_NAME_PREFIX + model_name)[:36]
+
+
+def _generate_model_name(model_path, data_filename, is_lora=False, is_medusa=False):
     # Remove all non-alphanumeric characters
     model_filename_clean = model_path.split("/")[-1]
     model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
     data_filename_clean = re.sub(r"\W+", "", data_filename)
 
     # Get the current date and time
-    current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")[2:]
+    # current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")[2:]
+    current_datetime = int(time.time() * 1000)
 
     # Concatenate the strings
     result_string = f"{current_datetime}-{model_filename_clean}-{data_filename_clean}"
@@ -81,10 +103,6 @@ def _generate_model_folder_name(
         result_string += "-medusa"
     # make sure the length of the name is less than 32
     return result_string
-
-
-def _get_job_name(model_folder_name):
-    return (TUNA_TRAIN_JOB_NAME_PREFIX + model_folder_name)[:36]
 
 
 def _save_params_to_json(params, filename=None):
@@ -104,18 +122,18 @@ def _save_params_to_json(params, filename=None):
     return temp_file_path
 
 
-def reverse_datetime(current_datetime):
-    # current_datetime format is '240718124530'
-    year = "20" + current_datetime[:2]  # Prefix '20' to the first two characters
-    month = current_datetime[2:4]  # Extract month
-    day = current_datetime[4:6]  # Extract day
-    hour = current_datetime[6:8]  # Extract hour
-    minute = current_datetime[8:10]  # Extract minute
-    second = current_datetime[10:12]  # Extract second
-
-    # Format the string as 'YYYY-MM-DD-HH-MM-SS'
-    formatted_datetime = f"{year}-{month}-{day} {hour}:{minute}:{second}"
-    return formatted_datetime
+# def timestemp_to_readable(current_datetime):
+#     # current_datetime format is '240718124530'
+#     year = "20" + current_datetime[:2]  # Prefix '20' to the first two characters
+#     month = current_datetime[2:4]  # Extract month
+#     day = current_datetime[4:6]  # Extract day
+#     hour = current_datetime[6:8]  # Extract hour
+#     minute = current_datetime[8:10]  # Extract minute
+#     second = current_datetime[10:12]  # Extract second
+#
+#     # Format the string as 'YYYY-MM-DD-HH-MM-SS'
+#     formatted_datetime = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+#     return formatted_datetime
 
 
 def _check_or_create_tuna_folder_tree():
@@ -127,11 +145,11 @@ def _check_or_create_tuna_folder_tree():
         storage_mkdir(DEFAULT_TUNA_MODEL_PATH)
 
 
-def _get_model_deployment_name(model_folder_name):
+def _get_model_deployment_name(model_name):
     client = APIClient()
     deployments = client.deployment.list_all()
     deployment_names_set = {deployment.metadata.name for deployment in deployments}
-    base_name = TUNA_DEPLOYMENT_NAME_PREFIX + model_folder_name
+    base_name = TUNA_DEPLOYMENT_NAME_PREFIX + model_name
     counter = 0
     for i in range(0, 999):
         new_name = f"{base_name[:36 - len(str(counter))]}{counter}"
@@ -139,7 +157,7 @@ def _get_model_deployment_name(model_folder_name):
             return new_name
         counter += 1
     random_string = "".join(random.choices(string.ascii_letters + string.digits, k=4))
-    return (TUNA_DEPLOYMENT_NAME_PREFIX + model_folder_name)[:32] + random_string
+    return (TUNA_DEPLOYMENT_NAME_PREFIX + model_name)[:32] + random_string
 
 
 def build_shortened_model_name_deployment_map():
@@ -180,13 +198,13 @@ def build_shortened_model_name_deployment_map():
     return shortened_model_name_deployment_map
 
 
-def _get_model_folder_names():
+def _get_model_names():
     dir_infos = storage_ls(DEFAULT_TUNA_MODEL_PATH, do_print=False)
-    model_folder_names = []
+    model_names = []
     for dir_info in dir_infos:
         if dir_info.type == "dir":
-            model_folder_names.append(dir_info.name)
-    return model_folder_names
+            model_names.append(dir_info.name)
+    return model_names
 
 
 def _get_models_map():
@@ -194,6 +212,7 @@ def _get_models_map():
 
     jobs = client.job.list_all()
     running_job_set = set()
+    failed_job_set = set()
     for job in jobs:
         job_status = job.status.state
         if (
@@ -201,111 +220,79 @@ def _get_models_map():
             or job_status is LeptonJobState.Starting
         ):
             running_job_set.add(job.metadata.name)
+        elif jobs is LeptonJobState.Failed:
+            failed_job_set.add(job.metadata.name)
 
     model_deployment_map = build_shortened_model_name_deployment_map()
-    model_folder_names = _get_model_folder_names()
-    model_folder_names_map = {}
-    for model_folder_name in model_folder_names:
-        job_name = _get_job_name(model_folder_name)
-        if (
-            not _model_train_completed(model_folder_name)
-            and job_name not in running_job_set
-        ):
-            model_folder_names_map[model_folder_name] = TunaModel(
-                folder_name=model_folder_name,
-                tuna_model_status=TunaModelState.trainFailed,
+    model_names = _get_model_names()
+    model_names_map = {}
+    for model_name in model_names:
+        job_name = _get_job_name(model_name)
+        if not _model_train_completed(model_name) and job_name not in running_job_set:
+            model_names_map[model_name] = TunaModel(
+                folder_name=model_name,
+                tuna_model_state=TunaModelState.trainFailed,
             )
+            if job_name in failed_job_set:
+                model_names_map[model_name].job_name = job_name
         elif job_name not in running_job_set:
             # todo: if not deployed put it ready else put it running
-            cur_shorten_model_name = model_folder_name[
-                : 32 - len(TUNA_DEPLOYMENT_NAME_PREFIX)
-            ]
+            cur_shorten_model_name = model_name[: 32 - len(TUNA_DEPLOYMENT_NAME_PREFIX)]
             if cur_shorten_model_name in model_deployment_map:
                 cur_deployment_info = model_deployment_map[cur_shorten_model_name]
-                model_folder_names_map[model_folder_name] = TunaModel(
-                    folder_name=model_folder_name,
+                model_names_map[model_name] = TunaModel(
+                    folder_name=model_name,
                     deployments=cur_deployment_info[1:],
-                    tuna_model_status=cur_deployment_info[0],
+                    tuna_model_state=cur_deployment_info[0],
                 )
             else:
-                model_folder_names_map[model_folder_name] = TunaModel(
-                    folder_name=model_folder_name,
-                    tuna_model_status=TunaModelState.Ready,
+                model_names_map[model_name] = TunaModel(
+                    folder_name=model_name,
+                    tuna_model_state=TunaModelState.Ready,
                 )
         else:
-            model_folder_names_map[model_folder_name] = TunaModel(
-                folder_name=model_folder_name, tuna_model_status=TunaModelState.Training
+            model_names_map[model_name] = TunaModel(
+                folder_name=model_name,
+                tuna_model_state=TunaModelState.Training,
+                job_name=job_name
             )
-    return model_folder_names_map
+    return model_names_map
 
 
-def _model_train_completed(model_folder_name: str) -> bool:
+def _model_train_completed(model_name: str) -> bool:
     client = APIClient()
-    dir_infos = client.storage.get_dir(
-        DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
-    )
+    dir_infos = client.storage.get_dir(DEFAULT_TUNA_MODEL_PATH + "/" + model_name)
     return len(dir_infos) > 1
 
 
-def _get_model_folder_name(job_name):
+def _get_model_name_from_job(job_name):
     job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX) :]
-    models = _get_model_folder_names()
-    for model_folder_name in models:
-        if job_name in model_folder_name:
-            return model_folder_name
+    models_names = _get_model_names()
+    for model_name in models_names:
+        if job_name in model_name:
+            return model_name
 
 
-def _get_model_basic_info_from_model_folder_name(job_name=None, model_folder_name=None):
+def _get_model_basic_info_from_model_name(job_name=None, model_name=None):
     if job_name:
-        model_folder_name = _get_model_folder_name(job_name)
-    if model_folder_name is None:
+        model_name = _get_model_name_from_job(job_name)
+    if model_name is None:
         return None, None, None
-    model_folder_name_arr = model_folder_name.split("-") or ""
+    model_name_arr = model_name.split("-") or ""
     trained_time = (
-        model_folder_name_arr[0]
-        if len(model_folder_name_arr) > 0
+        timestamp_to_readable(int(model_name_arr[0]))
+        if len(model_name_arr) > 0
         else "unknown created time"
     )
-    model_name = (
-        model_folder_name_arr[1]
-        if len(model_folder_name_arr) > 1
-        else "unknown model name"
-    )
-    data_name = (
-        model_folder_name_arr[2]
-        if len(model_folder_name_arr) > 2
-        else "unknown data name"
-    )
-    lora_or_medusa = (
-        model_folder_name_arr[3] if len(model_folder_name_arr) > 3 else None
-    )
-    trained_time = reverse_datetime(trained_time)
+    model_name = model_name_arr[1] if len(model_name_arr) > 1 else "unknown model name"
+    data_name = model_name_arr[2] if len(model_name_arr) > 2 else "unknown data name"
+    lora_or_medusa = model_name_arr[3] if len(model_name_arr) > 3 else None
     return trained_time, model_name, data_name, lora_or_medusa
 
 
-# def _get_model_deployments(model_folder_name):
-#     deployment_name = _get_model_deployment_name(model_folder_name)
-#     client = APIClient()
-#     deployments = client.deployment.list_all()
-#     this_model_deployments = []
-#     for deployment in deployments:
-#         if deployment_name in deployment.metadata.name:
-#             this_model_deployments.append(deployment)
-#     return this_model_deployments
-
-
-def _get_info_file_name(model_folder_name):
-    return model_folder_name + "_info.json"
-
-
-def _get_model_output_path(model_folder_name):
-    return DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
-
-
-# todo finish this function to get model config from json file
-def _get_model_details(model_folder_name):
-    info_file_name = _get_info_file_name(model_folder_name)
-    info_path = _get_model_output_path(model_folder_name) + "/" + info_file_name
+def _get_model_details(model_name):
+    info_file_name = _get_info_file_name(model_name)
+    info_path = _get_model_output_path(model_name) + "/" + info_file_name
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
@@ -321,8 +308,8 @@ def _get_model_details(model_folder_name):
     return params
 
 
-def _get_model_path_from_info(model_folder_name):
-    params = _get_model_details(model_folder_name)
+def _get_model_path_from_info(model_name):
+    params = _get_model_details(model_name)
 
     return params.get("model_path") if "model_path" in params else None
 
@@ -587,14 +574,13 @@ def train(
 
     # Generate a name for the model-data job
 
-    model_folder_name = _generate_model_folder_name(
+    model_name = _generate_model_name(
         model_path, dataset_file_name, kwargs.get("lora"), kwargs.get("medusa")
     )
-    job_name = _get_job_name(model_folder_name)
-    console.print(f"[green]{job_name}[/]")
+    job_name = _get_job_name(model_name)
 
     # Generate the output folder
-    model_output_path = _get_model_output_path(model_folder_name)
+    model_output_path = _get_model_output_path(model_name)
     storage_mkdir(model_output_path)
 
     # Construct the command string
@@ -612,13 +598,11 @@ def train(
                 cmd += f' {option}="{value}"'
             else:
                 cmd += f" {option}={value}"
-    # todo remove debug print
-    console.print(f"[red]{cmd}[/]")
 
     # Save all parameters to a JSON file and upload to model path
     params = {
         "train_job_name": job_name,
-        "model_name": model_folder_name,
+        "model_name": model_name,
         "training_resource_shape": resource_shape,
         "node_groups": node_groups,
         "num_workers": num_workers,
@@ -629,7 +613,7 @@ def train(
         **kwargs,
     }
 
-    model_info_file_name = _get_info_file_name(model_folder_name)
+    model_info_file_name = _get_info_file_name(model_name)
 
     model_info_file_path = _save_params_to_json(params, model_info_file_name)
 
@@ -650,7 +634,7 @@ def train(
     )
     console.print(
         f"Model Training Job [green]{job_name}[/] for your model"
-        f" [green]{model_folder_name}[/] created successfully."
+        f" [green]{model_name}[/] created successfully."
     )
 
 
@@ -733,19 +717,42 @@ def train(
 
 # todo refine this remove for model have running model
 @tuna.command()
-@click.argument("model_folder_name")
-def remove(model_folder_name):
-    client = APIClient()
-    jobs = client.job.list_all()
-    job_name = _get_job_name(model_folder_name)
-    for job in jobs:
-        if job.metadata.name == job_name:
-            client.job.delete(job_name)
+@click.argument("model_name")
+def remove(model_name):
+    models_map = _get_models_map()
 
-    model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
-    if _model_train_completed(model_folder_name):
+    if model_name not in models_map:
+        models_name = models_map.keys()
+        console.print(f"""
+            [red]{model_name}[/] not found.
+        """)
+        if len(models_name) != 0:
+            models_str = "\n                ".join(models_name)
+            console.print(f"""what you have is:
+                [green]{models_str}[/]""")
+        sys.exit(1)
+    cur_tuna_model = models_map[model_name]
+
+    if cur_tuna_model.deployments is not None and len(cur_tuna_model.deployments) > 0:
+        deployments_list = "\n            ".join(cur_tuna_model.deployments)
+        console.print(f"""
+            The model '{model_name}' is currently [red]{cur_tuna_model.tuna_model_state}[/].
+            It has the following deployments: 
+            [green]{deployments_list}[/].
+            """)
+        user_input = (
+            input(
+                "Are you sure you want to delete all the deployments and then delete"
+                " the tuna model? (yes/no): "
+            )
+            .strip()
+            .lower()
+        )
+        if user_input == "no":
+            sys.exit(0)
+    elif _model_train_completed(model_name):
         console.print(
-            f"[red]The model '{model_folder_name}' is ready and has been trained"
+            f"[red]The model '{model_name}' is ready and has been trained"
             " successfully.[/]"
         )
         user_input = (
@@ -753,17 +760,32 @@ def remove(model_folder_name):
         )
         if user_input == "no":
             sys.exit(0)
+
+    client = APIClient()
+    jobs = client.job.list_all()
+    job_name = _get_job_name(model_name)
+    for job in jobs:
+        if job.metadata.name == job_name:
+            client.job.delete(job_name)
+
+    if cur_tuna_model.deployments is not None and len(cur_tuna_model.deployments) > 0:
+        for deployment in cur_tuna_model.deployments:
+            deployment_name = deployment.split(" ")[0]
+            deployment_remove(deployment_name)
+
+    model_path = _get_model_output_path(model_name)
+    # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
+
     storage_rmdir(model_path, delete_all=True)
-    console.print(
-        f"Model Train Job [green]{model_folder_name}[/] deleted successfully."
-    )
+    console.print(f"Model [green]{model_name}[/] deleted successfully.")
 
 
 @tuna.command()
-def clear_failed_train():
-    for folder_name, tuna_model in _get_models_map().items():
-        if tuna_model.tuna_model_status is TunaModelState.trainFailed:
-            model_path = DEFAULT_TUNA_MODEL_PATH + "/" + folder_name
+def clear_failed_trainings():
+    for model_name, tuna_model in _get_models_map().items():
+        if tuna_model.tuna_model_state is TunaModelState.trainFailed:
+            model_path = _get_model_output_path(model_name)
+            # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + folder_name
             storage_rmdir(model_path, delete_all=True)
 
 
@@ -900,6 +922,21 @@ def run(
     autoscale_qpm=None,
 ):
     # use deployment create
+    # todo check whether model is train completed
+    model_names = _get_model_names()
+    model_list = "\n                      ".join(model_names)
+    if name not in model_names:
+        console.print(f"""\n[red]{name}[/] is not exist. what you have:
+                      [green]{model_list}[/]
+                      """)
+        sys.exit(1)
+
+    if not _model_train_completed(name):
+        console.print(
+            f"[red]{name}[/] is either training or the training has failed. "
+            "Please use 'lep tuna list' for more information."
+        )
+        sys.exit(1)
 
     client = APIClient()
     secrets = client.secret.list_all()
@@ -932,7 +969,6 @@ def run(
         medusa = "MEDUSA=" + model_output_path
     else:
         model_path = "MODEL_PATH=" + model_output_path
-
     hf_transfer_num_str = "1" if hf_transfer else "0"
     env = [
         "HF_HUB_ENABLE_HF_TRANSFER=" + hf_transfer_num_str,
@@ -949,19 +985,6 @@ def run(
     mount.append("/lepton-tuna:/lepton-tuna")
 
     huggingface_token = [huggingface_token]
-
-    # print(f"name: {deployment_name}")
-    # print(f"resource_shape: {resource_shape}")
-    # print(f"photon_name: {LLM_BY_LEPTON_PHOTON_NAME}")
-    # print(f"env: {env}")
-    # print(f"node_groups: {node_groups}")
-    # print(f"secret: {huggingface_token}")
-    # print(f"mount: {mount}")
-    # print(f"public_photon: {True}")
-    # print(f"replicas_static: {replicas_static}")
-    # print(f"autoscale_down: {autoscale_down}")
-    # print(f"autoscale_gpu_util: {autoscale_gpu_util}")
-    # print(f"autoscale_qpm: {autoscale_qpm}")
 
     deployment_create(
         name=deployment_name,
@@ -996,13 +1019,11 @@ def list_command():
     table.add_column("Running Deployments Name")
     table.add_column("Train Job Name")
 
-    for model_folder_name, tuna_model in _get_models_map().items():
-        time, model, data, lora_or_medusa = (
-            _get_model_basic_info_from_model_folder_name(
-                model_folder_name=model_folder_name
-            )
+    for model_name, tuna_model in _get_models_map().items():
+        time, model, data, lora_or_medusa = _get_model_basic_info_from_model_name(
+            model_name=model_name
         )
-        status = tuna_model.tuna_model_status
+        status = tuna_model.tuna_model_state
         state_style = (
             "green"
             if status is TunaModelState.Running
@@ -1013,18 +1034,20 @@ def list_command():
             )
         )
 
+        train_job_name = "Not Training"
+        if tuna_model.tuna_model_state == TunaModelState.Training:
+            train_job_name = Text(tuna_model.job_name, style="green")
+        elif tuna_model.tuna_model_state == TunaModelState.trainFailed:
+            train_job = tuna_model.job_name or (_get_job_name(model_name) + " (expired)")
+            train_job_name = Text(train_job, style="red")
         table.add_row(
-            model_folder_name,
+            model_name,
             time if time else "N/A",
             model,
             data,
             Text(status, style=state_style),
             "\n".join(tuna_model.deployments) if tuna_model.deployments else None,
-            (
-                Text(_get_job_name(model_folder_name), style="green")
-                if status is TunaModelState.Training
-                else "Not Training"
-            ),
+            train_job_name,
         )
 
     table.title = "Tuna Models"

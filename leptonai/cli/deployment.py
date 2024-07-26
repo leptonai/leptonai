@@ -558,7 +558,6 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
 ):
-
     deployment_create(
         name,
         photon_name,
@@ -910,9 +909,13 @@ def remove(name):
     """
     Removes a deployment.
     """
+    deployment_remove(name)
+
+
+def deployment_remove(name):
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Job [green]{name}[/] deleted successfully.")
+    console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()
