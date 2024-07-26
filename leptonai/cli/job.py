@@ -363,6 +363,9 @@ def remove(name):
     """
     Removes the job with the given name.
     """
+    job_remove(name)
+
+def job_remove(name):
     client = APIClient()
     client.job.delete(name)
     console.print(f"Job [green]{name}[/] deleted successfully.")

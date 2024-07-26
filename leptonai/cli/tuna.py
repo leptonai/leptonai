@@ -12,12 +12,13 @@ from typing import Optional, List
 
 import click
 from pydantic import BaseModel
+from rich.pretty import Pretty
 
 from rich.table import Table
 from rich.text import Text
 
 from .deployment import deployment_create, validate_autoscale_options, deployment_remove
-from .job import job_create
+from .job import job_create, job_remove
 from .storage import (
     storage_upload,
     storage_find,
@@ -220,7 +221,7 @@ def _get_models_map():
             or job_status is LeptonJobState.Starting
         ):
             running_job_set.add(job.metadata.name)
-        elif jobs is LeptonJobState.Failed:
+        elif job_status is LeptonJobState.Failed:
             failed_job_set.add(job.metadata.name)
 
     model_deployment_map = build_shortened_model_name_deployment_map()
@@ -228,6 +229,7 @@ def _get_models_map():
     model_names_map = {}
     for model_name in model_names:
         job_name = _get_job_name(model_name)
+
         if not _model_train_completed(model_name) and job_name not in running_job_set:
             model_names_map[model_name] = TunaModel(
                 folder_name=model_name,
@@ -235,8 +237,8 @@ def _get_models_map():
             )
             if job_name in failed_job_set:
                 model_names_map[model_name].job_name = job_name
+
         elif job_name not in running_job_set:
-            # todo: if not deployed put it ready else put it running
             cur_shorten_model_name = model_name[: 32 - len(TUNA_DEPLOYMENT_NAME_PREFIX)]
             if cur_shorten_model_name in model_deployment_map:
                 cur_deployment_info = model_deployment_map[cur_shorten_model_name]
@@ -254,7 +256,7 @@ def _get_models_map():
             model_names_map[model_name] = TunaModel(
                 folder_name=model_name,
                 tuna_model_state=TunaModelState.Training,
-                job_name=job_name
+                job_name=job_name,
             )
     return model_names_map
 
@@ -638,84 +640,6 @@ def train(
     )
 
 
-# @tuna.command()
-# # Todo: move this to list() function
-# def list_train():
-#     client = APIClient()
-#     train_jobs = client.job.list_all()
-#     logger.trace(f"Model Train Jobs: {train_jobs}")
-#
-#     table = Table(show_header=True)
-#     table.add_column("Name")
-#     table.add_column("Created At")
-#     table.add_column("State (ready,active,succeeded,failed)")
-#     table.add_column("Model")
-#     table.add_column("Data")
-#     job_name_set = set()
-#     for job in train_jobs:
-#         if TUNA_TRAIN_JOB_NAME_PREFIX not in job.metadata.name:
-#             continue
-#         if job.status.state == LeptonJobState.Deleting:
-#             job_name_set.add(job.metadata.id_)
-#             continue
-#         time, model, data = _get_model_basic_info_from_model_folder_name(job_name=job.metadata.id_)
-#         job_name_set.add(job.metadata.id_)
-#         status = job.status.state
-#         table.add_row(
-#             job.metadata.name,
-#             (
-#                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
-#                     "%Y-%m-%d\n%H:%M:%S"
-#                 )
-#                 if job.metadata.created_at
-#                 else "N/A"
-#             ),
-#             f"{status.state} ({status.ready},{status.active},{status.succeeded},{status.failed})",
-#             model,
-#             data,
-#         )
-#
-#     # Simulate a job from the failed model folder
-#     for failed_model_folder_name, tuna_model in _get_models_map().items():
-#         if tuna_model.tuna_model_status is not TunaModelState.trainFailed:
-#             continue
-#         job_name = _get_job_name(failed_model_folder_name)
-#         # If a failed job exists, we remove duplicates
-#         if job_name in job_name_set:
-#             continue
-#         time, model, data = _get_model_basic_info_from_model_folder_name(model_folder_name=failed_model_folder_name)
-#
-#         table.add_row(
-#             job_name,
-#             (
-#                 time
-#                 if time
-#                 else "N/A"
-#             ),
-#             f"{LeptonJobState.Failed} ({0},{0},{0},{1})",
-#             model,
-#             data,
-#         )
-#     table.title = "Model Train Jobs"
-#     console.print(table)
-
-
-# @tuna.command()
-# @click.argument("name")
-# def delete_train(name):
-#     client = APIClient()
-#     jobs = client.job.list_all()
-#     for job in jobs:
-#         if job.metadata.name == name:
-#             client.job.delete(name)
-#     model_folder_name = _get_model_folder_name(name)
-#     model_path = DEFAULT_TUNA_MODEL_PATH + '/' + model_folder_name
-#     if not _model_train_completed(model_folder_name):
-#         storage_rmdir(model_path, delete_all=True)
-#     console.print(f"Model Train Job [green]{name}[/] deleted successfully.")
-
-
-# todo refine this remove for model have running model
 @tuna.command()
 @click.argument("model_name")
 def remove(model_name):
@@ -781,13 +705,47 @@ def remove(model_name):
 
 
 @tuna.command()
+@click.argument("model_name")
+def info(model_name):
+    """
+    Retrieves and Print the details of a specified model.
+    """
+    params = _get_model_details(model_name)
+
+    console.print(f"Model information for [yellow]'{model_name}'[/]：")
+
+    console.print(Pretty(params))
+
+    cmd_parts = ["lep", "tuna", "train"]
+    for key, value in params.items():
+        if value is not None:
+            if isinstance(value, list):
+                for item in value:
+                    cmd_parts.append(f"--{key.replace('_', '-')}")
+                    cmd_parts.append(f"{item}")
+            elif isinstance(value, bool):
+                if value:
+                    cmd_parts.append(f"--{key.replace('_', '-')}")
+            else:
+                cmd_parts.append(f"--{key.replace('_', '-')}")
+                cmd_parts.append(f"{value}")
+
+    cmd_str = " ".join(cmd_parts)
+    console.print(f"""
+    Your command for train this tuna model was:
+            [yellow]🌟 {cmd_str}[/]
+    """)
+
+
+@tuna.command()
 def clear_failed_trainings():
     for model_name, tuna_model in _get_models_map().items():
         if tuna_model.tuna_model_state is TunaModelState.trainFailed:
             model_path = _get_model_output_path(model_name)
-            # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + folder_name
             storage_rmdir(model_path, delete_all=True)
-
+            if tuna_model.job_name:
+                job_remove(tuna_model.job_name)
+            console.print(f"Training failed model [green]{model_name}[/] deleted successfully.")
 
 # todo get model info / train info
 # todo change time formate
@@ -1038,8 +996,12 @@ def list_command():
         if tuna_model.tuna_model_state == TunaModelState.Training:
             train_job_name = Text(tuna_model.job_name, style="green")
         elif tuna_model.tuna_model_state == TunaModelState.trainFailed:
-            train_job = tuna_model.job_name or (_get_job_name(model_name) + " (expired)")
-            train_job_name = Text(train_job, style="red")
+            train_job_name = (
+                Text(tuna_model.job_name, style="yellow")
+                if tuna_model.job_name is not None
+                else Text((_get_job_name(model_name) + " (expired)"), style="red")
+            )
+
         table.add_row(
             model_name,
             time if time else "N/A",
