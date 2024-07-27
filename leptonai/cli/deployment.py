@@ -39,6 +39,8 @@ from ..api.v1.types.deployment import (
     ScaleDown,
     ContainerPort,
     AutoscalerTargetThroughput,
+    EnvVar,
+    EnvValue,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -1333,6 +1335,120 @@ def events(name):
             date_string,
         )
     console.print(table)
+
+
+@deployment.command()
+@click.option("--name", "-n", help="The deployment name to get status.", required=True)
+def update_env(name):
+    client = APIClient()
+
+    cur_deployment = client.deployment.get(name)
+
+    cur_envs = cur_deployment.spec.envs
+
+    console.print(
+        f"\nCurrent envs for [green]{name}[/]:"
+        "Please choose the env you want to edit or choose 0 to add new env"
+    )
+
+    console.print("\n[green]0. Add a new environment variable[/]\n")
+    console.print("[green]1. Add a new secret[/]\n")
+    for index, env in enumerate(cur_envs, start=2):
+        console.print(f"{index}. [yellow]{env.name}:{env.value or env.value_from}[/]\n")
+
+    choice = input("\nEnter your choice: ")
+
+    key_set = set()
+    for env in cur_envs:
+        key_set.add(env.name)
+
+    key_value = None
+    secret = None
+    if choice.isdigit():
+        choice = int(choice)
+        if choice == 0:
+            key_value = input(
+                "Enter the new environment variable in this format <key>:<value>: "
+            )
+            match = re.match(r"^[^:]+:[^:]+$", key_value)
+            if not match:
+                console.print(
+                    "[red]Invalid format. Please enter in the format <key>:<value>.[/]"
+                )
+            if key_value.split(":")[0] in key_set:
+                console.print(
+                    f"[red]{key_value.split(':')[0]} exist, please select it to edit"
+                )
+
+            console.print(
+                f"New environment variable [green]{key_value}[/] will be added."
+            )
+
+        elif choice == 1:
+            secret = input("Enter the Secret Name:")
+            if secret not in client.secret.list_all():
+                console.print(
+                    f"{secret} not found, please use [green]lep secret create -n"
+                    " <secret_name><secret_value>[/] to create"
+                )
+            if secret in key_set:
+                console.print(f"[red]{secret} exist, please select it to edit")
+
+        elif 1 <= choice <= len(cur_envs) + 1:
+            selected_env = cur_envs[choice - 2]
+            console.print(f"You selected to edit [green]{selected_env.name}[/].")
+            new_value = input(
+                f"Enter the new value for {selected_env.name} (current value:"
+                f" {selected_env.value or selected_env.value_from.secret_name_ref})or"
+                " enter DELETE to delete this env or secret: "
+            )
+            if new_value == "DELETE":
+                del cur_envs[choice - 2]
+            else:
+                selected_env.value = new_value
+                cur_envs[choice - 2] = selected_env
+                console.print(
+                    f"Environment variable [green]{selected_env.name}[/] will be"
+                    f" updated with new value [yellow]{new_value}[/]."
+                )
+        else:
+            console.print("[red]Invalid choice. Please enter a valid number.[/]")
+            sys.exit(1)
+    else:
+        console.print("[red]Invalid input. Please enter a number.[/]")
+        sys.exit(1)
+
+    if key_value:
+        key_name, value = key_value.split(":")
+        cur_envs.append(EnvVar(name=key_name, value=value))
+
+    if secret:
+        cur_envs.append(
+            EnvVar(name=secret, value_from=EnvValue(secret_name_ref=secret))
+        )
+
+    spec = LeptonDeploymentUserSpec()
+    spec.envs = cur_envs
+
+    lepton_deployment = LeptonDeployment(
+        metadata=Metadata(
+            id=name,
+            name=name,
+        ),
+        spec=spec,
+    )
+
+    client.deployment.update(
+        name_or_deployment=name,
+        spec=lepton_deployment,
+    )
+
+    cur_deployment = client.deployment.get(name)
+
+    cur_envs = cur_deployment.spec.envs
+    console.print("[green]ENV update successfully[/]\nyour current env:\n")
+    for index, env in enumerate(cur_envs, start=1):
+        console.print(f"{index}. [yellow]{env.name}:{env.value or env.value_from}[/]\n")
 
 
 def add_command(cli_group):
