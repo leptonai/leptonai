@@ -702,6 +702,7 @@ def create(
         )
 
     # include workspace token
+    secret = list(secret)  # to convert secret from tuple to list
     if include_workspace_token:
         console.print("Including the workspace token for the photon execution.")
         _create_workspace_token_secret_var_if_not_existing(client)
