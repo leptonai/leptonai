@@ -64,7 +64,15 @@ class TunaModel(BaseModel):
 
 
 def timestamp_to_readable(timestamp):
-    """Convert a timestamp in milliseconds to a readable datetime format."""
+    """Convert a timestamp in milliseconds to a readable datetime format.
+
+    Args:
+        timestamp (int): Timestamp in milliseconds
+        --- time.time() * 1000
+
+    Returns:
+        str: Readable datetime string.
+    """
     # Convert milliseconds to seconds
     timestamp_seconds = timestamp / 1000
 
@@ -73,26 +81,36 @@ def timestamp_to_readable(timestamp):
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _get_info_file_name(model_name):
+def _generate_info_file_name(model_name):
     return model_name + "_info.json"
 
 
-def _get_model_output_path(model_name):
+def _generate_model_output_path(model_name):
     return DEFAULT_TUNA_MODEL_PATH + "/" + model_name
 
 
-def _get_job_name(model_name):
+def _generate_job_name(model_name):
     return (TUNA_TRAIN_JOB_NAME_PREFIX + model_name)[:36]
 
 
 def _generate_model_name(model_path, data_filename, is_lora=False, is_medusa=False):
+    """Generate a unique model name based on various parameters.
+
+    Args:
+        model_path (str): The path of the model.
+        data_filename (str): The name of the data file.
+        is_lora (bool): Whether LoRA is used.
+        is_medusa (bool): Whether Medusa is used.
+
+    Returns:
+        str: The generated model name.
+    """
     # Remove all non-alphanumeric characters
     model_filename_clean = model_path.split("/")[-1]
     model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
     data_filename_clean = re.sub(r"\W+", "", data_filename)
 
     # Get the current date and time
-    # current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")[2:]
     current_datetime = int(time.time() * 1000)
 
     # Concatenate the strings
@@ -106,15 +124,18 @@ def _generate_model_name(model_path, data_filename, is_lora=False, is_medusa=Fal
     return result_string
 
 
-def _save_params_to_json(params, filename=None):
-    if filename is None:
-        # Create a temporary file if no filename is provided
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-        temp_file_path = temp_file.name
-    else:
-        # Use the provided filename and create the file in a temporary directory
-        temp_dir = tempfile.gettempdir()
-        temp_file_path = os.path.join(temp_dir, filename)
+def _save_params_to_json(params, filename):
+    """Save parameters to a JSON file.
+
+    Args:
+        params (dict): Parameters to be saved.
+        filename (str): Optional filename for the JSON file.
+
+    Returns:
+        str: The path of the saved JSON file.
+    """
+    temp_dir = tempfile.gettempdir()
+    temp_file_path = os.path.join(temp_dir, filename)
 
     # Save parameters to the JSON file
     with open(temp_file_path, "w") as f:
@@ -123,21 +144,8 @@ def _save_params_to_json(params, filename=None):
     return temp_file_path
 
 
-# def timestemp_to_readable(current_datetime):
-#     # current_datetime format is '240718124530'
-#     year = "20" + current_datetime[:2]  # Prefix '20' to the first two characters
-#     month = current_datetime[2:4]  # Extract month
-#     day = current_datetime[4:6]  # Extract day
-#     hour = current_datetime[6:8]  # Extract hour
-#     minute = current_datetime[8:10]  # Extract minute
-#     second = current_datetime[10:12]  # Extract second
-#
-#     # Format the string as 'YYYY-MM-DD-HH-MM-SS'
-#     formatted_datetime = f"{year}-{month}-{day} {hour}:{minute}:{second}"
-#     return formatted_datetime
-
-
 def _check_or_create_tuna_folder_tree():
+    """Check and create the folder structure for Tuna if it does not exist."""
     if not storage_find(DEFAULT_TUNA_FOLDER):
         storage_mkdir(DEFAULT_TUNA_FOLDER)
     if not storage_find(DEFAULT_TUNA_TRAIN_DATASET_PATH):
@@ -146,7 +154,15 @@ def _check_or_create_tuna_folder_tree():
         storage_mkdir(DEFAULT_TUNA_MODEL_PATH)
 
 
-def _get_model_deployment_name(model_name):
+def _generate_model_deployment_name(model_name):
+    """Generate a deployment name for the model.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        str: The generated deployment name.
+    """
     client = APIClient()
     deployments = client.deployment.list_all()
     deployment_names_set = {deployment.metadata.name for deployment in deployments}
@@ -162,6 +178,11 @@ def _get_model_deployment_name(model_name):
 
 
 def build_shortened_model_name_deployment_map():
+    """Build a map of shortened model names to deployment information.
+
+    Returns:
+        dict: Mapping of shortened model names to deployment information.
+    """
     client = APIClient()
     deployments = client.deployment.list_all()
     shortened_model_name_deployment_map = {}
@@ -200,6 +221,11 @@ def build_shortened_model_name_deployment_map():
 
 
 def _get_model_names():
+    """Retrieve the names of all models.
+
+    Returns:
+        list: List of model names.
+    """
     dir_infos = storage_ls(DEFAULT_TUNA_MODEL_PATH, do_print=False)
     model_names = []
     for dir_info in dir_infos:
@@ -209,6 +235,16 @@ def _get_model_names():
 
 
 def _get_models_map():
+    """Get a map of model names to TunaModel instances.
+
+    Returns:
+        dict: Mapping of model names to TunaModel instances.
+    """
+    if not storage_find(DEFAULT_TUNA_FOLDER):
+        return {}
+    if not storage_find(DEFAULT_TUNA_MODEL_PATH):
+        return {}
+
     client = APIClient()
 
     jobs = client.job.list_all()
@@ -225,10 +261,11 @@ def _get_models_map():
             failed_job_set.add(job.metadata.name)
 
     model_deployment_map = build_shortened_model_name_deployment_map()
+
     model_names = _get_model_names()
     model_names_map = {}
     for model_name in model_names:
-        job_name = _get_job_name(model_name)
+        job_name = _generate_job_name(model_name)
 
         if not _model_train_completed(model_name) and job_name not in running_job_set:
             model_names_map[model_name] = TunaModel(
@@ -262,12 +299,28 @@ def _get_models_map():
 
 
 def _model_train_completed(model_name: str) -> bool:
+    """Check if the model training has been completed.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        bool: True if training is completed, False otherwise.
+    """
     client = APIClient()
     dir_infos = client.storage.get_dir(DEFAULT_TUNA_MODEL_PATH + "/" + model_name)
     return len(dir_infos) > 1
 
 
 def _get_model_name_from_job(job_name):
+    """Get the model name associated with a job.
+
+    Args:
+        job_name (str): The name of the job.
+
+    Returns:
+        str: The name of the model.
+    """
     job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX) :]
     models_names = _get_model_names()
     for model_name in models_names:
@@ -276,6 +329,16 @@ def _get_model_name_from_job(job_name):
 
 
 def _get_model_basic_info_from_model_name(job_name=None, model_name=None):
+    """Retrieve basic information about a model based on job name or model name.
+
+    Args:
+        job_name (str, optional): The name of the job. Defaults to None.
+        model_name (str, optional): The name of the model. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing the trained time, model name, data name, and
+               optional LoRA or Medusa indicator.
+    """
     if job_name:
         model_name = _get_model_name_from_job(job_name)
     if model_name is None:
@@ -293,8 +356,16 @@ def _get_model_basic_info_from_model_name(job_name=None, model_name=None):
 
 
 def _get_model_details(model_name):
-    info_file_name = _get_info_file_name(model_name)
-    info_path = _get_model_output_path(model_name) + "/" + info_file_name
+    """Retrieve the details of a model from its info file.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        dict: The parameters of the model.
+    """
+    info_file_name = _generate_info_file_name(model_name)
+    info_path = _generate_model_output_path(model_name) + "/" + info_file_name
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
@@ -311,6 +382,14 @@ def _get_model_details(model_name):
 
 
 def _get_model_path_from_info(model_name):
+    """Retrieve the model path from its info file.
+
+    Args:
+        model_name (str): The name of the model.
+
+    Returns:
+        str: The path of the model.
+    """
     params = _get_model_details(model_name)
 
     return params.get("model_path") if "model_path" in params else None
@@ -319,24 +398,27 @@ def _get_model_path_from_info(model_name):
 @click_group()
 def tuna():
     """
-    todo
-    description here
+    Tuna CLI: A command-line interface for dataset management, fine-tuning, and model management.
 
-    data,
-        ✅upload
-        ✅list
-        ✅remove
+    Available Commands:
 
-    train
-        ✅create
-        ✅list
-        ✅stop
+    upload-data  - Upload data to the specified remote path.
 
-    model
-        ✅list
-        ✅delete
-        run
+    list-data    - List all data in the default tuna train dataset path.
 
+    remove-data  - Remove specified data file .
+
+    train        - Create and start a new training job.
+
+    list         - List all tuna models in this workspace.
+
+    remove       - Delete a specified tuna model.
+
+    run          - Run a specified tuna model.
+
+    info         - Retrieve and print a specific tuna model information.
+
+    clear-failed-trainings - Delete all failed training models and related jobs.
     """
     pass
 
@@ -352,6 +434,14 @@ def tuna():
     help="Remote folder path.",
 )
 def upload_data(local_path, for_test_remote_path):
+    """Upload data to the DEFAULT_TUNA_TRAIN_DATASET_PATH path.
+
+    Usage: lep tuna upload-data --local-path <local_path>
+
+    Args:
+        local_path (str): Local data path.
+        for_test_remote_path (str): Remote folder path. This option is intended for testing purposes only.
+    """
     _check_or_create_tuna_folder_tree()
 
     if not for_test_remote_path:
@@ -369,6 +459,10 @@ def upload_data(local_path, for_test_remote_path):
 
 @tuna.command()
 def list_data():
+    """List all data in the default tuna train dataset path.
+
+    Usage: lep tuna list-data
+    """
     _check_or_create_tuna_folder_tree()
 
     storage_ls(DEFAULT_TUNA_TRAIN_DATASET_PATH)
@@ -383,8 +477,13 @@ def list_data():
     help="Data file name like [data.json].",
 )
 def remove_data(data_file_name):
-    _check_or_create_tuna_folder_tree()
+    """Remove specified data file from the default tuna train dataset path.
 
+    Usage: lep tuna remove-data --data-file-name <data_file_name>
+
+    Args:
+        data_file_name (str): Name of the data file to be removed.
+    """
     data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + data_file_name
     if not storage_find(data_file_path):
         console.print(f"[red]Dataset {data_file_name} not found [/]")
@@ -536,32 +635,17 @@ def train(
     node_groups,
     num_workers,
     max_job_failure_retry,
+    # in cmd
     resource_shape,
     env,
-    # in cmd
     model_path,
     dataset_file_name,
     **kwargs,
-    # purpose,
-    # num_train_epochs,
-    # per_device_train_batch_size,
-    # gradient_accumulation_steps,
-    # report_wandb,
-    # wandb_project,
-    # save_steps,
-    # learning_rate,
-    # warmup_ratio,
-    # model_max_length,
-    # low_mem_mode,
-    # lora,
-    # lora_rank,
-    # lora_alpha,
-    # lora_dropout,
-    # medusa,
-    # num_medusa_head,
-    # early_stop_threshold,
 ):
-    # check data_path
+    """Create and start a new training job.
+
+    Usage: lep tuna train [OPTIONS]
+    """
 
     data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_file_name
 
@@ -579,10 +663,10 @@ def train(
     model_name = _generate_model_name(
         model_path, dataset_file_name, kwargs.get("lora"), kwargs.get("medusa")
     )
-    job_name = _get_job_name(model_name)
+    job_name = _generate_job_name(model_name)
 
     # Generate the output folder
-    model_output_path = _get_model_output_path(model_name)
+    model_output_path = _generate_model_output_path(model_name)
     storage_mkdir(model_output_path)
 
     # Construct the command string
@@ -615,7 +699,7 @@ def train(
         **kwargs,
     }
 
-    model_info_file_name = _get_info_file_name(model_name)
+    model_info_file_name = _generate_info_file_name(model_name)
 
     model_info_file_path = _save_params_to_json(params, model_info_file_name)
 
@@ -643,6 +727,13 @@ def train(
 @tuna.command()
 @click.argument("model_name")
 def remove(model_name):
+    """Delete a specified tuna model.
+
+    Usage: lep tuna remove <model_name>
+
+    Args:
+        model_name (str): Name of the model to be deleted.
+    """
     models_map = _get_models_map()
 
     if model_name not in models_map:
@@ -687,7 +778,7 @@ def remove(model_name):
 
     client = APIClient()
     jobs = client.job.list_all()
-    job_name = _get_job_name(model_name)
+    job_name = _generate_job_name(model_name)
     for job in jobs:
         if job.metadata.name == job_name:
             client.job.delete(job_name)
@@ -697,7 +788,7 @@ def remove(model_name):
             deployment_name = deployment.split(" ")[0]
             deployment_remove(deployment_name)
 
-    model_path = _get_model_output_path(model_name)
+    model_path = _generate_model_output_path(model_name)
     # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
 
     storage_rmdir(model_path, delete_all=True)
@@ -708,8 +799,15 @@ def remove(model_name):
 @click.argument("model_name")
 def info(model_name):
     """
-    Retrieves and Print the details of a specified model.
+    Retrieve and print the details of a model.
+
+    Usage: lep tuna info <tuna_model_name>
     """
+    models_names = _get_model_names()
+    if model_name not in models_names:
+        console.print(f"[red]{model_name}[/] not exist, "
+                      f"Please use [green] lep tuna list [/] to check your models")
+        sys.exit(1)
     params = _get_model_details(model_name)
 
     console.print(f"Model information for [yellow]'{model_name}'[/]：")
@@ -732,25 +830,34 @@ def info(model_name):
 
     cmd_str = " ".join(cmd_parts)
     console.print(f"""
-    Your command for train this tuna model was:
+    Your command for training this tuna model was:
             [yellow]🌟 {cmd_str}[/]
     """)
 
 
 @tuna.command()
 def clear_failed_trainings():
+    """Delete all failed training models and related jobs.
+
+    Usage: lep tuna clear-failed-trainings
+    """
     for model_name, tuna_model in _get_models_map().items():
         if tuna_model.tuna_model_state is TunaModelState.trainFailed:
-            model_path = _get_model_output_path(model_name)
+            model_path = _generate_model_output_path(model_name)
             storage_rmdir(model_path, delete_all=True)
             if tuna_model.job_name:
                 job_remove(tuna_model.job_name)
-            console.print(f"Training failed model [green]{model_name}[/] deleted successfully.")
+            console.print(
+                f"Training failed model [green]{model_name}[/] deleted successfully."
+            )
+
 
 # todo get model info / train info
 # todo change time formate
 @tuna.command()
-@click.option("--name", "-n", help="--name, also known as the model folder name")
+@click.option(
+    "--name", "-n", help="--name, also known as the model folder name", required=True
+)
 @click.option(
     "--resource-shape",
     "-rs",
@@ -879,8 +986,39 @@ def run(
     autoscale_gpu_util=None,
     autoscale_qpm=None,
 ):
+    """Run a specified tuna model.
+
+        Usage: lep tuna run [OPTIONS]
+
+        Args:
+          * name (str): Name of the model to run. (only required option)
+
+            resource_shape (str, optional): Resource shape of the deployment. default will be {DEFAULT_RESOURCE_SHAPE}
+
+            node_groups (tuple, optional): Node groups for the deployment.
+
+            hf_transfer (bool, optional): Enable faster uploads and downloads from the Hub using hf_transfer.
+
+            tuna_step (int, optional): Minimum number of tokens to generate in each new chunk in streaming mode.
+
+            use_int (bool, optional): Apply quantization techniques for reducing GPU memory usage.
+
+            huggingface_token (str, optional): Name of the Hugging Face token.
+
+            mount (tuple, optional): Persistent storage to be mounted to the deployment.
+
+            replicas_static (int, optional): Static number of replicas.
+
+            autoscale_down (str, optional): Configuration for autoscaling down replicas.
+
+            autoscale_gpu_util (str, optional): Configuration for autoscaling based on GPU utilization.
+
+            autoscale_qpm (str, optional): Configuration for autoscaling based on QPM.
+    """
     # use deployment create
     # todo check whether model is train completed
+    _check_or_create_tuna_folder_tree()
+
     model_names = _get_model_names()
     model_list = "\n                      ".join(model_names)
     if name not in model_names:
@@ -911,11 +1049,11 @@ def run(
                         """)
         sys.exit(1)
 
-    deployment_name = _get_model_deployment_name(name)
+    deployment_name = _generate_model_deployment_name(name)
 
     base_model_path = _get_model_path_from_info(name)
 
-    model_output_path = _get_model_output_path(name)
+    model_output_path = _generate_model_output_path(name)
 
     lora = None
     medusa = None
@@ -965,7 +1103,6 @@ def list_command():
     """
     Lists all tuna model in this workspace.
     """
-
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
     )
@@ -978,7 +1115,7 @@ def list_command():
     table.add_column("Train Job Name")
 
     for model_name, tuna_model in _get_models_map().items():
-        time, model, data, lora_or_medusa = _get_model_basic_info_from_model_name(
+        create_time, model, data, lora_or_medusa = _get_model_basic_info_from_model_name(
             model_name=model_name
         )
         status = tuna_model.tuna_model_state
@@ -999,12 +1136,12 @@ def list_command():
             train_job_name = (
                 Text(tuna_model.job_name, style="yellow")
                 if tuna_model.job_name is not None
-                else Text((_get_job_name(model_name) + " (expired)"), style="red")
+                else Text((_generate_job_name(model_name) + " (expired)"), style="red")
             )
 
         table.add_row(
             model_name,
-            time if time else "N/A",
+            create_time if create_time else "N/A",
             model,
             data,
             Text(status, style=state_style),
@@ -1014,7 +1151,6 @@ def list_command():
 
     table.title = "Tuna Models"
     console.print(table)
-
 
 def add_command(cli_group):
     cli_group.add_command(tuna)
