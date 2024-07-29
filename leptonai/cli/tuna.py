@@ -469,12 +469,10 @@ def list_data():
 
 
 @tuna.command()
-@click.option(
-    "--data-file-name",
-    "-n",
+@click.argument(
+    "data_file_name",
     type=click.Path(),
     required=True,
-    help="Data file name like [data.json].",
 )
 def remove_data(data_file_name):
     """Remove specified data file from the default tuna train dataset path.
