@@ -425,7 +425,7 @@ def tuna():
 
 @tuna.command()
 @click.option(
-    "--local-path", "-l", type=click.Path(), default=None, help="Local data path."
+    "--local-path", "-l", type=click.Path(exists=True), default=None, help="Local data path."
 )
 @click.option(
     "--for-test-remote-path",
