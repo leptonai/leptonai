@@ -682,18 +682,18 @@ def train(
                 cmd += f' {option}="{value}"'
             else:
                 cmd += f" {option}={value}"
-
     # Save all parameters to a JSON file and upload to model path
     params = {
         "train_job_name": job_name,
         "model_name": model_name,
-        "training_resource_shape": resource_shape,
+        "resource_shape": resource_shape,
         "node_groups": node_groups,
         "num_workers": num_workers,
         "max_job_failure_retry": max_job_failure_retry,
         "model_path": model_path,
         "dataset_file_name": dataset_file_name,
         "output_dir": model_output_path,
+        "env": [env_element.split('=')[0]+"=<---secret--->" for env_element in env],
         **kwargs,
     }
 
@@ -811,10 +811,10 @@ def info(model_name):
     console.print(f"Model information for [yellow]'{model_name}'[/]：")
 
     console.print(Pretty(params))
-
+    ignore_list = ["train_job_name", "model_name", "output_dir"]
     cmd_parts = ["lep", "tuna", "train"]
     for key, value in params.items():
-        if value is not None:
+        if value is not None and key not in ignore_list:
             if isinstance(value, list):
                 for item in value:
                     cmd_parts.append(f"--{key.replace('_', '-')}")
