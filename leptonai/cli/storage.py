@@ -90,16 +90,18 @@ def du():
 
 @storage.command()
 @click.argument("path", type=str, default="/")
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def ls(path, volume):
     """
     List the contents of a directory of the current file storage.
     """
-    volume_info = "in " + volume if volume else None
+    volume_info = " in " + volume if volume else None
     client = APIClient()
     check(
         client.storage.check_exists(path, volume),
@@ -113,11 +115,13 @@ def ls(path, volume):
 
 @storage.command()
 @click.argument("path", type=str)
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def rm(path, volume):
     """
     Delete a file in the file storage of the current workspace. Note that wildcard is
@@ -126,7 +130,7 @@ def rm(path, volume):
 
     client = APIClient()
 
-    volume_info = "in " + volume if volume else None
+    volume_info = " in " + volume if volume else None
     check(
         client.storage.check_exists(path, volume),
         f"[red]{path}{volume_info}[/] not found",
@@ -142,30 +146,34 @@ def rm(path, volume):
     client.storage.delete_file_or_dir(path, volume)
     console.print(f"Deleted [green]{path}[/].")
 
+
 @storage.command()
 def ls_storage():
     client = APIClient()
 
-    table = Table(show_header=True, header_style="bold magenta", show_lines=True,)
+    table = Table(
+        show_header=True,
+        header_style="bold magenta",
+        show_lines=True,
+    )
 
     table.add_column("Volume Name")
     table.add_column("Total Usage (Bytes)")
     for fs in client.storage.list_storage():
-        table.add_row(
-            fs.metadata.name,
-            str(fs.status.total_usage_bytes)
-        )
+        table.add_row(fs.metadata.name, str(fs.status.total_usage_bytes))
 
     console.print(table)
 
 
 @storage.command()
 @click.argument("path", type=str)
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def rmdir(path, volume):
     """
     Delete a directory in the file storage of the current workspace. The directory
@@ -174,7 +182,7 @@ def rmdir(path, volume):
 
     client = APIClient()
 
-    volume_info = "in " + volume if volume else None
+    volume_info = " in " + volume if volume else None
     check(
         client.storage.check_exists(path, volume),
         f"[red]{path}{volume_info}[/] not found",
@@ -192,11 +200,13 @@ def rmdir(path, volume):
 
 @storage.command()
 @click.argument("path", type=str)
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def mkdir(path, volume):
     """
     Create a directory in the file storage of the current workspace.
@@ -214,9 +224,9 @@ def mkdir(path, volume):
     "--rsync",
     is_flag=True,
     help=(
-            "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
-            "only available for standard and enterprise workspace plan. Add -p to show "
-            "the progress."
+        "Upload large files over 1 GBs with rsync for sustainability. Rsync is "
+        "only available for standard and enterprise workspace plan. Add -p to show "
+        "the progress."
     ),
 )
 @click.option(
@@ -231,11 +241,13 @@ def mkdir(path, volume):
     is_flag=True,
     help="Show progress. Only supported with --rsync.",
 )
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def upload(local_path, remote_path, rsync, recursive, progress, volume):
     """
     Upload a local file to the storage of the current workspace. If remote_path
@@ -307,11 +319,13 @@ def upload(local_path, remote_path, rsync, recursive, progress, volume):
 @storage.command()
 @click.argument("remote_path", type=str)
 @click.argument("local_path", type=str, default="")
-@click.option("-volume",
-              "-v",
-              default=None,
-              type=str,
-              help="Volume name, only for user with dedicated file system")
+@click.option(
+    "-volume",
+    "-v",
+    default=None,
+    type=str,
+    help="Volume name, only for user with dedicated file system",
+)
 def download(remote_path, local_path, volume):
     """
     Download a remote file. If no local path is specified, the file will be
@@ -320,7 +334,7 @@ def download(remote_path, local_path, volume):
     """
     client = APIClient()
 
-    volume_info = "in " + volume if volume else None
+    volume_info = " in " + volume if volume else None
     check(
         client.storage.check_exists(remote_path, volume),
         f"[red]{remote_path}{volume_info}[/] not found",
