@@ -99,7 +99,7 @@ def ls(path, volume):
     """
     List the contents of a directory of the current file storage.
     """
-    volume_info= "in " + volume if volume else None
+    volume_info = "in " + volume if volume else None
     client = APIClient()
     check(
         client.storage.check_exists(path, volume),
@@ -126,9 +126,10 @@ def rm(path, volume):
 
     client = APIClient()
 
+    volume_info = "in " + volume if volume else None
     check(
         client.storage.check_exists(path, volume),
-        f"[red]{path}[/] not found",
+        f"[red]{path}{volume_info}[/] not found",
     )
 
     if (client.storage.get_file_type(path, volume)) == "dir":
@@ -173,9 +174,10 @@ def rmdir(path, volume):
 
     client = APIClient()
 
+    volume_info = "in " + volume if volume else None
     check(
         client.storage.check_exists(path, volume),
-        f"[red]{path}[/] not found",
+        f"[red]{path}{volume_info}[/] not found",
     )
 
     if (client.storage.get_file_type(path, volume)) != "dir":
@@ -317,9 +319,11 @@ def download(remote_path, local_path, volume):
     file.
     """
     client = APIClient()
+
+    volume_info = "in " + volume if volume else None
     check(
         client.storage.check_exists(remote_path, volume),
-        f"[red]{remote_path}[/] not found",
+        f"[red]{remote_path}{volume_info}[/] not found",
     )
 
     if client.storage.get_file_type(remote_path, volume) != "file":
