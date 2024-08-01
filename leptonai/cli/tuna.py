@@ -73,24 +73,6 @@ def _validate_name(ctx, param, value):
     return value
 
 
-def _timestamp_to_readable(timestamp):
-    """Convert a timestamp in milliseconds to a readable datetime format.
-
-    Args:
-        timestamp (int): Timestamp in milliseconds
-        --- time.time() * 1000
-
-    Returns:
-        str: Readable datetime string.
-    """
-    # Convert milliseconds to seconds
-    timestamp_seconds = timestamp / 1000
-
-    dt = datetime.fromtimestamp(timestamp_seconds)
-
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
-
-
 def _generate_info_file_name(model_name):
     return model_name + "_info.json"
 
@@ -102,38 +84,6 @@ def _generate_model_output_path(model_name):
 def _generate_job_name(model_name):
     job_name = (TUNA_TRAIN_JOB_NAME_PREFIX + model_name)[:36]
     return job_name if not job_name.endswith("-") else job_name[:-1]
-
-
-# def _generate_model_name(model_path, data_filename, is_lora=False, is_medusa=False):
-#     """Generate a unique model name based on various parameters.
-#
-#     Args:
-#         model_path (str): The path of the model.
-#         data_filename (str): The name of the data file.
-#         is_lora (bool): Whether LoRA is used.
-#         is_medusa (bool): Whether Medusa is used.
-#
-#     Returns:
-#         str: The generated model name.
-#     """
-#     # Remove all non-alphanumeric characters
-#     model_filename_clean = model_path.split("/")[-1]
-#     model_filename_clean = re.sub(r"\W+", "", model_filename_clean).lower()
-#     data_filename_clean = re.sub(r"\W+", "", data_filename)
-#
-#     # Get the current date and time
-#     current_datetime = int(time.time() * 1000)
-#
-#     # Concatenate the strings
-#     result_string = f"{current_datetime}-{model_filename_clean}-{data_filename_clean}"
-#
-#     if is_lora:
-#         result_string += "-lora"
-#     elif is_medusa:
-#         result_string += "-medusa"
-#     # make sure the length of the name is less than 32
-#     return result_string
-#
 
 
 def _save_params_to_json(params, filename):
@@ -224,11 +174,6 @@ def _build_shortened_model_name_deployment_map():
             shortened_model_name_deployment_map[shortened_model_name] = [
                 TunaModelState.Stopped
             ]
-        else:
-            shortened_model_name_deployment_map[shortened_model_name][
-                0
-            ] = TunaModelState.Stopped
-
         shortened_model_name_deployment_map[shortened_model_name].append(
             deployment_name + " (" + deployment.status.state + ")"
         )
@@ -326,22 +271,6 @@ def _model_train_completed(model_name: str) -> bool:
     client = APIClient()
     dir_infos = client.storage.get_dir(DEFAULT_TUNA_MODEL_PATH + "/" + model_name)
     return len(dir_infos) > 1
-
-
-def _get_model_name_from_job(job_name):
-    """Get the model name associated with a job.
-
-    Args:
-        job_name (str): The name of the job.
-
-    Returns:
-        str: The name of the model.
-    """
-    job_name = job_name[len(TUNA_TRAIN_JOB_NAME_PREFIX) :]
-    models_names = _get_model_names()
-    for model_name in models_names:
-        if job_name in model_name:
-            return model_name
 
 
 def _get_model_details(model_name):
