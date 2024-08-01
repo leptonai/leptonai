@@ -45,13 +45,14 @@ from ..config import (
     LLM_BY_LEPTON_PHOTON_NAME,
     DEFAULT_RESOURCE_SHAPE,
 )
+from ..util.util import check_name_regex
 
 
 class TunaModelState(str, Enum):
     Training = "Training"
     Ready = "Ready"
     Running = "Running"
-    trainFailed = "Train Failed"
+    TrainFailed = "Train Failed"
     Stopped = "Stopped"
     Unknown = ""
 
@@ -63,14 +64,25 @@ class TunaModel(BaseModel):
     job_name: Optional[str] = None
 
 
-def _validate_name(ctx, param, value):
-    if not re.match(r"^[a-z0-9-]+$", value):
-        raise click.BadParameter(
-            'Name must contain only alphanumeric characters and "-"'
-        )
-    if value.endswith("-"):
-        raise click.BadParameter('Name cannot end with "-"')
-    return value
+def _create_name_validator(prefix="", length_limit=None):
+    def _validate_name(ctx, param, value):
+        full_name = prefix + value
+        if not check_name_regex(full_name):
+            raise click.BadParameter(
+                f"Invalid name '{full_name}': Name must consist of lower case"
+                " alphanumeric characters or '-', and must start with an alphabetical"
+                " character and end with an alphanumeric character"
+            )
+
+        if length_limit and len(full_name) > length_limit:
+            raise click.BadParameter(
+                f"Invalid name '{value}':The name must be less than or equal to"
+                f" {length_limit - len(prefix)}"
+            )
+
+        return value
+
+    return _validate_name
 
 
 def _generate_info_file_name(model_name):
@@ -82,8 +94,7 @@ def _generate_model_output_path(model_name):
 
 
 def _generate_job_name(model_name):
-    job_name = (TUNA_TRAIN_JOB_NAME_PREFIX + model_name)[:36]
-    return job_name if not job_name.endswith("-") else job_name[:-1]
+    return TUNA_TRAIN_JOB_NAME_PREFIX + model_name
 
 
 def _save_params_to_json(params, filename):
@@ -153,6 +164,8 @@ def _build_shortened_model_name_deployment_map():
         deployment_name = deployment.metadata.name
         if TUNA_DEPLOYMENT_NAME_PREFIX not in deployment_name:
             continue
+
+        # remove the deployment count and the deployment_name_prefix
         shortened_model_name = deployment_name[: deployment_name.rindex("-")][
             len(TUNA_DEPLOYMENT_NAME_PREFIX) :
         ]
@@ -231,7 +244,7 @@ def _get_models_map():
         if not _model_train_completed(model_name) and job_name not in running_job_set:
             model_names_map[model_name] = TunaModel(
                 folder_name=model_name,
-                tuna_model_state=TunaModelState.trainFailed,
+                tuna_model_state=TunaModelState.TrainFailed,
             )
             if job_name in failed_job_set:
                 model_names_map[model_name].job_name = job_name
@@ -340,12 +353,12 @@ def tuna():
 
 @tuna.command()
 @click.option(
-    "--local-path",
-    "-l",
+    "--file",
+    "-f",
     type=click.Path(exists=True),
     default=None,
     required=True,
-    help="Local data path.",
+    help="Local file path.",
 )
 @click.option(
     "--name",
@@ -356,31 +369,22 @@ def tuna():
         " will be determined automatically based on the local file type."
     ),
     required=True,
-    callback=_validate_name,
+    callback=_create_name_validator,
 )
-@click.option(
-    "--for-test-remote-path",
-    type=click.Path(),
-    default=None,
-    help="Remote folder path.",
-)
-def upload_data(local_path, name, for_test_remote_path):
+def upload_data(file, name):
     """Upload data to the DEFAULT_TUNA_TRAIN_DATASET_PATH path.
 
     Usage: lep tuna upload-data --local-path <local_path>
 
     Args:
-        local_path (str): Local data path.
-        for_test_remote_path (str): Remote folder path. This option is intended for testing purposes only.
+        file (str): Local data path.
+        name (str): name your uploading data
     """
     _check_or_create_tuna_folder_tree()
 
-    if not for_test_remote_path:
-        for_test_remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH
-
-    filename = os.path.basename(local_path)
+    filename = os.path.basename(file)
     file_root, file_extension = os.path.splitext(filename)
-    remote_path = for_test_remote_path + "/" + name + file_extension
+    remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name + file_extension
 
     if storage_find(remote_path):
         console.print(
@@ -391,10 +395,10 @@ def upload_data(local_path, name, for_test_remote_path):
         sys.exit(1)
 
     storage_upload(
-        local_path,
+        file,
         remote_path,
     )
-    console.print(f"Uploaded Dataset [green]{local_path}[/] to [green]{remote_path}[/]")
+    console.print(f"Uploaded Dataset [green]{file}[/] to [green]{remote_path}[/]")
 
 
 @tuna.command()
@@ -415,25 +419,25 @@ def tuna_list_data():
 
 @tuna.command()
 @click.argument(
-    "data_file_name",
+    "name",
     type=click.Path(),
     required=True,
 )
-def remove_data(data_file_name):
+def remove_data(name):
     """Remove specified data file from the default tuna train dataset path.
 
     Usage: lep tuna remove-data --data-file-name <data_file_name>
 
     Args:
-        data_file_name (str): Name of the data file to be removed.
+        name (str): Name of the data file to be removed.
     """
-    data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + data_file_name
+    data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name
     if not storage_find(data_file_path):
-        console.print(f"[red]Dataset {data_file_name} not found [/]")
+        console.print(f"[red]Dataset {name} not found [/]")
         sys.exit(1)
 
     storage_rm(data_file_path)
-    console.print(f"Removed dataset [green]{data_file_name}[/].")
+    console.print(f"Removed dataset [green]{name}[/].")
 
 
 @tuna.command()
@@ -443,7 +447,14 @@ def remove_data(data_file_name):
     type=str,
     help="Assign a unique identifier to your tuna model",
     required=True,
-    callback=_validate_name,
+    callback=_create_name_validator(
+        prefix=(
+            TUNA_DEPLOYMENT_NAME_PREFIX
+            if len(TUNA_DEPLOYMENT_NAME_PREFIX) > len(TUNA_TRAIN_JOB_NAME_PREFIX)
+            else TUNA_TRAIN_JOB_NAME_PREFIX
+        ),
+        length_limit=36,
+    ),
 )
 @click.option(
     "--resource-shape",
@@ -485,7 +496,7 @@ def remove_data(data_file_name):
     "--model-path", type=click.Path(), default=None, help="Model path.", required=True
 )
 @click.option(
-    "--dataset-file-name",
+    "--dataset-name",
     "-dn",
     type=click.Path(),
     default=None,
@@ -590,7 +601,7 @@ def train(
     resource_shape,
     env,
     model_path,
-    dataset_file_name,
+    dataset_name,
     **kwargs,
 ):
     """Create and start a new training job.
@@ -598,7 +609,7 @@ def train(
     Usage: lep tuna train [OPTIONS]
     """
 
-    data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_file_name
+    data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_name
 
     # Build the directory structure
     if not storage_find(data_path):
@@ -662,7 +673,7 @@ def train(
         "num_workers": num_workers,
         "max_job_failure_retry": max_job_failure_retry,
         "model_path": model_path,
-        "dataset_file_name": dataset_file_name,
+        "dataset_file_name": dataset_name,
         "output_dir": model_output_path,
         "env": [env_element.split("=")[0] + "=<---secret--->" for env_element in env],
         "created_time": datetime.now().isoformat(),
@@ -796,7 +807,7 @@ def clear_failed_trainings():
     Usage: lep tuna clear-failed-trainings
     """
     for model_name, tuna_model in _get_models_map().items():
-        if tuna_model.tuna_model_state is TunaModelState.trainFailed:
+        if tuna_model.tuna_model_state is TunaModelState.TrainFailed:
             model_path = _generate_model_output_path(model_name)
             storage_rmdir(model_path, delete_all=True)
             if tuna_model.job_name:
@@ -1099,7 +1110,7 @@ def tuna_list():
         train_job_name = "Not Training"
         if tuna_model.tuna_model_state == TunaModelState.Training:
             train_job_name = Text(tuna_model.job_name, style="green")
-        elif tuna_model.tuna_model_state == TunaModelState.trainFailed:
+        elif tuna_model.tuna_model_state == TunaModelState.TrainFailed:
             train_job_name = (
                 Text(tuna_model.job_name, style="yellow")
                 if tuna_model.job_name is not None
