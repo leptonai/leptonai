@@ -30,14 +30,14 @@ pip install -U leptonai
 This installs the `leptonai` Python library, as well as the commandline interface `lep`. You can then launch a HuggingFace model, say `gpt2`, in one line of code:
 
 ```python
-lep photon run --name gpt2 --model hf:gpt2 --local
+lep photon runlocal --name gpt2 --model hf:gpt2
 ```
 
 If you have access to the Llama2 model ([apply for access here](https://huggingface.co/meta-llama/Llama-2-7b)) and you have a reasonably sized GPU, you can launch it with:
 
 ```python
 # hint: you can also write `-n` and `-m` for short
-lep photon run -n llama2 -m hf:meta-llama/Llama-2-7b-chat-hf --local
+lep photon runlocal -n llama2 -m hf:meta-llama/Llama-2-7b-chat-hf
 ```
 
 (Be sure to use the `-hf` version for Llama2, which is compatible with huggingface pipelines.)
@@ -66,7 +66,7 @@ cd examples
 ```
 
 ```python
-lep photon run -n sdxl -m advanced/sdxl/sdxl.py --local
+lep photon runlocal -n sdxl -m advanced/sdxl/sdxl.py
 ```
 
 Once the service is running, you can access it with:
@@ -105,7 +105,7 @@ class Echo(Photon):
 You can then launch the service with:
 
 ```shell
-lep photon run -n echo -m my_photon.py --local
+lep photon runlocal -n echo -m my_photon.py
 ```
 
 Then, you can use your service as follows:
