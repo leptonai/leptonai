@@ -381,8 +381,8 @@ LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_
 
 # TUNA CONFIG
 DEFAULT_TUNA_FOLDER = '/lepton-tuna'
-DEFAULT_TUNA_TRAIN_DATASET_PATH = '/lepton-tuna/dataset-folder'
-DEFAULT_TUNA_MODEL_PATH = '/lepton-tuna/model-folder'
+DEFAULT_TUNA_TRAIN_DATASET_PATH = '/lepton-tuna/dataset'
+DEFAULT_TUNA_MODEL_PATH = '/lepton-tuna/model'
 TUNA_TRAIN_JOB_NAME_PREFIX = 'tuna-'
 TUNA_DEPLOYMENT_NAME_PREFIX = 'tuna-'
 

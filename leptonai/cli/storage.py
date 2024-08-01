@@ -321,6 +321,7 @@ def download(remote_path, local_path):
     file.
     """
     storage_download(remote_path, local_path)
+    console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 
 def storage_download(remote_path, local_path):
@@ -351,7 +352,6 @@ def storage_download(remote_path, local_path):
     )
 
     client.storage.get_file(remote_path, local_path)
-    console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 
 def add_command(click_group):
