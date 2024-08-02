@@ -189,6 +189,7 @@ def make_container_port_from_string(port_str: str):
     ),
     default=259200,
 )
+@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
 def create(
     name,
     file,
@@ -207,53 +208,13 @@ def create(
     intra_job_communication,
     privileged,
     ttl_seconds_after_finished,
+    suppress_output,
 ):
     """
     Creates a job.
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
-    job_create(
-        name,
-        file,
-        container_image,
-        container_port,
-        command,
-        resource_shape,
-        node_groups,
-        num_workers,
-        max_failure_retry,
-        max_job_failure_retry,
-        env,
-        secret,
-        mount,
-        image_pull_secrets,
-        intra_job_communication,
-        privileged,
-        ttl_seconds_after_finished,
-    )
-    console.print(f"Job [green]{name}[/] created successfully.")
-
-
-def job_create(
-    name,
-    file=None,
-    container_image=None,
-    container_port=None,
-    command=None,
-    resource_shape=None,
-    node_groups=None,
-    num_workers=None,
-    max_failure_retry=None,
-    max_job_failure_retry=None,
-    env=None,
-    secret=None,
-    mount=None,
-    image_pull_secrets=None,
-    intra_job_communication=None,
-    privileged=None,
-    ttl_seconds_after_finished=259200,
-):
     client = APIClient()
     if file:
         try:
@@ -314,6 +275,8 @@ def job_create(
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
     client.job.create(job)
 
+    if not suppress_output:
+        console.print(f"Job [green]{name}[/] created successfully.")
 
 @job.command(name="list")
 def list_command():
@@ -363,10 +326,6 @@ def remove(name):
     """
     Removes the job with the given name.
     """
-    job_remove(name)
-
-
-def job_remove(name):
     client = APIClient()
     client.job.delete(name)
     console.print(f"Job [green]{name}[/] deleted successfully.")

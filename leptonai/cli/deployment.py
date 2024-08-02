@@ -558,69 +558,7 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
 ):
-    deployment_create(
-        name,
-        photon_name,
-        photon_id,
-        container_image,
-        container_port,
-        container_command,
-        resource_shape,
-        min_replicas,
-        max_replicas,
-        mount,
-        env,
-        secret,
-        public,
-        tokens,
-        no_traffic_timeout,
-        target_gpu_utilization,
-        initial_delay_seconds,
-        include_workspace_token,
-        rerun,
-        public_photon,
-        image_pull_secrets,
-        node_groups,
-        visibility,
-        replicas_static,
-        autoscale_down,
-        autoscale_gpu_util,
-        autoscale_qpm,
-    )
 
-
-def deployment_create(
-    name=None,
-    photon_name=None,
-    photon_id=None,
-    container_image=None,
-    container_port=8080,
-    container_command=None,
-    resource_shape=None,
-    min_replicas=1,
-    max_replicas=None,
-    mount=[],
-    env=[],
-    secret=[],
-    public=False,
-    tokens=[],
-    no_traffic_timeout=None,
-    target_gpu_utilization=None,
-    initial_delay_seconds=None,
-    include_workspace_token=False,
-    rerun=False,
-    public_photon=False,
-    image_pull_secrets=[],
-    node_groups=None,
-    visibility=None,
-    replicas_static=None,
-    autoscale_down=None,
-    autoscale_gpu_util=None,
-    autoscale_qpm=None,
-):
-    """
-    Creates a deployment from either a photon or container image.
-    """
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
 

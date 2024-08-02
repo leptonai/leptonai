@@ -93,10 +93,6 @@ def ls(path):
     """
     List the contents of a directory of the current file storage.
     """
-    storage_ls(path)
-
-
-def storage_ls(path, do_print=True):
     client = APIClient()
     check(
         client.storage.check_exists(path),
@@ -105,10 +101,7 @@ def storage_ls(path, do_print=True):
 
     dir_infos = client.storage.get_dir(path)
 
-    if do_print:
-        print_dir_contents(path, dir_infos)
-    else:
-        return dir_infos
+    print_dir_contents(path, dir_infos)
 
 
 def join_path(path, file_name):
@@ -122,18 +115,15 @@ def join_path(path, file_name):
 @storage.command()
 @click.argument("path", type=str, default="/")
 @click.option("--name", "-n", default=None, type=str)
-def find(path, name):
+def find(path, name, ):
     joined_path = join_path(path, name)
-    if not storage_find(path, filename=name):
+    client = APIClient()
+    is_exist = client.storage.check_exists(joined_path)
+
+    if not is_exist:
         console.print(f"[red]{joined_path}[/] not found")
     else:
         console.print(f"[green]{joined_path}[/]")
-
-
-def storage_find(path, filename=None) -> bool:
-    client = APIClient()
-    joined_path = join_path(path, filename)
-    return client.storage.check_exists(joined_path)
 
 
 @storage.command()
@@ -143,11 +133,6 @@ def rm(path):
     Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
     """
-    storage_rm(path)
-    console.print(f"Deleted [green]{path}[/].")
-
-
-def storage_rm(path):
     client = APIClient()
 
     check(
@@ -163,6 +148,7 @@ def storage_rm(path):
         sys.exit(1)
 
     client.storage.delete_file_or_dir(path)
+    console.print(f"Deleted [green]{path}[/].")
 
 
 @storage.command()
@@ -172,11 +158,6 @@ def rmdir(path):
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
-    storage_rmdir(path)
-    console.print(f"Deleted [green]{path}[/].")
-
-
-def storage_rmdir(path, delete_all=False):
     client = APIClient()
 
     check(
@@ -190,8 +171,8 @@ def storage_rmdir(path, delete_all=False):
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path, delete_all)
-
+    client.storage.delete_file_or_dir(path)
+    console.print(f"Deleted [green]{path}[/].")
 
 @storage.command()
 @click.argument("path", type=str)
@@ -199,13 +180,11 @@ def mkdir(path):
     """
     Create a directory in the file storage of the current workspace.
     """
-    storage_mkdir(path)
+    client = APIClient()
+    client.storage.create_dir(path)
     console.print(f"Created directory [green]{path}[/].")
 
 
-def storage_mkdir(path):
-    client = APIClient()
-    client.storage.create_dir(path)
 
 
 @storage.command()
@@ -232,19 +211,8 @@ def storage_mkdir(path):
     is_flag=True,
     help="Show progress. Only supported with --rsync.",
 )
-def upload(local_path, remote_path, rsync, recursive, progress):
-    """
-    Upload a local file to the storage of the current workspace. If remote_path
-    is not specified, the file will be uploaded to the root directory of the
-    storage. If remote_path is a directory, you need to append a "/", and the
-    file will be uploaded to that directory with its local name.
-    """
-    # if the remote path is a directory, upload the file with its local name to that directory
-    storage_upload(local_path, remote_path, rsync, recursive, progress)
-    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
-
-
-def storage_upload(local_path, remote_path, rsync=None, recursive=None, progress=None):
+@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
+def upload(local_path, remote_path, rsync, recursive, progress, suppress_output):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
@@ -310,21 +278,19 @@ def storage_upload(local_path, remote_path, rsync=None, recursive=None, progress
 
     client.storage.create_file(local_path, remote_path)
 
+    if not suppress_output:
+        console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
 
 @storage.command()
 @click.argument("remote_path", type=str)
 @click.argument("local_path", type=str, default="")
-def download(remote_path, local_path):
+@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
+def download(remote_path, local_path, suppress_output):
     """
     Download a remote file. If no local path is specified, the file will be
     downloaded to the current working directory with the same name as the remote
     file.
     """
-    storage_download(remote_path, local_path)
-    console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
-
-
-def storage_download(remote_path, local_path):
     client = APIClient()
     check(
         client.storage.check_exists(remote_path),
@@ -353,6 +319,8 @@ def storage_download(remote_path, local_path):
 
     client.storage.get_file(remote_path, local_path)
 
+    if not suppress_output:
+        console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 def add_command(click_group):
     # Backward compatibility: if users stil call "lep storage", keep it working.

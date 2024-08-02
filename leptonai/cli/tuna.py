@@ -1,11 +1,9 @@
 import json
 import os
 import random
-import re
 import string
 import sys
 import tempfile
-import time
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
@@ -17,16 +15,12 @@ from rich.pretty import Pretty
 from rich.table import Table
 from rich.text import Text
 
-from .deployment import deployment_create, validate_autoscale_options, deployment_remove
-from .job import job_create, job_remove
+from .deployment import (create as deployment_create,
+                         validate_autoscale_options, deployment_remove)
+from .job import create as job_create
+from .job import remove as job_remove
 from .storage import (
-    storage_upload,
-    storage_find,
-    storage_mkdir,
-    storage_ls,
-    storage_rm,
-    storage_rmdir,
-    storage_download,
+    download, upload, ls,
 )
 from .util import (
     console,
@@ -119,12 +113,13 @@ def _save_params_to_json(params, filename):
 
 def _check_or_create_tuna_folder_tree():
     """Check and create the folder structure for Tuna if it does not exist."""
-    if not storage_find(DEFAULT_TUNA_FOLDER):
-        storage_mkdir(DEFAULT_TUNA_FOLDER)
-    if not storage_find(DEFAULT_TUNA_TRAIN_DATASET_PATH):
-        storage_mkdir(DEFAULT_TUNA_TRAIN_DATASET_PATH)
-    if not storage_find(DEFAULT_TUNA_MODEL_PATH):
-        storage_mkdir(DEFAULT_TUNA_MODEL_PATH)
+    client = APIClient()
+    if not client.storage.check_exists(DEFAULT_TUNA_FOLDER):
+        client.storage.create_dir(DEFAULT_TUNA_FOLDER)
+    if not client.storage.check_exists(DEFAULT_TUNA_TRAIN_DATASET_PATH):
+        client.storage.create_dir(DEFAULT_TUNA_TRAIN_DATASET_PATH)
+    if not client.storage.check_exists(DEFAULT_TUNA_MODEL_PATH):
+        client.storage.create_dir(DEFAULT_TUNA_MODEL_PATH)
 
 
 def _generate_model_deployment_name(model_name):
@@ -200,7 +195,7 @@ def _get_model_names():
     Returns:
         list: List of model names.
     """
-    dir_infos = storage_ls(DEFAULT_TUNA_MODEL_PATH, do_print=False)
+    dir_infos = APIClient().storage.get_dir(DEFAULT_TUNA_MODEL_PATH)
     model_names = []
     for dir_info in dir_infos:
         if dir_info.type == "dir":
@@ -214,9 +209,11 @@ def _get_models_map():
     Returns:
         dict: Mapping of model names to TunaModel instances.
     """
-    if not storage_find(DEFAULT_TUNA_FOLDER):
+    client = APIClient()
+
+    if not client.storage.check_exists(DEFAULT_TUNA_FOLDER):
         return {}
-    if not storage_find(DEFAULT_TUNA_MODEL_PATH):
+    if not client.storage.check_exists(DEFAULT_TUNA_MODEL_PATH):
         return {}
 
     client = APIClient()
@@ -286,7 +283,7 @@ def _model_train_completed(model_name: str) -> bool:
     return len(dir_infos) > 1
 
 
-def _get_model_details(model_name):
+def _get_model_details(ctx, model_name):
     """Retrieve the details of a model from its info file.
 
     Args:
@@ -300,7 +297,7 @@ def _get_model_details(model_name):
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
-    storage_download(info_path, temp_file_path)
+    ctx.invoke(download, remote_path=info_path, local_path=temp_file_path, suppress_output=True)
 
     if not os.path.exists(temp_file_path):
         raise FileNotFoundError(f"The file {temp_file_path} does not exist.")
@@ -311,8 +308,8 @@ def _get_model_details(model_name):
     return params
 
 
-def _get_model_key_infos(model_name):
-    params = _get_model_details(model_name)
+def _get_model_key_infos(ctx, model_name):
+    params = _get_model_details(ctx, model_name)
     create_time = params.get("created_time")
     model_path = params.get("model_path")
     data = params.get("dataset_file_name")
@@ -369,9 +366,10 @@ def tuna():
         " will be determined automatically based on the local file type."
     ),
     required=True,
-    callback=_create_name_validator,
+    callback=_create_name_validator(),
 )
-def upload_data(file, name):
+@click.pass_context
+def upload_data(ctx, file, name):
     """Upload data to the DEFAULT_TUNA_TRAIN_DATASET_PATH path.
 
     Usage: lep tuna upload-data --local-path <local_path>
@@ -386,35 +384,34 @@ def upload_data(file, name):
     file_root, file_extension = os.path.splitext(filename)
     remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name + file_extension
 
-    if storage_find(remote_path):
+    if APIClient().storage.check_exists(remote_path):
         console.print(
             f"[red]{name}{file_extension}[/] already exists. If you want to replace it,"
             " please use `lep tuna remove-data <data-name>` first.\nWhat you have:"
         )
-        tuna_list_data()
+        ctx.invoke(list_data)
         sys.exit(1)
 
-    storage_upload(
-        file,
-        remote_path,
+    ctx.invoke(
+        upload,
+        local_path=file,
+        remote_path=remote_path,
+        suppress_output=True
     )
     console.print(f"Uploaded Dataset [green]{file}[/] to [green]{remote_path}[/]")
 
 
 @tuna.command()
-def list_data():
+@click.pass_context
+def list_data(ctx):
     """List all data in the default tuna train dataset path.
 
     Usage: lep tuna list-data
     """
 
-    tuna_list_data()
-
-
-def tuna_list_data():
     _check_or_create_tuna_folder_tree()
 
-    storage_ls(DEFAULT_TUNA_TRAIN_DATASET_PATH)
+    ctx.invoke(ls, path=DEFAULT_TUNA_TRAIN_DATASET_PATH)
 
 
 @tuna.command()
@@ -432,11 +429,12 @@ def remove_data(name):
         name (str): Name of the data file to be removed.
     """
     data_file_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name
-    if not storage_find(data_file_path):
+    client = APIClient()
+    if not client.storage.check_exists(data_file_path):
         console.print(f"[red]Dataset {name} not found [/]")
         sys.exit(1)
 
-    storage_rm(data_file_path)
+    client.storage.delete_file_or_dir(data_file_path)
     console.print(f"Removed dataset [green]{name}[/].")
 
 
@@ -591,7 +589,9 @@ def remove_data(name):
     default=None,
     help="Early stop threshold. Default: 0.01",
 )
+@click.pass_context
 def train(
+    ctx,
     # not in cmd
     name,
     node_groups,
@@ -611,8 +611,9 @@ def train(
 
     data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_name
 
+    client = APIClient()
     # Build the directory structure
-    if not storage_find(data_path):
+    if not client.storage.check_exists(data_path):
         console.print(
             f"[red]{data_path}[/] not found. Please use lep tuna upload-data -l"
             " <local_file_path>to upload your data first, and use lep tuna list-data"
@@ -624,17 +625,14 @@ def train(
 
     model_output_path = _generate_model_output_path(name)
 
-    if storage_find(model_output_path):
+    if client.storage.check_exists(model_output_path):
         console.print(
             f"[red]{name}[/] already exist, please use another name. "
             "Currently what you have:"
         )
-        tuna_list()
+        ctx.invoke(list_command)
         sys.exit(1)
 
-    # name = _generate_model_name(
-    #     model_path, dataset_file_name, kwargs.get("lora"), kwargs.get("medusa")
-    # )
     job_name = _generate_job_name(name)
 
     client = APIClient()
@@ -681,17 +679,21 @@ def train(
     }
 
     # Generate the output folder
-    storage_mkdir(model_output_path)
+    APIClient().storage.create_dir(model_output_path)
     model_info_file_name = _generate_info_file_name(name)
 
     model_info_file_path = _save_params_to_json(params, model_info_file_name)
 
-    storage_upload(model_info_file_path, model_output_path + "/" + model_info_file_name)
+    ctx.invoke(upload,
+               local_path=model_info_file_path,
+               remote_path=model_output_path + "/" + model_info_file_name,
+               suppress_output=True)
     # Build mount variable
     mount = [f"{DEFAULT_TUNA_FOLDER}:{DEFAULT_TUNA_FOLDER}"]
 
-    job_create(
-        job_name,
+    ctx.invoke(
+        job_create,
+        name=job_name,
         command=cmd,
         mount=mount,
         resource_shape=resource_shape,
@@ -746,7 +748,7 @@ def remove(model_name):
             .strip()
             .lower()
         )
-        if user_input == "no":
+        if user_input not in ["yes", "y"]:
             sys.exit(0)
     elif _model_train_completed(model_name):
         console.print(
@@ -756,7 +758,7 @@ def remove(model_name):
         user_input = (
             input("Do you want to delete this model? (yes/no): ").strip().lower()
         )
-        if user_input == "no":
+        if user_input not in ["yes", "y"]:
             sys.exit(0)
 
     client = APIClient()
@@ -774,7 +776,7 @@ def remove(model_name):
     model_path = _generate_model_output_path(model_name)
     # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
 
-    storage_rmdir(model_path, delete_all=True)
+    APIClient().storage.delete_file_or_dir(model_path, delete_all=True)
     console.print(f"Model [green]{model_name}[/] deleted successfully.")
 
 
@@ -801,7 +803,8 @@ def info(model_name):
 
 
 @tuna.command()
-def clear_failed_trainings():
+@click.pass_context
+def clear_failed_trainings(ctx):
     """Delete all failed training models and related jobs.
 
     Usage: lep tuna clear-failed-trainings
@@ -809,9 +812,9 @@ def clear_failed_trainings():
     for model_name, tuna_model in _get_models_map().items():
         if tuna_model.tuna_model_state is TunaModelState.TrainFailed:
             model_path = _generate_model_output_path(model_name)
-            storage_rmdir(model_path, delete_all=True)
+            APIClient().storage.delete_file_or_dir(model_path, delete_all=True)
             if tuna_model.job_name:
-                job_remove(tuna_model.job_name)
+                ctx.invoke(job_remove, name=tuna_model.job_name)
             console.print(
                 f"Training failed model [green]{model_name}[/] deleted successfully."
             )
@@ -884,6 +887,20 @@ def clear_failed_trainings():
     multiple=True,
 )
 @click.option(
+    "--replicas-static",
+    "-r",
+    "-replicas",
+    type=int,
+    default=None,
+    help="""
+                Use this option if you want a fixed number of replicas and want to turn off autoscaling.
+                For example, to set a fixed number of replicas to 2, you can use: 
+                --replicas-static 2  or
+                -r 2
+            """,
+    callback=validate_autoscale_options,
+)
+@click.option(
     "--autoscale-down",
     "-ad",
     type=str,
@@ -937,7 +954,9 @@ def clear_failed_trainings():
             """,
     callback=validate_autoscale_options,
 )
+@click.pass_context
 def run(
+    ctx,
     name,
     resource_shape,
     node_groups,
@@ -946,10 +965,10 @@ def run(
     use_int,
     huggingface_token,
     mount,
-    replicas_static=None,
-    autoscale_down=None,
-    autoscale_gpu_util=None,
-    autoscale_qpm=None,
+    replicas_static,
+    autoscale_down,
+    autoscale_gpu_util,
+    autoscale_qpm,
 ):
     """Run a specified tuna model.
 
@@ -995,7 +1014,7 @@ def run(
     if not _model_train_completed(name):
         console.print(
             f"[red]{name}[/] is either training or the training has failed. "
-            "Please use 'lep tuna list' for more information."
+            "Please use [green]'lep tuna list'[/] for more information."
         )
         sys.exit(1)
 
@@ -1018,7 +1037,7 @@ def run(
 
     model_output_path = _generate_model_output_path(name)
 
-    base_model_path, data, lora_or_medusa, create_time = _get_model_key_infos(name)
+    base_model_path, data, lora_or_medusa, create_time = _get_model_key_infos(ctx, name)
 
     lora = None
     medusa = None
@@ -1047,7 +1066,8 @@ def run(
 
     huggingface_token = [huggingface_token]
 
-    deployment_create(
+    ctx.invoke(
+        deployment_create,
         name=deployment_name,
         resource_shape=resource_shape,
         photon_name=LLM_BY_LEPTON_PHOTON_NAME,
@@ -1064,15 +1084,11 @@ def run(
 
 
 @tuna.command(name="list")
-def list_command():
+@click.pass_context
+def list_command(ctx):
     """
     Lists all tuna model in this workspace.
     """
-
-    tuna_list()
-
-
-def tuna_list():
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
     )
@@ -1086,16 +1102,7 @@ def tuna_list():
     table.add_column("Train Job Name")
 
     for name, tuna_model in _get_models_map().items():
-        model, data, lora_or_medusa, create_time = _get_model_key_infos(name)
-        # params = _get_model_details(name)
-        # create_time = params.get("created_time")
-        # model = params.get("model_path")
-        # data = params.get("dataset_file_name")
-        # lora_or_medusa = "lora" if params.get("lora") else ("medusa" if params.get("medusa") else None)
-
-        # create_time, model, data, lora_or_medusa = _get_model_basic_info_from_model_name(
-        #     model_name=name
-        # )
+        model, data, lora_or_medusa, create_time = _get_model_key_infos(ctx, name)
         status = tuna_model.tuna_model_state
         state_style = (
             "green"
