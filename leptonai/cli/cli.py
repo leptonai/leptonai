@@ -9,7 +9,7 @@ from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 
 import leptonai
-from . import deployment, tuna
+from . import deployment
 from . import job
 from . import kv
 from . import objectstore
@@ -20,6 +20,7 @@ from . import secret
 from . import storage
 from . import workspace
 from . import ingress
+from . import tuna
 
 from .util import click_group
 

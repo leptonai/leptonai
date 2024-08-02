@@ -17,8 +17,6 @@ from rich.text import Text
 
 from .deployment import (
     create as deployment_create,
-    validate_autoscale_options,
-    deployment_remove,
 )
 from .job import create as job_create
 from .job import remove as job_remove
@@ -299,6 +297,10 @@ def _get_model_details(ctx, model_name):
     """
     info_file_name = _generate_info_file_name(model_name)
     info_path = _generate_model_output_path(model_name) + "/" + info_file_name
+
+    if not APIClient().storage.check_exists(info_path):
+        return None
+
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
@@ -317,6 +319,10 @@ def _get_model_details(ctx, model_name):
 
 def _get_model_key_infos(ctx, model_name):
     params = _get_model_details(ctx, model_name)
+
+    if not params:
+        return None
+
     create_time = params.get("created_time")
     model_path = params.get("model_path")
     data = params.get("dataset_file_name")
@@ -440,7 +446,12 @@ def remove_data(name):
     console.print(f"Removed dataset [green]{name}[/].")
 
 
-@tuna.command()
+@tuna.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.option(
     "--name",
     "-n",
@@ -455,36 +466,6 @@ def remove_data(name):
         ),
         length_limit=36,
     ),
-)
-@click.option(
-    "--resource-shape",
-    type=str,
-    help="Resource shape for the job.",
-    default=None,
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help="Node group for the job. If not set, use on-demand resources.",
-    type=str,
-    multiple=True,
-)
-@click.option(
-    "--num-workers",
-    "-w",
-    help=(
-        "Number of workers to use for the job. For example, when you do a distributed"
-        " training job of 4 replicas, use --num-workers 4."
-    ),
-    type=int,
-    default=None,
-)
-@click.option(
-    "--max-job-failure-retry",
-    type=int,
-    help="Maximum number of failures to retry per whole job.",
-    default=None,
 )
 @click.option(
     "--env",
@@ -596,11 +577,7 @@ def train(
     ctx,
     # not in cmd
     name,
-    node_groups,
-    num_workers,
-    max_job_failure_retry,
     # in cmd
-    resource_shape,
     env,
     model_path,
     dataset_name,
@@ -668,10 +645,6 @@ def train(
     params = {
         "name": name,
         "train_job_name": job_name,
-        "resource_shape": resource_shape,
-        "node_groups": node_groups,
-        "num_workers": num_workers,
-        "max_job_failure_retry": max_job_failure_retry,
         "model_path": model_path,
         "dataset_file_name": dataset_name,
         "output_dir": model_output_path,
@@ -695,18 +668,25 @@ def train(
     # Build mount variable
     mount = [f"{DEFAULT_TUNA_FOLDER}:{DEFAULT_TUNA_FOLDER}"]
 
-    ctx.invoke(
-        job_create,
-        name=job_name,
-        command=cmd,
-        mount=mount,
-        resource_shape=resource_shape,
-        node_groups=node_groups,
-        num_workers=num_workers,
-        max_job_failure_retry=max_job_failure_retry,
-        env=env,
-        container_image=TUNA_IMAGE,
-    )
+    update_args = [
+        "--name",
+        job_name,
+        "--command",
+        cmd,
+        "--container-image",
+        TUNA_IMAGE,
+    ]
+
+    for env_element in env:
+        update_args.extend(["--env", env_element])
+    for mount_element in mount:
+        update_args.extend(["--mount", mount_element])
+
+    combined_args = ctx.args + update_args
+    print(combined_args)
+    job_create_ctx = job_create.make_context(info_name="create", args=combined_args)
+    print(job_create_ctx.params)
+    ctx.invoke(job_create, **job_create_ctx.params)
     console.print(
         f"Model Training Job [green]{job_name}[/] for your model"
         f" [green]{name}[/] created successfully."
@@ -773,9 +753,11 @@ def remove(model_name):
             client.job.delete(job_name)
 
     if cur_tuna_model.deployments is not None and len(cur_tuna_model.deployments) > 0:
+        client = APIClient()
         for deployment in cur_tuna_model.deployments:
             deployment_name = deployment.split(" ")[0]
-            deployment_remove(deployment_name)
+            client.deployment.delete(deployment_name)
+            console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
     model_path = _generate_model_output_path(model_name)
     # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
@@ -786,7 +768,8 @@ def remove(model_name):
 
 @tuna.command()
 @click.argument("model_name")
-def info(model_name):
+@click.pass_context
+def info(ctx, model_name):
     """
     Retrieve and print the details of a model.
 
@@ -799,7 +782,7 @@ def info(model_name):
             "Please use [green] lep tuna list [/] to check your models"
         )
         sys.exit(1)
-    params = _get_model_details(model_name)
+    params = _get_model_details(ctx, model_name)
 
     console.print(f"Model information for [yellow]'{model_name}'[/]：")
 
@@ -826,29 +809,14 @@ def clear_failed_trainings(ctx):
 
 # todo get model info / train info
 # todo change time formate
-@tuna.command()
+@tuna.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.option(
     "--name", "-n", help="--name, also known as the model folder name", required=True
-)
-@click.option(
-    "--resource-shape",
-    "-rs",
-    default=DEFAULT_RESOURCE_SHAPE,
-    help="Resource shape of the deployment",
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help=(
-        "Node group for the deployment. If not set, use on-demand resources. You can"
-        " repeat this flag multiple times to choose multiple node groups. Multiple node"
-        " group option is currently not supported but coming soon for enterprise users."
-        " Only the first node group will be set if you input multiple node groups at"
-        " this time."
-    ),
-    type=str,
-    multiple=True,
 )
 @click.option(
     "--hf-transfer",
@@ -890,89 +858,15 @@ def clear_failed_trainings(ctx):
     ),
     multiple=True,
 )
-@click.option(
-    "--replicas-static",
-    "-r",
-    "-replicas",
-    type=int,
-    default=None,
-    help="""
-                Use this option if you want a fixed number of replicas and want to turn off autoscaling.
-                For example, to set a fixed number of replicas to 2, you can use: 
-                --replicas-static 2  or
-                -r 2
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-down",
-    "-ad",
-    type=str,
-    default=None,
-    help="""
-                Use this option if you want to have replicas but scale down after a specified time of no traffic.
-                For example, to set 2 replicas and scale down after 3600 seconds of no traffic,
-                use: --autoscale-down 2,3600s or --autoscale-down 2,3600
-                (Note: Do not include spaces around the comma.)
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-gpu-util",
-    "-agu",
-    type=str,
-    default=None,
-    help="""
-                Use this option to set a threshold for GPU utilization and enable the system to scale between
-                a minimum and maximum number of replicas. For example,
-                to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
-                (Note: Do not include spaces around the comma.)
-
-                If the GPU utilization is higher than the target GPU utilization,
-                the autoscaler will scale up the replicas.
-                If the GPU utilization is lower than the target GPU utilization,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between 0 and 99.
-
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-qpm",
-    "-aq",
-    type=str,
-    default=None,
-    help="""
-                Use this option to set a threshold for QPM and enable the system to scale between
-                a minimum and maximum number of replicas. For example,
-                to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-between 1,3,2.5
-                (Note: Do not include spaces around the comma.)
-
-                If the QPM is higher than the target QPM,
-                the autoscaler will scale up the replicas.
-                If the QPM is lower than the target QPM,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between positive number.
-            """,
-    callback=validate_autoscale_options,
-)
 @click.pass_context
 def run(
     ctx,
     name,
-    resource_shape,
-    node_groups,
     hf_transfer,
     tuna_step,
     use_int,
     huggingface_token,
     mount,
-    replicas_static,
-    autoscale_down,
-    autoscale_gpu_util,
-    autoscale_qpm,
 ):
     """Run a specified tuna model.
 
@@ -1068,23 +962,25 @@ def run(
     mount = list(mount)
     mount.append("/lepton-tuna:/lepton-tuna")
 
-    huggingface_token = [huggingface_token]
+    update_args = [
+        "--name",
+        deployment_name,
+        "--photon",
+        LLM_BY_LEPTON_PHOTON_NAME,
+        "--secret",
+        huggingface_token,
+        "--public-photon",
+    ]
+    for env_element in env:
+        update_args.extend(["--env", env_element])
+    for mount_element in mount:
+        update_args.extend(["--mount", mount_element])
 
-    ctx.invoke(
-        deployment_create,
-        name=deployment_name,
-        resource_shape=resource_shape,
-        photon_name=LLM_BY_LEPTON_PHOTON_NAME,
-        env=env,
-        node_groups=node_groups,
-        secret=huggingface_token,
-        mount=mount,
-        public_photon=True,
-        replicas_static=replicas_static,
-        autoscale_down=autoscale_down,
-        autoscale_gpu_util=autoscale_gpu_util,
-        autoscale_qpm=autoscale_qpm,
+    combined_args = ctx.args + update_args
+    deployment_create_ctx = deployment_create.make_context(
+        info_name="create", args=combined_args
     )
+    ctx.invoke(deployment_create, **deployment_create_ctx.params)
 
 
 @tuna.command(name="list")
@@ -1106,7 +1002,10 @@ def list_command(ctx):
     table.add_column("Train Job Name")
 
     for name, tuna_model in _get_models_map().items():
-        model, data, lora_or_medusa, create_time = _get_model_key_infos(ctx, name)
+        key_infos = _get_model_key_infos(ctx, name)
+        if not key_infos:
+            continue
+        model, data, lora_or_medusa, create_time = key_infos
         status = tuna_model.tuna_model_state
         state_style = (
             "green"

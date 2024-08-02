@@ -53,7 +53,12 @@ def make_container_port_from_string(port_str: str):
         raise ValueError(f"Invalid port definition: {port_str}")
 
 
-@job.command()
+@job.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
     "--file",
@@ -278,6 +283,7 @@ def create(
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+    print(json.dumps(job.dict(), indent=4))
     client.job.create(job)
 
     if not suppress_output:

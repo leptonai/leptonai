@@ -84,10 +84,8 @@ class StorageAPI(APIResourse):
     def delete_file_or_dir(self, additional_path: str, delete_all=False) -> bool:
         query_path = f"/storage/{DEFAULT_STORAGE_VOLUME_NAME}{_prepend_separator(additional_path)}"
         if delete_all:
-            query_path +="/?removeall=true"
-        response = self._delete(
-            query_path
-        )
+            query_path += "/?removeall=true"
+        response = self._delete(query_path)
         return self.ensure_ok(response)
 
     def check_exists(self, additional_path: str) -> bool:

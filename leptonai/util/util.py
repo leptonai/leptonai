@@ -50,11 +50,13 @@ def check_photon_name(name):
             " character and end with an alphanumeric character"
         )
 
+
 def check_name_regex(name):
     # copied from
     # https://github.com/leptonai/lepton/blob/732311f395476b67295a730b0be4d104ed7f5bef/api-server/util/util.go#L26
     name_regex = r"^[a-z]([-a-z0-9]*[a-z0-9])?$"
     return re.match(name_regex, name)
+
 
 @contextmanager
 def patch(obj, attr, val):
