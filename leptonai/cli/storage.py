@@ -91,24 +91,24 @@ def du():
 @storage.command()
 @click.argument("path", type=str, default="/")
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def ls(path, volume):
+def ls(path, file_system):
     """
     List the contents of a directory of the current file storage.
     """
-    volume_info = " in " + volume if volume else None
+    fs_info = " in " + file_system if file_system else None
     client = APIClient()
     check(
-        client.storage.check_exists(path, volume),
-        f"[red]{path}{volume_info}[/] not found",
+        client.storage.check_exists(path, file_system),
+        f"[red]{path}{fs_info}[/] not found",
     )
 
-    dir_infos = client.storage.get_dir(path, volume)
+    dir_infos = client.storage.get_dir(path, file_system)
 
     print_dir_contents(path, dir_infos)
 
@@ -116,13 +116,13 @@ def ls(path, volume):
 @storage.command()
 @click.argument("path", type=str)
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def rm(path, volume):
+def rm(path, file_system):
     """
     Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
@@ -130,25 +130,25 @@ def rm(path, volume):
 
     client = APIClient()
 
-    volume_info = " in " + volume if volume else None
+    fs_info = " in " + file_system if file_system else None
     check(
-        client.storage.check_exists(path, volume),
-        f"[red]{path}{volume_info}[/] not found",
+        client.storage.check_exists(path, file_system),
+        f"[red]{path}{fs_info}[/] not found",
     )
 
-    if (client.storage.get_file_type(path, volume)) == "dir":
+    if (client.storage.get_file_type(path, file_system)) == "dir":
         console.print(
             f"[red]{path}[/] is a directory. Use [red]rmdir {path}[/] to delete"
             " directories."
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path, volume)
+    client.storage.delete_file_or_dir(path, file_system)
     console.print(f"Deleted [green]{path}[/].")
 
 
 @storage.command()
-def ls_storage():
+def ls_file_system():
     client = APIClient()
 
     table = Table(
@@ -157,7 +157,7 @@ def ls_storage():
         show_lines=True,
     )
 
-    table.add_column("Volume Name")
+    table.add_column("File System Name")
     table.add_column("Total Usage (Bytes)")
     for fs in client.storage.list_storage():
         table.add_row(fs.metadata.name, str(fs.status.total_usage_bytes))
@@ -168,13 +168,13 @@ def ls_storage():
 @storage.command()
 @click.argument("path", type=str)
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def rmdir(path, volume):
+def rmdir(path, file_system):
     """
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
@@ -182,38 +182,38 @@ def rmdir(path, volume):
 
     client = APIClient()
 
-    volume_info = " in " + volume if volume else None
+    fs_info = " in " + file_system if file_system else None
     check(
-        client.storage.check_exists(path, volume),
-        f"[red]{path}{volume_info}[/] not found",
+        client.storage.check_exists(path, file_system),
+        f"[red]{path}{fs_info}[/] not found",
     )
 
-    if (client.storage.get_file_type(path, volume)) != "dir":
+    if (client.storage.get_file_type(path, file_system)) != "dir":
         console.print(
             f"[red]{path}[/] is a file. Use [red]rm {path}[/] to delete files."
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path, volume)
+    client.storage.delete_file_or_dir(path, file_system)
     console.print(f"Deleted [green]{path}[/].")
 
 
 @storage.command()
 @click.argument("path", type=str)
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def mkdir(path, volume):
+def mkdir(path, file_system):
     """
     Create a directory in the file storage of the current workspace.
     """
 
     client = APIClient()
-    client.storage.create_dir(path, volume)
+    client.storage.create_dir(path, file_system)
     console.print(f"Created directory [green]{path}[/].")
 
 
@@ -242,13 +242,13 @@ def mkdir(path, volume):
     help="Show progress. Only supported with --rsync.",
 )
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def upload(local_path, remote_path, rsync, recursive, progress, volume):
+def upload(local_path, remote_path, rsync, recursive, progress, file_system):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
@@ -312,7 +312,7 @@ def upload(local_path, remote_path, rsync, recursive, progress, volume):
 
         return
 
-    client.storage.create_file(local_path, remote_path, volume)
+    client.storage.create_file(local_path, remote_path, file_system)
     console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
 
 
@@ -320,13 +320,13 @@ def upload(local_path, remote_path, rsync, recursive, progress, volume):
 @click.argument("remote_path", type=str)
 @click.argument("local_path", type=str, default="")
 @click.option(
-    "-volume",
-    "-v",
+    "--file-system",
+    "-f",
     default=None,
     type=str,
-    help="Volume name, only for user with dedicated file system",
+    help="File system name, only for user with dedicated file system",
 )
-def download(remote_path, local_path, volume):
+def download(remote_path, local_path, file_system):
     """
     Download a remote file. If no local path is specified, the file will be
     downloaded to the current working directory with the same name as the remote
@@ -334,13 +334,13 @@ def download(remote_path, local_path, volume):
     """
     client = APIClient()
 
-    volume_info = " in " + volume if volume else None
+    fs_info = " in " + file_system if file_system else None
     check(
-        client.storage.check_exists(remote_path, volume),
-        f"[red]{remote_path}{volume_info}[/] not found",
+        client.storage.check_exists(remote_path, file_system),
+        f"[red]{remote_path}{fs_info}[/] not found",
     )
 
-    if client.storage.get_file_type(remote_path, volume) != "file":
+    if client.storage.get_file_type(remote_path, file_system) != "file":
         console.print(f"[red]{remote_path}[/] is not a file")
         sys.exit(1)
 
@@ -360,7 +360,7 @@ def download(remote_path, local_path, volume):
         f"[red]local path {local_path} does not exist[/]",
     )
 
-    client.storage.get_file(remote_path, local_path, volume)
+    client.storage.get_file(remote_path, local_path, file_system)
     console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
 
 
