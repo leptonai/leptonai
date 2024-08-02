@@ -189,7 +189,12 @@ def make_container_port_from_string(port_str: str):
     ),
     default=259200,
 )
-@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
 def create(
     name,
     file,
@@ -277,6 +282,7 @@ def create(
 
     if not suppress_output:
         console.print(f"Job [green]{name}[/] created successfully.")
+
 
 @job.command(name="list")
 def list_command():

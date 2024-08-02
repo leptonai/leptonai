@@ -115,7 +115,10 @@ def join_path(path, file_name):
 @storage.command()
 @click.argument("path", type=str, default="/")
 @click.option("--name", "-n", default=None, type=str)
-def find(path, name, ):
+def find(
+    path,
+    name,
+):
     joined_path = join_path(path, name)
     client = APIClient()
     is_exist = client.storage.check_exists(joined_path)
@@ -174,6 +177,7 @@ def rmdir(path):
     client.storage.delete_file_or_dir(path)
     console.print(f"Deleted [green]{path}[/].")
 
+
 @storage.command()
 @click.argument("path", type=str)
 def mkdir(path):
@@ -183,8 +187,6 @@ def mkdir(path):
     client = APIClient()
     client.storage.create_dir(path)
     console.print(f"Created directory [green]{path}[/].")
-
-
 
 
 @storage.command()
@@ -211,7 +213,12 @@ def mkdir(path):
     is_flag=True,
     help="Show progress. Only supported with --rsync.",
 )
-@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
 def upload(local_path, remote_path, rsync, recursive, progress, suppress_output):
     """
     Upload a local file to the storage of the current workspace. If remote_path
@@ -279,12 +286,20 @@ def upload(local_path, remote_path, rsync, recursive, progress, suppress_output)
     client.storage.create_file(local_path, remote_path)
 
     if not suppress_output:
-        console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
+        console.print(
+            f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]"
+        )
+
 
 @storage.command()
 @click.argument("remote_path", type=str)
 @click.argument("local_path", type=str, default="")
-@click.option('--suppress-output', is_flag=True, hidden=True, help='Suppress output when called from another command')
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
 def download(remote_path, local_path, suppress_output):
     """
     Download a remote file. If no local path is specified, the file will be
@@ -320,7 +335,10 @@ def download(remote_path, local_path, suppress_output):
     client.storage.get_file(remote_path, local_path)
 
     if not suppress_output:
-        console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
+        console.print(
+            f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]"
+        )
+
 
 def add_command(click_group):
     # Backward compatibility: if users stil call "lep storage", keep it working.

@@ -15,12 +15,17 @@ from rich.pretty import Pretty
 from rich.table import Table
 from rich.text import Text
 
-from .deployment import (create as deployment_create,
-                         validate_autoscale_options, deployment_remove)
+from .deployment import (
+    create as deployment_create,
+    validate_autoscale_options,
+    deployment_remove,
+)
 from .job import create as job_create
 from .job import remove as job_remove
 from .storage import (
-    download, upload, ls,
+    download,
+    upload,
+    ls,
 )
 from .util import (
     console,
@@ -297,7 +302,9 @@ def _get_model_details(ctx, model_name):
     temp_dir = tempfile.gettempdir()
     temp_file_path = os.path.join(temp_dir, info_file_name)
 
-    ctx.invoke(download, remote_path=info_path, local_path=temp_file_path, suppress_output=True)
+    ctx.invoke(
+        download, remote_path=info_path, local_path=temp_file_path, suppress_output=True
+    )
 
     if not os.path.exists(temp_file_path):
         raise FileNotFoundError(f"The file {temp_file_path} does not exist.")
@@ -392,12 +399,7 @@ def upload_data(ctx, file, name):
         ctx.invoke(list_data)
         sys.exit(1)
 
-    ctx.invoke(
-        upload,
-        local_path=file,
-        remote_path=remote_path,
-        suppress_output=True
-    )
+    ctx.invoke(upload, local_path=file, remote_path=remote_path, suppress_output=True)
     console.print(f"Uploaded Dataset [green]{file}[/] to [green]{remote_path}[/]")
 
 
@@ -684,10 +686,12 @@ def train(
 
     model_info_file_path = _save_params_to_json(params, model_info_file_name)
 
-    ctx.invoke(upload,
-               local_path=model_info_file_path,
-               remote_path=model_output_path + "/" + model_info_file_name,
-               suppress_output=True)
+    ctx.invoke(
+        upload,
+        local_path=model_info_file_path,
+        remote_path=model_output_path + "/" + model_info_file_name,
+        suppress_output=True,
+    )
     # Build mount variable
     mount = [f"{DEFAULT_TUNA_FOLDER}:{DEFAULT_TUNA_FOLDER}"]
 
