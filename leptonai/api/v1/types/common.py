@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Union
 
 
 class MetadataV1(BaseModel):
@@ -33,7 +33,7 @@ class Metadata(BaseModel):
     id_: Optional[str] = Field(default=None, alias="id")
     name: Optional[str] = None
     created_at: Optional[int] = None
-    version: Optional[int] = None
+    version: Optional[Union[int, str]] = None
     created_by: Optional[str] = None
     last_modified_by: Optional[str] = None
 
