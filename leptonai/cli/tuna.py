@@ -464,7 +464,7 @@ def remove_data(name):
             if len(TUNA_DEPLOYMENT_NAME_PREFIX) > len(TUNA_TRAIN_JOB_NAME_PREFIX)
             else TUNA_TRAIN_JOB_NAME_PREFIX
         ),
-        length_limit=36,
+        length_limit=33,
     ),
 )
 @click.option(
