@@ -33,6 +33,8 @@ class StorageAPI(APIResourse):
             "/" if os.path.dirname(file_path) == "" else os.path.dirname(file_path)
         )
 
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
+
         parent_contents = self.get_dir(parent_dir, file_system)
 
         base = os.path.basename(file_path)
@@ -48,8 +50,7 @@ class StorageAPI(APIResourse):
     def get_file(
         self, remote_path: str, local_path: str, file_system=None
     ) -> Dict[str, str]:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._get(
             f"/storage/{file_system}{_prepend_separator(remote_path)}",
             stream=True,
@@ -67,16 +68,14 @@ class StorageAPI(APIResourse):
         return {"name": local_path}
 
     def get_dir(self, remote_path: str, file_system=None) -> List[DirInfo]:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._get(
             f"/storage/{file_system}{_prepend_separator(remote_path)}",
         )
         return self.ensure_list(response, DirInfo)
 
     def create_file(self, local_path: str, remote_path: str, file_system=None) -> bool:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         with open(local_path, "rb") as file:
             response = self._post(
                 f"/storage/{file_system}{_prepend_separator(remote_path)}",
@@ -85,24 +84,21 @@ class StorageAPI(APIResourse):
             return self.ensure_ok(response)
 
     def create_dir(self, additional_path: str, file_system=None) -> bool:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._put(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
     def delete_file_or_dir(self, additional_path: str, file_system=None) -> bool:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._delete(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
     def check_exists(self, additional_path: str, file_system=None) -> bool:
-        if not file_system:
-            file_system = DEFAULT_STORAGE_VOLUME_NAME
+        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._head(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
         )
