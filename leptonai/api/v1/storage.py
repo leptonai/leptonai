@@ -17,7 +17,9 @@ def _prepend_separator(file_path):
 
 
 class StorageAPI(APIResourse):
-    def get_file_type(self, file_path: str, file_system: Optional[str] = None) -> Union[str, None]:
+    def get_file_type(
+        self, file_path: str, file_system: Optional[str] = None
+    ) -> Union[str, None]:
         """
         Check if the contents at file_path stored on the remote server are a file or a directory.
 
@@ -67,14 +69,18 @@ class StorageAPI(APIResourse):
 
         return {"name": local_path}
 
-    def get_dir(self, remote_path: str, file_system: Optional[str] = None) -> List[DirInfo]:
+    def get_dir(
+        self, remote_path: str, file_system: Optional[str] = None
+    ) -> List[DirInfo]:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._get(
             f"/storage/{file_system}{_prepend_separator(remote_path)}",
         )
         return self.ensure_list(response, DirInfo)
 
-    def create_file(self, local_path: str, remote_path: str, file_system: Optional[str] = None) -> bool:
+    def create_file(
+        self, local_path: str, remote_path: str, file_system: Optional[str] = None
+    ) -> bool:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         with open(local_path, "rb") as file:
             response = self._post(
@@ -83,21 +89,27 @@ class StorageAPI(APIResourse):
             )
             return self.ensure_ok(response)
 
-    def create_dir(self, additional_path: str, file_system: Optional[str] = None) -> bool:
+    def create_dir(
+        self, additional_path: str, file_system: Optional[str] = None
+    ) -> bool:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._put(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
-    def delete_file_or_dir(self, additional_path: str, file_system: Optional[str] = None) -> bool:
+    def delete_file_or_dir(
+        self, additional_path: str, file_system: Optional[str] = None
+    ) -> bool:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._delete(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
         )
         return self.ensure_ok(response)
 
-    def check_exists(self, additional_path: str, file_system: Optional[str] = None) -> bool:
+    def check_exists(
+        self, additional_path: str, file_system: Optional[str] = None
+    ) -> bool:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
         response = self._head(
             f"/storage/{file_system}{_prepend_separator(additional_path)}"
