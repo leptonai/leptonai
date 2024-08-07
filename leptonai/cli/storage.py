@@ -92,7 +92,7 @@ def du():
 @click.argument("path", type=str, default="/")
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
@@ -117,7 +117,7 @@ def ls(path, file_system):
 @click.argument("path", type=str)
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
@@ -169,7 +169,7 @@ def ls_file_system():
 @click.argument("path", type=str)
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
@@ -202,7 +202,7 @@ def rmdir(path, file_system):
 @click.argument("path", type=str)
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
@@ -243,7 +243,7 @@ def mkdir(path, file_system):
 )
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
@@ -321,7 +321,7 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system):
 @click.argument("local_path", type=str, default="")
 @click.option(
     "--file-system",
-    "-f",
+    "-fs",
     default=None,
     type=str,
     help="File system name, only for user with dedicated file system",
