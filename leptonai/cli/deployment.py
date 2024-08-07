@@ -234,7 +234,6 @@ def _get_ordered_photon_ids_or_none(
     client = APIClient()
 
     photons = client.photon.list_all(public_photon=public_photon)
-
     target_photons = [p for p in photons if p.name == name]  # type: ignore
     if len(target_photons) == 0:
         return None
@@ -559,9 +558,7 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
 ):
-    """
-    Creates a deployment from either a photon or container image.
-    """
+
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
 
@@ -595,12 +592,13 @@ def create(
             photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                    f"Photon [red]{photon_name}[/] does not exist in the workspace. Did"
                     " you forget to push the photon?",
                 )
                 sys.exit(1)
             console.print(
-                f"Running the most recent version of [green]{name}[/]: {photon_id}"
+                f"Running the most recent version of [green]{photon_name}[/]:"
+                f" {photon_id}"
             )
         else:
             console.print(f"Running the specified version: [green]{photon_id}[/]")
@@ -628,14 +626,16 @@ def create(
         deployment_template = PhotonDeploymentTemplate()
     else:
         # No photon_id, photon_name, container_image, or container_command
-        console.print("""
+        console.print(
+            """
             You have not provided a photon_name, photon_id, or container image.
             Please use one of the following options:
             -p <photon_name>
             -i <photon_id>
             --container-image <container_image> and --container-command <container_command>
             to specify a photon or container image.
-            """)
+            """
+        )
         sys.exit(1)
     # default timeout
     if (
@@ -714,7 +714,7 @@ def create(
     try:
         logger.trace(f"deployment_template:\n{deployment_template}")
         template_envs = deployment_template.env or {}
-        env_list = env or []
+        env_list = list(env) or []
         secret_list = secret or []
         mount_list = mount or []
         for k, v in template_envs.items():
@@ -852,7 +852,7 @@ def remove(name):
     """
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Job [green]{name}[/] deleted successfully.")
+    console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()

@@ -20,6 +20,7 @@ from . import secret
 from . import storage
 from . import workspace
 from . import ingress
+from . import tuna
 
 from .util import click_group
 
@@ -61,6 +62,7 @@ storage.add_command(lep)
 workspace.add_command(lep)
 
 ingress.add_command(lep)
+tuna.add_command(lep)
 
 
 @lep.command()
@@ -162,7 +164,8 @@ def login(credentials):
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"""
+        console.print(
+            f"""
         [red bold]Invalid Workspace Access Detected[/]
         [red]Workspace ID:[/red] {e.workspace_id}
 
@@ -183,13 +186,15 @@ def login(credentials):
         4. [green]If the workspace was just created, please wait for 5 - 10 minutes. [/green]
            [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
            (Current Time: [bold blue]{current_time}[/bold blue])
-        """)
+        """
+        )
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
 
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"""
+        console.print(
+            f"""
         [red bold]Workspace Not Found[/]
         [red]Workspace ID:[/red] {e.workspace_id}
 
@@ -200,7 +205,8 @@ def login(credentials):
         2. [green]Please check the login info you just used above[/green]
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
-        """)
+        """
+        )
 
 
 @lep.command()

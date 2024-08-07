@@ -53,7 +53,12 @@ def make_container_port_from_string(port_str: str):
         raise ValueError(f"Invalid port definition: {port_str}")
 
 
-@job.command()
+@job.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
     "--file",
@@ -189,6 +194,12 @@ def make_container_port_from_string(port_str: str):
     ),
     default=259200,
 )
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
 def create(
     name,
     file,
@@ -207,6 +218,7 @@ def create(
     intra_job_communication,
     privileged,
     ttl_seconds_after_finished,
+    suppress_output,
 ):
     """
     Creates a job.
@@ -270,10 +282,12 @@ def create(
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
-
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+    print(json.dumps(job.dict(), indent=4))
     client.job.create(job)
-    console.print(f"Job [green]{name}[/] created successfully.")
+
+    if not suppress_output:
+        console.print(f"Job [green]{name}[/] created successfully.")
 
 
 @job.command(name="list")
@@ -373,7 +387,6 @@ def log(name, replica):
 @job.command()
 @click.option("--name", "-n", help="The job name to get replicas.", required=True)
 def replicas(name):
-
     client = APIClient()
 
     replicas = client.job.get_replicas(name)
@@ -390,7 +403,6 @@ def replicas(name):
 @job.command()
 @click.option("--name", "-n", help="The job name to get events.", required=True)
 def events(name, replica=None):
-
     client = APIClient()
 
     events = client.job.get_events(name)

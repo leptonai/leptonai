@@ -58,7 +58,6 @@ else:
             f" Using default value of {DEFAULT_TIMEOUT} seconds."
         )
 
-
 # In cloudrun, the default timeout is also set to 1 hour. However, even if we set
 # LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
 # cloudrun, because it was expected to be in-process.
@@ -73,7 +72,6 @@ except ValueError:
         f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
         f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
     )
-
 
 ################################################################################
 # Automatically generated constants. You do not need to change these.
@@ -286,7 +284,6 @@ elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.envi
 else:
     DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
 
-
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 
@@ -378,3 +375,14 @@ LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
 LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
+
+
+# TUNA CONFIG
+DEFAULT_TUNA_FOLDER = "/lepton-tuna"
+DEFAULT_TUNA_TRAIN_DATASET_PATH = "/lepton-tuna/dataset"
+DEFAULT_TUNA_MODEL_PATH = "/lepton-tuna/model"
+TUNA_TRAIN_JOB_NAME_PREFIX = "tuna-"
+TUNA_DEPLOYMENT_NAME_PREFIX = "tuna-"
+
+TUNA_IMAGE = "default/lepton:tuna-24.07.7"
+LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
