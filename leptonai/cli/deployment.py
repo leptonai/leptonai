@@ -714,9 +714,9 @@ def create(
     try:
         logger.trace(f"deployment_template:\n{deployment_template}")
         template_envs = deployment_template.env or {}
-        env_list = env or []
-        secret_list = secret or []
-        mount_list = mount or []
+        env_list = list(env) or []
+        secret_list = list(secret) or []
+        mount_list = list(mount) or []
         for k, v in template_envs.items():
             if v == ENV_VAR_REQUIRED:
                 if not any(s.startswith(k + "=") for s in (env or [])):
