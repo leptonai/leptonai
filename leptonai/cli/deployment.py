@@ -1273,7 +1273,6 @@ def update(
         threshold = float(parts[2])
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
-        photon_namespace="public" if public_photon else "private",
         photon_id=id,
         resource_requirement=ResourceRequirement(
             min_replicas=min_replicas,
