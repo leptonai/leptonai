@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, Union
 
 
@@ -43,6 +43,11 @@ class Metadata(BaseModel):
     visibility: Optional[LeptonVisibility] = None
     replica_version: Optional[str] = None
 
+    # @validator('version', pre=True)
+    # def parse_version(cls, v):
+    #     if isinstance(v, str) and v.isdigit():
+    #         return int(v)
+    #     return v
 
 class SecretItem(BaseModel):
     name: str
