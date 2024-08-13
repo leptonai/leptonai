@@ -7,6 +7,7 @@ from typing import List, Optional, Union
 import click
 from loguru import logger
 from rich.table import Table
+from rich.prompt import Confirm
 
 from .util import (
     console,
@@ -628,16 +629,14 @@ def create(
         deployment_template = PhotonDeploymentTemplate()
     else:
         # No photon_id, photon_name, container_image, or container_command
-        console.print(
-            """
+        console.print("""
             You have not provided a photon_name, photon_id, or container image.
             Please use one of the following options:
             -p <photon_name>
             -i <photon_id>
             --container-image <container_image> and --container-command <container_command>
             to specify a photon or container image.
-            """
-        )
+            """)
         sys.exit(1)
     # default timeout
     if (
@@ -1188,12 +1187,6 @@ def log(name, replica):
             """,
     callback=validate_autoscale_options,
 )
-@click.option(
-    "--skip-dryrun",
-    is_flag=True,
-    help="If specified, the update will proceed even if it triggers a rolling restart.",
-    default=None,
-)
 def update(
     name,
     id,
@@ -1209,7 +1202,6 @@ def update(
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
-    skip_dryrun,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -1309,30 +1301,26 @@ def update(
         spec=lepton_deployment_spec,
     )
 
-    if not skip_dryrun:
-        dryrun_response = client.deployment.update(
-            name_or_deployment=name,
-            spec=lepton_deployment,
-            dryrun=True,
+    dryrun_response = client.deployment.update(
+        name_or_deployment=name,
+        spec=lepton_deployment,
+        dryrun=True,
+    )
+
+    if (
+        dryrun_response.metadata.replica_version
+        != lepton_deployment.metadata.replica_version
+    ):
+
+        confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+            f"This update will trigger a rolling restart. Are you sure you want"
+            f" continue?",
+            default=True,
         )
 
-        if (
-            dryrun_response.metadata.replica_version
-            != lepton_deployment.metadata.replica_version
-        ):
-            response = (
-                input(
-                    "This update will trigger a rolling restart. Are you sure you want"
-                    " to proceed? (yes/no): "
-                )
-                .strip()
-                .lower()
-            )
-
-            if response in ["yes", "y"]:
-                print("Proceeding with the update...")
-            else:
-                sys.exit(1)
+        if not confirmed:
+            sys.exit(1)
+        print("Proceeding with the update...")
 
     client.deployment.update(
         name_or_deployment=name,
