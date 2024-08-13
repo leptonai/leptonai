@@ -74,7 +74,10 @@ class DeploymentAPI(APIResourse):
         return self.ensure_type(response, LeptonDeployment)
 
     def update(
-        self, name_or_deployment: Union[str, LeptonDeployment], spec: LeptonDeployment, dryrun: bool = False
+        self,
+        name_or_deployment: Union[str, LeptonDeployment],
+        spec: LeptonDeployment,
+        dryrun: bool = False,
     ) -> LeptonDeployment:
         dryrun_param = "" if not dryrun else "?dryrun=true"
 
