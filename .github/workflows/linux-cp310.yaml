@@ -34,7 +34,7 @@ jobs:
           fi
           pip install .[lint]
           ruff check .
-          black --check .
+          black --check --diff .
       - name: Test with pytest
         env:
           TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS: ${{ secrets.TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS }}
