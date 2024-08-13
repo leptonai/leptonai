@@ -1313,8 +1313,7 @@ def update(
     ):
 
         confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-            f"This update will trigger a rolling restart. Are you sure you want"
-            f" continue?",
+            "This update will trigger a rolling restart. Are you sure you want continue?",
             default=True,
         )
 
