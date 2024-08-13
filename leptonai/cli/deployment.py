@@ -1203,7 +1203,9 @@ def update(
         lepton_deployment = client.deployment.get(name)
         current_photon_id = lepton_deployment.spec.photon_id
 
-        public_photon = (lepton_deployment.spec.photon_namespace or "private") == "public"
+        public_photon = (
+            lepton_deployment.spec.photon_namespace or "private"
+        ) == "public"
 
         photons = client.photon.list_all(public_photon)
 
