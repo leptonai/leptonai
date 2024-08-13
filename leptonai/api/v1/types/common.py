@@ -13,7 +13,7 @@ class MetadataV1(BaseModel):
 
     id_: Optional[str] = Field(None, alias="id")
     created_at: Optional[int] = None
-    version: Optional[int] = None
+    version: Optional[Union[int, str]] = None
 
 
 class LeptonVisibility(str, Enum):
@@ -42,12 +42,6 @@ class Metadata(BaseModel):
     last_modified_at: Optional[int] = None
     visibility: Optional[LeptonVisibility] = None
     replica_version: Optional[str] = None
-
-    # @validator('version', pre=True)
-    # def parse_version(cls, v):
-    #     if isinstance(v, str) and v.isdigit():
-    #         return int(v)
-    #     return v
 
 class SecretItem(BaseModel):
     name: str
