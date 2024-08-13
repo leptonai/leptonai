@@ -628,16 +628,14 @@ def create(
         deployment_template = PhotonDeploymentTemplate()
     else:
         # No photon_id, photon_name, container_image, or container_command
-        console.print(
-            """
+        console.print("""
             You have not provided a photon_name, photon_id, or container image.
             Please use one of the following options:
             -p <photon_name>
             -i <photon_id>
             --container-image <container_image> and --container-command <container_command>
             to specify a photon or container image.
-            """
-        )
+            """)
         sys.exit(1)
     # default timeout
     if (
@@ -1191,9 +1189,7 @@ def log(name, replica):
 @click.option(
     "--skip-dryrun",
     is_flag=True,
-    help=(
-        "If specified, the update will proceed even if it triggers a rolling restart."
-    ),
+    help="If specified, the update will proceed even if it triggers a rolling restart.",
     default=None,
 )
 def update(
@@ -1324,7 +1320,8 @@ def update(
         ):
             response = (
                 input(
-                    "This update will trigger a rolling restart. Are you sure you want to proceed? (yes/no): "
+                    "This update will trigger a rolling restart. Are you sure you want"
+                    " to proceed? (yes/no): "
                 )
                 .strip()
                 .lower()
