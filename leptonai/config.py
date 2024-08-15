@@ -379,4 +379,4 @@ LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
 LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
 
-PHOTON_FORBIDDEN_PARAMETER_NAMES = {'request', 'cancel_on_connect_interval', 'callback'}
+PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
