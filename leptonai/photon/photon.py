@@ -51,7 +51,7 @@ from leptonai.config import (  # noqa: F401
     ENV_VAR_REQUIRED,
     PYDANTIC_MAJOR_VERSION,
     VALID_SHAPES,
-    get_local_deployment_token,
+    get_local_deployment_token, PHOTON_FORBIDDEN_PARAMETER_NAMES,
 )
 from leptonai.photon.constants import METADATA_VCS_URL_KEY
 from leptonai.photon.download import fetch_code_from_vcs
@@ -1235,6 +1235,10 @@ class Photon(BasePhoton):
 
     @staticmethod
     def handler(path=None, method="POST", **kwargs):
+        for key in PHOTON_FORBIDDEN_PARAMETER_NAMES:
+            if key in kwargs:
+                raise ValueError(f"The parameter name '{key}' is not allowed. "
+                                 f"Please rename the parameter and rebuild Photon.")
         Photon._santity_check_handler_kwargs(kwargs)
 
         def decorator(func):
