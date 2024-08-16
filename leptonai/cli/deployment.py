@@ -57,7 +57,7 @@ def _same_major_version(version_str_list: List[str]) -> bool:
     version_major_list = [version.split(".")[0] for version in version_str_list]
 
     if not all(
-        version_major == version_major_list[0] for version_major in version_str_list
+        version_major == version_major_list[0] for version_major in version_major_list
     ):
         return False
 
@@ -1312,7 +1312,7 @@ def update(
         ),
     )
 
-    lepton_deployment = LeptonDeployment(
+    new_lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
             name=name,
@@ -1324,7 +1324,7 @@ def update(
     if lepton_deployment.metadata.semantic_version:
         dryrun_deployment = client.deployment.update(
             name_or_deployment=name,
-            spec=lepton_deployment,
+            spec=new_lepton_deployment,
             dryrun=True,
         )
 
@@ -1332,7 +1332,6 @@ def update(
             dryrun_deployment.metadata.semantic_version,
             lepton_deployment.metadata.semantic_version,
         ])
-
         if will_restart:
 
             confirmed = (not sys.stdin.isatty()) or Confirm.ask(
@@ -1351,15 +1350,15 @@ def update(
             ]
 
             updating_ongoing = not _same_major_version(version_str_list)
-
             if updating_ongoing:
                 console.print("An update is in progress. Please try again later.")
+                sys.exit(1)
 
-            print("Proceeding with the update...")
+            console.print("Proceeding with the update...")
 
     client.deployment.update(
         name_or_deployment=name,
-        spec=lepton_deployment,
+        spec=new_lepton_deployment,
     )
     console.print(f"Deployment [green]{name}[/] updated.")
 
