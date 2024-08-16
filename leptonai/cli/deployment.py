@@ -1351,7 +1351,9 @@ def update(
 
             updating_ongoing = not _same_major_version(version_str_list)
             if updating_ongoing:
-                console.print("[red]An update is in progress. Please try again later.[/]")
+                console.print(
+                    "[red]An update is in progress. Please try again later.[/]"
+                )
                 sys.exit(1)
 
             console.print("Proceeding with the update...")
