@@ -7,7 +7,6 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
 
-
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
 
@@ -217,7 +216,7 @@ class HealthCheck(BaseModel):
 
 class LeptonLog(BaseModel):
     save_termination_logs: Optional[bool] = None
-
+    enable_collection: Optional[bool] = None
 
 class LeptonRoutingPolicy(BaseModel):
     enable_header_based_replica_routing: Optional[bool] = None
@@ -239,6 +238,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     log: Optional[LeptonLog] = None
     metrics: Optional[LeptonMetrics] = None
     routing_policy: Optional[LeptonRoutingPolicy] = None
+    log: Optional[LeptonLog] = None
 
 
 class LeptonDeploymentState(str, Enum):
@@ -281,3 +281,8 @@ class LeptonDeployment(BaseModel):
     metadata: Optional[Metadata] = None
     spec: Optional[LeptonDeploymentUserSpec] = None
     status: Optional[LeptonDeploymentStatus] = None
+
+
+class LeptonLog(BaseModel):
+    save_termination_logs: Optional[bool] = None
+    enable_collection: Optional[bool] = None

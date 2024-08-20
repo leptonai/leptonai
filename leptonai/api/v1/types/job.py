@@ -4,7 +4,7 @@ from typing import Optional, List
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
-from .deployment import LeptonContainer, LeptonMetrics, EnvVar, Mount
+from .deployment import LeptonContainer, LeptonMetrics, EnvVar, Mount, LeptonLog
 
 
 class LeptonJobUserSpec(BaseModel):
@@ -26,6 +26,7 @@ class LeptonJobUserSpec(BaseModel):
     intra_job_communication: Optional[bool] = None
     privileged: Optional[bool] = None
     metrics: Optional[LeptonMetrics] = None
+    log: Optional[LeptonLog] = None
 
 
 DefaultTTLSecondsAfterFinished: int = 600
