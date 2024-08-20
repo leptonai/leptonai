@@ -1102,15 +1102,6 @@ def log(name, replica):
     ),
 )
 @click.option(
-    "--public-photon",
-    is_flag=True,
-    help=(
-        "If specified, get the photon from the public photon registry. If not"
-        " specified, we will inherit the namespace of the current deployment."
-    ),
-    default=None,
-)
-@click.option(
     "--visibility",
     type=str,
     help=(
@@ -1195,7 +1186,6 @@ def update(
     tokens,
     remove_tokens,
     no_traffic_timeout,
-    public_photon,
     visibility,
     replicas_static,
     autoscale_down,
@@ -1212,7 +1202,12 @@ def update(
     if id == "latest":
         lepton_deployment = client.deployment.get(name)
         current_photon_id = lepton_deployment.spec.photon_id
-        photons = client.photon.list_all()
+
+        public_photon = (
+            lepton_deployment.spec.photon_namespace or "private"
+        ) == "public"
+
+        photons = client.photon.list_all(public_photon)
 
         for photon in photons:
             if photon.id_ == current_photon_id:
@@ -1231,12 +1226,6 @@ def update(
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]  # type: ignore
         console.print(f"Updating to latest photon id [green]{id}[/].")
-    if public_photon is None:
-        lepton_deployment = client.deployment.get(name)
-
-        public_photon = (
-            lepton_deployment.spec.photon_namespace or "private"
-        ) == "public"
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
