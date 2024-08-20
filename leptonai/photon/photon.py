@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import traceback
+from pathlib import Path
 from types import FunctionType, FrameType
 from typing import Callable, Any, List, Dict, Optional, Iterator, Type
 from typing_extensions import Annotated
@@ -30,6 +31,7 @@ from fastapi.responses import (  # noqa: F401
     Response,
     JSONResponse,
     FileResponse,
+    RedirectResponse,
     StreamingResponse,
 )
 from loguru import logger
@@ -757,6 +759,9 @@ class Photon(BasePhoton):
                 + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
                 + " OpenAPI documentation",
                 "\t- "
+                + click.style(f"http://{host}:{port}/lep-docs", fg="green", bold=True)
+                + " Lepton documentation",
+                "\t- "
                 + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
                 + " Redoc documentation",
                 "\t- "
@@ -830,6 +835,21 @@ class Photon(BasePhoton):
             if num_tasks > 0:
                 num_tasks -= 1
             return num_tasks
+
+        file_dir = Path(__file__).parent
+        ui_path = file_dir.parent / "ui"
+        app.mount(
+            "/lep-docs",
+            StaticFiles(directory=ui_path, html=True),
+            name="lep-docs",
+        )
+
+        @app.exception_handler(404)
+        async def custom_404_handler(request: Request, _):
+            if request.url.path.startswith("/static"):
+                return JSONResponse(status_code=404, content={"message": "Not Found"})
+            else:
+                return RedirectResponse(url="/lep-docs")
 
         config = uvicorn.Config(
             app,
