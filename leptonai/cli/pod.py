@@ -8,6 +8,7 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
+import json
 from datetime import datetime
 import re
 import sys
@@ -28,7 +29,7 @@ from .util import (
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement
+from ..api.v1.types.deployment import ResourceRequirement, LeptonLog
 
 console = Console(highlight=False)
 
@@ -101,6 +102,15 @@ def pod():
     type=str,
     multiple=True,
 )
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def create(
     name,
     resource_shape,
@@ -109,6 +119,7 @@ def create(
     secret,
     image_pull_secrets,
     node_groups,
+    log_collection,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -134,6 +145,9 @@ def create(
             envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
+        if log_collection is not None:
+            deployment_user_spec.log = LeptonLog(enable_collection=log_collection)
+
         deployment_spec = types.deployment.LeptonDeployment(
             metadata=types.common.Metadata(name=name),
             spec=deployment_user_spec,
@@ -143,6 +157,7 @@ def create(
         console.print("Failed to create pod.")
         sys.exit(1)
 
+    logger.trace(json.dumps(deployment_spec.model_dump(), indent=2))
     client.photon.run(deployment_spec)
 
     console.print(f"Pod launched as [green]{name}[/]")

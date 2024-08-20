@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import re
 import shlex
@@ -39,6 +40,7 @@ from ..api.v1.types.deployment import (
     ScaleDown,
     ContainerPort,
     AutoscalerTargetThroughput,
+    LeptonLog,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -530,6 +532,15 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
             """,
     callback=validate_autoscale_options,
 )
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def create(
     name,
     photon_name,
@@ -558,6 +569,7 @@ def create(
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
+    log_collection,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -760,6 +772,10 @@ def create(
                 else None
             )
         )
+
+        if log_collection is not None:
+            spec.log = LeptonLog(enable_collection=log_collection)
+
     except ValueError as e:
         console.print(
             f"Error encountered while processing deployment configs:\n[red]{e}[/]."
@@ -775,6 +791,7 @@ def create(
         ),
         spec=spec,
     )
+    logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
     client.deployment.create(lepton_deployment)
     console.print(
         f"Deployment created as [green]{name}[/]. Use `lep deployment"
@@ -1186,6 +1203,15 @@ def log(name, replica):
             """,
     callback=validate_autoscale_options,
 )
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def update(
     name,
     id,
@@ -1201,6 +1227,7 @@ def update(
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
+    log_collection,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -1289,7 +1316,8 @@ def update(
             target_throughput=AutoscalerTargetThroughput(qpm=threshold),
         ),
     )
-
+    if log_collection is not None:
+        lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
     lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
@@ -1299,6 +1327,7 @@ def update(
         spec=lepton_deployment_spec,
     )
 
+    logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
     client.deployment.update(
         name_or_deployment=name,
         spec=lepton_deployment,
