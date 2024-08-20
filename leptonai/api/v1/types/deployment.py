@@ -218,6 +218,7 @@ class LeptonLog(BaseModel):
     save_termination_logs: Optional[bool] = None
     enable_collection: Optional[bool] = None
 
+
 class LeptonRoutingPolicy(BaseModel):
     enable_header_based_replica_routing: Optional[bool] = None
 
