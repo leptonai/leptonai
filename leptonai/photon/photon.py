@@ -836,7 +836,7 @@ class Photon(BasePhoton):
             return num_tasks
 
         file_dir = Path(__file__).parent
-        ui_path = (file_dir / "../ui").resolve()
+        ui_path = file_dir.parent / "ui"
         app.mount(
             "/lep-docs",
             StaticFiles(directory=ui_path, html=True),
