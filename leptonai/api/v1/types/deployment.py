@@ -282,8 +282,3 @@ class LeptonDeployment(BaseModel):
     metadata: Optional[Metadata] = None
     spec: Optional[LeptonDeploymentUserSpec] = None
     status: Optional[LeptonDeploymentStatus] = None
-
-
-class LeptonLog(BaseModel):
-    save_termination_logs: Optional[bool] = None
-    enable_collection: Optional[bool] = None
