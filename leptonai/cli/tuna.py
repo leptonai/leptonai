@@ -593,7 +593,8 @@ def remove_data(name):
     "--early-stop-threshold",
     type=float,
     default=None,
-    help="Early stop threshold. Default: 0.01",
+    help="Early stop threshold. Default: 0.01. Stop training early if reduction in validation loss is less than the "
+         "threshold for a set number of epochs.",
 )
 @click.pass_context
 def train(
