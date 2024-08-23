@@ -510,7 +510,7 @@ def remove_data(name):
     required=True,
 )
 @click.option(
-    "--purpose", type=str, default=None, help="Purpose: chat, instruct. Default: chat"
+    "--purpose", type=str, default=None, help="Purpose: chat, instruct. Default: chat", hidden=True
 )
 @click.option(
     "--num-train-epochs",
