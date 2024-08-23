@@ -382,14 +382,24 @@ def tuna():
 )
 @click.pass_context
 def upload_data(ctx, file, name):
-    """Upload data to the DEFAULT_TUNA_TRAIN_DATASET_PATH path.
+    """
+    Uploads data to the default training dataset path specified by DEFAULT_TUNA_TRAIN_DATASET_PATH.
 
-    Usage: lep tuna upload-data --local-path <local_path>
+    Usage:
+        lep tuna upload-data --local-path <local_path> --name <data_name>
 
     Args:
-        file (str): Local data path.
-        name (str): name your uploading data
+        ctx (Click.Context): The Click context object (required by Click commands).
+        file (str): The local file path to the data that needs to be uploaded.
+        name (str): The name to assign to the uploaded data.
+
+    Example:
+        lep tuna upload-data --local-path /path/to/data.csv --name training_data
+
+    Returns:
+        None
     """
+
     _check_or_create_tuna_folder_tree()
 
     filename = os.path.basename(file)
@@ -423,9 +433,7 @@ def list_data(ctx):
 
 @tuna.command()
 @click.argument(
-    "name",
-    type=click.Path(),
-    required=True,
+    "--name", "-n", type=click.Path(),help="Model name", required=True
 )
 def remove_data(name):
     """Remove specified data file from the default tuna train dataset path.
@@ -473,7 +481,12 @@ def remove_data(name):
     multiple=True,
 )
 @click.option(
-    "--model-path", type=click.Path(), default=None, help="Model path.", required=True
+    "--model-path",
+    type=str,
+    default=None,
+    help="Specify the base model path for fine-tuning. This can be a HuggingFace model ID or a local directory path "
+         "containing the model..",
+    required=True
 )
 @click.option(
     "--dataset-name",
@@ -484,7 +497,7 @@ def remove_data(name):
     required=True,
 )
 @click.option(
-    "--purpose", type=str, default=None, help="Purpose: Chat, Instruct. Default: Chat"
+    "--purpose", type=str, default=None, help="Purpose: chat, instruct. Default: chat"
 )
 @click.option(
     "--num-train-epochs",
@@ -496,7 +509,7 @@ def remove_data(name):
     "--per-device-train-batch-size",
     type=int,
     default=None,
-    help="Training batch size. Default: 32",
+    help="Training batch size per device (GPU or CPU). Default: 32",
 )
 @click.option(
     "--gradient-accumulation-steps",
@@ -519,9 +532,6 @@ def remove_data(name):
     help='Wandb project (only effective when --report-wandb is set). Default: ""',
 )
 @click.option(
-    "--save-steps", type=int, default=None, help="Model save steps. Default: 500"
-)
-@click.option(
     "--learning-rate", type=float, default=None, help="Learning rate. Default: 5e-5"
 )
 @click.option(
@@ -532,6 +542,7 @@ def remove_data(name):
     type=int,
     default=None,
     help="Maximum model length. Default: 512",
+    hidden=True,
 )
 @click.option(
     "--lora", is_flag=True, help="Use LoRA instead of full-tuning. Default: Off"
@@ -693,42 +704,38 @@ def train(
 
 
 @tuna.command()
-@click.argument("model_name")
-def remove(model_name):
+@click.option(
+    "--name", "-n", type=str, help="Model name", required=True
+)
+def remove(name):
     """Delete a specified tuna model.
 
     Usage: lep tuna remove <model_name>
 
     Args:
-        model_name (str): Name of the model to be deleted.
+        name (str): Name of the model to be deleted.
     """
     models_map = _get_models_map()
 
-    if model_name not in models_map:
+    if name not in models_map:
         models_name = models_map.keys()
-        console.print(
-            f"""
-            [red]{model_name}[/] not found.
-        """
-        )
+        console.print(f"""
+            [red]{name}[/] not found.
+        """)
         if len(models_name) != 0:
             models_str = "\n                ".join(models_name)
-            console.print(
-                f"""what you have is:
-                [green]{models_str}[/]"""
-            )
+            console.print(f"""what you have is:
+                [green]{models_str}[/]""")
         sys.exit(1)
-    cur_tuna_model = models_map[model_name]
+    cur_tuna_model = models_map[name]
 
     if cur_tuna_model.deployments is not None and len(cur_tuna_model.deployments) > 0:
         deployments_list = "\n            ".join(cur_tuna_model.deployments)
-        console.print(
-            f"""
-            The model '{model_name}' is currently [red]{cur_tuna_model.tuna_model_state}[/].
+        console.print(f"""
+            The model '{name}' is currently [red]{cur_tuna_model.tuna_model_state}[/].
             It has the following deployments: 
             [green]{deployments_list}[/].
-            """
-        )
+            """)
         user_input = (
             input(
                 "Are you sure you want to delete all the deployments and then delete"
@@ -739,9 +746,9 @@ def remove(model_name):
         )
         if user_input not in ["yes", "y"]:
             sys.exit(0)
-    elif _model_train_completed(model_name):
+    elif _model_train_completed(name):
         console.print(
-            f"[red]The model '{model_name}' is ready and has been trained"
+            f"[red]The model '{name}' is ready and has been trained"
             " successfully.[/]"
         )
         user_input = (
@@ -752,7 +759,7 @@ def remove(model_name):
 
     client = APIClient()
     jobs = client.job.list_all()
-    job_name = _generate_job_name(model_name)
+    job_name = _generate_job_name(name)
     for job in jobs:
         if job.metadata.name == job_name:
             client.job.delete(job_name)
@@ -764,32 +771,34 @@ def remove(model_name):
             client.deployment.delete(deployment_name)
             console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
-    model_path = _generate_model_output_path(model_name)
+    model_path = _generate_model_output_path(name)
     # model_path = DEFAULT_TUNA_MODEL_PATH + "/" + model_folder_name
 
     APIClient().storage.delete_file_or_dir(model_path, delete_all=True)
-    console.print(f"Model [green]{model_name}[/] deleted successfully.")
+    console.print(f"Model [green]{name}[/] deleted successfully.")
 
 
 @tuna.command()
-@click.argument("model_name")
+@click.option(
+    "--name", "-n", type=str, help="Model name", required=True
+)
 @click.pass_context
-def info(ctx, model_name):
+def info(ctx, name):
     """
     Retrieve and print the details of a model.
 
     Usage: lep tuna info <tuna_model_name>
     """
     models_names = _get_model_names()
-    if model_name not in models_names:
+    if name not in models_names:
         console.print(
-            f"[red]{model_name}[/] not exist, "
+            f"[red]{name}[/] not exist, "
             "Please use [green] lep tuna list [/] to check your models"
         )
         sys.exit(1)
-    params = _get_model_details(ctx, model_name)
+    params = _get_model_details(ctx, name)
 
-    console.print(f"Model information for [yellow]'{model_name}'[/]：")
+    console.print(f"Model information for [yellow]'{name}'[/]：")
 
     console.print(Pretty(params))
 
@@ -821,7 +830,7 @@ def clear_failed_trainings(ctx):
     )
 )
 @click.option(
-    "--name", "-n", help="--name, also known as the model folder name", required=True
+    "--name", "-n", help="Model name, also known as the model folder name", required=True
 )
 @click.option(
     "--hf-transfer",
@@ -909,11 +918,9 @@ def run(
     names = _get_model_names()
     model_list = "\n                      ".join(names)
     if name not in names:
-        console.print(
-            f"""\n[red]{name}[/] is not exist. what you have:
+        console.print(f"""\n[red]{name}[/] is not exist. what you have:
                       [green]{model_list}[/]
-                      """
-        )
+                      """)
         sys.exit(1)
 
     if not _model_train_completed(name):
@@ -932,12 +939,10 @@ def run(
             has_secret = True
 
     if not has_secret:
-        console.print(
-            f"""[red]{huggingface_token} not exist in your secret,[/]
+        console.print(f"""[red]{huggingface_token} not exist in your secret,[/]
                         If you haven't created it in your workspace, use:
                         lep secret create -n <secret name> -v <secret value>
-                        """
-        )
+                        """)
         sys.exit(1)
 
     deployment_name = _generate_model_deployment_name(name)

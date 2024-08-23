@@ -283,7 +283,6 @@ def create(
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
-    print(json.dumps(job.dict(), indent=4))
     client.job.create(job)
 
     if not suppress_output:
