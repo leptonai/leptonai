@@ -35,7 +35,7 @@ lep = "leptonai.cli:lep"
 [project.optional-dependencies]
 lint = [
     "black==23.12.0",
-    "ruff"
+    "ruff==0.5.7"
 ]
 test = [
     "pytest",
@@ -66,13 +66,13 @@ version_scheme="no-guess-dev"
 local_scheme="node-and-date"
 
 [tool.setuptools]
-include-package-data = false
+include-package-data = true
 
 [tool.setuptools.packages.find]
 exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]
 
 [tool.setuptools.package-data]
-leptonai = ["photon/favicon.ico"]
+leptonai = ["photon/favicon.ico", "ui/**/*"]
 
 [tool.black]
 preview = true

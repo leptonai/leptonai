@@ -217,7 +217,7 @@ def _is_rocm() -> bool:
 
 
 # Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.21.4"
+BASE_IMAGE_VERSION = "0.21.6"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
@@ -376,7 +376,6 @@ LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
 LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
 
-
 # TUNA CONFIG
 DEFAULT_TUNA_FOLDER = "/lepton-tuna"
 DEFAULT_TUNA_TRAIN_DATASET_PATH = "/lepton-tuna/dataset"
@@ -386,3 +385,6 @@ TUNA_DEPLOYMENT_NAME_PREFIX = "tuna-"
 
 TUNA_IMAGE = "default/lepton:tuna-24.07.7"
 LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
+
+PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
+
