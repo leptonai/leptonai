@@ -374,11 +374,8 @@ def tuna():
     "-n",
     type=str,
     help=(
-        "Provide a name for your dataset. Only the name is needed; the file extension"
-        " will be determined automatically based on the local file type."
+        "Enter a name for your dataset, including the file extension."
     ),
-    required=True,
-    callback=_create_name_validator(),
 )
 @click.pass_context
 def upload_data(ctx, file, name):
@@ -394,7 +391,7 @@ def upload_data(ctx, file, name):
         name (str): The name to assign to the uploaded data.
 
     Example:
-        lep tuna upload-data --local-path /path/to/data.csv --name training_data
+        lep tuna upload-data --local-path /path/to/data.csv --name training_data.csv
 
     Returns:
         None
@@ -403,12 +400,28 @@ def upload_data(ctx, file, name):
     _check_or_create_tuna_folder_tree()
 
     filename = os.path.basename(file)
-    file_root, file_extension = os.path.splitext(filename)
-    remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name + file_extension
+    remote_file_name = name if name else filename
+    file_root, file_extension = os.path.splitext(remote_file_name)
+
+    if not check_name_regex(file_root):
+        while True:
+            console.print(
+                f"[red]Invalid filename '{file_root}'[/]: Filename must consist of lowercase alphanumeric characters "
+                f"or '-', start with an alphabetical character, and end with an alphanumeric character.")
+
+            name = input("Please enter a valid name with extension: ")
+            new_file_root, new_file_extension = os.path.splitext(name)
+            if check_name_regex(new_file_root):
+                break
+    else:
+        name = remote_file_name
+
+
+    remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name
 
     if APIClient().storage.check_exists(remote_path):
         console.print(
-            f"[red]{name}{file_extension}[/] already exists. If you want to replace it,"
+            f"[red]{name}[/] already exists. If you want to replace it,"
             " please use `lep tuna remove-data <data-name>` first.\nWhat you have:"
         )
         ctx.invoke(list_data)
@@ -432,8 +445,8 @@ def list_data(ctx):
 
 
 @tuna.command()
-@click.argument(
-    "--name", "-n", type=click.Path(),help="Model name", required=True
+@click.option(
+    "--name", "-n", type=click.Path(), help="Data name with extension", required=True
 )
 def remove_data(name):
     """Remove specified data file from the default tuna train dataset path.
