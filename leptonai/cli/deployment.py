@@ -869,11 +869,7 @@ def remove(name):
     ),
 )
 @click.option(
-    '--detail',
-    '-d',
-    is_flag=True,
-    default=False,
-    help="Show the deployment detail"
+    "--detail", "-d", is_flag=True, default=False, help="Show the deployment detail"
 )
 def status(name, show_tokens, detail):
     """
@@ -1004,6 +1000,7 @@ def status(name, show_tokens, detail):
         console.print(table)
     if detail:
         console.print(Pretty(dep_info.model_dump()))
+
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to get log.", required=True)
