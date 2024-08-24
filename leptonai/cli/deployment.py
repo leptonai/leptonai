@@ -926,7 +926,7 @@ def status(name, show_tokens):
         web_url = LEPTON_DEPLOYMENT_URL.format(
             workspace_id=workspace_id, deployment_name=name
         )
-        console.print(f"Web UI:     {web_url}/demo")
+        console.print(f"Web UI:     {web_url}")
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")
