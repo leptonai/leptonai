@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import re
 import shlex
@@ -6,6 +7,7 @@ from typing import List, Optional, Union
 
 import click
 from loguru import logger
+from rich.pretty import Pretty
 from rich.table import Table
 
 from .util import (
@@ -866,7 +868,14 @@ def remove(name):
         " in plain text, and may be visible to others if you log the output."
     ),
 )
-def status(name, show_tokens):
+@click.option(
+    '--detail',
+    '-d',
+    is_flag=True,
+    default=False,
+    help="Show the deployment detail"
+)
+def status(name, show_tokens, detail):
     """
     Gets the status of a deployment.
     """
@@ -993,7 +1002,8 @@ def status(name, show_tokens):
                     message,
                 )
         console.print(table)
-
+    if detail:
+        console.print(Pretty(dep_info.model_dump()))
 
 @deployment.command()
 @click.option("--name", "-n", help="The deployment name to get log.", required=True)
