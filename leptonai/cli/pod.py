@@ -17,7 +17,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import VALID_SHAPES
+from leptonai.config import VALID_SHAPES, SSH_PORT, TCP_PORT
 from leptonai.api.v1 import types
 from .util import (
     click_group,
@@ -174,20 +174,25 @@ def list_command(pattern):
         return 0
     ssh_ports = []
     tcp_ports = []
+    tcp_ports_jupyterlab = []
     for pod in pods:
+        import json
+
+        # print(json.dumps(pod.model_dump(), indent=2))
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
         check(
-            len(port_pairs) == 2,
-            f"Pod {pod.metadata.name} does not have exactly two ports. This is not"
+            len(port_pairs) == 3,
+            f"Pod {pod.metadata.name} does not have exactly three ports. This is not"
             " supported.",
         )
-        if port_pairs[0][0] == 2222:
-            ssh_ports.append(port_pairs[0])
-            tcp_ports.append(port_pairs[1])
-        else:
-            ssh_ports.append(port_pairs[1])
-            tcp_ports.append(port_pairs[0])
+        for port_pair in port_pairs:
+            if port_pair[0] == SSH_PORT:
+                ssh_ports.append(port_pair)
+            elif port_pair[0] == TCP_PORT:
+                tcp_ports.append(port_pair)
+            else:
+                tcp_ports_jupyterlab.append(port_pair)
     pod_ips = []
     for pod in pods:
         if pod.status.state not in ("Running", "Ready"):
@@ -203,14 +208,23 @@ def list_command(pattern):
     table.add_column("status")
     table.add_column("ssh command")
     table.add_column("TCP port mapping")
+    table.add_column(
+        "[center]TCP port mapping[/center] \n (defaults to the port that Jupyterlab"
+        " listens on)",
+        justify="center",
+    )
     table.add_column("created at")
-    for pod, ssh_port, tcp_port, pod_ip in zip(pods, ssh_ports, tcp_ports, pod_ips):
+    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
+        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
+    ):
+        print(1)
         table.add_row(
             pod.metadata.name,
             pod.spec.resource_requirement.resource_shape,
             pod.status.state,
             f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
             f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
+            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)",
             datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
             ),

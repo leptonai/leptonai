@@ -380,3 +380,7 @@ LEPTON_DEPLOYMENT_URL = (
 )
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
+
+
+SSH_PORT = 2222
+TCP_PORT = 18888
