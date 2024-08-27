@@ -6,6 +6,7 @@ from typing import List, Optional, Union
 
 import click
 from loguru import logger
+from rich.pretty import Pretty
 from rich.table import Table
 
 from .util import (
@@ -151,7 +152,7 @@ def validate_autoscale_options(ctx, param, value):
             and (parts[2].rstrip("%").isdigit())
         ):
             raise click.BadParameter(
-                "Invalid format for --autoscale-between. Expected format:"
+                "Invalid format for --autoscale-gpu_util. Expected format:"
                 " <min_replica>,<max_replica>,<threshold>% or"
                 " <min_replica>,<max_replica>,<threshold>"
             )
@@ -498,7 +499,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 Use this option to set a threshold for GPU utilization and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                use: --autoscale-gpu-util 1,3,50% or --autoscale-gpu-util 1,3,50
                 (Note: Do not include spaces around the comma.)
 
                 If the GPU utilization is higher than the target GPU utilization,
@@ -519,14 +520,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 Use this option to set a threshold for QPM and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-between 1,3,2.5
+                use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                If the QPM is higher than the target QPM,
-                the autoscaler will scale up the replicas.
-                If the QPM is lower than the target QPM,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between positive number.
+                This sets up autoscaling based on queries per minute, 
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5.
             """,
     callback=validate_autoscale_options,
 )
@@ -866,7 +864,10 @@ def remove(name):
         " in plain text, and may be visible to others if you log the output."
     ),
 )
-def status(name, show_tokens):
+@click.option(
+    "--detail", "-d", is_flag=True, default=False, help="Show the deployment detail"
+)
+def status(name, show_tokens, detail):
     """
     Gets the status of a deployment.
     """
@@ -926,7 +927,7 @@ def status(name, show_tokens):
         web_url = LEPTON_DEPLOYMENT_URL.format(
             workspace_id=workspace_id, deployment_name=name
         )
-        console.print(f"Web UI:     {web_url}/demo")
+        console.print(f"Web UI:     {web_url}")
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")
@@ -993,6 +994,8 @@ def status(name, show_tokens):
                     message,
                 )
         console.print(table)
+    if detail:
+        console.print(Pretty(dep_info.model_dump()))
 
 
 @deployment.command()
@@ -1145,7 +1148,7 @@ def log(name, replica):
                 Use this option to set a threshold for GPU utilization and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                use: --autoscale-gpu-util 1,3,50% or --autoscale-gpu-util 1,3,50
                 (Note: Do not include spaces around the comma.)
 
                 If the GPU utilization is higher than the target GPU utilization,
@@ -1166,14 +1169,11 @@ def log(name, replica):
                 Use this option to set a threshold for QPM and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-between 1,3,2.5
+                use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                If the QPM is higher than the target QPM,
-                the autoscaler will scale up the replicas.
-                If the QPM is lower than the target QPM,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between positive number.
+                This sets up autoscaling based on queries per minute,
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5. 
             """,
     callback=validate_autoscale_options,
 )
