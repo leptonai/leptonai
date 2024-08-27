@@ -523,8 +523,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                This sets up autoscaling based on queries per minute, scaling between 1 and 3 replicas when QPM 
-                per replica exceeds 2.5.
+                This sets up autoscaling based on queries per minute, 
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5.
             """,
     callback=validate_autoscale_options,
 )
@@ -1172,8 +1172,8 @@ def log(name, replica):
                 use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                This sets up autoscaling based on queries per minute, scaling between 1 and 3 replicas when QPM per 
-                replica exceeds 2.5. 
+                This sets up autoscaling based on queries per minute,
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5. 
             """,
     callback=validate_autoscale_options,
 )
