@@ -206,7 +206,7 @@ def list_command(pattern):
     table.add_column("ssh command")
     table.add_column("TCP port mapping")
     table.add_column(
-        "[center]TCP port mapping[/center] \n (defaults to the port that Jupyterlab"
+        "TCP port mapping \n (defaults to the port that Jupyterlab"
         " listens on)",
         justify="center",
     )
