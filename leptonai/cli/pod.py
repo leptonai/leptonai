@@ -17,7 +17,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import VALID_SHAPES, SSH_PORT, TCP_PORT
+from leptonai.config import VALID_SHAPES, SSH_PORT, TCP_PORT, TCP_JUPYTER_PORT
 from leptonai.api.v1 import types
 from .util import (
     click_group,
@@ -188,8 +188,13 @@ def list_command(pattern):
                 ssh_ports.append(port_pair)
             elif port_pair[0] == TCP_PORT:
                 tcp_ports.append(port_pair)
-            else:
+            elif port_pair[0] == TCP_JUPYTER_PORT:
                 tcp_ports_jupyterlab.append(port_pair)
+            else:
+                console.print(
+                    f"[red]Pod {pod.metadata.name} has an unsupported port"
+                    f" {port_pair}.[/]"
+                )
     pod_ips = []
     for pod in pods:
         if pod.status.state not in ("Running", "Ready"):

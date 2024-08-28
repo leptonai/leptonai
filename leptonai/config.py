@@ -58,7 +58,6 @@ else:
             f" Using default value of {DEFAULT_TIMEOUT} seconds."
         )
 
-
 # In cloudrun, the default timeout is also set to 1 hour. However, even if we set
 # LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
 # cloudrun, because it was expected to be in-process.
@@ -73,7 +72,6 @@ except ValueError:
         f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
         f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
     )
-
 
 ################################################################################
 # Automatically generated constants. You do not need to change these.
@@ -286,7 +284,6 @@ elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.envi
 else:
     DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
 
-
 _LOCAL_DEPLOYMENT_TOKEN = None
 
 
@@ -381,6 +378,6 @@ LEPTON_DEPLOYMENT_URL = (
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
 
-
 SSH_PORT = 2222
 TCP_PORT = 18888
+TCP_JUPYTER_PORT = 18889
