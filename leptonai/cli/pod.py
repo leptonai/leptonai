@@ -176,9 +176,6 @@ def list_command(pattern):
     tcp_ports = []
     tcp_ports_jupyterlab = []
     for pod in pods:
-        import json
-
-        # print(json.dumps(pod.model_dump(), indent=2))
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
         check(
