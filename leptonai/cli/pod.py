@@ -195,6 +195,7 @@ def list_command(pattern):
                     f"[red]Pod {pod.metadata.name} has an unsupported port"
                     f" {port_pair}.[/]"
                 )
+                sys.exit(1)
     pod_ips = []
     for pod in pods:
         if pod.status.state not in ("Running", "Ready"):
