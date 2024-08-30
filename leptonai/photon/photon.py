@@ -759,7 +759,7 @@ class Photon(BasePhoton):
                 + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
                 + " OpenAPI documentation",
                 "\t- "
-                + click.style(f"http://{host}:{port}/lep-docs", fg="green", bold=True)
+                + click.style(f"http://{host}:{port}/ledoc", fg="green", bold=True)
                 + " Lepton documentation",
                 "\t- "
                 + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
@@ -839,9 +839,9 @@ class Photon(BasePhoton):
         file_dir = Path(__file__).parent
         ui_path = file_dir.parent / "ui"
         app.mount(
-            "/lep-docs",
+            "/ledoc",
             StaticFiles(directory=ui_path, html=True),
-            name="lep-docs",
+            name="ledoc",
         )
 
         @app.exception_handler(404)
@@ -849,7 +849,7 @@ class Photon(BasePhoton):
             if request.url.path.startswith("/static"):
                 return JSONResponse(status_code=404, content={"message": "Not Found"})
             else:
-                return RedirectResponse(url="/lep-docs")
+                return RedirectResponse(url="/ledoc")
 
         config = uvicorn.Config(
             app,
