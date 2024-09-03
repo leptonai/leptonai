@@ -67,7 +67,7 @@ version_scheme="no-guess-dev"
 local_scheme="node-and-date"
 
 [tool.setuptools]
-include-package-data = false
+include-package-data = true
 
 [tool.setuptools.packages.find]
 exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]

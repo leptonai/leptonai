@@ -836,7 +836,6 @@ class Photon(BasePhoton):
                 num_tasks -= 1
             return num_tasks
 
-        print("Static files path:", ledoc_ui_path)
         app.mount(
             "/ledoc",
             StaticFiles(directory=ledoc_ui_path, html=True),
