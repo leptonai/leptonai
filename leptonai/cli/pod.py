@@ -179,10 +179,13 @@ def list_command(pattern):
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
         check(
-            len(port_pairs) == 3,
-            f"Pod {pod.metadata.name} does not have exactly three ports. This is not"
-            " supported.",
+            len(port_pairs) in [2, 3],
+            f"Pod {pod.metadata.name} does not have exactly two or three ports. This is"
+            " not supported.",
         )
+
+        if len(port_pairs) == 2:
+            tcp_ports_jupyterlab.append(None)
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
                 ssh_ports.append(port_pair)
@@ -212,26 +215,33 @@ def list_command(pattern):
     table.add_column("ssh command")
     table.add_column("TCP port mapping")
     table.add_column(
-        "TCP port mapping \n (defaults to the port that Jupyterlab listens on)",
+        "TCP port mapping \n (Jupyterlab)",
         justify="center",
     )
     table.add_column("created at")
     for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
         pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
     ):
-        print(1)
+        Jupyter_lab_mapping = (
+            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
+            if tcp_port_jupyterlab
+            else "Not Available"
+        )
         table.add_row(
             pod.metadata.name,
             pod.spec.resource_requirement.resource_shape,
             pod.status.state,
             f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
             f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
-            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)",
+            Jupyter_lab_mapping,
             datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
             ),
         )
     console.print(table)
+    console.print(
+        "TCP port mapping(JupyterLab) defaults to the port that JupyterLab listens on."
+    )
     console.print(
         "Your initial ssh password is the workspace token.\nUse `lep workspace token`"
         " to get the token if needed."
