@@ -11,6 +11,7 @@ session, similar to a cloud VM but much more lightweight.
 from datetime import datetime
 import re
 import sys
+import shlex
 
 import click
 from loguru import logger
@@ -28,7 +29,7 @@ from .util import (
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement
+from ..api.v1.types.deployment import ResourceRequirement, LeptonContainer
 
 console = Console(highlight=False)
 
@@ -53,15 +54,15 @@ def pod():
     "--resource-shape",
     type=str,
     help="Resource shape for the pod. Available types are: '"
-    + "', '".join(VALID_SHAPES)
-    + "'.",
+         + "', '".join(VALID_SHAPES)
+         + "'.",
     default=None,
 )
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+            "Persistent storage to be mounted to the deployment, in the format"
+            " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -75,9 +76,9 @@ def pod():
     "--secret",
     "-s",
     help=(
-        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-        " secret name is also the environment variable name, you can"
-        " omit it and simply pass `SECRET_NAME`."
+            "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+            " secret name is also the environment variable name, you can"
+            " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
@@ -92,27 +93,51 @@ def pod():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the pod. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
-        " option is currently not supported but coming soon for enterprise users. Only"
-        " the first node group will be set if you input multiple node groups at this"
-        " time."
+            "Node group for the pod. If not set, use on-demand resources. You can repeat"
+            " this flag multiple times to choose multiple node groups. Multiple node group"
+            " option is currently not supported but coming soon for enterprise users. Only"
+            " the first node group will be set if you input multiple node groups at this"
+            " time."
     ),
     type=str,
     multiple=True,
 )
+@click.option("--container-image", type=str, help="Container image to run.")
+@click.option(
+    "--container-command",
+    type=str,
+    help=(
+            "Command to run in the container. Your command should listen to the port"
+            " specified by --container-port."
+    ),
+)
 def create(
-    name,
-    resource_shape,
-    mount,
-    env,
-    secret,
-    image_pull_secrets,
-    node_groups,
+        name,
+        resource_shape,
+        mount,
+        env,
+        secret,
+        image_pull_secrets,
+        node_groups,
+        container_image,
+        container_command,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
+    spec_container = None
+    if container_image or container_command:
+        if container_image == None:
+            console.print(
+                "Error: container image and command must be specified together."
+            )
+            sys.exit(1)
+
+        spec_container = LeptonContainer(
+            image=container_image,
+            command=shlex.split(container_command) if container_command else None,
+        )
+
     client = APIClient()
 
     resource_requirement = ResourceRequirement(
@@ -128,6 +153,7 @@ def create(
 
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
+            container=spec_container,
             resource_requirement=resource_requirement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
@@ -138,6 +164,7 @@ def create(
             metadata=types.common.Metadata(name=name),
             spec=deployment_user_spec,
         )
+
     except ValueError as e:
         console.print(f"Error encountered while processing pod configs:\n[red]{e}[/].")
         console.print("Failed to create pod.")
