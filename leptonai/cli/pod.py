@@ -106,9 +106,7 @@ def pod():
 @click.option(
     "--container-command",
     type=str,
-    help=(
-        "Command to run in the container."
-    ),
+    help="Command to run in the container.",
 )
 def create(
     name,
