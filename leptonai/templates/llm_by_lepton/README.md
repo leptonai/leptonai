@@ -13,6 +13,70 @@ Set the following environmental variables.
 * `TUNA_STREAM_CB_STEP`: (Optional) in streaming mode, the minimum number of tokens to generate in each new chunk. Smaller numbers send generated results sooner, but may lead to a slightly higher network overhead. Default value set to 3. Unless you are hyper-tuning for benchmarks, you can leave this value as default.
 * `MEDUSA`: (Optional) Run the inference with a pre-trained [Medusa](https://arxiv.org/abs/2401.10774) speculative decoding model. For example, to speed up llama2-70b, use `leptonai/Llama-2-70b-chat-4-heads`. We have provided a set of pre-trained medusa heads on [HuggingFace](https://huggingface.co/leptonai). To train medusa heads on your own model or with your own data, please [talk to us](mailto:info@lepton.ai).
 * `LORAS`: (Optional) We support running LORA models (also known as PEFT models) in the same deployment as the main model, by setting LORAS in a format `model_id:model_name`. If you have multiple models, separate them by `|`. For example, [therealcyberlord/llama2-qlora-finetuned-medical](https://huggingface.co/therealcyberlord/llama2-qlora-finetuned-medical) is based on `meta-llama/Llama-2-7b-chat-hf`, and you can specify `therealcyberlord/llama2-qlora-finetuned-medical:medical` to run it. On the client side, invoke it with `model=medical`.
+* `LEPTON_CHAT_TEMPLATE`: (Optional) We support selecting a chat template automatically based on the model name. If you want to set a specific chat template, you can set this variable based on the following chat template names:
+    <details>
+        <summary>Supported chat templates</summary>
+        <table>
+            <thead>
+                <tr>
+                    <th>Base Model Name</th>
+                    <th>Chat Template Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Baichuan</td>
+                    <td>baichuan (for baichuan 1/2)</td>
+                </tr>
+                <tr>
+                    <td>ChatGLM</td>
+                    <td>chatglm2, chatglm_chatml (for chatglm3, glm-4-chat)</td>
+                </tr>
+                <tr>
+                    <td>DBRX</td>
+                    <td>DBRX</td>
+                </tr>
+                <tr>
+                    <td>Falcon</td>
+                    <td>falcon</td>
+                </tr>
+                <tr>
+                    <td>Gemma</td>
+                    <td>Gemma (for gemma1/2)</td>
+                </tr>
+                <tr>
+                    <td>LLaMA</td>
+                    <td>llama-2, llama-3, codellama</td>
+                </tr>
+                <tr>
+                    <td>LLaVA / LLavA-Next</td>
+                    <td>llama-2</td>
+                </tr>
+                <tr>
+                    <td>Mistral / Mixtral</td>
+                    <td>mistral</td>
+                </tr>
+                <tr>
+                    <td>Qwen</td>
+                    <td>qwen (for qwen1/1.5/2)</td>
+                </tr>
+                <tr>
+                    <td>Vicuna</td>
+                    <td>vicuna</td>
+                </tr>
+                <tr>
+                    <td>Zephyr</td>
+                    <td>zephyr</td>
+                </tr>
+                <tr>
+                    <td>Others</td>
+                    <td>openchat</td>
+                </tr>
+            </tbody>
+        </table>
+    </details>
+
+* `LEPTON_CHAT_TEMPLATE_JINJA`: (Optional) If you want to use a custom jinja chat template, you can set `LEPTON_CHAT_TEMPLATE_JINJA`  as a string of jinja, then the lepton llm will format the chat messages following the custom template with the highest priority.
 
 This deployment may also require the following secret(s) to run:
 
@@ -33,6 +97,27 @@ Set `YOUR_DEPLOYMENT_URL` and `YOUR_API_TOKEN` to the deployment name and the AP
 
 For your convenience, you can keep using the model string like “gpt-3.5-turbo” as the model argument - our LLM engine automatically fills in these model names as a placeholder, so you don't have to change any custom code. Do remember that, it’s just an alias for the actual model you invoke in this case, and not the OpenAI model.
 
+## Completion
+
+```python
+import openai
+
+client = openai.OpenAI(
+    base_url= "YOUR_DEPLOYMENT_URL" + "/api/v1/", 
+    api_key= "YOUR_API_TOKE",
+)
+
+completion = client.completions.creat(
+    # All requests will be routed to your model within this deployment.
+	model="gpt-3.5-turbo", 
+    prompt="This is a test"
+)
+
+print(completion.choices[0].text)
+```
+
+## Chat Completion
+
 ```python
 import openai
 
@@ -50,6 +135,36 @@ completion = client.chat.completions.create(
 )
 
 print(completion.choices[0].message)
+```
+
+Moreover, if you want to use `completion` instead of `chat completion` to achieve similar results, you can format your chat messages to prompt locally, here is an example:
+
+```python
+import openai
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained('YOUR_TOKENIZER_PATH')
+messages = [
+    {"role": "user", "content": "When was the Apollo 11 launched"}
+]
+# If your tokenizer does not have a built-in chat template,
+# you can load a jinja template and set it as tokenizer.chat_template
+prompt = tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True
+)
+
+client = openai.OpenAI(
+    base_url= "YOUR_DEPLOYMENT_URL" + "/api/v1/", 
+    api_key= "YOUR_API_TOKE",
+)
+
+completion = client.completions.creat(
+    # All requests will be routed to your model within this deployment.
+	model="gpt-3.5-turbo", 
+    prompt=prompt
+)
+
+print(completion.choices[0].text)
 ```
 
 # FAQs
