@@ -24,6 +24,7 @@ dependencies = [
     "pillow",
     "pyyaml",
     "huggingface_hub",
+    "ledoc-ui",
 ]
 
 [project.urls]
@@ -72,7 +73,7 @@ include-package-data = true
 exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]
 
 [tool.setuptools.package-data]
-leptonai = ["photon/favicon.ico", "ui/**/*"]
+leptonai = ["photon/favicon.ico"]
 
 [tool.black]
 preview = true
