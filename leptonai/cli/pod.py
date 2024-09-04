@@ -17,7 +17,13 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import VALID_SHAPES, DEFAULT_RESOURCE_SHAPE, SSH_PORT, TCP_PORT, TCP_JUPYTER_PORT
+from leptonai.config import (
+    VALID_SHAPES,
+    DEFAULT_RESOURCE_SHAPE,
+    SSH_PORT,
+    TCP_PORT,
+    TCP_JUPYTER_PORT,
+)
 from leptonai.api.v1 import types
 from .util import (
     click_group,
@@ -189,8 +195,8 @@ def list_command(pattern):
     ssh_ports = [None] * pods_count
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
-    is_valid_port = [False] * pods_count
-    for pod in pods:
+    all_valid_port = [True] * pods_count
+    for index, pod in enumerate(pods):
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
         check(
@@ -199,31 +205,24 @@ def list_command(pattern):
             " not supported.",
         )
 
-        if len(port_pairs) == 2:
-            tcp_ports_jupyterlab.append(None)
-
-        port_pairs = [(2222, 65255), (188881, 65256), (188891, 65257)]
-
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
-                ssh_ports.append(port_pair)
+                ssh_ports[index] = port_pair
             elif port_pair[0] == TCP_PORT:
-                tcp_ports.append(port_pair)
+                tcp_ports[index] = port_pair
             elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
-                tcp_ports_jupyterlab.append(port_pair)
+                tcp_ports_jupyterlab[index] = port_pair
             else:
                 console.print(
-                    f"[red]Pod {pod.metadata.name} has an unsupported port"
-                    f" {port_pair}.[/]"
+                    f"Warning: Pod [red]{pod.metadata.name}[/] has an unsupported port"
+                    f" [red]{port_pair}.[/]"
                 )
-                sys.exit(1)
-    pod_ips = []
-    for pod in pods:
-        if pod.status.state not in ("Running", "Ready"):
-            pod_ips.append(None)
-            continue
-        public_ip = _get_only_replica_public_ip(pod.metadata.name)
-        pod_ips.append(public_ip)
+                all_valid_port[index] = False
+    pod_ips = [None] * pods_count
+    for index, pod in enumerate(pods):
+        if pod.status.state in ("Running", "Ready"):
+            public_ip = _get_only_replica_public_ip(pod.metadata.name)
+            pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
     table = Table(title="pods", show_lines=True)
@@ -237,9 +236,11 @@ def list_command(pattern):
         justify="center",
     )
     table.add_column("created at")
-    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
-        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
+    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip, all_valid in zip(
+        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips, all_valid_port
     ):
+        # if not all_valid:
+        #     continue
         Jupyter_lab_mapping = (
             f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
             if tcp_port_jupyterlab
@@ -249,8 +250,8 @@ def list_command(pattern):
             pod.metadata.name,
             pod.spec.resource_requirement.resource_shape,
             pod.status.state,
-            f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
-            f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
+            f"ssh -p {ssh_port[1]} root@{pod_ip}" if (pod_ip and ssh_port) else "N/A",
+            f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)" if tcp_port else "N/A",
             Jupyter_lab_mapping,
             datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
@@ -258,10 +259,10 @@ def list_command(pattern):
         )
     console.print(table)
     console.print(
-        "TCP port mapping(JupyterLab) defaults to the port that JupyterLab listens on."
+        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab listens on."
     )
     console.print(
-        "Your initial ssh password is the workspace token.\nUse `lep workspace token`"
+        "* Your initial ssh password is the workspace token.\n* Use `lep workspace token`"
         " to get the token if needed."
     )
     return 0
