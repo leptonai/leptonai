@@ -8,6 +8,7 @@ import click
 from loguru import logger
 from rich.pretty import Pretty
 from rich.table import Table
+from rich.prompt import Confirm
 
 from .util import (
     console,
@@ -42,6 +43,26 @@ from ..api.v1.types.deployment import (
     AutoscalerTargetThroughput,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
+
+
+def _same_major_version(version_str_list: List[str]) -> bool:
+    if len(version_str_list) < 2:
+        return True
+
+    def validate(v: str) -> bool:
+        return bool(re.match(r"^\d+\.\d+$", v))
+
+    if not all(validate(version_str) for version_str in version_str_list):
+        return False
+
+    version_major_list = [version.split(".")[0] for version in version_str_list]
+
+    if not all(
+        version_major == version_major_list[0] for version_major in version_major_list
+    ):
+        return False
+
+    return True
 
 
 def autoscale_flag_deprecation_warning(ctx, param, value):
@@ -1199,8 +1220,9 @@ def update(
     """
 
     client = APIClient()
+    lepton_deployment = client.deployment.get(name)
+
     if id == "latest":
-        lepton_deployment = client.deployment.get(name)
         current_photon_id = lepton_deployment.spec.photon_id
 
         public_photon = (
@@ -1279,7 +1301,7 @@ def update(
         ),
     )
 
-    lepton_deployment = LeptonDeployment(
+    new_lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
             name=name,
@@ -1288,9 +1310,46 @@ def update(
         spec=lepton_deployment_spec,
     )
 
+    if lepton_deployment.metadata.semantic_version:
+        dryrun_deployment = client.deployment.update(
+            name_or_deployment=name,
+            spec=new_lepton_deployment,
+            dryrun=True,
+        )
+
+        will_restart = not _same_major_version([
+            dryrun_deployment.metadata.semantic_version,
+            lepton_deployment.metadata.semantic_version,
+        ])
+        if will_restart:
+
+            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+                "This update will trigger a rolling restart. Are you sure you want"
+                " continue?",
+                default=True,
+            )
+
+            if not confirmed:
+                sys.exit(1)
+
+            replicas = client.deployment.get_replicas(lepton_deployment)
+
+            version_str_list = [lepton_deployment.metadata.semantic_version] + [
+                replica.metadata.semantic_version for replica in replicas
+            ]
+
+            updating_ongoing = not _same_major_version(version_str_list)
+            if updating_ongoing:
+                console.print(
+                    "[red]An update is in progress. Please try again later.[/]"
+                )
+                sys.exit(1)
+
+            console.print("Proceeding with the update...")
+
     client.deployment.update(
         name_or_deployment=name,
-        spec=lepton_deployment,
+        spec=new_lepton_deployment,
     )
     console.print(f"Deployment [green]{name}[/] updated.")
 

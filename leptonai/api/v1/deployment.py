@@ -74,10 +74,15 @@ class DeploymentAPI(APIResourse):
         return self.ensure_type(response, LeptonDeployment)
 
     def update(
-        self, name_or_deployment: Union[str, LeptonDeployment], spec: LeptonDeployment
+        self,
+        name_or_deployment: Union[str, LeptonDeployment],
+        spec: LeptonDeployment,
+        dryrun: bool = False,
     ) -> LeptonDeployment:
+        dryrun_param = "" if not dryrun else "?dryrun=true"
+
         response = self._patch(
-            f"/deployments/{self._to_name(name_or_deployment)}",
+            f"/deployments/{self._to_name(name_or_deployment)+dryrun_param}",
             json=self.safe_json(spec),
         )
         return self.ensure_type(response, LeptonDeployment)
