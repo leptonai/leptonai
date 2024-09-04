@@ -14,7 +14,7 @@ from .util import (
     _get_valid_nodegroup_ids,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from leptonai.config import BASE_IMAGE
+from leptonai.config import BASE_IMAGE, VALID_SHAPES
 
 from leptonai.api.v1.types.common import Metadata
 from leptonai.api.v1.types.job import (
@@ -93,7 +93,9 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--resource-shape",
     type=str,
-    help="Resource shape for the job.",
+    help="Resource shape for the pod. Available types are: '"
+    + "', '".join(VALID_SHAPES)
+    + "'.",
     default=None,
 )
 @click.option(
@@ -213,6 +215,15 @@ def create(
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+
+    if resource_shape is None:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
     client = APIClient()
     if file:
         try:
