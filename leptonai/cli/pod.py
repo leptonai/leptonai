@@ -18,7 +18,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import VALID_SHAPES
+from leptonai.config import VALID_SHAPES, DEFAULT_RESOURCE_SHAPE
 from leptonai.api.v1 import types
 from .util import (
     click_group,
@@ -125,9 +125,18 @@ def create(
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
+
+    if resource_shape is None:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
     spec_container = None
     if container_image or container_command:
-        if container_image == None:
+        if container_image is None:
             console.print(
                 "Error: container image and command must be specified together."
             )
@@ -141,7 +150,7 @@ def create(
     client = APIClient()
 
     resource_requirement = ResourceRequirement(
-        resource_shape=resource_shape,
+        resource_shape=resource_shape or DEFAULT_RESOURCE_SHAPE,
     )
 
     if node_groups:

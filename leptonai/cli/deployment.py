@@ -1084,7 +1084,13 @@ def log(name, replica):
     type=int,
     default=None,
 )
-@click.option("--resource-shape", help="Resource shape.", default=None)
+@click.option(
+    "--resource-shape",
+    help="Resource shape for the pod. Available types are: '"
+    + "', '".join(VALID_SHAPES)
+    + "'.",
+    default=None,
+)
 @click.option(
     "--public/--no-public",
     is_flag=True,
