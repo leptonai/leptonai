@@ -8,9 +8,10 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
+
+import sys
 from datetime import datetime
 import re
-import sys
 
 import click
 from loguru import logger
@@ -27,7 +28,6 @@ from leptonai.config import (
 from leptonai.api.v1 import types
 from .util import (
     click_group,
-    check,
     _get_only_replica_public_ip,
     _get_valid_nodegroup_ids,
 )
@@ -35,10 +35,6 @@ from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.types.deployment import ResourceRequirement
-
-from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
-import sys
 
 console = Console(highlight=False)
 
