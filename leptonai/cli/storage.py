@@ -18,11 +18,9 @@ from .util import (
 )
 from ..api.v1.client import APIClient
 
-custom_theme = Theme(
-    {
-        "directory": "bold cyan",
-    }
-)
+custom_theme = Theme({
+    "directory": "bold cyan",
+})
 
 console = Console(highlight=False, theme=custom_theme)
 

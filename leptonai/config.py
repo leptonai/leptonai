@@ -387,4 +387,3 @@ TUNA_IMAGE = "default/lepton:tuna-24.07.7"
 LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
-

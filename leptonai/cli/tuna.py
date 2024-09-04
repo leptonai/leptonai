@@ -373,9 +373,7 @@ def tuna():
     "--name",
     "-n",
     type=str,
-    help=(
-        "Enter a name for your dataset, including the file extension."
-    ),
+    help="Enter a name for your dataset, including the file extension.",
 )
 @click.pass_context
 def upload_data(ctx, file, name):
@@ -406,8 +404,10 @@ def upload_data(ctx, file, name):
     if not check_name_regex(file_root):
         while True:
             console.print(
-                f"[red]Invalid filename '{file_root}'[/]: Filename must consist of lowercase alphanumeric characters "
-                f"or '-', start with an alphabetical character, and end with an alphanumeric character.")
+                f"[red]Invalid filename '{file_root}'[/]: Filename must consist of"
+                " lowercase alphanumeric characters or '-', start with an alphabetical"
+                " character, and end with an alphanumeric character."
+            )
 
             name = input("Please enter a valid name with extension: ")
             new_file_root, new_file_extension = os.path.splitext(name)
@@ -415,7 +415,6 @@ def upload_data(ctx, file, name):
                 break
     else:
         name = remote_file_name
-
 
     remote_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + name
 
@@ -497,9 +496,11 @@ def remove_data(name):
     "--model-path",
     type=str,
     default=None,
-    help="Specify the base model path for fine-tuning. This can be a HuggingFace model ID or a local directory path "
-         "containing the model..",
-    required=True
+    help=(
+        "Specify the base model path for fine-tuning. This can be a HuggingFace model"
+        " ID or a local directory path containing the model.."
+    ),
+    required=True,
 )
 @click.option(
     "--dataset-name",
@@ -510,7 +511,11 @@ def remove_data(name):
     required=True,
 )
 @click.option(
-    "--purpose", type=str, default=None, help="Purpose: chat, instruct. Default: chat", hidden=True
+    "--purpose",
+    type=str,
+    default=None,
+    help="Purpose: chat, instruct. Default: chat",
+    hidden=True,
 )
 @click.option(
     "--num-train-epochs",
@@ -593,8 +598,10 @@ def remove_data(name):
     "--early-stop-threshold",
     type=float,
     default=None,
-    help="Early stop threshold. Default: 0.01. Stop training early if reduction in validation loss is less than the "
-         "threshold for a set number of epochs.",
+    help=(
+        "Early stop threshold. Default: 0.01. Stop training early if reduction in"
+        " validation loss is less than the threshold for a set number of epochs."
+    ),
 )
 @click.pass_context
 def train(
@@ -718,9 +725,7 @@ def train(
 
 
 @tuna.command()
-@click.option(
-    "--name", "-n", type=str, help="Model name", required=True
-)
+@click.option("--name", "-n", type=str, help="Model name", required=True)
 def remove(name):
     """Delete a specified tuna model.
 
@@ -762,8 +767,7 @@ def remove(name):
             sys.exit(0)
     elif _model_train_completed(name):
         console.print(
-            f"[red]The model '{name}' is ready and has been trained"
-            " successfully.[/]"
+            f"[red]The model '{name}' is ready and has been trained successfully.[/]"
         )
         user_input = (
             input("Do you want to delete this model? (yes/no): ").strip().lower()
@@ -793,9 +797,7 @@ def remove(name):
 
 
 @tuna.command()
-@click.option(
-    "--name", "-n", type=str, help="Model name", required=True
-)
+@click.option("--name", "-n", type=str, help="Model name", required=True)
 @click.pass_context
 def info(ctx, name):
     """
@@ -819,7 +821,7 @@ def info(ctx, name):
 
 @tuna.command()
 @click.pass_context
-def clear_failed_trainings(ctx):
+def clear_failed_models(ctx):
     """Delete all failed training models and related jobs.
 
     Usage: lep tuna clear-failed-trainings
@@ -844,7 +846,10 @@ def clear_failed_trainings(ctx):
     )
 )
 @click.option(
-    "--name", "-n", help="Model name, also known as the model folder name", required=True
+    "--name",
+    "-n",
+    help="Model name, also known as the model folder name",
+    required=True,
 )
 @click.option(
     "--hf-transfer",
