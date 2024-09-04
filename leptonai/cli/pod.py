@@ -250,8 +250,16 @@ def list_command(pattern):
             pod.metadata.name,
             pod.spec.resource_requirement.resource_shape,
             pod.status.state,
-            f"ssh -p {ssh_port[1]} root@{pod_ip}" if (pod_ip and ssh_port) else "N/A",
-            f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)" if tcp_port else "N/A",
+            (
+                f"ssh -p {ssh_port[1]} root@{pod_ip}"
+                if (pod_ip and ssh_port)
+                else "Not Available"
+            ),
+            (
+                f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)"
+                if tcp_port
+                else "Not Available"
+            ),
             Jupyter_lab_mapping,
             datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
@@ -259,11 +267,12 @@ def list_command(pattern):
         )
     console.print(table)
     console.print(
-        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab listens on."
+        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
+        " listens on."
     )
     console.print(
-        "* Your initial ssh password is the workspace token.\n* Use `lep workspace token`"
-        " to get the token if needed."
+        "* Your initial ssh password is the workspace token.\n* Use `lep workspace"
+        " token` to get the token if needed."
     )
     return 0
 
