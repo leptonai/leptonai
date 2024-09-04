@@ -195,15 +195,15 @@ def list_command(pattern):
     ssh_ports = [None] * pods_count
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
-    all_valid_port = [True] * pods_count
     for index, pod in enumerate(pods):
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
-        check(
-            len(port_pairs) in [2, 3],
-            f"Pod {pod.metadata.name} does not have exactly two or three ports. This is"
-            " not supported.",
-        )
+        if len(port_pairs) not in [2, 3]:
+            console.print(
+                f"Pod {pod.metadata.name} does not have exactly two or three ports."
+                f" This is not supported. it has \n {port_pairs}"
+            )
+            continue
 
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
@@ -217,7 +217,7 @@ def list_command(pattern):
                     f"Warning: Pod [red]{pod.metadata.name}[/] has an unsupported port"
                     f" [red]{port_pair}.[/]"
                 )
-                all_valid_port[index] = False
+
     pod_ips = [None] * pods_count
     for index, pod in enumerate(pods):
         if pod.status.state in ("Running", "Ready"):
@@ -236,11 +236,9 @@ def list_command(pattern):
         justify="center",
     )
     table.add_column("created at")
-    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip, all_valid in zip(
-        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips, all_valid_port
+    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
+        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
     ):
-        # if not all_valid:
-        #     continue
         Jupyter_lab_mapping = (
             f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
             if tcp_port_jupyterlab
