@@ -54,15 +54,15 @@ def pod():
     "--resource-shape",
     type=str,
     help="Resource shape for the pod. Available types are: '"
-         + "', '".join(VALID_SHAPES)
-         + "'.",
+    + "', '".join(VALID_SHAPES)
+    + "'.",
     default=None,
 )
 @click.option(
     "--mount",
     help=(
-            "Persistent storage to be mounted to the deployment, in the format"
-            " `STORAGE_PATH:MOUNT_PATH`."
+        "Persistent storage to be mounted to the deployment, in the format"
+        " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
@@ -76,9 +76,9 @@ def pod():
     "--secret",
     "-s",
     help=(
-            "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-            " secret name is also the environment variable name, you can"
-            " omit it and simply pass `SECRET_NAME`."
+        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        " secret name is also the environment variable name, you can"
+        " omit it and simply pass `SECRET_NAME`."
     ),
     multiple=True,
 )
@@ -93,11 +93,11 @@ def pod():
     "-ng",
     "node_groups",
     help=(
-            "Node group for the pod. If not set, use on-demand resources. You can repeat"
-            " this flag multiple times to choose multiple node groups. Multiple node group"
-            " option is currently not supported but coming soon for enterprise users. Only"
-            " the first node group will be set if you input multiple node groups at this"
-            " time."
+        "Node group for the pod. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
     ),
     type=str,
     multiple=True,
@@ -107,20 +107,20 @@ def pod():
     "--container-command",
     type=str,
     help=(
-            "Command to run in the container. Your command should listen to the port"
-            " specified by --container-port."
+        "Command to run in the container. Your command should listen to the port"
+        " specified by --container-port."
     ),
 )
 def create(
-        name,
-        resource_shape,
-        mount,
-        env,
-        secret,
-        image_pull_secrets,
-        node_groups,
-        container_image,
-        container_command,
+    name,
+    resource_shape,
+    mount,
+    env,
+    secret,
+    image_pull_secrets,
+    node_groups,
+    container_image,
+    container_command,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
