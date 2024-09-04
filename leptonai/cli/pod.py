@@ -107,8 +107,7 @@ def pod():
     "--container-command",
     type=str,
     help=(
-        "Command to run in the container. Your command should listen to the port"
-        " specified by --container-port."
+        "Command to run in the container."
     ),
 )
 def create(
