@@ -30,6 +30,10 @@ from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.types.deployment import ResourceRequirement
 
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional
+import sys
+
 console = Console(highlight=False)
 
 
@@ -172,9 +176,12 @@ def list_command(pattern):
     if len(pods) == 0:
         console.print("No pods found. Use `lep pod create` to create pods.")
         return 0
-    ssh_ports = []
-    tcp_ports = []
-    tcp_ports_jupyterlab = []
+
+    pods_count = len(pods)
+    ssh_ports = [None] * pods_count
+    tcp_ports = [None] * pods_count
+    tcp_ports_jupyterlab = [None] * pods_count
+    is_valid_port = [False] * pods_count
     for pod in pods:
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
@@ -186,12 +193,15 @@ def list_command(pattern):
 
         if len(port_pairs) == 2:
             tcp_ports_jupyterlab.append(None)
+
+        port_pairs = [(2222, 65255), (188881, 65256), (188891, 65257)]
+
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
                 ssh_ports.append(port_pair)
             elif port_pair[0] == TCP_PORT:
                 tcp_ports.append(port_pair)
-            elif port_pair[0] == TCP_JUPYTER_PORT:
+            elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
                 tcp_ports_jupyterlab.append(port_pair)
             else:
                 console.print(
