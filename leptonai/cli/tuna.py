@@ -381,7 +381,7 @@ def upload_data(ctx, file, name):
     Uploads data to the default training dataset path specified by DEFAULT_TUNA_TRAIN_DATASET_PATH.
 
     Usage:
-        lep tuna upload-data --local-path <local_path> --name <data_name>
+        lep tuna upload-data --file <local_file_path> --name <data_name>
 
     Args:
         ctx (Click.Context): The Click context object (required by Click commands).
@@ -389,7 +389,7 @@ def upload_data(ctx, file, name):
         name (str): The name to assign to the uploaded data.
 
     Example:
-        lep tuna upload-data --local-path /path/to/data.csv --name training_data.csv
+        lep tuna upload-data --file /path/to/data.csv --name training_data.csv
 
     Returns:
         None
@@ -450,7 +450,7 @@ def list_data(ctx):
 def remove_data(name):
     """Remove specified data file from the default tuna train dataset path.
 
-    Usage: lep tuna remove-data --data-file-name <data_file_name>
+    Usage: lep tuna remove-data -name <data_file_name>
 
     Args:
         name (str): Name of the data file to be removed.
@@ -617,6 +617,7 @@ def train(
     """Create and start a new training job.
 
     Usage: lep tuna train [OPTIONS]
+
     """
 
     data_path = DEFAULT_TUNA_TRAIN_DATASET_PATH + "/" + dataset_name
@@ -729,7 +730,7 @@ def train(
 def remove(name):
     """Delete a specified tuna model.
 
-    Usage: lep tuna remove <model_name>
+    Usage: lep tuna remove -n <model_name>
 
     Args:
         name (str): Name of the model to be deleted.
@@ -803,7 +804,10 @@ def info(ctx, name):
     """
     Retrieve and print the details of a model.
 
-    Usage: lep tuna info <tuna_model_name>
+    Usage: lep tuna info -n <tuna_model_name>
+
+    Args:
+        name (str): Name of the model to be deleted.
     """
     models_names = _get_model_names()
     if name not in models_names:
@@ -824,7 +828,7 @@ def info(ctx, name):
 def clear_failed_models(ctx):
     """Delete all failed training models and related jobs.
 
-    Usage: lep tuna clear-failed-trainings
+    Usage: lep tuna clear_failed_models
     """
     for model_name, tuna_model in _get_models_map().items():
         if tuna_model.tuna_model_state is TunaModelState.TrainFailed:
@@ -1025,13 +1029,13 @@ def list_command(ctx):
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
     )
-    table.add_column("Name")
+    table.add_column("Name", min_width=36)
     table.add_column("Trained At")
     table.add_column("Model")
     table.add_column("Data")
     table.add_column("Lora or Medusa")
-    table.add_column("State (Training, Ready, Running, Stopped, Train Failed)")
-    table.add_column("Running Deployments Name")
+    table.add_column("State")
+    table.add_column("Deployments Name")
     table.add_column("Train Job Name")
 
     for name, tuna_model in _get_models_map().items():
