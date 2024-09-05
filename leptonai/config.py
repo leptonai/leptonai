@@ -383,7 +383,7 @@ DEFAULT_TUNA_MODEL_PATH = "/lepton-tuna/model"
 TUNA_TRAIN_JOB_NAME_PREFIX = "tuna-"
 TUNA_DEPLOYMENT_NAME_PREFIX = "tuna-"
 
-TUNA_IMAGE = "default/lepton:tuna-24.07.7"
+TUNA_IMAGE = "leptonai/l3m:24.09.3"
 LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
