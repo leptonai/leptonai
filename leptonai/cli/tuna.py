@@ -715,9 +715,7 @@ def train(
         update_args.extend(["--mount", mount_element])
 
     combined_args = ctx.args + update_args
-    print(combined_args)
     job_create_ctx = job_create.make_context(info_name="create", args=combined_args)
-    print(job_create_ctx.params)
     ctx.invoke(job_create, **job_create_ctx.params)
     console.print(
         f"Model Training Job [green]{job_name}[/] for your model"

@@ -402,7 +402,6 @@ def download(remote_path, local_path, file_system, suppress_output):
     client.storage.get_file(remote_path, local_path, file_system)
 
     if not suppress_output:
-        print(suppress_output)
         console.print(
             f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]"
         )

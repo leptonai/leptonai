@@ -589,7 +589,9 @@ def create(
     autoscale_qpm,
     log_collection,
 ):
-
+    """
+        Creates a deployment from either a photon or container image.
+    """
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
 
