@@ -22,7 +22,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonResourceAffinity,
 )
-from leptonai.api.v1.types.deployment import ContainerPort
+from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog
 from leptonai.api.v1.client import APIClient
 
 
@@ -191,6 +191,15 @@ def make_container_port_from_string(port_str: str):
     ),
     default=259200,
 )
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def create(
     name,
     file,
@@ -209,6 +218,7 @@ def create(
     intra_job_communication,
     privileged,
     ttl_seconds_after_finished,
+    log_collection,
 ):
     """
     Creates a job.
@@ -281,8 +291,10 @@ def create(
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
-
+    if log_collection is not None:
+        job_spec.log = LeptonLog(enable_collection=log_collection)
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+    logger.trace(json.dumps(job.model_dump(), indent=2))
     client.job.create(job)
     console.print(f"Job [green]{name}[/] created successfully.")
 
