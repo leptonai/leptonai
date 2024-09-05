@@ -8,7 +8,6 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
-
 import sys
 import json
 from datetime import datetime
