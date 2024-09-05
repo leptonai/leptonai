@@ -1,10 +1,14 @@
 import asyncio
 import argparse
 from collections import Counter
+import json
+import math
 import os
 import queue
 import re
 import random
+from rich.console import Console
+from rich.table import Table
 import sys
 import threading
 import time
@@ -24,7 +28,7 @@ def get_prompt_of_length(prompt_length):
     )
 
     prompt = "Pick some lines from these poem lines:\n"
-    with open("sonnet.txt", "r") as f:
+    with open(os.path.join(os.path.dirname(__file__), "sonnet.txt"), "r") as f:
         # pick randome lines from the sonnet that total to prompt_length
         lines = f.readlines()
         while len(tokenizer.encode(prompt)) < args.prompt_length:
@@ -73,6 +77,7 @@ async def endpoint_evaluation_request(client, ep_config):
                 temperature=0,
                 # Do not set to false. You will get bogus results.
                 stream=True,
+                stream_options={"include_usage": True},
             )
             async for tok in response:
                 if not tok.choices:
@@ -82,8 +87,8 @@ async def endpoint_evaluation_request(client, ep_config):
                     if ttft is None:
                         ttft = time.time() - st
                     words += delta.content
-            tokens_in = tok.usage["prompt_tokens"]
-            tokens_out = tok.usage["completion_tokens"]
+            tokens_in = tok.usage.prompt_tokens
+            tokens_out = tok.usage.completion_tokens
         else:
             response = await client.completions.create(
                 model=ep_config["model"],
@@ -127,9 +132,12 @@ async def endpoint_evaluation_request(client, ep_config):
 
 
 async def endpoint_evaluation_round(client, concur_requests, ep_config):
-    results = await asyncio.gather(*(
-        endpoint_evaluation_request(client, ep_config) for _ in range(concur_requests)
-    ))
+    results = await asyncio.gather(
+        *(
+            endpoint_evaluation_request(client, ep_config)
+            for _ in range(concur_requests)
+        )
+    )
     return results
 
 
@@ -170,7 +178,7 @@ def endpoint_evaluation(ep_config):
     client = openai.AsyncOpenAI(
         base_url=ep_config["api_base"], api_key=ep_config["api_key"]
     )
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
 
     if ep_config["model"] is None:
 
@@ -185,6 +193,7 @@ def endpoint_evaluation(ep_config):
         loop.run_until_complete(endpoint_evaluation_request(client, ep_config))
 
     if args.qps is not None:
+        num_results_per_round = math.ceil(args.qps)
         query_results = []
         elts = []
         results_queue = queue.Queue()
@@ -200,12 +209,18 @@ def endpoint_evaluation(ep_config):
                 try:
                     result = results_queue.get(timeout=0.1)
                     query_results.append(result)
-                    if len(query_results) % args.qps == 0:
+                    if len(query_results) % num_results_per_round == 0:
                         et = time.time()
                         elts.append(et - st)
                         st = et
-                    if len(query_results) % (5 * args.qps) == 0:
-                        results_analysis(query_results, elts, qps_mode=True)
+                    if len(query_results) % (5 * num_results_per_round) == 0:
+                        results_analysis(
+                            query_results,
+                            elts,
+                            ep_config["model"],
+                            qps=args.qps,
+                            json_output=args.json_output,
+                        )
                         query_results = []
                         elts = []
                 except queue.Empty:
@@ -213,8 +228,6 @@ def endpoint_evaluation(ep_config):
         finally:
             stop_event.set()
     else:
-        loop = asyncio.get_event_loop()
-
         for concur_requests in args.concur_requests:
             query_results = []
             elts = []
@@ -231,13 +244,22 @@ def endpoint_evaluation(ep_config):
                 if tosleep > 0:
                     print("Sleeping for %.4f seconds" % tosleep)
                     time.sleep(tosleep)
-            results_analysis(query_results, elts, concur_requests)
+            results_analysis(
+                query_results,
+                elts,
+                ep_config["model"],
+                concur_requests,
+                json_output=args.json_output,
+            )
 
 
-def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
-    print("---- Results analysis ----")
-    if concur_requests:
-        print(f"Concurrency: {concur_requests}")
+def results_analysis(
+    query_results, elts, model, concur_requests=None, qps=None, json_output=None
+):
+    print("-------------------------")
+    if json_output:
+        json_output_f = open(json_output, "a")
+
     df = pd.DataFrame(
         query_results,
         columns=[
@@ -251,49 +273,70 @@ def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
     )
     cdf = df[df.valid != "Exception"].copy()
     if len(cdf) > 0:
-        total_out_tokens_per_s = cdf.tokens_out.sum().sum() / sum(elts)
-        # Wall time, counting the ttft
-        cdf["out_tokens_per_s"] = cdf.tokens_out / cdf.total_time
-        cdf["inter_tokens_delay"] = cdf.total_time / cdf.tokens_out
-        # Not counting the ttft
-        cdf["out_tokens_per_s_no_ttft"] = (cdf.tokens_out - 1) / (
-            cdf.total_time - cdf.ttft
-        )
-        cdf["inter_tokens_delay_no_ttft"] = (cdf.total_time - cdf.ttft) / (
-            cdf.tokens_out - 1
-        )
+        console = Console()
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Metric")
+        table.add_column("Min")
+        table.add_column("P50")
+        table.add_column("P90")
+        table.add_column("P95")
+        table.add_column("P99")
+        table.add_column("Max")
+
+        if json_output:
+            json_record = {}
+
+        cdf["tokens_per_s"] = cdf.tokens_out / cdf.total_time
         mean_tokens_in = int(cdf["tokens_in"].mean())
         mean_tokens_out = int(cdf["tokens_out"].mean())
-        mean_ttft = cdf["ttft"].mean()
-        min_ttft = cdf["ttft"].min()
-        max_ttft = cdf["ttft"].max()
-        gt_3_ttft = len(cdf[cdf["ttft"] > 3]) / len(cdf)
-        print(
-            f"Execution time:\n  mean (per request): {cdf.total_time.mean():.2f} s",
-            end="",
-        )
-        if not qps_mode:
-            print(f"\n  mean (per round): {sum(elts)/len(elts):.2f} s", end="")
-        print(f"\n  total: {sum(elts):.2f} s")
-        print(
-            "Throughput:\n  mean (per request):"
-            f" {cdf.out_tokens_per_s.mean():.2f} token/s\n  mean (per request, not"
-            f" counting ttft): {cdf.out_tokens_per_s_no_ttft.mean():.2f} token/s\n "
-            f" total (walltime): {total_out_tokens_per_s:.2f} token/s"
-        )
-        print(
-            f"Latency:\n  mean: {cdf.inter_tokens_delay.mean()*1000:.2f} ms/token\n "
-            " mean (not counting ttft):"
-            f" {cdf.inter_tokens_delay_no_ttft.mean()*1000:.2f} ms/token"
-        )
-        print(
-            "TTFT:"
-            f"\n  mean: {mean_ttft*1000:.0f} ms"
-            f"\n  min: {min_ttft*1000:.0f} ms"
-            f"\n  max: {max_ttft*1000:.0f} ms"
-            f"\n  > 3 s: {gt_3_ttft*100:.2f}%"
-        )
-        print(f"Mean #tokens:\n  input: {mean_tokens_in}\n  output: {mean_tokens_out}")
+
+        s_per_output_token = (cdf["total_time"] - cdf["ttft"]) / (cdf["tokens_out"] - 1)
+
+        title = f"{model}\n("
+        if concur_requests is not None:
+            title += f"concurrency={concur_requests}, "
+        if qps is not None:
+            # if qps is integer, show it as integer, otherwise show it as float
+            title += f"qps={int(qps) if int(qps) == qps else qps}, "
+        title += f"input_tokens={mean_tokens_in}, output_tokens={mean_tokens_out})"
+        table.title = title
+
+        if json_output:
+            if concur_requests is not None:
+                json_record["concurrency"] = concur_requests
+            if qps is not None:
+                json_record["qps"] = qps
+            json_record["input_tokens"] = mean_tokens_in
+            json_record["output_tokens"] = mean_tokens_out
+            json_record["model"] = model
+
+        def show_metric(name, unit, val):
+            table.add_row(
+                f"{name}({unit})",
+                f"{val.min():.3f}",
+                f"{val.quantile(0.5):.3f}",
+                f"{val.quantile(0.9):.3f}",
+                f"{val.quantile(0.95):.3f}",
+                f"{val.quantile(0.99):.3f}",
+                f"{val.max():.3f}",
+            )
+            if json_output:
+                json_record[name] = {
+                    "unit": unit,
+                    "min": val.min(),
+                    "p50": val.quantile(0.5),
+                    "p90": val.quantile(0.9),
+                    "p95": val.quantile(0.95),
+                    "p99": val.quantile(0.99),
+                    "max": val.max(),
+                }
+
+        show_metric("Latency", "s", cdf["total_time"])
+        show_metric("Throughput", "tokens/s", cdf["tokens_per_s"])
+        show_metric("TTFT", "s", cdf["ttft"])
+        show_metric("TPOT", "ms", s_per_output_token * 1000)
+
+        console.print(table)
 
     def error_analysis(df):
         # Group exceptions based on exceptions cause
@@ -311,8 +354,18 @@ def results_analysis(query_results, elts, concur_requests=None, qps_mode=False):
             for cause, count in exceptions_by_cause.items():
                 print(f" - {count}: {cause}")
 
+            if json_output:
+                json_record["exceptions"] = {}
+                for cause, count in exceptions_by_cause.items():
+                    json_record["exceptions"][cause] = count
+
     error_analysis(df)
     print("-------------------------")
+
+    if json_output:
+        json.dump(json_record, json_output_f)
+        json_output_f.write("\n")
+        json_output_f.close()
 
 
 if __name__ == "__main__":
@@ -352,7 +405,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-q",
         "--qps",
-        type=int,
+        type=float,
         default=None,
         help=(
             "number of requests per second. if set, overrides --concur-requests and"
@@ -418,10 +471,10 @@ if __name__ == "__main__":
         help="Whether to use the chat endpoint",
     )
     parser.add_argument(
-        "--print-response",
-        action="store_true",
+        "--json-output",
+        type=str,
         default=False,
-        help="Whether to print the response",
+        help="If set, the file to save the results in json format",
     )
     args = parser.parse_args()
     endpoint_config = {}
