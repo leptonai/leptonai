@@ -30,11 +30,11 @@ Set the following environmental variables.
                 </tr>
                 <tr>
                     <td>ChatGLM</td>
-                    <td>chatglm2, chatglm_chatml (for chatglm3, glm-4-chat)</td>
+                    <td>chatglm2, chatglm-chatml (for chatglm3, glm-4-chat)</td>
                 </tr>
                 <tr>
                     <td>DBRX</td>
-                    <td>DBRX</td>
+                    <td>dbrx</td>
                 </tr>
                 <tr>
                     <td>Falcon</td>
@@ -42,7 +42,7 @@ Set the following environmental variables.
                 </tr>
                 <tr>
                     <td>Gemma</td>
-                    <td>Gemma (for gemma1/2)</td>
+                    <td>gemma (for gemma1/2)</td>
                 </tr>
                 <tr>
                     <td>LLaMA</td>
@@ -76,7 +76,7 @@ Set the following environmental variables.
         </table>
     </details>
 
-* `LEPTON_CHAT_TEMPLATE_JINJA`: (Optional) If you want to use a custom jinja chat template, you can set `LEPTON_CHAT_TEMPLATE_JINJA`  as a string of jinja, then the lepton llm will format the chat messages following the custom template with the highest priority.
+* `LEPTON_CHAT_TEMPLATE_JINJA`: (Optional) If you want to use a custom jinja chat template, you can set LEPTON_CHAT_TEMPLATE_JINJA as a string of jinja, then the lepton llm will format the chat messages following the custom template with the highest priority.
 
 This deployment may also require the following secret(s) to run:
 
