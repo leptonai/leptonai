@@ -12,6 +12,7 @@ import sys
 import json
 from datetime import datetime
 import re
+import shlex
 
 import click
 from loguru import logger
@@ -34,7 +35,8 @@ from .util import (
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement, LeptonLog
+from ..api.v1.types.deployment import ResourceRequirement, LeptonLog, LeptonContainer
+
 
 console = Console(highlight=False)
 
@@ -107,6 +109,12 @@ def pod():
     type=str,
     multiple=True,
 )
+@click.option("--container-image", type=str, help="Container image to run.")
+@click.option(
+    "--container-command",
+    type=str,
+    help="Command to run in the container.",
+)
 @click.option(
     "--log-collection",
     "-lg",
@@ -124,11 +132,14 @@ def create(
     secret,
     image_pull_secrets,
     node_groups,
+    container_image,
+    container_command,
     log_collection,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
+
     if resource_shape is None:
         available_types = "\n      ".join(VALID_SHAPES)
         console.print(
@@ -136,6 +147,19 @@ def create(
             f"Available types are:\n      {available_types}. \n"
         )
         sys.exit(1)
+
+    spec_container = None
+    if container_image or container_command:
+        if container_image is None:
+            console.print(
+                "Error: container image and command must be specified together."
+            )
+            sys.exit(1)
+
+        spec_container = LeptonContainer(
+            image=container_image,
+            command=shlex.split(container_command) if container_command else None,
+        )
 
     client = APIClient()
 
@@ -152,6 +176,7 @@ def create(
 
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
+            container=spec_container,
             resource_requirement=resource_requirement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
@@ -165,6 +190,7 @@ def create(
             metadata=types.common.Metadata(name=name),
             spec=deployment_user_spec,
         )
+
     except ValueError as e:
         console.print(f"Error encountered while processing pod configs:\n[red]{e}[/].")
         console.print("Failed to create pod.")

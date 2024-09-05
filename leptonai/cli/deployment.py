@@ -643,14 +643,15 @@ def create(
         deployment_template = photon.deployment_template
     elif container_image is not None or container_command is not None:
         # We will use container.
-        if container_image is None or container_command is None:
+        if container_image is None:
             console.print(
                 "Error: container image and command must be specified together."
             )
             sys.exit(1)
+
         spec.container = LeptonContainer(
             image=container_image,
-            command=shlex.split(container_command),
+            command=shlex.split(container_command) if container_command else None,
         )
         if container_port:
             spec.container.ports = [ContainerPort(container_port=container_port)]
