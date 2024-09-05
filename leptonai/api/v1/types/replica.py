@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
-from .common import MetadataV1
+from .common import Metadata
 
 
 class ReplicaDomain(BaseModel):
@@ -20,7 +20,7 @@ class ReplicaStatus(BaseModel):
 
 
 class Replica(BaseModel):
-    metadata: MetadataV1
+    metadata: Metadata
     # note: id is deprecated. Use metadata.id instead.
     id_: str = Field(..., alias="id")
     status: Optional[ReplicaStatus] = None

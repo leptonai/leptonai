@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import re
 import shlex
@@ -6,7 +7,9 @@ from typing import List, Optional, Union
 
 import click
 from loguru import logger
+from rich.pretty import Pretty
 from rich.table import Table
+from rich.prompt import Confirm
 
 from .util import (
     console,
@@ -39,8 +42,29 @@ from ..api.v1.types.deployment import (
     ScaleDown,
     ContainerPort,
     AutoscalerTargetThroughput,
+    LeptonLog,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
+
+
+def _same_major_version(version_str_list: List[str]) -> bool:
+    if len(version_str_list) < 2:
+        return True
+
+    def validate(v: str) -> bool:
+        return bool(re.match(r"^\d+\.\d+$", v))
+
+    if not all(validate(version_str) for version_str in version_str_list):
+        return False
+
+    version_major_list = [version.split(".")[0] for version in version_str_list]
+
+    if not all(
+        version_major == version_major_list[0] for version_major in version_major_list
+    ):
+        return False
+
+    return True
 
 
 def autoscale_flag_deprecation_warning(ctx, param, value):
@@ -151,7 +175,7 @@ def validate_autoscale_options(ctx, param, value):
             and (parts[2].rstrip("%").isdigit())
         ):
             raise click.BadParameter(
-                "Invalid format for --autoscale-between. Expected format:"
+                "Invalid format for --autoscale-gpu_util. Expected format:"
                 " <min_replica>,<max_replica>,<threshold>% or"
                 " <min_replica>,<max_replica>,<threshold>"
             )
@@ -497,7 +521,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 Use this option to set a threshold for GPU utilization and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                use: --autoscale-gpu-util 1,3,50% or --autoscale-gpu-util 1,3,50
                 (Note: Do not include spaces around the comma.)
 
                 If the GPU utilization is higher than the target GPU utilization,
@@ -518,16 +542,22 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 Use this option to set a threshold for QPM and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-between 1,3,2.5
+                use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                If the QPM is higher than the target QPM,
-                the autoscaler will scale up the replicas.
-                If the QPM is lower than the target QPM,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between positive number.
+                This sets up autoscaling based on queries per minute, 
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5.
             """,
     callback=validate_autoscale_options,
+)
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
 )
 def create(
     name,
@@ -557,6 +587,7 @@ def create(
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
+    log_collection,
 ):
 
     client = APIClient()
@@ -610,14 +641,15 @@ def create(
         deployment_template = photon.deployment_template
     elif container_image is not None or container_command is not None:
         # We will use container.
-        if container_image is None or container_command is None:
+        if container_image is None:
             console.print(
                 "Error: container image and command must be specified together."
             )
             sys.exit(1)
+
         spec.container = LeptonContainer(
             image=container_image,
-            command=shlex.split(container_command),
+            command=shlex.split(container_command) if container_command else None,
         )
         if container_port:
             spec.container.ports = [ContainerPort(container_port=container_port)]
@@ -758,6 +790,10 @@ def create(
                 else None
             )
         )
+
+        if log_collection is not None:
+            spec.log = LeptonLog(enable_collection=log_collection)
+
     except ValueError as e:
         console.print(
             f"Error encountered while processing deployment configs:\n[red]{e}[/]."
@@ -773,6 +809,7 @@ def create(
         ),
         spec=spec,
     )
+    logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
     client.deployment.create(lepton_deployment)
     console.print(
         f"Deployment created as [green]{name}[/]. Use `lep deployment"
@@ -864,7 +901,10 @@ def remove(name):
         " in plain text, and may be visible to others if you log the output."
     ),
 )
-def status(name, show_tokens):
+@click.option(
+    "--detail", "-d", is_flag=True, default=False, help="Show the deployment detail"
+)
+def status(name, show_tokens, detail):
     """
     Gets the status of a deployment.
     """
@@ -924,7 +964,7 @@ def status(name, show_tokens):
         web_url = LEPTON_DEPLOYMENT_URL.format(
             workspace_id=workspace_id, deployment_name=name
         )
-        console.print(f"Web UI:     {web_url}/demo")
+        console.print(f"Web UI:     {web_url}")
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")
@@ -991,6 +1031,8 @@ def status(name, show_tokens):
                     message,
                 )
         console.print(table)
+    if detail:
+        console.print(Pretty(dep_info.model_dump()))
 
 
 @deployment.command()
@@ -1057,7 +1099,13 @@ def log(name, replica):
     type=int,
     default=None,
 )
-@click.option("--resource-shape", help="Resource shape.", default=None)
+@click.option(
+    "--resource-shape",
+    help="Resource shape for the pod. Available types are: '"
+    + "', '".join(VALID_SHAPES)
+    + "'.",
+    default=None,
+)
 @click.option(
     "--public/--no-public",
     is_flag=True,
@@ -1143,7 +1191,7 @@ def log(name, replica):
                 Use this option to set a threshold for GPU utilization and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-between 1,3,50% or --autoscale-between 1,3,50
+                use: --autoscale-gpu-util 1,3,50% or --autoscale-gpu-util 1,3,50
                 (Note: Do not include spaces around the comma.)
 
                 If the GPU utilization is higher than the target GPU utilization,
@@ -1164,16 +1212,22 @@ def log(name, replica):
                 Use this option to set a threshold for QPM and enable the system to scale between
                 a minimum and maximum number of replicas. For example,
                 to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-between 1,3,2.5
+                use: --autoscale-qpm 1,3,2.5
                 (Note: Do not include spaces around the comma.)
 
-                If the QPM is higher than the target QPM,
-                the autoscaler will scale up the replicas.
-                If the QPM is lower than the target QPM,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between positive number.
+                This sets up autoscaling based on queries per minute,
+                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5. 
             """,
     callback=validate_autoscale_options,
+)
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
 )
 def update(
     name,
@@ -1189,6 +1243,7 @@ def update(
     autoscale_down,
     autoscale_gpu_util,
     autoscale_qpm,
+    log_collection,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -1197,8 +1252,9 @@ def update(
     """
 
     client = APIClient()
+    lepton_deployment = client.deployment.get(name)
+
     if id == "latest":
-        lepton_deployment = client.deployment.get(name)
         current_photon_id = lepton_deployment.spec.photon_id
 
         public_photon = (
@@ -1277,7 +1333,9 @@ def update(
         ),
     )
 
-    lepton_deployment = LeptonDeployment(
+    if log_collection is not None:
+        lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
+    new_lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
             name=name,
@@ -1286,9 +1344,48 @@ def update(
         spec=lepton_deployment_spec,
     )
 
+    logger.trace(json.dumps(new_lepton_deployment.model_dump(), indent=2))
+
+    if lepton_deployment.metadata.semantic_version:
+        dryrun_deployment = client.deployment.update(
+            name_or_deployment=name,
+            spec=new_lepton_deployment,
+            dryrun=True,
+        )
+
+        will_restart = not _same_major_version([
+            dryrun_deployment.metadata.semantic_version,
+            lepton_deployment.metadata.semantic_version,
+        ])
+        if will_restart:
+
+            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+                "This update will trigger a rolling restart. Are you sure you want"
+                " continue?",
+                default=True,
+            )
+
+            if not confirmed:
+                sys.exit(1)
+
+            replicas = client.deployment.get_replicas(lepton_deployment)
+
+            version_str_list = [lepton_deployment.metadata.semantic_version] + [
+                replica.metadata.semantic_version for replica in replicas
+            ]
+
+            updating_ongoing = not _same_major_version(version_str_list)
+            if updating_ongoing:
+                console.print(
+                    "[red]An update is in progress. Please try again later.[/]"
+                )
+                sys.exit(1)
+
+            console.print("Proceeding with the update...")
+
     client.deployment.update(
         name_or_deployment=name,
-        spec=lepton_deployment,
+        spec=new_lepton_deployment,
     )
     console.print(f"Deployment [green]{name}[/] updated.")
 

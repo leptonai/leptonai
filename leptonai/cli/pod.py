@@ -8,27 +8,35 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
+import sys
+import json
 from datetime import datetime
 import re
-import sys
+import shlex
 
 import click
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import VALID_SHAPES
+from leptonai.config import (
+    VALID_SHAPES,
+    DEFAULT_RESOURCE_SHAPE,
+    SSH_PORT,
+    TCP_PORT,
+    TCP_JUPYTER_PORT,
+)
 from leptonai.api.v1 import types
 from .util import (
     click_group,
-    check,
     _get_only_replica_public_ip,
     _get_valid_nodegroup_ids,
 )
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement
+from ..api.v1.types.deployment import ResourceRequirement, LeptonLog, LeptonContainer
+
 
 console = Console(highlight=False)
 
@@ -101,6 +109,21 @@ def pod():
     type=str,
     multiple=True,
 )
+@click.option("--container-image", type=str, help="Container image to run.")
+@click.option(
+    "--container-command",
+    type=str,
+    help="Command to run in the container.",
+)
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def create(
     name,
     resource_shape,
@@ -109,14 +132,39 @@ def create(
     secret,
     image_pull_secrets,
     node_groups,
+    container_image,
+    container_command,
+    log_collection,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
+
+    if resource_shape is None:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
+    spec_container = None
+    if container_image or container_command:
+        if container_image is None:
+            console.print(
+                "Error: container image and command must be specified together."
+            )
+            sys.exit(1)
+
+        spec_container = LeptonContainer(
+            image=container_image,
+            command=shlex.split(container_command) if container_command else None,
+        )
+
     client = APIClient()
 
     resource_requirement = ResourceRequirement(
-        resource_shape=resource_shape,
+        resource_shape=resource_shape or DEFAULT_RESOURCE_SHAPE,
     )
 
     if node_groups:
@@ -128,21 +176,27 @@ def create(
 
     try:
         deployment_user_spec = types.deployment.LeptonDeploymentUserSpec(
+            container=spec_container,
             resource_requirement=resource_requirement,
             mounts=make_mounts_from_strings(mount),
             image_pull_secrets=image_pull_secrets,
             envs=make_env_vars_from_strings(list(env), list(secret)),
             is_pod=True,
         )
+        if log_collection is not None:
+            deployment_user_spec.log = LeptonLog(enable_collection=log_collection)
+
         deployment_spec = types.deployment.LeptonDeployment(
             metadata=types.common.Metadata(name=name),
             spec=deployment_user_spec,
         )
+
     except ValueError as e:
         console.print(f"Error encountered while processing pod configs:\n[red]{e}[/].")
         console.print("Failed to create pod.")
         sys.exit(1)
 
+    logger.trace(json.dumps(deployment_spec.model_dump(), indent=2))
     client.photon.run(deployment_spec)
 
     console.print(f"Pod launched as [green]{name}[/]")
@@ -172,29 +226,39 @@ def list_command(pattern):
     if len(pods) == 0:
         console.print("No pods found. Use `lep pod create` to create pods.")
         return 0
-    ssh_ports = []
-    tcp_ports = []
-    for pod in pods:
+
+    pods_count = len(pods)
+    ssh_ports = [None] * pods_count
+    tcp_ports = [None] * pods_count
+    tcp_ports_jupyterlab = [None] * pods_count
+    for index, pod in enumerate(pods):
         ports = pod.spec.container.ports
         port_pairs = [(p.container_port, p.host_port) for p in ports]
-        check(
-            len(port_pairs) == 2,
-            f"Pod {pod.metadata.name} does not have exactly two ports. This is not"
-            " supported.",
-        )
-        if port_pairs[0][0] == 2222:
-            ssh_ports.append(port_pairs[0])
-            tcp_ports.append(port_pairs[1])
-        else:
-            ssh_ports.append(port_pairs[1])
-            tcp_ports.append(port_pairs[0])
-    pod_ips = []
-    for pod in pods:
-        if pod.status.state not in ("Running", "Ready"):
-            pod_ips.append(None)
+        if len(port_pairs) not in [2, 3]:
+            console.print(
+                f"Pod {pod.metadata.name} does not have exactly two or three ports."
+                f" This is not supported. it has \n {port_pairs}"
+            )
             continue
-        public_ip = _get_only_replica_public_ip(pod.metadata.name)
-        pod_ips.append(public_ip)
+
+        for port_pair in port_pairs:
+            if port_pair[0] == SSH_PORT:
+                ssh_ports[index] = port_pair
+            elif port_pair[0] == TCP_PORT:
+                tcp_ports[index] = port_pair
+            elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
+                tcp_ports_jupyterlab[index] = port_pair
+            else:
+                console.print(
+                    f"Warning: Pod [red]{pod.metadata.name}[/] has an unsupported port"
+                    f" [red]{port_pair}.[/]"
+                )
+
+    pod_ips = [None] * pods_count
+    for index, pod in enumerate(pods):
+        if pod.status.state in ("Running", "Ready"):
+            public_ip = _get_only_replica_public_ip(pod.metadata.name)
+            pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
     table = Table(title="pods", show_lines=True)
@@ -203,22 +267,46 @@ def list_command(pattern):
     table.add_column("status")
     table.add_column("ssh command")
     table.add_column("TCP port mapping")
+    table.add_column(
+        "TCP port mapping \n (Jupyterlab)",
+        justify="center",
+    )
     table.add_column("created at")
-    for pod, ssh_port, tcp_port, pod_ip in zip(pods, ssh_ports, tcp_ports, pod_ips):
+    for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
+        pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
+    ):
+        Jupyter_lab_mapping = (
+            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
+            if tcp_port_jupyterlab
+            else "Not Available"
+        )
         table.add_row(
             pod.metadata.name,
             pod.spec.resource_requirement.resource_shape,
             pod.status.state,
-            f"ssh -p {ssh_port[1]} root@{pod_ip}" if pod_ip is not None else "N/A",
-            f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)",
+            (
+                f"ssh -p {ssh_port[1]} root@{pod_ip}"
+                if (pod_ip and ssh_port)
+                else "Not Available"
+            ),
+            (
+                f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)"
+                if tcp_port
+                else "Not Available"
+            ),
+            Jupyter_lab_mapping,
             datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
                 "%Y-%m-%d\n%H:%M:%S"
             ),
         )
     console.print(table)
     console.print(
-        "Your initial ssh password is the workspace token.\nUse `lep workspace token`"
-        " to get the token if needed."
+        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
+        " listens on."
+    )
+    console.print(
+        "* Your initial ssh password is the workspace token.\n* Use `lep workspace"
+        " token` to get the token if needed."
     )
     return 0
 

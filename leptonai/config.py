@@ -330,7 +330,6 @@ VALID_SHAPES = [
     "cpu.small",
     "cpu.medium",
     "cpu.large",
-    "gpu.t4",
     "gpu.a10",
     "gpu.a10.6xlarge",
     "gpu.a100-40gb",
@@ -341,7 +340,6 @@ VALID_SHAPES = [
     "gpu.2xa100-80gb",
     "gpu.4xa100-80gb",
     "gpu.8xa100-80gb",
-    "gpu.h100-pcie",
     "gpu.h100-sxm",
     "gpu.2xh100-sxm",
     "gpu.4xh100-sxm",
@@ -374,7 +372,9 @@ LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
 LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
-LEPTON_DEPLOYMENT_URL = LEPTON_WORKSPACE_URL + "/deployments/detail/{deployment_name}"
+LEPTON_DEPLOYMENT_URL = (
+    LEPTON_WORKSPACE_URL + "/compute/deployments/detail/{deployment_name}"
+)
 
 # TUNA CONFIG
 DEFAULT_TUNA_FOLDER = "/lepton-tuna"
@@ -387,3 +387,7 @@ TUNA_IMAGE = "leptonai/l3m:24.09.3"
 LLM_BY_LEPTON_PHOTON_NAME = "llm-by-lepton"
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
+
+SSH_PORT = 2222
+TCP_PORT = 18888
+TCP_JUPYTER_PORT = 18889

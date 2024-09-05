@@ -14,7 +14,7 @@ from .util import (
     _get_valid_nodegroup_ids,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from leptonai.config import BASE_IMAGE
+from leptonai.config import BASE_IMAGE, VALID_SHAPES
 
 from leptonai.api.v1.types.common import Metadata
 from leptonai.api.v1.types.job import (
@@ -22,7 +22,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonResourceAffinity,
 )
-from leptonai.api.v1.types.deployment import ContainerPort
+from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog
 from leptonai.api.v1.client import APIClient
 
 
@@ -98,7 +98,9 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--resource-shape",
     type=str,
-    help="Resource shape for the job.",
+    help="Resource shape for the pod. Available types are: '"
+    + "', '".join(VALID_SHAPES)
+    + "'.",
     default=None,
 )
 @click.option(
@@ -200,6 +202,15 @@ def make_container_port_from_string(port_str: str):
     hidden=True,
     help="Suppress output when called from another command",
 )
+@click.option(
+    "--log-collection",
+    "-lg",
+    type=bool,
+    help=(
+        "Enable or disable log collection (true/false). If not provided, the workspace"
+        " setting will be used."
+    ),
+)
 def create(
     name,
     file,
@@ -219,12 +230,22 @@ def create(
     privileged,
     ttl_seconds_after_finished,
     suppress_output,
+    log_collection,
 ):
     """
     Creates a job.
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+
+    if resource_shape is None:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
     client = APIClient()
     if file:
         try:
@@ -282,7 +303,10 @@ def create(
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
+    if log_collection is not None:
+        job_spec.log = LeptonLog(enable_collection=log_collection)
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+    logger.trace(json.dumps(job.model_dump(), indent=2))
     client.job.create(job)
 
     if not suppress_output:

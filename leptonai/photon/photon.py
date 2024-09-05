@@ -14,7 +14,6 @@ import sys
 import threading
 import time
 import traceback
-from pathlib import Path
 from types import FunctionType, FrameType
 from typing import Callable, Any, List, Dict, Optional, Iterator, Type
 from typing_extensions import Annotated
@@ -70,6 +69,7 @@ from leptonai.util.cancel_on_disconnect import run_with_cancel_on_disconnect
 from .base import BasePhoton, schema_registry
 from .batcher import batch
 import leptonai._internal.logging as internal_logging
+from ledoc_ui import ledoc_ui_path
 
 schemas = ["py"]
 
@@ -759,7 +759,7 @@ class Photon(BasePhoton):
                 + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
                 + " OpenAPI documentation",
                 "\t- "
-                + click.style(f"http://{host}:{port}/lep-docs", fg="green", bold=True)
+                + click.style(f"http://{host}:{port}/ledoc", fg="green", bold=True)
                 + " Lepton documentation",
                 "\t- "
                 + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
@@ -836,12 +836,10 @@ class Photon(BasePhoton):
                 num_tasks -= 1
             return num_tasks
 
-        file_dir = Path(__file__).parent
-        ui_path = file_dir.parent / "ui"
         app.mount(
-            "/lep-docs",
-            StaticFiles(directory=ui_path, html=True),
-            name="lep-docs",
+            "/ledoc",
+            StaticFiles(directory=ledoc_ui_path, html=True),
+            name="ledoc",
         )
 
         @app.exception_handler(404)
@@ -849,7 +847,7 @@ class Photon(BasePhoton):
             if request.url.path.startswith("/static"):
                 return JSONResponse(status_code=404, content={"message": "Not Found"})
             else:
-                return RedirectResponse(url="/lep-docs")
+                return RedirectResponse(url="/ledoc")
 
         config = uvicorn.Config(
             app,
