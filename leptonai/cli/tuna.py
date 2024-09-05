@@ -164,8 +164,8 @@ def _build_shortened_model_name_deployment_map():
 
         # remove the deployment count and the deployment_name_prefix
         shortened_model_name = deployment_name[: deployment_name.rindex("-")][
-            len(TUNA_DEPLOYMENT_NAME_PREFIX) :
-        ]
+                               len(TUNA_DEPLOYMENT_NAME_PREFIX):
+                               ]
         if deployment.status.state in [
             LeptonDeploymentState.Ready,
             LeptonDeploymentState.Starting,
@@ -226,8 +226,8 @@ def _get_models_map():
     for job in jobs:
         job_status = job.status.state
         if (
-            job_status is LeptonJobState.Running
-            or job_status is LeptonJobState.Starting
+                job_status is LeptonJobState.Running
+                or job_status is LeptonJobState.Starting
         ):
             running_job_set.add(job.metadata.name)
         elif job_status is LeptonJobState.Failed:
@@ -479,9 +479,9 @@ def remove_data(name):
     required=True,
     callback=_create_name_validator(
         prefix=(
-            TUNA_DEPLOYMENT_NAME_PREFIX
-            if len(TUNA_DEPLOYMENT_NAME_PREFIX) > len(TUNA_TRAIN_JOB_NAME_PREFIX)
-            else TUNA_TRAIN_JOB_NAME_PREFIX
+                TUNA_DEPLOYMENT_NAME_PREFIX
+                if len(TUNA_DEPLOYMENT_NAME_PREFIX) > len(TUNA_TRAIN_JOB_NAME_PREFIX)
+                else TUNA_TRAIN_JOB_NAME_PREFIX
         ),
         length_limit=33,
     ),
@@ -497,8 +497,8 @@ def remove_data(name):
     type=str,
     default=None,
     help=(
-        "Specify the base model path for fine-tuning. This can be a HuggingFace model"
-        " ID or a local directory path containing the model.."
+            "Specify the base model path for fine-tuning. This can be a HuggingFace model"
+            " ID or a local directory path containing the model.."
     ),
     required=True,
 )
@@ -539,8 +539,8 @@ def remove_data(name):
     "--report-wandb",
     is_flag=True,
     help=(
-        "Report to wandb. Note that WANDB_API_KEY must be set through "
-        "secrets (environment variables). Default: Off"
+            "Report to wandb. Note that WANDB_API_KEY must be set through "
+            "secrets (environment variables). Default: Off"
     ),
 )
 @click.option(
@@ -599,20 +599,20 @@ def remove_data(name):
     type=float,
     default=None,
     help=(
-        "Early stop threshold. Default: 0.01. Stop training early if reduction in"
-        " validation loss is less than the threshold for a set number of epochs."
+            "Early stop threshold. Default: 0.01. Stop training early if reduction in"
+            " validation loss is less than the threshold for a set number of epochs."
     ),
 )
 @click.pass_context
 def train(
-    ctx,
-    # not in cmd
-    name,
-    # in cmd
-    env,
-    model_path,
-    dataset_name,
-    **kwargs,
+        ctx,
+        # not in cmd
+        name,
+        # in cmd
+        env,
+        model_path,
+        dataset_name,
+        **kwargs,
 ):
     """Create and start a new training job.
 
@@ -890,20 +890,20 @@ def clear_failed_models(ctx):
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+            "Persistent storage to be mounted to the deployment, in the format"
+            " `STORAGE_PATH:MOUNT_PATH`."
     ),
     multiple=True,
 )
 @click.pass_context
 def run(
-    ctx,
-    name,
-    hf_transfer,
-    tuna_step,
-    use_int,
-    huggingface_token,
-    mount,
+        ctx,
+        name,
+        hf_transfer,
+        tuna_step,
+        use_int,
+        huggingface_token,
+        mount,
 ):
     """Run a specified tuna model.
 
@@ -1020,12 +1020,76 @@ def run(
     ctx.invoke(deployment_create, **deployment_create_ctx.params)
 
 
+def _get_colored_status(tuna_model):
+    status = tuna_model.tuna_model_state
+    state_style = (
+        "green"
+        if status is TunaModelState.Running
+        else (
+            "yellow"
+            if status is TunaModelState.Training
+            else "blue" if status is TunaModelState.Ready else "red"
+        )
+    )
+    colored_status = Text(status, style=state_style)
+    return colored_status
+
+
+def _get_colored_train_job_name(tuna_model, name):
+    train_job_name = "Not Training"
+    if tuna_model.tuna_model_state == TunaModelState.Training:
+        train_job_name = Text(tuna_model.job_name, style="green")
+    elif tuna_model.tuna_model_state == TunaModelState.TrainFailed:
+        train_job_name = (
+            Text(tuna_model.job_name, style="yellow")
+            if tuna_model.job_name is not None
+            else Text((_generate_job_name(name) + " (expired)"), style="red")
+        )
+
+    return train_job_name
+
+
 @tuna.command(name="list")
+@click.option(
+    '--list-view', '-l',
+    is_flag=True,
+    default=False,
+    help='Display models in a list format instead of a table. Useful for small screens.'
+)
 @click.pass_context
-def list_command(ctx):
+def list_command(ctx, list_view):
     """
-    Lists all tuna model in this workspace.
+    Lists all Tuna models in the current workspace.
+    Use the --list-view option to display the models in a simplified list format,
+    which is particularly useful for environments with limited screen space.
     """
+
+    if list_view:
+        for idx, (name, tuna_model) in enumerate(_get_models_map().items(), start=1):
+            key_infos = _get_model_key_infos(ctx, name)
+            if not key_infos:
+                continue
+            model, data, lora_or_medusa, create_time = key_infos
+            status = _get_colored_status(tuna_model)
+
+            train_job_name = _get_colored_train_job_name(tuna_model, name)
+
+            # Print model index and name without indentation
+            console.print(f"[magenta]{idx}. Name:[/] {name}")
+
+            # Print the rest of the details with indentation
+            indent = " " * 4  # 4 spaces for indentation
+            console.print(f"{indent}[magenta]Trained At:[/] {create_time if create_time else 'N/A'}")
+            console.print(f"{indent}[magenta]Model:[/] {model}")
+            console.print(f"{indent}[magenta]Data:[/] {data}")
+            console.print(f"{indent}[magenta]Lora or Medusa:[/] {lora_or_medusa}")
+            console.print(f"{indent}[magenta]State:[/]", status)
+            console.print(
+                f"{indent}[magenta]Deployments Name:[/] {', '.join(tuna_model.deployments) if tuna_model.deployments else 'None'}")
+            console.print(f"{indent}[magenta]Train Job Name:[/] ", train_job_name)
+            console.print("-" * 50)
+        sys.exit(0)
+
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
     )
@@ -1043,26 +1107,10 @@ def list_command(ctx):
         if not key_infos:
             continue
         model, data, lora_or_medusa, create_time = key_infos
-        status = tuna_model.tuna_model_state
-        state_style = (
-            "green"
-            if status is TunaModelState.Running
-            else (
-                "yellow"
-                if status is TunaModelState.Training
-                else "blue" if status is TunaModelState.Ready else "red"
-            )
-        )
 
-        train_job_name = "Not Training"
-        if tuna_model.tuna_model_state == TunaModelState.Training:
-            train_job_name = Text(tuna_model.job_name, style="green")
-        elif tuna_model.tuna_model_state == TunaModelState.TrainFailed:
-            train_job_name = (
-                Text(tuna_model.job_name, style="yellow")
-                if tuna_model.job_name is not None
-                else Text((_generate_job_name(name) + " (expired)"), style="red")
-            )
+        colored_status = _get_colored_status(tuna_model)
+
+        train_job_name = _get_colored_train_job_name(tuna_model, name)
 
         table.add_row(
             name,
@@ -1070,7 +1118,7 @@ def list_command(ctx):
             model,
             data,
             lora_or_medusa,
-            Text(status, style=state_style),
+            colored_status,
             "\n".join(tuna_model.deployments) if tuna_model.deployments else None,
             train_job_name,
         )
