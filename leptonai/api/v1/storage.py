@@ -99,14 +99,6 @@ class StorageAPI(APIResourse):
         return self.ensure_ok(response)
 
     def delete_file_or_dir(
-        self, additional_path: str, file_system: Optional[str] = None
-    ) -> bool:
-        file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
-        response = self._delete(
-            f"/storage/{file_system}{_prepend_separator(additional_path)}"
-        )
-
-    def delete_file_or_dir(
         self, additional_path: str, delete_all=False, file_system: Optional[str] = None
     ) -> bool:
         file_system = file_system or DEFAULT_STORAGE_VOLUME_NAME
