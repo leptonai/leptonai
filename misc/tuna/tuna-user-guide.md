@@ -199,7 +199,7 @@ Once your model is trained, it’s time to deploy! The `run` command ensures the
 lep tuna run --name my-tuna-model --hf-transfer --tuna-step 5 --use-int --huggingface-token HUGGING_FACE_HUB_TOKEN --mount /path/to/storage:/mnt/storage
 ```
 
-This runs the model "my-tuna-model" with GPU memory optimizations and faster Hugging Face transfer enabled for streamlined deployment.
+This runs the model "my-tuna-model" with GPU memory optimizations and faster Hugging Face transfer enabled for streamlined deployment. Remember to set your HUGGIN_FACE_HUB_TOKEN in your workspace before you use it.
 
 #### CLI Options
 
