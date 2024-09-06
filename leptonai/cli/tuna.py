@@ -654,8 +654,8 @@ def train(
             console.print(
                 f"Failed to create training job [red]{job_name}[/]: The job already"
                 " exists. Please either delete the existing job if it's no longer"
-                " needed, or change your model name. "
-                "If you deleted a training model with the same name, please retry after 1-2 minutes."
+                " needed, or change your model name. If you deleted a training model"
+                " with the same name, please retry after 1-2 minutes."
             )
             sys.exit(1)
 
@@ -1135,6 +1135,12 @@ def list_command(ctx, list_view):
 
     table.title = "Tuna Models"
     console.print(table)
+    console.print(
+        "To check the training progress, use:\n"
+        "[blue]lep job log -n <training_job_name>[/]\n"
+        "To check the deployment status, use:\n"
+        "[blue]lep deployment status -n <deployment_name>[/]\n"
+    )
 
 
 def add_command(cli_group):
