@@ -262,7 +262,7 @@ Cleaning up failed models is easy with the `clear_failed_models` command. It fin
 #### Example Usage
 
 ```bash
-lep tuna clear_failed_models
+lep tuna clear-failed-models
 ```
 
 In this example, all models that encountered training failures are cleared, ensuring a clean workspace.
