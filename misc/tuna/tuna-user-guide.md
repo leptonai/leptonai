@@ -1,5 +1,115 @@
 # Tuna User Guide
 ---
+# <span style="color:DeepSkyBlue"> Example Workflow
+---
+Below is a user workflow example demonstrating how to upload a dataset, train a model, and run a deployment using Tuna commands. This example shows the sequence of actions taken to manage a machine learning model, from data upload to model deployment.
+
+#### Step 1: Upload Data
+
+The user uploads a dataset (`sample.json`) from their local system to Tuna's data storage.
+
+```bash
+lep tuna upload-data --file /path/to/your/data/sample.json --name sample.json
+```
+
+**Output:**
+
+```plaintext
+Uploaded Dataset /path/to/your/data/sample.json to /lepton-tuna/dataset/sample.json
+```
+
+#### Step 2: List Uploaded Data
+
+After uploading, the user checks to confirm the data was successfully uploaded.
+
+```bash
+lep tuna list-data
+```
+
+**Output:**
+
+```plaintext
+/lepton-tuna/dataset
+└── sample.json
+0 directories, 1 file
+```
+
+#### Step 3: Train the Model
+
+The user initiates the training of a model named `my-tuna-model` using a specific model (`meta-llama/Meta-Llama-3-8B-Instruct`) and the uploaded dataset (`sample.json`). They also specify several training parameters, such as the number of epochs, batch size, and gradient accumulation steps.
+
+```bash
+lep tuna train --name my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your_hf_token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct -dn=sample.json --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
+```
+
+**Output:**
+
+```plaintext
+Job tuna-my-tuna-model created successfully.
+Model Training Job tuna-my-tuna-model for your model my-tuna-model created successfully.
+```
+
+#### Step 4: Check Model Training Status
+
+The user lists all models to check the status of `my-tuna-model` during training.
+
+```bash
+lep tuna list
+```
+
+**Output (during training):**
+
+```plaintext
+Tuna Models                                                                                         
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Name                                 ┃ Trained At                 ┃ Model                               ┃ Data        ┃ Lora or Medusa ┃ State    ┃ Deployments Name ┃ Train Job Name     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ my-tuna-model                        │ 2099-09-05T17:28:27.723254 │ meta-llama/Meta-Llama-3-8B-Instruct │ sample.json │ lora           │ Training │                  │ tuna-my-tuna-model │
+└──────────────────────────────────────┴────────────────────────────┴─────────────────────────────────────┴─────────────┴────────────────┴──────────┴──────────────────┴────────────────────┘
+```
+
+After training is complete, the state changes to `Ready`.
+
+```bash
+lep tuna list
+```
+
+**Output (after training):**
+
+```plaintext
+Tuna Models                                                                                         
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ Name                                 ┃ Trained At                 ┃ Model                               ┃ Data        ┃ Lora or Medusa ┃ State ┃ Deployments Name ┃ Train Job Name ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ my-tuna-model                        │ 2099-09-05T17:28:27.723254 │ meta-llama/Meta-Llama-3-8B-Instruct │ sample.json │ lora           │ Ready │                  │ Not Training   │
+└──────────────────────────────────────┴────────────────────────────┴─────────────────────────────────────┴─────────────┴────────────────┴───────┴──────────────────┴────────────────┘
+```
+
+#### Step 5: Run the Model
+
+Once the model is ready, the user runs the model using the `run` command.
+
+```bash
+lep tuna run --name my-tuna-model --resource-shape gpu.a10
+```
+
+**Output:**
+
+```plaintext
+Running the most recent version of llm-by-lepton: llm-by-lepton-7v4vniao
+
+Lepton is currently set to use a default timeout of 1 hour. This means that when there is no traffic for more than an hour, your deployment will automatically scale down to zero. This is to assist auto-release of unused debug deployments.
+- If you would like to run a long-running photon (e.g. for production), set --no-traffic-timeout to 0.
+- If you would like to turn off default timeout, set the environment variable LEPTON_DEFAULT_TIMEOUT=false.
+
+Deployment created as tuna-my-tuna-model-0. Use `lep deployment status -n tuna-my-tuna-model-0` to check the status.
+```
+
+#### Summary
+
+This example demonstrates how a user can upload data, train a model, check its status, and run the model using the Tuna CLI commands. The process involves simple commands and outputs clear results to guide the user through each step of the workflow.
+
+---
 ## <span style="color:DeepSkyBlue">`Data` Management Commands
 ---
 The `Data` commands allow users to manage their data within the Tuna platform. These commands provide options for listing, uploading, and removing data files, making it easy to interact with and manage datasets.
