@@ -654,7 +654,8 @@ def train(
             console.print(
                 f"Failed to create training job [red]{job_name}[/]: The job already"
                 " exists. Please either delete the existing job if it's no longer"
-                " needed, or change your model name."
+                " needed, or change your model name. "
+                "If you deleted a training model with the same name, please retry after 1-2 minutes."
             )
             sys.exit(1)
 
