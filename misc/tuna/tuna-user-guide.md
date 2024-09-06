@@ -2,11 +2,11 @@
 ---
 # <span style="color:DeepSkyBlue"> Example Workflow
 ---
-Below is a user workflow example demonstrating how to upload a dataset, train a model, and run a deployment using Tuna commands. This example shows the sequence of actions taken to manage a machine learning model, from data upload to model deployment.
+Here's a streamlined example demonstrating how to upload a dataset, train a model, and deploy it using Tuna commands. This workflow guides you through the steps of managing a machine learning model, from data preparation to deployment.
 
 #### Step 1: Upload Data
 
-The user uploads a dataset (`sample.json`) from their local system to Tuna's data storage.
+Start by uploading a dataset (`sample.json`) from your local system to Tuna's data storage.
 
 ```bash
 lep tuna upload-data --file /path/to/your/data/sample.json --name sample.json
@@ -18,9 +18,9 @@ lep tuna upload-data --file /path/to/your/data/sample.json --name sample.json
 Uploaded Dataset /path/to/your/data/sample.json to /lepton-tuna/dataset/sample.json
 ```
 
-#### Step 2: List Uploaded Data
+#### Step 2: Verify Uploaded Data
 
-After uploading, the user checks to confirm the data was successfully uploaded.
+To ensure the upload was successful, list the datasets stored in Tuna.
 
 ```bash
 lep tuna list-data
@@ -36,7 +36,7 @@ lep tuna list-data
 
 #### Step 3: Train the Model
 
-The user initiates the training of a model named `my-tuna-model` using a specific model (`meta-llama/Meta-Llama-3-8B-Instruct`) and the uploaded dataset (`sample.json`). They also specify several training parameters, such as the number of epochs, batch size, and gradient accumulation steps.
+Next, initiate the training process for the model named `my-tuna-model`, using the `meta-llama/Meta-Llama-3-8B-Instruct` model and the uploaded dataset (`sample.json`). Specify the desired training parameters, such as epochs, batch size, and gradient accumulation.
 
 ```bash
 lep tuna train --name my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your_hf_token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct -dn=sample.json --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
@@ -49,9 +49,9 @@ Job tuna-my-tuna-model created successfully.
 Model Training Job tuna-my-tuna-model for your model my-tuna-model created successfully.
 ```
 
-#### Step 4: Check Model Training Status
+#### Step 4: Monitor Training Progress
 
-The user lists all models to check the status of `my-tuna-model` during training.
+Check the status of your models to see if `my-tuna-model` is still in training or ready for use.
 
 ```bash
 lep tuna list
@@ -68,7 +68,7 @@ Tuna Models
 └──────────────────────────────────────┴────────────────────────────┴─────────────────────────────────────┴─────────────┴────────────────┴──────────┴──────────────────┴────────────────────┘
 ```
 
-After training is complete, the state changes to `Ready`.
+Once the training is complete, the state will change to `Ready`.
 
 ```bash
 lep tuna list
@@ -85,9 +85,9 @@ Tuna Models
 └──────────────────────────────────────┴────────────────────────────┴─────────────────────────────────────┴─────────────┴────────────────┴───────┴──────────────────┴────────────────┘
 ```
 
-#### Step 5: Run the Model
+#### Step 5: Deploy the Model
 
-Once the model is ready, the user runs the model using the `run` command.
+Now that the model is ready, deploy it using the following command:
 
 ```bash
 lep tuna run --name my-tuna-model --resource-shape gpu.a10
@@ -107,16 +107,16 @@ Deployment created as tuna-my-tuna-model-0. Use `lep deployment status -n tuna-m
 
 #### Summary
 
-This example demonstrates how a user can upload data, train a model, check its status, and run the model using the Tuna CLI commands. The process involves simple commands and outputs clear results to guide the user through each step of the workflow.
+This example covers the entire workflow from data upload to model training and deployment. With a few simple commands, you're able to manage the full lifecycle of a machine learning model using Tuna, ensuring an efficient and clear process from start to finish.
 
 ---
 ## <span style="color:DeepSkyBlue">`Data` Management Commands
 ---
-The `Data` commands allow users to manage their data within the Tuna platform. These commands provide options for listing, uploading, and removing data files, making it easy to interact with and manage datasets.
+The `Data` commands provide seamless ways to manage your datasets within the Tuna platform. Whether it's listing, uploading, or removing data files, these commands offer you full control over your data.
 
 ### <span style="color:SkyBlue">`list-data` Command Overview
 
-The `list-data` command allows users to list all existing data files available in their Tuna environment. This command provides a simple way to view and verify the available datasets.
+Need to check your available datasets? The `list-data` command lets you view all the data files currently stored in your Tuna environment.
 
 #### Example Usage
 
@@ -124,11 +124,11 @@ The `list-data` command allows users to list all existing data files available i
 lep tuna list-data
 ```
 
-In this example, the command lists all data files in the Tuna environment, showing their names and details.
+Here, the command lists all your data files, showing their names and details for quick verification.
 
 ### <span style="color:SkyBlue">`upload-data` Command Overview
 
-The `upload-data` command allows users to upload a new data file to the Tuna platform. The user needs to specify the local file path and provide a name for the data file.
+The `upload-data` command makes it easy to upload new datasets to the Tuna platform. Simply point to your local file and assign a name, and you're good to go.
 
 #### Example Usage
 
@@ -136,11 +136,11 @@ The `upload-data` command allows users to upload a new data file to the Tuna pla
 lep tuna upload-data --file <local_file_path> --name <data_file_name>
 ```
 
-In this example, the command uploads a data file from the specified local path and assigns the provided name to it in the Tuna environment.
+This uploads your data from the specified local path and names it in your Tuna environment for future reference.
 
 ### <span style="color:SkyBlue">`remove-data` Command Overview
 
-The `remove-data` command allows users to delete an existing data file from the Tuna environment. The user must specify the name of the data file to be deleted.
+Need to free up space or clean out old data? The `remove-data` command helps you delete specific datasets from the Tuna environment.
 
 #### Example Usage
 
@@ -148,7 +148,7 @@ The `remove-data` command allows users to delete an existing data file from the 
 lep tuna remove-data --name <data_file_name>
 ```
 
-In this example, the command deletes the specified data file from the Tuna environment.
+Just specify the file name, and it's gone from your Tuna workspace. Simple and efficient.
 		
 ---
 
@@ -157,7 +157,7 @@ In this example, the command deletes the specified data file from the Tuna envir
     
 ### <span style="color:SkyBlue">`train` Command Overview
 
-The `train` function allows users to configure and run a training job for fine-tuning machine learning models with various customizable options. The command supports several options for specifying model configurations, training parameters, and environment settings. 
+Ready to fine-tune a machine learning model? The `train` command helps you configure and run training jobs with customizable options, from model configuration to training parameters.
 
 #### Example Usage
 
@@ -165,87 +165,33 @@ The `train` function allows users to configure and run a training job for fine-t
 lep tuna train -n my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your huggingface token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct -dn=<file name you uploaded with upload-data> --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
 ```
 
-In this example, the command trains a model named "my-tuna-model" using the specified model path and dataset, with custom training parameters such as number of epochs, learning rate, and LoRA settings
+In this example, you're training a model called "my-tuna-model" using your dataset and custom parameters like batch size and learning rate for optimized performance.
 
 #### CLI Options
 
-1. **`--name` / `-n`** (Required):
-   - **Type**: `str`
-   - **Description**: Assigns a unique identifier to the tuna model being trained. It ensures that the name adheres to certain constraints (prefix and length limit).
-
-2. **`--env` / `-e`**:
-   - **Type**: `tuple`
-   - **Description**: Specifies environment variables to pass to the job in the format `NAME=VALUE`. Multiple environment variables can be provided.
-
-3. **`--model-path`** (Required):
-   - **Type**: `str`
-   - **Description**: Specifies the base model path for fine-tuning. This can be a HuggingFace model ID or a local directory path containing the model.
-
-4. **`--dataset-name` / `-dn`** (Required):
-   - **Type**: `click.Path`
-   - **Description**: Path to the dataset used for training.
-
-5. **`--num-train-epochs`**:
-   - **Type**: `int`
-   - **Description**: Number of training epochs. Default is `10`.
-
-6. **`--per-device-train-batch-size`**:
-   - **Type**: `int`
-   - **Description**: Batch size per device (GPU or CPU) used for training. Default is `32`.
-
-7. **`--gradient-accumulation-steps`**:
-   - **Type**: `int`
-   - **Description**: Number of gradient accumulation steps. Default is `1`.
-
-8. **`--report-wandb`**:
-   - **Type**: `flag`
-   - **Description**: If set, reports training metrics to Weights and Biases (wandb). Requires WANDB_API_KEY to be set in the environment variables.
-
-9. **`--wandb-project`**:
-    - **Type**: `str`
-    - **Description**: Specifies the wandb project to report to, only effective when `--report-wandb` is set.
-
-10. **`--learning-rate`**:
-    - **Type**: `float`
-    - **Description**: Specifies the learning rate for the training. Default is `5e-5`.
-
-11. **`--warmup-ratio`**:
-    - **Type**: `float`
-    - **Description**: Specifies the warmup ratio for learning rate scheduling. Default is `0.1`.
-
-12. **`--lora`**:
-    - **Type**: `flag`
-    - **Description**: If set, uses Low-Rank Adaptation (LoRA) instead of full model fine-tuning.
-
-13. **`--lora-rank`**:
-    - **Type**: `int`
-    - **Description**: Specifies the rank for LoRA, effective only when `--lora` is set. Default is `8`.
-
-14. **`--lora-alpha`**:
-    - **Type**: `int`
-    - **Description**: Specifies the alpha parameter for LoRA, effective only when `--lora` is set. Default is `16`.
-
-15. **`--lora-dropout`**:
-    - **Type**: `float`
-    - **Description**: Specifies the dropout rate for LoRA, effective only when `--lora` is set. Default is `0.1`.
-
-16. **`--medusa`**:
-    - **Type**: `flag`
-    - **Description**: If set, trains a Medusa heads model instead of performing fine-tuning.
-
-17. **`--num-medusa-head`**:
-    - **Type**: `int`
-    - **Description**: Specifies the number of Medusa heads, effective only when `--medusa` is set. Default is `4`.
-
-18. **`--early-stop-threshold`**:
-    - **Type**: `float`
-    - **Description**: Specifies an early stopping threshold. Training stops early if the reduction in validation loss is less than this threshold for a set number of epochs. Default is `0.01`.
-
+1. **`--name` / `-n`** (Required): `str`, Assigns a unique name for the tuna model being trained.  
+2. **`--env` / `-e`**: `tuple`, Specifies environment variables to pass to the job, formatted as `NAME=VALUE`.  
+3. **`--model-path`** (Required): `str`, Specifies the base model path for fine-tuning.  
+4. **`--dataset-name` / `-dn`** (Required): `click.Path`, Path to the dataset used for training.  
+5. **`--num-train-epochs`**: `int`, Default: `10`, Number of training epochs.  
+6. **`--per-device-train-batch-size`**: `int`, Default: `32`, Training batch size per device (GPU or CPU).  
+7. **`--gradient-accumulation-steps`**: `int`, Default: `1`, Number of gradient accumulation steps.  
+8. **`--report-wandb`**: `flag`, Reports training metrics to Weights and Biases (wandb). Requires `WANDB_API_KEY`.  
+9. **`--wandb-project`**: `str`, Specifies the wandb project, effective only when `--report-wandb` is set.  
+10. **`--learning-rate`**: `float`, Default: `5e-5`, Specifies the learning rate for training.  
+11. **`--warmup-ratio`**: `float`, Default: `0.1`, Specifies the warmup ratio for learning rate scheduling.  
+12. **`--lora`**: `flag`, Enables LoRA for fine-tuning.  
+13. **`--lora-rank`**: `int`, Default: `8`, Specifies the LoRA rank.  
+14. **`--lora-alpha`**: `int`, Default: `16`, Specifies the alpha parameter for LoRA.  
+15. **`--lora-dropout`**: `float`, Default: `0.1`, Specifies the dropout rate for LoRA.  
+16. **`--medusa`**: `flag`, Trains Medusa heads instead of full model fine-tuning.  
+17. **`--num-medusa-head`**: `int`, Default: `4`, Number of Medusa heads to train.  
+18. **`--early-stop-threshold`**: `float`, Default: `0.01`, Stops training early if the reduction in validation loss is less than this threshold.  
 
 
 ### <span style="color:SkyBlue">`run` Command Overview
 
-The `run` command allows users to execute a specified tuna model. This command checks if the model exists, verifies its training status, and ensures necessary configurations, such as secrets and storage, are set before deploying the model.
+Once your model is trained, it’s time to deploy! The `run` command ensures the model is ready to go, checks its training status, and handles all the configurations necessary for a smooth deployment.
 
 #### Example Usage
 
@@ -253,59 +199,21 @@ The `run` command allows users to execute a specified tuna model. This command c
 lep tuna run --name my-tuna-model --hf-transfer --tuna-step 5 --use-int --huggingface-token HUGGING_FACE_HUB_TOKEN --mount /path/to/storage:/mnt/storage
 ```
 
-In this example, the command runs the model named "my-tuna-model" with various options, including faster Hugging Face transfers, token generation steps, and GPU memory optimizations.
+This runs the model "my-tuna-model" with GPU memory optimizations and faster Hugging Face transfer enabled for streamlined deployment.
 
 #### CLI Options
 
-1. **`--name` / `-n`** (Required):
-   - **Type**: `str`
-   - **Description**: Name of the tuna model to run. This is a required option.
-
-2. **`--hf-transfer`**:
-   - **Type**: `flag`
-   - **Default**: `True`
-   - **Description**: Enables faster uploads and downloads from the Hugging Face Hub using `hf_transfer`.
-
-3. **`--tuna-step`**:
-   - **Type**: `int`
-   - **Default**: `3`
-   - **Description**: Minimum number of tokens to generate in each new chunk in streaming mode. Lower values send results faster but may increase network overhead.
-
-4. **`--use-int`**:
-   - **Type**: `flag`
-   - **Default**: `True`
-   - **Description**: Enables quantization techniques to reduce GPU memory usage. Suitable for models under 7B or 13B.
-
-5. **`--huggingface-token`**:
-   - **Type**: `str`
-   - **Default**: `"HUGGING_FACE_HUB_TOKEN"`
-   - **Description**: The name of your Hugging Face token, which must be set as a secret in the workspace.
-
-6. **`--mount`**:
-   - **Type**: `tuple`
-   - **Description**: Persistent storage to be mounted to the deployment, specified in the format `STORAGE_PATH:MOUNT_PATH`. This option can be repeated for multiple mount points.
-
-#### Command Execution
-
-When the `run` command is executed, it checks the following:
-- If the specified model exists in the Tuna environment.
-- If the model has completed training or if the training has failed.
-- If the required Hugging Face token exists as a secret in the workspace.
-
-The command then prepares the deployment by generating appropriate paths, setting environment variables, and configuring mounts, before invoking the `deployment_create` command to deploy the model.
-
-If the model has LoRA or Medusa configurations, they will be appropriately set in the environment variables during deployment.
-
-```bash
-lep tuna run --name my-tuna-model
-```
-
-This example will deploy the model named "my-tuna-model" with the default settings. You can further customize the deployment by adding additional options like `--hf-transfer`, `--tuna-step`, `--use-int`, and more.
+1. **`--name` / `-n`** (Required): `str`, Name of the tuna model to deploy.  
+2. **`--hf-transfer`**: `flag`, Default: `True`, Enables faster Hugging Face transfers.  
+3. **`--tuna-step`**: `int`, Default: `3`, Minimum number of tokens to generate per chunk in streaming mode.  
+4. **`--use-int`**: `flag`, Default: `True`, Applies quantization techniques to reduce GPU memory usage.  
+5. **`--huggingface-token`**: `str`, Default: `"HUGGING_FACE_HUB_TOKEN"`, Specifies the Hugging Face token.  
+6. **`--mount`**: `tuple`, Specifies persistent storage to be mounted in the format `STORAGE_PATH:MOUNT_PATH`.  
 
 
 ### <span style="color:SkyBlue">`list` Command Overview
 
-The `list` command allows users to display all tuna models available in the current workspace. It can display the models either in a table format (default) or in a list format for easier readability on small screens. The command includes detailed information about each model, such as its status, training date, data source, and deployments.
+Want a quick overview of your models? The `list` command displays all your models in either a table or list format, providing details like status, training date, data source, and any active deployments.
 
 #### Example Usage
 
@@ -313,75 +221,19 @@ The `list` command allows users to display all tuna models available in the curr
 lep tuna list
 ```
 
-This command displays a table of all tuna models along with details such as name, training status, model type, data source, and any running deployments.
-
-To display the models in a list format (useful for small screens), you can use the `--list-view` option:
+By default, it displays your models in a table format. If you're on a small screen, switch to list view:
 
 ```bash
 lep tuna list --list-view
 ```
-or
-```bash
-lep tuna list -l
-```
 
 #### CLI Options
 
-1. **`--list-view` / `-l`**:
-   - **Type**: `flag`
-   - **Default**: `False`
-   - **Description**: If set, models will be displayed in a list format instead of a table. This is useful for users on small screens or terminals where table view might be hard to read.
-
-### Command Execution
-
-The `list` command offers two views:
-
-1. **Table View (Default)**:
-   - Displays models in a table format with columns for **Name**, **Trained At**, **Model**, **Data**, **Lora or Medusa**, **State**, **Deployments Name**, and **Train Job Name**. Each column provides specific details about the model's configuration and status.
-   
-   Example:
-
-   ```bash
-   lep tuna list
-   ```
-
-   Output in table format:
-   
-   ```
-   +-------------------------------------+-------------+--------------------+----------------+--------------+------------------+-------------------------+------------------+
-   | Name                                | Trained At  | Model              | Data           | Lora or Medusa | State            | Deployments Name        | Train Job Name   |
-   +-------------------------------------+-------------+--------------------+----------------+--------------+------------------+-------------------------+------------------+
-   | my-tuna-model                       | 2023-12-01  | llama-8b          | dataset-v1     | Lora          | Running          | deployment1, deployment2 | train-job-123    |
-   +-------------------------------------+-------------+--------------------+----------------+--------------+------------------+-------------------------+------------------+
-   ```
-
-2. **List View**:
-   - Displays models in a list format where each model’s details are presented one by one with proper indentation for easy reading on smaller screens.
-   
-   Example:
-
-   ```bash
-   lep tuna list --list-view
-   ```
-
-   Output in list format:
-
-   ```
-   1. Name: my-tuna-model
-       Trained At: 2023-12-01
-       Model: llama-8b
-       Data: dataset-v1
-       Lora or Medusa: Lora
-       State: Running
-       Deployments Name: deployment1, deployment2
-       Train Job Name: train-job-123
-   --------------------------------------------------
-   ```
-
+1. **`--list-view` / `-l`**: Display models in a list format, perfect for smaller screens.
 
 ### <span style="color:SkyBlue">`remove` Command Overview
 
-The `remove` function allows users to delete a specified tuna model. It verifies if the model exists, checks for any active deployments, and prompts the user for confirmation before deleting the model and any associated resources.
+Need to delete a model? The `remove` command lets you safely remove a specified model after confirming its status and any active deployments.
 
 #### Example Usage
 
@@ -389,17 +241,11 @@ The `remove` function allows users to delete a specified tuna model. It verifies
 lep tuna remove -n my-tuna-model
 ```
 
-In this example, the command removes a model named "my-tuna-model". It will check if the model exists, and if there are any active deployments or jobs associated with the model, it prompts the user for confirmation before proceeding with the deletion.
-
-#### CLI Options
-
-1. **`--name` / `-n`** (Required):
-   - **Type**: `str`
-   - **Description**: Name of the model to be deleted. It is a required argument that specifies the unique identifier of the model.
+This removes the model "my-tuna-model" after verifying its existence and any dependencies.
 
 ### <span style="color:SkyBlue">`info` Command Overview
 
-The `info` function retrieves and prints the details of a specified tuna model. It checks if the model exists and provides detailed information about the model configuration and status.
+Curious about your model’s configuration? The `info` command retrieves all the relevant details for a specified model, helping you understand its current state.
 
 #### Example Usage
 
@@ -407,17 +253,11 @@ The `info` function retrieves and prints the details of a specified tuna model. 
 lep tuna info -n my-tuna-model
 ```
 
-In this example, the command retrieves the information for a model named "my-tuna-model". If the model does not exist, it prompts the user to check their available models.
-
-#### CLI Options
-
-1. **`--name` / `-n`** (Required):
-   - **Type**: `str`
-   - **Description**: Name of the tuna model to retrieve details for. It is a required argument to specify the model.
+It will print all the details related to "my-tuna-model" in an easy-to-read format.
 
 ### <span style="color:SkyBlue">`clear_failed_models` Command Overview
 
-The `clear_failed_models` function deletes all failed training models and any related jobs. It iterates through all models, identifies those with a training failure status, and deletes them along with any associated jobs or resources.
+Cleaning up failed models is easy with the `clear_failed_models` command. It finds all models that failed during training and removes them along with any associated jobs.
 
 #### Example Usage
 
@@ -425,4 +265,4 @@ The `clear_failed_models` function deletes all failed training models and any re
 lep tuna clear_failed_models
 ```
 
-In this example, the command clears all models that have failed during training. It removes their associated storage files and any jobs linked to the failed models, ensuring a clean environment.
+In this example, all models that encountered training failures are cleared, ensuring a clean workspace.
