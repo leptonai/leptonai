@@ -4,7 +4,7 @@
 ---
 Here's a streamlined example demonstrating how to upload a dataset, train a model, and deploy it using Tuna commands. This workflow guides you through the steps of managing a machine learning model, from data preparation to deployment.
 
-#### Step 1: Upload Data
+#### <span style="color:SkyBlue">Step 1: Upload Data
 
 Start by uploading a dataset (`sample.json`) from your local system to Tuna's data storage.
 
@@ -18,7 +18,7 @@ lep tuna upload-data --file /path/to/your/data/sample.json --name sample.json
 Uploaded Dataset /path/to/your/data/sample.json to /lepton-tuna/dataset/sample.json
 ```
 
-#### Step 2: Verify Uploaded Data
+#### <span style="color:SkyBlue">Step 2: Verify Uploaded Data
 
 To ensure the upload was successful, list the datasets stored in Tuna.
 
@@ -34,7 +34,7 @@ lep tuna list-data
 0 directories, 1 file
 ```
 
-#### Step 3: Train the Model
+#### <span style="color:SkyBlue">Step 3: Train the Model
 
 Next, initiate the training process for the model named `my-tuna-model`, using the `meta-llama/Meta-Llama-3-8B-Instruct` model and the uploaded dataset (`sample.json`). Specify the desired training parameters, such as epochs, batch size, and gradient accumulation.
 
@@ -49,7 +49,7 @@ Job tuna-my-tuna-model created successfully.
 Model Training Job tuna-my-tuna-model for your model my-tuna-model created successfully.
 ```
 
-#### Step 4: Monitor Training Progress
+#### <span style="color:SkyBlue">Step 4: Monitor Training Progress
 
 Check the status of your models to see if `my-tuna-model` is still in training or ready for use.
 
@@ -85,7 +85,7 @@ Tuna Models
 └──────────────────────────────────────┴────────────────────────────┴─────────────────────────────────────┴─────────────┴────────────────┴───────┴──────────────────┴────────────────┘
 ```
 
-#### Step 5: Deploy the Model
+#### <span style="color:SkyBlue">Step 5: Deploy the Model
 
 Now that the model is ready, deploy it using the following command:
 
