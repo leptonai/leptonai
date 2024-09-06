@@ -39,7 +39,7 @@ from ..config import (
     TUNA_TRAIN_JOB_NAME_PREFIX,
     TUNA_IMAGE,
     TUNA_DEPLOYMENT_NAME_PREFIX,
-    LLM_BY_LEPTON_PHOTON_NAME, DEFAULT_RESOURCE_SHAPE,
+    LLM_BY_LEPTON_PHOTON_NAME,
 )
 from ..util.util import check_name_regex
 
@@ -913,7 +913,7 @@ def run(
     Args:
       * name (str): Name of the model to run. (only required option)
 
-        resource_shape (str, optional): Resource shape of the deployment. default will be {DEFAULT_RESOURCE_SHAPE}
+        resource_shape (str, optional): Resource shape of the deployment.
 
         node_groups (tuple, optional): Node groups for the deployment.
 
