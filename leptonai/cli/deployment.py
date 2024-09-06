@@ -258,6 +258,7 @@ def _get_ordered_photon_ids_or_none(
     client = APIClient()
 
     photons = client.photon.list_all(public_photon=public_photon)
+
     target_photons = [p for p in photons if p.name == name]  # type: ignore
     if len(target_photons) == 0:
         return None
@@ -590,7 +591,7 @@ def create(
     log_collection,
 ):
     """
-        Creates a deployment from either a photon or container image.
+    Creates a deployment from either a photon or container image.
     """
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
@@ -625,13 +626,12 @@ def create(
             photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
-                    f"Photon [red]{photon_name}[/] does not exist in the workspace. Did"
+                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
                     " you forget to push the photon?",
                 )
                 sys.exit(1)
             console.print(
-                f"Running the most recent version of [green]{photon_name}[/]:"
-                f" {photon_id}"
+                f"Running the most recent version of [green]{name}[/]: {photon_id}"
             )
         else:
             console.print(f"Running the specified version: [green]{photon_id}[/]")
@@ -889,7 +889,7 @@ def remove(name):
     """
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Deployment [green]{name}[/] deleted successfully.")
+    console.print(f"Job [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()

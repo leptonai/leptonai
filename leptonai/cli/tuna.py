@@ -39,7 +39,7 @@ from ..config import (
     TUNA_TRAIN_JOB_NAME_PREFIX,
     TUNA_IMAGE,
     TUNA_DEPLOYMENT_NAME_PREFIX,
-    LLM_BY_LEPTON_PHOTON_NAME,
+    LLM_BY_LEPTON_PHOTON_NAME, DEFAULT_RESOURCE_SHAPE,
 )
 from ..util.util import check_name_regex
 
@@ -907,6 +907,8 @@ def run(
     """Run a specified tuna model.
 
     Usage: lep tuna run [OPTIONS]
+
+    Example: lep tuna run -n <tuna_model_name> --resource-shape gpu.a10
 
     Args:
       * name (str): Name of the model to run. (only required option)
