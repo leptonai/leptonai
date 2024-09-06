@@ -39,7 +39,7 @@ lep tuna list-data
 Next, initiate the training process for the model named `my-tuna-model`, using the `meta-llama/Meta-Llama-3-8B-Instruct` model and the uploaded dataset (`sample.json`). Specify the desired training parameters, such as epochs, batch size, and gradient accumulation.
 
 ```bash
-lep tuna train --name my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your_hf_token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct -dn=sample.json --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
+lep tuna train --name my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your_hf_token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct --dataset-name=sample.json --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
 ```
 
 **Output:**
@@ -162,7 +162,7 @@ Ready to fine-tune a machine learning model? The `train` command helps you confi
 #### Example Usage
 
 ```bash
-lep tuna train -n my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your huggingface token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct -dn=<file name you uploaded with upload-data> --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
+lep tuna train -n my-tuna-model --resource-shape gpu.a10 --env HF_TOKEN=<your huggingface token> --model-path=meta-llama/Meta-Llama-3-8B-Instruct --dataset-name=<file name you uploaded with upload-data> --num-train-epochs=2 --per-device-train-batch-size=16 --gradient-accumulation-steps=4 --learning-rate=0.0001 --lora --early-stop-threshold=0.01
 ```
 
 In this example, you're training a model called "my-tuna-model" using your dataset and custom parameters like batch size and learning rate for optimized performance.
