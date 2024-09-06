@@ -626,8 +626,9 @@ def train(
     # Build the directory structure
     if not client.storage.check_exists(data_path):
         console.print(
-            f"[red]{data_path}[/] not found. Please use lep tuna upload-data -l"
-            " <local_file_path>to upload your data first, and use lep tuna list-data"
+            f"[red]{data_path}[/] not found. Please use "
+            f"lep tuna upload-data --file <local_file_path> --name <data_name> "
+            f"to upload your data first, and use lep tuna list-data"
             " to check your data."
         )
         sys.exit(1)
