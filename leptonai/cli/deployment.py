@@ -1331,7 +1331,7 @@ def update(
         auto_scaler=AutoScaler(
             scale_down=(
                 ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                if autoscale_down or no_traffic_timeout
+                if no_traffic_timeout
                 else None
             ),
             target_gpu_utilization_percentage=(
