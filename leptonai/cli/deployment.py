@@ -1329,9 +1329,17 @@ def update(
             tokens=tokens,
         ),
         auto_scaler=AutoScaler(
-            scale_down=ScaleDown(no_traffic_timeout=no_traffic_timeout),
-            target_gpu_utilization_percentage=target_gpu_utilization,
-            target_throughput=AutoscalerTargetThroughput(qpm=threshold),
+            scale_down=(
+                ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                if autoscale_down or no_traffic_timeout
+                else None
+            ),
+            target_gpu_utilization_percentage=(
+                target_gpu_utilization if autoscale_gpu_util else None
+            ),
+            target_throughput=(
+                AutoscalerTargetThroughput(qpm=threshold) if threshold else None
+            ),
         ),
     )
 
