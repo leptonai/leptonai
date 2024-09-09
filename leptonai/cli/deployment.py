@@ -1317,6 +1317,8 @@ def update(
         max_replicas = int(parts[1])
         threshold = float(parts[2])
 
+    autoscaler_flag = no_traffic_timeout or autoscale_gpu_util or threshold
+
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
         resource_requirement=ResourceRequirement(
@@ -1328,18 +1330,22 @@ def update(
             is_public=public,
             tokens=tokens,
         ),
-        auto_scaler=AutoScaler(
-            scale_down=(
-                ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                if no_traffic_timeout
-                else None
-            ),
-            target_gpu_utilization_percentage=(
-                target_gpu_utilization if autoscale_gpu_util else None
-            ),
-            target_throughput=(
-                AutoscalerTargetThroughput(qpm=threshold) if threshold else None
-            ),
+        auto_scaler=(
+            AutoScaler(
+                scale_down=(
+                    ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                    if no_traffic_timeout
+                    else None
+                ),
+                target_gpu_utilization_percentage=(
+                    target_gpu_utilization if autoscale_gpu_util else None
+                ),
+                target_throughput=(
+                    AutoscalerTargetThroughput(qpm=threshold) if threshold else None
+                ),
+            )
+            if autoscaler_flag
+            else None
         ),
     )
 
