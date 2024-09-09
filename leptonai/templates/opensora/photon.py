@@ -4,13 +4,12 @@ import tempfile
 import uuid
 from datetime import datetime
 
-from leptonai.api.v0 import workspace
+from typing import List, Optional
 from rich.pretty import Pretty
-
 from loguru import logger
 
+from leptonai.api.v0 import workspace
 from leptonai.photon import Photon, Worker, get_file_content
-
 from leptonai.api.v1.client import APIClient
 
 
@@ -466,29 +465,29 @@ class OpenSora(Worker):
     @Photon.handler
     def run(
         self,
-        prompts,
-        text_to_image=False,
-        fps=24,
-        save_fps=24,
-        batch_size=1,
-        num_sample=1,
-        loop=1,
-        condition_frame_length=5,
-        condition_frame_edit=0.0,
-        align=5,
-        aes=6.5,
-        multi_resolution="STDiT2",
-        reference_path=None,
-        mask_strategy=None,
-        llm_refine=False,
-        flow=None,
-        camera_motion=None,
-        prompt_as_path=None,
-        # from gradio
-        resolution="720p",
-        length="4s",
-        aspect_ratio="9:16",
-        image=None,
+        prompts: List[str],
+        text_to_image: bool = False,
+        save_fps: int = 24,
+        batch_size: int = 1,
+        num_sample: int = 1,
+        loop: int = 1,
+        condition_frame_length: int = 5,
+        condition_frame_edit: float = 0.0,
+        align: int = 5,
+        aes: float = 6.5,
+        multi_resolution: str = "STDiT2",
+        reference_path: Optional[List[str]] = None,
+        mask_strategy: Optional[List[str]] = None,
+        llm_refine: bool = False,
+        flow: Optional[float] = None,
+        camera_motion: Optional[str] = None,
+        prompt_as_path: Optional[bool] = None,
+        # from gradio (UI specific parameters)
+        resolution: str = "720p",
+        length: str = "4s",
+        aspect_ratio: str = "9:16",
+        image: Optional[str] = None,
+        fps: int = 24,
     ):
         logger.info(
             "run called at {time} with parameters | fps: {fps}, multi_resolution:"
