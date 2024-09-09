@@ -18,8 +18,7 @@ class OpenSora(Worker):
     queue_name = "open-sora"
     kv_name = "open-sora"
 
-    requirement_dependency = [
-    ]
+    requirement_dependency = []
     health_check_liveness_tcp_port = 8765
     image = "leptonai/opensora:latest"
     config = {
@@ -146,29 +145,29 @@ class OpenSora(Worker):
         super().init()
 
     def on_task(
-            self,
-            task_id: str,
-            fps,
-            multi_resolution,
-            prompts,
-            batch_size,
-            mask_strategy,
-            reference_path,
-            num_sample,
-            save_fps,
-            resolution,
-            length,
-            aspect_ratio,
-            llm_refine=None,
-            aes=None,
-            flow=None,
-            camera_motion=None,
-            prompt_as_path=False,
-            loop=1,
-            condition_frame_length=5,
-            condition_frame_edit=0.0,
-            align=None,
-            image=None,
+        self,
+        task_id: str,
+        fps,
+        multi_resolution,
+        prompts,
+        batch_size,
+        mask_strategy,
+        reference_path,
+        num_sample,
+        save_fps,
+        resolution,
+        length,
+        aspect_ratio,
+        llm_refine=None,
+        aes=None,
+        flow=None,
+        camera_motion=None,
+        prompt_as_path=False,
+        loop=1,
+        condition_frame_length=5,
+        condition_frame_edit=0.0,
+        align=None,
+        image=None,
     ):
         from tqdm import tqdm
 
@@ -195,14 +194,15 @@ class OpenSora(Worker):
         from diffusers.utils import load_image
 
         logger.info(
-            "on_task called at {time} | "
-            "task_id: {task_id}, fps: {fps}, multi_resolution: {multi_resolution}, "
-            "batch_size: {batch_size}, mask_strategy: {mask_strategy}, reference_path: {reference_path}, "
-            "num_sample: {num_sample}, save_fps: {save_fps}, llm_refine: {llm_refine}, aes: {aes}, flow: {flow}, "
-            "camera_motion: {camera_motion}, prompt_as_path: {prompt_as_path}, loop: {loop}, "
-            "condition_frame_length: {condition_frame_length}, condition_frame_edit: {condition_frame_edit}, "
-            "align: {align}, prompt: {prompts}resolution: {resolution}, length: {length},"
-            "aspect_ratio: {aspect_ratio}",
+            "on_task called at {time} | task_id: {task_id}, fps: {fps},"
+            " multi_resolution: {multi_resolution}, batch_size: {batch_size},"
+            " mask_strategy: {mask_strategy}, reference_path: {reference_path},"
+            " num_sample: {num_sample}, save_fps: {save_fps}, llm_refine: {llm_refine},"
+            " aes: {aes}, flow: {flow}, camera_motion: {camera_motion}, prompt_as_path:"
+            " {prompt_as_path}, loop: {loop}, condition_frame_length:"
+            " {condition_frame_length}, condition_frame_edit: {condition_frame_edit},"
+            " align: {align}, prompt: {prompts}resolution: {resolution}, length:"
+            " {length},aspect_ratio: {aspect_ratio}",
             time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             task_id=task_id,
             fps=fps,
@@ -253,12 +253,14 @@ class OpenSora(Worker):
 
             for i in tqdm(range(0, len(prompts), batch_size)):
                 # == prepare batch prompts ==
-                batch_prompts = prompts[i: i + batch_size]
-                ms = mask_strategy[i: i + batch_size]
-                refs = reference_path[i: i + batch_size]
+                batch_prompts = prompts[i : i + batch_size]
+                ms = mask_strategy[i : i + batch_size]
+                refs = reference_path[i : i + batch_size]
 
                 # == get json from prompts ==
-                batch_prompts, refs, ms = extract_json_from_prompts(batch_prompts, refs, ms)
+                batch_prompts, refs, ms = extract_json_from_prompts(
+                    batch_prompts, refs, ms
+                )
                 original_batch_prompts = batch_prompts
 
                 # == get reference for condition ==
@@ -314,13 +316,13 @@ class OpenSora(Worker):
                         # 1. seq parallel is not enabled
                         # 2. seq parallel is enabled and the process is rank 0
                         if not self.enable_sequence_parallelism or (
-                                self.enable_sequence_parallelism and is_main_process()
+                            self.enable_sequence_parallelism and is_main_process()
                         ):
                             for idx, prompt_segment_list in enumerate(
-                                    batched_prompt_segment_list
+                                batched_prompt_segment_list
                             ):
-                                batched_prompt_segment_list[idx] = refine_prompts_by_openai(
-                                    prompt_segment_list
+                                batched_prompt_segment_list[idx] = (
+                                    refine_prompts_by_openai(prompt_segment_list)
                                 )
 
                         # sync the prompt if using seq parallel
@@ -340,8 +342,8 @@ class OpenSora(Worker):
 
                             # create a list of size equal to world size
                             broadcast_obj_list = [
-                                                     batched_prompt_segment_list
-                                                 ] * self.coordinator.world_size
+                                batched_prompt_segment_list
+                            ] * self.coordinator.world_size
                             dist.broadcast_object_list(broadcast_obj_list, 0)
 
                             # recover the prompt list
@@ -351,13 +353,16 @@ class OpenSora(Worker):
                             for num_segment in prompt_segment_length:
                                 batched_prompt_segment_list.append(
                                     all_prompts[
-                                    segment_start_idx: segment_start_idx + num_segment
+                                        segment_start_idx : segment_start_idx
+                                        + num_segment
                                     ]
                                 )
                                 segment_start_idx += num_segment
 
                     # 2. append score
-                    for idx, prompt_segment_list in enumerate(batched_prompt_segment_list):
+                    for idx, prompt_segment_list in enumerate(
+                        batched_prompt_segment_list
+                    ):
                         batched_prompt_segment_list[idx] = append_score_to_prompts(
                             prompt_segment_list,
                             aes=aes,
@@ -366,7 +371,9 @@ class OpenSora(Worker):
                         )
 
                     # 3. clean prompt with T5
-                    for idx, prompt_segment_list in enumerate(batched_prompt_segment_list):
+                    for idx, prompt_segment_list in enumerate(
+                        batched_prompt_segment_list
+                    ):
                         batched_prompt_segment_list[idx] = [
                             text_preprocessing(prompt) for prompt in prompt_segment_list
                         ]
@@ -374,7 +381,7 @@ class OpenSora(Worker):
                     # 4. merge to obtain the final prompt
                     batch_prompts = []
                     for prompt_segment_list, loop_idx_list in zip(
-                            batched_prompt_segment_list, batched_loop_idx_list
+                        batched_prompt_segment_list, batched_loop_idx_list
                     ):
                         batch_prompts.append(
                             merge_prompt(prompt_segment_list, loop_idx_list)
@@ -432,8 +439,8 @@ class OpenSora(Worker):
                             video = [video_clips[i][idx] for i in range(loop)]
                             for j in range(1, loop):
                                 video[j] = video[j][
-                                           :, dframe_to_frame(condition_frame_length):
-                                           ]
+                                    :, dframe_to_frame(condition_frame_length) :
+                                ]
                             video = torch.cat(video, dim=1)
                             save_path = save_sample(
                                 video,
@@ -441,9 +448,13 @@ class OpenSora(Worker):
                                 save_path=save_path,
                                 verbose=False,
                             )
-                            logger.info(f"Uploading output to {self._is_public_bucket}/{key}")
+                            logger.info(
+                                f"Uploading output to {self._is_public_bucket}/{key}"
+                            )
                             with open(save_path, "rb") as f:
-                                APIClient().object_storage.put(key, f, self._is_public_bucket)
+                                APIClient().object_storage.put(
+                                    key, f, self._is_public_bucket
+                                )
                             key_list.append(key)
 
                 start_idx += len(batch_prompts)
@@ -454,40 +465,41 @@ class OpenSora(Worker):
 
     @Photon.handler
     def run(
-            self,
-            prompts,
-            text_to_image=False,
-            fps=24,
-            save_fps=24,
-            batch_size=1,
-            num_sample=1,
-            loop=1,
-            condition_frame_length=5,
-            condition_frame_edit=0.0,
-            align=5,
-            aes=6.5,
-            multi_resolution="STDiT2",
-            reference_path=None,
-            mask_strategy=None,
-            llm_refine=False,
-            flow=None,
-            camera_motion=None,
-            prompt_as_path=None,
-
-            # from gradio
-            resolution="720p",
-            length="4s",
-            aspect_ratio="9:16",
-            image=None,
+        self,
+        prompts,
+        text_to_image=False,
+        fps=24,
+        save_fps=24,
+        batch_size=1,
+        num_sample=1,
+        loop=1,
+        condition_frame_length=5,
+        condition_frame_edit=0.0,
+        align=5,
+        aes=6.5,
+        multi_resolution="STDiT2",
+        reference_path=None,
+        mask_strategy=None,
+        llm_refine=False,
+        flow=None,
+        camera_motion=None,
+        prompt_as_path=None,
+        # from gradio
+        resolution="720p",
+        length="4s",
+        aspect_ratio="9:16",
+        image=None,
     ):
         logger.info(
-            "run called at {time} with parameters | fps: {fps}, multi_resolution: {multi_resolution}, "
-            "batch_size: {batch_size}, num_sample: {num_sample}, loop: {loop},"
-            "condition_frame_length: {condition_frame_length}, condition_frame_edit: {condition_frame_edit}, "
-            "align: {align}, aes: {aes}, mask_strategy: {mask_strategy}, reference_path: {reference_path}, "
-            "save_fps: {save_fps}, llm_refine: {llm_refine}, flow: {flow}, camera_motion: {camera_motion}, "
-            "prompt_as_path: {prompt_as_path}, prompts: {prompts}, resolution: {resolution}, length: {length},"
-            "aspect_ratio: {aspect_ratio}",
+            "run called at {time} with parameters | fps: {fps}, multi_resolution:"
+            " {multi_resolution}, batch_size: {batch_size}, num_sample: {num_sample},"
+            " loop: {loop},condition_frame_length: {condition_frame_length},"
+            " condition_frame_edit: {condition_frame_edit}, align: {align}, aes: {aes},"
+            " mask_strategy: {mask_strategy}, reference_path: {reference_path},"
+            " save_fps: {save_fps}, llm_refine: {llm_refine}, flow: {flow},"
+            " camera_motion: {camera_motion}, prompt_as_path: {prompt_as_path},"
+            " prompts: {prompts}, resolution: {resolution}, length:"
+            " {length},aspect_ratio: {aspect_ratio}",
             time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             fps=fps,
             multi_resolution=multi_resolution,
@@ -517,8 +529,12 @@ class OpenSora(Worker):
         if not text_to_image and image:
             mask_strategy = ["0"] * len(prompts)
 
-        assert len(reference_path) == len(prompts), "Length of reference must be the same as prompts"
-        assert len(mask_strategy) == len(prompts), "Length of mask_strategy must be the same as prompts"
+        assert len(reference_path) == len(
+            prompts
+        ), "Length of reference must be the same as prompts"
+        assert len(mask_strategy) == len(
+            prompts
+        ), "Length of mask_strategy must be the same as prompts"
 
         if image and (image.startswith("http://") or image.startswith("https://")):
             image = image
@@ -538,34 +554,34 @@ class OpenSora(Worker):
                 logger.info(f"Uploaded input to {self._bucket}/{key}")
 
             if self._is_public_bucket:
-                response = self.objectstore.get(key=key, is_public=self._is_public_bucket, return_url=True)
+                response = self.objectstore.get(
+                    key=key, is_public=self._is_public_bucket, return_url=True
+                )
                 url = response.headers.get("Location")
                 image = url
             else:
                 image = {"bucket": self._bucket, "key": key}
 
-        return self.task_post(
-            {
-                "fps": fps,
-                "multi_resolution": multi_resolution,
-                "prompts": prompts,
-                "batch_size": batch_size,
-                "mask_strategy": mask_strategy,
-                "reference_path": reference_path,
-                "num_sample": num_sample,
-                "save_fps": save_fps,
-                "llm_refine": llm_refine,
-                "aes": aes,
-                "flow": flow,
-                "camera_motion": camera_motion,
-                "prompt_as_path": prompt_as_path,
-                "loop": loop,
-                "condition_frame_length": condition_frame_length,
-                "condition_frame_edit": condition_frame_edit,
-                "align": align,
-                "resolution": resolution,
-                "length": length,
-                "aspect_ratio": aspect_ratio,
-                "image": image,
-            }
-        )
+        return self.task_post({
+            "fps": fps,
+            "multi_resolution": multi_resolution,
+            "prompts": prompts,
+            "batch_size": batch_size,
+            "mask_strategy": mask_strategy,
+            "reference_path": reference_path,
+            "num_sample": num_sample,
+            "save_fps": save_fps,
+            "llm_refine": llm_refine,
+            "aes": aes,
+            "flow": flow,
+            "camera_motion": camera_motion,
+            "prompt_as_path": prompt_as_path,
+            "loop": loop,
+            "condition_frame_length": condition_frame_length,
+            "condition_frame_edit": condition_frame_edit,
+            "align": align,
+            "resolution": resolution,
+            "length": length,
+            "aspect_ratio": aspect_ratio,
+            "image": image,
+        })
