@@ -941,6 +941,7 @@ def status(name, show_tokens, detail):
 
     if dep_info.metadata.semantic_version:
         console.print("Version:   ", dep_info.metadata.semantic_version)
+
     console.print("Photon ID: ", photon_id)
 
     console.print(f"State:      {state}")
