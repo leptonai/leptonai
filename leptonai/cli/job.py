@@ -226,14 +226,6 @@ def create(
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
 
-    if resource_shape is None:
-        available_types = "\n      ".join(VALID_SHAPES)
-        console.print(
-            "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types}. \n"
-        )
-        sys.exit(1)
-
     client = APIClient()
     if file:
         try:
@@ -293,7 +285,16 @@ def create(
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     if log_collection is not None:
         job_spec.log = LeptonLog(enable_collection=log_collection)
+    if not job_spec.resource_shape:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+
     logger.trace(json.dumps(job.model_dump(), indent=2))
     client.job.create(job)
     console.print(f"Job [green]{name}[/] created successfully.")
