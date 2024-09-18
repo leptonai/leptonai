@@ -248,6 +248,8 @@ class LeptonDeploymentState(str, Enum):
     Starting = "Starting"
     Updating = "Updating"
     Deleting = "Deleting"
+    Stopping = "Stopping"
+    Stopped = "Stopped"
     Unknown = ""
 
 
@@ -271,7 +273,7 @@ class AutoScalerStatus(BaseModel):
 
 
 class LeptonDeploymentStatus(BaseModel):
-    state: LeptonDeploymentState
+    state: str
     endpoint: DeploymentEndpoint
     autoscaler_status: Optional[AutoScalerStatus] = None
     with_system_photon: Optional[bool] = None

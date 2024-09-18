@@ -39,6 +39,7 @@ class LeptonJobState(str, Enum):
     Completed = "Completed"
     Deleting = "Deleting"
     Restarting = "Restarting"
+    Archived = "Archived"
     Unknown = ""
 
 
@@ -48,7 +49,7 @@ class LeptonJobStatusDetails(BaseModel):
     """
 
     job_name: Optional[str] = None
-    state: LeptonJobState
+    state: str
     ready: int
     active: int
     failed: int
