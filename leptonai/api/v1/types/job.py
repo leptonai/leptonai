@@ -1,3 +1,4 @@
+import warnings
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional, List
@@ -42,6 +43,11 @@ class LeptonJobState(str, Enum):
     Archived = "Archived"
     Unknown = ""
 
+    @classmethod
+    def _missing_(cls, value):
+        warnings.warn("You might be using an out of date SDK. consider updating.")
+        return cls.Unknown
+
 
 class LeptonJobStatusDetails(BaseModel):
     """
@@ -49,7 +55,7 @@ class LeptonJobStatusDetails(BaseModel):
     """
 
     job_name: Optional[str] = None
-    state: str
+    state: LeptonJobState
     ready: int
     active: int
     failed: int
