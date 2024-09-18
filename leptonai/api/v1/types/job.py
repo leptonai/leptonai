@@ -41,7 +41,7 @@ class LeptonJobState(str, Enum):
     Deleting = "Deleting"
     Restarting = "Restarting"
     Archived = "Archived"
-    Unknown = ""
+    Unknown = "UNK"
 
     @classmethod
     def _missing_(cls, value):

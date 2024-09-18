@@ -251,11 +251,13 @@ class LeptonDeploymentState(str, Enum):
     Deleting = "Deleting"
     Stopping = "Stopping"
     Stopped = "Stopped"
-    Unknown = "unk"
+    Unknown = "UNK"
+
     @classmethod
     def _missing_(cls, value):
         warnings.warn("You might be using an out of date SDK. consider updating.")
         return cls.Unknown
+
 
 class DeploymentEndpoint(BaseModel):
     internal_endpoint: str
