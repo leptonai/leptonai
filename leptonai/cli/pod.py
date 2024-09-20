@@ -130,9 +130,8 @@ def pod():
     "-ni",
     "node_ids",
     help=(
-        "Node for the pod. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node. "
-        "Please specify the node group when you are using this option"
+        "Node for the pod. You can repeat this flag multiple times to choose multiple"
+        " nodes. Please specify the node group when you are using this option"
     ),
     type=str,
     multiple=True,
