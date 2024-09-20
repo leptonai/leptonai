@@ -566,7 +566,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ni",
     "node_ids",
     help=(
-        "Node for the job. If not set, use on-demand resources. You can repeat"
+        "Node for the deployment. If not set, use on-demand resources. You can repeat"
         " this flag multiple times to choose multiple node. "
         "Please specify the node group when you are using this option"
     ),
@@ -906,7 +906,7 @@ def remove(name):
     """
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Job [green]{name}[/] deleted successfully.")
+    console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()
