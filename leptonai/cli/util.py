@@ -177,7 +177,8 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
             f"Invalid node ids: [red]{', '.join(invalid_node_ids)}[/]\nPlease try to"
             " use [green]'lep node list -d'[/] to check your node groups and nodes"
         )
-        # We will stop this job create
+
+        # We will stop this creation operation if user entered a wrong node id
         console.print(
             "[red]Creation process halted. Please enter a valid node ID and try"
             " again.[/]"
