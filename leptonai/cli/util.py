@@ -172,5 +172,9 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
                 valid_nodes_id.add(node.metadata.id_)
     invalid_node_ids = node_ids_set - valid_nodes_id
     if invalid_node_ids and len(invalid_node_ids) > 0:
-        console.print(f"Invalid nodes: [red]{', '.join(invalid_node_ids)}[/]")
+        console.print(f"Invalid node ids: [red]{', '.join(invalid_node_ids)}[/]"
+                      f"\nPlease try to use [green]'lep node list -d'[/] to check your node groups and nodes")
+        # We will stop this job create
+        console.print("[red]Creation process halted. Please enter a valid node ID and try again.[/]")
+        sys.exit(1)
     return valid_nodes_id
