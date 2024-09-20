@@ -30,7 +30,7 @@ from leptonai.api.v1 import types
 from .util import (
     click_group,
     _get_only_replica_public_ip,
-    _get_valid_nodegroup_ids,
+    _get_valid_nodegroup_ids, _get_valid_node_ids,
 )
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
@@ -124,6 +124,18 @@ def pod():
         " setting will be used."
     ),
 )
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    help=(
+        "Node for the job. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node. "
+        "Please specify the node group when you are using this option"
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     resource_shape,
@@ -135,6 +147,7 @@ def create(
     container_image,
     container_command,
     log_collection,
+    node_ids,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -169,9 +182,11 @@ def create(
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         # make sure affinity is initialized
         resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
         )
 
     try:

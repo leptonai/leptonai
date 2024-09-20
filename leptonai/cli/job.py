@@ -203,6 +203,7 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--node-id",
     "-ni",
+    "node_ids",
     help=(
         "Node for the job. If not set, use on-demand resources. You can repeat"
         " this flag multiple times to choose multiple node. "
@@ -230,7 +231,7 @@ def create(
     privileged,
     ttl_seconds_after_finished,
     log_collection,
-    node_id,
+    node_ids,
 ):
     """
     Creates a job.
@@ -253,7 +254,7 @@ def create(
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
         # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_id)
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
