@@ -17,12 +17,13 @@ def node():
     pass
 
 
-
-@node.command(name = "list")
-@click.option('--detail', '-d', help='Show all the nodes', is_flag=True)
+@node.command(name="list")
+@click.option("--detail", "-d", help="Show all the nodes", is_flag=True)
 def list_command(detail=False):
     """
     Lists all node groups in the current workspace.
+
+    If the --detail or -d option is provided, additional information about each node will be displayed.
     """
     client = APIClient()
     node_groups = client.nodegroup.list_all()
@@ -41,18 +42,21 @@ def list_command(detail=False):
             nodes_name = ""
             for node in nodes:
                 node_id = node.metadata.id_
-                node_cpu = node.spec.resource.cpu.type_ if (node.spec and node.spec.resource and node.spec.resource.cpu) else None
-                node_gpu = node.spec.resource.gpu.product if (node.spec and node.spec.resource and node.spec.resource.gpu) else None
+                node_cpu = (
+                    node.spec.resource.cpu.type_
+                    if (node.spec and node.spec.resource and node.spec.resource.cpu)
+                    else None
+                )
+                node_gpu = (
+                    node.spec.resource.gpu.product
+                    if (node.spec and node.spec.resource and node.spec.resource.gpu)
+                    else None
+                )
                 nodes_name += f"{node_id}, ({node_cpu}, {node_gpu}),\n"
             table.add_row(node_group_name, node_group_id, ready_nodes, nodes_name)
         else:
             table.add_row(node_group_name, node_group_id, ready_nodes)
     console.print(table)
-
-@node.command()
-@click.option('--name', '-n', help='Node Group Name', required=True)
-def status(name):
-    pass
 
 def add_command(cli_group):
     cli_group.add_command(node)

@@ -11,7 +11,8 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    _get_valid_nodegroup_ids, _get_valid_node_ids,
+    _get_valid_nodegroup_ids,
+    _get_valid_node_ids,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
