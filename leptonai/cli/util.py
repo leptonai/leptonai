@@ -158,3 +158,19 @@ def _get_valid_nodegroup_ids(node_groups: [str]):
         node_group_ids.append(valid_ng_map[ng])
 
     return node_group_ids
+
+def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
+    if not node_group_ids or len(node_group_ids) == 0:
+        return None
+    node_ids_set = set(node_ids)
+    client = APIClient()
+    valid_nodes_id = set()
+    for ng_id in node_group_ids:
+        cur_all_nodes = client.nodegroup.list_nodes(name_or_ng=ng_id)
+        for node in cur_all_nodes:
+            if node.metadata.id_ in node_ids_set:
+                valid_nodes_id.add(node.metadata.id_)
+    invalid_node_ids = node_ids_set - valid_nodes_id
+    if invalid_node_ids and len(invalid_node_ids) > 0:
+        console.print(f"Invalid nodes: [red]{', '.join(invalid_node_ids)}[/]")
+    return valid_nodes_id

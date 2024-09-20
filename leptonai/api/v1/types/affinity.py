@@ -9,3 +9,4 @@ class LeptonResourceAffinity(BaseModel):
 
     allowed_providers: Optional[List[str]] = None
     allowed_dedicated_node_groups: Optional[List[str]] = None
+    allowed_nodes_in_node_group: Optional[List[str]] = None
