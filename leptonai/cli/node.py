@@ -58,5 +58,6 @@ def list_command(detail=False):
             table.add_row(node_group_name, node_group_id, ready_nodes)
     console.print(table)
 
+
 def add_command(cli_group):
     cli_group.add_command(node)
