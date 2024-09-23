@@ -343,7 +343,9 @@ def get(name, id):
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
     if name and id:
-        raise click.UsageError("You cannot provide both --name and --id. Please specify only one.")
+        raise click.UsageError(
+            "You cannot provide both --name and --id. Please specify only one."
+        )
 
     client = APIClient()
     target_jobs = []
@@ -361,15 +363,22 @@ def get(name, id):
     console.print(f"Job details for [green]{name or id}[/]:")
     for job in target_jobs:
         console.print(json.dumps(client.job.safe_json(job), indent=2))
-        console.print('--------------------------\n')
+        console.print("--------------------------\n")
 
 
 @job.command()
-@click.option("--id", "-i", help="The ID of the job to remove.", type=str, required=False)
-@click.option("--name",
-              "-n",
-              help="The name of the job to remove. If multiple jobs share the same name, all of them will be removed.",
-              required=False)
+@click.option(
+    "--id", "-i", help="The ID of the job to remove.", type=str, required=False
+)
+@click.option(
+    "--name",
+    "-n",
+    help=(
+        "The name of the job to remove. If multiple jobs share the same name, all of"
+        " them will be removed."
+    ),
+    required=False,
+)
 def remove(id, name):
     """
     Removes the job with the given name.
@@ -377,7 +386,9 @@ def remove(id, name):
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
     if name and id:
-        raise click.UsageError("You cannot provide both --name and --id. Please specify only one.")
+        raise click.UsageError(
+            "You cannot provide both --name and --id. Please specify only one."
+        )
 
     client = APIClient()
 
