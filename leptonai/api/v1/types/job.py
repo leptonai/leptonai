@@ -55,7 +55,7 @@ class LeptonJobStatusDetails(BaseModel):
     """
 
     job_name: Optional[str] = None
-    state: str
+    state: LeptonJobState
     ready: int
     active: int
     failed: int

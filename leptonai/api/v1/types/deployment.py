@@ -279,7 +279,7 @@ class AutoScalerStatus(BaseModel):
 
 
 class LeptonDeploymentStatus(BaseModel):
-    state: str
+    state: LeptonDeploymentState
     endpoint: DeploymentEndpoint
     autoscaler_status: Optional[AutoScalerStatus] = None
     with_system_photon: Optional[bool] = None
