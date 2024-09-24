@@ -342,8 +342,11 @@ def ssh(name):
         console.print("No public IP is found, you can choose to use the web terminal to access the pod."
                       f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal")
         sys.exit(0)
+
+    ssh_flag = False
     for port in ports:
         if port.container_port == SSH_PORT:
+            ssh_flag = True
             try:
                 logger.trace(f"ssh -p {port.host_port} root@{public_ip}")
                 subprocess.run(
@@ -359,5 +362,11 @@ def ssh(name):
                     console.print(f"[red]Error output: {e.stderr if e.stderr else 'No error output captured.'}[/]")
             except Exception as e:
                     console.print(f"[red]An unexpected error occurred: {str(e)}[/]")
+
+    if not ssh_flag:
+        console.print("SSH port not found, you can choose to use the web terminal to access the pod."
+                      f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal")
+        sys.exit(1)
+
 def add_command(cli_group):
     cli_group.add_command(pod)
