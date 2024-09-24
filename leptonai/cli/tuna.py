@@ -999,8 +999,7 @@ def run(
         env.append(medusa)
 
     mount = list(mount)
-    mount.append("/lepton-tuna:/lepton-tuna")
-
+    mount.append(f"{DEFAULT_TUNA_FOLDER}:{DEFAULT_TUNA_FOLDER}")
     update_args = [
         "--name",
         deployment_name,
