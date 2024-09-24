@@ -98,6 +98,7 @@ async def endpoint_evaluation_request(client, ep_config):
                 temperature=0,
                 # Do not set to false. You will get bogus results.
                 stream=True,
+                stream_options={"include_usage": True},
             )
             async for tok in response:
                 if not tok.choices:
