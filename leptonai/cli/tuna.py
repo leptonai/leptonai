@@ -781,7 +781,7 @@ def remove(name):
     job_name = _generate_job_name(name)
     for job in jobs:
         if job.metadata.name == job_name:
-            client.job.delete(job_name)
+            client.job.delete(job.metadata.id_)
 
     if cur_tuna_model.deployments is not None and len(cur_tuna_model.deployments) > 0:
         client = APIClient()
