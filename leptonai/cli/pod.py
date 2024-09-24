@@ -8,6 +8,7 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
+import subprocess
 import sys
 import json
 from datetime import datetime
@@ -324,6 +325,61 @@ def remove(name):
     console.log(f"Pod [green]{name}[/] removed.")
 
     return 0
+
+
+@pod.command()
+@click.option("--name", "-n", help="The pod name to ssh.", required=True)
+def ssh(name):
+    client = APIClient()
+
+    pod = client.deployment.get(name)
+    ports = pod.spec.container.ports
+    if pod.status.state not in ("Running", "Ready"):
+        console.print("This pod is not running or is not ready.")
+        sys.exit(1)
+
+    public_ip = _get_only_replica_public_ip(pod.metadata.name)
+
+    if not public_ip:
+        console.print(
+            "No public IP is found, you can choose to use the web terminal to access"
+            " the pod."
+            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+        )
+        sys.exit(0)
+
+    ssh_flag = False
+    for port in ports:
+        if port.container_port == SSH_PORT:
+            ssh_flag = True
+            try:
+                logger.trace(f"ssh -p {port.host_port} root@{public_ip}")
+                subprocess.run(
+                    ["ssh", "-p", str(port.host_port), f"root@{str(public_ip)}"],
+                    check=True,
+                    stderr=subprocess.PIPE,
+                )
+            except subprocess.CalledProcessError as e:
+                if e.returncode == 130:
+                    console.print("[green] SSH session exited normally.[/]")
+                else:
+                    console.print(
+                        f"[red]SSH command failed with exit statu[/] {e.returncode}"
+                    )
+                    console.print(
+                        "[red]Error output:"
+                        f" {e.stderr if e.stderr else 'No error output captured.'}[/]"
+                    )
+            except Exception as e:
+                console.print(f"[red]An unexpected error occurred: {str(e)}[/]")
+
+    if not ssh_flag:
+        console.print(
+            "SSH port not found, you can choose to use the web terminal to access the"
+            " pod."
+            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+        )
+        sys.exit(1)
 
 
 def add_command(cli_group):
