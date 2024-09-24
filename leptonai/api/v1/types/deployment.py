@@ -1,3 +1,4 @@
+import warnings
 from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -248,7 +249,14 @@ class LeptonDeploymentState(str, Enum):
     Starting = "Starting"
     Updating = "Updating"
     Deleting = "Deleting"
-    Unknown = ""
+    Stopping = "Stopping"
+    Stopped = "Stopped"
+    Unknown = "UNK"
+
+    @classmethod
+    def _missing_(cls, value):
+        warnings.warn("You might be using an out of date SDK. consider updating.")
+        return cls.Unknown
 
 
 class DeploymentEndpoint(BaseModel):
