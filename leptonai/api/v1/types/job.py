@@ -45,7 +45,8 @@ class LeptonJobState(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        warnings.warn("You might be using an out of date SDK. consider updating.")
+        if value:
+            warnings.warn("You might be using an out of date SDK. consider updating.")
         return cls.Unknown
 
 
@@ -55,7 +56,7 @@ class LeptonJobStatusDetails(BaseModel):
     """
 
     job_name: Optional[str] = None
-    state: LeptonJobState
+    state: Optional[LeptonJobState] = None
     ready: int
     active: int
     failed: int

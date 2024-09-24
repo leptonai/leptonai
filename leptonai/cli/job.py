@@ -12,6 +12,7 @@ from .util import (
     catch_deprecated_flag,
     check,
     _get_valid_nodegroup_ids,
+    _get_valid_node_ids,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -200,6 +201,17 @@ def make_container_port_from_string(port_str: str):
         " setting will be used."
     ),
 )
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    help=(
+        "Node for the job. You can repeat this flag multiple times to choose multiple"
+        " nodes. Please specify the node group when you are using this option"
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     file,
@@ -219,6 +231,7 @@ def create(
     privileged,
     ttl_seconds_after_finished,
     log_collection,
+    node_ids,
 ):
     """
     Creates a job.
@@ -240,10 +253,13 @@ def create(
     # Update the spec based on the passed in args
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        # _get_valid_node_ids will return None if node_group_ids is None
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids
+            allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
         )
     if resource_shape:
         job_spec.resource_shape = resource_shape

@@ -9,7 +9,7 @@ from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 
 import leptonai
-from . import deployment
+from . import deployment, node
 from . import job
 from . import kv
 from . import objectstore
@@ -59,6 +59,7 @@ queue.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)
 workspace.add_command(lep)
+node.add_command(lep)
 
 ingress.add_command(lep)
 
