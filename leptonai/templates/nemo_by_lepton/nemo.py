@@ -1,6 +1,7 @@
 import os
 import tempfile
 from leptonai.photon import Photon
+from typing import Union, Iterable
 from fastapi import UploadFile, HTTPException, Form
 
 
@@ -31,19 +32,17 @@ class Transcriber(Photon):
         self,
         file: UploadFile,
         batch_size: int = Form(4),
-        logprobs: bool = Form(None),
+        logprobs: bool = Form(None),  # You can adjust based on expected input type
         return_hypotheses: bool = Form(False),
         num_workers: int = Form(0),
-        channel_selector: str = Form(
-            None
-        ),  # channel_selector can be an int, Iterable[int], str, None, but we keep it as str or None for simplicity.
+        channel_selector: Union[int, Iterable[int], str, None] = Form(None),
         verbose: bool = Form(True),
     ) -> dict:
         """
         Transcribes the audio file sent in a .wav format.
         """
         try:
-            # Save the uploaded file to a temporary file
+
             with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
                 tmp.write(await file.read())
                 tmp.flush()  # Ensure all data is written
