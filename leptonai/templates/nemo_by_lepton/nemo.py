@@ -5,7 +5,7 @@ from fastapi import UploadFile, File
 
 class Transcriber(Photon):
     # The init method implements any custom initialization logic we need.
-    requirement_dependency = ["Cython", "packaging", "nemo_toolkit[all]", "huggingface-hub==0.23.2", "numpy==1.26.3",]
+    requirement_dependency = ["Cython", "packaging", "nemo_toolkit[all]", "huggingface-hub==0.23.2", "numpy==1.26.3"]
     system_dependency = ["libsndfile1", "ffmpeg"]
 
     def init(self):
