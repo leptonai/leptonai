@@ -31,10 +31,12 @@ class Transcriber(Photon):
         self,
         file: UploadFile,
         batch_size: int = Form(4),
-        logprobs: str = Form(None),  # You can adjust based on expected input type
+        logprobs: bool = Form(None),
         return_hypotheses: bool = Form(False),
         num_workers: int = Form(0),
-        channel_selector: str = Form(None),
+        channel_selector: str = Form(
+            None
+        ),  # channel_selector can be an int, Iterable[int], str, None, but we keep it as str or None for simplicity.
         verbose: bool = Form(True),
     ) -> dict:
         """
