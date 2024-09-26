@@ -497,7 +497,6 @@ def replicas(id):
 
 
 @job.command()
-
 @click.option("--id", "-i", help="The job id to get events.", required=True)
 def events(id, replica=None):
     client = APIClient()
