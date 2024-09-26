@@ -8,6 +8,7 @@ environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
 """
 
+import subprocess
 import sys
 import json
 from datetime import datetime
@@ -31,6 +32,7 @@ from .util import (
     click_group,
     _get_only_replica_public_ip,
     _get_valid_nodegroup_ids,
+    _get_valid_node_ids,
 )
 from ..api.v1.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
@@ -124,6 +126,17 @@ def pod():
         " setting will be used."
     ),
 )
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    help=(
+        "Node for the pod. You can repeat this flag multiple times to choose multiple"
+        " nodes. Please specify the node group when you are using this option"
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     resource_shape,
@@ -135,6 +148,7 @@ def create(
     container_image,
     container_command,
     log_collection,
+    node_ids,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -169,9 +183,11 @@ def create(
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         # make sure affinity is initialized
         resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
         )
 
     try:
@@ -324,6 +340,61 @@ def remove(name):
     console.log(f"Pod [green]{name}[/] removed.")
 
     return 0
+
+
+@pod.command()
+@click.option("--name", "-n", help="The pod name to ssh.", required=True)
+def ssh(name):
+    client = APIClient()
+
+    pod = client.deployment.get(name)
+    ports = pod.spec.container.ports
+    if pod.status.state not in ("Running", "Ready"):
+        console.print("This pod is not running or is not ready.")
+        sys.exit(1)
+
+    public_ip = _get_only_replica_public_ip(pod.metadata.name)
+
+    if not public_ip:
+        console.print(
+            "No public IP is found, you can choose to use the web terminal to access"
+            " the pod."
+            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+        )
+        sys.exit(0)
+
+    ssh_flag = False
+    for port in ports:
+        if port.container_port == SSH_PORT:
+            ssh_flag = True
+            try:
+                logger.trace(f"ssh -p {port.host_port} root@{public_ip}")
+                subprocess.run(
+                    ["ssh", "-p", str(port.host_port), f"root@{str(public_ip)}"],
+                    check=True,
+                    stderr=subprocess.PIPE,
+                )
+            except subprocess.CalledProcessError as e:
+                if e.returncode == 130:
+                    console.print("[green] SSH session exited normally.[/]")
+                else:
+                    console.print(
+                        f"[red]SSH command failed with exit statu[/] {e.returncode}"
+                    )
+                    console.print(
+                        "[red]Error output:"
+                        f" {e.stderr if e.stderr else 'No error output captured.'}[/]"
+                    )
+            except Exception as e:
+                console.print(f"[red]An unexpected error occurred: {str(e)}[/]")
+
+    if not ssh_flag:
+        console.print(
+            "SSH port not found, you can choose to use the web terminal to access the"
+            " pod."
+            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+        )
+        sys.exit(1)
 
 
 def add_command(cli_group):

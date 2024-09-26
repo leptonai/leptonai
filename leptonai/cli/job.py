@@ -12,6 +12,7 @@ from .util import (
     catch_deprecated_flag,
     check,
     _get_valid_nodegroup_ids,
+    _get_valid_node_ids,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -211,6 +212,17 @@ def make_container_port_from_string(port_str: str):
         " setting will be used."
     ),
 )
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    help=(
+        "Node for the job. You can repeat this flag multiple times to choose multiple"
+        " nodes. Please specify the node group when you are using this option"
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     file,
@@ -231,6 +243,7 @@ def create(
     ttl_seconds_after_finished,
     suppress_output,
     log_collection,
+    node_ids,
 ):
     """
     Creates a job.
@@ -252,10 +265,13 @@ def create(
     # Update the spec based on the passed in args
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        # _get_valid_node_ids will return None if node_group_ids is None
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids
+            allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
         )
     if resource_shape:
         job_spec.resource_shape = resource_shape
@@ -308,10 +324,12 @@ def create(
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
     logger.trace(json.dumps(job.model_dump(), indent=2))
-    client.job.create(job)
 
+    created_job = client.job.create(job)
+    new_job_id = created_job.metadata.id_
     if not suppress_output:
         console.print(f"Job [green]{name}[/] created successfully.")
+    console.print(f"Job [green]{name}  : id: {new_job_id}[/] created successfully.")
 
 
 @job.command(name="list")
@@ -325,11 +343,13 @@ def list_command():
 
     table = Table(show_header=True)
     table.add_column("Name")
+    table.add_column("ID")
     table.add_column("Created At")
     table.add_column("State (ready,active,succeeded,failed)")
     for job in jobs:
         status = job.status
         table.add_row(
+            job.metadata.name,
             job.metadata.id_,
             (
                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
@@ -345,32 +365,83 @@ def list_command():
 
 
 @job.command()
-@click.option("--name", "-n", help="Job name", type=str, required=True)
-def get(name):
+@click.option("--name", "-n", help="Job name", type=str, required=False)
+@click.option("--id", "-i", help="Job id", type=str, required=False)
+def get(name, id):
     """
     Gets the job with the given name.
     """
+    if not name and not id:
+        raise click.UsageError("You must provide either --name or --id.")
+    if name and id:
+        raise click.UsageError(
+            "You cannot provide both --name and --id. Please specify only one."
+        )
+
     client = APIClient()
-    job = client.job.get(name)
-    console.print(f"Job details for [green]{name}[/]:")
-    console.print(json.dumps(client.job.safe_json(job), indent=2))
+    target_jobs = []
+
+    if id:
+        job = client.job.get(id)
+        target_jobs.append(job)
+
+    if name:
+        jobs = client.job.list_all()
+        for job in jobs:
+            if job.metadata.name == name:
+                target_jobs.append(job)
+
+    console.print(f"Job details for [green]{name or id}[/]:")
+    for job in target_jobs:
+        console.print(json.dumps(client.job.safe_json(job), indent=2))
+        console.print("--------------------------\n")
 
 
 @job.command()
-@click.option("--name", "-n", help="Job name")
-def remove(name):
+@click.option(
+    "--id", "-i", help="The ID of the job to remove.", type=str, required=False
+)
+@click.option(
+    "--name",
+    "-n",
+    help=(
+        "The name of the job to remove. If multiple jobs share the same name, all of"
+        " them will be removed."
+    ),
+    required=False,
+)
+def remove(id, name):
     """
     Removes the job with the given name.
     """
+    if not name and not id:
+        raise click.UsageError("You must provide either --name or --id.")
+    if name and id:
+        raise click.UsageError(
+            "You cannot provide both --name and --id. Please specify only one."
+        )
+
     client = APIClient()
-    client.job.delete(name)
-    console.print(f"Job [green]{name}[/] deleted successfully.")
+
+    target_job_ids = []
+    if id:
+        target_job_ids.append(id)
+
+    if name:
+        jobs = client.job.list_all()
+        for job in jobs:
+            if job.metadata.name == name:
+                target_job_ids.append(job.metadata.id_)
+
+    for job_id in target_job_ids:
+        client.job.delete(job_id)
+        console.print(f"Job [green]{job_id}[/] deleted successfully.")
 
 
 @job.command()
-@click.option("--name", "-n", help="The job name to get log.", required=True)
+@click.option("--id", "-i", help="The job id to get log.", required=True)
 @click.option("--replica", "-r", help="The replica name to get log.", default=None)
-def log(name, replica):
+def log(id, replica):
     """
     Gets the log of a job. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
@@ -381,17 +452,17 @@ def log(name, replica):
     if not replica:
         # obtain replica information, and then select the first one.
         console.print(
-            f"Replica name not specified for [yellow]{name}[/]. Selecting the first"
+            f"Replica name not specified for [yellow]{id}[/]. Selecting the first"
             " replica."
         )
 
-        replicas = client.job.get_replicas(name)
-        check(len(replicas) > 0, f"No replicas found for [red]{name}[/].")
+        replicas = client.job.get_replicas(id)
+        check(len(replicas) > 0, f"No replicas found for [red]{id}[/].")
         replica = replicas[0].metadata.id_
         console.print(f"Selected replica [green]{replica}[/].")
     else:
         console.print(f"Showing log for replica [green]{replica}[/].")
-    stream_or_err = client.job.get_log(name_or_job=name, replica=replica)
+    stream_or_err = client.job.get_log(id_or_job=id, replica=replica)
     # Print the log as a continuous stream until the user presses Ctrl-C.
     try:
         for chunk in stream_or_err:
@@ -405,31 +476,33 @@ def log(name, replica):
         console.print(
             "End of log. It seems that the job has not started, or already finished."
         )
-        console.print(f"Use `lep job status -n {name}` to check the status of the job.")
+        console.print(f"Use `lep job status -n {id}` to check the status of the job.")
 
 
 @job.command()
-@click.option("--name", "-n", help="The job name to get replicas.", required=True)
-def replicas(name):
+@click.option("--id", "-i", help="The job id to get replicas.", required=True)
+def replicas(id):
+
     client = APIClient()
 
-    replicas = client.job.get_replicas(name)
+    replicas = client.job.get_replicas(id)
 
     table = Table(show_header=True, show_lines=False)
     table.add_column("job name")
     table.add_column("replica id")
 
     for replica in replicas:
-        table.add_row(name, replica.metadata.id_)
+        table.add_row(id, replica.metadata.id_)
     console.print(table)
 
 
 @job.command()
-@click.option("--name", "-n", help="The job name to get events.", required=True)
-def events(name, replica=None):
+
+@click.option("--id", "-i", help="The job id to get events.", required=True)
+def events(id, replica=None):
     client = APIClient()
 
-    events = client.job.get_events(name)
+    events = client.job.get_events(id)
 
     table = Table(title="Job Events", show_header=True, show_lines=False)
     table.add_column("Job Name")
@@ -441,7 +514,7 @@ def events(name, replica=None):
     for event in events:
         date_string = event.last_observed_time.strftime("%Y-%m-%d %H:%M:%S")
         table.add_row(
-            name,
+            id,
             event.type_,
             event.reason,
             str(event.regarding),

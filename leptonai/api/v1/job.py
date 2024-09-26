@@ -8,7 +8,7 @@ from .types.replica import Replica
 
 
 class JobAPI(APIResourse):
-    def _to_name(self, name_or_job: Union[str, LeptonJob]) -> str:
+    def _to_id(self, name_or_job: Union[str, LeptonJob]) -> str:
         return (  # type: ignore
             name_or_job if isinstance(name_or_job, str) else name_or_job.metadata.id_
         )
@@ -24,28 +24,28 @@ class JobAPI(APIResourse):
         response = self._post("/jobs", json=self.safe_json(spec))
         return self.ensure_type(response, LeptonJob)
 
-    def get(self, name_or_job: Union[str, LeptonJob]) -> LeptonJob:
-        response = self._get(f"/jobs/{self._to_name(name_or_job)}")
+    def get(self, id_or_job: Union[str, LeptonJob]) -> LeptonJob:
+        response = self._get(f"/jobs/{self._to_id(id_or_job)}")
         return self.ensure_type(response, LeptonJob)
 
     def update(self, name_or_job: Union[str, LeptonJob], spec: LeptonJob) -> bool:
         raise NotImplementedError("Job update is not implemented yet.")
 
     def delete(self, name_or_job: Union[str, LeptonJob]) -> bool:
-        response = self._delete(f"/jobs/{self._to_name(name_or_job)}")
+        response = self._delete(f"/jobs/{self._to_id(name_or_job)}")
         return self.ensure_ok(response)
 
     def get_events(self, name_or_job: Union[str, LeptonJob]) -> List[LeptonEvent]:
-        response = self._get(f"/jobs/{self._to_name(name_or_job)}/events")
+        response = self._get(f"/jobs/{self._to_id(name_or_job)}/events")
         return self.ensure_list(response, LeptonEvent)
 
     def get_replicas(self, name_or_job: Union[str, LeptonJob]) -> List[Replica]:
-        response = self._get(f"/jobs/{self._to_name(name_or_job)}/replicas")
+        response = self._get(f"/jobs/{self._to_id(name_or_job)}/replicas")
         return self.ensure_list(response, Replica)
 
     def get_log(
         self,
-        name_or_job: Union[str, LeptonJob],
+        id_or_job: Union[str, LeptonJob],
         replica: Union[str, Replica],
         timeout: Optional[int] = None,
     ) -> Iterator[str]:
@@ -57,7 +57,7 @@ class JobAPI(APIResourse):
         """
         replica_id = replica if isinstance(replica, str) else replica.metadata.id_
         response = self._get(
-            f"/jobs/{self._to_name(name_or_job)}/replicas/{replica_id}/log",
+            f"/jobs/{self._to_id(id_or_job)}/replicas/{replica_id}/log",
             stream=True,
             timeout=timeout,
         )

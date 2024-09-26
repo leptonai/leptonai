@@ -16,6 +16,7 @@ from .util import (
     check,
     click_group,
     _get_valid_nodegroup_ids,
+    _get_valid_node_ids,
 )
 
 from leptonai.config import (
@@ -560,6 +561,17 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " setting will be used."
     ),
 )
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    help=(
+        "Node for the deployment. You can repeat this flag multiple times to choose"
+        " multiple nodes. Please specify the node group when you are using this option"
+    ),
+    type=str,
+    multiple=True,
+)
 def create(
     name,
     photon_name,
@@ -589,6 +601,7 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
     log_collection,
+    node_ids,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -729,8 +742,11 @@ def create(
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
+        # _get_valid_node_ids will return None if node_group_ids is None
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
         spec.resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
         )
 
     # include workspace token
@@ -889,7 +905,7 @@ def remove(name):
     """
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Job [green]{name}[/] deleted successfully.")
+    console.print(f"Deployment [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()
