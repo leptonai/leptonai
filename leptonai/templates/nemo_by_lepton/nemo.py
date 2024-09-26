@@ -5,6 +5,7 @@ from typing import Union, Iterable
 from fastapi import UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
 
+
 class Transcriber(Photon):
     # The init method implements any custom initialization logic we need.
     requirement_dependency = [
@@ -12,7 +13,7 @@ class Transcriber(Photon):
         "packaging",
         "nemo_toolkit[asr]",
         "huggingface-hub==0.23.2",
-        "numpy==1.26.3"
+        "numpy==1.26.3",
     ]
     system_dependency = ["libsndfile1", "ffmpeg"]
 
