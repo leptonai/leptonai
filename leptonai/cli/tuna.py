@@ -661,8 +661,8 @@ def train(
 
     # Construct the command string
     cmd = (
-        "run_training"
-        f" --model_name_or_path={model_path} --data_path={data_path} --output_dir={model_output_path}"
+        f'run_training --model_name_or_path="{model_path}" --data_path="{data_path}"'
+        f' --output_dir="{model_output_path}"'
     )
     for key, value in kwargs.items():
         if value is not None:
