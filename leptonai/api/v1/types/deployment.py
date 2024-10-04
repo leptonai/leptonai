@@ -251,6 +251,7 @@ class LeptonDeploymentState(str, Enum):
     Deleting = "Deleting"
     Stopping = "Stopping"
     Stopped = "Stopped"
+    Scaling = "Scaling"
     Unknown = "UNK"
 
     @classmethod
