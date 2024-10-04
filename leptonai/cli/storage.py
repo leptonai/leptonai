@@ -282,9 +282,15 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system):
 
         workspace_id = client.get_workspace_id()
 
-        pwd = client.token()
-        if len(pwd) > 8:
-            pwd = pwd[:8]
+        pwd = ""
+        for env in lepton_deployment.spec.envs:
+            if env.name == "PASSWORD":
+                pwd = env.value
+                break
+        if pwd == "":
+            console.print("Rsync password not found")
+            sys.exit(1)
+
         env_vars = {"RSYNC_PASSWORD": pwd}
         flags = "-v"
         if recursive:
