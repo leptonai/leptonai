@@ -113,6 +113,31 @@ def ls(path, file_system):
     print_dir_contents(path, dir_infos)
 
 
+def join_path(path, file_name):
+    if not file_name:
+        return path
+    if not path.endswith("/"):
+        path = path + "/"
+    return path + file_name
+
+
+@storage.command()
+@click.argument("path", type=str, default="/")
+@click.option("--name", "-n", default=None, type=str)
+def find(
+    path,
+    name,
+):
+    joined_path = join_path(path, name)
+    client = APIClient()
+    is_exist = client.storage.check_exists(joined_path)
+
+    if not is_exist:
+        console.print(f"[red]{joined_path}[/] not found")
+    else:
+        console.print(f"[green]{joined_path}[/]")
+
+
 @storage.command()
 @click.argument("path", type=str)
 @click.option(
@@ -127,7 +152,6 @@ def rm(path, file_system):
     Delete a file in the file storage of the current workspace. Note that wildcard is
     not supported yet.
     """
-
     client = APIClient()
 
     fs_info = " in " + file_system if file_system else None
@@ -179,7 +203,6 @@ def rmdir(path, file_system):
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
     """
-
     client = APIClient()
 
     fs_info = " in " + file_system if file_system else None
@@ -211,7 +234,6 @@ def mkdir(path, file_system):
     """
     Create a directory in the file storage of the current workspace.
     """
-
     client = APIClient()
     client.storage.create_dir(path, file_system)
     console.print(f"Created directory [green]{path}[/].")
@@ -248,7 +270,15 @@ def mkdir(path, file_system):
     type=str,
     help="File system name, only for user with dedicated file system",
 )
-def upload(local_path, remote_path, rsync, recursive, progress, file_system):
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
+def upload(
+    local_path, remote_path, rsync, recursive, progress, file_system, suppress_output
+):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
@@ -315,11 +345,14 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system):
         for line in process.stdout:
             print(line, end="")
         process.wait()
-
         return
 
     client.storage.create_file(local_path, remote_path, file_system)
-    console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
+
+    if not suppress_output:
+        console.print(
+            f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]"
+        )
 
 
 @storage.command()
@@ -332,7 +365,13 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system):
     type=str,
     help="File system name, only for user with dedicated file system",
 )
-def download(remote_path, local_path, file_system):
+@click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
+def download(remote_path, local_path, file_system, suppress_output):
     """
     Download a remote file. If no local path is specified, the file will be
     downloaded to the current working directory with the same name as the remote
@@ -367,7 +406,11 @@ def download(remote_path, local_path, file_system):
     )
 
     client.storage.get_file(remote_path, local_path, file_system)
-    console.print(f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]")
+
+    if not suppress_output:
+        console.print(
+            f"Downloaded file [green]{remote_path}[/] to [green]{local_path}[/]"
+        )
 
 
 def add_command(click_group):

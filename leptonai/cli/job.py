@@ -54,7 +54,12 @@ def make_container_port_from_string(port_str: str):
         raise ValueError(f"Invalid port definition: {port_str}")
 
 
-@job.command()
+@job.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
     "--file",
@@ -193,6 +198,12 @@ def make_container_port_from_string(port_str: str):
     default=259200,
 )
 @click.option(
+    "--suppress-output",
+    is_flag=True,
+    hidden=True,
+    help="Suppress output when called from another command",
+)
+@click.option(
     "--log-collection",
     "-lg",
     type=bool,
@@ -230,6 +241,7 @@ def create(
     intra_job_communication,
     privileged,
     ttl_seconds_after_finished,
+    suppress_output,
     log_collection,
     node_ids,
 ):
@@ -312,8 +324,11 @@ def create(
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
     logger.trace(json.dumps(job.model_dump(), indent=2))
+
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
+    if not suppress_output:
+        console.print(f"Job [green]{name}[/] created successfully.")
     console.print(f"Job [green]{name}  : id: {new_job_id}[/] created successfully.")
 
 
@@ -484,7 +499,6 @@ def replicas(id):
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
 def events(id, replica=None):
-
     client = APIClient()
 
     events = client.job.get_events(id)

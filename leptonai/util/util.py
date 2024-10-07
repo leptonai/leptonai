@@ -43,15 +43,19 @@ def check_photon_name(name):
             f"Invalid Photon name '{name}': Name must be less than 32 characters"
         )
 
-    # copied from
-    # https://github.com/leptonai/lepton/blob/732311f395476b67295a730b0be4d104ed7f5bef/api-server/util/util.go#L26
-    name_regex = r"^[a-z]([-a-z0-9]*[a-z0-9])?$"
-    if not re.match(name_regex, name):
+    if not check_name_regex(name):
         raise ValueError(
             f"Invalid Photon name '{name}': Name must consist of lower case"
             " alphanumeric characters or '-', and must start with an alphabetical"
             " character and end with an alphanumeric character"
         )
+
+
+def check_name_regex(name):
+    # copied from
+    # https://github.com/leptonai/lepton/blob/732311f395476b67295a730b0be4d104ed7f5bef/api-server/util/util.go#L26
+    name_regex = r"^[a-z]([-a-z0-9]*[a-z0-9])?$"
+    return re.match(name_regex, name)
 
 
 @contextmanager
