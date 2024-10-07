@@ -9,7 +9,6 @@ You only need to set the following environmental variables to launch an open sou
 Set the following environmental variables.
 
 * `MODEL_PATH`: The model to run. This can be a HuggingFace model string, such as "meta-llama/Llama-2-13b-chat-hf", or "mistralai/Mistral-7B-v0.1". It could also be a path to a custom model mounted via the Lepton storage (enterprise feature - feel free to [talk to us](mailto:info@lepton.ai)).
-* `USE_INT`: (Optional) Set to true to apply quantization techniques for reducing GPU memory usage. For model size under 7B, or 13B with USE_INT set to true, gpu.a10 is sufficient to run the model, although you might want to use more powerful computation resources.
 * `TUNA_STREAM_CB_STEP`: (Optional) in streaming mode, the minimum number of tokens to generate in each new chunk. Smaller numbers send generated results sooner, but may lead to a slightly higher network overhead. Default value set to 3. Unless you are hyper-tuning for benchmarks, you can leave this value as default.
 * `MEDUSA`: (Optional) Run the inference with a pre-trained [Medusa](https://arxiv.org/abs/2401.10774) speculative decoding model. For example, to speed up llama2-70b, use `leptonai/Llama-2-70b-chat-4-heads`. We have provided a set of pre-trained medusa heads on [HuggingFace](https://huggingface.co/leptonai). To train medusa heads on your own model or with your own data, please [talk to us](mailto:info@lepton.ai).
 * `LORAS`: (Optional) We support running LORA models (also known as PEFT models) in the same deployment as the main model, by setting LORAS in a format `model_id:model_name`. If you have multiple models, separate them by `|`. For example, [therealcyberlord/llama2-qlora-finetuned-medical](https://huggingface.co/therealcyberlord/llama2-qlora-finetuned-medical) is based on `meta-llama/Llama-2-7b-chat-hf`, and you can specify `therealcyberlord/llama2-qlora-finetuned-medical:medical` to run it. On the client side, invoke it with `model=medical`.
@@ -211,10 +210,6 @@ A:  Each Lepton LLM deployment hosts the model you specify, but in many cases (e
 Q: Can I use other languages such as NodeJS or HTTP to access my deployment?
 
 A: Yes, you could! You could use Open AI NodeJS Library or HTTP requests to access your deployment as well. Simply replace `[api.openai.com](http://api.openai.com)` and `OPENAI_API_KEY` with your deployment URL and the API token will work.
-
-Q: Will `USE_INT` setup affect the result?
-
-A: The `USE_INT` environment variable will apply quantization to your choice of model. And this could affect the result. Our experience suggests that INT8 does not significantly alter the result quality. For a more detailed evaluation on what is the best set up for your use case, please reach out to us and we can design optimization POC strategies together.
 
 Q: Can I run this deployment on my local machine or dev VM?
 
