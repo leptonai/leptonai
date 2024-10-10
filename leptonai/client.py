@@ -305,7 +305,7 @@ class Client(object):
                         f" url returned: {url}. Please report this as a bug."
                     )
                 self.url = (
-                    url[:insert_index] + "-" + deployment + '.tin.lepton.run'
+                    url[:insert_index] + "-" + deployment + ".tin.lepton.run"
                 ).rstrip("/")
 
         headers = {}
