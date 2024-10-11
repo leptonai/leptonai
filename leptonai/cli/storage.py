@@ -286,7 +286,7 @@ def upload(
         console.print("Cannot use --progress without --rsync")
         sys.exit(1)
     if auto_recover != 1 and not rsync:
-        console.print("Cannot use --auto_resume without --rsync")
+        console.print("Cannot use --auto_recover without --rsync")
 
     if rsync:
         console.print(
@@ -320,6 +320,9 @@ def upload(
 
         attempts = auto_recover
         while attempts > 0:
+
+            # On the final attempt, or if there's only one attempt,
+            # we don't add --partial to ensure rsync cleans up any .partial files.
             cur_flags = flags + " --partial" if attempts > 1 else flags
             command = (
                 f"rsync {cur_flags}"
@@ -341,14 +344,17 @@ def upload(
             process.wait()
 
             return_code = process.returncode
-            if return_code != 0 and attempts > 0:
-                console.print(f"[red]Rsync failed[/] with exit code {return_code}.")
-                attempts -= 1
-                if attempts > 0:
-                    console.print("[green]Retrying... [/]")
-                    time.sleep(3)
-            else:
+
+            # Break the loop if rsync is successful
+            if return_code == 0:
                 break
+
+            # If attempts is 0, the loop will not be re-entered.
+            console.print(f"[red]Rsync failed[/] with exit code {return_code}.")
+            attempts -= 1
+            if attempts > 0:
+                console.print("[green]Retrying... [/]")
+                time.sleep(3)
 
         if attempts <= 0:
             console.print(
