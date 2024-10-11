@@ -253,16 +253,31 @@ def mkdir(path, file_system):
     "-p",
     is_flag=True,
     default=False,
-    help="Enable partial transfers for rsync, keep partially transferred files to resume transfer if interrupted.",
+    help=(
+        "Enable partial transfers for rsync, keep partially transferred files to resume"
+        " transfer if interrupted."
+    ),
 )
 @click.option(
     "--auto-resume",
     "-ar",
     is_flag=True,
-    help="Enable resume support for interrupted transfers using rsync's --partial option.",
+    help=(
+        "Enable resume support for interrupted transfers using rsync's --partial"
+        " option."
+    ),
     default=False,
 )
-def upload(local_path, remote_path, rsync, recursive, progress, file_system, partial, auto_resume):
+def upload(
+    local_path,
+    remote_path,
+    rsync,
+    recursive,
+    progress,
+    file_system,
+    partial,
+    auto_resume,
+):
     """
     Upload a local file to the storage of the current workspace. If remote_path
     is not specified, the file will be uploaded to the root directory of the
@@ -323,13 +338,13 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system, par
             f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
         )
 
-        MAX_RETRIES =3
-        attempts = MAX_RETRIES if auto_resume else 1
+        MAX_RETRIES = 3
         RETRY_DELAY = 5
+        attempts = MAX_RETRIES if auto_resume else 1
+
         while attempts > 0:
 
             console.print(f"Running command: [bold]{command}[/]")
-
 
             process = subprocess.Popen(
                 command,
@@ -345,16 +360,23 @@ def upload(local_path, remote_path, rsync, recursive, progress, file_system, par
             process.wait()
 
             return_code = process.returncode
+
             if auto_resume and return_code != 0 and attempts > 0:
-                console.print(f"[red]Rsync failed[/] with exit code {return_code}. Retrying...")
+                console.print(
+                    f"[red]Rsync failed[/] with exit code {return_code}. Retrying..."
+                )
                 attempts -= 1
                 time.sleep(RETRY_DELAY)
             else:
                 break
 
         if auto_resume and attempts == 0:
-            console.print(f"Failed to upload {local_path} to {remote_path} after {MAX_RETRIES} attempts. "
-                          "You may rerun the [green]lep storage upload[/] command to resume the upload.")
+            console.print(
+                f"Failed to upload {local_path} to {remote_path} after"
+                f" {MAX_RETRIES} attempts. You may rerun the [green]lep storage"
+                " upload[/] command to resume the upload.if you suspect an issue with"
+                " your internet connection."
+            )
             sys.exit(1)
 
     client.storage.create_file(local_path, remote_path, file_system)
