@@ -249,24 +249,14 @@ def mkdir(path, file_system):
     help="File system name, only for user with dedicated file system",
 )
 @click.option(
-    "--partial",
-    "-p",
-    is_flag=True,
-    default=False,
-    help=(
-        "Enable partial transfers for rsync, keep partially transferred files to resume"
-        " transfer if interrupted."
-    ),
-)
-@click.option(
-    "--auto-resume",
+    "--auto-recover",
     "-ar",
-    is_flag=True,
+    type=int,
     help=(
-        "Enable resume support for interrupted transfers using rsync's --partial"
-        " option."
+        "Enable automatic recovery of interrupted transfers. Specify the maximum"
+        " number of retry attempts. Uses rsync's --partial option to resume transfers."
     ),
-    default=False,
+    default=1,
 )
 def upload(
     local_path,
@@ -275,8 +265,7 @@ def upload(
     recursive,
     progress,
     file_system,
-    partial,
-    auto_resume,
+    auto_recover,
 ):
     """
     Upload a local file to the storage of the current workspace. If remote_path
@@ -296,10 +285,7 @@ def upload(
     if progress and not rsync:
         console.print("Cannot use --progress without --rsync")
         sys.exit(1)
-    if partial and not rsync:
-        console.print("Cannot use --partial without --rsync")
-        sys.exit(1)
-    if auto_resume and not rsync:
+    if auto_recover != 1 and not rsync:
         console.print("Cannot use --auto_resume without --rsync")
 
     if rsync:
@@ -331,19 +317,15 @@ def upload(
             flags += "a"
         if progress:
             flags += " --progress"
-        if partial or auto_resume:
-            flags += " --partial"
-        command = (
-            f"rsync {flags}"
-            f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
-        )
 
-        MAX_RETRIES = 3
-        RETRY_DELAY = 5
-        attempts = MAX_RETRIES if auto_resume else 1
-
+        RETRY_DELAY = 3
+        attempts = auto_recover
         while attempts > 0:
-
+            cur_flags = flags + " --partial" if attempts > 1 else flags
+            command = (
+                f"rsync {cur_flags}"
+                f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
+            )
             console.print(f"Running command: [bold]{command}[/]")
 
             process = subprocess.Popen(
@@ -360,24 +342,24 @@ def upload(
             process.wait()
 
             return_code = process.returncode
-
-            if auto_resume and return_code != 0 and attempts > 0:
-                console.print(
-                    f"[red]Rsync failed[/] with exit code {return_code}. Retrying..."
-                )
+            if return_code != 0 and attempts > 0:
+                console.print(f"[red]Rsync failed[/] with exit code {return_code}.")
                 attempts -= 1
-                time.sleep(RETRY_DELAY)
+                if attempts > 0:
+                    console.print("[green]Retrying... [/]")
+                    time.sleep(RETRY_DELAY)
             else:
                 break
 
-        if auto_resume and attempts == 0:
+        if attempts <= 0:
             console.print(
-                f"Failed to upload {local_path} to {remote_path} after"
-                f" {MAX_RETRIES} attempts. You may rerun the [green]lep storage"
-                " upload[/] command to resume the upload.if you suspect an issue with"
-                " your internet connection."
+                f"[red]Upload of {local_path} to {remote_path} failed after"
+                f" {auto_recover} attempts.[/] You can rerun the [bold]lep storage"
+                " upload -rsync --progress -ar <larger retry time>[/] command to retry"
+                " the upload if there is a potential internet connection issue."
             )
             sys.exit(1)
+        return
 
     client.storage.create_file(local_path, remote_path, file_system)
     console.print(f"Uploaded file [green]{local_path}[/] to [green]{remote_path}[/]")
