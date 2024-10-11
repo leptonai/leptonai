@@ -318,7 +318,6 @@ def upload(
         if progress:
             flags += " --progress"
 
-        RETRY_DELAY = 3
         attempts = auto_recover
         while attempts > 0:
             cur_flags = flags + " --partial" if attempts > 1 else flags
@@ -347,7 +346,7 @@ def upload(
                 attempts -= 1
                 if attempts > 0:
                     console.print("[green]Retrying... [/]")
-                    time.sleep(RETRY_DELAY)
+                    time.sleep(3)
             else:
                 break
 
