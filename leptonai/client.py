@@ -469,6 +469,9 @@ class Client(object):
         if not res.is_error:
             return
 
+        if res.stream:
+            res.read()
+
         try:
             detail = res.json()["error"]
         except Exception:

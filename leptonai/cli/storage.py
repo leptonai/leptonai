@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 import sys
-
+import time
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -276,8 +276,25 @@ def mkdir(path, file_system):
     hidden=True,
     help="Suppress output when called from another command",
 )
+@click.option(
+    "--auto-recover",
+    "-ar",
+    type=int,
+    help=(
+        "Enable automatic recovery of interrupted transfers. Specify the maximum"
+        " number of retry attempts. Uses rsync's --partial option to resume transfers."
+    ),
+    default=1,
+)
 def upload(
-    local_path, remote_path, rsync, recursive, progress, file_system, suppress_output
+    local_path,
+    remote_path,
+    rsync,
+    recursive,
+    progress,
+    file_system,
+    auto_recover,
+    suppress_output,
 ):
     """
     Upload a local file to the storage of the current workspace. If remote_path
@@ -297,6 +314,8 @@ def upload(
     if progress and not rsync:
         console.print("Cannot use --progress without --rsync")
         sys.exit(1)
+    if auto_recover != 1 and not rsync:
+        console.print("Cannot use --auto_recover without --rsync")
 
     if rsync:
         console.print(
@@ -312,33 +331,67 @@ def upload(
 
         workspace_id = client.get_workspace_id()
 
-        pwd = client.token()
-        if len(pwd) > 8:
-            pwd = pwd[:8]
+        pwd = ""
+        for env in lepton_deployment.spec.envs:
+            if env.name == "PASSWORD":
+                pwd = env.value
+                break
+        if pwd == "":
+            console.print("Rsync password not found")
+            sys.exit(1)
+
         env_vars = {"RSYNC_PASSWORD": pwd}
         flags = "-v"
         if recursive:
             flags += "a"
         if progress:
             flags += " --progress"
-        command = (
-            f"rsync {flags}"
-            f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
-        )
-        console.print(f"Running command: [bold]{command}[/]")
 
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env_vars,
-            shell=True,
-            universal_newlines=True,
-        )
+        attempts = auto_recover
+        while attempts > 0:
+            # On the final attempt, or if there's only one attempt,
+            # we don't add --partial to ensure rsync cleans up any .partial files.
+            cur_flags = flags + " --partial" if attempts > 1 else flags
+            command = (
+                f"rsync {cur_flags}"
+                f" {local_path} rsync://{workspace_id}@{ip}:{port}/volume{remote_path}"
+            )
+            console.print(f"Running command: [bold]{command}[/]")
 
-        for line in process.stdout:
-            print(line, end="")
-        process.wait()
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env_vars,
+                shell=True,
+                universal_newlines=True,
+            )
+
+            for line in process.stdout:
+                print(line, end="")
+            process.wait()
+
+            return_code = process.returncode
+
+            # Break the loop if rsync is successful
+            if return_code == 0:
+                break
+
+            # If attempts is 0, the loop will not be re-entered.
+            console.print(f"[red]Rsync failed[/] with exit code {return_code}.")
+            attempts -= 1
+            if attempts > 0:
+                console.print("[green]Retrying... [/]")
+                time.sleep(3)
+
+        if attempts <= 0:
+            console.print(
+                f"[red]Upload of {local_path} to {remote_path} failed after"
+                f" {auto_recover} attempts.[/] You can rerun the [bold]lep storage"
+                " upload -rsync --progress -ar <larger retry time>[/] command to retry"
+                " the upload if there is a potential internet connection issue."
+            )
+            sys.exit(1)
         return
 
     client.storage.create_file(local_path, remote_path, file_system)
