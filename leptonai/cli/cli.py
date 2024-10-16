@@ -20,6 +20,7 @@ from . import secret
 from . import storage
 from . import workspace
 from . import ingress
+from . import tuna
 
 from .util import click_group
 
@@ -62,6 +63,7 @@ workspace.add_command(lep)
 node.add_command(lep)
 
 ingress.add_command(lep)
+tuna.add_command(lep)
 
 
 @lep.command()
