@@ -10,6 +10,7 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from .object_storage import ObjectStorageAPI
+from .tuna import TunaAPI
 
 from .types.workspace import WorkspaceInfo
 
@@ -108,9 +109,12 @@ class APIClient(object):
             )
             or _get_full_workspace_api_url(workspace_id)
         )
+
+
         self.workspace_id: str = workspace_id
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
+        self.tuna_url: str = "https://portal.lepton.ai/api/workspaces/"+ self.workspace_id
 
         # Creates a connection for us to use.
         self._header = {}
@@ -146,7 +150,7 @@ class APIClient(object):
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
         self.object_storage = ObjectStorageAPI(self)
-
+        self.tuna = TunaAPI(self)
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
         Internal utility function to add default values to the kwargs.
@@ -158,10 +162,14 @@ class APIClient(object):
             kwargs["headers"].setdefault(k, v)
         return kwargs
 
-    def _get(self, path: str, *args, **kwargs):
+    def _get(self, path: str, *args, is_tuna=False, **kwargs):
+        if is_tuna:
+            return self._session.get(self.tuna_url + path, *args, **self._safe_add(kwargs))
         return self._session.get(self.url + path, *args, **self._safe_add(kwargs))
 
-    def _post(self, path: str, *args, **kwargs):
+    def _post(self, path: str, *args, is_tuna=False, **kwargs):
+        if is_tuna:
+            return self._session.post(self.tuna_url + path, *args, **self._safe_add(kwargs))
         return self._session.post(self.url + path, *args, **self._safe_add(kwargs))
 
     def _patch(self, path: str, *args, **kwargs):
@@ -170,7 +178,9 @@ class APIClient(object):
     def _put(self, path: str, *args, **kwargs):
         return self._session.put(self.url + path, *args, **self._safe_add(kwargs))
 
-    def _delete(self, path: str, *args, **kwargs):
+    def _delete(self, path: str, *args, is_tuna=False, **kwargs):
+        if is_tuna:
+            return self._session.delete(self.tuna_url + path, *args, **self._safe_add(kwargs))
         return self._session.delete(self.url + path, *args, **self._safe_add(kwargs))
 
     def _head(self, path: str, *args, **kwargs):

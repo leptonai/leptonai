@@ -1069,6 +1069,8 @@ def list_command(ctx, list_view):
     """
 
     if list_view:
+
+
         for idx, (name, tuna_model) in enumerate(_get_models_map().items(), start=1):
             key_infos = _get_model_key_infos(ctx, name)
             if not key_infos:
@@ -1098,6 +1100,12 @@ def list_command(ctx, list_view):
             console.print(f"{indent}[magenta]Train Job Name:[/] ", train_job_name)
             console.print("-" * 50)
         sys.exit(0)
+
+
+    client = APIClient()
+    res = client.tuna.get()
+    print(json.dumps(res.json(), indent=2))
+    return
 
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(0, 1)
