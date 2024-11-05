@@ -1279,7 +1279,7 @@ def update(
     target_gpu_utilization = 0
     no_traffic_timeout = no_traffic_timeout if no_traffic_timeout else 0
     threshold = 0
-    if replicas_static:
+    if replicas_static is not None:
         min_replicas = replicas_static
         max_replicas = replicas_static
 
