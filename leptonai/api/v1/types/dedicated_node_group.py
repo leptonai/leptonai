@@ -1,5 +1,6 @@
+import warnings
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 
 from .common import Metadata
@@ -31,6 +32,9 @@ class Volume(BaseModel):
     from_path: Optional[str] = None
     default_mount_path: Optional[str] = None
 
+    @validator('creation_mode', pre=True)
+    def convert_none_string(cls, value):
+        return None if value == 'none' else value
 
 class AllocationModeType(str, Enum):
     Auto = "auto"
@@ -45,7 +49,13 @@ class NodeGroupOwner(str, Enum):
     Empty = ""
     Customer = "customer"
     Lepton = "lepton"
-
+    Stable = "stable"
+    Unknow = "UNK"
+    @classmethod
+    def _missing_(cls, value):
+        if value:
+            warnings.warn("You might be using an out of date SDK. consider updating.")
+        return cls.Unknown
 
 class NetworkConfigurations(BaseModel):
     external_endpoint_subdomain: Optional[str] = None
@@ -65,7 +75,7 @@ class DedicatedNodeGroupSpec(BaseModel):
     # Inlined LepotnDedicatedNodeGroupUserSpec
     workspaces: Optional[List[str]] = None
     volumes: Optional[List[Volume]] = None
-    allocation_mode: AllocationModeType
+    # allocation_mode: AllocationModeType
     infini_band_enabled: Optional[bool] = None
     scheduling_policy: Optional[SchedulingPolicy] = None
     owner: Optional[NodeGroupOwner] = None
@@ -78,7 +88,7 @@ class DedicatedNodeGroupSpec(BaseModel):
 
 
 class DedicatedNodeGroupStatus(BaseModel):
-    ready_nodes: int
+    ready_nodes: Optional[int] = None
 
 
 class DedicatedNodeGroup(BaseModel):
