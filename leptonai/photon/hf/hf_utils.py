@@ -306,6 +306,8 @@ def create_sentence_transformers_pipeline(task, model, revision):
     kwargs = {}
     if torch.cuda.is_available():
         kwargs["device"] = 0
+    if TRUST_REMOTE_CODE:
+        kwargs["trust_remote_code"] = TRUST_REMOTE_CODE
 
     st_model = SentenceTransformer(model, **kwargs)
     return st_model.encode
