@@ -300,330 +300,40 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
                 )
 
 
-@deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the deployment being created.")
-@click.option(
-    "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
-)
-@click.option(
-    "--photon-id",
-    "-i",
-    type=str,
-    help=(
-        "Specific version id of the photon to run. If not specified, we will run the"
-        " most recent version of the photon."
-    ),
-)
-@click.option("--container-image", type=str, help="Container image to run.")
-@click.option(
-    "--container-port",
-    type=int,
-    help=(
-        "Guest OS port to listen to in the container. If not specified, default to"
-        " 8080."
-    ),
-)
-@click.option(
-    "--container-command",
-    type=str,
-    help=(
-        "Command to run in the container. Your command should listen to the port"
-        " specified by --container-port."
-    ),
-)
-@click.option(
-    "--resource-shape",
-    type=str,
-    help="Resource shape for the deployment. Available types are: '"
-    + "', '".join(VALID_SHAPES)
-    + "'.",
-    default=None,
-)
-@click.option(
-    "--min-replicas",
-    type=int,
-    help="(Will be deprecated soon) Minimum number of replicas.",
-    default=1,
-)
-@click.option(
-    "--max-replicas",
-    type=int,
-    help="(Will be deprecated) Maximum number of replicas.",
-    default=None,
-    callback=autoscale_flag_deprecation_warning,
-)
-@click.option(
-    "--mount",
-    help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--env",
-    "-e",
-    help="Environment variables to pass to the deployment, in the format `NAME=VALUE`.",
-    multiple=True,
-)
-@click.option(
-    "--secret",
-    "-s",
-    help=(
-        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
-        " secret name is also the environment variable name, you can"
-        " omit it and simply pass `SECRET_NAME`."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--public",
-    is_flag=True,
-    help=(
-        "If specified, the photon will be publicly accessible. See docs for details "
-        "on access control."
-    ),
-)
-@click.option(
-    "--tokens",
-    help=(
-        "Additional tokens that can be used to access the photon. See docs for details "
-        "on access control."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--no-traffic-timeout",
-    type=int,
-    help=(
-        "(Will be deprecated soon)"
-        "If specified, the deployment will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Minimum is 60 seconds if set."
-        " Note that actual timeout may be up to 30 seconds longer than the specified"
-        " value."
-    ),
-    callback=_timeout_must_be_larger_than_60,
-)
-@click.option(
-    "--target-gpu-utilization",
-    type=int,
-    help=(
-        "(Will be deprecated soon)"
-        "If min and max replicas are set, if the gpu utilization is higher than the"
-        " target gpu utilization, autoscaler will scale up the replicas. If the gpu"
-        " utilization is lower than the target gpu utilization, autoscaler will scale"
-        " down the replicas. The value should be between 0 and 99."
-    ),
-    default=None,
-    callback=autoscale_flag_deprecation_warning,
-)
-@click.option(
-    "--initial-delay-seconds",
-    type=int,
-    help=(
-        "If specified, the deployment will allow the specified amount of seconds for"
-        " the photon to initialize before it starts the service. Usually you should"
-        " not need this. If you have a deployment that takes a long time to initialize,"
-        " set it to a longer value."
-    ),
-    default=None,
-)
-@click.option(
-    "--include-workspace-token",
-    is_flag=True,
-    help=(
-        "If specified, the workspace token will be included as an environment"
-        " variable. This is used when the photon code uses Lepton SDK capabilities such"
-        " as queue, KV, objectstore etc. Note that you should trust the code in the"
-        " photon, as it will have access to the workspace token."
-    ),
-    default=False,
-)
-@click.option(
-    "--rerun",
-    is_flag=True,
-    help=(
-        "If specified, shutdown the deployment of the same deployment name and"
-        " rerun it. Note that this may cause downtime of the photon if it is for"
-        " production use, so use with caution. In a production environment, you"
-        " should do photon create, push, and `lep deployment update` instead."
-    ),
-    default=False,
-)
-@click.option(
-    "--public-photon",
-    is_flag=True,
-    help=(
-        "If specified, get the photon from the public photon registry. This is only"
-        " supported for remote execution."
-    ),
-    default=False,
-)
-@click.option(
-    "--image-pull-secrets",
-    type=str,
-    help="Secrets to use for pulling images.",
-    multiple=True,
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help=(
-        "Node group for the deployment. If not set, use on-demand resources. You can"
-        " repeat this flag multiple times to choose multiple node groups. Multiple node"
-        " group option is currently not supported but coming soon for enterprise users."
-        " Only the first node group will be set if you input multiple node groups at"
-        " this time."
-    ),
-    type=str,
-    multiple=True,
-)
-@click.option(
-    "--visibility",
-    type=str,
-    help=(
-        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
-        " deployment will only be viewable by the creator and workspace admin."
-    ),
-)
-@click.option(
-    "--replicas-static",
-    "-r",
-    "-replicas",
-    type=int,
-    default=None,
-    help="""
-                Use this option if you want a fixed number of replicas and want to turn off autoscaling.
-                For example, to set a fixed number of replicas to 2, you can use: 
-                --replicas-static 2  or
-                -r 2
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-down",
-    "-ad",
-    type=str,
-    default=None,
-    help="""
-                Use this option if you want to have replicas but scale down after a specified time of no traffic.
-                For example, to set 2 replicas and scale down after 3600 seconds of no traffic,
-                use: --autoscale-down 2,3600s or --autoscale-down 2,3600
-                (Note: Do not include spaces around the comma.)
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-gpu-util",
-    "-agu",
-    type=str,
-    default=None,
-    help="""
-                Use this option to set a threshold for GPU utilization and enable the system to scale between
-                a minimum and maximum number of replicas. For example,
-                to scale between 1 (min_replica) and 3 (max_replica) with a 50% threshold,
-                use: --autoscale-gpu-util 1,3,50% or --autoscale-gpu-util 1,3,50
-                (Note: Do not include spaces around the comma.)
-
-                If the GPU utilization is higher than the target GPU utilization,
-                the autoscaler will scale up the replicas.
-                If the GPU utilization is lower than the target GPU utilization,
-                the autoscaler will scale down the replicas.
-                The threshold value should be between 0 and 99.
-                
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--autoscale-qpm",
-    "-aq",
-    type=str,
-    default=None,
-    help="""
-                Use this option to set a threshold for QPM and enable the system to scale between
-                a minimum and maximum number of replicas. For example,
-                to scale between 1 (min_replica) and 3 (max_replica) with a 2.5 QPM,
-                use: --autoscale-qpm 1,3,2.5
-                (Note: Do not include spaces around the comma.)
-
-                This sets up autoscaling based on queries per minute, 
-                scaling between 1 and 3 replicas when QPM per replica exceeds 2.5.
-            """,
-    callback=validate_autoscale_options,
-)
-@click.option(
-    "--log-collection",
-    "-lg",
-    type=bool,
-    help=(
-        "Enable or disable log collection (true/false). If not provided, the workspace"
-        " setting will be used."
-    ),
-)
-@click.option(
-    "--node-id",
-    "-ni",
-    "node_ids",
-    help=(
-        "Node for the deployment. You can repeat this flag multiple times to choose"
-        " multiple nodes. Please specify the node group when you are using this option"
-    ),
-    type=str,
-    multiple=True,
-)
-def create(
-    name,
-    photon_name,
-    photon_id,
-    container_image,
-    container_port,
-    container_command,
-    resource_shape,
-    min_replicas,
-    max_replicas,
-    mount,
-    env,
-    secret,
-    public,
-    tokens,
-    no_traffic_timeout,
-    target_gpu_utilization,
-    initial_delay_seconds,
-    include_workspace_token,
-    rerun,
-    public_photon,
-    image_pull_secrets,
-    node_groups,
-    visibility,
-    replicas_static,
-    autoscale_down,
-    autoscale_gpu_util,
-    autoscale_qpm,
-    log_collection,
-    node_ids,
+def deployment_spec_create(
+    photon_name=None,
+    photon_id=None,
+    container_image=None,
+    container_port=None,
+    container_command=None,
+    resource_shape=None,
+    min_replicas=None,
+    max_replicas=None,
+    mount=None,
+    env=None,
+    secret=None,
+    public=None,
+    tokens=None,
+    no_traffic_timeout=None,
+    target_gpu_utilization=None,
+    initial_delay_seconds=None,
+    include_workspace_token=None,
+    rerun=None,
+    public_photon=None,
+    image_pull_secrets=None,
+    node_groups=None,
+    replicas_static=None,
+    autoscale_down=None,
+    autoscale_gpu_util=None,
+    autoscale_qpm=None,
+    log_collection=None,
+    node_ids=None,
 ):
     """
     Creates a deployment from either a photon or container image.
     """
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
-
-    existing_deployments = client.deployment.list_all()
-    if name in [d.metadata.name for d in existing_deployments]:
-        if rerun:
-            console.print(
-                f"Deployment [green]{name}[/] already exists. Shutting down the"
-                " existing deployment and rerunning."
-            )
-            client.deployment.delete(name)
-        else:
-            console.print(
-                f"Deployment [green]{name}[/] already exists. Use `lep deployment"
-                f" update -n {name}` to update the deployment, or add `--rerun` to"
-                " shutdown the existing deployment and rerun it."
-            )
-            sys.exit(1)
 
     # First, check whether the input is photon or container. We will prioritize using
     # photon if both are specified.
@@ -639,12 +349,13 @@ def create(
             photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
             if not photon_id:
                 console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
+                    f"Photon [red]{photon_name}[/] does not exist in the workspace. Did"
                     " you forget to push the photon?",
                 )
                 sys.exit(1)
             console.print(
-                f"Running the most recent version of [green]{name}[/]: {photon_id}"
+                f"Running the most recent version of [green]{photon_name}[/]:"
+                f" {photon_id}"
             )
         else:
             console.print(f"Running the specified version: [green]{photon_id}[/]")
@@ -750,6 +461,7 @@ def create(
         )
 
     # include workspace token
+
     secret = list(secret)  # to convert secret from tuple to list
     if include_workspace_token:
         console.print("Including the workspace token for the photon execution.")
@@ -812,12 +524,267 @@ def create(
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
 
+        return spec
+
     except ValueError as e:
         console.print(
             f"Error encountered while processing deployment configs:\n[red]{e}[/]."
         )
         console.print("Failed to launch deployment.")
         sys.exit(1)
+
+
+def deployment_options(func):
+    options = [
+        click.option(
+            "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
+        ),
+        click.option(
+            "--photon-id",
+            "-i",
+            type=str,
+            help="Specific version id of the photon to run.",
+        ),
+        click.option("--container-image", type=str, help="Container image to run."),
+        click.option(
+            "--container-port",
+            type=int,
+            help="Guest OS port to listen to in the container.",
+        ),
+        click.option(
+            "--container-command", type=str, help="Command to run in the container."
+        ),
+        click.option(
+            "--resource-shape",
+            type=str,
+            help="Resource shape for the deployment.",
+            default=None,
+        ),
+        click.option(
+            "--min-replicas",
+            type=int,
+            help="(Will be deprecated soon) Minimum number of replicas.",
+            default=1,
+        ),
+        click.option(
+            "--max-replicas",
+            type=int,
+            help="(Will be deprecated) Maximum number of replicas.",
+            default=None,
+            callback=autoscale_flag_deprecation_warning,
+        ),
+        click.option(
+            "--mount",
+            help="Persistent storage to be mounted to the deployment.",
+            multiple=True,
+        ),
+        click.option(
+            "--env",
+            "-e",
+            help="Environment variables to pass to the deployment.",
+            multiple=True,
+        ),
+        click.option(
+            "--secret", "-s", help="Secrets to pass to the deployment.", multiple=True
+        ),
+        click.option(
+            "--public",
+            is_flag=True,
+            help="If specified, the photon will be publicly accessible.",
+        ),
+        click.option(
+            "--tokens",
+            help="Additional tokens that can be used to access the photon.",
+            multiple=True,
+        ),
+        click.option(
+            "--no-traffic-timeout",
+            type=int,
+            help="Timeout after which the deployment scales down.",
+            callback=_timeout_must_be_larger_than_60,
+        ),
+        click.option(
+            "--target-gpu-utilization",
+            type=int,
+            help="Target GPU utilization for autoscaling.",
+            default=None,
+            callback=autoscale_flag_deprecation_warning,
+        ),
+        click.option(
+            "--initial-delay-seconds",
+            type=int,
+            help="Delay before deployment starts.",
+            default=None,
+        ),
+        click.option(
+            "--include-workspace-token",
+            is_flag=True,
+            help="Include workspace token as environment variable.",
+            default=False,
+        ),
+        click.option(
+            "--rerun",
+            is_flag=True,
+            help="Shutdown and rerun the deployment if it already exists.",
+            default=False,
+        ),
+        click.option(
+            "--public-photon",
+            is_flag=True,
+            help="Get photon from the public photon registry.",
+            default=False,
+        ),
+        click.option(
+            "--image-pull-secrets",
+            type=str,
+            help="Secrets to use for pulling images.",
+            multiple=True,
+        ),
+        click.option(
+            "--node-group",
+            "-ng",
+            "node_groups",
+            type=str,
+            help="Node group for the deployment.",
+            multiple=True,
+        ),
+        click.option(
+            "--visibility",
+            type=str,
+            help="Visibility of the deployment (public/private).",
+        ),
+        click.option(
+            "--replicas-static",
+            "-r",
+            type=int,
+            help="Fixed number of replicas for the deployment.",
+            callback=validate_autoscale_options,
+        ),
+        click.option(
+            "--autoscale-down",
+            "-ad",
+            type=str,
+            help="Scale down replicas after inactivity.",
+            callback=validate_autoscale_options,
+        ),
+        click.option(
+            "--autoscale-gpu-util",
+            "-agu",
+            type=str,
+            help="Autoscale based on GPU utilization.",
+            callback=validate_autoscale_options,
+        ),
+        click.option(
+            "--autoscale-qpm",
+            "-aq",
+            type=str,
+            help="Autoscale based on QPM.",
+            callback=validate_autoscale_options,
+        ),
+        click.option(
+            "--log-collection",
+            "-lg",
+            type=bool,
+            help="Enable or disable log collection.",
+        ),
+        click.option(
+            "--node-id",
+            "-ni",
+            "node_ids",
+            type=str,
+            help="Specify nodes for deployment.",
+            multiple=True,
+        ),
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
+
+@deployment.command()
+@click.option("--name", "-n", type=str, help="Name of the deployment being created.")
+@deployment_options
+def create(
+    name,
+    photon_name,
+    photon_id,
+    container_image,
+    container_port,
+    container_command,
+    resource_shape,
+    min_replicas,
+    max_replicas,
+    mount,
+    env,
+    secret,
+    public,
+    tokens,
+    no_traffic_timeout,
+    target_gpu_utilization,
+    initial_delay_seconds,
+    include_workspace_token,
+    rerun,
+    public_photon,
+    image_pull_secrets,
+    node_groups,
+    visibility,
+    replicas_static,
+    autoscale_down,
+    autoscale_gpu_util,
+    autoscale_qpm,
+    log_collection,
+    node_ids,
+):
+    """
+    Creates a deployment from either a photon or container image.
+    """
+    client = APIClient()
+
+    existing_deployments = client.deployment.list_all()
+    if name in [d.metadata.name for d in existing_deployments]:
+        if rerun:
+            console.print(
+                f"Deployment [green]{name}[/] already exists. Shutting down the"
+                " existing deployment and rerunning."
+            )
+            client.deployment.delete(name)
+        else:
+            console.print(
+                f"Deployment [green]{name}[/] already exists. Use `lep deployment"
+                f" update -n {name}` to update the deployment, or add `--rerun` to"
+                " shutdown the existing deployment and rerun it."
+            )
+            sys.exit(1)
+
+    spec = deployment_spec_create(
+        photon_name=photon_name,
+        photon_id=photon_id,
+        container_image=container_image,
+        container_port=container_port,
+        container_command=container_command,
+        resource_shape=resource_shape,
+        min_replicas=min_replicas,
+        max_replicas=max_replicas,
+        mount=mount,
+        env=env,
+        secret=secret,
+        public=public,
+        tokens=tokens,
+        no_traffic_timeout=no_traffic_timeout,
+        target_gpu_utilization=target_gpu_utilization,
+        initial_delay_seconds=initial_delay_seconds,
+        include_workspace_token=include_workspace_token,
+        rerun=rerun,
+        public_photon=public_photon,
+        image_pull_secrets=image_pull_secrets,
+        node_groups=node_groups,
+        replicas_static=replicas_static,
+        autoscale_down=autoscale_down,
+        autoscale_gpu_util=autoscale_gpu_util,
+        autoscale_qpm=autoscale_qpm,
+        log_collection=log_collection,
+        node_ids=node_ids,
+    )
     name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
         metadata=Metadata(

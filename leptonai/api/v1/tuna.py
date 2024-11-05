@@ -1,24 +1,28 @@
-from typing import Union, List, Iterator, Optional
-
 from .api_resource import APIResourse
-from .types.deployment import LeptonDeployment
 
 from .types.job import LeptonJob
+from .types.tuna import TunaModel
 
 
 class TunaAPI(APIResourse):
-    def train(self, spec: LeptonJob) -> LeptonJob:
+    def train(self, model: TunaModel) -> LeptonJob:
         """
         Run a photon with the given job spec.
         """
-        response = self._post("/fine-tune/models", json=self.safe_json(spec), is_tuna=True)
-        return self.ensure_type(response, LeptonJob)
+        response = self._post(
+            "/fine-tune/models", json=self.safe_json(model), is_tuna=True
+        )
+        return self.ensure_ok(response)
 
-    def run(self, spec: LeptonDeployment):
+    def run(self, id, spec: TunaModel):
         """
         Create a deployment with the given deployment spec.
         """
-        response = self._post("/deployments", json=self.safe_json(spec), is_tuna=True)
+        response = self._post(
+            f"/fine-tune/models/{id}/deployments",
+            json=self.safe_json(spec),
+            is_tuna=True,
+        )
         return self.ensure_ok(response)
 
     def get(self):
@@ -26,8 +30,8 @@ class TunaAPI(APIResourse):
         Create a deployment with the given deployment spec.
         """
         response = self._get("/fine-tune/models", is_tuna=True)
-        return response
+        return self.ensure_list(response, TunaModel)
 
-    def delete(self, model_id: str) -> bool:
-        response = self._delete(f"/fine-tune/models/{model_id}")
+    def delete(self, model_name: str) -> bool:
+        response = self._delete(f"/fine-tune/models/{model_name}", is_tuna=True)
         return self.ensure_ok(response)

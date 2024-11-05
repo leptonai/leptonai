@@ -54,204 +54,32 @@ def make_container_port_from_string(port_str: str):
         raise ValueError(f"Invalid port definition: {port_str}")
 
 
-@job.command(
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    )
-)
-@click.option("--name", "-n", help="Job name", type=str, required=True)
-@click.option(
-    "--file",
-    "-f",
-    help=(
-        "If specified, load the job spec from the file. Any explicitly passed in arg"
-        " will update the spec based on the file."
-    ),
-    type=str,
-)
-# --contianer-image, --container-port (--port), --command defines the container spec.
-@click.option(
-    "--container-image",
-    type=str,
-    help=(
-        "Container image for the job. If not set, default to leptonai.config.BASE_IMAGE"
-    ),
-    default=None,
-)
-@click.option(
-    "--container-port",
-    type=str,
-    help="Ports to expose for the job, in the format portnumber[:protocol].",
-    multiple=True,
-)
-@click.option(
-    "--port",
-    "container_port",
-    type=str,
-    callback=catch_deprecated_flag("port", "container-port"),
-    help="Deprecated flag, use --container-port instead.",
-    multiple=True,
-)
-@click.option(
-    "--command", type=str, help="Command string to run for the job.", default=None
-)
-@click.option(
-    "--resource-shape",
-    type=str,
-    help="Resource shape for the pod. Available types are: '"
-    + "', '".join(VALID_SHAPES)
-    + "'.",
-    default=None,
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
-        " option is currently not supported but coming soon for enterprise users. Only"
-        " the first node group will be set if you input multiple node groups at this"
-        " time."
-    ),
-    type=str,
-    multiple=True,
-)
-@click.option(
-    "--num-workers",
-    "-w",
-    help=(
-        "Number of workers to use for the job. For example, when you do a distributed"
-        " training job of 4 replicas, use --num-workers 4."
-    ),
-    type=int,
-    default=None,
-)
-@click.option(
-    "--max-failure-retry",
-    type=int,
-    help="Maximum number of failures to retry per worker.",
-    default=None,
-)
-@click.option(
-    "--max-job-failure-retry",
-    type=int,
-    help="Maximum number of failures to retry per whole job.",
-    default=None,
-)
-@click.option(
-    "--env",
-    "-e",
-    help="Environment variables to pass to the job, in the format `NAME=VALUE`.",
-    multiple=True,
-)
-@click.option(
-    "--secret",
-    "-s",
-    help=(
-        "Secrets to pass to the job, in the format `NAME=SECRET_NAME`. If"
-        " secret name is also the environment variable name, you can"
-        " omit it and simply pass `SECRET_NAME`."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--mount",
-    help=(
-        "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
-    ),
-    multiple=True,
-)
-@click.option(
-    "--image-pull-secrets",
-    type=str,
-    help="Secrets to use for pulling images.",
-    multiple=True,
-)
-@click.option(
-    "--intra-job-communication",
-    type=bool,
-    help=(
-        "Enable intra-job communication. If --num-workers is set, this is automatically"
-        " enabled."
-    ),
-    default=None,
-)
-@click.option(
-    "--privileged",
-    type=bool,
-    is_flag=True,
-    help="Run the job in privileged mode.",
-    default=None,
-)
-@click.option(
-    "--ttl-seconds-after-finished",
-    type=int,
-    help=(
-        "(advanced feature) limits the lifetime of a job that has finished execution"
-        " (either Completed or Failed). If not set, we will have it default to 72"
-        " hours. Ref:"
-        " https://kubernetes.io/docs/concepts/workloads/controllers/job/#ttl-mechanism-for-finished-jobs"
-    ),
-    default=259200,
-)
-@click.option(
-    "--suppress-output",
-    is_flag=True,
-    hidden=True,
-    help="Suppress output when called from another command",
-)
-@click.option(
-    "--log-collection",
-    "-lg",
-    type=bool,
-    help=(
-        "Enable or disable log collection (true/false). If not provided, the workspace"
-        " setting will be used."
-    ),
-)
-@click.option(
-    "--node-id",
-    "-ni",
-    "node_ids",
-    help=(
-        "Node for the job. You can repeat this flag multiple times to choose multiple"
-        " nodes. Please specify the node group when you are using this option"
-    ),
-    type=str,
-    multiple=True,
-)
-def create(
-    name,
-    file,
-    container_image,
-    container_port,
-    command,
-    resource_shape,
-    node_groups,
-    num_workers,
-    max_failure_retry,
-    max_job_failure_retry,
-    env,
-    secret,
-    mount,
-    image_pull_secrets,
-    intra_job_communication,
-    privileged,
-    ttl_seconds_after_finished,
-    suppress_output,
-    log_collection,
-    node_ids,
+def job_spec_create(
+    file=None,
+    container_image=None,
+    container_port=None,
+    command=None,
+    resource_shape=None,
+    node_groups=None,
+    num_workers=None,
+    max_failure_retry=None,
+    max_job_failure_retry=None,
+    env=None,
+    secret=None,
+    mount=None,
+    image_pull_secrets=None,
+    intra_job_communication=None,
+    privileged=None,
+    ttl_seconds_after_finished=None,
+    log_collection=None,
+    node_ids=None,
+    is_tuna=None,
 ):
     """
     Creates a job.
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
-
-    client = APIClient()
     if file:
         try:
             with open(file, "r") as f:
@@ -286,13 +114,14 @@ def create(
         job_spec.max_failure_retry = max_failure_retry
     if max_job_failure_retry:
         job_spec.max_job_failure_retry = max_job_failure_retry
-    if command:
-        # For CLI passed in command, we will prepend it with /bin/bash -c
-        command = ["/bin/bash", "-c", command]
-        job_spec.container.command = command
-    elif not job_spec.container.command:
-        console.print("You did not specify a command to run the job.")
-        sys.exit(1)
+    if not is_tuna:
+        if command:
+            # For CLI passed in command, we will prepend it with /bin/bash -c
+            command = ["/bin/bash", "-c", command]
+            job_spec.container.command = command
+        elif not job_spec.container.command:
+            console.print("You did not specify a command to run the job.")
+            sys.exit(1)
     if container_image:
         job_spec.container.image = container_image
     elif not job_spec.container.image:
@@ -320,6 +149,218 @@ def create(
             f"Available types are:\n      {available_types}. \n"
         )
         sys.exit(1)
+    return job_spec
+
+
+def job_options(func):
+    options = [
+        click.option(
+            "--file",
+            "-f",
+            help=(
+                "If specified, load the job spec from the file. Any explicitly passed"
+                " in arg will update the spec based on the file."
+            ),
+            type=str,
+        ),
+        click.option(
+            "--container-image",
+            type=str,
+            help=(
+                "Container image for the job. If not set, default to"
+                " leptonai.config.BASE_IMAGE"
+            ),
+            default=None,
+        ),
+        click.option(
+            "--container-port",
+            type=str,
+            help="Ports to expose for the job, in the format portnumber[:protocol].",
+            multiple=True,
+        ),
+        click.option(
+            "--port",
+            "container_port",
+            type=str,
+            callback=catch_deprecated_flag("port", "container-port"),
+            help="Deprecated flag, use --container-port instead.",
+            multiple=True,
+        ),
+        click.option(
+            "--command",
+            type=str,
+            help="Command string to run for the job.",
+            default=None,
+        ),
+        click.option(
+            "--resource-shape",
+            type=str,
+            help=(
+                "Resource shape for the pod. Available types are: 'SHAPE_A', 'SHAPE_B'."
+            ),
+            default=None,
+        ),
+        click.option(
+            "--node-group",
+            "-ng",
+            "node_groups",
+            help=(
+                "Node group for the job. If not set, use on-demand resources. You can"
+                " repeat this flag multiple times to choose multiple node groups."
+                " Multiple node group option is currently not supported but coming soon"
+                " for enterprise users. Only the first node group will be set if you"
+                " input multiple node groups at this time."
+            ),
+            type=str,
+            multiple=True,
+        ),
+        click.option(
+            "--num-workers",
+            "-w",
+            help="Number of workers to use for the job.",
+            type=int,
+            default=None,
+        ),
+        click.option(
+            "--max-failure-retry",
+            type=int,
+            help="Maximum number of failures to retry per worker.",
+            default=None,
+        ),
+        click.option(
+            "--max-job-failure-retry",
+            type=int,
+            help="Maximum number of failures to retry per whole job.",
+            default=None,
+        ),
+        click.option(
+            "--env",
+            "-e",
+            help=(
+                "Environment variables to pass to the job, in the format `NAME=VALUE`."
+            ),
+            multiple=True,
+        ),
+        click.option(
+            "--secret",
+            "-s",
+            help="Secrets to pass to the job, in the format `NAME=SECRET_NAME`.",
+            multiple=True,
+        ),
+        click.option(
+            "--mount",
+            help=(
+                "Persistent storage to be mounted to the job, in the format"
+                " `STORAGE_PATH:MOUNT_PATH`."
+            ),
+            multiple=True,
+        ),
+        click.option(
+            "--image-pull-secrets",
+            type=str,
+            help="Secrets to use for pulling images.",
+            multiple=True,
+        ),
+        click.option(
+            "--intra-job-communication",
+            type=bool,
+            help=(
+                "Enable intra-job communication. If --num-workers is set, this is"
+                " automatically enabled."
+            ),
+            default=None,
+        ),
+        click.option(
+            "--privileged",
+            type=bool,
+            is_flag=True,
+            help="Run the job in privileged mode.",
+            default=None,
+        ),
+        click.option(
+            "--ttl-seconds-after-finished",
+            type=int,
+            help=(
+                "(advanced feature) limits the lifetime of a job that has finished"
+                " execution."
+            ),
+            default=259200,
+        ),
+        click.option(
+            "--log-collection",
+            "-lg",
+            type=bool,
+            help="Enable or disable log collection (true/false).",
+        ),
+        click.option(
+            "--node-id",
+            "-ni",
+            "node_ids",
+            help="Node for the job. Multiple nodes can be specified.",
+            type=str,
+            multiple=True,
+        ),
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
+
+@job.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
+@click.option("--name", "-n", help="Job name", type=str, required=True)
+@job_options
+def create(
+    name,
+    file,
+    container_image,
+    container_port,
+    command,
+    resource_shape,
+    node_groups,
+    num_workers,
+    max_failure_retry,
+    max_job_failure_retry,
+    env,
+    secret,
+    mount,
+    image_pull_secrets,
+    intra_job_communication,
+    privileged,
+    ttl_seconds_after_finished,
+    log_collection,
+    node_ids,
+):
+    """
+    Creates a job.
+
+    For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
+    """
+    client = APIClient()
+    job_spec = job_spec_create(
+        file,
+        container_image,
+        container_port,
+        command,
+        resource_shape,
+        node_groups,
+        num_workers,
+        max_failure_retry,
+        max_job_failure_retry,
+        env,
+        secret,
+        mount,
+        image_pull_secrets,
+        intra_job_communication,
+        privileged,
+        ttl_seconds_after_finished,
+        log_collection,
+        node_ids,
+    )
 
     job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
@@ -327,8 +368,8 @@ def create(
 
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
-    if not suppress_output:
-        console.print(f"Job [green]{name}[/] created successfully.")
+
+    console.print(f"Job [green]{name}[/] created successfully.")
     console.print(f"Job [green]{name}  : id: {new_job_id}[/] created successfully.")
 
 

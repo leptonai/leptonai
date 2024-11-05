@@ -56,6 +56,7 @@ class APIResourse(object):
         self._patch = _client._patch
         self._delete = _client._delete
         self._head = _client._head
+
     # A type variable to represent a subclass of BaseModel
     T = TypeVar("T", bound=BaseModel)
 
