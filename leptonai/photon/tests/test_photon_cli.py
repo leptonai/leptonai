@@ -142,7 +142,8 @@ class TestPhotonCli(unittest.TestCase):
         (sentence_similarity_model,),
         (text2text_generation_model,),
         (sentiment_analysis_model,),
-        (depth_estimation_model,),
+        # FIXME: Skipping for now due to model incompatibility with transformers 4.4.61.
+        # (depth_estimation_model,),
         (microsoft_phi_model,),
         (image_to_text_model,),
         (feature_extraction_model,),
@@ -157,7 +158,7 @@ class TestPhotonCli(unittest.TestCase):
 
         name = random_name()
         proc, port = photon_run_local_server(name=name, model=model)
-
+        logger.info(f"testing model{model}")
         # test example data
         openapi = requests.get(f"http://127.0.0.1:{port}/openapi.json").json()
         for path, endpoint in openapi["paths"].items():
