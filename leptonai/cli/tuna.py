@@ -555,6 +555,11 @@ def clear_failed_models(ctx):
     required=True,
 )
 @click.option(
+    "--deployment-name",
+    "-dn",
+    help="deployment name, also known as the model folder name",
+)
+@click.option(
     "--hf-transfer",
     is_flag=True,
     default=True,
@@ -591,6 +596,7 @@ def clear_failed_models(ctx):
 def run(
     ctx,
     name,
+    deployment_name,
     hf_transfer,
     tuna_step,
     use_int,
@@ -671,8 +677,19 @@ def run(
             "Please use [green]'lep tuna list'[/] for more information."
         )
         sys.exit(1)
+
     secret = list(secret)
     client = APIClient()
+
+    tuna_model = _get_model(name)
+    deployment_name = deployment_name if deployment_name is not None else name
+    if deployment_name in tuna_model.status.deployments:
+        console.print(
+            f"[red]Error:[/] A deployment with the name '{deployment_name}' already"
+            " exists. Please specify a new name using -dn or --deployment-name."
+        )
+        sys.exit(1)
+
     secrets = client.secret.list_all()
 
     has_secret = False
@@ -746,16 +763,15 @@ def run(
     deployment_spec.health = None
     deployment_spec.mounts = None
 
-    tuna_model = TunaModel(
-        metadata=Metadata(name=name),
+    model_dep = TunaModel(
+        metadata=Metadata(name=deployment_name),
         spec=TunaModelSpec(deployment_spec=deployment_spec),
     )
 
-    logger.trace(json.dumps(tuna_model.model_dump(), indent=2))
+    logger.trace(json.dumps(model_dep.model_dump(), indent=2))
 
-    model = _get_model(name)
-
-    client.tuna.run(model.metadata.id_, tuna_model)
+    client.tuna.run(tuna_model.metadata.id_, model_dep)
+    console.print(f"Deployment {deployment_name} is running for Model {name}")
 
 
 def _get_colored_status(tuna_model):

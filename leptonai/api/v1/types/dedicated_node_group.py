@@ -32,9 +32,10 @@ class Volume(BaseModel):
     from_path: Optional[str] = None
     default_mount_path: Optional[str] = None
 
-    @validator('creation_mode', pre=True)
+    @validator("creation_mode", pre=True)
     def convert_none_string(cls, value):
-        return None if value == 'none' else value
+        return None if value == "none" else value
+
 
 class AllocationModeType(str, Enum):
     Auto = "auto"
@@ -51,11 +52,13 @@ class NodeGroupOwner(str, Enum):
     Lepton = "lepton"
     Stable = "stable"
     Unknow = "UNK"
+
     @classmethod
     def _missing_(cls, value):
         if value:
             warnings.warn("You might be using an out of date SDK. consider updating.")
         return cls.Unknown
+
 
 class NetworkConfigurations(BaseModel):
     external_endpoint_subdomain: Optional[str] = None
