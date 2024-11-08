@@ -750,7 +750,7 @@ def run(
         node_ids=node_ids,
     )
 
-    # logger.trace(json.dumps(deployment_spec.model_dump(), indent=2))
+    logger.trace(json.dumps(deployment_spec.model_dump(), indent=2))
 
     deployment_spec.envs = [
         env

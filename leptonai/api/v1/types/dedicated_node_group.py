@@ -51,7 +51,7 @@ class NodeGroupOwner(str, Enum):
     Customer = "customer"
     Lepton = "lepton"
     Stable = "stable"
-    Unknow = "UNK"
+    Unknown = "UNK"
 
     @classmethod
     def _missing_(cls, value):
