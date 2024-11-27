@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml",
     "huggingface_hub",
     "ledoc-ui",
+    "numpy"
 ]
 
 [project.urls]
