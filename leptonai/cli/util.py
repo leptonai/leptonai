@@ -162,7 +162,10 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
         if not need_queue_priority or current_ng.status.quota_enabled is True:
             node_group_ids.append(current_ng.metadata.id_)
         else:
-            console.print(f"[red]Warning[/red]: Node group '{ng}' does not support queue_priority.")
+            console.print(
+                f"[red]Warning[/red]: Node group '{ng}' does not support"
+                " queue_priority."
+            )
 
     return node_group_ids
 

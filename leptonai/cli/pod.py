@@ -183,7 +183,9 @@ def create(
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
         # make sure affinity is initialized
         resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,

@@ -5,6 +5,7 @@ from typing import Optional, List
 from .common import Metadata
 import warnings
 
+
 class VolumeFrom(str, Enum):
     Local = "local"
     Remote = "remote"
@@ -21,6 +22,7 @@ class VolumeCreationMode(str, Enum):
     Mkdir = "mkdir"
     Unknown = "UNK"
     NoneValue = "none"
+
     @classmethod
     def _missing_(cls, value):
         warnings.warn("You might be using an out of date SDK. consider updating.")
@@ -59,8 +61,6 @@ class NodeGroupOwner(str, Enum):
     Lepton = "lepton"
 
 
-
-
 class NetworkConfigurations(BaseModel):
     external_endpoint_subdomain: Optional[str] = None
     public_net_interfaces: Optional[List[str]] = None
@@ -79,7 +79,7 @@ class DedicatedNodeGroupSpec(BaseModel):
     # Inlined LepotnDedicatedNodeGroupUserSpec
     workspaces: Optional[List[str]] = None
     volumes: Optional[List[Volume]] = None
-    allocation_mode: Optional[AllocationModeType]=None
+    allocation_mode: Optional[AllocationModeType] = None
     infini_band_enabled: Optional[bool] = None
     scheduling_policy: Optional[SchedulingPolicy] = None
     owner: Optional[str] = None
@@ -94,7 +94,6 @@ class DedicatedNodeGroupSpec(BaseModel):
 class DedicatedNodeGroupStatus(BaseModel):
     ready_nodes: Optional[int] = None
     quota_enabled: Optional[bool] = None
-
 
 
 class DedicatedNodeGroup(BaseModel):

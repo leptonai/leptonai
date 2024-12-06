@@ -46,7 +46,7 @@ def _validate_queue_priority(ctx, param, value):
         "high": 8,
         "high-7": 7,
         "high-8": 8,
-        "high-9": 9
+        "high-9": 9,
     }
 
     # Check if the value is a recognized keyword
@@ -69,6 +69,7 @@ def _validate_queue_priority(ctx, param, value):
     raise click.BadParameter(
         f"Invalid priority. Use 1-9, or one of the following options: {valid_options}."
     )
+
 
 @click_group()
 def job():
@@ -261,18 +262,11 @@ def make_container_port_from_string(port_str: str):
     "queue_priority",
     callback=_validate_queue_priority,
     help=(
-            "Set the priority for this job (feature available only for dedicated node groups).\n"
-            "Could be one of low-1, low-2, low-3, medium-4, medium-5, medium-6, high-7, high-8, high-9,"
-            "Options: 1-9 or keywords: l / low (will be 2), m / medium (will be 5), h / high (will be 8).\n"
-            "Examples: "
-            "-qp 1, "
-            "-qp 9, "
-            "-qp low, "
-            "-qp medium, "
-            "-qp high, "
-            "-qp l, "
-            "-qp m, "
-            "-qp h"
+        "Set the priority for this job (feature available only for dedicated node"
+        " groups).\nCould be one of low-1, low-2, low-3, medium-4, medium-5, medium-6,"
+        " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 2), m /"
+        " medium (will be 5), h / high (will be 8).\nExamples: -qp 1, -qp 9, -qp low,"
+        " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
 def create(
@@ -317,12 +311,18 @@ def create(
     if node_groups or queue_priority:
         # queue_priority only available for dedicated node_groups
         if queue_priority and not node_groups:
-            console.print(f"[red]Queue priority is only available for dedicated node groups [/red]"
-                          f"\n[green]please use --queue-priority with --node-group[/green]")
+            console.print(
+                f"[red]Queue priority is only available for dedicated node groups"
+                f" [/red]\n[green]please use --queue-priority with --node-group[/green]"
+            )
             sys.exit(1)
-        node_group_ids = _get_valid_nodegroup_ids(node_groups, need_queue_priority=(queue_priority is not None))
+        node_group_ids = _get_valid_nodegroup_ids(
+            node_groups, need_queue_priority=(queue_priority is not None)
+        )
         # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
@@ -382,7 +382,10 @@ def create(
     logger.trace(json.dumps(job.model_dump(), indent=2))
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
-    console.print(f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID: [cyan]{new_job_id}[/]")
+    console.print(
+        f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
+        f" [cyan]{new_job_id}[/]"
+    )
 
 
 @job.command(name="list")
