@@ -171,7 +171,12 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
 
 
 def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
-    if not node_group_ids or len(node_group_ids) == 0 or not node_ids or len(node_ids) == 0:
+    if (
+        not node_group_ids
+        or len(node_group_ids) == 0
+        or not node_ids
+        or len(node_ids) == 0
+    ):
         return None
     node_ids_set = set(node_ids)
     client = APIClient()

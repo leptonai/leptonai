@@ -312,8 +312,8 @@ def create(
         # queue_priority only available for dedicated node_groups
         if queue_priority and not node_groups:
             console.print(
-                f"[red]Queue priority is only available for dedicated node groups"
-                f" [/red]\n[green]please use --queue-priority with --node-group[/green]"
+                "[red]Queue priority is only available for dedicated node groups"
+                "[/red]\n[green]please use --queue-priority with --node-group[/green]"
             )
             sys.exit(1)
         node_group_ids = _get_valid_nodegroup_ids(
