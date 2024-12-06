@@ -322,7 +322,7 @@ def create(
             sys.exit(1)
         node_group_ids = _get_valid_nodegroup_ids(node_groups, need_queue_priority=(queue_priority is not None))
         # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
+        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
@@ -382,7 +382,7 @@ def create(
     logger.trace(json.dumps(job.model_dump(), indent=2))
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
-    console.print(f"Job [green]{name}  : id: {new_job_id}[/] created successfully.")
+    console.print(f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID: [cyan]{new_job_id}[/]")
 
 
 @job.command(name="list")

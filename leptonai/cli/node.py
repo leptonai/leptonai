@@ -36,7 +36,7 @@ def list_command(detail=False):
     for node_group in node_groups:
         node_group_name = node_group.metadata.name
         node_group_id = node_group.metadata.id_
-        ready_nodes = str(node_group.status.ready_nodes)
+        ready_nodes = str(node_group.status.ready_nodes or 0)
         if detail:
             nodes = client.nodegroup.list_nodes(node_group)
             nodes_name = ""

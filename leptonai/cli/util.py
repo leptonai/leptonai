@@ -146,15 +146,8 @@ def _get_only_replica_public_ip(name: str):
 def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
     client = APIClient()
     valid_ng = client.nodegroup.list_all()
-    if need_queue_priority:
-        temp_valid_ng = []
-        for ng in valid_ng:
-            if ng.status.quota_enabled is True:
-                temp_valid_ng.append(ng)
-            else:
-                console.print(f"[red]Warning[/red]: Node group '{ng}' does not support queue_priority.")
-        valid_ng = temp_valid_ng
-    valid_ng_map: Dict[str, str] = {ng.metadata.name: ng.metadata.id_ for ng in valid_ng}  # type: ignore
+
+    valid_ng_map: Dict[str, str] = {ng.metadata.name: ng for ng in valid_ng}
     node_group_ids = []
     for ng in node_groups:
         if ng not in valid_ng_map:
@@ -163,13 +156,19 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
                 f" {', '.join(valid_ng_map.keys())})"
             )
             sys.exit(1)
-        node_group_ids.append(valid_ng_map[ng])
+
+        current_ng = valid_ng_map[ng]
+
+        if not need_queue_priority or current_ng.status.quota_enabled is True:
+            node_group_ids.append(current_ng.metadata.id_)
+        else:
+            console.print(f"[red]Warning[/red]: Node group '{ng}' does not support queue_priority.")
 
     return node_group_ids
 
 
 def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
-    if not node_group_ids or len(node_group_ids) == 0:
+    if not node_ids or len(node_ids) == 0:
         return None
     node_ids_set = set(node_ids)
     client = APIClient()
