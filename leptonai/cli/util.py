@@ -143,9 +143,17 @@ def _get_only_replica_public_ip(name: str):
     return replicas[0].status.public_ip
 
 
-def _get_valid_nodegroup_ids(node_groups: [str]):
+def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
     client = APIClient()
     valid_ng = client.nodegroup.list_all()
+    if need_queue_priority:
+        temp_valid_ng = []
+        for ng in valid_ng:
+            if ng.status.quota_enabled is True:
+                temp_valid_ng.append(ng)
+            else:
+                console.print(f"[red]Warning[/red]: Node group '{ng}' does not support queue_priority.")
+        valid_ng = temp_valid_ng
     valid_ng_map: Dict[str, str] = {ng.metadata.name: ng.metadata.id_ for ng in valid_ng}  # type: ignore
     node_group_ids = []
     for ng in node_groups:

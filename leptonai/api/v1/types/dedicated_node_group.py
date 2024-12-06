@@ -79,6 +79,8 @@ class DedicatedNodeGroupSpec(BaseModel):
 
 class DedicatedNodeGroupStatus(BaseModel):
     ready_nodes: int
+    quota_enabled: Optional[bool] = None
+
 
 
 class DedicatedNodeGroup(BaseModel):

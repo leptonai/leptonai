@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
-from .deployment import LeptonContainer, LeptonMetrics, EnvVar, Mount, LeptonLog
+from .deployment import LeptonContainer, LeptonMetrics, EnvVar, Mount, LeptonLog, QueueConfig
 
 
 class LeptonJobUserSpec(BaseModel):
@@ -28,10 +28,10 @@ class LeptonJobUserSpec(BaseModel):
     privileged: Optional[bool] = None
     metrics: Optional[LeptonMetrics] = None
     log: Optional[LeptonLog] = None
+    queue_config: Optional[QueueConfig] = None
 
 
 DefaultTTLSecondsAfterFinished: int = 600
-
 
 class LeptonJobState(str, Enum):
     Starting = "Starting"
