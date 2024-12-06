@@ -3,6 +3,10 @@ import os
 import sys
 import tempfile
 import time
+from loguru import logger
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Set cache dir to a temp dir before importing anything from leptonai
 tmpdir = tempfile.mkdtemp()
@@ -202,6 +206,9 @@ class TestClient(unittest.TestCase):
                 200, json={"paths": {"/run": {"post": {}}}}
             )
             respx.get(f"{url}/healthz").respond(200, json={})
+
+            logpr = f"{url}/healthz"
+            logger.info(f"<<<<<<<<<<<<<<<<<<<{repr(logpr)}")
             respx.post(f"{url}/run").mock(side_effect=check_token)
 
             client = Client(url)
