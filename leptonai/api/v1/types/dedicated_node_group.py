@@ -3,16 +3,30 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from .common import Metadata
+import warnings
 
 
 class VolumeFrom(str, Enum):
     Local = "local"
     Remote = "remote"
+    Unknown = "UNK"
+
+    @classmethod
+    def _missing_(cls, value):
+        warnings.warn("You might be using an out of date SDK. consider updating.")
+        return cls.Unknown
 
 
 class VolumeCreationMode(str, Enum):
     Mount = "mount"
     Mkdir = "mkdir"
+    Unknown = "UNK"
+    NoneValue = "none"
+
+    @classmethod
+    def _missing_(cls, value):
+        warnings.warn("You might be using an out of date SDK. consider updating.")
+        return cls.Unknown
 
 
 class MountOptions(BaseModel):
@@ -65,10 +79,10 @@ class DedicatedNodeGroupSpec(BaseModel):
     # Inlined LepotnDedicatedNodeGroupUserSpec
     workspaces: Optional[List[str]] = None
     volumes: Optional[List[Volume]] = None
-    allocation_mode: AllocationModeType
+    allocation_mode: Optional[AllocationModeType] = None
     infini_band_enabled: Optional[bool] = None
     scheduling_policy: Optional[SchedulingPolicy] = None
-    owner: Optional[NodeGroupOwner] = None
+    owner: Optional[str] = None
     networking: Optional[NetworkConfigurations] = None
     alert_notification_config: Optional[AlertNotificationConfig] = None
 
@@ -78,7 +92,8 @@ class DedicatedNodeGroupSpec(BaseModel):
 
 
 class DedicatedNodeGroupStatus(BaseModel):
-    ready_nodes: int
+    ready_nodes: Optional[int] = None
+    quota_enabled: Optional[bool] = None
 
 
 class DedicatedNodeGroup(BaseModel):

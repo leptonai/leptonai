@@ -224,6 +224,10 @@ class LeptonRoutingPolicy(BaseModel):
     enable_header_based_replica_routing: Optional[bool] = None
 
 
+class QueueConfig(BaseModel):
+    priority_class: Optional[str] = None
+
+
 class LeptonDeploymentUserSpec(BaseModel):
     photon_namespace: Optional[str] = None
     photon_id: Optional[str] = None
@@ -241,6 +245,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     metrics: Optional[LeptonMetrics] = None
     routing_policy: Optional[LeptonRoutingPolicy] = None
     log: Optional[LeptonLog] = None
+    queue_config: Optional[QueueConfig] = None
 
 
 class LeptonDeploymentState(str, Enum):
