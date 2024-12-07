@@ -12,7 +12,7 @@ dependencies = [
     "contextlib2", # backports async support in nullcontext
     "exceptiongroup",
     "fastapi",
-    "httpx[http2]",
+    "httpx[http2]==0.28.0",
     "prometheus-fastapi-instrumentator",
     "rich",
     "typing-extensions",
