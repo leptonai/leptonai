@@ -104,7 +104,9 @@ class TestClient(unittest.TestCase):
     def test_client(self):
         # launch server
         name = random_name()
-        proc, port = photon_run_local_server(name=name, model=self.tiny_hf_model, device=-1)
+        proc, port = photon_run_local_server(
+            name=name, model=self.tiny_hf_model, device=-1
+        )
         url = f"http://localhost:{port}"
 
         client = Client(url)
