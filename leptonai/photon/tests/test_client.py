@@ -104,7 +104,7 @@ class TestClient(unittest.TestCase):
     def test_client(self):
         # launch server
         name = random_name()
-        proc, port = photon_run_local_server(name=name, model=self.tiny_hf_model)
+        proc, port = photon_run_local_server(name=name, model=self.tiny_hf_model, device=-1)
         url = f"http://localhost:{port}"
 
         client = Client(url)
@@ -202,6 +202,7 @@ class TestClient(unittest.TestCase):
                 200, json={"paths": {"/run": {"post": {}}}}
             )
             respx.get(f"{url}/healthz").respond(200, json={})
+            respx.get(path__regex=r"/healthz/?$").respond(200, json={})
             respx.post(f"{url}/run").mock(side_effect=check_token)
 
             client = Client(url)
