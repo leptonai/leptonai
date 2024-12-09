@@ -743,7 +743,9 @@ def create(
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
         # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
         spec.resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
@@ -830,8 +832,9 @@ def create(
     logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
     client.deployment.create(lepton_deployment)
     console.print(
-        f"Deployment created as [green]{name}[/]. Use `lep deployment"
-        f" status -n {name}` to check the status."
+        "🎉 [green]Deployment Created Successfully![/]\n"
+        f"Name: [blue]{name}[/]\n"
+        f"Use `lep deployment status -n {name}` to check the status."
     )
 
 
