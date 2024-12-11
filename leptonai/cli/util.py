@@ -167,6 +167,10 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
                 " queue_priority."
             )
 
+    if len(node_group_ids) == 0:
+        console.print("[red]Warning[/red]: No valid node groups found.")
+        sys.exit(1)
+
     return node_group_ids
 
 
