@@ -23,8 +23,63 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonResourceAffinity,
 )
-from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog
+from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
+
+
+def _validate_queue_priority(ctx, param, value):
+    if value is None:
+        return value
+
+    priority_mapping = {
+        "l": "low-2000",
+        "low": "low-2000",
+        "low-1": "low-1000",
+        "low-2": "low-2000",
+        "low-3": "low-3000",
+        "m": "mid-5000",
+        "medium": "mid-5000",
+        "medium-4": "mid-4000",
+        "medium-5": "mid-5000",
+        "medium-6": "mid-6000",
+        "h": "high-8000",
+        "high": "high-8000",
+        "high-7": "high-7000",
+        "high-8": "high-8000",
+        "high-9": "high-9000",
+    }
+    num_priority_mapping = {
+        1: "low-1000",
+        2: "low-2000",
+        3: "low-3000",
+        4: "mid-4000",
+        5: "mid-5000",
+        6: "mid-6000",
+        7: "high-7000",
+        8: "high-8000",
+        9: "high-9000",
+    }
+
+    # Check if the value is a recognized keyword
+    if isinstance(value, str):
+        value_lower = value.lower()
+        if value_lower in priority_mapping:
+            return priority_mapping[value_lower]
+
+    # Check if the value is a valid integer within the range
+    try:
+        priority = int(value)
+        if 1 <= priority <= 9:
+            return num_priority_mapping[priority]
+    except ValueError:
+        pass
+
+    # Raise an error for invalid input
+    sorted_options = sorted(priority_mapping.items(), key=lambda x: x[1])
+    valid_options = "".join(f"\n  {k:<10} -> Priority: {v}" for k, v in sorted_options)
+    raise click.BadParameter(
+        f"Invalid priority. Use 1-9, or one of the following options: {valid_options}."
+    )
 
 
 @click_group()
@@ -212,6 +267,19 @@ def make_container_port_from_string(port_str: str):
     type=str,
     multiple=True,
 )
+@click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    help=(
+        "Set the priority for this job (feature available only for dedicated node"
+        " groups).\nCould be one of low-1, low-2, low-3, medium-4, medium-5, medium-6,"
+        " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 2), m /"
+        " medium (will be 5), h / high (will be 8).\nExamples: -qp 1, -qp 9, -qp low,"
+        " -qp medium, -qp high, -qp l, -qp m, -qp h"
+    ),
+)
 def create(
     name,
     file,
@@ -232,13 +300,13 @@ def create(
     ttl_seconds_after_finished,
     log_collection,
     node_ids,
+    queue_priority,
 ):
     """
     Creates a job.
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
-
     client = APIClient()
     if file:
         try:
@@ -251,16 +319,30 @@ def create(
     else:
         job_spec = LeptonJobUserSpec()
     # Update the spec based on the passed in args
-    if node_groups:
-        node_group_ids = _get_valid_nodegroup_ids(node_groups)
+    if node_groups or queue_priority:
+        # queue_priority only available for dedicated node_groups
+        if queue_priority and not node_groups:
+            console.print(
+                "[red]Queue priority is only available for dedicated node groups"
+                "[/red]\n[green]please use --queue-priority with --node-group[/green]"
+            )
+            sys.exit(1)
+        node_group_ids = _get_valid_nodegroup_ids(
+            node_groups, need_queue_priority=(queue_priority is not None)
+        )
         # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids)
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
         # make sure affinity is initialized
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+        if queue_priority:
+            job_spec.queue_config = QueueConfig(priority_class=queue_priority)
+
     if resource_shape:
         job_spec.resource_shape = resource_shape
     if num_workers:
@@ -314,7 +396,10 @@ def create(
     logger.trace(json.dumps(job.model_dump(), indent=2))
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
-    console.print(f"Job [green]{name}  : id: {new_job_id}[/] created successfully.")
+    console.print(
+        f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
+        f" [cyan]{new_job_id}[/]"
+    )
 
 
 @job.command(name="list")
