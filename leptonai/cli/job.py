@@ -23,7 +23,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonResourceAffinity,
 )
-from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog
+from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
 
 
@@ -32,21 +32,21 @@ def _validate_queue_priority(ctx, param, value):
         return value
 
     priority_mapping = {
-        "l": 2,
-        "low": 2,
-        "low-1": 1,
-        "low-2": 2,
-        "low-3": 3,
-        "m": 5,
-        "medium": 5,
-        "medium-4": 4,
-        "medium-5": 5,
-        "medium-6": 6,
-        "h": 8,
-        "high": 8,
-        "high-7": 7,
-        "high-8": 8,
-        "high-9": 9,
+        "l": "low-2000",
+        "low": "low-2000",
+        "low-1": "low-1000",
+        "low-2": "low-2000",
+        "low-3": "low-3000",
+        "m": "mid-5000",
+        "medium": "mid-5000",
+        "medium-4": "mid-4000",
+        "medium-5": "mid-5000",
+        "medium-6": "mid-6000",
+        "h": "high-8000",
+        "high": "high-8000",
+        "high-7": "high-7000",
+        "high-8": "high-8000",
+        "high-9": "high-9000",
     }
 
     # Check if the value is a recognized keyword
@@ -329,6 +329,9 @@ def create(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+        if queue_priority:
+            job_spec.queue_config = QueueConfig(priority_class=queue_priority)
+
     if resource_shape:
         job_spec.resource_shape = resource_shape
     if num_workers:
