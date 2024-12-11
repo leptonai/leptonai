@@ -48,6 +48,17 @@ def _validate_queue_priority(ctx, param, value):
         "high-8": "high-8000",
         "high-9": "high-9000",
     }
+    num_priority_mapping = {
+        1: "low-1000",
+        2: "low-2000",
+        3: "low-3000",
+        4: "mid-4000",
+        5: "mid-5000",
+        6: "mid-6000",
+        7: "high-7000",
+        8: "high-8000",
+        9: "high-9000",
+    }
 
     # Check if the value is a recognized keyword
     if isinstance(value, str):
@@ -59,7 +70,7 @@ def _validate_queue_priority(ctx, param, value):
     try:
         priority = int(value)
         if 1 <= priority <= 9:
-            return priority
+            return num_priority_mapping[priority]
     except ValueError:
         pass
 
