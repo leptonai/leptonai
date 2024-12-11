@@ -12,7 +12,7 @@ dependencies = [
     "contextlib2", # backports async support in nullcontext
     "exceptiongroup",
     "fastapi",
-    "httpx[http2]",
+    "httpx[http2]==0.27.2",
     "prometheus-fastapi-instrumentator",
     "rich",
     "typing-extensions",
@@ -50,7 +50,7 @@ runtime = [
     "diffusers>=0.27.0",
     "sentence-transformers>=2.3.0",
     "torch",
-    "transformers",
+    "transformers==4.46.3",
 ]
 
 [build-system]
