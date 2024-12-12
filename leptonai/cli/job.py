@@ -32,18 +32,18 @@ def _validate_queue_priority(ctx, param, value):
         return value
 
     priority_mapping = {
-        "l": "low-2000",
-        "low": "low-2000",
+        "l": "low-1000",
+        "low": "low-1000",
         "low-1": "low-1000",
         "low-2": "low-2000",
         "low-3": "low-3000",
-        "m": "mid-5000",
-        "medium": "mid-5000",
+        "m": "mid-4000",
+        "medium": "mid-4000",
         "medium-4": "mid-4000",
         "medium-5": "mid-5000",
         "medium-6": "mid-6000",
-        "h": "high-8000",
-        "high": "high-8000",
+        "h": "high-7000",
+        "high": "high-7000",
         "high-7": "high-7000",
         "high-8": "high-8000",
         "high-9": "high-9000",
@@ -275,8 +275,8 @@ def make_container_port_from_string(port_str: str):
     help=(
         "Set the priority for this job (feature available only for dedicated node"
         " groups).\nCould be one of low-1, low-2, low-3, medium-4, medium-5, medium-6,"
-        " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 2), m /"
-        " medium (will be 5), h / high (will be 8).\nExamples: -qp 1, -qp 9, -qp low,"
+        " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 1), m /"
+        " medium (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
         " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
