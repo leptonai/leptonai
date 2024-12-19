@@ -399,7 +399,7 @@ def create(
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
     console.print(
-        f"🎉 [green]Job Created Successfully???![/]\nName: [blue]{name}[/]\nID:"
+        f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
         f" [cyan]{new_job_id}[/]"
     )
 
