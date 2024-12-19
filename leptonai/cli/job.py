@@ -345,10 +345,12 @@ def create(
 
     if resource_shape:
         job_spec.resource_shape = resource_shape
-    if num_workers:
-        job_spec.completions = num_workers
-        job_spec.parallelism = num_workers
+    workers = num_workers or job_spec.num_workers
+    if workers:
+        job_spec.completions = workers
+        job_spec.parallelism = workers 
         job_spec.intra_job_communication = True
+
     else:
         if intra_job_communication:
             job_spec.intra_job_communication = intra_job_communication
@@ -397,7 +399,7 @@ def create(
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
     console.print(
-        f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
+        f"🎉 [green]Job Created Successfully???![/]\nName: [blue]{name}[/]\nID:"
         f" [cyan]{new_job_id}[/]"
     )
 
