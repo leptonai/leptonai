@@ -25,6 +25,7 @@ class LeptonJobUserSpec(BaseModel):
     container: LeptonContainer = LeptonContainer()
     completions: int = 1
     parallelism: int = 1
+    num_workers: int = 1
     max_failure_retry: Optional[int] = None
     max_job_failure_retry: Optional[int] = None
     envs: List[EnvVar] = []
