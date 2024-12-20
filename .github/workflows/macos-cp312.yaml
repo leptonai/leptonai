@@ -13,11 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Checkout examples repo
-        uses: actions/checkout@v3
-        with:
-          repository: leptonai/examples
-          path: examples
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:

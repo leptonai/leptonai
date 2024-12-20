@@ -901,6 +901,17 @@ def list_command(pattern):
 
 
 @deployment.command()
+@click.option("--name", "-n", help="The deployment name to restart.", required=True)
+def restart(name):
+    """
+    Restart a deployment.
+    """
+    client = APIClient()
+    client.deployment.restart(name)
+    console.print(f"Deployment [green]{name}[/] restart triggered successfully.")
+
+
+@deployment.command()
 @click.option("--name", "-n", help="The deployment name to remove.", required=True)
 def remove(name):
     """
