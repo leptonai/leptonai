@@ -347,8 +347,10 @@ def create(
         job_spec.resource_shape = resource_shape
     workers = num_workers or job_spec.num_workers
     if workers:
-        job_spec.completions = workers
-        job_spec.parallelism = workers 
+        if job_spec.completions is None:
+            job_spec.completions = workers
+        if job_spec.parallelism is None:
+            job_spec.parallelism = workers
         job_spec.intra_job_communication = True
 
     else:
