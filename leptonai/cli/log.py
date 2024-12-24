@@ -1,6 +1,6 @@
 import re
 import sys
-
+import os
 from .util import click_group, console
 
 from ..api.v1.client import APIClient
@@ -9,6 +9,7 @@ import json
 import click
 
 from datetime import datetime, timedelta, timezone
+from rich.progress import Progress
 
 str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
@@ -17,6 +18,10 @@ def preprocess_time(input_time):
     Preprocesses custom time formats like YD (yesterday) or TD (today).
     """
     now = datetime.now().astimezone()
+    input_time = input_time.replace("/", "-")
+
+    input_time = re.sub(r"(\.\d{1,5})(?!\d)", lambda m: m.group(1).ljust(7, '0'), input_time)
+
     input_time = input_time.lower().replace("today", now.strftime(str_date_format), 1)
     input_time = input_time.lower().replace("td", now.strftime(str_date_format), 1)
     input_time = input_time.lower().replace(
@@ -33,14 +38,14 @@ def preprocess_time(input_time):
         input_time = now.to_date_string()
 
     # Parse the time and ensure it uses the local timezone
-    parsed_time = datetime.fromisoformat(input_time)
-    parsed_time = parsed_time.astimezone(now.tzinfo)
+    parsed_time = datetime.fromisoformat(input_time).astimezone(now.tzinfo)
+
     return int(
         parsed_time.timestamp() * 1_000_000_000 + parsed_time.microsecond * 1_000
     )
 
 
-def convert_to_local_time(nanoseconds):
+def unix_to_local_time_str(nanoseconds):
     """
     Convert a timestamp in nanoseconds to the local time, including the current timezone.
 
@@ -60,7 +65,7 @@ def convert_to_local_time(nanoseconds):
     # Convert UTC time to the local time
     local_time = utc_time.astimezone()
 
-    return local_time
+    return local_time.strftime(str_time_format)
 
 
 def safe_load_json(string):
@@ -85,7 +90,11 @@ def log():
     help="The name of the deployment or a LeptonDeployment object.",
 )
 @click.option(
-    "--job", type=str, default=None, help="The name of the job or a LeptonJob object."
+    "--job",
+    "-j",
+    type=str,
+    default=None,
+    help="The name of the job or a LeptonJob object."
 )
 @click.option(
     "--replica",
@@ -115,7 +124,21 @@ def log():
     type=int,
     default=5000,
     show_default=True,
-    help="The maximum number of result lines to return, up to 5000.",
+    help="The maximum number of result lines to return.(default: 5000)",
+)
+@click.option(
+    "--path",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True
+    ),
+    default=None,
+    show_default=True,
+    help="Local directory path to save the log TXT files."
 )
 def log_command(
     deployment,
@@ -125,6 +148,7 @@ def log_command(
     start,
     end,
     limit,
+    path,
 ):
     if not deployment and not job and not replica and not job_history_name:
         console.print("[red]No deployment name, job name or replica id provided.[/red]")
@@ -138,53 +162,94 @@ def log_command(
 
     client = APIClient()
 
-    def fetch_and_print_logs(start, end, limit):
+    def fetch_log(start, end, limit):
         unix_start = preprocess_time(start)
         unix_end = preprocess_time(end)
         if unix_end <= unix_start:
             console.print("[red]Warning[/red] End time must be greater than start time.")
             sys.exit(1)
-        log_dict = client.log.get_log(
-            name_or_deployment=deployment,
-            name_or_job=job,
-            replica=replica,
-            job_history_name=job_history_name,
-            start=unix_start,
-            end=unix_end,
-            limit=limit
-        )
-        lines = log_dict["data"]["result"]
-        first_local_time = None
-        last_local_time = None
-        count = 0
 
         log_list = []
-        for line in lines:
-            values = line["values"]
-            for value in values:
-                log_list.append((int(value[0]), value[1]))
+        cur_unix_end = unix_end
+        cur_limit = limit
+        with Progress() as progress:
+            task = progress.add_task("Fetching logs...", total=limit)
+            while cur_limit > 0:
+                progress.update(task, completed=limit-cur_limit)
+                log_dict = client.log.get_log(
+                    name_or_deployment=deployment,
+                    name_or_job=job,
+                    replica=replica,
+                    job_history_name=job_history_name,
+                    start=unix_start,
+                    end=cur_unix_end,
+                    limit=cur_limit if cur_limit < 10000 else 10000
+                )
+                lines = log_dict["data"]["result"]
 
-        log_list.sort(key=lambda x: x[0])
+                cur_log_list = []
 
-        for log in log_list:
-            local_time = convert_to_local_time(log[0]).strftime(str_time_format)
-            if first_local_time is None:
-                first_local_time = local_time
-            last_local_time = local_time
-            cur_line = safe_load_json(log[1])
-            count += 1
-            console.print(f"[green]{local_time}|[/]{json.dumps(cur_line)}")
+                for line in lines:
+                    values = line["values"]
+                    for value in values:
+                        cur_log_list.append((int(value[0]), value[1]))
 
+                # Break out of the loop if no logs exist in the specified time range
+                if len(cur_log_list) == 0:
+                    break
+                # By setting reverse=True, the resulting list will be ordered from newest to oldest.
+                # The subsequent while loop also produces a list from newest to oldest, allowing us
+                # to easily extend them and, if desired, reverse the final combined list just once.
+                cur_log_list.sort(key=lambda x: x[0], reverse=True)
+
+                cur_limit -= len(cur_log_list)
+                cur_unix_end = cur_log_list[-1][0]
+
+                log_list.extend(cur_log_list)
+
+        return log_list
+    def fetch_and_print_logs(start, end, limit, path=None):
+
+        log_list = fetch_log(start, end, limit)
+
+        first_local_time = unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+        last_local_time = unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
         cur_timezone = datetime.now().astimezone().tzname()
-        first_local_time = first_local_time or start
-        last_local_time = last_local_time or end
-        console.print(
-            f"\n👆Time range: [blue]{cur_timezone}|{first_local_time}[/] → "
-            f"[blue]{cur_timezone}|{last_local_time}[/] total [green]{count}[/] lines \n"
-        )
+
+        if path:
+            directory = os.path.dirname(path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+            if os.path.isdir(path):
+                default_filename = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                path = os.path.join(path, default_filename)
+
+            with open(path,"w", encoding="utf-8") as f:
+                f.write(f"Time range: {cur_timezone}|{first_local_time} → "
+                        f"{cur_timezone}|{last_local_time} | total {len(log_list)} lines \n")
+                for log in reversed(log_list):
+                    local_time = unix_to_local_time_str(log[0])
+                    cur_line = safe_load_json(log[1])
+                    f.write(f"\n{local_time}｜{cur_line}\n")
+                    # f.write(f"**{local_time}｜{cur_line}\n")
+            console.print(f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n")
+            sys.exit(0)
+        else:
+            for log in reversed(log_list):
+                local_time = unix_to_local_time_str(log[0])
+                cur_line = safe_load_json(log[1])
+                console.print(f"[green]{local_time}|[/]", end="")
+                console.print(json.dumps(cur_line), markup=False)
+
+            console.print(
+                f"\n👆Time range: [blue]{cur_timezone}|{first_local_time}[/] → "
+                f"[blue]{cur_timezone}|{last_local_time}[/] total [green]{len(log_list)}[/] lines \n"
+            )
         return first_local_time, last_local_time
 
-    first_local_time, last_local_time = fetch_and_print_logs(start, end, limit)
+
+    first_local_time, last_local_time = fetch_and_print_logs(start, end, limit, path)
+
     while True:
         console.print("Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time- 2.1s`, `quit`)[/]:")
         user_input = input().strip()
@@ -234,10 +299,6 @@ def log_command(
                 adjusted_last_local_time = last_local_time_obj + timedelta(seconds=int_seconds,
                                                                                 microseconds=microseconds)
                 adjusted_last_local_time = adjusted_last_local_time.strftime(str_time_format)
-                console.print("<<<<<<<<<")
-                console.print(last_local_time)
-                console.print(adjusted_last_local_time)
-                console.print("<<<<<<<<<")
                 first_local_time, last_local_time = fetch_and_print_logs(last_local_time, adjusted_last_local_time, 5000)
 
             if cmd == "time-":
@@ -245,10 +306,6 @@ def log_command(
                 adjusted_first_local_time = first_local_time_obj - timedelta(seconds=int_seconds,
                                                                                 microseconds=microseconds)
                 adjusted_first_local_time = adjusted_first_local_time.strftime(str_time_format)
-                console.print("<<<<<<<<<")
-                console.print(adjusted_first_local_time)
-                console.print(first_local_time)
-                console.print("<<<<<<<<<")
                 first_local_time, last_local_time = fetch_and_print_logs(adjusted_first_local_time, first_local_time,
                                                                          5000)
 
