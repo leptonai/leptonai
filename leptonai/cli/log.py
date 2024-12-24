@@ -13,6 +13,8 @@ from rich.progress import Progress
 
 str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
+
+
 def preprocess_time(input_time):
     """
     Preprocesses custom time formats like YD (yesterday) or TD (today).
@@ -20,7 +22,9 @@ def preprocess_time(input_time):
     now = datetime.now().astimezone()
     input_time = input_time.replace("/", "-")
 
-    input_time = re.sub(r"(\.\d{1,5})(?!\d)", lambda m: m.group(1).ljust(7, '0'), input_time)
+    input_time = re.sub(
+        r"(\.\d{1,5})(?!\d)", lambda m: m.group(1).ljust(7, "0"), input_time
+    )
 
     input_time = input_time.lower().replace("today", now.strftime(str_date_format), 1)
     input_time = input_time.lower().replace("td", now.strftime(str_date_format), 1)
@@ -94,7 +98,7 @@ def log():
     "-j",
     type=str,
     default=None,
-    help="The name of the job or a LeptonJob object."
+    help="The name of the job or a LeptonJob object.",
 )
 @click.option(
     "--replica",
@@ -134,11 +138,11 @@ def log():
         dir_okay=True,
         writable=True,
         readable=True,
-        resolve_path=True
+        resolve_path=True,
     ),
     default=None,
     show_default=True,
-    help="Local directory path to save the log TXT files."
+    help="Local directory path to save the log TXT files.",
 )
 def log_command(
     deployment,
@@ -158,7 +162,10 @@ def log_command(
         console.print("[red]Warning[/red] No end time provided. will be set to Now")
         end = "now"
     if not start:
-        console.print("[red]Warning[/red] No start time provided. will be set to today (today 00:00:00)")
+        console.print(
+            "[red]Warning[/red] No start time provided. will be set to today (today"
+            " 00:00:00)"
+        )
 
     client = APIClient()
 
@@ -166,7 +173,9 @@ def log_command(
         unix_start = preprocess_time(start)
         unix_end = preprocess_time(end)
         if unix_end <= unix_start:
-            console.print("[red]Warning[/red] End time must be greater than start time.")
+            console.print(
+                "[red]Warning[/red] End time must be greater than start time."
+            )
             sys.exit(1)
 
         log_list = []
@@ -175,7 +184,7 @@ def log_command(
         with Progress() as progress:
             task = progress.add_task("Fetching logs...", total=limit)
             while cur_limit > 0:
-                progress.update(task, completed=limit-cur_limit)
+                progress.update(task, completed=limit - cur_limit)
                 log_dict = client.log.get_log(
                     name_or_deployment=deployment,
                     name_or_job=job,
@@ -183,7 +192,7 @@ def log_command(
                     job_history_name=job_history_name,
                     start=unix_start,
                     end=cur_unix_end,
-                    limit=cur_limit if cur_limit < 10000 else 10000
+                    limit=cur_limit if cur_limit < 10000 else 10000,
                 )
                 lines = log_dict["data"]["result"]
 
@@ -208,12 +217,17 @@ def log_command(
                 log_list.extend(cur_log_list)
 
         return log_list
+
     def fetch_and_print_logs(start, end, limit, path=None):
 
         log_list = fetch_log(start, end, limit)
 
-        first_local_time = unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
-        last_local_time = unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
+        first_local_time = (
+            unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+        )
+        last_local_time = (
+            unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
+        )
         cur_timezone = datetime.now().astimezone().tzname()
 
         if path:
@@ -224,15 +238,19 @@ def log_command(
                 default_filename = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 path = os.path.join(path, default_filename)
 
-            with open(path,"w", encoding="utf-8") as f:
-                f.write(f"Time range: {cur_timezone}|{first_local_time} → "
-                        f"{cur_timezone}|{last_local_time} | total {len(log_list)} lines \n")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(
+                    f"Time range: {cur_timezone}|{first_local_time} → "
+                    f"{cur_timezone}|{last_local_time} | total {len(log_list)} lines \n"
+                )
                 for log in reversed(log_list):
                     local_time = unix_to_local_time_str(log[0])
                     cur_line = safe_load_json(log[1])
                     f.write(f"\n{local_time}｜{cur_line}\n")
                     # f.write(f"**{local_time}｜{cur_line}\n")
-            console.print(f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n")
+            console.print(
+                f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
+            )
             sys.exit(0)
         else:
             for log in reversed(log_list):
@@ -242,24 +260,33 @@ def log_command(
                 console.print(json.dumps(cur_line), markup=False)
 
             console.print(
-                f"\n👆Time range: [blue]{cur_timezone}|{first_local_time}[/] → "
-                f"[blue]{cur_timezone}|{last_local_time}[/] total [green]{len(log_list)}[/] lines \n"
+                f"\n👆Time range: [blue]{cur_timezone}|{first_local_time}[/] →"
+                f" [blue]{cur_timezone}|{last_local_time}[/] total"
+                f" [green]{len(log_list)}[/] lines \n"
             )
         return first_local_time, last_local_time
-
 
     first_local_time, last_local_time = fetch_and_print_logs(start, end, limit, path)
 
     while True:
-        console.print("Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time- 2.1s`, `quit`)[/]:")
+        console.print(
+            "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time-"
+            " 2.1s`, `quit`)[/]:"
+        )
         user_input = input().strip()
         if user_input.lower() in ["q", "quit", "exit"]:
             console.print("[lightblue]Exiting log viewer.[/]")
             break
 
         cmd_parts = user_input.split()
-        if cmd_parts is None or len(cmd_parts) != 2 or cmd_parts[0] not in ["next", "last", "time+", "time-"]:
-            console.print("[red]Invalid command[/] we only accept next, last, time+ and time-")
+        if (
+            cmd_parts is None
+            or len(cmd_parts) != 2
+            or cmd_parts[0] not in ["next", "last", "time+", "time-"]
+        ):
+            console.print(
+                "[red]Invalid command[/] we only accept next, last, time+ and time-"
+            )
             continue
         cmd, param = cmd_parts
 
@@ -269,7 +296,9 @@ def log_command(
             except (IndexError, ValueError):
                 console.print("[red]Please specify a valid number of lines.[/red]")
                 continue
-            first_local_time, last_local_time = fetch_and_print_logs(last_local_time, 'now', line_count)
+            first_local_time, last_local_time = fetch_and_print_logs(
+                last_local_time, "now", line_count
+            )
 
         elif cmd == "last":
             try:
@@ -277,38 +306,57 @@ def log_command(
             except (IndexError, ValueError):
                 console.print("[red]Please specify a valid number of lines.[/red]")
                 continue
-            first_local_time, last_local_time = fetch_and_print_logs('yesterday', first_local_time, line_count)
+            first_local_time, last_local_time = fetch_and_print_logs(
+                "yesterday", first_local_time, line_count
+            )
         elif cmd == "time+" or cmd == "time-":
-            pattern = r'^\d+(\.\d+)?s$'
+            pattern = r"^\d+(\.\d+)?s$"
             if not re.match(pattern, param):
-                console.print("[red]Invalid offset format. Expected something like '2.567s'.[/]")
+                console.print(
+                    "[red]Invalid offset format. Expected something like '2.567s'.[/]"
+                )
                 continue
 
             seconds_str = param[:-1]  # remove the trailing 's'
             try:
                 float_seconds = float(seconds_str)
             except ValueError:
-                console.print(f"[red]Failed to parse the numeric value {seconds_str} in the offset.[/red]")
+                console.print(
+                    f"[red]Failed to parse the numeric value {seconds_str} in the"
+                    " offset.[/red]"
+                )
                 continue
 
             int_seconds = int(float_seconds)
-            microseconds = int((float_seconds - int_seconds)*1_000_000)
+            microseconds = int((float_seconds - int_seconds) * 1_000_000)
 
             if cmd == "time+":
-                last_local_time_obj = datetime.strptime(last_local_time, str_time_format)
-                adjusted_last_local_time = last_local_time_obj + timedelta(seconds=int_seconds,
-                                                                                microseconds=microseconds)
-                adjusted_last_local_time = adjusted_last_local_time.strftime(str_time_format)
-                first_local_time, last_local_time = fetch_and_print_logs(last_local_time, adjusted_last_local_time, 5000)
+                last_local_time_obj = datetime.strptime(
+                    last_local_time, str_time_format
+                )
+                adjusted_last_local_time = last_local_time_obj + timedelta(
+                    seconds=int_seconds, microseconds=microseconds
+                )
+                adjusted_last_local_time = adjusted_last_local_time.strftime(
+                    str_time_format
+                )
+                first_local_time, last_local_time = fetch_and_print_logs(
+                    last_local_time, adjusted_last_local_time, 5000
+                )
 
             if cmd == "time-":
-                first_local_time_obj = datetime.strptime(first_local_time, str_time_format)
-                adjusted_first_local_time = first_local_time_obj - timedelta(seconds=int_seconds,
-                                                                                microseconds=microseconds)
-                adjusted_first_local_time = adjusted_first_local_time.strftime(str_time_format)
-                first_local_time, last_local_time = fetch_and_print_logs(adjusted_first_local_time, first_local_time,
-                                                                         5000)
-
+                first_local_time_obj = datetime.strptime(
+                    first_local_time, str_time_format
+                )
+                adjusted_first_local_time = first_local_time_obj - timedelta(
+                    seconds=int_seconds, microseconds=microseconds
+                )
+                adjusted_first_local_time = adjusted_first_local_time.strftime(
+                    str_time_format
+                )
+                first_local_time, last_local_time = fetch_and_print_logs(
+                    adjusted_first_local_time, first_local_time, 5000
+                )
 
 
 def add_command(cli_group):
