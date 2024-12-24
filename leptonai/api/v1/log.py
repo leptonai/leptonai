@@ -39,13 +39,17 @@ class LogAPI(APIResourse):
             )
             query_kwargs["deployment"] = deployment_id
 
-        elif name_or_job or job_history_name:
+        elif name_or_job:
             job_id = (
                 name_or_job
                 if isinstance(name_or_job, str)
                 else name_or_job.metadata.id_
             )
+
             query_kwargs["job"] = job_id
+
+        elif job_history_name:
+            query_kwargs["job_history_name"] = job_history_name
 
         if replica:
             replica_id = replica if isinstance(replica, str) else replica.metadata.id_

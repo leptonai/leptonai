@@ -98,7 +98,7 @@ def log():
     "-j",
     type=str,
     default=None,
-    help="The name of the job or a LeptonJob object.",
+    help="Specifies the job ID. To find the job ID, use the 'lep job list' command.",
 )
 @click.option(
     "--replica",
@@ -107,7 +107,11 @@ def log():
     help="The name of the replica or a Replica object.",
 )
 @click.option(
-    "--job-history-name", type=str, default=None, help="The name of the job history."
+    "--job-history-name",
+    type=str,
+    default=None,
+    help="The name of the job history.",
+    hidden=True,
 )
 @click.option(
     "--start",
@@ -158,6 +162,9 @@ def log_command(
         console.print("[red]No deployment name, job name or replica id provided.[/red]")
         sys.exit(1)
 
+    if sum(bool(var) for var in [deployment, job, job_history_name]) > 1:
+        raise ValueError("Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be specified.")
+
     if not end:
         console.print("[red]Warning[/red] No end time provided. will be set to Now")
         end = "now"
@@ -166,6 +173,7 @@ def log_command(
             "[red]Warning[/red] No start time provided. will be set to today (today"
             " 00:00:00)"
         )
+        start = "today"
 
     client = APIClient()
 
