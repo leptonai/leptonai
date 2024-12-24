@@ -15,7 +15,7 @@ str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
 
-def preprocess_time(input_time):
+def preprocess_time(input_time, unix_format=False):
     """
     Preprocesses custom time formats like YD (yesterday) or TD (today).
     """
@@ -44,9 +44,11 @@ def preprocess_time(input_time):
     # Parse the time and ensure it uses the local timezone
     parsed_time = datetime.fromisoformat(input_time).astimezone(now.tzinfo)
 
-    return int(
-        parsed_time.timestamp() * 1_000_000_000 + parsed_time.microsecond * 1_000
-    )
+    if unix_format:
+        return int(
+            parsed_time.timestamp() * 1_000_000_000 + parsed_time.microsecond * 1_000
+        )
+    return parsed_time
 
 
 def unix_to_local_time_str(nanoseconds):
@@ -163,7 +165,10 @@ def log_command(
         sys.exit(1)
 
     if sum(bool(var) for var in [deployment, job, job_history_name]) > 1:
-        raise ValueError("Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be specified.")
+        raise ValueError(
+            "Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be"
+            " specified."
+        )
 
     if not end:
         console.print("[red]Warning[/red] No end time provided. will be set to Now")
@@ -178,8 +183,8 @@ def log_command(
     client = APIClient()
 
     def fetch_log(start, end, limit):
-        unix_start = preprocess_time(start)
-        unix_end = preprocess_time(end)
+        unix_start = preprocess_time(start, unix_format=True)
+        unix_end = preprocess_time(end, unix_format=True)
         if unix_end <= unix_start:
             console.print(
                 "[red]Warning[/red] End time must be greater than start time."
@@ -339,9 +344,7 @@ def log_command(
             microseconds = int((float_seconds - int_seconds) * 1_000_000)
 
             if cmd == "time+":
-                last_local_time_obj = datetime.strptime(
-                    last_local_time, str_time_format
-                )
+                last_local_time_obj = preprocess_time(last_local_time)
                 adjusted_last_local_time = last_local_time_obj + timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
@@ -353,9 +356,7 @@ def log_command(
                 )
 
             if cmd == "time-":
-                first_local_time_obj = datetime.strptime(
-                    first_local_time, str_time_format
-                )
+                first_local_time_obj = preprocess_time(first_local_time)
                 adjusted_first_local_time = first_local_time_obj - timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
