@@ -150,6 +150,12 @@ def log():
     show_default=True,
     help="Local directory path to save the log TXT files.",
 )
+@click.option(
+    "--query",
+    type=str,
+    default="",
+    help="Specify the query string",
+)
 def log_command(
     deployment,
     job,
@@ -159,6 +165,7 @@ def log_command(
     end,
     limit,
     path,
+    query,
 ):
     if not deployment and not job and not replica and not job_history_name:
         console.print("[red]No deployment name, job name or replica id provided.[/red]")
@@ -206,6 +213,7 @@ def log_command(
                     start=unix_start,
                     end=cur_unix_end,
                     limit=cur_limit if cur_limit < 10000 else 10000,
+                    q=query
                 )
                 lines = log_dict["data"]["result"]
 
