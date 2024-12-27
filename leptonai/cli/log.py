@@ -86,7 +86,6 @@ def log():
     pass
 
 
-# @log.command(name="get_log")
 @log.command(name="get")
 @click.option(
     "--deployment",
@@ -120,20 +119,19 @@ def log():
     type=str,
     default=None,
     help="The start time in ISO format.",
-    # callback=preprocess_time,
 )
 @click.option(
     "--end",
     type=str,
     default=None,
     help="The end time in ISO format.",
-    # callback=preprocess_time,
 )
 @click.option(
     "--limit",
     type=int,
     default=5000,
     show_default=True,
+    hidden=True,
     help="The maximum number of result lines to return.(default: 5000)",
 )
 @click.option(
