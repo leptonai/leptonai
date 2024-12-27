@@ -15,7 +15,7 @@ str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
 
-def preprocess_time(input_time, unix_format=False):
+def _preprocess_time(input_time, unix_format=False):
     """
     Preprocesses custom time formats like YD (yesterday) or TD (today).
     """
@@ -51,7 +51,7 @@ def preprocess_time(input_time, unix_format=False):
     return parsed_time
 
 
-def unix_to_local_time_str(nanoseconds):
+def _unix_to_local_time_str(nanoseconds):
     """
     Convert a timestamp in nanoseconds to the local time, including the current timezone.
 
@@ -190,8 +190,8 @@ def log_command(
     client = APIClient()
 
     def fetch_log(start, end, limit):
-        unix_start = preprocess_time(start, unix_format=True)
-        unix_end = preprocess_time(end, unix_format=True)
+        unix_start = _preprocess_time(start, unix_format=True)
+        unix_end = _preprocess_time(end, unix_format=True)
         if unix_end <= unix_start:
             console.print(
                 "[red]Warning[/red] End time must be greater than start time."
@@ -244,10 +244,10 @@ def log_command(
         log_list = fetch_log(start, end, limit)
 
         first_local_time = (
-            unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+            _unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
         )
         last_local_time = (
-            unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
+            _unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
         )
         cur_timezone = datetime.now().astimezone().tzname()
 
@@ -265,7 +265,7 @@ def log_command(
                     f"{cur_timezone}|{last_local_time} | total {len(log_list)} lines \n"
                 )
                 for log in reversed(log_list):
-                    local_time = unix_to_local_time_str(log[0])
+                    local_time = _unix_to_local_time_str(log[0])
                     cur_line = safe_load_json(log[1])
                     f.write(f"\n{local_time}｜{cur_line}\n")
                     # f.write(f"**{local_time}｜{cur_line}\n")
@@ -275,7 +275,7 @@ def log_command(
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                local_time = unix_to_local_time_str(log[0])
+                local_time = _unix_to_local_time_str(log[0])
                 cur_line = safe_load_json(log[1])
                 console.print(f"[green]{local_time}|[/]", end="")
                 console.print(json.dumps(cur_line), markup=False)
@@ -352,7 +352,7 @@ def log_command(
             microseconds = int((float_seconds - int_seconds) * 1_000_000)
 
             if cmd == "time+":
-                last_local_time_obj = preprocess_time(last_local_time)
+                last_local_time_obj = _preprocess_time(last_local_time)
                 adjusted_last_local_time = last_local_time_obj + timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
@@ -364,7 +364,7 @@ def log_command(
                 )
 
             if cmd == "time-":
-                first_local_time_obj = preprocess_time(first_local_time)
+                first_local_time_obj = _preprocess_time(first_local_time)
                 adjusted_first_local_time = first_local_time_obj - timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
