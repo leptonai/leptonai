@@ -213,7 +213,7 @@ def log_command(
                     start=unix_start,
                     end=cur_unix_end,
                     limit=cur_limit if cur_limit < 10000 else 10000,
-                    q=query
+                    q=query,
                 )
                 lines = log_dict["data"]["result"]
 
