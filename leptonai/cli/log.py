@@ -14,6 +14,34 @@ from rich.progress import Progress
 str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
+supported_formats = """
+        - now
+          Example: now (indicates the current time)
+
+        - Full Date and Time:
+          Format: YYYY/MM/DD HH:MM:SS.123456
+          Example: 2024/12/25 13:10:01.123456
+
+          Alternate Format: YYYY-MM-DD HH:MM:SS.123456
+          Example: 2024-12-25 13:10:01.123456
+
+        - today or td:
+          Example Variations:
+          today (defaults to midnight of the current day)
+          today 13 (1 PM of the current day)
+          today 13:10 (1:10 PM of the current day)
+          today 13:10:01 (1:10:01 PM of the current day)
+          today 13:10:01.123456 (1:10:01 PM with microseconds precision)
+
+        - yesterday or yd:
+          Example Variations:
+          yesterday (defaults to midnight of the previous day)
+          yesterday 13 (1 PM of the previous day)
+          yesterday 13:10 (1:10 PM of the previous day)
+          yesterday 13:10:05 (1:10:05 PM of the previous day)
+          yesterday 13:10:01.123456 (1:10:01 PM with microseconds precision on the previous day)
+        """
+
 
 def _preprocess_time(input_time, unix_format=False):
     """
@@ -42,7 +70,13 @@ def _preprocess_time(input_time, unix_format=False):
         input_time = now.to_date_string()
 
     # Parse the time and ensure it uses the local timezone
-    parsed_time = datetime.fromisoformat(input_time).astimezone(now.tzinfo)
+    try:
+        parsed_time = datetime.fromisoformat(input_time).astimezone(now.tzinfo)
+    except ValueError:
+        console.print(
+            "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats
+        )
+        sys.exit(1)
 
     if unix_format:
         return int(
