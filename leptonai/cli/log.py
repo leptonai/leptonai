@@ -131,7 +131,6 @@ def log():
     type=int,
     default=5000,
     show_default=True,
-    hidden=True,
     help="The maximum number of result lines to return.(default: 5000)",
 )
 @click.option(
