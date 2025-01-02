@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict
 
 
 class MetadataV1(BaseModel):
@@ -37,13 +37,13 @@ class Metadata(BaseModel):
     created_by: Optional[str] = None
     last_modified_by: Optional[str] = None
     semantic_version: Optional[str] = None
+    labels: Optional[Dict[str, str]] = None
 
     # Implementation note: this is the inlined LeptonMetadata in the backend
     owner: Optional[str] = None
     last_modified_at: Optional[int] = None
     visibility: Optional[LeptonVisibility] = None
     replica_version: Optional[str] = None
-
 
 class SecretItem(BaseModel):
     name: str

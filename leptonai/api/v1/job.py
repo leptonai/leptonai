@@ -17,6 +17,13 @@ class JobAPI(APIResourse):
         responses = self._get("/jobs")
         return self.ensure_list(responses, LeptonJob)
 
+    def list_matching(self, pattern: str):
+        params = {
+            "query": pattern,
+        }
+        responses = self._get("/jobs", params=params)
+        return self.ensure_list(responses, LeptonJob)
+
     def create(self, spec: LeptonJob) -> LeptonJob:
         """
         Run a photon with the given job spec.
