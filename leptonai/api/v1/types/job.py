@@ -23,6 +23,7 @@ class LeptonJobUserSpec(BaseModel):
     resource_shape: Optional[str] = None
     affinity: Optional[LeptonResourceAffinity] = None
     container: LeptonContainer = LeptonContainer()
+    shared_memory_size: Optional[int] = None
     completions: int = 1
     parallelism: int = 1
     max_failure_retry: Optional[int] = None
