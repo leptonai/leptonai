@@ -15,8 +15,12 @@ str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
 supported_formats = """
+        Please note that all times must be in UTC. 
+        Keywords such as “now,” “today,” and “yesterday” will be interpreted as UTC timestamps. 
+        For example, “now” corresponds to datetime.now(timezone.utc).
+
         - now
-          Example: now (indicates the current time)
+          Example: now (indicates the current time in UTC)
 
         - Full Date and Time:
           Format: YYYY/MM/DD HH:MM:SS.123456
@@ -27,7 +31,7 @@ supported_formats = """
 
         - today or td:
           Example Variations:
-          today (defaults to midnight of the current day)
+          today (defaults to midnight of the current day in UTC)
           today 13 (1 PM of the current day)
           today 13:10 (1:10 PM of the current day)
           today 13:10:01 (1:10:01 PM of the current day)
@@ -35,7 +39,7 @@ supported_formats = """
 
         - yesterday or yd:
           Example Variations:
-          yesterday (defaults to midnight of the previous day)
+          yesterday (defaults to midnight of the previous day in UTC)
           yesterday 13 (1 PM of the previous day)
           yesterday 13:10 (1:10 PM of the previous day)
           yesterday 13:10:05 (1:10:05 PM of the previous day)
@@ -43,11 +47,18 @@ supported_formats = """
         """
 
 
-def _preprocess_time(input_time, unix_format=False):
+def _preprocess_time(input_time, epoch=False):
     """
     Preprocesses custom time formats like YD (yesterday) or TD (today).
     """
-    now = datetime.now().astimezone()
+    if epoch:
+        search_time_offset_ns = 0
+        if input_time.startswith("search_before,"):
+            input_time = input_time[len("search_before,") :]
+            console.print(input_time)
+            search_time_offset_ns = -2 * 24 * 60 * 60 * 1_000_000_000
+
+    now = datetime.now(timezone.utc)
     input_time = input_time.replace("/", "-")
 
     input_time = re.sub(
@@ -69,31 +80,30 @@ def _preprocess_time(input_time, unix_format=False):
     if input_time.lower() == "yesterday":
         input_time = now.to_date_string()
 
-    # Parse the time and ensure it uses the local timezone
+    # Parse the time and ensure it uses the utc timezone
     try:
-        parsed_time = datetime.fromisoformat(input_time).astimezone(now.tzinfo)
+        parsed_time = datetime.fromisoformat(input_time).astimezone(timezone.utc)
     except ValueError:
         console.print(
             "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats
         )
         sys.exit(1)
 
-    if unix_format:
-        return int(
-            parsed_time.timestamp() * 1_000_000_000 + parsed_time.microsecond * 1_000
-        )
+    if epoch:
+        return int(parsed_time.timestamp() * 1_000_000_000) + search_time_offset_ns
+
     return parsed_time
 
 
-def _unix_to_local_time_str(nanoseconds):
+def _epoch_to_utc_time_str(nanoseconds):
     """
-    Convert a timestamp in nanoseconds to the local time, including the current timezone.
+    Convert a timestamp in nanoseconds to the utc time
 
     Args:
         nanoseconds (int or str): The timestamp in nanoseconds.
 
     Returns:
-        str: The local time with timezone as a formatted string.
+        str: The utc time string.
     """
     if isinstance(nanoseconds, str):
         nanoseconds = int(nanoseconds)
@@ -102,10 +112,8 @@ def _unix_to_local_time_str(nanoseconds):
     seconds = nanoseconds / 1e9
     # Create an aware UTC datetime object
     utc_time = datetime.fromtimestamp(seconds, tz=timezone.utc)
-    # Convert UTC time to the local time
-    local_time = utc_time.astimezone()
 
-    return local_time.strftime(str_time_format)
+    return utc_time.strftime(str_time_format)
 
 
 def safe_load_json(string):
@@ -221,8 +229,8 @@ def log_command(
     client = APIClient()
 
     def fetch_log(start, end, limit):
-        unix_start = _preprocess_time(start, unix_format=True)
-        unix_end = _preprocess_time(end, unix_format=True)
+        unix_start = _preprocess_time(start, epoch=True)
+        unix_end = _preprocess_time(end, epoch=True)
         if unix_end <= unix_start:
             console.print(
                 "[red]Warning[/red] End time must be greater than start time."
@@ -274,13 +282,12 @@ def log_command(
 
         log_list = fetch_log(start, end, limit)
 
-        first_local_time = (
-            _unix_to_local_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+        first_utc_time = (
+            _epoch_to_utc_time_str(log_list[-1][0]) if len(log_list) > 0 else start
         )
-        last_local_time = (
-            _unix_to_local_time_str(log_list[0][0]) if len(log_list) > 0 else end
+        last_utc_time = (
+            _epoch_to_utc_time_str(log_list[0][0]) if len(log_list) > 0 else end
         )
-        cur_timezone = datetime.now().astimezone().tzname()
 
         if path:
             directory = os.path.dirname(path)
@@ -292,33 +299,32 @@ def log_command(
 
             with open(path, "w", encoding="utf-8") as f:
                 f.write(
-                    f"Time range: {cur_timezone}|{first_local_time} → "
-                    f"{cur_timezone}|{last_local_time} | total {len(log_list)} lines \n"
+                    f"Time range: UTC|{first_utc_time} → "
+                    f"UTC|{last_utc_time} | total {len(log_list)} lines \n"
                 )
                 for log in reversed(log_list):
-                    local_time = _unix_to_local_time_str(log[0])
+                    utc_time = _epoch_to_utc_time_str(log[0])
                     cur_line = safe_load_json(log[1])
-                    f.write(f"\n{local_time}｜{cur_line}\n")
-                    # f.write(f"**{local_time}｜{cur_line}\n")
+                    f.write(f"\n{utc_time}｜{cur_line}\n")
             console.print(
                 f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
             )
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                local_time = _unix_to_local_time_str(log[0])
+                utc_time = _epoch_to_utc_time_str(log[0])
                 cur_line = safe_load_json(log[1])
-                console.print(f"[green]{local_time}|[/]", end="")
+                console.print(f"[green]{utc_time}|[/]", end="")
                 console.print(json.dumps(cur_line), markup=False)
 
             console.print(
-                f"\n👆Time range: [blue]{cur_timezone}|{first_local_time}[/] →"
-                f" [blue]{cur_timezone}|{last_local_time}[/] total"
+                f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
+                f" [blue]UTC|{last_utc_time}[/] total"
                 f" [green]{len(log_list)}[/] lines \n"
             )
-        return first_local_time, last_local_time
+        return first_utc_time, last_utc_time
 
-    first_local_time, last_local_time = fetch_and_print_logs(start, end, limit, path)
+    first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
 
     while True:
         console.print(
@@ -348,8 +354,8 @@ def log_command(
             except (IndexError, ValueError):
                 console.print("[red]Please specify a valid number of lines.[/red]")
                 continue
-            first_local_time, last_local_time = fetch_and_print_logs(
-                last_local_time, "now", line_count
+            first_utc_time, last_utc_time = fetch_and_print_logs(
+                last_utc_time, "now", line_count
             )
 
         elif cmd == "last":
@@ -358,8 +364,8 @@ def log_command(
             except (IndexError, ValueError):
                 console.print("[red]Please specify a valid number of lines.[/red]")
                 continue
-            first_local_time, last_local_time = fetch_and_print_logs(
-                "yesterday", first_local_time, line_count
+            first_utc_time, last_utc_time = fetch_and_print_logs(
+                "search_before," + first_utc_time, first_utc_time, line_count
             )
         elif cmd == "time+" or cmd == "time-":
             pattern = r"^\d+(\.\d+)?s$"
@@ -383,27 +389,27 @@ def log_command(
             microseconds = int((float_seconds - int_seconds) * 1_000_000)
 
             if cmd == "time+":
-                last_local_time_obj = _preprocess_time(last_local_time)
-                adjusted_last_local_time = last_local_time_obj + timedelta(
+                last_utc_time_obj = _preprocess_time(last_utc_time)
+                adjusted_last_utc_time = last_utc_time_obj + timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
-                adjusted_last_local_time = adjusted_last_local_time.strftime(
+                adjusted_last_utc_time = adjusted_last_utc_time.strftime(
                     str_time_format
                 )
-                first_local_time, last_local_time = fetch_and_print_logs(
-                    last_local_time, adjusted_last_local_time, 5000
+                first_utc_time, last_utc_time = fetch_and_print_logs(
+                    last_utc_time, adjusted_last_utc_time, 5000
                 )
 
             if cmd == "time-":
-                first_local_time_obj = _preprocess_time(first_local_time)
-                adjusted_first_local_time = first_local_time_obj - timedelta(
+                first_utc_time_obj = _preprocess_time(first_utc_time)
+                adjusted_first_utc_time = first_utc_time_obj - timedelta(
                     seconds=int_seconds, microseconds=microseconds
                 )
-                adjusted_first_local_time = adjusted_first_local_time.strftime(
+                adjusted_first_utc_time = adjusted_first_utc_time.strftime(
                     str_time_format
                 )
-                first_local_time, last_local_time = fetch_and_print_logs(
-                    adjusted_first_local_time, first_local_time, 5000
+                first_utc_time, last_utc_time = fetch_and_print_logs(
+                    adjusted_first_utc_time, first_utc_time, 5000
                 )
 
 
