@@ -32,10 +32,10 @@ supported_formats = """
         - today or td:
           Example Variations:
           today (defaults to midnight of the current day in UTC)
-          today 13 (1 PM of the current day)
-          today 13:10 (1:10 PM of the current day)
-          today 13:10:01 (1:10:01 PM of the current day)
-          today 13:10:01.123456 (1:10:01 PM with microseconds precision)
+          today 01 (1 AM of the current day)
+          today 01:10 (1:10 AM of the current day)
+          today 01:10:01 (1:10:01 AM of the current day)
+          today 01:10:01.123456 (1:10:01 AM with microseconds precision)
 
         - yesterday or yd:
           Example Variations:
@@ -82,7 +82,7 @@ def _preprocess_time(input_time, epoch=False):
 
     # Parse the time and ensure it uses the utc timezone
     try:
-        parsed_time = datetime.fromisoformat(input_time).astimezone(timezone.utc)
+        parsed_time = datetime.fromisoformat(input_time).replace(tzinfo=timezone.utc)
     except ValueError:
         console.print(
             "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats
