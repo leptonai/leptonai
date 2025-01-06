@@ -9,6 +9,7 @@ import re
 import requests
 from typing import Optional, Union, Dict, Tuple
 
+from .log import LogAPI
 from .object_storage import ObjectStorageAPI
 
 from .types.workspace import WorkspaceInfo
@@ -146,6 +147,7 @@ class APIClient(object):
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
         self.object_storage = ObjectStorageAPI(self)
+        self.log = LogAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
