@@ -8,8 +8,7 @@
       "env | grep LEPTON"
     ]
   },
-  "completions": 2,
-  "parallelism": 2,
+  "num_workers": 2,
   "envs": [],
   "mounts": [
     {
