@@ -210,7 +210,7 @@ def make_container_port_from_string(port_str: str):
     "--mount",
     help=(
         "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
