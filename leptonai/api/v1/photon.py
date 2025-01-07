@@ -33,8 +33,11 @@ def make_mounts_from_strings(
             mount_list.append(Mount(path=parts[0].strip(), mount_path=parts[1].strip()))  # type: ignore
         if len(parts) == 3:
             mount_list.append(
-                Mount(path=parts[0].strip(), mount_path=parts[1].strip()),
-                _from=parts[2].strip(),
+                Mount(
+                    path=parts[0].strip(),
+                    mount_path=parts[1].strip(),
+                    **{"from": parts[2].strip()},
+                ),
             )
         else:
             raise ValueError(f"Invalid mount definition: {mount_str}")
