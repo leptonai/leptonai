@@ -356,7 +356,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--mount",
     help=(
         "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
