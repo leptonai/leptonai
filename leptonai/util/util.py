@@ -22,7 +22,7 @@ def create_cached_dir_if_needed():
     Creates the local cached dir if it doesn't exist.
     """
     if not config.CACHE_DIR.exists():
-        config.CACHE_DIR.mkdir(parents=True)
+        config.CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @contextmanager
