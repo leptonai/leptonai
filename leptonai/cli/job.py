@@ -17,7 +17,7 @@ from .util import (
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
 
-from leptonai.api.v1.types.common import Metadata
+from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
@@ -280,6 +280,14 @@ def make_container_port_from_string(port_str: str):
         " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
+@click.option(
+    "--visibility",
+    type=str,
+    help=(
+        "Visibility of the job. Can be 'public' or 'private'. If private, the"
+        " job will only be viewable by the creator and workspace admin."
+    ),
+)
 def create(
     name,
     file,
@@ -301,6 +309,7 @@ def create(
     log_collection,
     node_ids,
     queue_priority,
+    visibility,
 ):
     """
     Creates a job.
@@ -391,7 +400,12 @@ def create(
         )
         sys.exit(1)
 
-    job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
+    job = LeptonJob(spec=job_spec,
+                    metadata=Metadata(
+                        id=name,
+                        visibility=LeptonVisibility(visibility) if visibility else None,
+                        )
+                    )
 
     logger.trace(json.dumps(job.model_dump(), indent=2))
     created_job = client.job.create(job)
