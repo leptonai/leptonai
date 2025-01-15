@@ -400,12 +400,13 @@ def create(
         )
         sys.exit(1)
 
-    job = LeptonJob(spec=job_spec,
-                    metadata=Metadata(
-                        id=name,
-                        visibility=LeptonVisibility(visibility) if visibility else None,
-                        )
-                    )
+    job = LeptonJob(
+        spec=job_spec,
+        metadata=Metadata(
+            id=name,
+            visibility=LeptonVisibility(visibility) if visibility else None,
+        ),
+    )
 
     logger.trace(json.dumps(job.model_dump(), indent=2))
     created_job = client.job.create(job)
