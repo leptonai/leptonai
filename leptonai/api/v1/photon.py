@@ -27,7 +27,8 @@ def make_mounts_from_strings(
         return None
     mount_list = []
     for mount_str in mounts:
-        parts = mount_str.split(":")
+        parts = mount_str.split(":", 2)
+        print(parts)
         if len(parts) == 2:
             # TODO: sanity check if the mount path exists.
             mount_list.append(Mount(path=parts[0].strip(), mount_path=parts[1].strip()))  # type: ignore
