@@ -572,6 +572,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=str,
     multiple=True,
 )
+@click.option(
+    "--shared-memory-size",
+    type=int,
+    help="Specify the shared memory size for this deployment, in MiB.",
+)
 def create(
     name,
     photon_name,
@@ -602,6 +607,7 @@ def create(
     autoscale_qpm,
     log_collection,
     node_ids,
+    shared_memory_size,
 ):
     """
     Creates a deployment from either a photon or container image.
@@ -739,6 +745,9 @@ def create(
         min_replicas=min_replicas,
         max_replicas=max_replicas,
     )
+
+    if shared_memory_size is not None:
+        spec.resource_requirement.shared_memory_size = shared_memory_size
 
     if node_groups:
         node_group_ids = _get_valid_nodegroup_ids(node_groups)
@@ -1264,6 +1273,11 @@ def log(name, replica):
         " setting will be used."
     ),
 )
+@click.option(
+    "--shared-memory-size",
+    type=int,
+    help="Update the shared memory size for this deployment, in MiB.",
+)
 def update(
     name,
     id,
@@ -1279,6 +1293,7 @@ def update(
     autoscale_gpu_util,
     autoscale_qpm,
     log_collection,
+    shared_memory_size,
 ):
     """
     Updates a deployment. Note that for all the update options, changes are made
@@ -1358,6 +1373,7 @@ def update(
             min_replicas=min_replicas,
             max_replicas=max_replicas,
             resource_shape=resource_shape,
+            shared_memory_size=shared_memory_size,
         ),
         api_tokens=make_token_vars_from_config(
             is_public=public,

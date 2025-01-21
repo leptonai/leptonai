@@ -288,6 +288,11 @@ def make_container_port_from_string(port_str: str):
         " job will only be viewable by the creator and workspace admin."
     ),
 )
+@click.option(
+    "--shared-memory-size",
+    type=int,
+    help="Specify the shared memory size for this job, in MiB.",
+)
 def create(
     name,
     file,
@@ -310,6 +315,7 @@ def create(
     node_ids,
     queue_priority,
     visibility,
+    shared_memory_size,
 ):
     """
     Creates a job.
@@ -399,7 +405,8 @@ def create(
             f"Available types are:\n      {available_types}. \n"
         )
         sys.exit(1)
-
+    if shared_memory_size is not None:
+        job_spec.shared_memory_size = shared_memory_size
     job = LeptonJob(
         spec=job_spec,
         metadata=Metadata(
