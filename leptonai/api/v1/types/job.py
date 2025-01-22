@@ -80,6 +80,6 @@ class LeptonJobStatus(LeptonJobStatusDetails):
 
 
 class LeptonJob(BaseModel):
-    metadata: Optional[Metadata] = None
+    metadata: Metadata
     spec: LeptonJobUserSpec = LeptonJobUserSpec()
     status: Optional[LeptonJobStatus] = None

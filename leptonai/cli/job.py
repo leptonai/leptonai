@@ -588,14 +588,24 @@ def replicas(id):
     console.print(table)
 
 @job.command()
-@click.option("--id", "-i", help="The job id to get events.", required=True)
+@click.option("--id", "-i", help="The job id to stop.", required=True)
 def stop(id):
     client = APIClient()
-    job = client.job.get(id)
-    # job.spec.stopped = True
+    cur_job = client.job.get(id)
+    if cur_job.spec.stopped is True:
+        console.print(f"[yellow]⚠ Job [bold]{id}[/] is already stopped. No action taken.[/]")
+        sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": True}})
 
-
+@job.command()
+@click.option("--id", "-i", help="The job id to start.", required=True)
+def start(id):
+    client = APIClient()
+    cur_job = client.job.get(id)
+    if cur_job.spec.stopped is False:
+        console.print(f"[yellow]⚠ Job [bold]{id}[/] is already started. No action taken.[/]")
+        sys.exit(0)
+    client.job.update(id, spec={"spec": {"stopped": False}})
 
 
 @job.command()
