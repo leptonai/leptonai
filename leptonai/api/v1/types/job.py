@@ -37,6 +37,7 @@ class LeptonJobUserSpec(BaseModel):
     metrics: Optional[LeptonMetrics] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
+    stopped: Optional[bool] = None
 
 
 DefaultTTLSecondsAfterFinished: int = 600
@@ -79,6 +80,6 @@ class LeptonJobStatus(LeptonJobStatusDetails):
 
 
 class LeptonJob(BaseModel):
-    metadata: Metadata
+    metadata: Optional[Metadata] = None
     spec: LeptonJobUserSpec = LeptonJobUserSpec()
     status: Optional[LeptonJobStatus] = None

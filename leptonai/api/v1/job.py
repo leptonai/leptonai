@@ -29,7 +29,11 @@ class JobAPI(APIResourse):
         return self.ensure_type(response, LeptonJob)
 
     def update(self, name_or_job: Union[str, LeptonJob], spec: LeptonJob) -> bool:
-        raise NotImplementedError("Job update is not implemented yet.")
+        response = self._patch(f"/jobs/{self._to_id(name_or_job)}", json=spec)
+
+        print(response)
+        return self.ensure_ok(response)
+        # raise NotImplementedError("Job update is not implemented yet.")
 
     def delete(self, name_or_job: Union[str, LeptonJob]) -> bool:
         response = self._delete(f"/jobs/{self._to_id(name_or_job)}")
@@ -42,6 +46,7 @@ class JobAPI(APIResourse):
     def get_replicas(self, name_or_job: Union[str, LeptonJob]) -> List[Replica]:
         response = self._get(f"/jobs/{self._to_id(name_or_job)}/replicas")
         return self.ensure_list(response, Replica)
+
 
     def get_log(
         self,

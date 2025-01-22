@@ -587,6 +587,16 @@ def replicas(id):
         table.add_row(id, replica.metadata.id_)
     console.print(table)
 
+@job.command()
+@click.option("--id", "-i", help="The job id to get events.", required=True)
+def stop(id):
+    client = APIClient()
+    job = client.job.get(id)
+    # job.spec.stopped = True
+    client.job.update(id, spec={"spec": {"stopped": True}})
+
+
+
 
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
