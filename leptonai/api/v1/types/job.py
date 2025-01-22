@@ -51,6 +51,8 @@ class LeptonJobState(str, Enum):
     Deleting = "Deleting"
     Restarting = "Restarting"
     Archived = "Archived"
+    Stopped = "Stopped"
+    Stopping = "Stopping"
     Unknown = "UNK"
 
     @classmethod
