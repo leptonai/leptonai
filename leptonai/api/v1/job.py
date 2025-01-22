@@ -44,7 +44,6 @@ class JobAPI(APIResourse):
         response = self._get(f"/jobs/{self._to_id(name_or_job)}/replicas")
         return self.ensure_list(response, Replica)
 
-
     def get_log(
         self,
         id_or_job: Union[str, LeptonJob],
