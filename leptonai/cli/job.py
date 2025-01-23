@@ -22,6 +22,7 @@ from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
     LeptonResourceAffinity,
+    LeptonJobState,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
@@ -606,9 +607,15 @@ def stop(id):
 def start(id):
     client = APIClient()
     cur_job = client.job.get(id)
-    if cur_job.spec.stopped is False:
+
+    # if cur_job.spec.stopped is False and cur_job.status.state is LeptonJobState.Stopped:
+    if (
+        cur_job.spec.stopped is False
+        and cur_job.status.state is not LeptonJobState.Stopped
+    ):
         console.print(
-            f"[yellow]⚠ Job [bold]{id}[/] is already started. No action taken.[/]"
+            f"[yellow]⚠ Job [bold]{id}[/] is {cur_job.status.state}. No action"
+            " taken.[/]"
         )
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": False}})
