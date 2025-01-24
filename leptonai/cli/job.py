@@ -607,8 +607,6 @@ def stop(id):
 def start(id):
     client = APIClient()
     cur_job = client.job.get(id)
-
-    # if cur_job.spec.stopped is False and cur_job.status.state is LeptonJobState.Stopped:
     if (
         cur_job.spec.stopped is False
         and cur_job.status.state is not LeptonJobState.Stopped
