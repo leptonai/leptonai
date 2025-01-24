@@ -609,7 +609,7 @@ def start(id):
     cur_job = client.job.get(id)
     if (
         cur_job.spec.stopped is False
-        and cur_job.status.state is not LeptonJobState.Stopped
+        or cur_job.status.state is not LeptonJobState.Stopped
     ):
         console.print(
             f"[yellow]⚠ Job [bold]{id}[/] is {cur_job.status.state}. No action"
