@@ -37,6 +37,7 @@ class LeptonJobUserSpec(BaseModel):
     metrics: Optional[LeptonMetrics] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
+    stopped: Optional[bool] = None
 
 
 DefaultTTLSecondsAfterFinished: int = 600
@@ -50,6 +51,8 @@ class LeptonJobState(str, Enum):
     Deleting = "Deleting"
     Restarting = "Restarting"
     Archived = "Archived"
+    Stopped = "Stopped"
+    Stopping = "Stopping"
     Unknown = "UNK"
 
     @classmethod
