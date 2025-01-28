@@ -601,6 +601,8 @@ def stop(id):
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": True}})
 
+    console.print(f"Job [green]{id}[/] stopped successfully.")
+
 
 @job.command()
 @click.option("--id", "-i", help="The job id to start.", required=True)
@@ -617,6 +619,8 @@ def start(id):
         )
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": False}})
+
+    console.print(f"Job [green]{id}[/] started successfully.")
 
 
 @job.command()
