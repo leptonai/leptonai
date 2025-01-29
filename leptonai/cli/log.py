@@ -1,6 +1,8 @@
 import re
 import sys
 import os
+
+from .job import _get_newest_job_by_name
 from .util import click_group, console
 
 from ..api.v1.client import APIClient
@@ -144,6 +146,16 @@ def log():
     help="Specifies the job ID. To find the job ID, use the 'lep job list' command.",
 )
 @click.option(
+    "--job-name",
+    "-jn",
+    type=str,
+    default=None,
+    help=(
+        "Specifies the job name. If multiple jobs share this name, "
+        "the logs for the newest job found will be retrieved by default."
+    ),
+)
+@click.option(
     "--replica",
     type=str,
     default=None,
@@ -198,6 +210,7 @@ def log():
 def log_command(
     deployment,
     job,
+    job_name,
     replica,
     job_history_name,
     start,
@@ -206,11 +219,22 @@ def log_command(
     path,
     query,
 ):
-    if not deployment and not job and not replica and not job_history_name:
-        console.print("[red]No deployment name, job name or replica id provided.[/red]")
+    if (
+        not deployment
+        and not job
+        and not job_name
+        and not replica
+        and not job_history_name
+    ):
+        console.print(
+            "[red]No deployment name, job id, job name or replica id provided.[/red]"
+        )
         sys.exit(1)
 
-    if sum(bool(var) for var in [deployment, job, job_history_name]) > 1:
+    if (
+        sum(bool(var) for var in [deployment, job, job_name, replica, job_history_name])
+        > 1
+    ):
         raise ValueError(
             "Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be"
             " specified."
@@ -227,6 +251,15 @@ def log_command(
         start = "today"
 
     client = APIClient()
+
+    if job_name is not None:
+        job = _get_newest_job_by_name(job_name)
+        if job is None:
+            console.print(
+                f"[bold red]Warning:[/bold red] No job named '{job_name}' found."
+            )
+            sys.exit(1)
+        job = job.metadata.id_
 
     def fetch_log(start, end, limit):
         unix_start = _preprocess_time(start, epoch=True)
@@ -315,7 +348,7 @@ def log_command(
                 utc_time = _epoch_to_utc_time_str(log[0])
                 cur_line = safe_load_json(log[1])
                 console.print(f"[green]{utc_time}|[/]", end="")
-                console.print(json.dumps(cur_line), markup=False)
+                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
 
             console.print(
                 f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
@@ -326,7 +359,7 @@ def log_command(
 
     first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
 
-    while True:
+    while True and sys.stdin.isatty():
         console.print(
             "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time-"
             " 2.1s`, `quit`)[/]:"
