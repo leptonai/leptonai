@@ -39,11 +39,11 @@ def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     if len(cur_job_list) == 0:
         return None
 
-    jobs_sorted_descending = sorted(
+    jobs_sorted_by_created_at = sorted(
         cur_job_list, key=lambda job: job.metadata.created_at
     )
 
-    return jobs_sorted_descending[-1]
+    return jobs_sorted_by_created_at[-1]
 
 
 def _validate_queue_priority(ctx, param, value):
