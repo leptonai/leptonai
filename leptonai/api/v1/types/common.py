@@ -45,6 +45,7 @@ class Metadata(BaseModel):
     visibility: Optional[LeptonVisibility] = None
     replica_version: Optional[str] = None
 
+
 class SecretItem(BaseModel):
     name: str
     value: str
