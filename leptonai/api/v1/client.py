@@ -36,6 +36,7 @@ from .utils import (
 )
 from .workspace_record import WorkspaceRecord
 
+import websocket
 
 class APIClient(object):
     """
@@ -112,6 +113,7 @@ class APIClient(object):
         self.workspace_id: str = workspace_id
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
+        self.wss_url = self.url.replace("https://", "wss://", 1)
 
         # Creates a connection for us to use.
         self._header = {}
@@ -120,7 +122,7 @@ class APIClient(object):
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
         self._session = requests.Session()
-        if os.environ.get("LEPTON_DEBUG_HEADERS"):
+        if os.environ.get("LEPTON_DEBUG_HEADERS") is not None:
             # LEPTON_DEBUG_HEADERS should be in the format of comma separated
             # header_key=header_value pairs.
             try:
@@ -134,6 +136,7 @@ class APIClient(object):
                     " header_key=header_value pairs. Got"
                     f" {os.environ['LEPTON_DEBUG_HEADERS']}"
                 )
+
 
         # Add individual APIs
         self.nodegroup = DedicatedNodeGroupAPI(self)
@@ -161,6 +164,7 @@ class APIClient(object):
         return kwargs
 
     def _get(self, path: str, *args, **kwargs):
+        print("print from client", self.url)
         return self._session.get(self.url + path, *args, **self._safe_add(kwargs))
 
     def _post(self, path: str, *args, **kwargs):
@@ -177,6 +181,11 @@ class APIClient(object):
 
     def _head(self, path: str, *args, **kwargs):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
+
+    def _wss(self, path: str, *args, **kwargs) -> websocket.WebSocket:
+        token_str = f"access_token={self.auth_token}" if path[-1] == '?' else f"&access_token={self.auth_token}"
+        print(self.wss_url + path + token_str)
+        return websocket.create_connection(self.wss_url + path + token_str, *args, **self._safe_add(kwargs))
 
     def info(self) -> WorkspaceInfo:
         """

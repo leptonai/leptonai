@@ -6,6 +6,8 @@ from .types.events import LeptonEvent
 from .types.job import LeptonJob
 from .types.replica import Replica
 
+import websocket
+
 
 class JobAPI(APIResourse):
     def _to_id(self, name_or_job: Union[str, LeptonJob]) -> str:
@@ -45,10 +47,10 @@ class JobAPI(APIResourse):
         return self.ensure_list(response, Replica)
 
     def get_log(
-        self,
-        id_or_job: Union[str, LeptonJob],
-        replica: Union[str, Replica],
-        timeout: Optional[int] = None,
+            self,
+            id_or_job: Union[str, LeptonJob],
+            replica: Union[str, Replica],
+            timeout: Optional[int] = None,
     ) -> Iterator[str]:
         """
         Gets the log of the given job's specified replica. The log is streamed
@@ -70,3 +72,7 @@ class JobAPI(APIResourse):
         for chunk in response.iter_content(chunk_size=None):
             if chunk:
                 yield chunk.decode("utf8")
+
+    def create_websocket(self, job_id: str, replica_id: str, query_parameter: List[str] = []) -> websocket.WebSocket:
+        query_str = "?" + "&".join(query_parameter) if query_parameter else "?"
+        return self._wss(f"/jobs/{job_id}/replicas/{replica_id}/shell" + query_str)

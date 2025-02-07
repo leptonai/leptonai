@@ -643,7 +643,7 @@ def start(id):
 
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
-def events(id, replica=None):
+def events(id):
 
     client = APIClient()
 
@@ -667,6 +667,43 @@ def events(id, replica=None):
             date_string,
         )
     console.print(table)
+
+
+
+
+
+@job.command()
+@click.option("--id", "-i", help="The job id to create terminal.", required=True)
+@click.option("--replica", "-r", help="The replica id to create terminal.")
+@click.option(
+    "--query", "-q",
+    help="Query parameters for the terminal. Supports multiple values.",
+    multiple=True
+)
+def terminal(id, replica=None, query=None):
+
+    client = APIClient()
+
+    cur_job = client.job.get(id)
+    if cur_job.status.state is not LeptonJobState.Running:
+        console.print(f"[red]Error[/]: Job {cur_job.metadata.id_} is not running, terminal is currently not available")
+        sys.exit(1)
+
+    replicas = client.job.get_replicas(id)
+
+    if replica is not None or len(replicas) == 1:
+
+        replica_ids = [replica.metadata.id_ for replica in replicas]
+
+        if replica is not None and replica not in replica_ids:
+            console.print(f"[red]Error[/]: Replica {replica} not found for job {id}.")
+            sys.exit(1)
+
+        replica = replicas[0].metadata.id_
+
+        cur_websocket = client.job.create_websocket(id, replica, query)
+
+        interactive_terminal(cur_websocket)
 
 
 def add_command(cli_group):
