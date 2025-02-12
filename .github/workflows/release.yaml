@@ -45,7 +45,7 @@ jobs:
         run: |
           pip wheel --no-deps .
       - name: Upload to Github Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: whl-package
           path: leptonai*.whl
@@ -71,7 +71,7 @@ jobs:
       - name: Set up pip
         run: |
           pip install -U pip setuptools
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: whl-package
       - name: Install Package
