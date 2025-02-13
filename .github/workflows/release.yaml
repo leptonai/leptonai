@@ -124,7 +124,7 @@ jobs:
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
           sudo ./aws/install
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: whl-package
       - name: Upload package to S3
@@ -153,7 +153,7 @@ jobs:
       - name: Install twine
         run: |
           pip install twine
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: whl-package
       - name: Upload Package to PyPI
