@@ -1,8 +1,7 @@
-ARG CUDA_VERSION=12.1.0
-ARG CUDNN_VERSION=8
+ARG CUDA_VERSION=12.4.1
 ARG UBUNTU_VERSION=22.04
 
-FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION}
 
 ARG PYTHON_VERSION
 RUN if [ -z "$PYTHON_VERSION" ]; then \
@@ -27,7 +26,7 @@ ENV PATH="$LEPTON_VIRTUAL_ENV/bin:$PATH"
 
 RUN /tmp/leptonai-sdk/leptonai/photon/dockerfiles/install_jupyter.sh
 
-RUN pip install torch==2.2.0 torchvision torchaudio
+RUN pip install torch==2.6.0 torchvision torchaudio
 
 RUN pip install uvicorn[standard] gradio!=3.31.0
 
