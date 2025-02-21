@@ -174,7 +174,14 @@ def ls_file_system():
     type=str,
     help="File system name, only for user with dedicated file system",
 )
-def rmdir(path, file_system):
+@click.option(
+    "--recursive",
+    "-r",
+    default=False,
+    is_flag=True,
+    help="Remove directories and their contents recursively",
+)
+def rmdir(path, file_system, recursive):
     """
     Delete a directory in the file storage of the current workspace. The directory
     must be empty. Note that wildcard is not supported yet.
@@ -194,7 +201,7 @@ def rmdir(path, file_system):
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path, file_system)
+    client.storage.delete_file_or_dir(path, file_system, recursive)
     console.print(f"Deleted [green]{path}[/].")
 
 
