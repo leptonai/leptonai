@@ -201,7 +201,7 @@ def rmdir(path, file_system, recursive):
         )
         sys.exit(1)
 
-    client.storage.delete_file_or_dir(path, file_system, recursive)
+    client.storage.delete_file_or_dir(path, file_system, removeall=recursive)
     console.print(f"Deleted [green]{path}[/].")
 
 
