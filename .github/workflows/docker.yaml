@@ -111,15 +111,4 @@ jobs:
           if [ "${{ inputs.is_rocm_release }}" == 'true' ]; then
               docker push ${tag}
           fi
-      - name: Build ROCm Runner Images
-        env:
-          VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
-        run: |
-          echo "HEAD SHA=$(git rev-parse --short HEAD)"
-          base_tag="${{ steps.rocm_vars.outputs.rocm_base_image }}"
-          tag="${{ steps.rocm_vars.outputs.rocm_base_image }}-runner-${VERSION_TAG}"
-          docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-rocm-runner.Dockerfile --tag "${tag}"
-          if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
-          fi
-          docker rmi ${tag}
+
