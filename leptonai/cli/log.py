@@ -232,11 +232,11 @@ def log_command(
         sys.exit(1)
 
     if (
-        sum(bool(var) for var in [deployment, job, job_name, replica, job_history_name])
+        sum(bool(var) for var in [deployment, job, job_name, job_history_name])
         > 1
     ):
         raise ValueError(
-            "Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be"
+            "Only one of 'deployment', 'job', or 'job_history_name' can be"
             " specified."
         )
 
