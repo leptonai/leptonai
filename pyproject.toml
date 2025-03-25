@@ -13,7 +13,7 @@ dependencies = [
     "exceptiongroup",
     "fastapi",
     "httpx[http2]==0.27.2",
-    "prometheus-fastapi-instrumentator",
+    "prometheus-fastapi-instrumentator==7.0.0",
     "rich",
     "typing-extensions",
     "uvicorn>=0.22.0", # needed by timeout_graceful_shutdown

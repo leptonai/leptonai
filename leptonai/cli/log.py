@@ -231,13 +231,9 @@ def log_command(
         )
         sys.exit(1)
 
-    if (
-        sum(bool(var) for var in [deployment, job, job_name, replica, job_history_name])
-        > 1
-    ):
+    if sum(bool(var) for var in [deployment, job, job_name, job_history_name]) > 1:
         raise ValueError(
-            "Only one of 'deployment', 'job', 'replica', or 'job_history_name' can be"
-            " specified."
+            "Only one of 'deployment', 'job', or 'job_history_name' can be specified."
         )
 
     if not end:
@@ -338,7 +334,7 @@ def log_command(
                 for log in reversed(log_list):
                     utc_time = _epoch_to_utc_time_str(log[0])
                     cur_line = safe_load_json(log[1])
-                    f.write(f"\n{utc_time}｜{cur_line}\n")
+                    f.write(f"{utc_time}｜{cur_line}\n")
             console.print(
                 f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
             )
