@@ -141,7 +141,8 @@ class TestPhotonCli(unittest.TestCase):
         (summarization_model,),
         (sentence_similarity_model,),
         (text2text_generation_model,),
-        (sentiment_analysis_model,),
+        # "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2" has been converted to text-ranking model
+        # (sentiment_analysis_model,),
         # FIXME: Skipping for now due to model incompatibility with transformers 4.4.61.
         # (depth_estimation_model,),
         (microsoft_phi_model,),
