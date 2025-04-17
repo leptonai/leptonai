@@ -22,7 +22,7 @@ from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
     LeptonResourceAffinity,
-    LeptonJobState,
+    LeptonJobState, ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
@@ -312,6 +312,14 @@ def make_container_port_from_string(port_str: str):
     type=int,
     help="Specify the shared memory size for this job, in MiB.",
 )
+@click.option(
+    "--reservation-id",
+    type=str,
+    help=(
+        "Specify a reservation ID to assign this job to a pre-reserved compute resource. "
+        "If not set, the job will be scheduled normally."
+    ),
+)
 def create(
     name,
     file,
@@ -335,6 +343,7 @@ def create(
     queue_priority,
     visibility,
     shared_memory_size,
+    reservation_id,
 ):
     """
     Creates a job.
@@ -426,6 +435,10 @@ def create(
         sys.exit(1)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
+
+    if reservation_id:
+        job_spec.reservation_config = ReservationConfig(reservation_id=reservation_id)
+
     job = LeptonJob(
         spec=job_spec,
         metadata=Metadata(
