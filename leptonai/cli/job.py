@@ -314,11 +314,12 @@ def make_container_port_from_string(port_str: str):
     help="Specify the shared memory size for this job, in MiB.",
 )
 @click.option(
-    "--reservation-id",
+    "--with-reservation",
     type=str,
     help=(
-        "Specify a reservation ID to assign this job to a pre-reserved compute"
-        " resource. If not set, the job will be scheduled normally."
+        "Assign the job to a specific reserved compute resource using a reservation ID"
+        " (only applicable to dedicated node groups). If not provided, the job will be"
+        " scheduled as usual."
     ),
 )
 def create(
@@ -344,7 +345,7 @@ def create(
     queue_priority,
     visibility,
     shared_memory_size,
-    reservation_id,
+    with_reservation,
 ):
     """
     Creates a job.
@@ -437,8 +438,14 @@ def create(
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
 
-    if reservation_id:
-        job_spec.reservation_config = ReservationConfig(reservation_id=reservation_id)
+    if with_reservation:
+        if not node_groups:
+            console.print(
+                "[red] Error[/]: --with-reservation is only supported for dedicated"
+                " node groups"
+            )
+            sys.exit(1)
+        job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
 
     job = LeptonJob(
         spec=job_spec,
