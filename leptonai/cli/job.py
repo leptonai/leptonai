@@ -22,7 +22,8 @@ from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
     LeptonResourceAffinity,
-    LeptonJobState, ReservationConfig,
+    LeptonJobState,
+    ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
@@ -316,8 +317,8 @@ def make_container_port_from_string(port_str: str):
     "--reservation-id",
     type=str,
     help=(
-        "Specify a reservation ID to assign this job to a pre-reserved compute resource. "
-        "If not set, the job will be scheduled normally."
+        "Specify a reservation ID to assign this job to a pre-reserved compute"
+        " resource. If not set, the job will be scheduled normally."
     ),
 )
 def create(

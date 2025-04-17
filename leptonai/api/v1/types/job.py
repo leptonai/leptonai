@@ -16,7 +16,7 @@ from .deployment import (
 
 
 class ReservationConfig(BaseModel):
-    reservation_id : Optional[str] = None
+    reservation_id: Optional[str] = None
 
 
 class LeptonJobUserSpec(BaseModel):
@@ -42,7 +42,7 @@ class LeptonJobUserSpec(BaseModel):
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
     stopped: Optional[bool] = None
-    reservation_config : Optional[ReservationConfig] = None
+    reservation_config: Optional[ReservationConfig] = None
 
 
 DefaultTTLSecondsAfterFinished: int = 600
