@@ -23,6 +23,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonResourceAffinity,
     LeptonJobState,
+    ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v1.client import APIClient
@@ -312,6 +313,15 @@ def make_container_port_from_string(port_str: str):
     type=int,
     help="Specify the shared memory size for this job, in MiB.",
 )
+@click.option(
+    "--with-reservation",
+    type=str,
+    help=(
+        "Assign the job to a specific reserved compute resource using a reservation ID"
+        " (only applicable to dedicated node groups). If not provided, the job will be"
+        " scheduled as usual."
+    ),
+)
 def create(
     name,
     file,
@@ -335,6 +345,7 @@ def create(
     queue_priority,
     visibility,
     shared_memory_size,
+    with_reservation,
 ):
     """
     Creates a job.
@@ -426,6 +437,16 @@ def create(
         sys.exit(1)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
+
+    if with_reservation:
+        if not node_groups:
+            console.print(
+                "[red] Error[/]: --with-reservation is only supported for dedicated"
+                " node groups"
+            )
+            sys.exit(1)
+        job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
+
     job = LeptonJob(
         spec=job_spec,
         metadata=Metadata(
