@@ -5,7 +5,7 @@ Utility functions for the Lepton AI API.
 import requests
 from typing import Optional, Dict
 
-from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
+from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH, API_URL_BASE
 from leptonai.util import is_valid_url
 
 
@@ -102,6 +102,7 @@ _workspace_url_cache: Dict[str, str] = {}
 
 
 def _get_full_workspace_url(workspace_id, cached=True) -> str:
+    return API_URL_BASE
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
