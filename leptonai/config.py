@@ -354,7 +354,8 @@ WORKSPACE_ID = os.environ["LEPTON_WORKSPACE_ID"]
 # Current workspace api path
 WORKSPACE_API_PATH = "/api/v2/workspaces/" + WORKSPACE_ID
 
-API_URL_BASE = "https://gateway.nvdev.lepton.ai"
+API_URL_BASE = "https://gateway.dgxc-lepton.nvidia.com"
+
 
 os.environ["LEPTON_WORKSPACE_ID"] = WORKSPACE_ID
 
