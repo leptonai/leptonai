@@ -26,4 +26,11 @@ class DedicatedNodeGroupAPI(APIResourse):
         )
         return self.ensure_list(response, Node)
 
+    def list_idle_nodes(self, name_or_ng: Union[str, DedicatedNodeGroup]) -> List[Node]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/nodes",
+            json={"idle": "True"},
+        )
+        return self.ensure_list(response, Node)
+
     # todo: implement more node management and monitoring APIs
