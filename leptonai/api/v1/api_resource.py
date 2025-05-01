@@ -92,6 +92,7 @@ class APIResourse(object):
         Raise a RuntimeError if the response is not ok. Given the
         """
         if response.status_code >= 400 and response.status_code < 500:
+            
             raise ClientError(response)
         elif response.status_code >= 500:
             raise ServerError(response)
