@@ -117,7 +117,7 @@ class APIClient(object):
         self._header = {}
         if self.auth_token:
             self._header["Authorization"] = "Bearer " + self.auth_token
-        self._header["origin"] = "https://cli.lepton.ai"
+        self._header["origin"] = "https://dashboard.dgxc-lepton.nvidia.com"
 
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
@@ -163,11 +163,9 @@ class APIClient(object):
         return kwargs
 
     def _get(self, path: str, *args, **kwargs):
-        print(self.url + path)
         return self._session.get(self.url + path, *args, **self._safe_add(kwargs))
 
     def _post(self, path: str, *args, **kwargs):
-        print(self.url + path)
         return self._session.post(self.url + path, *args, **self._safe_add(kwargs))
 
     def _patch(self, path: str, *args, **kwargs):
