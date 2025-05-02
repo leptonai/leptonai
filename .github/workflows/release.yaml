@@ -56,8 +56,6 @@ jobs:
       matrix:
         include:
           - runner: self-hosted
-            python_version: "3.8"
-          - runner: self-hosted
             python_version: "3.10"
           - runner: macos-latest
             python_version: "3.12"
