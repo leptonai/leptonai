@@ -89,9 +89,10 @@ class StableVideoDiffusion(Worker):
         ).frames[0]
 
         key = f"{self.OBJECTSTORE_OUTPUT_PREFIX}/{task_id}.mp4"
-        with tempfile.NamedTemporaryFile(
-            suffix=".mp4"
-        ) as f_mpeg4, tempfile.NamedTemporaryFile(suffix=".mp4") as f_h264:
+        with (
+            tempfile.NamedTemporaryFile(suffix=".mp4") as f_mpeg4,
+            tempfile.NamedTemporaryFile(suffix=".mp4") as f_h264,
+        ):
             export_to_video(frames, f_mpeg4.name, fps=fps)
             f_mpeg4.flush()
             # convert to h264
