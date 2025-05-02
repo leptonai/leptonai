@@ -67,6 +67,5 @@ jobs:
           fi
 
           docker rmi ${tag}
-          docker rmi ${runner_tag}
           docker rmi ${base_tag}
 
