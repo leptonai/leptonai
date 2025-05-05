@@ -638,11 +638,9 @@ class Photon(BasePhoton):
 
     def __setstate__(self, state):
         """
-        Restore instance state and recreate the runtime semaphore.
-
-        After the pickled state is applied, rebuild `_handler_semaphore`
-        with the original concurrency limit so request handling continues
-        to respect `handler_max_concurrency`.
+        Restore the pickled state, then recreate `_handler_semaphore`
+        with the saved `handler_max_concurrency` so the photon keeps
+        enforcing the original concurrency limit.
         """
         self.__dict__.update(state)
         self._handler_semaphore = anyio.Semaphore(self.handler_max_concurrency)
