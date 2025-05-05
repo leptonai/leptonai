@@ -620,6 +620,31 @@ class Photon(BasePhoton):
                     RuntimeWarning,
                 )
 
+    def __getstate__(self):
+        """
+        Strip out runtime‑only resources before pickling.
+
+        AnyIO > 4.4.0 moves Semaphore construction into __new__, which requires
+        an explicit *initial_value*.  During unpickling, pickle calls
+        cls.__new__(cls) with no arguments, so a raw anyio.Semaphore would raise
+        `TypeError: SemaphoreAdapter.__new__() missing required argument
+        'initial_value'`.  We therefore exclude `_handler_semaphore` from the
+        saved state and recreate it in __setstate__().
+        """
+        state = self.__dict__.copy()
+        if "_handler_semaphore" in state:
+            del state["_handler_semaphore"]
+        return state
+
+    def __setstate__(self, state):
+        """
+        Restore the pickled state, then recreate `_handler_semaphore`
+        with the saved `handler_max_concurrency` so the photon keeps
+        enforcing the original concurrency limit.
+        """
+        self.__dict__.update(state)
+        self._handler_semaphore = anyio.Semaphore(self.handler_max_concurrency)
+
     def _call_init_once(self):
         """
         Internal function that calls the init function once.

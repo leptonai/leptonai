@@ -6,7 +6,7 @@ dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 dependencies = [
-    "anyio==4.4.0", # we use exceptiongroup
+    "anyio>=3.7.0,<=4.9.0", # we use exceptiongroup
     "click",
     "cloudpickle==3.0.0",
     "contextlib2", # backports async support in nullcontext
