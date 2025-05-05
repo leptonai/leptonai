@@ -620,6 +620,16 @@ class Photon(BasePhoton):
                     RuntimeWarning,
                 )
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "_handler_semaphore" in state:
+            del state["_handler_semaphore"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._handler_semaphore = anyio.Semaphore(self.handler_max_concurrency)
+
     def _call_init_once(self):
         """
         Internal function that calls the init function once.
