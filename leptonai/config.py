@@ -351,7 +351,9 @@ VALID_SHAPES = [
 WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
 
 # Current workspace api path
-WORKSPACE_API_PATH = "/api/v1"
+WORKSPACE_API_PATH = "/api/v2/workspaces/"
+
+API_URL_BASE = "https://gateway.dgxc-lepton.nvidia.com"
 
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
 LEPTON_RESERVED_ENV_NAMES = {

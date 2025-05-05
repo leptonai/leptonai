@@ -117,6 +117,8 @@ class APIClient(object):
         self._header = {}
         if self.auth_token:
             self._header["Authorization"] = "Bearer " + self.auth_token
+        self._header["origin"] = "https://dashboard.dgxc-lepton.nvidia.com"
+
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
         self._session = requests.Session()

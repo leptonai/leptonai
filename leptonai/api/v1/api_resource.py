@@ -92,6 +92,7 @@ class APIResourse(object):
         Raise a RuntimeError if the response is not ok. Given the
         """
         if response.status_code >= 400 and response.status_code < 500:
+            
             raise ClientError(response)
         elif response.status_code >= 500:
             raise ServerError(response)
@@ -104,7 +105,7 @@ class APIResourse(object):
         raise RuntimeError(
             "You encountered a programming error. Please report this, and include"
             " the following debug info:\n*** begin of debug info ***\nresponse"
-            " returned 200 OK, but the content cannot be decoded as"
+            f" returned status {response.status_code}, but the content cannot be decoded as"
             f" json.\nresponse.text: {response.text}\n\nexception"
             f" details:\n{e}\n*** end of debug info ***"
         )
