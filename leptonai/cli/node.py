@@ -160,41 +160,6 @@ def list_command(detail=False, node_group=None):
     console.print(table)
 
 
-# @node.command(name="list-nodes")
-# @click.argument("nodegroup_id", required=True)
-# @click.option("--detail", "-d", help="Show all the nodes", is_flag=True)
-# def list_node_command(nodegroup_id, detail=False):
-#     """
-#     List all idle resources in a specific node group.
-
-#     Args:
-#         nodegroup_id: The ID of the node group to check for idle resources.
-#     """
-#     client = APIClient()
-#     nodes = client.nodegroup.list_idle_nodes(name_or_ng=nodegroup_id)
-#     console.print(
-#         f"Found [green]{len(nodes)}[/green] idle nodes in node group"
-#         f" [green]{nodegroup_id}[/green]"
-#     )
-#     if detail:
-#         table = Table(title="Idle Resources", show_lines=True)
-#         table.add_column("Resource Type")
-#         for node in nodes:
-#             node_id = node.metadata.id_
-#             node_cpu = (
-#                 node.spec.resource.cpu.type_
-#                 if (node.spec and node.spec.resource and node.spec.resource.cpu)
-#                 else None
-#             )
-#             node_gpu = (
-#                 node.spec.resource.gpu.product
-#                 if (node.spec and node.spec.resource and node.spec.resource.gpu)
-#                 else None
-#             )
-#             nodes_name = f"{node_id}, ({node_cpu}, {node_gpu})\n"
-#             table.add_row(nodes_name)
-#         console.print(table)
-
 
 def add_command(cli_group):
     cli_group.add_command(node)
