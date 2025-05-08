@@ -104,7 +104,7 @@ def _format_node_details(node):
 
 @node.command(name="list")
 @click.option("--detail", "-d", help="Show all the nodes", is_flag=True)
-@click.option("--node-group", "-ng", help="Show all the nodes in a specific node group", type=str, required=False)
+@click.option("--node-group", "-ng", help="Show all the nodes in specific node groups by their IDs or names. Can use partial name/ID (e.g., 'prod' will match any name/ID containing 'prod'). Can specify multiple values.", type=str, required=False, multiple=True)
 def list_command(detail=False, node_group=None):
     """
     Lists all node groups in the current workspace.
@@ -113,6 +113,12 @@ def list_command(detail=False, node_group=None):
     """
     client = APIClient()
     node_groups = client.nodegroup.list_all()
+    
+    if node_group:
+        filtered_groups = []
+        for ng_id_or_name_partial in node_group:
+            filtered_groups.extend([ng for ng in node_groups if ng_id_or_name_partial in ng.metadata.id_ or ng_id_or_name_partial in ng.metadata.name])
+        node_groups = filtered_groups
     
     # Create base table
     table = Table(title="Node Groups", show_lines=True)
@@ -151,9 +157,9 @@ def list_command(detail=False, node_group=None):
             table.add_row(
                 node_group_name,
                 node_group_id,
-                f"{stats['available']}/{ready_nodes}",
-                f"{stats['unhealthy']}/{ready_nodes}",
-                f"{stats['used']}/{ready_nodes}",
+                f"[green]{stats['available']}[/green]/{ready_nodes}",
+                f"[red]{stats['unhealthy']}[/red]/{ready_nodes}",
+                f"[blue]{stats['used']}[/blue]/{ready_nodes}",
                 ready_nodes,
             )
     
