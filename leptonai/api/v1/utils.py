@@ -157,4 +157,8 @@ def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    return _get_full_workspace_url(workspace_id, cached) + WORKSPACE_API_PATH + workspace_id
+    return (
+        _get_full_workspace_url(workspace_id, cached)
+        + WORKSPACE_API_PATH
+        + workspace_id
+    )
