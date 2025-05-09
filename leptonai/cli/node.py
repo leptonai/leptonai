@@ -58,9 +58,11 @@ def _get_node_stats(nodes):
     unhealthy_node_details = []
     used_node_details = []
     available_node_details = []
-
+    ready_node_details = []
     for node in nodes:
         node_details = _format_node_details(node)
+
+        ready_node_details.append(node_details)
 
         if _is_node_used(node):
             used_nodes += 1
@@ -81,6 +83,7 @@ def _get_node_stats(nodes):
         "unhealthy_nodes_details": unhealthy_node_details,
         "used_nodes_details": used_node_details,
         "available_nodes_details": available_node_details,
+        "ready_nodes_details": ready_node_details
     }
 
 
@@ -180,9 +183,8 @@ def list_command(detail=False, node_group=None):
             used_details = "\n".join(stats["used_nodes_details"])
             unhealthy_details = "\n".join(stats["unhealthy_nodes_details"])
             available_details = "\n".join(stats["available_nodes_details"])
-            ready_nodes_details = "\n".join(
-                [used_details, unhealthy_details, available_details]
-            )
+            ready_nodes_details = "\n".join(stats["ready_nodes_details"])
+
             table.add_row(
                 node_group_name,
                 node_group_id,
