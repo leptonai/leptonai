@@ -49,7 +49,7 @@ _supported_formats_log = """
         """
 
 
-def _preprocess_time(input_time, epoch=False, supported_formats=_supported_formats_log):
+def _preprocess_time(input_time, local_time=False, epoch=False, supported_formats=_supported_formats_log):
     """Convert user input time string to datetime object or epoch timestamp.
 
     This function handles various time input formats:
@@ -78,7 +78,7 @@ def _preprocess_time(input_time, epoch=False, supported_formats=_supported_forma
             console.print(input_time)
             search_time_offset_ns = -2 * 24 * 60 * 60 * 1_000_000_000
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc) if not local_time else datetime.now().astimezone()
     input_time = input_time.replace("/", "-")
 
     input_time = re.sub(
@@ -104,7 +104,9 @@ def _preprocess_time(input_time, epoch=False, supported_formats=_supported_forma
 
     # Parse the time and ensure it uses the utc timezone
     try:
-        parsed_time = datetime.fromisoformat(input_time).replace(tzinfo=timezone.utc)
+        parsed_time = datetime.fromisoformat(input_time)
+        parsed_time = parsed_time if local_time else parsed_time.astimezone(timezone.utc)
+        
     except ValueError:
         console.print(
             "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats

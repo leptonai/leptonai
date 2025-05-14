@@ -43,20 +43,22 @@ _supported_time_formats_job_schedule = """
 
         - today or td:
           Example Variations:
-          today (defaults to midnight of the current day in UTC)
+          today (defaults to midnight of the current day)
           today 01 (1 AM of the current day)
           today 01:10 (1:10 AM of the current day)
           today 01:10:05 (1:10:05 AM of the current day)
 
         - tomorrow or tm:
             Example Variations:
-            tomorrow (defaults to midnight of the next day in UTC)
+            tomorrow (defaults to midnight of the next day)
             tomorrow 13 (1 PM of the next day)
             tomorrow 13:10 (1:10 PM of the next day)
             tomorrow 13:10:05 (1:10:05 PM of the next day)
 
-        Note: All times are in UTC timezone.
-"""
+        Note: By default, all times are interpreted in your local timezone. To specify UTC time, prefix your input with 'UTC:' or 'utc:'. For example:
+        - UTC:2024/12/25 13:10:01
+        - utc:tomorrow 13:10
+        """
 
 
 def _validate_queue_priority(ctx, param, value):
@@ -460,8 +462,11 @@ def create(
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
     if start_at:
+        is_utc = start_at.startswith("UTC:") or start_at.startswith("utc:")
+        if is_utc:
+                start_at = start_at.split(":")[1]
         start_at = _preprocess_time(
-            start_at, epoch=True, supported_formats=_supported_time_formats_job_schedule
+            start_at, local_time=not is_utc, epoch=True, supported_formats=_supported_time_formats_job_schedule
         ) / 1000000000
         current_time = int(datetime.now(timezone.utc).timestamp())
         if start_at < current_time:
