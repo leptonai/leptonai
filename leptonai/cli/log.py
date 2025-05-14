@@ -2,7 +2,7 @@ import re
 import sys
 import os
 
-from .job import _get_newest_job_by_name
+from .util import _get_newest_job_by_name
 from .util import click_group, console
 
 from ..api.v1.client import APIClient
@@ -16,7 +16,7 @@ from rich.progress import Progress
 str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
-supported_formats = """
+_supported_formats_log = """
         Please note that all times must be in UTC. 
         Keywords such as “now,” “today,” and “yesterday” will be interpreted as UTC timestamps. 
         For example, “now” corresponds to datetime.now(timezone.utc).
@@ -49,9 +49,27 @@ supported_formats = """
         """
 
 
-def _preprocess_time(input_time, epoch=False):
-    """
-    Preprocesses custom time formats like YD (yesterday) or TD (today).
+def _preprocess_time(input_time, epoch=False, supported_formats=_supported_formats_log):
+    """Convert user input time string to datetime object or epoch timestamp.
+
+    This function handles various time input formats:
+    - Relative time keywords (can be combined with specific times):
+      * today/td, yesterday/yd, tomorrow/tm
+        Format: [keyword] [HH:MM:SS]
+        Examples:
+        - today (defaults to midnight)
+        - today 13:10 (1:10 PM)
+        - yesterday 13:10:05 (1:10:05 PM)
+    - Standard time formats:
+      * YYYY/MM/DD HH:MM:SS
+      * YYYY-MM-DD HH:MM:SS
+
+    Args:
+        input_time: Time string in any supported format
+        epoch: If True, returns nanosecond timestamp; if False, returns datetime object
+
+    Returns:
+        Union[datetime, int]: Datetime object or nanosecond timestamp
     """
     if epoch:
         search_time_offset_ns = 0
@@ -75,12 +93,14 @@ def _preprocess_time(input_time, epoch=False):
     input_time = input_time.lower().replace(
         "yd", (now - timedelta(days=1)).strftime(str_date_format), 1
     )
+    input_time = input_time.lower().replace(
+        "tomorrow", (now + timedelta(days=1)).strftime(str_date_format), 1
+    )
+    input_time = input_time.lower().replace(
+        "tm", (now + timedelta(days=1)).strftime(str_date_format), 1
+    )
     if input_time.lower() == "now":
         input_time = now.strftime(str_time_format)
-    if input_time.lower() == "today":
-        input_time = now.to_date_string()
-    if input_time.lower() == "yesterday":
-        input_time = now.to_date_string()
 
     # Parse the time and ensure it uses the utc timezone
     try:

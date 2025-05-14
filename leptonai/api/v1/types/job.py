@@ -14,9 +14,17 @@ from .deployment import (
     QueueConfig,
 )
 
+DefaultTTLSecondsAfterFinished: int = 600
+
 
 class ReservationConfig(BaseModel):
     reservation_id: Optional[str] = None
+
+
+class LeptonJobTimeSchedule(BaseModel):
+    """Schedule for job execution time."""
+
+    start_at: Optional[int] = None  # StartAt is unix time in seconds
 
 
 class LeptonJobUserSpec(BaseModel):
@@ -35,7 +43,7 @@ class LeptonJobUserSpec(BaseModel):
     envs: List[EnvVar] = []
     mounts: List[Mount] = []
     image_pull_secrets: List[str] = []
-    ttl_seconds_after_finished: Optional[int] = None
+    ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None
     privileged: Optional[bool] = None
     metrics: Optional[LeptonMetrics] = None
@@ -43,9 +51,7 @@ class LeptonJobUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
-
-
-DefaultTTLSecondsAfterFinished: int = 600
+    time_schedule: Optional[LeptonJobTimeSchedule] = None
 
 
 class LeptonJobState(str, Enum):

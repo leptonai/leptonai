@@ -11,6 +11,7 @@ from loguru import logger
 
 from rich.console import Console
 from leptonai.api.v1.client import APIClient
+from leptonai.api.v1.types.job import LeptonJob
 
 
 console = Console(highlight=False)
@@ -204,3 +205,21 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
         )
         sys.exit(1)
     return valid_nodes_id
+
+
+def _get_newest_job_by_name(job_name: str) -> LeptonJob:
+    client = APIClient()
+    job_list = client.job.list_all()
+    cur_job_list = []
+    for job in job_list:
+        if job.metadata.name == job_name:
+            cur_job_list.append(job)
+
+    if len(cur_job_list) == 0:
+        return None
+
+    jobs_sorted_by_created_at = sorted(
+        cur_job_list, key=lambda job: job.metadata.created_at
+    )
+
+    return jobs_sorted_by_created_at[-1]

@@ -1,10 +1,12 @@
 import click
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import sys
 
 from loguru import logger
 from rich.table import Table
+
+from leptonai.cli.log import _epoch_to_utc_time_str, _preprocess_time
 
 from .util import (
     console,
@@ -20,6 +22,7 @@ from leptonai.config import BASE_IMAGE, VALID_SHAPES
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.job import (
     LeptonJob,
+    LeptonJobTimeSchedule,
     LeptonJobUserSpec,
     LeptonResourceAffinity,
     LeptonJobState,
@@ -29,22 +32,31 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v1.client import APIClient
 
 
-def _get_newest_job_by_name(job_name: str) -> LeptonJob:
-    client = APIClient()
-    job_list = client.job.list_all()
-    cur_job_list = []
-    for job in job_list:
-        if job.metadata.name == job_name:
-            cur_job_list.append(job)
+_supported_time_formats_job_schedule = """
+    Supported formats:
+        - Full Date and Time:
+          Format: YYYY/MM/DD HH:MM:SS
+          Example: 2024/12/25 13:10:01
 
-    if len(cur_job_list) == 0:
-        return None
+          Alternate Format: YYYY-MM-DD HH:MM:SS
+          Example: 2024-12-25 13:10:01
 
-    jobs_sorted_by_created_at = sorted(
-        cur_job_list, key=lambda job: job.metadata.created_at
-    )
+        - today or td:
+          Example Variations:
+          today (defaults to midnight of the current day in UTC)
+          today 01 (1 AM of the current day)
+          today 01:10 (1:10 AM of the current day)
+          today 01:10:05 (1:10:05 AM of the current day)
 
-    return jobs_sorted_by_created_at[-1]
+        - tomorrow or tm:
+            Example Variations:
+            tomorrow (defaults to midnight of the next day in UTC)
+            tomorrow 13 (1 PM of the next day)
+            tomorrow 13:10 (1:10 PM of the next day)
+            tomorrow 13:10:05 (1:10:05 PM of the next day)
+
+        Note: All times are in UTC timezone.
+"""
 
 
 def _validate_queue_priority(ctx, param, value):
@@ -322,6 +334,15 @@ def make_container_port_from_string(port_str: str):
         " scheduled as usual."
     ),
 )
+@click.option(
+    "--start-at",
+    type=str,
+    help=(
+        "Unix timestamp in seconds when the job should start. If not specified, the job"
+        " will start immediately."
+    )
+    + _supported_time_formats_job_schedule,
+)
 def create(
     name,
     file,
@@ -346,6 +367,7 @@ def create(
     visibility,
     shared_memory_size,
     with_reservation,
+    start_at,
 ):
     """
     Creates a job.
@@ -437,7 +459,19 @@ def create(
         sys.exit(1)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
-
+    if start_at:
+        start_at = _preprocess_time(
+            start_at, epoch=True, supported_formats=_supported_time_formats_job_schedule
+        ) / 1000000000
+        current_time = int(datetime.now(timezone.utc).timestamp())
+        if start_at < current_time:
+            console.print(
+                "\n[red]Error:[/red] Start time"
+                f" [red]{_epoch_to_utc_time_str(start_at * 1000000000)}[/] is earlier than"
+                f" current UTC time [green]{_epoch_to_utc_time_str(current_time * 1000000000)}[/]\n"
+            )
+            sys.exit(1)
+        job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
     if with_reservation:
         if not node_groups:
             console.print(

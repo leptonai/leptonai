@@ -83,7 +83,7 @@ def _get_node_stats(nodes):
         "unhealthy_nodes_details": unhealthy_node_details,
         "used_nodes_details": used_node_details,
         "available_nodes_details": available_node_details,
-        "ready_nodes_details": ready_node_details
+        "ready_nodes_details": ready_node_details,
     }
 
 
