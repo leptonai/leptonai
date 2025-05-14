@@ -6,7 +6,7 @@ import sys
 from loguru import logger
 from rich.table import Table
 
-from leptonai.cli.log import _epoch_to_utc_time_str, _preprocess_time
+from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
 
 from .util import (
     console,
@@ -462,18 +462,22 @@ def create(
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
     if start_at:
-        is_utc = start_at.startswith("UTC:") or start_at.startswith("utc:")
-        if is_utc:
+        use_local_timezone = not (start_at.startswith("UTC:") or start_at.startswith("utc:"))
+
+        current_time = int(datetime.now().astimezone().timestamp())
+        if not use_local_timezone:
                 start_at = start_at.split(":")[1]
+                current_time = int(datetime.now(timezone.utc).timestamp())
+            
         start_at = _preprocess_time(
-            start_at, local_time=not is_utc, epoch=True, supported_formats=_supported_time_formats_job_schedule
+            start_at, local_time=use_local_timezone, epoch=True, supported_formats=_supported_time_formats_job_schedule
         ) / 1000000000
-        current_time = int(datetime.now(timezone.utc).timestamp())
+
         if start_at < current_time:
             console.print(
                 "\n[red]Error:[/red] Start time"
-                f" [red]{_epoch_to_utc_time_str(start_at * 1000000000)}[/] is earlier than"
-                f" current UTC time [green]{_epoch_to_utc_time_str(current_time * 1000000000)}[/]\n"
+                f" [red]{_epoch_to_time_str(start_at * 1000000000, local_time=use_local_timezone)}[/] is earlier than"
+                f" current time [green]{_epoch_to_time_str(current_time * 1000000000, local_time=use_local_timezone)}[/]\n"
             )
             sys.exit(1)
         job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)

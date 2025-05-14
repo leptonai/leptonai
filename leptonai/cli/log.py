@@ -106,7 +106,7 @@ def _preprocess_time(input_time, local_time=False, epoch=False, supported_format
     try:
         parsed_time = datetime.fromisoformat(input_time)
         parsed_time = parsed_time if local_time else parsed_time.astimezone(timezone.utc)
-        
+
     except ValueError:
         console.print(
             "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats
@@ -119,15 +119,21 @@ def _preprocess_time(input_time, local_time=False, epoch=False, supported_format
     return parsed_time
 
 
-def _epoch_to_utc_time_str(nanoseconds):
-    """
-    Convert a timestamp in nanoseconds to the utc time
-
+def _epoch_to_time_str(nanoseconds, local_time=False):
+    """Convert a nanosecond timestamp to a formatted time string.
+    
     Args:
-        nanoseconds (int or str): The timestamp in nanoseconds.
-
+        nanoseconds (int or str): Timestamp in nanoseconds since epoch
+        local_time (bool): If True, convert to local timezone; if False, use UTC
+        
     Returns:
-        str: The utc time string.
+        str: Formatted time string in format 'YYYY-MM-DD HH:MM:SS.ffffff'
+        
+    Examples:
+        >>> _epoch_to_time_str(1710928800000000000)  # UTC
+        '2024-03-20 10:00:00.000000'
+        >>> _epoch_to_time_str(1710928800000000000, local_time=True)  # Local time
+        '2024-03-20 03:00:00.000000'  # Example for Los Angeles (UTC-7)
     """
     if isinstance(nanoseconds, str):
         nanoseconds = int(nanoseconds)
@@ -135,9 +141,12 @@ def _epoch_to_utc_time_str(nanoseconds):
     # Convert nanoseconds to seconds
     seconds = nanoseconds / 1e9
     # Create an aware UTC datetime object
-    utc_time = datetime.fromtimestamp(seconds, tz=timezone.utc)
+    if local_time:
+        time_obj = datetime.fromtimestamp(seconds)
+    else:
+        time_obj = datetime.fromtimestamp(seconds, tz=timezone.utc)
 
-    return utc_time.strftime(str_time_format)
+    return time_obj.strftime(str_time_format)
 
 
 def safe_load_json(string):
@@ -334,10 +343,10 @@ def log_command(
         log_list = fetch_log(start, end, limit)
 
         first_utc_time = (
-            _epoch_to_utc_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+            _epoch_to_time_str(log_list[-1][0]) if len(log_list) > 0 else start
         )
         last_utc_time = (
-            _epoch_to_utc_time_str(log_list[0][0]) if len(log_list) > 0 else end
+            _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
         )
 
         if path:
@@ -354,7 +363,7 @@ def log_command(
                     f"UTC|{last_utc_time} | total {len(log_list)} lines \n"
                 )
                 for log in reversed(log_list):
-                    utc_time = _epoch_to_utc_time_str(log[0])
+                    utc_time = _epoch_to_time_str(log[0])
                     cur_line = safe_load_json(log[1])
                     f.write(f"{utc_time}｜{cur_line}\n")
             console.print(
@@ -363,7 +372,7 @@ def log_command(
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                utc_time = _epoch_to_utc_time_str(log[0])
+                utc_time = _epoch_to_time_str(log[0])
                 cur_line = safe_load_json(log[1])
                 console.print(f"[green]{utc_time}|[/]", end="")
                 console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
