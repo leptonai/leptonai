@@ -340,7 +340,7 @@ def make_container_port_from_string(port_str: str):
     "--start-at",
     type=str,
     help=(
-        "Unix timestamp in seconds when the job should start. If not specified, the job"
+        " When the job should start. If not specified, the job"
         " will start immediately."
     )
     + _supported_time_formats_job_schedule,

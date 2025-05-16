@@ -79,6 +79,7 @@ def _preprocess_time(input_time, local_time=False, epoch=False, supported_format
             search_time_offset_ns = -2 * 24 * 60 * 60 * 1_000_000_000
 
     now = datetime.now(timezone.utc) if not local_time else datetime.now().astimezone()
+
     input_time = input_time.replace("/", "-")
 
     input_time = re.sub(
@@ -105,7 +106,8 @@ def _preprocess_time(input_time, local_time=False, epoch=False, supported_format
     # Parse the time and ensure it uses the utc timezone
     try:
         parsed_time = datetime.fromisoformat(input_time)
-        parsed_time = parsed_time if local_time else parsed_time.astimezone(timezone.utc)
+        if not local_time:
+            parsed_time = parsed_time.replace(tzinfo=timezone.utc)
 
     except ValueError:
         console.print(
