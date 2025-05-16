@@ -49,7 +49,9 @@ _supported_formats_log = """
         """
 
 
-def _preprocess_time(input_time, local_time=False, epoch=False, supported_formats=_supported_formats_log):
+def _preprocess_time(
+    input_time, local_time=False, epoch=False, supported_formats=_supported_formats_log
+):
     """Convert user input time string to datetime object or epoch timestamp.
 
     This function handles various time input formats:
@@ -123,14 +125,14 @@ def _preprocess_time(input_time, local_time=False, epoch=False, supported_format
 
 def _epoch_to_time_str(nanoseconds, local_time=False):
     """Convert a nanosecond timestamp to a formatted time string.
-    
+
     Args:
         nanoseconds (int or str): Timestamp in nanoseconds since epoch
         local_time (bool): If True, convert to local timezone; if False, use UTC
-        
+
     Returns:
         str: Formatted time string in format 'YYYY-MM-DD HH:MM:SS.ffffff'
-        
+
     Examples:
         >>> _epoch_to_time_str(1710928800000000000)  # UTC
         '2024-03-20 10:00:00.000000'
@@ -347,9 +349,7 @@ def log_command(
         first_utc_time = (
             _epoch_to_time_str(log_list[-1][0]) if len(log_list) > 0 else start
         )
-        last_utc_time = (
-            _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
-        )
+        last_utc_time = _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
 
         if path:
             directory = os.path.dirname(path)

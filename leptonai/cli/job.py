@@ -340,7 +340,7 @@ def make_container_port_from_string(port_str: str):
     "--start-at",
     type=str,
     help=(
-        " When the job should start. If not specified, the job"
+        "Schedule the job to start at a specific time. If not specified, the job"
         " will start immediately."
     )
     + _supported_time_formats_job_schedule,
@@ -462,22 +462,32 @@ def create(
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
     if start_at:
-        use_local_timezone = not (start_at.startswith("UTC:") or start_at.startswith("utc:"))
+        use_local_timezone = not (
+            start_at.startswith("UTC:") or start_at.startswith("utc:")
+        )
 
         current_time = int(datetime.now().astimezone().timestamp())
         if not use_local_timezone:
-                start_at = start_at.split(":")[1]
-                current_time = int(datetime.now(timezone.utc).timestamp())
-            
-        start_at = _preprocess_time(
-            start_at, local_time=use_local_timezone, epoch=True, supported_formats=_supported_time_formats_job_schedule
-        ) / 1000000000
+            start_at = start_at.split(":")[1]
+            current_time = int(datetime.now(timezone.utc).timestamp())
+
+        start_at = (
+            _preprocess_time(
+                start_at,
+                local_time=use_local_timezone,
+                epoch=True,
+                supported_formats=_supported_time_formats_job_schedule,
+            )
+            / 1000000000
+        )
 
         if start_at < current_time:
             console.print(
                 "\n[red]Error:[/red] Start time"
-                f" [red]{_epoch_to_time_str(start_at * 1000000000, local_time=use_local_timezone)}[/] is earlier than"
-                f" current time [green]{_epoch_to_time_str(current_time * 1000000000, local_time=use_local_timezone)}[/]\n"
+                f" [red]{_epoch_to_time_str(start_at * 1000000000, local_time=use_local_timezone)}[/]"
+                " is earlier than"
+                " current time"
+                f" [green]{_epoch_to_time_str(current_time * 1000000000, local_time=use_local_timezone)}[/]\n"
             )
             sys.exit(1)
         job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
