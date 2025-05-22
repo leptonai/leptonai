@@ -140,7 +140,7 @@ def make_container_port_from_string(port_str: str):
     ),
     type=str,
 )
-# --contianer-image, --container-port (--port), --command defines the container spec.
+# Container specification options
 @click.option(
     "--container-image",
     type=str,
@@ -166,6 +166,8 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--command", type=str, help="Command string to run for the job.", default=None
 )
+
+# Resource configuration options
 @click.option(
     "--resource-shape",
     type=str,
@@ -173,20 +175,6 @@ def make_container_port_from_string(port_str: str):
     + "', '".join(VALID_SHAPES)
     + "'.",
     default=None,
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
-        " option is currently not supported but coming soon for enterprise users. Only"
-        " the first node group will be set if you input multiple node groups at this"
-        " time."
-    ),
-    type=str,
-    multiple=True,
 )
 @click.option(
     "--num-workers",
@@ -198,6 +186,8 @@ def make_container_port_from_string(port_str: str):
     type=int,
     default=None,
 )
+
+# Failure handling options
 @click.option(
     "--max-failure-retry",
     type=int,
@@ -210,6 +200,8 @@ def make_container_port_from_string(port_str: str):
     help="Maximum number of failures to retry per whole job.",
     default=None,
 )
+
+# Environment and secrets options
 @click.option(
     "--env",
     "-e",
@@ -240,6 +232,8 @@ def make_container_port_from_string(port_str: str):
     help="Secrets to use for pulling images.",
     multiple=True,
 )
+
+# Advanced configuration options
 @click.option(
     "--intra-job-communication",
     type=bool,
@@ -276,6 +270,22 @@ def make_container_port_from_string(port_str: str):
         " setting will be used."
     ),
 )
+
+# Node and queue configuration
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help=(
+        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
+    ),
+    type=str,
+    multiple=True,
+)
 @click.option(
     "--node-id",
     "-ni",
@@ -300,6 +310,8 @@ def make_container_port_from_string(port_str: str):
         " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
+
+# Visibility and resource management
 @click.option(
     "--visibility",
     type=str,
@@ -352,7 +364,10 @@ def create(
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+    # Initialize API client
     client = APIClient()
+
+    # Load job specification from file if provided
     if file:
         try:
             with open(file, "r") as f:
@@ -363,44 +378,64 @@ def create(
             return
     else:
         job_spec = LeptonJobUserSpec()
-    # Update the spec based on the passed in args
+
+    # Configure node groups and queue priority
     if node_groups or queue_priority:
-        # queue_priority only available for dedicated node_groups
+        # Validate queue priority configuration
         if queue_priority and not node_groups:
             console.print(
                 "[red]Queue priority is only available for dedicated node groups"
                 "[/red]\n[green]please use --queue-priority with --node-group[/green]"
             )
             sys.exit(1)
+        
+        # Get valid node group IDs
         node_group_ids = _get_valid_nodegroup_ids(
             node_groups, need_queue_priority=(queue_priority is not None)
         )
-        # _get_valid_node_ids will return None if node_group_ids is None
+        
+        # Get valid node IDs if specified
         valid_node_ids = (
             _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
         )
-        # make sure affinity is initialized
+        
+        # Configure resource affinity
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+        
+        # Set queue configuration if priority is specified
         if queue_priority:
             job_spec.queue_config = QueueConfig(priority_class=queue_priority)
 
+    # Set resource shape
     if resource_shape:
         job_spec.resource_shape = resource_shape
+    else:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
+    # Configure worker settings
     if num_workers:
         job_spec.completions = num_workers
         job_spec.parallelism = num_workers
         job_spec.intra_job_communication = True
-    else:
-        if intra_job_communication:
-            job_spec.intra_job_communication = intra_job_communication
+    elif intra_job_communication:
+        job_spec.intra_job_communication = intra_job_communication
+
+    # Set failure retry limits
     if max_failure_retry:
         job_spec.max_failure_retry = max_failure_retry
     if max_job_failure_retry:
         job_spec.max_job_failure_retry = max_job_failure_retry
+
+    # Configure container settings
     if command:
         # For CLI passed in command, we will prepend it with /bin/bash -c
         command = ["/bin/bash", "-c", command]
@@ -408,36 +443,42 @@ def create(
     elif not job_spec.container.command:
         console.print("You did not specify a command to run the job.")
         sys.exit(1)
+
+    # Set container image
     if container_image:
         job_spec.container.image = container_image
     elif not job_spec.container.image:
         job_spec.container.image = BASE_IMAGE
+
+    # Configure container ports
     if container_port:
         job_spec.container.ports = [
             make_container_port_from_string(p) for p in container_port
         ]
+
+    # Set environment variables and secrets
     if env or secret:
         job_spec.envs = make_env_vars_from_strings(env, secret)  # type: ignore
+
+    # Configure mounts
     if mount:
         job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+
+    # Set image pull secrets
     if image_pull_secrets:
         job_spec.image_pull_secrets = image_pull_secrets
+
+    # Configure advanced settings
     if privileged:
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     if log_collection is not None:
         job_spec.log = LeptonLog(enable_collection=log_collection)
-    if not job_spec.resource_shape:
-        available_types = "\n      ".join(VALID_SHAPES)
-        console.print(
-            "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types}. \n"
-        )
-        sys.exit(1)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
 
+    # Configure reservation if specified
     if with_reservation:
         if not node_groups:
             console.print(
@@ -447,6 +488,7 @@ def create(
             sys.exit(1)
         job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
 
+    # Create job with metadata
     job = LeptonJob(
         spec=job_spec,
         metadata=Metadata(
@@ -455,7 +497,10 @@ def create(
         ),
     )
 
+    # Log job specification for debugging
     logger.trace(json.dumps(job.model_dump(), indent=2))
+
+    # Create job and display success message
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
     console.print(
