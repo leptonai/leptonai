@@ -7,6 +7,7 @@ import webbrowser
 from leptonai.api.v1.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 from .util import console
 from leptonai.api.v1.workspace_record import WorkspaceRecord
+from loguru import logger
 
 import leptonai
 from . import deployment, node
@@ -34,6 +35,96 @@ LOGIN_LOGO = """
 [blue] ╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝    ╚═╝  ╚═╝╚═╝[/]
 """
 
+LOGIN_LOGO="""
+[green]██████╗  ██████╗ ██╗  ██╗ ██████╗    ██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/green]
+[green]██╔══██╗██╔════╝ ╚██╗██╔╝██╔════╝    ██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/green]
+[green]██║  ██║██║  ███╗ ╚███╔╝ ██║         ██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/green]
+[green]██║  ██║██║   ██║ ██╔██╗ ██║         ██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/green]
+[green]██████╔╝╚██████╔╝██╔╝ ██╗╚██████╗    ███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║
+[green]╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝    ╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══                                                                                                                              
+"""
+
+LOGIN_LOGO = """
+
+                    [#76B900]███╗   ██╗██╗   ██╗██╗██████╗ ██╗ █████╗ [/]
+                    [#76B900]████╗  ██║██║   ██║██║██╔══██╗██║██╔══██╗[/]
+                    [#76B900]██╔██╗ ██║██║   ██║██║██║  ██║██║███████║[/]
+                    [#76B900]██║╚██╗██║╚██╗ ██╔╝██║██║  ██║██║██╔══██║[/]
+                    [#76B900]██║ ╚████║ ╚████╔╝ ██║██████╔╝██║██║  ██║[/]
+                    [#76B900]╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═╝[/]
+
+[white]██████╗  ██████╗ ██╗  ██╗ ██████╗[/]  [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
+[white]██╔══██╗██╔════╝ ╚██╗██╔╝██╔════╝[/]  [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
+[white]██║  ██║██║  ███╗ ╚███╔╝ ██║     [/]  [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
+[white]██║  ██║██║   ██║ ██╔██╗ ██║     [/]  [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
+[white]██████╔╝╚██████╔╝██╔╝ ██╗╚██████╗[/]  [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
+[white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝[/]  [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
+
+                                [blue]L E P T O N[/]
+
+"""
+# LOGIN_LOGO = """
+#               [#76B900]███╗   ██╗██╗   ██╗██╗██████╗ ██╗ █████╗ [/]
+#               [#76B900]████╗  ██║██║   ██║██║██╔══██╗██║██╔══██╗[/]
+#               [#76B900]██╔██╗ ██║██║   ██║██║██║  ██║██║███████║[/]
+#               [#76B900]██║╚██╗██║╚██╗ ██╔╝██║██║  ██║██║██╔══██║[/]
+#               [#76B900]██║ ╚████║ ╚████╔╝ ██║██████╔╝██║██║  ██║[/]
+#               [#76B900]╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═╝[/]
+
+# [white]██████╗  ██████╗ ██╗  ██╗     ██████╗██╗      ██████╗ ██╗   ██╗██████╗ [/white]
+# [white]██╔══██╗██╔════╝ ╚██╗██╔╝    ██╔════╝██║     ██╔═══██╗██║   ██║██╔══██╗[/white]
+# [white]██║  ██║██║  ███╗ ╚███╔╝     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
+# [white]██║  ██║██║   ██║ ██╔██╗     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
+# [white]██████╔╝╚██████╔╝██╔╝ ██╗    ╚██████╗███████╗╚██████╔╝╚██████╔╝██████╔╝[/white]
+# [white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ 
+
+#          [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
+#          [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
+#          [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
+#          [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
+#          [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
+#          [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
+
+#                             [#76B900]N V I D I A[/]
+
+# """
+# LOGIN_LOGO = """
+
+#                             [#76B900]N V I D I A[/]
+                        
+
+# [white]██████╗  ██████╗ ██╗  ██╗     ██████╗██╗      ██████╗ ██╗   ██╗██████╗ [/white]
+# [white]██╔══██╗██╔════╝ ╚██╗██╔╝    ██╔════╝██║     ██╔═══██╗██║   ██║██╔══██╗[/white]
+# [white]██║  ██║██║  ███╗ ╚███╔╝     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
+# [white]██║  ██║██║   ██║ ██╔██╗     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
+# [white]██████╔╝╚██████╔╝██╔╝ ██╗    ╚██████╗███████╗╚██████╔╝╚██████╔╝██████╔╝[/white]
+# [white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ 
+
+#         [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
+#         [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
+#         [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
+#         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
+#         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
+#         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
+
+
+# """
+
+# LOGIN_LOGO = """
+
+#                             [#76B900]N V I D I A[/]
+
+#                         [white] D G X  C L O U D[/]
+
+#         [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
+#         [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
+#         [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
+#         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
+#         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
+#         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
+
+
+# """
 
 @click.version_option(leptonai.__version__, "-v", "--version")
 @click_group(context_settings=CONTEXT_SETTINGS)
@@ -73,7 +164,25 @@ log.add_command(lep)
     help="The credentials of the lepton login info.",
     default=None,
 )
-def login(credentials):
+@click.option(
+    "--workspace-url",
+    "-u",
+    help="The url of the workspace to login to.",
+    default=None,
+)
+@click.option(
+    "--lepton-legacy",
+    "-l",
+    is_flag=True,
+    help="Login to the legacy Lepton AI workspace.",
+)
+@click.option(
+    "--workspace-origin-url",
+    "-o",
+    help="The origin url of the workspace to login to.",
+    default=None,
+)
+def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
     """
     Login to the Lepton AI cloud. This will open a browser window to the Lepton AI
     login page if credentials are not given. You will be redirected to a page with
@@ -84,11 +193,21 @@ def login(credentials):
     need_further_login = False
     if credentials:
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
+        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url, is_lepton_legacy=lepton_legacy)
     else:
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
-            pass
+            current_ws = WorkspaceRecord.current()
+            # Note: Set LOGURU_LEVEL=TRACE to see these debug logs
+            logger.trace(
+                f"Current workspace info:\n"
+                f"  id: {current_ws.id_}\n"
+                f"  url: {current_ws.url}\n"
+                f"  display_name: {current_ws.display_name}\n"
+                f"  auth_token: {current_ws.auth_token[:2]}****{current_ws.auth_token[-2:] if current_ws.auth_token else None}\n"
+                f"  workspace_origin_url: {current_ws.workspace_origin_url}\n"
+                f"  is_lepton_legacy: {current_ws.is_lepton_legacy}"
+            )
         else:
             candidates = WorkspaceRecord.workspaces()
             if len(candidates) == 0:
@@ -96,7 +215,7 @@ def login(credentials):
             elif len(candidates) == 1:
                 # Only one workspace, so we will simply log in to that one.
                 ws = candidates[0]
-                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url)  # type: ignore
+                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url, ws.is_lepton_legacy)  # type: ignore
             else:
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
@@ -114,6 +233,8 @@ def login(credentials):
                     candidates[choice].id_,  # type: ignore
                     candidates[choice].auth_token,
                     candidates[choice].url,
+                    candidates[choice].workspace_origin_url,
+                    candidates[choice].is_lepton_legacy,
                 )
                 console.print(
                     "Hint: If you have multiple workspaces, you can pick the one you"
@@ -166,26 +287,30 @@ def login(credentials):
         console.print("\n", e)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"""
-        [red bold]Invalid Workspace Access Detected[/]
-        [red]Workspace ID:[/red] {e.workspace_id}
+        [bold]Invalid Workspace Access Detected[/]
+        [white]Workspace ID:[/white] {e.workspace_id}
+
+        [white]Note: If you are trying to login to a Lepton Legacy workspace, please use:[/white]
+        [#76B900]'lep login -c <workspace-id>:<token> --lepton-legacy'[/#76B900]
+        [white]Make sure to include the --lepton-legacy or -l flag.[/white]
 
         [bold]To resolve this issue:[/bold]
-        1. [green]Verify your login credentials above.[/green]
+        1. [#76B900]Verify your login credentials above.[/#76B900]
 
-        [yellow]If using 'lep login' and encountering this error, you might be logging in with
-        an invalid local credential.[/yellow]
-        2.  [yellow]To directly login, use:[/yellow]
-            [green]'lep login -c <workspace_id>:<auth_token>'[/green]
+        [white]If using 'lep login' and encountering this error, you might be logging in with
+        an invalid local credential.[/white]
+        2. [white]To directly login, use:[/white]
+            [#76B900]'lep login -c <workspace_id>:<auth_token>'[/#76B900]
 
-        3. [yellow]Or list and remove the invalid local workspace credential with:[/yellow]
-            [green]'lep workspace list'[/green]
-            [green]'lep workspace remove -i <workspace_id>'[/green]
-            [yellow]Then, log in again with:[/yellow]
-            [green]'lep login'[/green]
+        3. [white]Or list and remove the invalid local workspace credential with:[/white]
+            [#76B900]'lep workspace list'[/#76B900]
+            [#76B900]'lep workspace remove -i <workspace_id>'[/#76B900]
+            [white]Then, log in again with:[/white]
+            [#76B900]'lep login'[/#76B900]
 
-        4. [green]If the workspace was just created, please wait for 5 - 10 minutes. [/green]
-           [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
-           (Current Time: [bold blue]{current_time}[/bold blue])
+        4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
+           [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
+           (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
 
     except WorkspaceNotFoundError as e:

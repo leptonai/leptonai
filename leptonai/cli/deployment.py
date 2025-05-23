@@ -21,7 +21,6 @@ from .util import (
 
 from leptonai.config import (
     VALID_SHAPES,
-    LEPTON_DEPLOYMENT_URL,
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
     ENV_VAR_REQUIRED,
@@ -1004,11 +1003,15 @@ def status(name, show_tokens, detail):
         target_gpu_utilization_percentage = autoscaler.target_gpu_utilization_percentage
         if target_gpu_utilization_percentage:
             console.print(f"Target GPU: {target_gpu_utilization_percentage}%")
-    if workspace_id:
-        web_url = LEPTON_DEPLOYMENT_URL.format(
-            workspace_id=workspace_id, deployment_name=name
-        )
-        console.print(f"Web UI:     {web_url}")
+
+    # Note: Web UI functionality is temporarily removed to reduce workspace URL dependency
+    # This may be restored in the future if we implement a more flexible URL handling mechanism
+    # if workspace_id:
+    #     web_url = LEPTON_DEPLOYMENT_URL.format(
+    #         workspace_id=workspace_id, deployment_name=name
+    #     )
+    #     console.print(f"Web UI:     {web_url}")
+
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")

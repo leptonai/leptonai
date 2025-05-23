@@ -7,10 +7,10 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.config import WORKSPACE_API_PATH
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
 from ..api.v1.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
+from loguru import logger
 
 console = Console(highlight=False)
 
@@ -37,15 +37,23 @@ def workspace():
     "--auth-token", "-t", help="Authentication token for the workspace.", default=None
 )
 @click.option(
-    "--test-only-workspace-url",
+    "--workspace-url",
     hidden=True,
     help="Explicit workspace url to use for internal testing purposes.",
     default=None,
 )
+@click.option(
+    "--workspace-origin-url",
+    help="Internal option for setting the Origin header in API calls. Used for workspace API configuration.",
+    hidden=True,
+    default=None,
+)
+
 def login(
     workspace_id: str,
     auth_token: Optional[str] = None,
-    test_only_workspace_url: Optional[str] = None,
+    workspace_url: Optional[str] = None,
+    workspace_origin_url: Optional[str] = None,
 ):
     """
     Logs in to a workspace. This also verifies that the workspace is accessible.
@@ -58,15 +66,15 @@ def login(
     elif WorkspaceRecord.has(workspace_id):
         # already has the info: update the auth token if given.
         info = WorkspaceRecord.get(workspace_id)
-        if auth_token or test_only_workspace_url:
+        if auth_token or workspace_url or workspace_origin_url:
             WorkspaceRecord.set_or_exit(
-                workspace_id, auth_token=auth_token, url=test_only_workspace_url
+                workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url
             )
         else:
-            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url)  # type: ignore
+            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url)  # type: ignore
     else:
         WorkspaceRecord.set_or_exit(
-            workspace_id, auth_token=auth_token, url=test_only_workspace_url
+            workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url
         )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
@@ -124,7 +132,8 @@ def logout(purge):
 
 
 @workspace.command(name="list")
-def list_command():
+@click.option("--debug", is_flag=True, help="Debug mode", hidden=True)
+def list_command(debug):
     """
     List current workspaces and their urls on record. For any workspace displayed
     in the list, you can log in to it by `lep workspace login -i <id>`.
@@ -136,8 +145,11 @@ def list_command():
     table.add_column("Name")
     table.add_column("URL")
     table.add_column("Auth Token")
+    if debug:
+        table.add_column("Origin URL")
+        table.add_column("Lepton Legacy")
     for info in workspace_list:
-        table.add_row(
+        row_data = [
             info.id_,
             info.display_name,
             info.url,
@@ -146,7 +158,13 @@ def list_command():
                 if info.auth_token
                 else ""
             ),
-        )
+        ]
+        if debug:
+            row_data.extend([
+                info.workspace_origin_url,
+                str(info.is_lepton_legacy),
+            ])
+        table.add_row(*row_data)
     if current_workspace:
         console.print(f"Current workspace: [green]{current_workspace.id_}[/]")
     console.print("All workspaces:")
@@ -221,17 +239,8 @@ def url():
         current,
         "It seems that you are not logged in. Please run `lep login` first.",
     )
-    url = current.url
-    if current.url.endswith(WORKSPACE_API_PATH):
-        url = current.url[: -len(WORKSPACE_API_PATH)]
-        console.print(url, end="")
-    else:
-        console.print(
-            "Local info and server info mismatch. Please report this to us with the"
-            " following debug info:"
-        )
-        console.print(f"debug url: {current.url}")
-        sys.exit(1)
+    console.print(current.url)
+
 
 
 @workspace.command()
