@@ -5,13 +5,7 @@ Utility functions for the Lepton AI API.
 import requests
 from typing import Optional, Dict
 
-from leptonai.config import (
-    DGXC_WORKSPACE_API_PATH,
-    DGXC_WORKSPACE_URL_RESOLVER_API,
-    WORKSPACE_URL_RESOLVER_API,
-    WORKSPACE_API_PATH,
-    API_URL_BASE,
-)
+from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
 from leptonai.util import is_valid_url
 
 
@@ -73,9 +67,7 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
     )
 
 
-def _get_workspace_display_name(
-    workspace_id, url=None, is_lepton_classic=False, token=None
-) -> Optional[str]:
+def _get_workspace_display_name(workspace_id) -> Optional[str]:
     """
     Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
     to get the workspace display name.
@@ -86,21 +78,8 @@ def _get_workspace_display_name(
     :raises ValueError: if the workspace does not exist
     """
 
-    resolver_api = (
-        WORKSPACE_URL_RESOLVER_API
-        if is_lepton_classic
-        else DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id
-    )
-    if url:
-        resolver_api = url
-
-    if is_lepton_classic:
-        request_body = {"id": workspace_id}
-        res = requests.get(resolver_api, json=request_body)
-    else:
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        res = requests.get(resolver_api, headers=headers)
-
+    request_body = {"id": workspace_id}
+    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
     if not res.ok:
         raise RuntimeError(
             f"Lepton server returned an error: {res.status_code} {res.content}."
@@ -122,7 +101,7 @@ def _get_workspace_display_name(
 _workspace_url_cache: Dict[str, str] = {}
 
 
-def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) -> str:
+def _get_full_workspace_url(workspace_id, cached=True) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -136,26 +115,18 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) 
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    if not is_lepton_classic:
-        return API_URL_BASE
-
-    # Process the lepton legacy workspace url
 
     if cached:
         url = _workspace_url_cache.get(workspace_id)
 
         if url is None or not is_valid_url(url):
-            url = _get_full_workspace_url(
-                workspace_id, cached=False, is_lepton_classic=is_lepton_classic
-            )
+            url = _get_full_workspace_url(workspace_id, cached=False)
             _workspace_url_cache[workspace_id] = url
 
         return url
+
     request_body = {"id": workspace_id}
-    res = requests.get(
-        WORKSPACE_URL_RESOLVER_API,
-        json=request_body,
-    )
+    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
     if not res.ok:
         raise RuntimeError(
             f"Lepton server returned an error: {res.status_code} {res.content}."
@@ -176,9 +147,7 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) 
         return content["url"]
 
 
-def _get_full_workspace_api_url(
-    workspace_id, cached=True, is_lepton_classic=False
-) -> str:
+def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
     """
     Get the full URL for the API of a workspace.
 
@@ -187,25 +156,4 @@ def _get_full_workspace_api_url(
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    workspace_api_path = (
-        DGXC_WORKSPACE_API_PATH if not is_lepton_classic else WORKSPACE_API_PATH
-    )
-
-    url = (
-        _get_full_workspace_url(workspace_id, cached, is_lepton_classic)
-        + workspace_api_path
-    )
-    if not is_lepton_classic:
-        url += workspace_id
-    return url
-
-
-def _get_workspace_origin_url(url: str) -> str:
-    """
-    Get the origin url of a workspace.
-    """
-    # For DGXC workspaces, the origin url is the dashboard url.
-    if "dgxc" in url:
-        return url.replace("gateway", "dashboard")
-    # For legacy workspaces, origin url is not required.
-    return None
+    return _get_full_workspace_url(workspace_id, cached) + WORKSPACE_API_PATH

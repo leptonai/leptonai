@@ -155,7 +155,7 @@ def list_command(debug):
     table.add_column("Auth Token")
     if debug:
         table.add_column("Origin URL")
-        table.add_column("Lepton Legacy")
+        table.add_column("Lepton classic")
     for info in workspace_list:
         row_data = [
             info.id_,

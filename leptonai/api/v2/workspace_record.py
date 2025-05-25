@@ -118,7 +118,7 @@ class WorkspaceRecord(object):
         # print(cls._singleton_record.workspaces[workspace_id])
 
         # _get_workspace_display_name is called in two scenarios:
-        # 1. Initial CLI login without URL (for both DGXC and LEGACY workspaces will use default urls)
+        # 1. Initial CLI login without URL (for both DGXC and CLASSIC workspaces will use default urls)
         # 2. CLI login with URL (will use input url)
         #    Note: This works for DGXC as the resolver api URL matches the workspace URL.
         #    Future workspace types may require additional modifications.

@@ -91,7 +91,7 @@ log.add_command(lep)
     "--lepton-classic",
     "-l",
     is_flag=True,
-    help="Login to the legacy Lepton AI workspace.",
+    help="Login to the classic Lepton AI workspace.",
 )
 @click.option(
     "--workspace-origin-url",
@@ -212,9 +212,9 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [bold]Invalid Workspace Access Detected[/]
         [white]Workspace ID:[/white] {e.workspace_id}
 
-        [white]Note: If you are trying to login to a Lepton Legacy workspace, please use:[/white]
-        [#76B900]'lep login -c <workspace-id>:<token> --lepton-legacy'[/#76B900]
-        [white]Make sure to include the --lepton-legacy or -l flag.[/white]
+        [white]Note: If you are trying to login to a Lepton classic workspace, please use:[/white]
+        [#76B900]'lep login -c <workspace-id>:<token> --lepton-classic'[/#76B900]
+        [white]Make sure to include the --lepton-classic or -l flag.[/white]
 
         [bold]To resolve this issue:[/bold]
         1. [#76B900]Verify your login credentials above.[/#76B900]

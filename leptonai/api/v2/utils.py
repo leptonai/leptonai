@@ -139,7 +139,7 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) 
     if not is_lepton_classic:
         return API_URL_BASE
 
-    # Process the lepton legacy workspace url
+    # Process the lepton classic workspace url
 
     if cached:
         url = _workspace_url_cache.get(workspace_id)
@@ -207,5 +207,5 @@ def _get_workspace_origin_url(url: str) -> str:
     # For DGXC workspaces, the origin url is the dashboard url.
     if "dgxc" in url:
         return url.replace("gateway", "dashboard")
-    # For legacy workspaces, origin url is not required.
+    # For classic workspaces, origin url is not required.
     return None

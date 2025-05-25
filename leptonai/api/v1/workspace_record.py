@@ -17,7 +17,6 @@ from .utils import (
     _get_full_workspace_api_url,
     _get_workspace_display_name,
     WorkspaceNotCreatedYet,
-    _get_workspace_origin_url,
     _print_workspace_not_created_yet_message,
 )
 
@@ -31,8 +30,6 @@ class LocalWorkspaceInfo(BaseModel):
     url: str
     display_name: Optional[str] = None
     auth_token: Optional[str] = None
-    workspace_origin_url: Optional[str] = None
-    is_lepton_classic: Optional[bool] = False
 
 
 class _LocalWorkspaceRecord(BaseModel):
@@ -88,10 +85,8 @@ class WorkspaceRecord(object):
         """
         workspace_id = os.environ.get("LEPTON_WORKSPACE_ID")
         auth_token = os.environ.get("LEPTON_WORKSPACE_TOKEN")
-        workspace_url = os.environ.get("LEPTON_WORKSPACE_URL")
-        workspace_origin_url = os.environ.get("LEPTON_WORKSPACE_ORIGIN_URL")
         if workspace_id:
-            cls.set(workspace_id, auth_token, workspace_url, workspace_origin_url)
+            cls.set(workspace_id, auth_token)
         else:
             raise RuntimeError(
                 "LEPTON_WORKSPACE_ID environment variable is not set. Please set it to"
@@ -104,49 +99,18 @@ class WorkspaceRecord(object):
         workspace_id: str,
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
-        workspace_origin_url: Optional[str] = None,
-        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Sets a workspace by adding it to the workspace info file.
         """
-        display_name = (
-            None
-            if not workspace_id in cls._singleton_record.workspaces
-            else cls._singleton_record.workspaces[workspace_id].display_name
-        )
-        # print(cls._singleton_record.workspaces[workspace_id])
-
-        # _get_workspace_display_name is called in two scenarios:
-        # 1. Initial CLI login without URL (for both DGXC and LEGACY workspaces will use default urls)
-        # 2. CLI login with URL (will use input url)
-        #    Note: This works for DGXC as the resolver api URL matches the workspace URL.
-        #    Future workspace types may require additional modifications.
-        if not display_name:
-            try:
-                display_name = _get_workspace_display_name(
-                    workspace_id,
-                    url=url,
-                    is_lepton_classic=is_lepton_classic,
-                    token=auth_token,
-                )
-            except RuntimeError:
-                display_name = None
-
+        try:
+            display_name = _get_workspace_display_name(workspace_id)
+        except RuntimeError:
+            display_name = None
         if url is None:
-            url = _get_full_workspace_api_url(
-                workspace_id, is_lepton_classic=is_lepton_classic
-            )
-        if not workspace_origin_url:
-            workspace_origin_url = _get_workspace_origin_url(url)
-        # Create workspace info with optional workspace_origin_url
+            url = _get_full_workspace_api_url(workspace_id)
         cls._singleton_record.workspaces[workspace_id] = LocalWorkspaceInfo(
-            id=workspace_id,
-            url=url,
-            display_name=display_name,
-            auth_token=auth_token,
-            workspace_origin_url=workspace_origin_url,
-            is_lepton_classic=is_lepton_classic,
+            id=workspace_id, url=url, display_name=display_name, auth_token=auth_token
         )
         cls._singleton_record.current_workspace = workspace_id
         cls._save_to_file()
@@ -157,17 +121,13 @@ class WorkspaceRecord(object):
         workspace_id: str,
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
-        workspace_origin_url: Optional[str] = None,
-        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Sets a workspace, and if it is not set up yet, print a message and exit.
         This should only be used in CLI.
         """
         try:
-            cls.set(
-                workspace_id, auth_token, url, workspace_origin_url, is_lepton_classic
-            )
+            cls.set(workspace_id, auth_token, url)
         except WorkspaceNotCreatedYet:
             _print_workspace_not_created_yet_message(workspace_id)
             sys.exit(1)
@@ -211,13 +171,7 @@ class WorkspaceRecord(object):
             from .client import APIClient
 
             ws = cls._singleton_record.workspaces[workspace_id]
-            return APIClient(
-                ws.id_,
-                ws.auth_token,
-                ws.url,
-                ws.workspace_origin_url,
-                ws.is_lepton_classic,
-            )
+            return APIClient(ws.id_, ws.auth_token, ws.url)
         else:
             raise ValueError(
                 f"Workspace {workspace_id} does not exist in the local record."
