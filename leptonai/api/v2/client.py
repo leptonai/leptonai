@@ -51,7 +51,7 @@ class APIClient(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_legacy: Optional[bool] = None,
+        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Creates a workspace api client by identifying the workspace in the following
@@ -73,10 +73,10 @@ class APIClient(object):
         #  - environment variable LEPTON_WORKSPACE_ID
         #  - current workspace of the workspace record
         # and if there is still no choice, we will throw an error.
-        is_lepton_legacy = (
-            is_lepton_legacy
-            or os.environ.get("LEPTON_LEGACY")
-            or WorkspaceRecord.current().is_lepton_legacy
+        is_lepton_classic = (
+            is_lepton_classic
+            or os.environ.get("LEPTON_CLASSIC")
+            or WorkspaceRecord.current().is_lepton_classic
             if WorkspaceRecord.current()
             else False
         )
@@ -120,7 +120,7 @@ class APIClient(object):
                 else None
             )
             or _get_full_workspace_api_url(
-                workspace_id, is_lepton_legacy=is_lepton_legacy
+                workspace_id, is_lepton_classic=is_lepton_classic
             )
         )
         workspace_origin_url = (
@@ -138,7 +138,7 @@ class APIClient(object):
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
         self.workspace_origin_url: Optional[str] = workspace_origin_url
-        self.is_lepton_legacy: Optional[bool] = is_lepton_legacy
+        self.is_lepton_classic: Optional[bool] = is_lepton_classic
         # Creates a connection for us to use.
         self._header = {}
         if self.auth_token:
@@ -154,7 +154,7 @@ class APIClient(object):
             f"  url: {self.url}\n"
             f"  auth_token: {self.auth_token[:2]}****{self.auth_token[-2:]}\n"
             f"  workspace_origin_url: {self.workspace_origin_url}\n"
-            f"  is_lepton_legacy: {self.is_lepton_legacy}"
+            f"  is_lepton_classic: {self.is_lepton_classic}"
         )
 
         # In default, timeout for the API calls is set to 120 seconds.

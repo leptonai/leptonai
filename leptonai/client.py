@@ -12,7 +12,7 @@ from leptonai._internal.client_utils import (  # noqa
 )
 from leptonai.api.v0.connection import Connection
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.v0.util import (
+from leptonai.api.v1.utils import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
 )
@@ -257,7 +257,6 @@ class Client(object):
         chunk_size: Optional[int] = None,
         timeout: Optional[httpx._types.TimeoutTypes] = None,
         no_check: bool = False,
-        is_lepton_legacy: Optional[bool] = None,
         http2: bool = True,
     ):
         """
@@ -290,9 +289,7 @@ class Client(object):
         if is_valid_url(workspace_or_url):
             self.url = workspace_or_url.rstrip("/")
         else:
-            url = _get_full_workspace_url(
-                workspace_or_url, cached=True, is_lepton_legacy=is_lepton_legacy
-            )
+            url = _get_full_workspace_url(workspace_or_url, cached=True)
             if not url:
                 raise ValueError(
                     f"Workspace {workspace_or_url} does not exist or is not accessible."

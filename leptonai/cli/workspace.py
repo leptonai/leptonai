@@ -170,7 +170,7 @@ def list_command(debug):
         if debug:
             row_data.extend([
                 info.workspace_origin_url,
-                str(info.is_lepton_legacy),
+                str(info.is_lepton_classic),
             ])
         table.add_row(*row_data)
     if current_workspace:

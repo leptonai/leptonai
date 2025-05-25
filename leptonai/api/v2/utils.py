@@ -74,7 +74,7 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
 
 
 def _get_workspace_display_name(
-    workspace_id, url=None, is_lepton_legacy=False, token=None
+    workspace_id, url=None, is_lepton_classic=False, token=None
 ) -> Optional[str]:
     """
     Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
@@ -88,13 +88,13 @@ def _get_workspace_display_name(
 
     resolver_api = (
         WORKSPACE_URL_RESOLVER_API
-        if is_lepton_legacy
+        if is_lepton_classic
         else DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id
     )
     if url:
         resolver_api = url
 
-    if is_lepton_legacy:
+    if is_lepton_classic:
         request_body = {"id": workspace_id}
         res = requests.get(resolver_api, json=request_body)
     else:
@@ -122,7 +122,7 @@ def _get_workspace_display_name(
 _workspace_url_cache: Dict[str, str] = {}
 
 
-def _get_full_workspace_url(workspace_id, cached=True, is_lepton_legacy=False) -> str:
+def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -136,7 +136,7 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_legacy=False) -
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    if not is_lepton_legacy:
+    if not is_lepton_classic:
         return API_URL_BASE
 
     # Process the lepton legacy workspace url
@@ -146,7 +146,7 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_legacy=False) -
 
         if url is None or not is_valid_url(url):
             url = _get_full_workspace_url(
-                workspace_id, cached=False, is_lepton_legacy=is_lepton_legacy
+                workspace_id, cached=False, is_lepton_classic=is_lepton_classic
             )
             _workspace_url_cache[workspace_id] = url
 
@@ -177,7 +177,7 @@ def _get_full_workspace_url(workspace_id, cached=True, is_lepton_legacy=False) -
 
 
 def _get_full_workspace_api_url(
-    workspace_id, cached=True, is_lepton_legacy=False
+    workspace_id, cached=True, is_lepton_classic=False
 ) -> str:
     """
     Get the full URL for the API of a workspace.
@@ -188,14 +188,14 @@ def _get_full_workspace_api_url(
     :raises ValueError: if the workspace does not exist
     """
     workspace_api_path = (
-        DGXC_WORKSPACE_API_PATH if not is_lepton_legacy else WORKSPACE_API_PATH
+        DGXC_WORKSPACE_API_PATH if not is_lepton_classic else WORKSPACE_API_PATH
     )
 
     url = (
-        _get_full_workspace_url(workspace_id, cached, is_lepton_legacy)
+        _get_full_workspace_url(workspace_id, cached, is_lepton_classic)
         + workspace_api_path
     )
-    if not is_lepton_legacy:
+    if not is_lepton_classic:
         url += workspace_id
     return url
 

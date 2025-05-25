@@ -88,7 +88,7 @@ log.add_command(lep)
     default=None,
 )
 @click.option(
-    "--lepton-legacy",
+    "--lepton-classic",
     "-l",
     is_flag=True,
     help="Login to the legacy Lepton AI workspace.",
@@ -99,7 +99,7 @@ log.add_command(lep)
     help="The origin url of the workspace to login to.",
     default=None,
 )
-def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
+def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
     """
     Login to the Lepton AI cloud. This will open a browser window to the Lepton AI
     login page if credentials are not given. You will be redirected to a page with
@@ -115,7 +115,7 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
             auth_token=auth_token,
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
-            is_lepton_legacy=lepton_legacy,
+            is_lepton_classic=lepton_classic,
         )
     else:
         if WorkspaceRecord.current():
@@ -128,7 +128,7 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
                 " auth_token:"
                 f" {current_ws.auth_token[:2]}****{current_ws.auth_token[-2:] if current_ws.auth_token else None}\n"
                 f"  workspace_origin_url: {current_ws.workspace_origin_url}\n "
-                f" is_lepton_legacy: {current_ws.is_lepton_legacy}"
+                f" is_lepton_classic: {current_ws.is_lepton_classic}"
             )
         else:
             candidates = WorkspaceRecord.workspaces()
@@ -137,7 +137,7 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
             elif len(candidates) == 1:
                 # Only one workspace, so we will simply log in to that one.
                 ws = candidates[0]
-                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url, ws.is_lepton_legacy)  # type: ignore
+                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url, ws.is_lepton_classic)  # type: ignore
             else:
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
@@ -156,7 +156,7 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
                     candidates[choice].auth_token,
                     candidates[choice].url,
                     candidates[choice].workspace_origin_url,
-                    candidates[choice].is_lepton_legacy,
+                    candidates[choice].is_lepton_classic,
                 )
                 console.print(
                     "Hint: If you have multiple workspaces, you can pick the one you"

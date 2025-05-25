@@ -32,7 +32,7 @@ class LocalWorkspaceInfo(BaseModel):
     display_name: Optional[str] = None
     auth_token: Optional[str] = None
     workspace_origin_url: Optional[str] = None
-    is_lepton_legacy: Optional[bool] = False
+    is_lepton_classic: Optional[bool] = False
 
 
 class _LocalWorkspaceRecord(BaseModel):
@@ -105,7 +105,7 @@ class WorkspaceRecord(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_legacy: Optional[bool] = None,
+        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Sets a workspace by adding it to the workspace info file.
@@ -127,7 +127,7 @@ class WorkspaceRecord(object):
                 display_name = _get_workspace_display_name(
                     workspace_id,
                     url=url,
-                    is_lepton_legacy=is_lepton_legacy,
+                    is_lepton_classic=is_lepton_classic,
                     token=auth_token,
                 )
             except RuntimeError:
@@ -135,7 +135,7 @@ class WorkspaceRecord(object):
 
         if url is None:
             url = _get_full_workspace_api_url(
-                workspace_id, is_lepton_legacy=is_lepton_legacy
+                workspace_id, is_lepton_classic=is_lepton_classic
             )
         if not workspace_origin_url:
             workspace_origin_url = _get_workspace_origin_url(url)
@@ -146,7 +146,7 @@ class WorkspaceRecord(object):
             display_name=display_name,
             auth_token=auth_token,
             workspace_origin_url=workspace_origin_url,
-            is_lepton_legacy=is_lepton_legacy,
+            is_lepton_classic=is_lepton_classic,
         )
         cls._singleton_record.current_workspace = workspace_id
         cls._save_to_file()
@@ -158,7 +158,7 @@ class WorkspaceRecord(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_legacy: Optional[bool] = None,
+        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Sets a workspace, and if it is not set up yet, print a message and exit.
@@ -166,7 +166,7 @@ class WorkspaceRecord(object):
         """
         try:
             cls.set(
-                workspace_id, auth_token, url, workspace_origin_url, is_lepton_legacy
+                workspace_id, auth_token, url, workspace_origin_url, is_lepton_classic
             )
         except WorkspaceNotCreatedYet:
             _print_workspace_not_created_yet_message(workspace_id)
@@ -216,7 +216,7 @@ class WorkspaceRecord(object):
                 ws.auth_token,
                 ws.url,
                 ws.workspace_origin_url,
-                ws.is_lepton_legacy,
+                ws.is_lepton_classic,
             )
         else:
             raise ValueError(
