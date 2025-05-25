@@ -131,7 +131,13 @@ class TestNoMothershipWorkspace(unittest.TestCase):
         runner = CliRunner()
 
         result = runner.invoke(
-            cli, ["login", "-c", os.environ["TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS"]]
+            cli,
+            [
+                "login",
+                "-c",
+                os.environ["TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS"],
+                "-l",
+            ],
         )
         self.assertEqual(result.exit_code, 1)
         self.assertIn(

@@ -346,8 +346,6 @@ VALID_SHAPES = [
     "gpu.8xh100-sxm",
 ]
 
-URL_PACKAGES = {}
-
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.
 WORKSPACE_API_PATH = "/api/v1"
