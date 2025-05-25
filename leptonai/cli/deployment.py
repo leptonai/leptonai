@@ -953,9 +953,8 @@ def status(name, show_tokens, detail):
     client = APIClient()
 
     dep_info = client.deployment.get(name)
-    workspace_id = client.get_workspace_id()
 
-    # todo: print a cleaner dep info.
+    # TODO: print a cleaner dep info.
     creation_time = datetime.fromtimestamp(
         dep_info.metadata.created_at / 1000  # type: ignore
     ).strftime("%Y-%m-%d %H:%M:%S")

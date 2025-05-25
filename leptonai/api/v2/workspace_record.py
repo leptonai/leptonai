@@ -112,7 +112,7 @@ class WorkspaceRecord(object):
         """
         display_name = (
             None
-            if not workspace_id in cls._singleton_record.workspaces
+            if workspace_id not in cls._singleton_record.workspaces
             else cls._singleton_record.workspaces[workspace_id].display_name
         )
         # print(cls._singleton_record.workspaces[workspace_id])

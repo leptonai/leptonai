@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import click
-import sys
 from typing import Optional
 
 from rich.console import Console
@@ -10,7 +9,6 @@ from rich.table import Table
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
 from ..api.v2.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
-from loguru import logger
 
 console = Console(highlight=False)
 
