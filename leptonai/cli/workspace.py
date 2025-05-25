@@ -7,9 +7,9 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.api.v1.workspace_record import WorkspaceRecord
+from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
-from ..api.v1.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
+from ..api.v2.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
 from loguru import logger
 
 console = Console(highlight=False)
@@ -44,11 +44,13 @@ def workspace():
 )
 @click.option(
     "--workspace-origin-url",
-    help="Internal option for setting the Origin header in API calls. Used for workspace API configuration.",
+    help=(
+        "Internal option for setting the Origin header in API calls. Used for workspace"
+        " API configuration."
+    ),
     hidden=True,
     default=None,
 )
-
 def login(
     workspace_id: str,
     auth_token: Optional[str] = None,
@@ -68,13 +70,19 @@ def login(
         info = WorkspaceRecord.get(workspace_id)
         if auth_token or workspace_url or workspace_origin_url:
             WorkspaceRecord.set_or_exit(
-                workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url
+                workspace_id,
+                auth_token=auth_token,
+                url=workspace_url,
+                workspace_origin_url=workspace_origin_url,
             )
         else:
             WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url)  # type: ignore
     else:
         WorkspaceRecord.set_or_exit(
-            workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url
+            workspace_id,
+            auth_token=auth_token,
+            url=workspace_url,
+            workspace_origin_url=workspace_origin_url,
         )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
@@ -240,7 +248,6 @@ def url():
         "It seems that you are not logged in. Please run `lep login` first.",
     )
     console.print(current.url)
-
 
 
 @workspace.command()

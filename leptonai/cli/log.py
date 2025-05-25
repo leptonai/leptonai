@@ -5,7 +5,7 @@ import os
 from .job import _get_newest_job_by_name
 from .util import click_group, console
 
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 
 import json
 import click

@@ -4,9 +4,9 @@ import click
 import sys
 import webbrowser
 
-from leptonai.api.v1.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
+from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
 from .util import console
-from leptonai.api.v1.workspace_record import WorkspaceRecord
+from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
 
 import leptonai
@@ -27,104 +27,21 @@ from .util import click_group
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 LOGIN_LOGO = """
-[blue] ██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗     █████╗ ██╗[/]
-[blue] ██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║    ██╔══██╗██║[/]
-[blue] ██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║    ███████║██║[/]
-[blue] ██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║    ██╔══██║██║[/]
-[blue] ███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║    ██║  ██║██║[/]
-[blue] ╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝    ╚═╝  ╚═╝╚═╝[/]
+
+                            [#76B900]N V I D I A[/]
+
+                        [white] D G X  C L O U D[/]
+
+        [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
+        [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
+        [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
+        [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
+        [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
+        [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
+
+
 """
 
-LOGIN_LOGO="""
-[green]██████╗  ██████╗ ██╗  ██╗ ██████╗    ██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/green]
-[green]██╔══██╗██╔════╝ ╚██╗██╔╝██╔════╝    ██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/green]
-[green]██║  ██║██║  ███╗ ╚███╔╝ ██║         ██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/green]
-[green]██║  ██║██║   ██║ ██╔██╗ ██║         ██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/green]
-[green]██████╔╝╚██████╔╝██╔╝ ██╗╚██████╗    ███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║
-[green]╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝    ╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══                                                                                                                              
-"""
-
-LOGIN_LOGO = """
-
-                    [#76B900]███╗   ██╗██╗   ██╗██╗██████╗ ██╗ █████╗ [/]
-                    [#76B900]████╗  ██║██║   ██║██║██╔══██╗██║██╔══██╗[/]
-                    [#76B900]██╔██╗ ██║██║   ██║██║██║  ██║██║███████║[/]
-                    [#76B900]██║╚██╗██║╚██╗ ██╔╝██║██║  ██║██║██╔══██║[/]
-                    [#76B900]██║ ╚████║ ╚████╔╝ ██║██████╔╝██║██║  ██║[/]
-                    [#76B900]╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═╝[/]
-
-[white]██████╗  ██████╗ ██╗  ██╗ ██████╗[/]  [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
-[white]██╔══██╗██╔════╝ ╚██╗██╔╝██╔════╝[/]  [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
-[white]██║  ██║██║  ███╗ ╚███╔╝ ██║     [/]  [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
-[white]██║  ██║██║   ██║ ██╔██╗ ██║     [/]  [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
-[white]██████╔╝╚██████╔╝██╔╝ ██╗╚██████╗[/]  [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
-[white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝[/]  [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
-                                [blue]L E P T O N[/]
-
-"""
-# LOGIN_LOGO = """
-#               [#76B900]███╗   ██╗██╗   ██╗██╗██████╗ ██╗ █████╗ [/]
-#               [#76B900]████╗  ██║██║   ██║██║██╔══██╗██║██╔══██╗[/]
-#               [#76B900]██╔██╗ ██║██║   ██║██║██║  ██║██║███████║[/]
-#               [#76B900]██║╚██╗██║╚██╗ ██╔╝██║██║  ██║██║██╔══██║[/]
-#               [#76B900]██║ ╚████║ ╚████╔╝ ██║██████╔╝██║██║  ██║[/]
-#               [#76B900]╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═╝[/]
-
-# [white]██████╗  ██████╗ ██╗  ██╗     ██████╗██╗      ██████╗ ██╗   ██╗██████╗ [/white]
-# [white]██╔══██╗██╔════╝ ╚██╗██╔╝    ██╔════╝██║     ██╔═══██╗██║   ██║██╔══██╗[/white]
-# [white]██║  ██║██║  ███╗ ╚███╔╝     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
-# [white]██║  ██║██║   ██║ ██╔██╗     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
-# [white]██████╔╝╚██████╔╝██╔╝ ██╗    ╚██████╗███████╗╚██████╔╝╚██████╔╝██████╔╝[/white]
-# [white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ 
-
-#          [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
-#          [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
-#          [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
-#          [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
-#          [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
-#          [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
-#                             [#76B900]N V I D I A[/]
-
-# """
-# LOGIN_LOGO = """
-
-#                             [#76B900]N V I D I A[/]
-                        
-
-# [white]██████╗  ██████╗ ██╗  ██╗     ██████╗██╗      ██████╗ ██╗   ██╗██████╗ [/white]
-# [white]██╔══██╗██╔════╝ ╚██╗██╔╝    ██╔════╝██║     ██╔═══██╗██║   ██║██╔══██╗[/white]
-# [white]██║  ██║██║  ███╗ ╚███╔╝     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
-# [white]██║  ██║██║   ██║ ██╔██╗     ██║     ██║     ██║   ██║██║   ██║██║  ██║[/white]
-# [white]██████╔╝╚██████╔╝██╔╝ ██╗    ╚██████╗███████╗╚██████╔╝╚██████╔╝██████╔╝[/white]
-# [white]╚═════╝  ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ 
-
-#         [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
-#         [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
-#         [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
-#         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
-#         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
-#         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
-
-# """
-
-# LOGIN_LOGO = """
-
-#                             [#76B900]N V I D I A[/]
-
-#                         [white] D G X  C L O U D[/]
-
-#         [#76B900]██╗     ███████╗██████╗ ████████╗ ██████╗ ███╗   ██╗[/]
-#         [#76B900]██║     ██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗████╗  ██║[/]
-#         [#76B900]██║     █████╗  ██████╔╝   ██║   ██║   ██║██╔██╗ ██║[/]
-#         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
-#         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
-#         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
-
-# """
 
 @click.version_option(leptonai.__version__, "-v", "--version")
 @click_group(context_settings=CONTEXT_SETTINGS)
@@ -193,20 +110,25 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
     need_further_login = False
     if credentials:
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token, url=workspace_url, workspace_origin_url=workspace_origin_url, is_lepton_legacy=lepton_legacy)
+        WorkspaceRecord.set_or_exit(
+            workspace_id,
+            auth_token=auth_token,
+            url=workspace_url,
+            workspace_origin_url=workspace_origin_url,
+            is_lepton_legacy=lepton_legacy,
+        )
     else:
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
             current_ws = WorkspaceRecord.current()
             # Note: Set LOGURU_LEVEL=TRACE to see these debug logs
             logger.trace(
-                f"Current workspace info:\n"
-                f"  id: {current_ws.id_}\n"
-                f"  url: {current_ws.url}\n"
-                f"  display_name: {current_ws.display_name}\n"
-                f"  auth_token: {current_ws.auth_token[:2]}****{current_ws.auth_token[-2:] if current_ws.auth_token else None}\n"
-                f"  workspace_origin_url: {current_ws.workspace_origin_url}\n"
-                f"  is_lepton_legacy: {current_ws.is_lepton_legacy}"
+                f"Current workspace info:\n  id: {current_ws.id_}\n  url:"
+                f" {current_ws.url}\n  display_name: {current_ws.display_name}\n "
+                " auth_token:"
+                f" {current_ws.auth_token[:2]}****{current_ws.auth_token[-2:] if current_ws.auth_token else None}\n"
+                f"  workspace_origin_url: {current_ws.workspace_origin_url}\n "
+                f" is_lepton_legacy: {current_ws.is_lepton_legacy}"
             )
         else:
             candidates = WorkspaceRecord.workspaces()
@@ -278,7 +200,7 @@ def login(credentials, workspace_url, lepton_legacy, workspace_origin_url):
 
     try:
         info = api_client.info()
-        console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
+        console.print(f"Logged in to your workspace [blue]{info.workspace_name}[/].")
         console.print(f"\t      tier: {info.workspace_tier}")
         console.print(f"\tbuild time: {info.build_time}")
         console.print(f"\t   version: {api_client.version()}")

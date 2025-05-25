@@ -346,26 +346,22 @@ VALID_SHAPES = [
     "gpu.8xh100-sxm",
 ]
 
-URL_PACKAGES = {
-
-}
+URL_PACKAGES = {}
 
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.
-LEPTON_LEGACY_WORKSPACE_API_PATH = "/api/v1"
-WORKSPACE_API_PATH = "/api/v2/workspaces/"
+WORKSPACE_API_PATH = "/api/v1"
+DGXC_WORKSPACE_API_PATH = "/api/v2/workspaces/"
 
 API_URL_BASE = "https://gateway.dgxc-lepton.nvidia.com"
-LEPTON_WORKSPACE_ORIGIN_URL = "https://dashboard.dgxc-lepton.nvidia.com"
 
-LEPTON_LEGACY_WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
+WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
 
-WORKSPACE_URL_RESOLVER_API = "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces"
+DGXC_WORKSPACE_URL_RESOLVER_API = (
+    "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces"
+)
 
-WORKSPACE_URL_RESOLVER_API_MAP = {
-    "legacy": [LEPTON_LEGACY_WORKSPACE_URL_RESOLVER_API],
-    "dgxc": [WORKSPACE_URL_RESOLVER_API, API_URL_BASE, LEPTON_WORKSPACE_ORIGIN_URL],
-}
+
 # Current workspace api path
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
 LEPTON_RESERVED_ENV_NAMES = {

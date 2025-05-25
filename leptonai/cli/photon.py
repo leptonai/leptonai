@@ -16,7 +16,7 @@ import click
 
 from loguru import logger
 
-from leptonai.api.v1.workspace_record import WorkspaceRecord
+from leptonai.api.v2.workspace_record import WorkspaceRecord
 from leptonai import config
 from leptonai.photon import util as photon_util
 from leptonai.photon import Photon
@@ -34,7 +34,7 @@ from .util import (
     click_group,
     check,
 )
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
 from leptonai.api.v1.photon import make_env_vars_from_strings
 
 from .deployment import create as deployment_create

@@ -16,7 +16,7 @@ from .util import (
     check,
     _get_only_replica_public_ip,
 )
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 
 custom_theme = Theme({
     "directory": "bold cyan",

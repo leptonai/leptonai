@@ -26,7 +26,7 @@ from leptonai.api.v1.types.job import (
     ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
 
 
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
@@ -388,24 +388,24 @@ def create(
                 "[/red]\n[green]please use --queue-priority with --node-group[/green]"
             )
             sys.exit(1)
-        
+
         # Get valid node group IDs
         node_group_ids = _get_valid_nodegroup_ids(
             node_groups, need_queue_priority=(queue_priority is not None)
         )
-        
+
         # Get valid node IDs if specified
         valid_node_ids = (
             _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
         )
-        
+
         # Configure resource affinity
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
-        
+
         # Set queue configuration if priority is specified
         if queue_priority:
             job_spec.queue_config = QueueConfig(priority_class=queue_priority)

@@ -12,7 +12,7 @@ from .util import (
     click_group,
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 from ..api.v1.types.common import SecretItem
 
 

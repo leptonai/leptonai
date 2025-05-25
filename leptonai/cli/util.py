@@ -10,7 +10,7 @@ import click
 from loguru import logger
 
 from rich.console import Console
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
 
 
 console = Console(highlight=False)
