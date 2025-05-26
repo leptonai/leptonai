@@ -97,6 +97,7 @@ log.add_command(lep)
     "--workspace-origin-url",
     "-o",
     help="The origin url of the workspace to login to.",
+    hidden=True,
     default=None,
 )
 def login(credentials, workspace_url, lepton_classic, workspace_origin_url):

@@ -204,8 +204,8 @@ def _get_workspace_origin_url(url: str) -> str:
     """
     Get the origin url of a workspace.
     """
-    # For DGXC workspaces, the origin url is the dashboard url.
+    # For DGXC workspaces, the origin url is the url.
     if "dgxc" in url:
-        return url.replace("gateway", "dashboard")
+        return url
     # For classic workspaces, origin url is not required.
     return None

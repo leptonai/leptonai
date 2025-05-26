@@ -41,6 +41,11 @@ def workspace():
     default=None,
 )
 @click.option(
+    "--lepton-classic",
+    is_flag=True,
+    help="Login to the classic Lepton AI workspace.",
+)
+@click.option(
     "--workspace-origin-url",
     help=(
         "Internal option for setting the Origin header in API calls. Used for workspace"
@@ -53,6 +58,7 @@ def login(
     workspace_id: str,
     auth_token: Optional[str] = None,
     workspace_url: Optional[str] = None,
+    lepton_classic: bool = False,
     workspace_origin_url: Optional[str] = None,
 ):
     """
@@ -74,13 +80,14 @@ def login(
                 workspace_origin_url=workspace_origin_url,
             )
         else:
-            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url)  # type: ignore
+            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url, is_lepton_classic=lepton_classic)  # type: ignore
     else:
         WorkspaceRecord.set_or_exit(
             workspace_id,
             auth_token=auth_token,
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
+            is_lepton_classic=lepton_classic,
         )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
