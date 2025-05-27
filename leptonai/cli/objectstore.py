@@ -13,7 +13,7 @@ from .util import (
     click_group,
     sizeof_fmt,
 )
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 
 _max_upload_file_size_limit = 4995 * 1024 * 1024
 

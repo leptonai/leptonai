@@ -13,7 +13,7 @@ import anyio
 from loguru import logger
 
 from .photon import Photon, HTTPException
-from leptonai.api.v1.workspace_record import WorkspaceRecord
+from leptonai.api.v2.workspace_record import WorkspaceRecord
 from leptonai.util import asyncfy_with_semaphore
 
 

@@ -2,79 +2,64 @@
 Utility functions for the Lepton AI API.
 """
 
-import json
 import requests
-from typing import Dict, List, Optional, Union
+from typing import Optional, Dict
 
-from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
+from leptonai.config import (
+    DGXC_WORKSPACE_API_PATH,
+    DGXC_WORKSPACE_URL_RESOLVER_API,
+    WORKSPACE_URL_RESOLVER_API,
+    WORKSPACE_API_PATH,
+    API_URL_BASE,
+)
 from leptonai.util import is_valid_url
 
 
-class APIError(object):
-    """
-    An error class for API calls that return status other than 200.
-    """
+class WorkspaceError(RuntimeError):
+    def __init__(self, message, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(message)
+        self.workspace_id = workspace_id
+        self.workspace_url = workspace_url
+        self.auth_token = auth_token
 
-    def __init__(self, response: requests.Response, message: Optional[str] = None):
-        self.status_code = response.status_code
-        self.message = message if message else response.text
-
-    def __str__(self) -> str:
-        return f"APIError (API response code {self.status_code}): {self.message}"
-
-
-def json_or_error(
-    response: requests.Response, additional_debug_info: str = ""
-) -> Union[Dict, List, APIError]:
-    """
-    A utility function to return json if the response is ok, and otherwise returns an APIError object
-    that details the error encountered.
-
-    This function is intended to be used to wrap raw api functions and parse the response, which should
-    contain a json response if the response is ok.
-
-    :param requests.Response response: the response to parse
-    :return: the json content of the response if the response is ok, otherwise an APIError or NotJsonError
-    """
-    if response.ok:
-        try:
-            return response.json()
-        except json.JSONDecodeError:
-            # This should not happen: apis that use json_or_error should make sure
-            # that the response is json. If this happens, it is either a programming
-            # error, or the api has changed, or the lepton ai cloud side has a bug.
-            return APIError(
-                response,
-                message=(
-                    "You encountered a programming error. Please report this, and"
-                    " include the following debug info:\n*** begin of debug info"
-                    f" ***\n{additional_debug_info}\nresponse returned 200 OK, but the"
-                    " content cannot be decoded as json.\nresponse.text:"
-                    f" {response.text}\n\n*** end of debug info ***"
-                ),
-            )
-    else:
-        return APIError(response)
+    def __str__(self):
+        details = ", ".join(
+            f"{key.replace('_', ' ').title()}: {value}"
+            for key, value in vars(self).items()
+            if value and key != "args"
+        )
+        return f"{self.args[0]} ({details})" if details else self.args[0]
 
 
-def create_header(auth_token: Optional[str]) -> Dict[str, str]:
-    """
-    Generate HTTP header for a request given an auth token.
+class WorkspaceUnauthorizedError(WorkspaceError):
+    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(
+            "Unauthorized access to the workspace",
+            workspace_id,
+            workspace_url,
+            auth_token,
+        )
 
-    :param str auth_token: auth token to use in the header. None if the request does not require an auth token.
-    :return: the generated HTTP header
-    :rtype: dict[str, str]
-    """
-    return {"Authorization": "Bearer " + auth_token} if auth_token else {}
+
+class WorkspaceNotFoundError(WorkspaceError):
+    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(
+            "Workspace not found. If the workspace was just created, please wait"
+            " for 10 minutes. Contact us if the workspace remains unavailable after"
+            " 10 minutes.",
+            workspace_id,
+            workspace_url,
+            auth_token,
+        )
 
 
-class WorkspaceNotCreatedYet(RuntimeError):
+class WorkspaceNotCreatedYet(WorkspaceError):
     """
     An exception that is raised when a workspace is not created yet.
     """
 
     def __init__(self, workspace_id: str):
-        super().__init__(f"Workspace {workspace_id} is not created yet.")
+        super().__init__(f"Workspace {workspace_id} is not created yet.", workspace_id)
 
 
 def _print_workspace_not_created_yet_message(workspace_id: str):
@@ -88,7 +73,9 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
     )
 
 
-def _get_workspace_display_name(workspace_id) -> Optional[str]:
+def _get_workspace_display_name(
+    workspace_id, url=None, is_lepton_classic=False, token=None
+) -> Optional[str]:
     """
     Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
     to get the workspace display name.
@@ -99,8 +86,21 @@ def _get_workspace_display_name(workspace_id) -> Optional[str]:
     :raises ValueError: if the workspace does not exist
     """
 
-    request_body = {"id": workspace_id}
-    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
+    resolver_api = (
+        WORKSPACE_URL_RESOLVER_API
+        if is_lepton_classic
+        else DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id
+    )
+    if url:
+        resolver_api = url
+
+    if is_lepton_classic:
+        request_body = {"id": workspace_id}
+        res = requests.get(resolver_api, json=request_body)
+    else:
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        res = requests.get(resolver_api, headers=headers)
+
     if not res.ok:
         raise RuntimeError(
             f"Lepton server returned an error: {res.status_code} {res.content}."
@@ -119,10 +119,10 @@ def _get_workspace_display_name(workspace_id) -> Optional[str]:
         return content["display_name"]
 
 
-_workspace_url_cache = {}
+_workspace_url_cache: Dict[str, str] = {}
 
 
-def _get_full_workspace_url(workspace_id, cached=True) -> str:
+def _get_full_workspace_url(workspace_id, cached=True, is_lepton_classic=False) -> str:
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -136,18 +136,26 @@ def _get_full_workspace_url(workspace_id, cached=True) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
+    if not is_lepton_classic:
+        return API_URL_BASE
+
+    # Process the lepton classic workspace url
 
     if cached:
         url = _workspace_url_cache.get(workspace_id)
 
         if url is None or not is_valid_url(url):
-            url = _get_full_workspace_url(workspace_id, cached=False)
+            url = _get_full_workspace_url(
+                workspace_id, cached=False, is_lepton_classic=is_lepton_classic
+            )
             _workspace_url_cache[workspace_id] = url
 
         return url
-
     request_body = {"id": workspace_id}
-    res = requests.get(WORKSPACE_URL_RESOLVER_API, json=request_body)
+    res = requests.get(
+        WORKSPACE_URL_RESOLVER_API,
+        json=request_body,
+    )
     if not res.ok:
         raise RuntimeError(
             f"Lepton server returned an error: {res.status_code} {res.content}."
@@ -168,7 +176,9 @@ def _get_full_workspace_url(workspace_id, cached=True) -> str:
         return content["url"]
 
 
-def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
+def _get_full_workspace_api_url(
+    workspace_id, cached=True, is_lepton_classic=False
+) -> str:
     """
     Get the full URL for the API of a workspace.
 
@@ -177,4 +187,25 @@ def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    return _get_full_workspace_url(workspace_id, cached) + WORKSPACE_API_PATH
+    workspace_api_path = (
+        DGXC_WORKSPACE_API_PATH if not is_lepton_classic else WORKSPACE_API_PATH
+    )
+
+    url = (
+        _get_full_workspace_url(workspace_id, cached, is_lepton_classic)
+        + workspace_api_path
+    )
+    if not is_lepton_classic:
+        url += workspace_id
+    return url
+
+
+def _get_workspace_origin_url(url: str) -> str:
+    """
+    Get the origin url of a workspace.
+    """
+    # For DGXC workspaces, the origin url is the url.
+    if "dgxc" in url:
+        return url
+    # For classic workspaces, origin url is not required.
+    return None

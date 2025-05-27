@@ -21,16 +21,15 @@ from .util import (
 
 from leptonai.config import (
     VALID_SHAPES,
-    LEPTON_DEPLOYMENT_URL,
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
     ENV_VAR_REQUIRED,
 )
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.workspace_record import WorkspaceRecord
+from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata, LeptonVisibility
 from ..api.v1.types.deployment import (
     AutoScaler,
@@ -954,9 +953,8 @@ def status(name, show_tokens, detail):
     client = APIClient()
 
     dep_info = client.deployment.get(name)
-    workspace_id = client.get_workspace_id()
 
-    # todo: print a cleaner dep info.
+    # TODO: print a cleaner dep info.
     creation_time = datetime.fromtimestamp(
         dep_info.metadata.created_at / 1000  # type: ignore
     ).strftime("%Y-%m-%d %H:%M:%S")
@@ -1004,11 +1002,15 @@ def status(name, show_tokens, detail):
         target_gpu_utilization_percentage = autoscaler.target_gpu_utilization_percentage
         if target_gpu_utilization_percentage:
             console.print(f"Target GPU: {target_gpu_utilization_percentage}%")
-    if workspace_id:
-        web_url = LEPTON_DEPLOYMENT_URL.format(
-            workspace_id=workspace_id, deployment_name=name
-        )
-        console.print(f"Web UI:     {web_url}")
+
+    # Note: Web UI functionality is temporarily removed to reduce workspace URL dependency
+    # This may be restored in the future if we implement a more flexible URL handling mechanism
+    # if workspace_id:
+    #     web_url = LEPTON_DEPLOYMENT_URL.format(
+    #         workspace_id=workspace_id, deployment_name=name
+    #     )
+    #     console.print(f"Web UI:     {web_url}")
+
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
     console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")

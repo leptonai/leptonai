@@ -7,7 +7,7 @@ import re
 
 from rich.table import Table
 
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
 from .util import console, click_group
 
 

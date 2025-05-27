@@ -131,11 +131,17 @@ class TestNoMothershipWorkspace(unittest.TestCase):
         runner = CliRunner()
 
         result = runner.invoke(
-            cli, ["login", "-c", os.environ["TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS"]]
+            cli,
+            [
+                "login",
+                "-c",
+                os.environ["TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS"],
+                "-l",
+            ],
         )
         self.assertEqual(result.exit_code, 1)
         self.assertIn(
-            "Workspace emt2tod3 is registerd, but not set up yet.", result.output
+            "Workspace emt2tod3 is registered, but not set up yet.", result.output
         )
         self.assertIn(
             "https://dashboard.lepton.ai/workspace/emt2tod3/setup", result.output
