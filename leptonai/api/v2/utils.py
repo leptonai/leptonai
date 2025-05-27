@@ -67,7 +67,7 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
     Help message to be used to print a message when a workspace is not created yet.
     """
     print(
-        f"Workspace {workspace_id} is registerd, but not set up yet. To set it up,"
+        f"Workspace {workspace_id} is registered, but not set up yet. To set it up,"
         f" Please visit\n  https://dashboard.lepton.ai/workspace/{workspace_id}/setup\n"
         " After that, you can log in here and use the workspace via CLI or API."
     )
