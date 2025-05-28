@@ -168,17 +168,25 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         # user to login interactively.
         # obtain credentials first.
         console.print(
-            "Welcome to Lepton AI. We will open a browser for you to obtain your"
-            " login credentials. Please log in with your registered account."
+            "\n[bold]Welcome to [#76B900]DGX Cloud Lepton[/][/bold]\n"
+            "We will open a browser for you to obtain your login credentials.\n"
+            "Please log in with your registered account.\n"
         )
         console.print(
-            "You'll then be presented with your CLI credentials. If you have"
-            " multiple workspaces, there will be multiple credentials - select the"
-            " one you want to log in to. Copy the credential and paste it here."
+            "[bold]Instructions:[/bold]\n"
+            "1. A browser window will open to the workspace credentials page\n"
+            "2. If you have multiple workspaces, select the one you want to log in to\n"
+            "3. Copy the credential and paste it here\n"
+            "4. The credential should be in the format:"
+            " [#76B900]<workspace_id>:<auth_token>[/]\n"
         )
-        input("Whenever you are ready, press Enter to continue...")
+        input("Press Enter to continue...")
 
-        success = webbrowser.open("https://dashboard.lepton.ai/credentials")
+        credentials_page_url = "https://dashboard.dgxc-lepton.nvidia.com/credentials"
+        if lepton_classic:
+            credentials_page_url = "https://dashboard.lepton.ai/credentials"
+
+        success = webbrowser.open(credentials_page_url)
         if not success:
             console.print(
                 "It seems that you are running in a non-GUI environment. You can"
