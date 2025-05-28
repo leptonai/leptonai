@@ -177,7 +177,8 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             "1. A browser window will open to the workspace credentials page\n"
             "2. If you have multiple workspaces, select the one you want to log in to\n"
             "3. Copy the credential and paste it here\n"
-            "4. The credential should be in the format: [#76B900]<workspace_id>:<auth_token>[/]\n"
+            "4. The credential should be in the format:"
+            " [#76B900]<workspace_id>:<auth_token>[/]\n"
         )
         input("Press Enter to continue...")
 
