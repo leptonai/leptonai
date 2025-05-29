@@ -540,7 +540,6 @@ def list_command(state):
     for job in jobs:
         status = job.status
         if state and not any(status.state.lower().startswith(s.lower()) for s in state):
-            console.print(f"Skipping job {job.metadata.name} with state {status.state}")
             continue
         table.add_row(
             job.metadata.name,
