@@ -517,10 +517,11 @@ def create(
         "Filter jobs by state. Case-insensitive and matches the beginning of the state"
         " name. Available states: Starting, Running, Failed, Completed, Stopped,"
         " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
-        " PendingRetry. Example: 'run' will match 'Running'"
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple states."
     ),
     type=str,
     required=False,
+    multiple=True,
 )
 def list_command(state):
     """
@@ -537,7 +538,8 @@ def list_command(state):
     table.add_column("State")
     for job in jobs:
         status = job.status
-        if state and not status.state.lower().startswith(state.lower()):
+        if state and not any(status.state.lower().startswith(s.lower()) for s in state):
+            console.print(f"Skipping job {job.metadata.name} with state {status.state}")
             continue
         table.add_row(
             job.metadata.name,
