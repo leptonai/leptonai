@@ -510,7 +510,21 @@ def create(
 
 
 @job.command(name="list")
-def list_command():
+@click.option(
+    "--state",
+    "-s",
+    help=(
+        "Filter jobs by state. Case-insensitive and matches the beginning of the state"
+        " name. Available states: Starting, Running, Failed, Completed, Stopped,"
+        " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
+        " states."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def list_command(state):
     """
     Lists all jobs in the current workspace.
     """
@@ -522,9 +536,12 @@ def list_command():
     table.add_column("Name")
     table.add_column("ID")
     table.add_column("Created At")
-    table.add_column("State (ready,active,succeeded,failed)")
+    table.add_column("State")
     for job in jobs:
         status = job.status
+        if state and not any(status.state.lower().startswith(s.lower()) for s in state):
+            console.print(f"Skipping job {job.metadata.name} with state {status.state}")
+            continue
         table.add_row(
             job.metadata.name,
             job.metadata.id_,
@@ -535,7 +552,7 @@ def list_command():
                 if job.metadata.created_at
                 else "N/A"
             ),
-            f"{status.state} ({status.ready},{status.active},{status.succeeded},{status.failed})",
+            f"{status.state}",
         )
     table.title = "Jobs"
     console.print(table)
