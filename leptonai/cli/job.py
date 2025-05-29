@@ -517,7 +517,8 @@ def create(
         "Filter jobs by state. Case-insensitive and matches the beginning of the state"
         " name. Available states: Starting, Running, Failed, Completed, Stopped,"
         " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
-        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple states."
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
+        " states."
     ),
     type=str,
     required=False,
