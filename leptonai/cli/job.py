@@ -29,6 +29,7 @@ from leptonai.api.v1.types.job import (
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
 from leptonai.api.v2.client import APIClient
 
+
 def _display_jobs_table(jobs: List[LeptonJob]):
     table = Table(show_header=True)
     table.add_column("Name")
@@ -53,6 +54,7 @@ def _display_jobs_table(jobs: List[LeptonJob]):
         )
     table.title = "Jobs"
     console.print(table)
+
 
 def _filter_jobs(
     jobs: List[LeptonJob],
@@ -85,15 +87,21 @@ def _filter_jobs(
     filtered_jobs = []
     for job in jobs:
         # Skip if state filter is specified and job state doesn't match any of the states
-        if state and not any(job.status.state.lower().startswith(s.lower()) for s in state):
+        if state and not any(
+            job.status.state.lower().startswith(s.lower()) for s in state
+        ):
             continue
 
         # Skip if user pattern filter is specified and job owner doesn't match any of the patterns
-        if user_patterns and not any(job.metadata.owner.lower().startswith(u.lower()) for u in user_patterns):
+        if user_patterns and not any(
+            job.metadata.owner.lower().startswith(u.lower()) for u in user_patterns
+        ):
             continue
 
         # Skip if name pattern filter is specified and job name doesn't match any of the patterns
-        if name_patterns and not any(n.lower() in job.metadata.name.lower() for n in name_patterns):
+        if name_patterns and not any(
+            n.lower() in job.metadata.name.lower() for n in name_patterns
+        ):
             continue
 
         # Skip if exact user filter is specified and job owner doesn't match exactly
@@ -608,8 +616,8 @@ def create(
     "--user",
     "-u",
     help=(
-        "Filter jobs by user. Case-insensitive and matches the beginning of the username. "
-        "Can specify multiple users. Example: 'alice' will match 'alice123'"
+        "Filter jobs by user. Case-insensitive and matches the beginning of the"
+        " username. Can specify multiple users. Example: 'alice' will match 'alice123'"
     ),
     type=str,
     required=False,
@@ -619,8 +627,9 @@ def create(
     "--name-or-id",
     "-n",
     help=(
-        "Filter jobs by name or id. Case-insensitive and matches any part of the name or id. "
-        "Can specify multiple names or ids. Example: 'train' will match 'training-job-123'"
+        "Filter jobs by name or id. Case-insensitive and matches any part of the name"
+        " or id. Can specify multiple names or ids. Example: 'train' will match"
+        " 'training-job-123'"
     ),
     type=str,
     required=False,
@@ -634,7 +643,9 @@ def list_command(state, user, name_or_id):
     jobs = client.job.list_all()
     logger.trace(f"Jobs: {jobs}")
 
-    job_filtered = _filter_jobs(jobs, state, user_patterns=user, name_patterns=name_or_id)
+    job_filtered = _filter_jobs(
+        jobs, state, user_patterns=user, name_patterns=name_or_id
+    )
 
     _display_jobs_table(job_filtered)
 
@@ -696,13 +707,19 @@ def remove_all(state, user, name):
     user_set = set(job.metadata.owner for job in job_filtered)
     if len(user_set) > 1 or len(job_filtered) > 3:
         console.print(f"Total [red]{len(job_filtered)}[/] jobs to delete.")
-        console.print(f"These jobs belong to [green]{len(user_set)}[/] user(s): [green]{', '.join(user_set)}[/]")
+        console.print(
+            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+            f" [green]{', '.join(user_set)}[/]"
+        )
 
         console.print("To confirm deletion, please enter the number of jobs to delete:")
         try:
             confirm_count = int(click.prompt("Number of jobs to delete", type=int))
             if confirm_count != len(job_filtered):
-                console.print(f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs.")
+                console.print(
+                    "[red]Error[/]: Number mismatch. Expected"
+                    f" {len(job_filtered)} jobs."
+                )
                 sys.exit(1)
         except ValueError:
             console.print("[red]Error[/]: Please enter a valid number.")
@@ -770,13 +787,19 @@ def stop_all(state, user, name):
     user_set = set(job.metadata.owner for job in job_filtered)
     if len(user_set) > 1 or len(job_filtered) > 3:
         console.print(f"Total [red]{len(job_filtered)}[/] jobs to stop.")
-        console.print(f"These jobs belong to [green]{len(user_set)}[/] user(s): [green]{', '.join(user_set)}[/]")
+        console.print(
+            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+            f" [green]{', '.join(user_set)}[/]"
+        )
 
         console.print("To confirm stop, please enter the number of jobs to stop:")
         try:
             confirm_count = int(click.prompt("Number of jobs to stop", type=int))
             if confirm_count != len(job_filtered):
-                console.print(f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs.")
+                console.print(
+                    "[red]Error[/]: Number mismatch. Expected"
+                    f" {len(job_filtered)} jobs."
+                )
                 sys.exit(1)
         except ValueError:
             console.print("[red]Error[/]: Please enter a valid number.")
@@ -865,6 +888,7 @@ def remove(id, name):
         client.job.delete(job_id)
         console.print(f"Job [green]{job_id}[/] deleted successfully.")
 
+
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
 def clone(id):
@@ -885,6 +909,7 @@ def clone(id):
 
     new_job = client.job.create(job)
     console.print(f"Job [green]{new_job.metadata.id_}[/] cloned successfully.")
+
 
 @job.command()
 @click.option("--id", "-i", help="The job id to get log.", required=True)
