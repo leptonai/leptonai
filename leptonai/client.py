@@ -12,7 +12,7 @@ from leptonai._internal.client_utils import (  # noqa
 )
 from leptonai.api.v0.connection import Connection
 from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.v0.util import (
+from leptonai.api.v1.utils import (
     _get_full_workspace_url,
     _get_full_workspace_api_url,
 )

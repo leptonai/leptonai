@@ -217,7 +217,7 @@ def _is_rocm() -> bool:
 
 
 # Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.23.1"
+BASE_IMAGE_VERSION = "0.25.3"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
@@ -348,13 +348,19 @@ VALID_SHAPES = [
 
 # Current API path to resolve a workspace url. When we calls the URL with a json
 # body {"id": <workspace_id>}, it returns the workspace url.
-WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
-
-# Current workspace api path
-WORKSPACE_API_PATH = "/api/v2/workspaces/"
+WORKSPACE_API_PATH = "/api/v1"
+DGXC_WORKSPACE_API_PATH = "/api/v2/workspaces/"
 
 API_URL_BASE = "https://gateway.dgxc-lepton.nvidia.com"
 
+WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
+
+DGXC_WORKSPACE_URL_RESOLVER_API = (
+    "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces"
+)
+
+
+# Current workspace api path
 # Lepton reserved secret and env prefix. One is not supposed to use this in `--env` or `--secret` flags.
 LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_WORKSPACE_ID",
@@ -362,6 +368,8 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_PHOTON_NAME",
     "LEPTON_PHOTON_ID",
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
+    "LEPTON_WORKSPACE_ORIGIN_URL",
+    "LEPTON_CLASSIC",
 }
 
 if "LEPTON_ALLOW_ORIGINS" in os.environ:
@@ -369,14 +377,20 @@ if "LEPTON_ALLOW_ORIGINS" in os.environ:
 else:
     ALLOW_ORIGINS = ["*"]
 
-LEPTON_DASHBOARD_URL = "https://dashboard.lepton.ai"
+
+# Note: LEPTON_DEPLOYMENT_URL is temporarily removed to reduce workspace URL dependency
+# This may be restored in the future if we implement a more flexible URL handling mechanism
+
+# LEPTON_DASHBOARD_URL = "https://dashboard.dgxc-lepton.nvidia.com"
+
 # LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
-LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
+# LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
+
 # LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
 # Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
-LEPTON_DEPLOYMENT_URL = (
-    LEPTON_WORKSPACE_URL + "/compute/deployments/detail/{deployment_name}"
-)
+# LEPTON_DEPLOYMENT_URL = (
+#     LEPTON_WORKSPACE_URL + "/compute/deployments/detail/{deployment_name}"
+# )
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
 

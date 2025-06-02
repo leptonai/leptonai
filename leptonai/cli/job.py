@@ -1,3 +1,4 @@
+from typing import List, Optional
 import click
 from datetime import datetime, timezone
 import json
@@ -29,7 +30,94 @@ from leptonai.api.v1.types.job import (
     ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
+
+
+def _display_jobs_table(jobs: List[LeptonJob]):
+    table = Table(show_header=True)
+    table.add_column("Name")
+    table.add_column("ID")
+    table.add_column("Created At")
+    table.add_column("State")
+    table.add_column("Created By")
+    for job in jobs:
+        status = job.status
+        table.add_row(
+            job.metadata.name,
+            job.metadata.id_,
+            (
+                datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
+                    "%Y-%m-%d\n%H:%M:%S"
+                )
+                if job.metadata.created_at
+                else "N/A"
+            ),
+            f"{status.state}",
+            job.metadata.owner,
+        )
+    table.title = "Jobs"
+    console.print(table)
+
+
+def _filter_jobs(
+    jobs: List[LeptonJob],
+    state: Optional[List[str]] = None,
+    user_patterns: Optional[List[str]] = None,
+    name_patterns: Optional[List[str]] = None,
+    exact_users: Optional[List[str]] = None,
+    exact_names: Optional[List[str]] = None,
+) -> List[LeptonJob]:
+    """
+    Filter jobs by various criteria.
+    Pattern matching (state, user_pattern, name_pattern) is case-insensitive and matches the beginning.
+    Exact matching (exact_user, exact_name) is case-sensitive and requires full match.
+
+    Args:
+        jobs: List of jobs to filter
+        state: Optional list of states to filter by (pattern match)
+        user_pattern: Optional list of user patterns to filter by (pattern match)
+        name_pattern: Optional list of name patterns to filter by (pattern match)
+        exact_user: Optional list of exact usernames to filter by (exact match)
+        exact_name: Optional list of exact names to filter by (exact match)
+
+    Returns:
+        Filtered list of jobs
+    """
+    # If no filters are specified, return the original list
+    if not any([state, user_patterns, name_patterns, exact_users, exact_names]):
+        return jobs
+
+    filtered_jobs = []
+    for job in jobs:
+        # Skip if state filter is specified and job state doesn't match any of the states
+        if state and not any(
+            job.status.state.lower().startswith(s.lower()) for s in state
+        ):
+            continue
+
+        # Skip if user pattern filter is specified and job owner doesn't match any of the patterns
+        if user_patterns and not any(
+            job.metadata.owner.lower().startswith(u.lower()) for u in user_patterns
+        ):
+            continue
+
+        # Skip if name pattern filter is specified and job name doesn't match any of the patterns
+        if name_patterns and not any(
+            n.lower() in job.metadata.name.lower() for n in name_patterns
+        ):
+            continue
+
+        # Skip if exact user filter is specified and job owner doesn't match exactly
+        if exact_users and job.metadata.owner not in exact_users:
+            continue
+
+        # Skip if exact name filter is specified and job name doesn't match exactly
+        if exact_names and job.metadata.name not in exact_names:
+            continue
+
+        filtered_jobs.append(job)
+
+    return filtered_jobs
 
 
 _supported_time_formats_job_schedule = """
@@ -154,7 +242,7 @@ def make_container_port_from_string(port_str: str):
     ),
     type=str,
 )
-# --contianer-image, --container-port (--port), --command defines the container spec.
+# Container specification options
 @click.option(
     "--container-image",
     type=str,
@@ -180,6 +268,8 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--command", type=str, help="Command string to run for the job.", default=None
 )
+
+# Resource configuration options
 @click.option(
     "--resource-shape",
     type=str,
@@ -187,20 +277,6 @@ def make_container_port_from_string(port_str: str):
     + "', '".join(VALID_SHAPES)
     + "'.",
     default=None,
-)
-@click.option(
-    "--node-group",
-    "-ng",
-    "node_groups",
-    help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
-        " option is currently not supported but coming soon for enterprise users. Only"
-        " the first node group will be set if you input multiple node groups at this"
-        " time."
-    ),
-    type=str,
-    multiple=True,
 )
 @click.option(
     "--num-workers",
@@ -212,6 +288,8 @@ def make_container_port_from_string(port_str: str):
     type=int,
     default=None,
 )
+
+# Failure handling options
 @click.option(
     "--max-failure-retry",
     type=int,
@@ -224,6 +302,8 @@ def make_container_port_from_string(port_str: str):
     help="Maximum number of failures to retry per whole job.",
     default=None,
 )
+
+# Environment and secrets options
 @click.option(
     "--env",
     "-e",
@@ -254,6 +334,8 @@ def make_container_port_from_string(port_str: str):
     help="Secrets to use for pulling images.",
     multiple=True,
 )
+
+# Advanced configuration options
 @click.option(
     "--intra-job-communication",
     type=bool,
@@ -290,6 +372,22 @@ def make_container_port_from_string(port_str: str):
         " setting will be used."
     ),
 )
+
+# Node and queue configuration
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    help=(
+        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
+    ),
+    type=str,
+    multiple=True,
+)
 @click.option(
     "--node-id",
     "-ni",
@@ -314,6 +412,8 @@ def make_container_port_from_string(port_str: str):
         " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
+
+# Visibility and resource management
 @click.option(
     "--visibility",
     type=str,
@@ -376,7 +476,10 @@ def create(
 
     For advanced uses, check https://kubernetes.io/docs/concepts/workloads/controllers/job/.
     """
+    # Initialize API client
     client = APIClient()
+
+    # Load job specification from file if provided
     if file:
         try:
             with open(file, "r") as f:
@@ -387,44 +490,64 @@ def create(
             return
     else:
         job_spec = LeptonJobUserSpec()
-    # Update the spec based on the passed in args
+
+    # Configure node groups and queue priority
     if node_groups or queue_priority:
-        # queue_priority only available for dedicated node_groups
+        # Validate queue priority configuration
         if queue_priority and not node_groups:
             console.print(
                 "[red]Queue priority is only available for dedicated node groups"
                 "[/red]\n[green]please use --queue-priority with --node-group[/green]"
             )
             sys.exit(1)
+
+        # Get valid node group IDs
         node_group_ids = _get_valid_nodegroup_ids(
             node_groups, need_queue_priority=(queue_priority is not None)
         )
-        # _get_valid_node_ids will return None if node_group_ids is None
+
+        # Get valid node IDs if specified
         valid_node_ids = (
             _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
         )
-        # make sure affinity is initialized
+
+        # Configure resource affinity
         job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
         job_spec.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+
+        # Set queue configuration if priority is specified
         if queue_priority:
             job_spec.queue_config = QueueConfig(priority_class=queue_priority)
 
+    # Set resource shape
     if resource_shape:
         job_spec.resource_shape = resource_shape
+    else:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types}. \n"
+        )
+        sys.exit(1)
+
+    # Configure worker settings
     if num_workers:
         job_spec.completions = num_workers
         job_spec.parallelism = num_workers
         job_spec.intra_job_communication = True
-    else:
-        if intra_job_communication:
-            job_spec.intra_job_communication = intra_job_communication
+    elif intra_job_communication:
+        job_spec.intra_job_communication = intra_job_communication
+
+    # Set failure retry limits
     if max_failure_retry:
         job_spec.max_failure_retry = max_failure_retry
     if max_job_failure_retry:
         job_spec.max_job_failure_retry = max_job_failure_retry
+
+    # Configure container settings
     if command:
         # For CLI passed in command, we will prepend it with /bin/bash -c
         command = ["/bin/bash", "-c", command]
@@ -432,40 +555,44 @@ def create(
     elif not job_spec.container.command:
         console.print("You did not specify a command to run the job.")
         sys.exit(1)
+
+    # Set container image
     if container_image:
         job_spec.container.image = container_image
     elif not job_spec.container.image:
         job_spec.container.image = BASE_IMAGE
+
+    # Configure container ports
     if container_port:
         job_spec.container.ports = [
             make_container_port_from_string(p) for p in container_port
         ]
+
+    # Set environment variables and secrets
     if env or secret:
         job_spec.envs = make_env_vars_from_strings(env, secret)  # type: ignore
+
+    # Configure mounts
     if mount:
         job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+
+    # Set image pull secrets
     if image_pull_secrets:
         job_spec.image_pull_secrets = image_pull_secrets
+
+    # Configure advanced settings
     if privileged:
         job_spec.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     if log_collection is not None:
         job_spec.log = LeptonLog(enable_collection=log_collection)
-    if not job_spec.resource_shape:
-        available_types = "\n      ".join(VALID_SHAPES)
-        console.print(
-            "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types}. \n"
-        )
-        sys.exit(1)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
     if start_at:
         use_local_timezone = not (
             start_at.startswith("UTC:") or start_at.startswith("utc:")
         )
-
         current_time = int(datetime.now().astimezone().timestamp())
         if not use_local_timezone:
             start_at = start_at.split(":")[1]
@@ -491,6 +618,8 @@ def create(
             )
             sys.exit(1)
         job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
+
+    # Configure reservation if specified
     if with_reservation:
         if not node_groups:
             console.print(
@@ -500,6 +629,7 @@ def create(
             sys.exit(1)
         job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
 
+    # Create job with metadata
     job = LeptonJob(
         spec=job_spec,
         metadata=Metadata(
@@ -508,7 +638,10 @@ def create(
         ),
     )
 
+    # Log job specification for debugging
     logger.trace(json.dumps(job.model_dump(), indent=2))
+
+    # Create job and display success message
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
     console.print(
@@ -518,7 +651,44 @@ def create(
 
 
 @job.command(name="list")
-def list_command():
+@click.option(
+    "--state",
+    "-s",
+    help=(
+        "Filter jobs by state. Case-insensitive and matches the beginning of the state"
+        " name. Available states: Starting, Running, Failed, Completed, Stopped,"
+        " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
+        " states."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+@click.option(
+    "--user",
+    "-u",
+    help=(
+        "Filter jobs by user. Case-insensitive and matches the beginning of the"
+        " username. Can specify multiple users. Example: 'alice' will match 'alice123'"
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+@click.option(
+    "--name-or-id",
+    "-n",
+    help=(
+        "Filter jobs by name or id. Case-insensitive and matches any part of the name"
+        " or id. Can specify multiple names or ids. Example: 'train' will match"
+        " 'training-job-123'"
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def list_command(state, user, name_or_id):
     """
     Lists all jobs in the current workspace.
     """
@@ -526,27 +696,171 @@ def list_command():
     jobs = client.job.list_all()
     logger.trace(f"Jobs: {jobs}")
 
-    table = Table(show_header=True)
-    table.add_column("Name")
-    table.add_column("ID")
-    table.add_column("Created At")
-    table.add_column("State (ready,active,succeeded,failed)")
-    for job in jobs:
-        status = job.status
-        table.add_row(
-            job.metadata.name,
-            job.metadata.id_,
-            (
-                datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
-                    "%Y-%m-%d\n%H:%M:%S"
-                )
-                if job.metadata.created_at
-                else "N/A"
-            ),
-            f"{status.state} ({status.ready},{status.active},{status.succeeded},{status.failed})",
+    job_filtered = _filter_jobs(
+        jobs, state, user_patterns=user, name_patterns=name_or_id
+    )
+
+    _display_jobs_table(job_filtered)
+
+
+@job.command()
+@click.option(
+    "--state",
+    "-s",
+    help=(
+        "Filter jobs by state. Case-insensitive and matches the beginning of the state"
+        " name. Available states: Starting, Running, Failed, Completed, Stopped,"
+        " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
+        " states."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+@click.option(
+    "--user",
+    "-u",
+    help=(
+        "Filter jobs by exact username match. Case-sensitive. "
+        "Can specify multiple users. For safety, this is an exact match. "
+        "This option is required to prevent accidental operations on other users' jobs."
+    ),
+    type=str,
+    required=True,
+    multiple=True,
+)
+@click.option(
+    "--name",
+    "-n",
+    help=(
+        "Filter jobs by exact name match. Case-sensitive. "
+        "Can specify multiple names. For safety, this is an exact match."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def remove_all(state, user, name):
+    """
+    Removes all jobs matching the specified filters. At least one filter must be provided.
+    For safety, name and user filters require exact matches. State filter remains flexible.
+    The --user option is required to prevent accidental operations on other users' jobs.
+    """
+    if not state and not user and not name:
+        console.print("[red]Error[/]: You must provide at least one filter.")
+        sys.exit(1)
+
+    client = APIClient()
+    jobs = client.job.list_all()
+    job_filtered = _filter_jobs(jobs, state, exact_users=user, exact_names=name)
+
+    _display_jobs_table(job_filtered)
+
+    user_set = set(job.metadata.owner for job in job_filtered)
+    if len(user_set) > 1 or len(job_filtered) > 3:
+        console.print(f"Total [red]{len(job_filtered)}[/] jobs to delete.")
+        console.print(
+            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+            f" [green]{', '.join(user_set)}[/]"
         )
-    table.title = "Jobs"
-    console.print(table)
+
+        console.print("To confirm deletion, please enter the number of jobs to delete:")
+        try:
+            confirm_count = int(click.prompt("Number of jobs to delete", type=int))
+            if confirm_count != len(job_filtered):
+                console.print(
+                    "[red]Error[/]: Number mismatch. Expected"
+                    f" {len(job_filtered)} jobs."
+                )
+                sys.exit(1)
+        except ValueError:
+            console.print("[red]Error[/]: Please enter a valid number.")
+            sys.exit(1)
+
+    for job in job_filtered:
+        client.job.delete(job.metadata.id_)
+        console.print(f"Job [green]{job.metadata.id_}[/] deleted successfully.")
+
+
+@job.command()
+@click.option(
+    "--state",
+    "-s",
+    help=(
+        "Filter jobs by state. Case-insensitive and matches the beginning of the state"
+        " name. Available states: Starting, Running, Failed, Completed, Stopped,"
+        " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
+        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
+        " states."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+@click.option(
+    "--user",
+    "-u",
+    help=(
+        "Filter jobs by exact username match. Case-sensitive. "
+        "Can specify multiple users. For safety, this is an exact match. "
+        "This option is required to prevent accidental operations on other users' jobs."
+    ),
+    type=str,
+    required=True,
+    multiple=True,
+)
+@click.option(
+    "--name",
+    "-n",
+    help=(
+        "Filter jobs by exact name match. Case-sensitive. "
+        "Can specify multiple names. For safety, this is an exact match."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def stop_all(state, user, name):
+    """
+    Stop all jobs matching the specified filters. At least one filter must be provided.
+    For safety, name and user filters require exact matches. State filter remains flexible.
+    The --user option is required to prevent accidental operations on other users' jobs.
+    """
+    if not state and not user and not name:
+        console.print("[red]Error[/]: You must provide at least one filter.")
+        sys.exit(1)
+
+    client = APIClient()
+    jobs = client.job.list_all()
+    job_filtered = _filter_jobs(jobs, state, exact_users=user, exact_names=name)
+
+    _display_jobs_table(job_filtered)
+
+    user_set = set(job.metadata.owner for job in job_filtered)
+    if len(user_set) > 1 or len(job_filtered) > 3:
+        console.print(f"Total [red]{len(job_filtered)}[/] jobs to stop.")
+        console.print(
+            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+            f" [green]{', '.join(user_set)}[/]"
+        )
+
+        console.print("To confirm stop, please enter the number of jobs to stop:")
+        try:
+            confirm_count = int(click.prompt("Number of jobs to stop", type=int))
+            if confirm_count != len(job_filtered):
+                console.print(
+                    "[red]Error[/]: Number mismatch. Expected"
+                    f" {len(job_filtered)} jobs."
+                )
+                sys.exit(1)
+        except ValueError:
+            console.print("[red]Error[/]: Please enter a valid number.")
+            sys.exit(1)
+
+    for job in job_filtered:
+        client.job.update(job.metadata.id_, spec={"spec": {"stopped": True}})
+        console.print(f"Job [green]{job.metadata.id_}[/] stopped successfully.")
 
 
 @job.command()
@@ -575,6 +889,11 @@ def get(name, id):
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
+
+    if len(target_jobs) == 0:
+        search_type = "Name" if name else "ID"
+        console.print(f"No job found for [red]{search_type}: {name or id}[/].")
+        sys.exit(1)
 
     console.print(f"Job details for [green]{name or id}[/]:")
     for job in target_jobs:
@@ -621,6 +940,28 @@ def remove(id, name):
     for job_id in target_job_ids:
         client.job.delete(job_id)
         console.print(f"Job [green]{job_id}[/] deleted successfully.")
+
+
+@job.command()
+@click.option("--id", "-i", help="The job id to get events.", required=True)
+def clone(id):
+    client = APIClient()
+    job = client.job.get(id)
+    job_spec = job.spec
+
+    visibility = job.metadata.visibility
+    name = job.metadata.name[:26] + "-clone"
+
+    job = LeptonJob(
+        spec=job_spec,
+        metadata=Metadata(
+            id=name,
+            visibility=LeptonVisibility(visibility) if visibility else None,
+        ),
+    )
+
+    new_job = client.job.create(job)
+    console.print(f"Job [green]{new_job.metadata.id_}[/] cloned successfully.")
 
 
 @job.command()

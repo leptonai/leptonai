@@ -5,7 +5,7 @@ Utility functions for the Lepton AI API.
 import requests
 from typing import Optional, Dict
 
-from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH, API_URL_BASE
+from leptonai.config import WORKSPACE_URL_RESOLVER_API, WORKSPACE_API_PATH
 from leptonai.util import is_valid_url
 
 
@@ -61,7 +61,7 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
     Help message to be used to print a message when a workspace is not created yet.
     """
     print(
-        f"Workspace {workspace_id} is registerd, but not set up yet. To set it up,"
+        f"Workspace {workspace_id} is registered, but not set up yet. To set it up,"
         f" Please visit\n  https://dashboard.lepton.ai/workspace/{workspace_id}/setup\n"
         " After that, you can log in here and use the workspace via CLI or API."
     )
@@ -102,7 +102,6 @@ _workspace_url_cache: Dict[str, str] = {}
 
 
 def _get_full_workspace_url(workspace_id, cached=True) -> str:
-    return API_URL_BASE
     """
     Gets the workspace url from the given workspace_id. This calls Lepton's backend server
     to get the workspace url.
@@ -157,8 +156,4 @@ def _get_full_workspace_api_url(workspace_id, cached=True) -> str:
     :raises RuntimeError: if the backend server returns an error
     :raises ValueError: if the workspace does not exist
     """
-    return (
-        _get_full_workspace_url(workspace_id, cached)
-        + WORKSPACE_API_PATH
-        + workspace_id
-    )
+    return _get_full_workspace_url(workspace_id, cached) + WORKSPACE_API_PATH

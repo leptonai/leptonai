@@ -11,7 +11,7 @@ from .util import (
     console,
     click_group,
 )
-from ..api.v1.client import APIClient
+from ..api.v2.client import APIClient
 
 
 @click_group()

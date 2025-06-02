@@ -1,9 +1,9 @@
 # todo
 from typing import List, Union
 
-from .api_resource import APIResourse
+from ..v1.api_resource import APIResourse
 
-from .types.dedicated_node_group import DedicatedNodeGroup, Node
+from ..v1.types.dedicated_node_group import DedicatedNodeGroup, Node
 
 
 class DedicatedNodeGroupAPI(APIResourse):
@@ -23,6 +23,13 @@ class DedicatedNodeGroupAPI(APIResourse):
     def list_nodes(self, name_or_ng: Union[str, DedicatedNodeGroup]) -> List[Node]:
         response = self._get(
             f"/dedicated-node-groups/{self._to_name(name_or_ng)}/nodes"
+        )
+        return self.ensure_list(response, Node)
+
+    def list_idle_nodes(self, name_or_ng: Union[str, DedicatedNodeGroup]) -> List[Node]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/nodes",
+            params={"idle": "true"},
         )
         return self.ensure_list(response, Node)
 

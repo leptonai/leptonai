@@ -45,7 +45,7 @@ class TestPhotonShouldNotOverrideInit(unittest.TestCase):
             ph.launch()
 
         t = threading.Thread(target=self._test_init_should_work)
-        t.setDaemon(True)
+        t.daemon = True
         t.start()
         time.sleep(0.1)
         self.assertIsNone(self.e)

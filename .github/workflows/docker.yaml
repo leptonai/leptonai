@@ -19,7 +19,7 @@ jobs:
   build_matrix:
     strategy:
       matrix:
-        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
@@ -65,24 +65,7 @@ jobs:
           if [ "${{ inputs.is_release }}" == 'true' ]; then
               docker push ${tag}
           fi
-      - name: Build AIGC Images
-        if: matrix.python_version == '3.10'
-        env:
-          VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
-        run: |
-          echo "VERSION_TAG=${VERSION_TAG}"
-
-          base_tag="${{ steps.vars.outputs.base_image }}"
-          runner_tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
-          tag=${base_tag%"-py-${{ matrix.python_version }}"}-aigc-${VERSION_TAG}
-
-          docker build . --build-arg BASE_IMAGE="${runner_tag}" --file leptonai/photon/dockerfiles/photon-aigc.Dockerfile --tag "${tag}"
-
-          if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
-          fi
 
           docker rmi ${tag}
-          docker rmi ${runner_tag}
           docker rmi ${base_tag}
 

@@ -59,11 +59,15 @@ class LeptonJobState(str, Enum):
     Running = "Running"
     Failed = "Failed"
     Completed = "Completed"
-    Deleting = "Deleting"
-    Restarting = "Restarting"
-    Archived = "Archived"
     Stopped = "Stopped"
     Stopping = "Stopping"
+    Deleting = "Deleting"
+    Deleted = "Deleted"
+    Restarting = "Restarting"
+    Archived = "Archived"
+    Queueing = "Queueing"
+    Awaiting = "Awaiting"
+    PendingRetry = "PendingRetry"
     Unknown = "UNK"
 
     @classmethod

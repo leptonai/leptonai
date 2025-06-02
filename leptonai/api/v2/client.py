@@ -9,32 +9,34 @@ import re
 import requests
 from typing import Optional, Union, Dict, Tuple
 
-from .log import LogAPI
-from .object_storage import ObjectStorageAPI
+from ..v1.log import LogAPI
+from ..v1.object_storage import ObjectStorageAPI
 
-from .types.workspace import WorkspaceInfo
+from ..v1.types.workspace import WorkspaceInfo
 
 # import the related API resources. Note that in all these files, they should
 # not import workspace to avoid circular imports.
-from .api_resource import APIResourse
+from ..v1.api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
-from .photon import PhotonAPI
-from .deployment import DeploymentAPI
-from .job import JobAPI
-from .secret import SecretAPI
-from .kv import KVAPI
-from .queue import QueueAPI
-from .pod import PodAPI
-from .ingress import IngressAPI
-from .storage import StorageAPI
+from ..v1.photon import PhotonAPI
+from ..v1.deployment import DeploymentAPI
+from ..v1.job import JobAPI
+from ..v1.secret import SecretAPI
+from ..v1.kv import KVAPI
+from ..v1.queue import QueueAPI
+from ..v1.pod import PodAPI
+from ..v1.ingress import IngressAPI
+from ..v1.storage import StorageAPI
 
 
 from .utils import (
     _get_full_workspace_api_url,
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
+    _get_workspace_origin_url,
 )
 from .workspace_record import WorkspaceRecord
+from loguru import logger
 
 
 class APIClient(object):
@@ -48,6 +50,8 @@ class APIClient(object):
         workspace_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
+        workspace_origin_url: Optional[str] = None,
+        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Creates a workspace api client by identifying the workspace in the following
@@ -69,6 +73,14 @@ class APIClient(object):
         #  - environment variable LEPTON_WORKSPACE_ID
         #  - current workspace of the workspace record
         # and if there is still no choice, we will throw an error.
+        is_lepton_classic = (
+            is_lepton_classic
+            or os.environ.get("LEPTON_CLASSIC")
+            or WorkspaceRecord.current().is_lepton_classic
+            if WorkspaceRecord.current()
+            else False
+        )
+
         workspace_id = (
             workspace_id
             or os.environ.get("LEPTON_WORKSPACE_ID")
@@ -107,16 +119,44 @@ class APIClient(object):
                 if WorkspaceRecord.has(workspace_id)
                 else None
             )
-            or _get_full_workspace_api_url(workspace_id)
+            or _get_full_workspace_api_url(
+                workspace_id, is_lepton_classic=is_lepton_classic
+            )
         )
+        workspace_origin_url = (
+            workspace_origin_url
+            or os.environ.get("LEPTON_WORKSPACE_ORIGIN_URL")
+            or (
+                WorkspaceRecord.get(workspace_id).workspace_origin_url
+                if WorkspaceRecord.has(workspace_id)
+                else None
+            )
+            or _get_workspace_origin_url(url)
+        )
+
         self.workspace_id: str = workspace_id
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
-
+        self.workspace_origin_url: Optional[str] = workspace_origin_url
+        self.is_lepton_classic: Optional[bool] = is_lepton_classic
         # Creates a connection for us to use.
         self._header = {}
         if self.auth_token:
             self._header["Authorization"] = "Bearer " + self.auth_token
+
+        if self.workspace_origin_url:
+            # print(f"workspace_origin_url: {workspace_origin_url}")
+            self._header["origin"] = workspace_origin_url
+
+        logger.trace(
+            "Current workspace info:\n"
+            f"  id: {self.workspace_id}\n"
+            f"  url: {self.url}\n"
+            f"  auth_token: {self.auth_token[:2]}****{self.auth_token[-2:]}\n"
+            f"  workspace_origin_url: {self.workspace_origin_url}\n"
+            f"  is_lepton_classic: {self.is_lepton_classic}"
+        )
+
         # In default, timeout for the API calls is set to 120 seconds.
         self._timeout = 120
         self._session = requests.Session()
@@ -184,6 +224,7 @@ class APIClient(object):
         """
         ws_api = APIResourse(self)
         response = self._get("/workspace")
+
         auth_token_hint = (
             self.auth_token[:2] + "****" + self.auth_token[-2:]
             if self.auth_token
@@ -203,7 +244,6 @@ class APIClient(object):
                 workspace_url=self.url,
                 auth_token=auth_token_hint,
             )
-
         return ws_api.ensure_type(response, WorkspaceInfo)
 
     def version(self) -> Optional[Tuple[int, int, int]]:
