@@ -38,9 +38,13 @@ def _display_jobs_table(jobs: List[LeptonJob]):
     table.add_column("State")
     table.add_column("Owner")
     table.add_column("NodeGroup")
-    
+
     for job in jobs:
-        ng_str = "\n".join(job.spec.affinity.allowed_dedicated_node_groups).lower() if job.spec.affinity and job.spec.affinity.allowed_dedicated_node_groups else ""
+        ng_str = (
+            "\n".join(job.spec.affinity.allowed_dedicated_node_groups).lower()
+            if job.spec.affinity and job.spec.affinity.allowed_dedicated_node_groups
+            else ""
+        )
         status = job.status
         table.add_row(
             job.metadata.name,
@@ -54,7 +58,7 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             ),
             f"{status.state}",
             job.metadata.owner,
-            ng_str
+            ng_str,
         )
     table.title = "Jobs"
     console.print(table)
@@ -87,7 +91,14 @@ def _filter_jobs(
         Filtered list of jobs
     """
     # If no filters are specified, return the original list
-    if not any([state, user_patterns, name_patterns, node_group_patterns, exact_users, exact_names]):
+    if not any([
+        state,
+        user_patterns,
+        name_patterns,
+        node_group_patterns,
+        exact_users,
+        exact_names,
+    ]):
         return jobs
 
     filtered_jobs = []
@@ -120,7 +131,11 @@ def _filter_jobs(
 
         # Skip if node group pattern filter is specified and job node group doesn't match any of the patterns
         if node_group_patterns:
-            node_groups = job.spec.affinity.allowed_dedicated_node_groups if job.spec.affinity else None
+            node_groups = (
+                job.spec.affinity.allowed_dedicated_node_groups
+                if job.spec.affinity
+                else None
+            )
             if not node_groups or not any(
                 pattern.lower() in ng.lower()
                 for pattern in node_group_patterns
@@ -654,7 +669,10 @@ def create(
 @click.option(
     "--node-group",
     "-ng",
-    help="Filter jobs by node group. Case-insensitive and matches any part of the node group name.",
+    help=(
+        "Filter jobs by node group. Case-insensitive and matches any part of the node"
+        " group name."
+    ),
     type=str,
     required=False,
     multiple=True,
@@ -662,13 +680,13 @@ def create(
 def list_command(state, user, name_or_id, node_group):
     """
     Lists all jobs in the current workspace.
-    
+
     You can filter jobs by:
     - State: Case-insensitive prefix match (e.g., 'run' matches 'Running')
     - User: Case-insensitive prefix match (e.g., 'alice' matches 'alice123')
     - Name/ID: Case-insensitive substring match (e.g., 'train' matches 'training-job-123')
     - Node Group: Case-insensitive substring match
-    
+
     Multiple filters can be combined. For example:
     lep job list -s queue -u alice -n train -ng h100
     """
@@ -677,7 +695,11 @@ def list_command(state, user, name_or_id, node_group):
     logger.trace(f"Jobs: {jobs}")
 
     job_filtered = _filter_jobs(
-        jobs, state, user_patterns=user, name_patterns=name_or_id, node_group_patterns=node_group
+        jobs,
+        state,
+        user_patterns=user,
+        name_patterns=name_or_id,
+        node_group_patterns=node_group,
     )
 
     _display_jobs_table(job_filtered)
@@ -724,7 +746,10 @@ def list_command(state, user, name_or_id, node_group):
 @click.option(
     "--node-group",
     "-ng",
-    help="Filter jobs by node group. Case-insensitive and matches any part of the node group name.",
+    help=(
+        "Filter jobs by node group. Case-insensitive and matches any part of the node"
+        " group name."
+    ),
     type=str,
     required=False,
     multiple=True,
@@ -741,7 +766,9 @@ def remove_all(state, user, name, node_group):
 
     client = APIClient()
     jobs = client.job.list_all()
-    job_filtered = _filter_jobs(jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name)
+    job_filtered = _filter_jobs(
+        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+    )
 
     _display_jobs_table(job_filtered)
 
@@ -812,7 +839,10 @@ def remove_all(state, user, name, node_group):
 @click.option(
     "--node-group",
     "-ng",
-    help="Filter jobs by node group. Case-insensitive and matches any part of the node group name.",
+    help=(
+        "Filter jobs by node group. Case-insensitive and matches any part of the node"
+        " group name."
+    ),
     type=str,
     required=False,
     multiple=True,
@@ -829,7 +859,9 @@ def stop_all(state, user, name, node_group):
 
     client = APIClient()
     jobs = client.job.list_all()
-    job_filtered = _filter_jobs(jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name)
+    job_filtered = _filter_jobs(
+        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+    )
 
     _display_jobs_table(job_filtered)
 
