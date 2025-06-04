@@ -31,7 +31,7 @@ from leptonai.api.v2.client import APIClient
 
 
 def _display_jobs_table(jobs: List[LeptonJob]):
-    table = Table(show_header=True)
+    table = Table(show_header=True, show_lines=True)
     table.add_column("Name")
     table.add_column("ID")
     table.add_column("CreatedAt")
@@ -40,7 +40,7 @@ def _display_jobs_table(jobs: List[LeptonJob]):
     table.add_column("NodeGroup")
     
     for job in jobs:
-        ng_str = ",".join(job.spec.affinity.allowed_dedicated_node_groups).lower() if job.spec.affinity and job.spec.affinity.allowed_dedicated_node_groups else ""
+        ng_str = "\n".join(job.spec.affinity.allowed_dedicated_node_groups).lower() if job.spec.affinity and job.spec.affinity.allowed_dedicated_node_groups else ""
         status = job.status
         table.add_row(
             job.metadata.name,
