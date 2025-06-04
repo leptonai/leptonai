@@ -226,6 +226,8 @@ class LeptonRoutingPolicy(BaseModel):
 
 class QueueConfig(BaseModel):
     priority_class: Optional[str] = None
+    can_be_preempted: Optional[bool] = None
+    can_preempt: Optional[bool] = None
 
 
 class LeptonDeploymentUserSpec(BaseModel):
