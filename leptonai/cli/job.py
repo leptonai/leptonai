@@ -773,25 +773,24 @@ def remove_all(state, user, name, node_group):
     _display_jobs_table(job_filtered)
 
     user_set = set(job.metadata.owner for job in job_filtered)
-    if len(user_set) > 1 or len(job_filtered) > 3:
-        console.print(f"Total [red]{len(job_filtered)}[/] jobs to delete.")
-        console.print(
-            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
-            f" [green]{', '.join(user_set)}[/]"
-        )
 
-        console.print("To confirm deletion, please enter the number of jobs to delete:")
-        try:
-            confirm_count = int(click.prompt("Number of jobs to delete", type=int))
-            if confirm_count != len(job_filtered):
-                console.print(
-                    "[red]Error[/]: Number mismatch. Expected"
-                    f" {len(job_filtered)} jobs."
-                )
-                sys.exit(1)
-        except ValueError:
-            console.print("[red]Error[/]: Please enter a valid number.")
+    console.print(f"Total [red]{len(job_filtered)}[/] jobs to delete.")
+    console.print(
+        f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+        f" [green]{', '.join(user_set)}[/]"
+    )
+
+    console.print("To confirm deletion, please enter the number of jobs to delete:")
+    try:
+        confirm_count = int(click.prompt("Number of jobs to delete", type=int))
+        if confirm_count != len(job_filtered):
+            console.print(
+                f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs."
+            )
             sys.exit(1)
+    except ValueError:
+        console.print("[red]Error[/]: Please enter a valid number.")
+        sys.exit(1)
 
     for job in job_filtered:
         client.job.delete(job.metadata.id_)
@@ -866,25 +865,24 @@ def stop_all(state, user, name, node_group):
     _display_jobs_table(job_filtered)
 
     user_set = set(job.metadata.owner for job in job_filtered)
-    if len(user_set) > 1 or len(job_filtered) > 3:
-        console.print(f"Total [red]{len(job_filtered)}[/] jobs to stop.")
-        console.print(
-            f"These jobs belong to [green]{len(user_set)}[/] user(s):"
-            f" [green]{', '.join(user_set)}[/]"
-        )
 
-        console.print("To confirm stop, please enter the number of jobs to stop:")
-        try:
-            confirm_count = int(click.prompt("Number of jobs to stop", type=int))
-            if confirm_count != len(job_filtered):
-                console.print(
-                    "[red]Error[/]: Number mismatch. Expected"
-                    f" {len(job_filtered)} jobs."
-                )
-                sys.exit(1)
-        except ValueError:
-            console.print("[red]Error[/]: Please enter a valid number.")
+    console.print(f"Total [red]{len(job_filtered)}[/] jobs to stop.")
+    console.print(
+        f"These jobs belong to [green]{len(user_set)}[/] user(s):"
+        f" [green]{', '.join(user_set)}[/]"
+    )
+
+    console.print("To confirm stop, please enter the number of jobs to stop:")
+    try:
+        confirm_count = int(click.prompt("Number of jobs to stop", type=int))
+        if confirm_count != len(job_filtered):
+            console.print(
+                f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs."
+            )
             sys.exit(1)
+    except ValueError:
+        console.print("[red]Error[/]: Please enter a valid number.")
+        sys.exit(1)
 
     for job in job_filtered:
         client.job.update(job.metadata.id_, spec={"spec": {"stopped": True}})
