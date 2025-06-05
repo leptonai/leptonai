@@ -894,7 +894,15 @@ def stop_all(state, user, name, node_group):
 @click.option("--id", "-i", help="Job id", type=str, required=False)
 def get(name, id):
     """
-    Gets the job with the given name.
+    Gets detailed information about jobs.
+
+    You can search by either name or id:
+    - If searching by name, returns all jobs with that exact name
+    - If searching by id, returns the specific job with that id
+
+    Args:
+        name: Job name to search for (exact match)
+        id: Job id to search for (exact match)
     """
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
@@ -942,7 +950,17 @@ def get(name, id):
 )
 def remove(id, name):
     """
-    Removes the job with the given name.
+    Removes a single job.
+
+    You can remove a job by either name or id:
+    - If removing by name, only the newest job with that exact name will be removed
+    - If removing by id, the specific job with that id will be removed
+
+    For removing multiple jobs with the same name, use 'lep job remove-all' instead.
+
+    Args:
+        id: Job id to remove (exact match)
+        name: Job name to remove (exact match, removes only the newest matching job)
     """
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
@@ -958,10 +976,12 @@ def remove(id, name):
         target_job_ids.append(id)
 
     if name:
-        jobs = client.job.list_all()
-        for job in jobs:
-            if job.metadata.name == name:
-                target_job_ids.append(job.metadata.id_)
+        job = _get_newest_job_by_name(name)
+        if job:
+            target_job_ids.append(job.metadata.id_)
+        else:
+            console.print(f"No job found with name [red]{name}[/].")
+            sys.exit(1)
 
     for job_id in target_job_ids:
         client.job.delete(job_id)
@@ -971,6 +991,16 @@ def remove(id, name):
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
 def clone(id):
+    """
+    Creates a copy of an existing job by its ID.
+
+    The cloned job will:
+    - Have the same configuration as the original job
+    - Have a new name with '-clone' suffix
+
+    Args:
+        id: ID of the job to clone
+    """
     client = APIClient()
     job = client.job.get(id)
     job_spec = job.spec
@@ -1034,7 +1064,9 @@ def log(id, replica):
 @job.command()
 @click.option("--id", "-i", help="The job id to get replicas.", required=True)
 def replicas(id):
-
+    """
+    Prints the replicas id of a job.
+    """
     client = APIClient()
 
     replicas = client.job.get_replicas(id)
@@ -1051,6 +1083,12 @@ def replicas(id):
 @job.command()
 @click.option("--id", "-i", help="The job id to stop.", required=True)
 def stop(id):
+    """
+    Stops a job by its ID.
+
+    Args:
+        id: ID of the job to stop
+    """
     client = APIClient()
     cur_job = client.job.get(id)
     if cur_job.spec.stopped is True:
@@ -1066,6 +1104,12 @@ def stop(id):
 @job.command()
 @click.option("--id", "-i", help="The job id to start.", required=True)
 def start(id):
+    """
+    Starts a job by its ID.
+
+    Args:
+        id: ID of the job to start
+    """
     client = APIClient()
     cur_job = client.job.get(id)
     if (
@@ -1085,7 +1129,12 @@ def start(id):
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
 def events(id, replica=None):
+    """
+    Prints the events of a job by its ID.
 
+    Args:
+        id: ID of the job to get events
+    """
     client = APIClient()
 
     events = client.job.get_events(id)

@@ -149,6 +149,9 @@ def rm(path, file_system):
 
 @storage.command()
 def ls_file_system():
+    """
+    List all file systems in the current workspace.
+    """
     client = APIClient()
 
     table = Table(
