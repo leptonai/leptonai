@@ -1072,9 +1072,9 @@ def replicas(id):
     replicas = client.job.get_replicas(id)
 
     table = Table(show_header=True, show_lines=False)
-    table.add_column("job name")
-    table.add_column("replica id")
-    table.add_column("node id")
+    table.add_column("Job Name")
+    table.add_column("Replica ID")
+    table.add_column("Node ID")
 
     for replica in replicas:
         table.add_row(id, replica.metadata.id_, replica.status.node.id_)
