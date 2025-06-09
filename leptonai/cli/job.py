@@ -1077,7 +1077,10 @@ def replicas(id):
     table.add_column("Node ID")
 
     for replica in replicas:
-        table.add_row(id, replica.metadata.id_, replica.status.node.id_)
+        node_id = None
+        if replica.status and replica.status.node:
+            node_id = replica.status.node.id_
+        table.add_row(id, replica.metadata.id_, node_id)
     console.print(table)
 
 
@@ -1092,7 +1095,8 @@ def nodes(id):
     replicas = client.job.get_replicas(id)
     node_list = []
     for replica in replicas:
-        node_list.append(replica.status.node.name)
+        if replica.status and replica.status.node:
+            node_list.append(replica.status.node.id_)
     node_list = sorted(node_list)
 
     console.print("\n[bold blue]Job Nodes:[/] \n")
