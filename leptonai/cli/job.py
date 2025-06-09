@@ -1080,6 +1080,7 @@ def replicas(id):
         table.add_row(id, replica.metadata.id_, replica.status.node.id_)
     console.print(table)
 
+
 @job.command()
 @click.option("--id", "-i", help="The job id to get replicas.", required=True)
 def nodes(id):
@@ -1089,13 +1090,14 @@ def nodes(id):
     client = APIClient()
 
     replicas = client.job.get_replicas(id)
-    node_list =[]
+    node_list = []
     for replica in replicas:
         node_list.append(replica.status.node.name)
     node_list = sorted(node_list)
-    
+
     console.print("\n[bold blue]Job Nodes:[/] \n")
     console.print("[green]" + json.dumps(node_list, indent=2) + "[/]\n")
+
 
 @job.command()
 @click.option("--id", "-i", help="The job id to stop.", required=True)
