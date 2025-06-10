@@ -536,7 +536,7 @@ def create(
         available_types = "\n      ".join(VALID_SHAPES)
         console.print(
             "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types}. \n"
+            f"Available types are:\n      {available_types} \n"
         )
         sys.exit(1)
 
@@ -1072,12 +1072,35 @@ def replicas(id):
     replicas = client.job.get_replicas(id)
 
     table = Table(show_header=True, show_lines=False)
-    table.add_column("job name")
-    table.add_column("replica id")
+    table.add_column("Job Name")
+    table.add_column("Replica ID")
+    table.add_column("Node ID")
 
     for replica in replicas:
-        table.add_row(id, replica.metadata.id_)
+        node_id = None
+        if replica.status and replica.status.node:
+            node_id = replica.status.node.id_
+        table.add_row(id, replica.metadata.id_, node_id)
     console.print(table)
+
+
+@job.command()
+@click.option("--id", "-i", help="The job id to get replicas.", required=True)
+def nodes(id):
+    """
+    Prints the nodes id of a job.
+    """
+    client = APIClient()
+
+    replicas = client.job.get_replicas(id)
+    node_list = []
+    for replica in replicas:
+        if replica.status and replica.status.node:
+            node_list.append(replica.status.node.id_)
+    node_list = sorted(node_list)
+
+    console.print("\n[bold blue]Job Nodes:[/] \n")
+    console.print("[green]" + json.dumps(node_list, indent=2) + "[/]\n")
 
 
 @job.command()

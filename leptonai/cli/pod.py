@@ -158,7 +158,7 @@ def create(
         available_types = "\n      ".join(VALID_SHAPES)
         console.print(
             "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types}. \n"
+            f"Available types are:\n      {available_types} \n"
         )
         sys.exit(1)
 
