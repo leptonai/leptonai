@@ -226,7 +226,7 @@ def is_positive_number(value):
 @click_group()
 def deployment():
     """
-    Manage deployments on the Lepton AI cloud.
+    Manage deployments on the DGX Lepton.
 
     Deployment is a running instance of a photon. Deployments are created using
     the `lep photon run` command. Usually, a deployment exposes one or more HTTP
@@ -234,7 +234,7 @@ def deployment():
     defined in `leptonai.client`.
 
     The deployment commands allow you to list, manage, and remove deployments on
-    the Lepton AI cloud.
+    the DGX Lepton.
     """
     pass
 

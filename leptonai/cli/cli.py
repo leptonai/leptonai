@@ -47,9 +47,9 @@ LOGIN_LOGO = """
 @click_group(context_settings=CONTEXT_SETTINGS)
 def lep():
     """
-    Lep is the main entry point for the Lepton AI commandline interface. It provides
+    Lep is the main entry point for the DGX Cloud Lepton commandline interface. It provides
     a set of commands to create and develop photons locally, and deploy them to the
-    Lepton AI cloud. It also provides a set of commands to manage resources on the
+    DGX Cloud Lepton. It also provides a set of commands to manage resources on the
     cloud, such as workspaces, deployments, secrets, and storage. To intall it, run
 
     `pip install -U leptonai`
@@ -102,7 +102,7 @@ log.add_command(lep)
 )
 def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
     """
-    Login to the Lepton AI cloud. This will open a browser window to the Lepton AI
+    Login to the DGX Cloud Lepton. This will open a browser window to the Lepton
     login page if credentials are not given. You will be redirected to a page with
     the credentials string. Copy the string and paste it into the terminal, and
     you will be logged in.
@@ -268,7 +268,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
 )
 def logout(purge):
     """
-    Logout of the Lepton AI cloud.
+    Logout of the DGX Cloud Lepton.
     """
     WorkspaceRecord.logout(purge=purge)
     console.print("[green]Logged out[/]")

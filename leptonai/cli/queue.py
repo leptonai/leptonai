@@ -17,14 +17,14 @@ from ..api.v2.client import APIClient
 @click_group()
 def queue():
     """
-    Manage queues on the Lepton AI cloud.
+    Manage queues on the DGX Lepton.
 
     Lepton provides a simple to use message queue for sending messages between
     deployments. For example, you can use the queue functionality to build a
     distributed task manager.
 
     The queue commands allow you to create, list, and remove queues on the
-    Lepton AI cloud.
+    DGX Lepton.
     """
     pass
 

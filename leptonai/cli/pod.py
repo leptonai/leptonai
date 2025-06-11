@@ -1,8 +1,8 @@
 """
-Pod is a module that provides a way to create and manage Lepton AI Pods.
+Pod is a module that provides a way to create and manage DGX Lepton Pods.
 
-A Pod (short for "Lepton AI Pod") is a container runtime that allows you to
-run interactive sessions on the Lepton AI cloud. Think of it as a remote
+A Pod (short for "DGX Lepton Pod") is a container runtime that allows you to
+run interactive sessions on the DGX Lepton cloud. Think of it as a remote
 server that you can access via SSH, and use it as a remote development
 environment. You can use it to run Jupyter notebooks, or to run a terminal
 session, similar to a cloud VM but much more lightweight.
@@ -46,10 +46,10 @@ console = Console(highlight=False)
 @click_group()
 def pod():
     """
-    Manages pods on the Lepton AI cloud.
+    Manages pods on the DGX Lepton.
 
-    A Pod (short for "Lepton AI Pod") is a container runtime that allows you to
-    run interactive sessions on the Lepton AI cloud. Think of it as a remote
+    A Pod (short for "DGX Lepton Pod") is a container runtime that allows you to
+    run interactive sessions on the DGX Lepton. Think of it as a remote
     server that you can access via SSH, and use it as a remote development
     environment. You can use it to run Jupyter notebooks, or to run a terminal
     session, similar to a cloud VM but much more lightweight.
