@@ -16,7 +16,7 @@ console = Console(highlight=False)
 @click_group()
 def workspace():
     """
-    Manage workspace access to the DGX Lepton.
+    Manage workspace access to the DGX Cloud Lepton.
 
     Workspace is the place you perform daily operation with photons, deployments,
     storage, and other resources.
@@ -138,7 +138,7 @@ def login(
 )
 def logout(purge):
     """
-    Logout of the DGX Lepton.
+    Logout of the DGX Cloud Lepton.
     """
     WorkspaceRecord.logout(purge=purge)
     console.print("[green]Logged out[/]")

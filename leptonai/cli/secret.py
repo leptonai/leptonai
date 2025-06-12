@@ -19,7 +19,7 @@ from ..api.v1.types.common import SecretItem
 @click_group()
 def secret():
     """
-    Manage secrets on the DGX Lepton.
+    Manage secrets on the DGX Cloud Lepton.
 
     Secrets are like environmental variables, but the actual value never leaves
     the cloud environment. Secrets can be used to store sensitive information
@@ -28,7 +28,7 @@ def secret():
     reserved for system use, and cannot be used by the user.
 
     The secret commands allow you to create, list, and remove secrets on the
-    DGX Lepton.
+    DGX Cloud Lepton.
     """
     pass
 

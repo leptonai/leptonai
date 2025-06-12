@@ -12,7 +12,7 @@ from ..api.v1.types.ingress import LeptonIngress, LeptonIngressUserSpec
 @click_group()
 def ingress():
     """
-    Manage ingress on the DGX Lepton.
+    Manage ingress on the DGX Cloud Lepton.
     """
     pass
 
