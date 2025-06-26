@@ -4,13 +4,10 @@
 
 **A Pythonic framework to simplify AI service building**
 
-<a href="https://lepton.ai/">Homepage</a> •
-<a href="https://dashboard.lepton.ai/playground">API Playground</a> •
+<a href="https://docs.nvidia.com/dgx-cloud/lepton">Homepage</a> •
 <a href="https://github.com/leptonai/examples">Examples</a> •
-<a href="https://lepton.ai/docs/">Documentation</a> •
-<a href="https://lepton.ai/references">CLI References</a> •
-<a href="https://twitter.com/leptonai">Twitter</a> •
-<a href="https://leptonai.medium.com/">Blog</a>
+<a href="https://docs.nvidia.com/dgx-cloud/lepton">Documentation</a> •
+<a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli">CLI References</a>
 
 The LeptonAI Python library allows you to build an AI service from Python code with ease. Key features include:
 
@@ -52,9 +49,7 @@ print(c.run.__doc__)
 print(c.run(inputs="I enjoy walking with my cute dog"))
 ```
 
-Fully managed Llama2 models and CodeLlama models can be found in the [playground](https://dashboard.lepton.ai/playground).
-
-Many standard HuggingFace pipelines are supported - find out more details in the [documentation](https://www.lepton.ai/docs/advanced/prebuilt_photons#hugging-face-photons). Not all HuggingFace models are supported though, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai/issues/new).
+Not all HuggingFace models are supported, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai/issues/new).
 
 ## Checking out more examples
 
@@ -70,7 +65,7 @@ lep photon runlocal -n sdxl -m advanced/sdxl/sdxl.py
 ```
 
 Once the service is running, you can access it with:
-    
+
 ```python
 from leptonai.client import Client, local
 
@@ -82,8 +77,6 @@ with open("cat.png", "wb") as fid:
 ```
 
 or access the mounted Gradio UI at [http://localhost:8080/ui](http://localhost:8080/ui). Check the [README file](https://github.com/leptonai/examples/blob/main/advanced/sdxl/README.md) for more details.
-
-A fully managed SDXL is hosted at [https://dashboard.lepton.ai/playground/sdxl](https://dashboard.lepton.ai/playground/sdxl) with API access.
 
 ## Writing your own photons
 
@@ -122,7 +115,7 @@ print(c.echo.__doc__)
 c.echo(inputs="hello world")
 ```
 
-For more details, checkout the [documentation](https://lepton.ai/docs/) and the [examples](https://github.com/leptonai/examples).
+For more details, checkout the [documentation](https://docs.nvidia.com/dgx-cloud/lepton) and the [examples](https://github.com/leptonai/examples).
 
 ## Contributing
 
