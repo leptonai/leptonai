@@ -229,7 +229,7 @@ def deployment():
     Manage endpoints (formerly called deployments) on the DGX Cloud Lepton.
 
     An endpoint is a running instance (previously referred to as a
-    deployment). Endpoints are created with the `lep photon run` command and
+    deployment). Endpoints are created with the `lep endpoint create` command and
     typically expose one or more HTTP routes that users can call, either via a
     RESTful API or through the Python client provided by `leptonai.client`.
 
