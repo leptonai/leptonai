@@ -226,15 +226,15 @@ def is_positive_number(value):
 @click_group()
 def deployment():
     """
-    Manage deployments on the DGX Cloud Lepton.
+    Manage endpoints (formerly called deployments) on the DGX Cloud Lepton.
 
-    Deployment is a running instance of a photon. Deployments are created using
-    the `lep photon run` command. Usually, a deployment exposes one or more HTTP
-    endpoints that the users call, either via a RESTful API, or a python client
-    defined in `leptonai.client`.
+    An endpoint is a running instance (previously referred to as a
+    deployment). Endpoints are created with the `lep photon run` command and
+    typically expose one or more HTTP routes that users can call, either via a
+    RESTful API or through the Python client provided by `leptonai.client`.
 
-    The deployment commands allow you to list, manage, and remove deployments on
-    the DGX Cloud Lepton.
+    The endpoint commands let you list, manage, and remove endpoints on the
+    DGX Cloud Lepton.
     """
     pass
 
@@ -609,7 +609,7 @@ def create(
     shared_memory_size,
 ):
     """
-    Creates a deployment from either a photon or container image.
+    Creates an endpoint from either a photon or container image.
     """
     client = APIClient()
     spec = LeptonDeploymentUserSpec()
@@ -855,7 +855,7 @@ def create(
 )
 def list_command(pattern):
     """
-    Lists all deployments in the current workspace.
+    Lists all endpoints in the current workspace.
     """
 
     client = APIClient()
@@ -912,7 +912,7 @@ def list_command(pattern):
 @click.option("--name", "-n", help="The deployment name to restart.", required=True)
 def restart(name):
     """
-    Restart a deployment.
+    Restart an endpoint.
     """
     client = APIClient()
     client.deployment.restart(name)
@@ -923,7 +923,7 @@ def restart(name):
 @click.option("--name", "-n", help="The deployment name to remove.", required=True)
 def remove(name):
     """
-    Removes a deployment.
+    Removes an endpoint.
     """
     client = APIClient()
     client.deployment.delete(name)
@@ -946,7 +946,7 @@ def remove(name):
 )
 def status(name, show_tokens, detail):
     """
-    Gets the status of a deployment.
+    Gets the status of an endpoint.
     """
     check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
 
@@ -1086,7 +1086,7 @@ def status(name, show_tokens, detail):
 @click.option("--replica", "-r", help="The replica name to get log.", default=None)
 def log(name, replica):
     """
-    Gets the log of a deployment. If `replica` is not specified, the first replica
+    Gets the log of an endpoint. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep deployment status`.
     """
@@ -1298,7 +1298,7 @@ def update(
     shared_memory_size,
 ):
     """
-    Updates a deployment. Note that for all the update options, changes are made
+    Updates an endpoint. Note that for all the update options, changes are made
     as replacements, and not incrementals. For example, if you specify `--tokens`,
     old tokens are replaced by the new set of tokens.
     """
@@ -1461,7 +1461,7 @@ def update(
 @click.option("--name", "-n", help="The deployment name to get status.", required=True)
 def events(name):
     """
-    List events of the deployment
+    List events of the endpoint
     """
     client = APIClient()
     events = client.deployment.get_events(name)
@@ -1488,3 +1488,4 @@ def events(name):
 
 def add_command(cli_group):
     cli_group.add_command(deployment)
+    cli_group.add_command(deployment, name="endpoint")
