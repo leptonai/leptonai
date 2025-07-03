@@ -659,15 +659,25 @@ def create(
             )
             sys.exit(1)
 
-    if file and spec.container is not None and (photon_name is not None or photon_id is not None):
+    if (
+        file
+        and spec.container is not None
+        and (photon_name is not None or photon_id is not None)
+    ):
         console.print(
-            "[red]Error[/]: Container details are already present in the spec file; you cannot additionally specify --photon or --photon-id."
+            "[red]Error[/]: Container details are already present in the spec file; you"
+            " cannot additionally specify --photon or --photon-id."
         )
         sys.exit(1)
-    
-    if file and spec.photon_id is not None and (container_image is not None or container_command is not None):
+
+    if (
+        file
+        and spec.photon_id is not None
+        and (container_image is not None or container_command is not None)
+    ):
         console.print(
-            "[red]Error[/]: The spec file already references a photon; you cannot also provide --container-image or --container-command."
+            "[red]Error[/]: The spec file already references a photon; you cannot also"
+            " provide --container-image or --container-command."
         )
         sys.exit(1)
 
@@ -727,7 +737,7 @@ def create(
             to specify a photon or container image.
             """)
         sys.exit(1)
-    
+
     if spec.container is not None:
         deployment_template = PhotonDeploymentTemplate()
 
@@ -793,7 +803,9 @@ def create(
         )
     else:
         # Only update fields that are explicitly overridden via CLI
-        if resource_shape or (deployment_template.resource_shape if deployment_template else None):
+        if resource_shape or (
+            deployment_template.resource_shape if deployment_template else None
+        ):
             spec.resource_requirement.resource_shape = (
                 resource_shape
                 or (deployment_template.resource_shape if deployment_template else None)
@@ -1181,8 +1193,7 @@ def log(name, replica):
             " finished."
         )
         console.print(
-            f"Use `lep endpoint status -n {name}` to check the status of the"
-            " endpoint."
+            f"Use `lep endpoint status -n {name}` to check the status of the endpoint."
         )
 
 
@@ -1591,7 +1602,7 @@ def get(name, path):
         save_path = path
         if os.path.isdir(path) or path.endswith(os.sep):
             os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"{name}.json")
+            save_path = os.path.join(path, f"endpoint-spec-{name}.json")
         else:
             parent = os.path.dirname(save_path)
             if parent:

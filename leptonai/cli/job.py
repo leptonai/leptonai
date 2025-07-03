@@ -973,7 +973,7 @@ def get(name, id, path):
         if os.path.isdir(path) or path.endswith(os.sep):
             # Path is a directory (existing or intended). Ensure it exists.
             os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"{job.metadata.id_}.json")
+            save_path = os.path.join(path, f"job-spec-{job.metadata.id_}.json")
         else:
             # Ensure parent dir exists
             parent_dir = os.path.dirname(save_path)
