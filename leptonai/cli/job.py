@@ -532,7 +532,7 @@ def create(
     # Set resource shape
     if resource_shape:
         job_spec.resource_shape = resource_shape
-    else:
+    elif not job_spec.resource_shape:
         available_types = "\n      ".join(VALID_SHAPES)
         console.print(
             "[red]Error: Missing option '--resource-shape'.[/] "
@@ -892,7 +892,25 @@ def stop_all(state, user, name, node_group):
 @job.command()
 @click.option("--name", "-n", help="Job name", type=str, required=False)
 @click.option("--id", "-i", help="Job id", type=str, required=False)
-def get(name, id):
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+    ),
+    help=(
+        "Optional local path to save the job spec JSON. Directory or full filename"
+        " accepted.\nIf a directory is provided, the file will be saved as"
+        " job-spec-<job_id>.json so it can be reused with `lep job create --file`."
+    ),
+    required=False,
+)
+def get(name, id, path):
     """
     Gets detailed information about jobs.
 
@@ -903,6 +921,7 @@ def get(name, id):
     Args:
         name: Job name to search for (exact match)
         id: Job id to search for (exact match)
+        path: Optional path (file or directory) to save the job spec JSON
     """
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
@@ -933,6 +952,41 @@ def get(name, id):
     for job in target_jobs:
         console.print(json.dumps(client.job.safe_json(job), indent=2))
         console.print("--------------------------\n")
+
+    # Save spec to file if requested.
+    if path:
+        if len(target_jobs) != 1:
+            console.print(
+                "[red]Error[/]: --path option requires exactly one matched job. "
+                "Please specify a unique --id or --name."
+            )
+            sys.exit(1)
+
+        import os
+
+        job = target_jobs[0]
+        job_spec_json = job.spec.model_dump_json(indent=2)
+
+        # Determine final save path
+        save_path = path
+
+        if os.path.isdir(path) or path.endswith(os.sep):
+            # Path is a directory (existing or intended). Ensure it exists.
+            os.makedirs(path, exist_ok=True)
+            save_path = os.path.join(path, f"job-spec-{job.metadata.id_}.json")
+        else:
+            # Ensure parent dir exists
+            parent_dir = os.path.dirname(save_path)
+            if parent_dir:
+                os.makedirs(parent_dir, exist_ok=True)
+
+        try:
+            with open(save_path, "w") as f:
+                f.write(job_spec_json)
+            console.print(f"Job spec saved to [green]{save_path}[/].")
+        except Exception as e:
+            console.print(f"[red]Failed to save job spec: {e}[/]")
+            sys.exit(1)
 
 
 @job.command()
