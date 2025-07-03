@@ -278,8 +278,9 @@ def create(
         resolve_path=True,
     ),
     help=(
-        "Optional local path to save the pod spec JSON. If directory, file will be"
-        " named <name>.json."
+        "Optional local path to save the pod spec JSON. Directory or full filename"
+        " accepted.\nIf a directory is provided, the file will be saved as"
+        " pod-spec-<name>.json."
     ),
     required=False,
 )

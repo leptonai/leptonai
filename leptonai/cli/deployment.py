@@ -1576,8 +1576,9 @@ def add_command(cli_group):
         resolve_path=True,
     ),
     help=(
-        "Optional local path to save the endpoint spec JSON. Provide a directory or "
-        "filename. If directory, the file will be named <name>.json."
+        "Optional local path to save the endpoint spec JSON. Directory or full filename"
+        " accepted.\nIf a directory is provided, the file will be saved as"
+        " endpoint-spec-<name>.json."
     ),
     required=False,
 )

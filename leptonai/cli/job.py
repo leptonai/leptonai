@@ -904,9 +904,9 @@ def stop_all(state, user, name, node_group):
         resolve_path=True,
     ),
     help=(
-        "Optional local path to save the job spec JSON. You may provide a directory "
-        "or a full filename. If a directory is given, we will save as <job_id>.json "
-        "inside it so that you can reuse it with `lep job create --file`."
+        "Optional local path to save the job spec JSON. Directory or full filename"
+        " accepted.\nIf a directory is provided, the file will be saved as"
+        " job-spec-<job_id>.json so it can be reused with `lep job create --file`."
     ),
     required=False,
 )
