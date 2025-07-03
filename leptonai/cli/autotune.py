@@ -16,10 +16,13 @@ from .util import (
 )
 
 # Import the improved autotune functionality
-from .lepton_autotune_full import (
+from leptonai.api.v2.autotune_core import (
     generate_recipe_configs,
     run_pretraining_only,
     get_results_with_output,
+)
+
+from leptonai.api.v2.autotune_utils import (
     get_supported_models,
     validate_model_support,
     validate_all_configs,
@@ -56,8 +59,10 @@ class AutoTuneArgs:
         self.num_tokens_in_b = kwargs.get('num_tokens_in_b', 840)
         self.vocab_size = kwargs.get('vocab_size', 32000)
         self.seq_length = kwargs.get('seq_length', 8192)
-        self.global_batch_size = kwargs.get('global_batch_size', 512)
-        self.val_check_interval = kwargs.get('val_check_interval', 10)
+        self.global_batch_sizes = kwargs.get('global_batch_sizes', [512])
+        if isinstance(self.global_batch_sizes, tuple):
+            self.global_batch_sizes = list(self.global_batch_sizes)
+        self.val_check_interval = kwargs.get('val_check_interval', 50)
         self.max_steps = kwargs.get('max_steps', 10)
         self.get_results = kwargs.get('get_results', False)
         self.sequential = kwargs.get('sequential', False)
@@ -171,7 +176,7 @@ class AutoTuneArgs:
             'num_tokens_in_b': self.num_tokens_in_b,
             'vocab_size': self.vocab_size,
             'seq_length': self.seq_length,
-            'global_batch_size': self.global_batch_size,
+            'global_batch_sizes': self.global_batch_sizes,
             'val_check_interval': self.val_check_interval,
             'max_steps': self.max_steps,
             'get_results': self.get_results,
@@ -364,14 +369,14 @@ def _display_configs_table(config_dir, model_name=None):
             
             if has_metadata:
                 if config_name in base_config_matches:
-                    status = "[blue]✓ Base Config Match[/blue]"
+                    status = "[blue]Base Config Match[/blue]"
                 elif config_name in config_names:
-                    status = "[green]✓ Generated[/green]"
+                    status = "[green]Generated[/green]"
                 else:
                     status = "[dim]Unknown[/dim]"
             else:
                 # No metadata available, just show as generated
-                status = "[green]✓ Generated[/green]"
+                status = "[green]Generated[/green]"
         
         table.add_row(filename, status, size)
     
@@ -382,6 +387,8 @@ def _display_configs_table(config_dir, model_name=None):
     if has_metadata:
         console.print(f"Model: {model_name}")
         console.print(f"Total GPUs: {total_gpus}")
+        if args and hasattr(args, 'global_batch_sizes'):
+            console.print(f"Global batch sizes: {args.global_batch_sizes}")
         console.print(f"Generated configurations: {num_configs_generated}")
         console.print(f"Base config matches: {len(base_config_matches)}")
         console.print(f"Configuration files: {len(json_files)}")
@@ -486,7 +493,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         cost_savings = base_config.get('total_cost', 0) - best_config.get('total_cost', 0)
         cost_savings_percent = (cost_savings / base_config.get('total_cost', 1)) * 100
         
-        console.print(f"\n[yellow]⚡ Best vs Base Performance & Cost Savings:[/yellow]")
+        console.print(f"\n[yellow]Best vs Base Performance & Cost Savings:[/yellow]")
         console.print(f"  M-TFLOPs/GPU improvement: {tflops_improvement:+.1f}%")
         console.print(f"  Training time savings: {time_savings:.1f} hours ({time_savings/24:.1f} days)")
         console.print(f"  Cost savings: ${cost_savings:,.2f} ({cost_savings_percent:+.1f}%)")
@@ -498,7 +505,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     
     # Worst performing configuration
     if worst_config_name != best_config_name:
-        console.print(f"\n[red]🐌 Worst Performing Configuration: {worst_config_name}[/red]")
+        console.print(f"\n[red]Worst Performing Configuration: {worst_config_name}[/red]")
         console.print(f"  M-TFLOPs/GPU: {worst_config.get('m_tflops_gpu', 'N/A'):.2f}")
         console.print(f"  Time per Global Step: {worst_config.get('time_per_global_step', 'N/A'):.4f}s")
         console.print(f"  Total Training Time: {worst_config.get('total_training_time_days', 'N/A'):.1f} days")
@@ -514,7 +521,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  M-TFLOPs/GPU difference: {tflops_diff:+.1f}%")
         console.print(f"  Training time difference: {time_diff:.1f} hours ({time_diff/24:.1f} days)")
         console.print(f"  Cost difference: ${cost_diff:,.2f}")
-        console.print(f"  [red]💸 Potential waste with worst config: ${cost_diff:,.2f}[/red]")
+        console.print(f"  [red]Potential waste with worst config: ${cost_diff:,.2f}[/red]")
     
     # Create comprehensive performance & cost table
     console.print(f"\n[cyan] Top 5 Configurations - Performance & Cost Analysis[/cyan]")
@@ -561,25 +568,15 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     # Recommendations
     console.print(f"\n[cyan] Recommendations[/cyan]")
     console.print("=" * 40)
-    console.print(f" Best Performance: '{best_config_name}'")
-    console.print(f" Most Cost-Efficient: '{most_efficient_name}'")
+    console.print(f"Best Performance: '{best_config_name}'")
+    console.print(f"Most Cost-Efficient: '{most_efficient_name}'")
     
     if base_config:
         if base_config_name != best_config_name:
             savings = base_config.get('total_cost', 0) - best_config.get('total_cost', 0)
-            console.print(f"💸 Switch from base config to save: ${savings:,.2f}")
+            console.print(f"Switch from base config to save: ${savings:,.2f}")
         else:
-            console.print(f" Base config is already optimal!")
-    
-    # Training time range
-    min_days = best_config.get('total_training_time_days', 0)
-    max_days = worst_config.get('total_training_time_days', 0)
-    console.print(f"Training time range: {min_days:.1f} - {max_days:.1f} days")
-    
-    # Cost range  
-    min_cost = best_config.get('total_cost', 0)
-    max_cost = worst_config.get('total_cost', 0)
-    console.print(f"Cost range: ${min_cost:,.0f} - ${max_cost:,.0f}")
+            console.print(f"Base config is already optimal!")
     
     console.print("\n[green]Cost analysis completed successfully![/green]")
 
@@ -696,7 +693,7 @@ def _analyze_performance_results(performance_dict, args):
 @click_group()
 def autotune():
     """
-    AutoTune configurations for NeMo pretraining.
+    AutoTune configurations for model throughput on DGX Cloud Lepton.
 
     AutoTune automatically generates and tests multiple training configurations
     to find optimal parallelism settings for your model and hardware setup to maximize pre training model throughput.
@@ -781,18 +778,18 @@ def validate_positive_float(ctx, param, value):
 @click.option("--gpus-per-node", "--gpus_per_node", "gpus_per_node", type=int, default=8, callback=validate_positive_int, help="GPUs per node.")
 @click.option("--tensor-parallel-sizes", "--tensor_parallel_sizes", "tensor_parallel_sizes", type=int, multiple=True, default=[1, 2], help="Tensor parallel sizes to test.")
 @click.option("--virtual-pipeline-model-parallel-sizes", "--virtual_pipeline_model_parallel_sizes", "virtual_pipeline_model_parallel_size", type=int, multiple=True, default=None, help="virtual Pipline Model parallel sizes to test.")
-@click.option("--pipeline-parallel-sizes", "--pipeline_parallel_sizes", "pipeline_parallel_sizes", type=str, default="auto", callback=validate_parallelism_sizes, help="Pipeline parallel sizes.")
+@click.option("--pipeline-parallel-sizes", "--pipeline_parallel_sizes", "pipeline_parallel_sizes", type=int, multiple=True, default=[1, 2], callback=validate_parallelism_sizes, help="Pipeline parallel sizes.")
 @click.option("--context-parallel-sizes", "--context_parallel_sizes", "context_parallel_sizes", type=int, multiple=True, default=[1, 2], help="Context parallel sizes to test.")
-@click.option("--micro-batch-sizes", "--micro_batch_sizes", "micro_batch_sizes", type=str, default="auto", callback=validate_parallelism_sizes, help="Micro batch sizes.")
-@click.option("--max-model-parallel-size", "--max_model_parallel_size", "max_model_parallel_size", type=int, default=8, callback=validate_positive_int, help="Maximum model parallel size.")
+@click.option("--micro-batch-sizes", "--micro_batch_sizes", "micro_batch_sizes", type=int, default=[1, 2, 4], multiple=True, callback=validate_parallelism_sizes, help="Micro batch sizes.")
+@click.option("--max-model-parallel-size", "--max_model_parallel_size", "max_model_parallel_size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
 @click.option("--min-model-parallel-size", "--min_model_parallel_size", "min_model_parallel_size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
 @click.option("--max-steps-per-run", "--max_steps_per_run", "max_steps_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
 @click.option("--max-minutes-per-run", "--max_minutes_per_run", "max_minutes_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum minutes per run for testing.")
-@click.option("--num-tokens-in-b", "--num_tokens_in_b", "num_tokens_in_b", type=int, default=1000, callback=validate_positive_int, help="Number of tokens in billions.")
+@click.option("--num-tokens-in-b", "--run_pretraining_only", "num_tokens_in_b", type=int, default=1000, callback=validate_positive_int, help="Number of tokens in billions.")
 @click.option("--vocab-size", "--vocab_size", "vocab_size", type=int, default=32000, callback=validate_positive_int, help="Vocabulary size.")
 @click.option("--seq-length", "--seq_length", "seq_length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
-@click.option("--global-batch-size", "--global_batch_size", "global_batch_size", type=int, default=512, callback=validate_positive_int, help="Global batch size.")
-@click.option("--val-check-interval", "--val_check_interval", "val_check_interval", type=int, default=10, callback=validate_positive_int, help="Validation check interval.")
+@click.option("--global-batch-sizes", "--global_batch_sizes", "global_batch_sizes", type=int, multiple=True, default=[512], help="Global batch sizes to test.")
+@click.option("--val-check-interval", "--val_check_interval", "val_check_interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
 @click.option("--max-steps", "--max_steps", "max_steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
 @click.option("--output-dir", "--output_dir", "output_dir", type=str, default="generated_configs", help="Directory to save generated configurations.")
 def generate(**kwargs):
@@ -820,8 +817,9 @@ def generate(**kwargs):
         
         # Generate configurations
         console.print("[yellow]Generating configurations...[/yellow]")
+
         result = generate_recipe_configs(args)
-        
+    
         # Update args.json with generation metadata (including serialized objects)
         update_args_with_generation_metadata(args.model, result, kwargs['output_dir'])
         console.print(f"[blue]Metadata and objects saved to: {args_file_path}[/blue]")
@@ -916,7 +914,7 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
         
         console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
         console.print(f"  Resources: {args.nodes} nodes × {args.gpus_per_node} GPUs = {args.nodes * args.gpus_per_node} total GPUs")
-        console.print(f"  Batch sizes: micro={args.micro_batch_sizes}, global={args.global_batch_size}")
+        console.print(f"  Batch sizes: micro={args.micro_batch_sizes}, global={args.global_batch_sizes}")
         console.print(f"  Sequence length: {args.seq_length}")
         console.print(f"  Training: max_steps={args.max_steps}, val_check_interval={args.val_check_interval}")
         
@@ -996,26 +994,71 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         
         # Display training parameters for cost calculation
         total_tokens = args.num_tokens_in_b * 1_000_000_000  # Convert billions to actual tokens
-        tokens_per_step = args.seq_length * args.global_batch_size
-        total_steps = total_tokens / tokens_per_step
-        total_gpus = args.nodes * args.gpus_per_node
-        
+
+        # For cost analysis, we need to extract GBS from individual config names
+        # since different configs may have different GBS values
         console.print(f"\n[cyan] Training Configuration for Cost Analysis[/cyan]")
         console.print(f"  Total tokens to train: {total_tokens:,} ({args.num_tokens_in_b}B)")
         console.print(f"  Sequence length: {args.seq_length:,}")
-        console.print(f"  Global batch size: {args.global_batch_size:,}")
-        console.print(f"  Tokens per step: {tokens_per_step:,}")
-        console.print(f"  Total training steps: {total_steps:,.0f}")
-        console.print(f"  Total GPUs: {total_gpus}")
+        console.print(f"  Global batch sizes tested: {args.global_batch_sizes}")
+        console.print(f"  Total GPUs: {args.nodes * args.gpus_per_node}")
         console.print(f"  Cost per GPU hour: ${cost_per_gpu_hour:.2f}")
         
-        # Analyze results with cost calculation
-        _analyze_performance_results_with_cost(performance_dict, args, total_steps, cost_per_gpu_hour)
+        # For each config, extract GBS from config name and calculate cost
+        _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour)
         
     except Exception as e:
         console.print(f"[red]Error analyzing results: {e}[/red]")
         logger.error(f"Results analysis failed: {e}")
         sys.exit(1)
+
+# 3. New function to handle multiple GBS in cost analysis:
+def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour):
+    """Analyze performance results with multiple global batch sizes."""
+    if not performance_dict:
+        console.print("[yellow]No performance data to analyze[/yellow]")
+        return
+    
+    total_gpus = args.nodes * args.gpus_per_node
+    
+    # Calculate cost and time for each configuration
+    config_analysis = {}
+    for config_name, config_data in performance_dict.items():
+        time_per_step = config_data.get('time_per_global_step', 0)
+        m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
+        
+        # Extract GBS from config name (format: ...gbs_512)
+        import re
+        gbs_match = re.search(r'gbs_(\d+)', config_name)
+        if gbs_match:
+            gbs = int(gbs_match.group(1))
+        else:
+            # Fallback to first GBS if can't parse
+            gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
+            console.print(f"[yellow]Warning: Could not extract GBS from {config_name}, using {gbs}[/yellow]")
+        
+        # Calculate tokens per step for this specific config
+        tokens_per_step = args.seq_length * gbs
+        total_steps = total_tokens / tokens_per_step
+        
+        # Calculate total training time and cost
+        total_training_time_seconds = time_per_step * total_steps
+        total_training_time_hours = total_training_time_seconds / 3600
+        total_cost = total_training_time_hours * cost_per_gpu_hour * total_gpus
+        
+        config_analysis[config_name] = {
+            **config_data,
+            'gbs': gbs,  # Store the extracted GBS
+            'tokens_per_step': tokens_per_step,
+            'total_steps': total_steps,
+            'total_training_time_hours': total_training_time_hours,
+            'total_training_time_days': total_training_time_hours / 24,
+            'total_cost': total_cost,
+            'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
+        }
+    
+    # Continue with existing analysis logic...
+    _analyze_performance_results_with_cost(config_analysis, args, None, cost_per_gpu_hour)
 
 
 @autotune.command()
