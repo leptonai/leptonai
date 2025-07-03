@@ -84,7 +84,7 @@ def autoscale_flag_deprecation_warning(ctx, param, value):
         '-aq'
         '--autoscale-qpm <min_replica>,<max_replica>,<qpm-threshold>'
         
-        please use lep deployment create -h for more information.
+        please use lep endpoint create -h for more information.
         """,
             err=True,
         )
@@ -300,7 +300,24 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 
 
 @deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the deployment being created.")
+@click.option("--name", "-n", type=str, help="Name of the endpoint being created.")
+@click.option(
+    "--file",
+    "-f",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    help=(
+        "If specified, load the endpoint spec from this JSON file before applying "
+        "additional CLI overrides. The file should contain a LeptonDeploymentUserSpec "
+        "JSON produced by `lep endpoint get -p`."
+    ),
+    required=False,
+)
 @click.option(
     "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
 )
@@ -333,7 +350,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--resource-shape",
     type=str,
-    help="Resource shape for the deployment. Available types are: '"
+    help="Resource shape for the endpoint. Available types are: '"
     + "', '".join(VALID_SHAPES)
     + "'.",
     default=None,
@@ -354,7 +371,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
+        "Persistent storage to be mounted to the endpoint, in the format"
         " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
@@ -362,14 +379,14 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--env",
     "-e",
-    help="Environment variables to pass to the deployment, in the format `NAME=VALUE`.",
+    help="Environment variables to pass to the endpoint, in the format `NAME=VALUE`.",
     multiple=True,
 )
 @click.option(
     "--secret",
     "-s",
     help=(
-        "Secrets to pass to the deployment, in the format `NAME=SECRET_NAME`. If"
+        "Secrets to pass to the endpoint, in the format `NAME=SECRET_NAME`. If"
         " secret name is also the environment variable name, you can"
         " omit it and simply pass `SECRET_NAME`."
     ),
@@ -396,7 +413,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help=(
         "(Will be deprecated soon)"
-        "If specified, the deployment will be scaled down to 0 replicas after the"
+        "If specified, the endpoint will be scaled down to 0 replicas after the"
         " specified number of seconds without traffic. Minimum is 60 seconds if set."
         " Note that actual timeout may be up to 30 seconds longer than the specified"
         " value."
@@ -420,9 +437,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--initial-delay-seconds",
     type=int,
     help=(
-        "If specified, the deployment will allow the specified amount of seconds for"
+        "If specified, the endpoint will allow the specified amount of seconds for"
         " the photon to initialize before it starts the service. Usually you should"
-        " not need this. If you have a deployment that takes a long time to initialize,"
+        " not need this. If you have a endpoint that takes a long time to initialize,"
         " set it to a longer value."
     ),
     default=None,
@@ -442,10 +459,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--rerun",
     is_flag=True,
     help=(
-        "If specified, shutdown the deployment of the same deployment name and"
+        "If specified, shutdown the endpoint of the same endpoint name and"
         " rerun it. Note that this may cause downtime of the photon if it is for"
         " production use, so use with caution. In a production environment, you"
-        " should do photon create, push, and `lep deployment update` instead."
+        " should do photon create, push, and `lep endpoint update` instead."
     ),
     default=False,
 )
@@ -469,7 +486,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ng",
     "node_groups",
     help=(
-        "Node group for the deployment. If not set, use on-demand resources. You can"
+        "Node group for the endpoint. If not set, use on-demand resources. You can"
         " repeat this flag multiple times to choose multiple node groups. Multiple node"
         " group option is currently not supported but coming soon for enterprise users."
         " Only the first node group will be set if you input multiple node groups at"
@@ -482,8 +499,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--visibility",
     type=str,
     help=(
-        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
-        " deployment will only be viewable by the creator and workspace admin."
+        "Visibility of the endpoint. Can be 'public' or 'private'. If private, the"
+        " endpoint will only be viewable by the creator and workspace admin."
     ),
 )
 @click.option(
@@ -565,7 +582,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ni",
     "node_ids",
     help=(
-        "Node for the deployment. You can repeat this flag multiple times to choose"
+        "Node for the endpoint. You can repeat this flag multiple times to choose"
         " multiple nodes. Please specify the node group when you are using this option"
     ),
     type=str,
@@ -574,10 +591,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--shared-memory-size",
     type=int,
-    help="Specify the shared memory size for this deployment, in MiB.",
+    help="Specify the shared memory size for this endpoint, in MiB.",
 )
 def create(
     name,
+    file,
     photon_name,
     photon_id,
     container_image,
@@ -612,23 +630,46 @@ def create(
     Creates an endpoint from either a photon or container image.
     """
     client = APIClient()
-    spec = LeptonDeploymentUserSpec()
+
+    # Load spec from file if provided
+    if file:
+        try:
+            with open(file, "r") as f:
+                content = f.read()
+                spec = LeptonDeploymentUserSpec.model_validate_json(content)
+        except Exception as e:
+            console.print(f"Cannot load endpoint spec from file [red]{file}[/]: {e}")
+            sys.exit(1)
+    else:
+        spec = LeptonDeploymentUserSpec()
 
     existing_deployments = client.deployment.list_all()
     if name in [d.metadata.name for d in existing_deployments]:
         if rerun:
             console.print(
-                f"Deployment [green]{name}[/] already exists. Shutting down the"
-                " existing deployment and rerunning."
+                f"Endpoint [green]{name}[/] already exists. Shutting down the"
+                " existing endpoint and rerunning."
             )
             client.deployment.delete(name)
         else:
             console.print(
-                f"Deployment [green]{name}[/] already exists. Use `lep deployment"
-                f" update -n {name}` to update the deployment, or add `--rerun` to"
-                " shutdown the existing deployment and rerun it."
+                f"Endpoint [green]{name}[/] already exists. Use `lep endpoint"
+                f" update -n {name}` to update the endpoint, or add `--rerun` to"
+                " shutdown the existing endpoint and rerun it."
             )
             sys.exit(1)
+
+    if file and spec.container is not None and (photon_name is not None or photon_id is not None):
+        console.print(
+            "[red]Error[/]: Container details are already present in the spec file; you cannot additionally specify --photon or --photon-id."
+        )
+        sys.exit(1)
+    
+    if file and spec.photon_id is not None and (container_image is not None or container_command is not None):
+        console.print(
+            "[red]Error[/]: The spec file already references a photon; you cannot also provide --container-image or --container-command."
+        )
+        sys.exit(1)
 
     # First, check whether the input is photon or container. We will prioritize using
     # photon if both are specified.
@@ -675,8 +716,7 @@ def create(
             spec.container.ports = [ContainerPort(container_port=container_port)]
         # container based deployment won't have the deployment template as photons do.
         # So we will simply create an empty one.
-        deployment_template = PhotonDeploymentTemplate()
-    else:
+    elif spec.photon_id is None and spec.container is None:
         # No photon_id, photon_name, container_image, or container_command
         console.print("""
             You have not provided a photon_name, photon_id, or container image.
@@ -687,6 +727,10 @@ def create(
             to specify a photon or container image.
             """)
         sys.exit(1)
+    
+    if spec.container is not None:
+        deployment_template = PhotonDeploymentTemplate()
+
     # default timeout
     if (
         no_traffic_timeout is None
@@ -700,8 +744,8 @@ def create(
         console.print(
             "\nLepton is currently set to use a default timeout of [green]1"
             " hour[/]. This means that when there is no traffic for more than an"
-            " hour, your deployment will automatically scale down to zero. This is"
-            " to assist auto-release of unused debug deployments.\n- If you would"
+            " hour, your endpoint will automatically scale down to zero. This is"
+            " to assist auto-release of unused debug endpoints.\n- If you would"
             " like to run a long-running photon (e.g. for production), [green]set"
             " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
             " default timeout, set the environment variable"
@@ -737,13 +781,29 @@ def create(
         threshold = float(parts[2])
 
     # resources
-    spec.resource_requirement = ResourceRequirement(
-        resource_shape=resource_shape
-        or (deployment_template.resource_shape if deployment_template else None)
-        or DEFAULT_RESOURCE_SHAPE,
-        min_replicas=min_replicas,
-        max_replicas=max_replicas,
-    )
+
+    # Ensure existing resource_requirement is preserved when loading from file.
+    if spec.resource_requirement is None:
+        spec.resource_requirement = ResourceRequirement(
+            resource_shape=resource_shape
+            or (deployment_template.resource_shape if deployment_template else None)
+            or DEFAULT_RESOURCE_SHAPE,
+            min_replicas=min_replicas,
+            max_replicas=max_replicas,
+        )
+    else:
+        # Only update fields that are explicitly overridden via CLI
+        if resource_shape or (deployment_template.resource_shape if deployment_template else None):
+            spec.resource_requirement.resource_shape = (
+                resource_shape
+                or (deployment_template.resource_shape if deployment_template else None)
+                or spec.resource_requirement.resource_shape
+                or DEFAULT_RESOURCE_SHAPE
+            )
+        if min_replicas is not None:
+            spec.resource_requirement.min_replicas = min_replicas
+        if max_replicas is not None:
+            spec.resource_requirement.max_replicas = max_replicas
 
     if shared_memory_size is not None:
         spec.resource_requirement.shared_memory_size = shared_memory_size
@@ -824,9 +884,9 @@ def create(
 
     except ValueError as e:
         console.print(
-            f"Error encountered while processing deployment configs:\n[red]{e}[/]."
+            f"Error encountered while processing endpoint configs:\n[red]{e}[/]."
         )
-        console.print("Failed to launch deployment.")
+        console.print("Failed to launch endpoint.")
         sys.exit(1)
     name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
@@ -840,9 +900,9 @@ def create(
     logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
     client.deployment.create(lepton_deployment)
     console.print(
-        "🎉 [green]Deployment Created Successfully![/]\n"
+        "🎉 [green]Endpoint Created Successfully![/]\n"
         f"Name: [blue]{name}[/]\n"
-        f"Use `lep deployment status -n {name}` to check the status."
+        f"Use `lep endpoint status -n {name}` to check the status."
     )
 
 
@@ -850,7 +910,7 @@ def create(
 @click.option(
     "--pattern",
     "-p",
-    help="Regular expression pattern to filter deployment names.",
+    help="Regular expression pattern to filter endpoint names.",
     default=None,
 )
 def list_command(pattern):
@@ -881,12 +941,12 @@ def list_command(pattern):
     ]
     if len(records) == 0:
         console.print(
-            "No deployments found. Use `lep photon run` to create deployments."
+            "No endpoints found. Use `lep endpoint create` to create endpoints."
         )
         return 0
 
     table = Table(
-        title="deployments",
+        title="endpoints",
         show_lines=True,
         show_header=True,
         header_style="bold magenta",
@@ -909,46 +969,46 @@ def list_command(pattern):
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to restart.", required=True)
+@click.option("--name", "-n", help="The endpoint name to restart.", required=True)
 def restart(name):
     """
     Restart an endpoint.
     """
     client = APIClient()
     client.deployment.restart(name)
-    console.print(f"Deployment [green]{name}[/] restart triggered successfully.")
+    console.print(f"Endpoint [green]{name}[/] restart triggered successfully.")
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to remove.", required=True)
+@click.option("--name", "-n", help="The endpoint name to remove.", required=True)
 def remove(name):
     """
     Removes an endpoint.
     """
     client = APIClient()
     client.deployment.delete(name)
-    console.print(f"Deployment [green]{name}[/] deleted successfully.")
+    console.print(f"Endpoint [green]{name}[/] deleted successfully.")
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to get status.", required=True)
+@click.option("--name", "-n", help="The endpoint name to get status.", required=True)
 @click.option(
     "--show-tokens",
     "-t",
     is_flag=True,
     help=(
-        "Show tokens for the deployment. Use with caution as this displays the tokens"
+        "Show tokens for the endpoint. Use with caution as this displays the tokens"
         " in plain text, and may be visible to others if you log the output."
     ),
 )
 @click.option(
-    "--detail", "-d", is_flag=True, default=False, help="Show the deployment detail"
+    "--detail", "-d", is_flag=True, default=False, help="Show the endpoint detail"
 )
 def status(name, show_tokens, detail):
     """
     Gets the status of an endpoint.
     """
-    check(name, "Deployment name not specified. Use `lep deployment status -n <name>`.")
+    check(name, "Endpoint name not specified. Use `lep endpoint status -n <name>`.")
 
     client = APIClient()
 
@@ -1082,13 +1142,13 @@ def status(name, show_tokens, detail):
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to get log.", required=True)
+@click.option("--name", "-n", help="The endpoint name to get log.", required=True)
 @click.option("--replica", "-r", help="The replica name to get log.", default=None)
 def log(name, replica):
     """
     Gets the log of an endpoint. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
-    list of replicas, use `lep deployment status`.
+    list of replicas, use `lep endpoint status`.
     """
     client = APIClient()
 
@@ -1117,17 +1177,17 @@ def log(name, replica):
         return
     else:
         console.print(
-            "End of log. It seems that the deployment has not started, or already"
+            "End of log. It seems that the endpoint has not started, or already"
             " finished."
         )
         console.print(
-            f"Use `lep deployment status -n {name}` to check the status of the"
-            " deployment."
+            f"Use `lep endpoint status -n {name}` to check the status of the"
+            " endpoint."
         )
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to update.", required=True)
+@click.option("--name", "-n", help="The endpoint name to update.", required=True)
 @click.option(
     "--id",
     "-i",
@@ -1139,7 +1199,7 @@ def log(name, replica):
     help=(
         "Number of replicas to update to. Pass `0` to scale the number"
         " of replicas to zero, in which case the deployemnt status page"
-        " will show the deployment to be `not ready` until you scale it"
+        " will show the endpoint to be `not ready` until you scale it"
         " back with a positive number of replicas."
     ),
     type=int,
@@ -1157,18 +1217,18 @@ def log(name, replica):
     is_flag=True,
     default=None,
     help=(
-        "If --public is specified, the deployment will be made public. If --no-public"
-        " is specified, the deployment will be made non-public, with access tokens"
+        "If --public is specified, the endpoint will be made public. If --no-public"
+        " is specified, the endpoint will be made non-public, with access tokens"
         " being the workspace token and the tokens specified by --tokens. If neither is"
-        " specified, no change will be made to the access control of the deployment."
+        " specified, no change will be made to the access control of the endpoint."
     ),
 )
 @click.option(
     "--tokens",
     help=(
-        "Access tokens that can be used to access the deployment. See docs for"
+        "Access tokens that can be used to access the endpoint. See docs for"
         " details on access control. If no tokens is specified, we will not change the"
-        " tokens of the deployment. If you want to remove all additional tokens, use"
+        " tokens of the endpoint. If you want to remove all additional tokens, use"
         "--remove-tokens."
     ),
     multiple=True,
@@ -1178,7 +1238,7 @@ def log(name, replica):
     is_flag=True,
     default=False,
     help=(
-        "If specified, all additional tokens will be removed, and the deployment will"
+        "If specified, all additional tokens will be removed, and the endpoint will"
         " be either public (if --public) is specified, or only accessible with the"
         " workspace token (if --public is not specified)."
     ),
@@ -1188,17 +1248,17 @@ def log(name, replica):
     type=int,
     default=None,
     help=(
-        "If specified, the deployment will be scaled down to 0 replicas after the"
+        "If specified, the endpoint will be scaled down to 0 replicas after the"
         " specified number of seconds without traffic. Set to 0 to explicitly change"
-        " the deployment to have no timeout."
+        " the endpoint to have no timeout."
     ),
 )
 @click.option(
     "--visibility",
     type=str,
     help=(
-        "Visibility of the deployment. Can be 'public' or 'private'. If private, the"
-        " deployment will only be viewable by the creator and workspace admin."
+        "Visibility of the endpoint. Can be 'public' or 'private'. If private, the"
+        " endpoint will only be viewable by the creator and workspace admin."
     ),
 )
 @click.option(
@@ -1278,7 +1338,7 @@ def log(name, replica):
 @click.option(
     "--shared-memory-size",
     type=int,
-    help="Update the shared memory size for this deployment, in MiB.",
+    help="Update the shared memory size for this endpoint, in MiB.",
 )
 def update(
     name,
@@ -1454,11 +1514,11 @@ def update(
         name_or_deployment=name,
         spec=new_lepton_deployment,
     )
-    console.print(f"Deployment [green]{name}[/] updated.")
+    console.print(f"Endpiont [green]{name}[/] updated.")
 
 
 @deployment.command()
-@click.option("--name", "-n", help="The deployment name to get status.", required=True)
+@click.option("--name", "-n", help="The endpoint name to get status.", required=True)
 def events(name):
     """
     List events of the endpoint
@@ -1466,8 +1526,8 @@ def events(name):
     client = APIClient()
     events = client.deployment.get_events(name)
 
-    table = Table(title="Deployment Events", show_header=True, show_lines=False)
-    table.add_column("Deployment Name")
+    table = Table(title="Endpoint Events", show_header=True, show_lines=False)
+    table.add_column("Endpoint Name")
     table.add_column("Type")
     table.add_column("Reason")
     table.add_column("Regarding")
@@ -1489,3 +1549,58 @@ def events(name):
 def add_command(cli_group):
     cli_group.add_command(deployment)
     cli_group.add_command(deployment, name="endpoint")
+
+
+@deployment.command()
+@click.option("--name", "-n", help="Endpoint name", required=True, type=str)
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+    ),
+    help=(
+        "Optional local path to save the endpoint spec JSON. Provide a directory or "
+        "filename. If directory, the file will be named <name>.json."
+    ),
+    required=False,
+)
+def get(name, path):
+    """Shows Endpoint detail and optionally saves its spec JSON."""
+
+    client = APIClient()
+
+    try:
+        dep = client.deployment.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch endpoint {name}: {e}[/]")
+        sys.exit(1)
+
+    console.print(json.dumps(client.deployment.safe_json(dep), indent=2))
+
+    if path:
+        import os
+
+        spec_json = dep.spec.model_dump_json(indent=2)
+
+        save_path = path
+        if os.path.isdir(path) or path.endswith(os.sep):
+            os.makedirs(path, exist_ok=True)
+            save_path = os.path.join(path, f"{name}.json")
+        else:
+            parent = os.path.dirname(save_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+
+        try:
+            with open(save_path, "w") as f:
+                f.write(spec_json)
+            console.print(f"Endpoint spec saved to [green]{save_path}[/].")
+        except Exception as e:
+            console.print(f"[red]Failed to save spec: {e}[/]")
+            sys.exit(1)
