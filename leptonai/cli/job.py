@@ -187,6 +187,8 @@ def _validate_queue_priority(ctx, param, value):
         "high-8": "high-8000",
         "high-9": "high-9000",
     }
+    # Allow direct use of canonical priority strings such as "mid-6000"
+    priority_mapping.update({v: v for v in priority_mapping.values()})
     num_priority_mapping = {
         1: "low-1000",
         2: "low-2000",
