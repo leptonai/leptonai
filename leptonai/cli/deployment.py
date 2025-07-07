@@ -984,7 +984,7 @@ def list_command(pattern):
 @click.option("--name", "-n", help="The endpoint name to restart.", required=True)
 def restart(name):
     """
-    Restart an endpoint.
+    Restarts an endpoint.
     """
     client = APIClient()
     client.deployment.restart(name)
@@ -1209,7 +1209,7 @@ def log(name, replica):
     "--min-replicas",
     help=(
         "Number of replicas to update to. Pass `0` to scale the number"
-        " of replicas to zero, in which case the deployemnt status page"
+        " of replicas to zero, in which case the deployment status page"
         " will show the endpoint to be `not ready` until you scale it"
         " back with a positive number of replicas."
     ),
@@ -1532,7 +1532,7 @@ def update(
 @click.option("--name", "-n", help="The endpoint name to get status.", required=True)
 def events(name):
     """
-    List events of the endpoint
+    Lists events of the endpoint
     """
     client = APIClient()
     events = client.deployment.get_events(name)
