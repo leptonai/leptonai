@@ -51,9 +51,9 @@ class ContainerPort(BaseModel):
 
     @compatible_field_validator("protocol")
     def validate_protocol(cls, v):
-        if v and v.lower() not in ["tcp", "udp"]:
+        if v and v.lower() not in ["tcp", "udp", "sctp"]:
             raise ValueError(
-                f"Invalid protocol: {v}. Protocol must be either tcp or udp."
+                f"Invalid protocol: {v}. Protocol must be either tcp or udp or sctp."
             )
         return v if v is None else v.lower()
 
