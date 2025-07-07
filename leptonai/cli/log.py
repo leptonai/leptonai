@@ -128,7 +128,7 @@ def safe_load_json(string):
 @click_group()
 def log():
     """
-    Manage and Retrieves the logs history of sepcific jobs, deployments and replicas.
+    Manage and retrieve the logs history of specific jobs, deployments and replicas.
     """
     pass
 

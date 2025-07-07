@@ -50,7 +50,7 @@ def lep():
     Lep is the main entry point for the DGX Cloud Lepton commandline interface. It provides
     a set of commands to create and develop photons locally, and deploy them to the
     DGX Cloud Lepton. It also provides a set of commands to manage resources on the
-    cloud, such as workspaces, deployments, secrets, and storage. To intall it, run
+    cloud, such as workspaces, deployments, secrets, and storage. To install it, run
 
     `pip install -U leptonai`
     """
