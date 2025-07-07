@@ -148,7 +148,7 @@ class APIResourse(object):
             except Exception as e:
                 self._print_programming_error(response, e)
 
-        valid_items: List[T] = []
+        valid_items = []
         errors: List[str] = []
 
         for idx, raw in enumerate(response.json()):
