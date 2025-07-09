@@ -18,7 +18,7 @@ import nemo_run as run
 from nemo.lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 
 # Import the unified extraction system
-from .autotune_utils_test import (
+from .autotune_utils import (
     validate_all_configs,
     check_config_matches,
     extract_all_values,
