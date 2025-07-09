@@ -15,7 +15,6 @@ from .util import (
     click_group,
 )
 
-# Import the improved autotune functionality
 from leptonai.api.v2.autotune_core_test import (
     generate_recipe_configs,
     run_pretraining_only,
@@ -24,18 +23,16 @@ from leptonai.api.v2.autotune_core_test import (
     validate_configurations_memory,
 )
 
-# ========== OPTIMIZED IMPORTS - ONE FUNCTION TO RULE THEM ALL ==========
 from leptonai.api.v2.autotune_utils_test import (
     validate_all_configs,
     check_config_matches,
-    extract_all_values,              # THE ONE FUNCTION TO RULE THEM ALL
-    extract_gpu_specs,               # Only separate function needed 
+    extract_all_values,          
+    extract_gpu_specs,
     create_log_dir_name,
     get_supported_models,
     validate_model_support,
 )
 
-# Import required NeMo modules
 try:
     from nemo.collections import llm
     import nemo_run as run
@@ -50,7 +47,6 @@ class AutoTuneArgs:
     """Class to hold all AutoTune arguments and handle serialization."""
     
     def __init__(self, **kwargs):
-        # Set defaults for training parameters
         self.model = kwargs.get('model', 'nemotron3_4b')
         self.nodes = kwargs.get('nodes', 1)
         self.gpus_per_node = kwargs.get('gpus_per_node', 8)
@@ -73,8 +69,7 @@ class AutoTuneArgs:
         self.max_steps = kwargs.get('max_steps', 10)
         self.get_results = kwargs.get('get_results', False)
         self.sequential = kwargs.get('sequential', False)
-        
-        # New dynamic executor properties
+        # dynamic properties for executor
         self.resource_shape = kwargs.get('resource_shape', 'gpu.8xh200')
         self.container_image = kwargs.get('container_image', 'nvcr.io/nvidia/nemo:25.02')
         self.nemo_run_dir = kwargs.get('nemo_run_dir', '/nemo-workspace/nemo-run')
@@ -85,7 +80,7 @@ class AutoTuneArgs:
         self.wandb_api_key = kwargs.get('wandb_api_key', None)
         self.torch_home = kwargs.get('torch_home', '/nemo-workspace/.cache')
         self.pythonpath = kwargs.get('pythonpath', '/nemo-workspace/nemo-run:$PYTHONPATH')
-        self.memory_per_gpu = kwargs.get('memory_per_gpu', None)  # Custom GPU memory override
+        self.memory_per_gpu = kwargs.get('memory_per_gpu', None) #custom GPU
         
         # Metadata from generation results (populated after generate)
         self.metadata = kwargs.get('metadata', {})
@@ -219,10 +214,7 @@ class AutoTuneArgs:
     @classmethod
     def from_dict(cls, data):
         """Create from dictionary loaded from JSON."""
-        # Create instance
         instance = cls(**data)
-        
-        # Process metadata to deserialize complex objects
         if 'metadata' in data:
             instance.metadata = instance._process_metadata_for_deserialization(data['metadata'])
         
@@ -426,7 +418,7 @@ def _display_configs_table(config_dir, model_name=None):
         config_dir: Directory containing configuration files
         model_name: Model name (optional, will try to infer)
     """
-    # Load args to get metadata
+    # load args to get metadata
     try:
         if not model_name:
             # Try to infer model name from directory structure
@@ -449,7 +441,7 @@ def _display_configs_table(config_dir, model_name=None):
         has_metadata = False
         args = None
     
-    # Get configuration files (exclude args.json)
+    # get configuration files (exclude args.json)
     all_files = os.listdir(config_dir)
     json_files = [f for f in all_files if f.endswith('.json') and f not in ['args.json']]
     
@@ -457,14 +449,12 @@ def _display_configs_table(config_dir, model_name=None):
         console.print(f"[yellow]No configuration files found in: {config_dir}[/yellow]")
         return
     
-    # Extract metadata info
     base_config_matches = metadata.get('base_config_matches', [])
     config_names = metadata.get('config_names', [])
     num_configs_generated = metadata.get('num_configs_generated', len(json_files) - 1)
     total_gpus = metadata.get('total_gpus', 'Unknown')
     generation_timestamp = metadata.get('generation_timestamp', 'Unknown')
     
-    # Create table
     table = Table(show_header=True, show_lines=True, title=f"Configuration Files - {model_name or 'Unknown Model'}")
     table.add_column("Filename", style="cyan")
     table.add_column("Status", style="green")  
@@ -473,21 +463,18 @@ def _display_configs_table(config_dir, model_name=None):
     for filename in sorted(json_files):
         filepath = os.path.join(config_dir, filename)
         
-        # Get file size
         try:
             stat = os.stat(filepath)
             size = f"{stat.st_size:,} bytes"
         except Exception as e:
             size = f"[red]Error: {e}[/red]"
         
-        # Determine status
         if filename == "base_config.json":
             if base_config_matches:
                 status = f"[yellow]Base Config (equivalent to: {', '.join(base_config_matches)})[/yellow]"
             else:
                 status = "[bold green]Base Config[/bold green]"
         else:
-            # Extract config name from filename (remove .json extension)
             config_name = filename.replace('.json', '')
             
             if has_metadata:
@@ -498,14 +485,12 @@ def _display_configs_table(config_dir, model_name=None):
                 else:
                     status = "[dim]Unknown[/dim]"
             else:
-                # No metadata available, just show as generated
                 status = "[green]Generated[/green]"
         
         table.add_row(filename, status, size)
     
     console.print(table)
     
-    # Display summary
     console.print(f"\n[cyan]📋 Summary:[/cyan]")
     if has_metadata:
         console.print(f"Model: {model_name}")
@@ -521,12 +506,12 @@ def _display_configs_table(config_dir, model_name=None):
         if generation_timestamp != 'Unknown':
             console.print(f"Generated: {generation_timestamp}")
         
-        # Show memory analysis if available
+        # show memory analysis if available
         if args and args.has_memory_analysis():
             memory_analysis = args.get_memory_analysis()
             _display_memory_analysis(memory_analysis)
             
-            # Add note about run behavior
+            # note about run behavior
             oom_configs = [name for name, analysis in memory_analysis.items() if analysis.get("will_oom", False)]
             if oom_configs:
                 console.print(f"\n[yellow]Run Behavior Notes:[/yellow]")
@@ -534,7 +519,7 @@ def _display_configs_table(config_dir, model_name=None):
                 console.print(f"  • Use 'lep autotune run --run-all' to run ALL configurations including potential OOM ones")
                 console.print(f"  • Use 'lep autotune check-memory' to see detailed memory breakdown")
         
-        # Show performance results status
+        # show performance results status
         if args and args.has_performance_results():
             results_timestamp = metadata.get('results_timestamp', 'Unknown')
             performance_dict = args.get_performance_dict()
@@ -563,13 +548,13 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     
     total_gpus = args.nodes * args.gpus_per_node
     
-    # Calculate cost and time for each configuration
+    # calculate cost and time for each configuration
     config_analysis = {}
     for config_name, config_data in performance_dict.items():
         time_per_step = config_data.get('time_per_global_step', 0)
         m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
         
-        # Calculate total training time and cost
+        # calculate total training time and cost
         total_training_time_seconds = time_per_step * total_steps
         total_training_time_hours = total_training_time_seconds / 3600
         total_cost = total_training_time_hours * cost_per_gpu_hour * total_gpus
@@ -582,7 +567,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
             'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
         }
     
-    # Sort configurations by m_tflops_gpu (descending - best first)
+    # sort configurations by m_tflops_gpu (descending - best first)
     sorted_configs = sorted(
         config_analysis.items(),
         key=lambda x: x[1].get('m_tflops_gpu', 0),
@@ -592,20 +577,19 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     best_config_name, best_config = sorted_configs[0]
     worst_config_name, worst_config = sorted_configs[-1]
     
-    # Find base config (if exists)
+    # find base config (if exists)
     base_config_matches = args.metadata.get('base_config_matches', [])
     base_config_name = None
     base_config = None
     
-    # Look for base config in performance results
+    # look for base config in performance results
     for config_name, config_data in config_analysis.items():
         if config_name in base_config_matches or config_name == 'base_config':
             base_config_name = config_name
             base_config = config_data
             break
     
-    # Display analysis
-    console.print("\n[cyan]💰 Performance & Cost Analysis Summary[/cyan]")
+    console.print("\n[cyan] Performance & Cost Analysis Summary[/cyan]")
     console.print("=" * 80)
     
     # Best performing configuration
@@ -616,7 +600,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     console.print(f"  Total Training Cost: ${best_config.get('total_cost', 'N/A'):,.2f}")
     console.print(f"  Cost per TFLOP: ${best_config.get('cost_per_tflop', 'N/A'):.2f}")
     
-    # Base config comparison (if available)
+    # base config comparison (if available)
     if base_config and base_config_name != best_config_name:
         console.print(f"\n[blue]Base Configuration: {base_config_name}[/blue]")
         console.print(f"  M-TFLOPs/GPU: {base_config.get('m_tflops_gpu', 'N/A'):.2f}")
@@ -625,7 +609,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  Total Training Cost: ${base_config.get('total_cost', 'N/A'):,.2f}")
         console.print(f"  Cost per TFLOP: ${base_config.get('cost_per_tflop', 'N/A'):.2f}")
         
-        # Performance and cost comparison vs base
+        # performance and cost comparison vs base
         tflops_improvement = ((best_config.get('m_tflops_gpu', 0) - base_config.get('m_tflops_gpu', 0)) / base_config.get('m_tflops_gpu', 1)) * 100
         time_savings = base_config.get('total_training_time_hours', 0) - best_config.get('total_training_time_hours', 0)
         cost_savings = base_config.get('total_cost', 0) - best_config.get('total_cost', 0)
@@ -641,7 +625,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         else:
             console.print(f"  [red] Additional Cost: ${abs(cost_savings):,.2f}[/red]")
     
-    # Worst performing configuration
+    # worst performing configuration
     if worst_config_name != best_config_name:
         console.print(f"\n[red]Worst Performing Configuration: {worst_config_name}[/red]")
         console.print(f"  M-TFLOPs/GPU: {worst_config.get('m_tflops_gpu', 'N/A'):.2f}")
@@ -650,7 +634,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  Total Training Cost: ${worst_config.get('total_cost', 'N/A'):,.2f}")
         console.print(f"  Cost per TFLOP: ${worst_config.get('cost_per_tflop', 'N/A'):.2f}")
         
-        # Performance comparison best vs worst
+        # performance comparison best vs worst
         time_diff = worst_config.get('total_training_time_hours', 0) - best_config.get('total_training_time_hours', 0)
         cost_diff = worst_config.get('total_cost', 0) - best_config.get('total_cost', 0)
         tflops_diff = ((best_config.get('m_tflops_gpu', 0) - worst_config.get('m_tflops_gpu', 0)) / worst_config.get('m_tflops_gpu', 1)) * 100
@@ -661,7 +645,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  Cost difference: ${cost_diff:,.2f}")
         console.print(f"  [red]Potential waste with worst config: ${cost_diff:,.2f}[/red]")
     
-    # Create comprehensive performance & cost table
+    # create comprehensive performance & cost table
     console.print(f"\n[cyan] Top 5 Configurations - Performance & Cost Analysis[/cyan]")
     table = Table(show_header=True, show_lines=True, title="Performance & Cost Ranking")
     table.add_column("Rank", style="yellow", width=6)
@@ -672,7 +656,6 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     table.add_column("Status", style="white", width=15)
     
     for i, (config_name, config_data) in enumerate(sorted_configs[:5], 1):
-        # Determine status
         status = "Generated"
         if config_name in base_config_matches or config_name == 'base_config':
             status = "Base Config"
@@ -681,7 +664,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         
         table.add_row(
             str(i),
-            config_name[:19],  # Truncate long names
+            config_name,
             f"{config_data.get('m_tflops_gpu', 0):.2f}",
             f"{config_data.get('total_training_time_days', 0):.1f}",
             f"${config_data.get('total_cost', 0):,.0f}",
@@ -690,11 +673,9 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     
     console.print(table)
     
-    # Cost efficiency analysis
     console.print(f"\n[cyan] Cost Efficiency Analysis[/cyan]")
     console.print("=" * 50)
     
-    # Find most cost-efficient config (lowest cost per TFLOP)
     most_efficient = min(config_analysis.items(), key=lambda x: x[1].get('cost_per_tflop', float('inf')))
     most_efficient_name, most_efficient_data = most_efficient
     
@@ -703,7 +684,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     console.print(f"  Total Cost: ${most_efficient_data.get('total_cost', 'N/A'):,.2f}")
     console.print(f"  M-TFLOPs/GPU: {most_efficient_data.get('m_tflops_gpu', 'N/A'):.2f}")
     
-    # Recommendations
+    # recommendations
     console.print(f"\n[cyan] Recommendations[/cyan]")
     console.print("=" * 40)
     console.print(f"Best Performance: '{best_config_name}'")
@@ -727,24 +708,23 @@ def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total
     
     total_gpus = args.nodes * args.gpus_per_node
     
-    # Calculate cost and time for each configuration
+    # calculate cost and time for each configuration
     config_analysis = {}
     for config_name, config_data in performance_dict.items():
         time_per_step = config_data.get('time_per_global_step', 0)
         m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
         
-        # ONE FUNCTION CALL to get ALL values including GBS
         extracted_values = extract_all_values(config_name)
         gbs = extracted_values.get('gbs')
         if gbs is None or gbs == 512:  # 512 is default, might not be accurate
             gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
             logger.warning(f"Could not extract GBS from {config_name}, using {gbs}")
         
-        # Calculate tokens per step for this specific config
+        # calculate tokens per step for this specific config
         tokens_per_step = args.seq_length * gbs
         total_steps = total_tokens / tokens_per_step
         
-        # Calculate total training time and cost
+        # calculate total training time and cost
         total_training_time_seconds = time_per_step * total_steps
         total_training_time_hours = total_training_time_seconds / 3600
         total_cost = total_training_time_hours * cost_per_gpu_hour * total_gpus
@@ -761,115 +741,6 @@ def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total
         }
   
     _analyze_performance_results_with_cost(config_analysis, args, total_steps, cost_per_gpu_hour)
-
-
-def _analyze_performance_results(performance_dict, args):
-    """Analyze and compare performance results."""
-    if not performance_dict:
-        console.print("[yellow]No performance data to analyze[/yellow]")
-        return
-    
-    # Sort configurations by m_tflops_gpu (descending - best first)
-    sorted_configs = sorted(
-        performance_dict.items(),
-        key=lambda x: x[1].get('m_tflops_gpu', 0),
-        reverse=True
-    )
-    
-    best_config_name, best_config = sorted_configs[0]
-    worst_config_name, worst_config = sorted_configs[-1]
-    
-    # Find base config (if exists)
-    base_config_matches = args.metadata.get('base_config_matches', [])
-    base_config_name = None
-    base_config = None
-    
-    # Look for base config in performance results
-    for config_name, config_data in performance_dict.items():
-        if config_name in base_config_matches or config_name == 'base_config':
-            base_config_name = config_name
-            base_config = config_data
-            break
-    
-    # Display analysis
-    console.print("\n[cyan] Performance Analysis Summary[/cyan]")
-    console.print("=" * 60)
-    
-    # Best performing configuration
-    console.print(f"\n[green] Best Performing Configuration: {best_config_name}[/green]")
-    console.print(f"  M-TFLOPs/GPU: {best_config.get('m_tflops_gpu', 'N/A'):.2f}")
-    console.print(f"  Time per Global Step: {best_config.get('time_per_global_step', 'N/A'):.4f}s")
-    console.print(f"  Samples/s: {best_config.get('samples_per_s', 'N/A'):.2f}")
-    console.print(f"  Total M-TFLOPs: {best_config.get('m_tflops', 'N/A'):.2f}")
-    
-    # Base config comparison (if available)
-    if base_config and base_config_name != best_config_name:
-        console.print(f"\n[blue] Base Configuration: {base_config_name}[/blue]")
-        console.print(f"  M-TFLOPs/GPU: {base_config.get('m_tflops_gpu', 'N/A'):.2f}")
-        console.print(f"  Time per Global Step: {base_config.get('time_per_global_step', 'N/A'):.4f}s")
-        console.print(f"  Samples/s: {base_config.get('samples_per_s', 'N/A'):.2f}")
-        console.print(f"  Total M-TFLOPs: {base_config.get('m_tflops', 'N/A'):.2f}")
-        
-        # Performance comparison vs base
-        tflops_improvement = ((best_config.get('m_tflops_gpu', 0) - base_config.get('m_tflops_gpu', 0)) / base_config.get('m_tflops_gpu', 1)) * 100
-        time_improvement = ((base_config.get('time_per_global_step', 1) - best_config.get('time_per_global_step', 1)) / base_config.get('time_per_global_step', 1)) * 100
-        
-        console.print(f"\n[yellow]⚡ Best vs Base Performance:[/yellow]")
-        console.print(f"  M-TFLOPs/GPU improvement: {tflops_improvement:+.1f}%")
-        console.print(f"  Time per step improvement: {time_improvement:+.1f}%")
-    
-    # Worst performing configuration
-    if worst_config_name != best_config_name:
-        console.print(f"\n[red]🐌 Worst Performing Configuration: {worst_config_name}[/red]")
-        console.print(f"  M-TFLOPs/GPU: {worst_config.get('m_tflops_gpu', 'N/A'):.2f}")
-        console.print(f"  Time per Global Step: {worst_config.get('time_per_global_step', 'N/A'):.4f}s")
-        console.print(f"  Samples/s: {worst_config.get('samples_per_s', 'N/A'):.2f}")
-        console.print(f"  Total M-TFLOPs: {worst_config.get('m_tflops', 'N/A'):.2f}")
-        
-        # Performance comparison best vs worst
-        tflops_diff = ((best_config.get('m_tflops_gpu', 0) - worst_config.get('m_tflops_gpu', 0)) / worst_config.get('m_tflops_gpu', 1)) * 100
-        time_diff = ((worst_config.get('time_per_global_step', 1) - best_config.get('time_per_global_step', 1)) / worst_config.get('time_per_global_step', 1)) * 100
-        
-        console.print(f"\n[yellow] Best vs Worst Performance:[/yellow]")
-        console.print(f"  M-TFLOPs/GPU difference: {tflops_diff:+.1f}%")
-        console.print(f"  Time per step difference: {time_diff:+.1f}%")
-    
-    # Create performance table
-    console.print(f"\n[cyan] Top 5 Configurations by M-TFLOPs/GPU[/cyan]")
-    table = Table(show_header=True, show_lines=True, title="Performance Ranking")
-    table.add_column("Rank", style="yellow", width=6)
-    table.add_column("Configuration", style="cyan", width=20)
-    table.add_column("M-TFLOPs/GPU", style="green", width=12)
-    table.add_column("Time/Step (s)", style="blue", width=12)
-    table.add_column("Status", style="white", width=15)
-    
-    for i, (config_name, config_data) in enumerate(sorted_configs[:5], 1):
-        # Determine status
-        status = "Generated"
-        if config_name in base_config_matches or config_name == 'base_config':
-            status = "Base Config"
-        elif i == 1:
-            status = " Best"
-        
-        table.add_row(
-            str(i),
-            config_name,
-            f"{config_data.get('m_tflops_gpu', 0):.2f}",
-            f"{config_data.get('time_per_global_step', 0):.4f}",
-            status
-        )
-    
-    console.print(table)
-    
-    # Recommendations
-    console.print(f"\n[cyan] Recommendations[/cyan]")
-    console.print("=" * 40)
-    console.print(f" Use configuration '{best_config_name}' for optimal performance")
-    if base_config and base_config_name != best_config_name:
-        console.print(f" Consider switching from base config '{base_config_name}'")
-    console.print(f" Performance range: {worst_config.get('m_tflops_gpu', 0):.1f} - {best_config.get('m_tflops_gpu', 0):.1f} M-TFLOPs/GPU")
-    
-    console.print("\n[green]Analysis completed successfully![/green]")
 
 
 @click_group()
@@ -1001,11 +872,9 @@ def generate(**kwargs):
     else:
         console.print(f" Model: [cyan]{kwargs['model']}[/cyan]")
     
-    # Create args object
     args = AutoTuneArgs(**kwargs)
     
     try:
-        # Validate all configurations before proceeding
         console.print("[yellow]Validating configuration parameters...[/yellow]")
         is_valid, error_msg = validate_all_configs(args)
         if not is_valid:
@@ -1015,17 +884,14 @@ def generate(**kwargs):
         
         console.print("[green]Configuration validation passed![/green]")
         
-        # Save args to file first (without metadata)
         args_file_path = get_args_file_path(args.model, kwargs['output_dir'])
         args.save_to_file(args_file_path)
         console.print(f"[blue]Arguments saved to: {args_file_path}[/blue]")
         
-        # Generate configurations
         console.print("[yellow]Generating configurations...[/yellow]")
 
         result = generate_recipe_configs(args)
     
-        # Update args.json with generation metadata (including serialized objects)
         update_args_with_generation_metadata(args.model, result, kwargs['output_dir'])
         console.print(f"[blue]Metadata and objects saved to: {args_file_path}[/blue]")
         
@@ -1033,7 +899,6 @@ def generate(**kwargs):
         console.print(f"Saved to: {os.path.join(kwargs['output_dir'], args.model)}")
         console.print(f"Generated {result['num_configs_generated']} configurations")
         
-        # Show memory analysis summary
         memory_analysis = result.get('memory_analysis', {})
         if memory_analysis:
             oom_configs = [name for name, analysis in memory_analysis.items() if analysis.get("will_oom", False)]
@@ -1052,7 +917,6 @@ def generate(**kwargs):
         if result['base_config_matches']:
             console.print(f"[blue]Found {len(result['base_config_matches'])} matching configurations: {', '.join(result['base_config_matches'])}[/blue]")
         
-        # Display configuration summary using the new function
         model_config_dir = os.path.join(kwargs['output_dir'], args.model)
         # _display_configs_table(model_config_dir, args.model)
         
@@ -1074,9 +938,8 @@ def run(config_dir, model, sequential, run_all):
     """Run AutoTune pretraining with generated configurations."""
     
     try:
-        # Load args from file
         args = _load_args_from_config_dir(config_dir, model)
-        args.sequential = sequential  # Override with CLI flag
+        args.sequential = sequential
         
         console.print(f"Starting AutoTune pretraining for model: [bold]{args.model}[/bold]")
         console.print(f"Resource shape: [blue]{args.resource_shape}[/blue]")
@@ -1098,13 +961,9 @@ def run(config_dir, model, sequential, run_all):
         console.print("[green]Configuration validation passed![/green]")
         console.print("[yellow]Generating and running configurations...[/yellow]")
         
-        # Generate configurations and run pretraining
         config_result = generate_recipe_configs(args)
-        
-        # Get memory analysis for filtering
         memory_analysis = config_result.get('memory_analysis', {})
         
-        # Show memory analysis summary before running
         if memory_analysis and not run_all:
             oom_configs = [name for name, analysis in memory_analysis.items() if analysis.get("will_oom", False)]
             safe_configs = [name for name, analysis in memory_analysis.items() if not analysis.get("will_oom", False)]
@@ -1164,13 +1023,11 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
     console.print(f"Collecting AutoTune results from: [bold]{path}[/bold]")
     
     try:
-        # Check if logs directory exists
         if not os.path.exists(path):
             console.print(f"[red]Logs directory not found: {path}[/red]")
             console.print("[yellow]Tip: Run 'lep autotune run' first to generate training logs[/yellow]")
             sys.exit(1)
         
-        # Load args from file
         args = _load_args_from_config_dir(config_dir, model)
         
         console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
@@ -1180,7 +1037,6 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
         console.print(f"  Sequence length: {args.seq_length}")
         console.print(f"  Training: max_steps={args.max_steps}, val_check_interval={args.val_check_interval}")
         
-        # Try to use saved objects first, fallback to reconstruction
         if not force_reconstruct and args.has_valid_objects():
             console.print("[blue]Using saved AutoConfigurator objects from args.json[/blue]")
             base_config = args.get_base_config()
@@ -1197,7 +1053,6 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
             runner = config_result['runner']
             metadata = args.metadata
 
-        # Call the improved get_results function with output file handling
         console.print("[yellow]Analyzing training results...[/yellow]")
 
         performance_dict = get_results_with_output(
@@ -1211,7 +1066,6 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
             output_top_n=top_n
         )
         
-        # Save performance results to args.json
         if performance_dict:
             console.print("[blue]Saving performance results to args.json...[/blue]")
             update_args_with_performance_results(args.model, performance_dict, config_dir)
@@ -1239,12 +1093,10 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
     console.print(f"Analyzing AutoTune performance results with cost analysis...")
     
     try:
-        # Load args from file
         args = _load_args_from_config_dir(config_dir, model)
         
         console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
         
-        # Check if performance results exist
         if not args.has_performance_results():
             console.print("[yellow]No performance results found in args.json[/yellow]")
             console.print("[yellow]Please run 'lep autotune results' first to generate performance data[/yellow]")
@@ -1254,11 +1106,8 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         performance_dict = args.get_performance_dict()
         console.print(f"[green]Found performance results for {len(performance_dict)} configurations[/green]")
         
-        # Display training parameters for cost calculation
-        total_tokens = args.num_tokens_in_b * 1_000_000_000  # Convert billions to actual tokens
+        total_tokens = args.num_tokens_in_b * 1_000_000_000
 
-        # For cost analysis, we need to extract GBS from individual config names
-        # since different configs may have different GBS values
         console.print(f"\n[cyan] Training Configuration for Cost Analysis[/cyan]")
         console.print(f"  Total tokens to train: {total_tokens:,} ({args.num_tokens_in_b}B)")
         console.print(f"  Sequence length: {args.seq_length:,}")
@@ -1267,7 +1116,7 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         console.print(f"Resource shape: {args.resource_shape}")
         console.print(f"  Cost per GPU hour: ${cost_per_gpu_hour:.2f}")
         
-        # For each config, extract GBS from config name and calculate cost
+        # for each config, extract GBS from config name and calculate cost
         _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour)
         
     except Exception as e:
@@ -1288,7 +1137,6 @@ def list_configs(config_dir, model):
         console.print(f"Configurations for model: [bold]{args.model}[/bold]")
         console.print(f"Location: {model_config_dir}")
         
-        # Display configurations using the updated function
         _display_configs_table(model_config_dir, args.model)
         
     except Exception as e:
@@ -1396,7 +1244,7 @@ def _load_args_from_config_dir(config_dir, model=None):
         console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
         sys.exit(1)
     
-    # If model not provided, try to infer from directory structure
+    # if model not provided, try to infer from directory structure
     if not model:
         subdirs = [d for d in os.listdir(config_dir) if os.path.isdir(os.path.join(config_dir, d))]
         if len(subdirs) == 1:
@@ -1410,7 +1258,6 @@ def _load_args_from_config_dir(config_dir, model=None):
             console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
             sys.exit(1)
     
-    # Load args from file
     args_file_path = get_args_file_path(model, config_dir)
     if not os.path.exists(args_file_path):
         console.print(f"[red]Arguments file not found: {args_file_path}[/red]")
