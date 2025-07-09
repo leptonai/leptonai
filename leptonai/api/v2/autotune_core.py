@@ -1,8 +1,8 @@
 """
-AutoTune core functionality - OPTIMIZED VERSION using consolidated extraction logic.
+AutoTune core functionality.
 
 This module contains the core AutoTune functionality with all extraction logic
-now delegated to the unified extraction system in autotune_utils.py
+delegated to the unified extraction system in autotune_utils.py
 """
 
 import os
@@ -90,7 +90,7 @@ def estimate_model_memory_usage_conservative(
     model_memory_gb = (params_b * 1e9 * bytes_per_param) / (1024**3) / tp_size
 
     # ========== COMPONENT 2: Optimizer States (100% CERTAIN for Adam) ==========
-    # Adam requires momentum + variance in fp32, this is non-negotiable
+    # Adam requires momentum + variance in fp32
     optimizer_memory_gb = (params_b * 1e9 * 4) / (1024**3) / tp_size
 
     # ========== COMPONENT 3: Gradients (100% CERTAIN) ==========
@@ -98,8 +98,8 @@ def estimate_model_memory_usage_conservative(
     gradient_memory_gb = model_memory_gb
 
     # ========== COMPONENT 4: Minimal Activation Memory (Conservative) ==========
-    # Use a simple, conservative estimate based only on model size
-    # This avoids complex calculations that might overestimate
+    # A simple, conservative estimate based only on model size
+    # Avoids complex calculations that might overestimate
     
     if params_b <= 7:
         base_activation_gb = 5.0
@@ -160,13 +160,7 @@ def check_cuda_oom_risk(
     Returns:
         Tuple of (will_oom: bool, reason: str, estimated_usage_gb: float, available_gb: float)
     """
-    """
-    Relaxed CUDA OOM risk check that errs on the side of allowing configurations.
-    
-    1. Uses conservative memory estimation (underestimates)
-    2. Reduced safety margin (3GB instead of 5GB)
-    3. More lenient OOM threshold
-    """
+
     # Use unified GPU specs extraction
     gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(resource_shape, memory_per_gpu)
     available_memory_gb = gpu_memory_gb - safety_margin_gb
@@ -251,11 +245,11 @@ def validate_configurations_memory(
         "config_values": base_config_values
     }
     
-    # Check each generated config using ONE unified extraction call
+    # Check each generated config using unified extraction call
     for config_name, config_obj in configs.items():
         config_values = extract_all_values(config_obj)
         
-        # If extraction from object gave defaults, try parsing the config name
+        # If extraction from object gave defaults, parse the config name
         if (config_values.get('tp') == 1 and config_values.get('pp') == 1 and 
             config_values.get('mbs') == 1 and config_values.get('gbs') == 512):
             name_values = extract_all_values(config_name)
@@ -298,12 +292,10 @@ def generate_recipe_configs(args):
             - base_config_matches: List of configs that match base config
             - memory_analysis: To know which configs will result in CUDA OOM 
     """
-    # Validate configurations before proceeding
     is_valid, error_msg = validate_all_configs(args)
     if not is_valid:
         raise ValueError(f"Configuration validation failed: {error_msg}")
     
-    # Import recipe and change needed parameters dynamically
     model_class = getattr(llm, args.model, None)
     if model_class is None:
         from .autotune_utils import get_supported_models
@@ -338,7 +330,7 @@ def generate_recipe_configs(args):
     runner = AutoConfigurator(
         recipe=recipe,
         path_to_logs="/nemo-workspace/autoconfigurator/logs",
-        gpu_memory_gb=gpu_memory_gb,  # Use unified extraction result
+        gpu_memory_gb=gpu_memory_gb,
         tensor_parallel_sizes=args.tensor_parallel_sizes,
         pipeline_parallel_sizes=args.pipeline_parallel_sizes,
         virtual_pipeline_model_parallel_sizes=args.virtual_pipeline_model_parallel_sizes,
@@ -379,28 +371,23 @@ def generate_recipe_configs(args):
     
     base_config_path = f"generated_configs/{args.model}/base_config.json"
     generated_configs_dir = f"generated_configs/{args.model}"
-    
-    # Check if there are matching configurations
+
     has_matches, matching_files = check_config_matches(base_config_path, generated_configs_dir)
     
     base_config_matches = []
     
     if has_matches:
-        # Track the matching configs as base config equivalents
         for matching_file in matching_files:
             config_name = matching_file.replace('.json', '')
             if config_name in configs:
                 base_config_matches.append(config_name)
                 logger.info(f"Config '{config_name}' matches base config - will be flagged as base config equivalent")
         
-        # Keep the original log directory
         recipe.log.log_dir = "/nemo-workspace/autoconfigurator/logs/base_config"
         logger.info(f"Found {len(matching_files)} matching configs. Using original log_dir: {recipe.log.log_dir}")
     else:
         config_values = extract_all_values(base_config)
         new_log_dir = create_log_dir_name(args.model, config_values)
-        
-        # Update the log directory
         recipe.log.log_dir = f"/nemo-workspace/autoconfigurator/logs/{new_log_dir}"
         logger.info(f"No matching configs found. Updated log_dir to: {recipe.log.log_dir}")
 
@@ -448,20 +435,17 @@ def lepton_executor(
     pythonpath: str = "/nemo-workspace/nemo-run:$PYTHONPATH"
 ) -> run.LeptonExecutor:
     """Create a Lepton executor for training with dynamic configuration."""
-    # Build mounts dynamically
     mounts = [{
         "path": "/",
         "mount_path": mount_path,
         "from": mount_from
     }]
 
-    # Build environment variables dynamically
     env_vars = {
         "PYTHONPATH": pythonpath,
         "TORCH_HOME": torch_home,
     }
     
-    # Add optional tokens if provided
     if hf_token:
         env_vars["HF_TOKEN"] = hf_token
     if wandb_api_key:
@@ -500,12 +484,10 @@ def run_pretraining_only(
     if memory_analysis is None:
         memory_analysis = {}
 
-    # Filter configurations based on OOM analysis
     configs_to_run = {}
     skipped_configs = {}
     base_config_will_run = True
     
-    # Check base config for OOM
     base_analysis = memory_analysis.get("base_config", {})
     base_will_oom = base_analysis.get("will_oom", False)
     
@@ -514,7 +496,6 @@ def run_pretraining_only(
         skipped_configs["base_config"] = "Potential CUDA OOM"
         logger.warning("Skipping base_config due to potential CUDA OOM (use --run-all to force)")
     
-    # Filter generated configs
     for config_name, config_obj in configs.items():
         analysis = memory_analysis.get(config_name, {})
         will_oom = analysis.get("will_oom", False)
@@ -525,7 +506,6 @@ def run_pretraining_only(
         else:
             configs_to_run[config_name] = config_obj
 
-    # Log filtering summary
     total_configs = len(configs) + (1 if not base_config_matches else 0)
     configs_to_run_count = len(configs_to_run) + (1 if base_config_will_run and not base_config_matches else 0)
     skipped_count = len(skipped_configs)
@@ -549,7 +529,6 @@ def run_pretraining_only(
             'status': 'no_configs_to_run'
         }
 
-    # Initialize executor with dynamic configuration
     executor = lepton_executor(
         nodes=base_config.trainer.num_nodes,
         devices=base_config.trainer.devices,
@@ -559,7 +538,6 @@ def run_pretraining_only(
     logger.info("Running filtered configurations...")
 
     with run.Experiment("pretrain-magic") as exp:
-        # Only add base config if no configs match it AND it's not filtered out
         if not base_config_matches and base_config_will_run:
             exp.add(base_config, executor=executor, name="base_config")
             logger.info("Added base_config to experiment")
@@ -568,7 +546,6 @@ def run_pretraining_only(
         else:
             logger.info(f"Skipping base_config as it matches: {', '.join(base_config_matches)}")
         
-        # Launch the experiment on the cluster
         idx = 1
         for config_name, recipe in configs_to_run.items():
             if config_name in base_config_matches:
@@ -628,16 +605,12 @@ def get_results_with_output(
         base_config_matches = []
     
     if output_file:
-        # Create directory for the file if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         logger.info(f"Results will be saved to: {output_file}")
-        # Redirect stdout to capture all results for file output
         original_stdout = sys.stdout
         try:
-            # First get all results (no top_n limit for file output)
             with open(output_file, 'w') as f:
                 sys.stdout = f
-                # Write header information
                 logger.info("=" * 80)
                 logger.info("AUTOTUNE RESULTS - ALL CONFIGURATIONS")
                 logger.info("=" * 80)
@@ -646,7 +619,6 @@ def get_results_with_output(
                     logger.info(f"Base config matches found: {', '.join(base_config_matches)}")
                 logger.info("=" * 80)
                 
-                # Get all results without top_n limit
                 performance_dict = get_results(
                     base_config=base_config,
                     train_config=runner,
@@ -663,8 +635,7 @@ def get_results_with_output(
             sys.stdout = original_stdout
         
         logger.info(f"All {num_configs_generated} configuration results saved to {output_file}")
-        
-        # Now display top_n results in terminal
+
         if output_top_n and output_top_n > 0:
             logger.info(f"Displaying top {output_top_n} results in terminal:")
             logger.info(f"\n{'='*60}")
@@ -681,7 +652,6 @@ def get_results_with_output(
                 log_file_prefix=log_file_prefix,
             )
     else:
-        # No output file, just display top_n in terminal
         logger.info(f"Displaying top {output_top_n} results in terminal:")
         if base_config_matches:
             logger.info(f"Note: Base config is equivalent to: {', '.join(base_config_matches)}")
