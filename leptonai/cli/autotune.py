@@ -15,7 +15,7 @@ from .util import (
     click_group,
 )
 
-from leptonai.api.v2.autotune_core_test import (
+from leptonai.api.v2.autotune_core import (
     generate_recipe_configs,
     run_pretraining_only,
     get_results_with_output,
@@ -23,7 +23,7 @@ from leptonai.api.v2.autotune_core_test import (
     validate_configurations_memory,
 )
 
-from leptonai.api.v2.autotune_utils_test import (
+from leptonai.api.v2.autotune_utils import (
     validate_all_configs,
     check_config_matches,
     extract_all_values,          
@@ -707,7 +707,7 @@ def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total
         return
     
     total_gpus = args.nodes * args.gpus_per_node
-    
+
     # calculate cost and time for each configuration
     config_analysis = {}
     for config_name, config_data in performance_dict.items():
@@ -716,7 +716,8 @@ def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total
         
         extracted_values = extract_all_values(config_name)
         gbs = extracted_values.get('gbs')
-        if gbs is None or gbs == 512:  # 512 is default, might not be accurate
+
+        if gbs is None:
             gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
             logger.warning(f"Could not extract GBS from {config_name}, using {gbs}")
         
