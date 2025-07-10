@@ -177,10 +177,10 @@ def _validate_queue_priority(ctx, param, value):
         "low-2": "low-2000",
         "low-3": "low-3000",
         "m": "mid-4000",
-        "medium": "mid-4000",
-        "medium-4": "mid-4000",
-        "medium-5": "mid-5000",
-        "medium-6": "mid-6000",
+        "mid": "mid-4000",
+        "mid-4": "mid-4000",
+        "mid-5": "mid-5000",
+        "mid-6": "mid-6000",
         "h": "high-7000",
         "high": "high-7000",
         "high-7": "high-7000",
@@ -426,10 +426,10 @@ def make_container_port_from_string(port_str: str):
     callback=_validate_queue_priority,
     help=(
         "Set the priority for this job (feature available only for dedicated node"
-        " groups).\nCould be one of low-1, low-2, low-3, medium-4, medium-5, medium-6,"
+        " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
         " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 1), m /"
-        " medium (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
-        " -qp medium, -qp high, -qp l, -qp m, -qp h"
+        " mid (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
+        " -qp mid, -qp high, -qp l, -qp m, -qp h"
     ),
 )
 @click.option(
@@ -561,8 +561,7 @@ def create(
         # Set queue configuration if priority is specified
         if queue_priority or can_be_preempted is not None or can_preempt is not None:
             job_spec.queue_config = job_spec.queue_config or QueueConfig()
-            if queue_priority:
-                job_spec.queue_config.priority_class = queue_priority
+            job_spec.queue_config.priority_class = queue_priority or "mid-4000"
             if can_be_preempted is not None:
                 job_spec.queue_config.can_be_preempted = can_be_preempted
             if can_preempt is not None:
