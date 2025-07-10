@@ -291,6 +291,7 @@ def make_container_port_from_string(port_str: str):
 # Resource configuration options
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -433,6 +434,7 @@ def make_container_port_from_string(port_str: str):
 )
 @click.option(
     "--can-be-preempted",
+    "-cbp",
     is_flag=True,
     default=None,
     help=(
@@ -442,6 +444,7 @@ def make_container_port_from_string(port_str: str):
 )
 @click.option(
     "--can-preempt",
+    "-cp",
     is_flag=True,
     default=None,
     help=(
