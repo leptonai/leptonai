@@ -431,6 +431,24 @@ def make_container_port_from_string(port_str: str):
         " -qp medium, -qp high, -qp l, -qp m, -qp h"
     ),
 )
+@click.option(
+    "--can-be-preempted",
+    is_flag=True,
+    default=None,
+    help=(
+        "Allow this job to be preempted by higher priority jobs (only for dedicated"
+        " node groups)."
+    ),
+)
+@click.option(
+    "--can-preempt",
+    is_flag=True,
+    default=None,
+    help=(
+        "Allow this job to preempt lower priority jobs (only for dedicated node"
+        " groups)."
+    ),
+)
 
 # Visibility and resource management
 @click.option(
@@ -476,6 +494,8 @@ def create(
     log_collection,
     node_ids,
     queue_priority,
+    can_be_preempted,
+    can_preempt,
     visibility,
     shared_memory_size,
     with_reservation,
@@ -501,18 +521,26 @@ def create(
         job_spec = LeptonJobUserSpec()
 
     # Configure node groups and queue priority
-    if node_groups or queue_priority:
+    if node_groups or queue_priority or can_be_preempted or can_preempt:
         # Validate queue priority configuration
-        if queue_priority and not node_groups:
+        if (
+            queue_priority or can_be_preempted is not None or can_preempt is not None
+        ) and not node_groups:
             console.print(
-                "[red]Queue priority is only available for dedicated node groups"
-                "[/red]\n[green]please use --queue-priority with --node-group[/green]"
+                "[red]Queue priority, can-be-preempted and can-preempt are only"
+                " available for dedicated node groups[/red]\n[green]please use them"
+                " with --node-group[/green]"
             )
             sys.exit(1)
 
         # Get valid node group IDs
         node_group_ids = _get_valid_nodegroup_ids(
-            node_groups, need_queue_priority=(queue_priority is not None)
+            node_groups,
+            need_queue_priority=(
+                queue_priority is not None
+                or can_be_preempted is not None
+                or can_preempt is not None
+            ),
         )
 
         # Get valid node IDs if specified
@@ -528,8 +556,14 @@ def create(
         )
 
         # Set queue configuration if priority is specified
-        if queue_priority:
-            job_spec.queue_config = QueueConfig(priority_class=queue_priority)
+        if queue_priority or can_be_preempted is not None or can_preempt is not None:
+            job_spec.queue_config = job_spec.queue_config or QueueConfig()
+            if queue_priority:
+                job_spec.queue_config.priority_class = queue_priority
+            if can_be_preempted is not None:
+                job_spec.queue_config.can_be_preempted = can_be_preempted
+            if can_preempt is not None:
+                job_spec.queue_config.can_preempt = can_preempt
 
     # Set resource shape
     if resource_shape:
