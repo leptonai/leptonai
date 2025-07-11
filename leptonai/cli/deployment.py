@@ -223,7 +223,7 @@ def is_positive_number(value):
         return False
 
 
-@click_group()
+@click_group(hidden=True)
 def deployment():
     """
     Manage endpoints (formerly called deployments) on the DGX Cloud Lepton.
@@ -236,6 +236,13 @@ def deployment():
     The endpoint commands let you list, manage, and remove endpoints on the
     DGX Cloud Lepton.
     """
+    pass
+
+
+# Visible alias group for deployment commands
+@click_group()
+def endpoint():
+    """Manage endpoints (formerly called deployments) on the DGX Cloud Lepton."""
     pass
 
 
@@ -1558,8 +1565,14 @@ def events(name):
 
 
 def add_command(cli_group):
-    cli_group.add_command(deployment)
-    cli_group.add_command(deployment, name="endpoint")
+    # Clone commands from hidden `deployment` group to visible `endpoint` group.
+    for _name, _cmd in deployment.commands.items():
+        if _name not in endpoint.commands:
+            endpoint.add_command(_cmd, name=_name)
+
+    # Register groups: keep `deployment` for backward-compatibility (hidden), add visible `endpoint`.
+    cli_group.add_command(deployment, name="deployment")
+    cli_group.add_command(endpoint, name="endpoint")
 
 
 @deployment.command()
