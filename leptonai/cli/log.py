@@ -133,7 +133,7 @@ def log():
     pass
 
 
-@log.command(name="get")
+@log.command(name="get", help="Retrieve and display logs from deployments, jobs, or replicas")
 @click.option(
     "--deployment",
     "-d",
@@ -222,6 +222,41 @@ def log_command(
     path,
     query,
 ):
+    """
+    Retrieve and display logs from deployments, jobs, or replicas.
+
+    This command fetches logs from Lepton resources within a specified time range.
+    You can retrieve logs from deployments, jobs (by ID or name), or specific replicas.
+
+    TIME FORMATS:
+    All times must be in UTC. Supported formats include:
+    - 'now' - Current UTC time
+    - 'today' or 'td' - Today at midnight UTC (can add time: 'today 14:30')
+    - 'yesterday' or 'yd' - Yesterday at midnight UTC (can add time: 'yesterday 09:15')
+    - Full datetime: '2024-12-25 13:10:01.123456' or '2024/12/25 13:10:01.123456'
+
+    EXAMPLES:
+    # Get logs from a deployment for the last hour
+    lep log get -d my-deployment --start "today 13:00" --end "today 14:00"
+
+    # Get logs from a job by name for today
+    lep log get -jn my-job-name --start today --end now
+
+    # Get logs from a specific job ID with query filter
+    lep log get -j job-abc123 --start yesterday --end today --query "error"
+
+    # Save logs to file
+    lep log get -d my-deployment --start "today 09:00" --end now --path ./logs/
+
+    INTERACTIVE MODE:
+    After displaying logs, you can use interactive commands:
+    - 'next 10' - Get next 10 log lines
+    - 'last 20' - Get previous 20 log lines  
+    - 'time+ 30.5s' - Get logs 30.5 seconds after current range
+    - 'time- 2.1s' - Get logs 2.1 seconds before current range
+    - 'quit' - Exit interactive mode
+    """
+
     if (
         not deployment
         and not job
