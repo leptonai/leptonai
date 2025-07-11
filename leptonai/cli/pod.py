@@ -445,6 +445,8 @@ def remove(name):
 @pod.command()
 @click.option("--name", "-n", help="The pod name to ssh.", required=True)
 def ssh(name):
+    """SSH into a running pod.
+    """
     client = APIClient()
 
     pod = client.deployment.get(name)
