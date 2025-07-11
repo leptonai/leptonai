@@ -133,7 +133,9 @@ def log():
     pass
 
 
-@log.command(name="get", help="Retrieve and display logs from deployments, jobs, or replicas")
+@log.command(
+    name="get", help="Retrieve and display logs from deployments, jobs, or replicas"
+)
 @click.option(
     "--deployment",
     "-d",
@@ -251,7 +253,7 @@ def log_command(
     INTERACTIVE MODE:
     After displaying logs, you can use interactive commands:
     - 'next 10' - Get next 10 log lines
-    - 'last 20' - Get previous 20 log lines  
+    - 'last 20' - Get previous 20 log lines
     - 'time+ 30.5s' - Get logs 30.5 seconds after current range
     - 'time- 2.1s' - Get logs 2.1 seconds before current range
     - 'quit' - Exit interactive mode
