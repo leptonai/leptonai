@@ -53,9 +53,9 @@ class ContainerPort(BaseModel):
     def validate_protocol(cls, v):
         if v and v.lower() not in ["tcp", "udp", "sctp"]:
             raise ValueError(
-                f"Invalid protocol: {v}. Protocol must be either tcp or udp or sctp."
+                f"Invalid protocol: {v}. Protocol must be either TCP, UDP, or SCTP."
             )
-        return v if v is None else v.lower()
+        return v if v is None else v.upper()
 
 
 class LeptonContainer(BaseModel):
