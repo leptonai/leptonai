@@ -306,8 +306,7 @@ class AutoTuneArgs:
             'hf_token': self.hf_token,
             'wandb_api_key': self.wandb_api_key,
             'torch_home': self.torch_home,
-            'pythonpath': self.pythonpath,
-            'memory_per_gpu': self.memory_per_gpu,
+            'pythonpath': self.pythonpath
         }
 
 

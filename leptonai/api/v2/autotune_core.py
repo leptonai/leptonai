@@ -333,7 +333,6 @@ def generate_recipe_configs(args):
         gpu_memory_gb=gpu_memory_gb,
         tensor_parallel_sizes=args.tensor_parallel_sizes,
         pipeline_parallel_sizes=args.pipeline_parallel_sizes,
-        virtual_pipeline_model_parallel_sizes=args.virtual_pipeline_model_parallel_sizes,
         context_parallel_sizes=args.context_parallel_sizes,
         micro_batch_sizes=args.micro_batch_sizes,
         global_batch_sizes=args.global_batch_sizes,
