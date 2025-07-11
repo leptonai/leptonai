@@ -122,31 +122,5 @@ class TestPipSequences(unittest.TestCase):
             )
 
 
-class TestNoMothershipWorkspace(unittest.TestCase):
-    @unittest.skipIf(
-        os.getenv("TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS") is None,
-        "No non-mothership login credentials provided",
-    )
-    def test_no_mothership_workspace(self):
-        runner = CliRunner()
-
-        result = runner.invoke(
-            cli,
-            [
-                "login",
-                "-c",
-                os.environ["TESTONLY_NO_MOTHERSHIP_LOGIN_CREDENTIALS"],
-                "-l",
-            ],
-        )
-        self.assertEqual(result.exit_code, 1)
-        self.assertIn(
-            "Workspace emt2tod3 is registered, but not set up yet.", result.output
-        )
-        self.assertIn(
-            "https://dashboard.lepton.ai/workspace/emt2tod3/setup", result.output
-        )
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -72,9 +72,9 @@ def _get_most_recent_photon_id_or_none(name: str, public_photon: bool) -> Option
 @click_group()
 def photon():
     """
-    Manages photons locally and on the Lepton AI cloud.
+    Manages photons locally and on the DGX Cloud Lepton.
 
-    Photon is at the core of Lepton AI's abstraction: it is a Python centric
+    Photon is at the core of Lepton's abstraction: it is a Python centric
     abstraction of an AI model or application, and provides a simple interface
     to specify dependencies, extra files, and environment variables. For more
     details, see `leptonai.photon.Photon`.
@@ -184,7 +184,7 @@ def create(name, model, requirements):
 def remove(name, local, id_, all_, public_photon):
     """
     Removes a photon. The behavior of this command depends on whether one has
-    logged in to the Lepton AI cloud via `lep login`. If one has logged in, this
+    logged in to the DGX Cloud Lepton via `lep login`. If one has logged in, this
     command will remove the photon from the workspace. Otherwise, or of `--local`
     is explicitly specified, it will remove the photon from the local environment.
     """
@@ -239,8 +239,8 @@ def remove(name, local, id_, all_, public_photon):
 )
 def list_command(local, pattern, public_photon):
     """
-    Lists all photons. If one has logged in to the Lepton AI cloud via `lep login`,
-    this command will list all photons in the Lepton AI cloud. Otherwise, or if
+    Lists all photons. If one has logged in to the DGX Cloud Lepton via `lep login`,
+    this command will list all photons in the DGX Cloud Lepton. Otherwise, or if
     `--local` is explicitly specified, it will list all photons in the local
     environment.
     """
@@ -397,7 +397,7 @@ def run(
     rerun,
 ):
     """
-    Runs a photon. If one has logged in to the Lepton AI cloud via `lep login`,
+    Runs a photon. If one has logged in to the DGX Cloud Lepton via `lep login`,
     the photon will be run on the cloud. Otherwise, or if `--local` is specified,
     the photon will be run locally.
 

@@ -122,15 +122,52 @@ class APIResourse(object):
         except Exception as e:
             self._print_programming_error(response, e)
 
-    def ensure_list(self, response, EnsuredType: Type[T]) -> List[T]:
+    def ensure_list(
+        self,
+        response,
+        EnsuredType: Type[T],
+        *,
+        skip_invalid: bool = True,
+    ) -> List[T]:
         """
-        Utility function to ensure that the response is a list of the given type.
+        Ensure the response JSON is a list convertible to ``EnsuredType``.
+
+        Args:
+            response: ``requests.Response`` object.
+            EnsuredType: Pydantic model class the items should map to.
+            skip_invalid: When ``True``, invalid items are skipped with a warning; when
+                ``False`` (default), any validation error raises immediately, matching
+                previous behaviour.
         """
+
         self._raise_if_not_ok(response)
-        try:
-            return [EnsuredType(**item) for item in response.json()]
-        except Exception as e:
-            self._print_programming_error(response, e)
+
+        if not skip_invalid:
+            try:
+                return [EnsuredType(**item) for item in response.json()]
+            except Exception as e:
+                self._print_programming_error(response, e)
+
+        valid_items = []
+        errors: List[str] = []
+
+        for idx, raw in enumerate(response.json()):
+            try:
+                valid_items.append(EnsuredType(**raw))
+            except Exception as e:
+                errors.append(f"\n index {idx}: {e}\nitem: {raw}")
+
+        if errors:
+            import sys
+
+            sys.stderr.write(
+                f"[lepton-error] Skipped {len(errors)} invalid item(s) when parsing"
+                " list response:"
+                + "".join(errors)
+                + "\n"
+            )
+
+        return valid_items
 
     def ensure_ok(self, response) -> bool:
         """

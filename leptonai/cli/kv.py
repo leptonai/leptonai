@@ -14,14 +14,14 @@ from .util import console, click_group
 @click_group()
 def kv():
     """
-    Manage KV stores on the Lepton AI cloud.
+    Manage KV stores on the DGX Cloud Lepton.
 
     The Lepton Key-Value store. Every named KV can be considered the equivalent
     of a conventional KV / table / collection, composed of keys as strings and
     values as bytes.
 
     The kv commands allow you to create, list, and remove KVs on the
-    Lepton AI cloud.
+    DGX Cloud Lepton.
     """
     pass
 

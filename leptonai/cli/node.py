@@ -12,7 +12,7 @@ from ..api.v2.client import APIClient
 @click_group()
 def node():
     """
-    Manage nodes on the Lepton AI cloud.
+    Manage nodes on the DGX Cloud Lepton.
     """
     pass
 
