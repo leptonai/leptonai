@@ -177,10 +177,10 @@ def _validate_queue_priority(ctx, param, value):
         "low-2": "low-2000",
         "low-3": "low-3000",
         "m": "mid-4000",
-        "medium": "mid-4000",
-        "medium-4": "mid-4000",
-        "medium-5": "mid-5000",
-        "medium-6": "mid-6000",
+        "mid": "mid-4000",
+        "mid-4": "mid-4000",
+        "mid-5": "mid-5000",
+        "mid-6": "mid-6000",
         "h": "high-7000",
         "high": "high-7000",
         "high-7": "high-7000",
@@ -291,6 +291,7 @@ def make_container_port_from_string(port_str: str):
 # Resource configuration options
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -425,10 +426,30 @@ def make_container_port_from_string(port_str: str):
     callback=_validate_queue_priority,
     help=(
         "Set the priority for this job (feature available only for dedicated node"
-        " groups).\nCould be one of low-1, low-2, low-3, medium-4, medium-5, medium-6,"
+        " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
         " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 1), m /"
-        " medium (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
-        " -qp medium, -qp high, -qp l, -qp m, -qp h"
+        " mid (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
+        " -qp mid, -qp high, -qp l, -qp m, -qp h"
+    ),
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help=(
+        "Allow this job to be preempted by higher priority jobs (only for dedicated"
+        " node groups)."
+    ),
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help=(
+        "Allow this job to preempt lower priority jobs (only for dedicated node"
+        " groups)."
     ),
 )
 
@@ -476,6 +497,8 @@ def create(
     log_collection,
     node_ids,
     queue_priority,
+    can_be_preempted,
+    can_preempt,
     visibility,
     shared_memory_size,
     with_reservation,
@@ -501,18 +524,26 @@ def create(
         job_spec = LeptonJobUserSpec()
 
     # Configure node groups and queue priority
-    if node_groups or queue_priority:
+    if node_groups or queue_priority or can_be_preempted or can_preempt:
         # Validate queue priority configuration
-        if queue_priority and not node_groups:
+        if (
+            queue_priority or can_be_preempted is not None or can_preempt is not None
+        ) and not node_groups:
             console.print(
-                "[red]Queue priority is only available for dedicated node groups"
-                "[/red]\n[green]please use --queue-priority with --node-group[/green]"
+                "[red]Queue priority, can-be-preempted and can-preempt are only"
+                " available for dedicated node groups[/red]\n[green]please use them"
+                " with --node-group[/green]"
             )
             sys.exit(1)
 
         # Get valid node group IDs
         node_group_ids = _get_valid_nodegroup_ids(
-            node_groups, need_queue_priority=(queue_priority is not None)
+            node_groups,
+            need_queue_priority=(
+                queue_priority is not None
+                or can_be_preempted is not None
+                or can_preempt is not None
+            ),
         )
 
         # Get valid node IDs if specified
@@ -528,8 +559,13 @@ def create(
         )
 
         # Set queue configuration if priority is specified
-        if queue_priority:
-            job_spec.queue_config = QueueConfig(priority_class=queue_priority)
+        if queue_priority or can_be_preempted is not None or can_preempt is not None:
+            job_spec.queue_config = job_spec.queue_config or QueueConfig()
+            job_spec.queue_config.priority_class = queue_priority or "mid-4000"
+            if can_be_preempted is not None:
+                job_spec.queue_config.can_be_preempted = can_be_preempted
+            if can_preempt is not None:
+                job_spec.queue_config.can_preempt = can_preempt
 
     # Set resource shape
     if resource_shape:
