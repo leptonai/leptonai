@@ -1119,7 +1119,7 @@ def log(id, replica):
     """
     Gets the log of a job. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
-    list of replicas, use `lep job status`.
+    list of replicas, use `lep job replicas`.
     """
     client = APIClient()
 
@@ -1150,7 +1150,6 @@ def log(id, replica):
         console.print(
             "End of log. It seems that the job has not started, or already finished."
         )
-        console.print(f"Use `lep job status -n {id}` to check the status of the job.")
 
 
 @job.command()
