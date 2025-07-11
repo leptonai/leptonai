@@ -1558,7 +1558,6 @@ def events(name):
 
 
 def add_command(cli_group):
-    cli_group.add_command(deployment)
     cli_group.add_command(deployment, name="endpoint")
 
 
