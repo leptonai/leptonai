@@ -15,7 +15,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from nemo.collections import llm
 from nemo.collections.llm.tools.auto_configurator import AutoConfigurator, generate_configs, get_results
 import nemo_run as run
-from nemo.lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
+from nemo.lightning.resume import AutoResume
 
 # Import the unified extraction system
 from .autotune_utils import (
@@ -318,18 +318,25 @@ def generate_recipe_configs(args):
     recipe.trainer.log_every_n_steps = 1
     recipe.trainer.limit_val_batches = 0
     recipe.trainer.strategy.ckpt_async_save = False
-    checkpoint_callback = ModelCheckpoint(every_n_train_steps=1000000)
-    recipe.trainer.callbacks.append(checkpoint_callback)
+    recipe.resume = run.Config(AutoResume)
+    recipe.log.ckpt.save_last = False
+    # checkpoint_callback = run.Config(ModelCheckpoint, every_n_train_steps=1000000)
+    # recipe.trainer.callbacks.append(checkpoint_callback)
 
     # Use unified GPU specs extraction
     gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(
         args.resource_shape, getattr(args, 'memory_per_gpu', None)
     )
 
+    base_log_path = args.get_full_logs_path()
+    logger.info(f"Using dynamic log path: {base_log_path}")
+    logger.info(f"  Mount path: {args.mount_path}")
+    logger.info(f"  Logs subdir: {args.logs_subdir}")
+    
     # Initialize Auto Configurator runner
     runner = AutoConfigurator(
         recipe=recipe,
-        path_to_logs="/nemo-workspace/autoconfigurator/logs",
+        path_to_logs=base_log_path,
         gpu_memory_gb=gpu_memory_gb,
         tensor_parallel_sizes=args.tensor_parallel_sizes,
         pipeline_parallel_sizes=args.pipeline_parallel_sizes,
@@ -347,6 +354,12 @@ def generate_recipe_configs(args):
 
     base_config, configs = generate_configs(runner)
     num_configs_generated = len(configs)
+
+
+
+    print("debug")
+    print(base_config)
+
 
     logger.info("Performing CUDA OOM analysis for all configurations...")
     memory_analysis = validate_configurations_memory(
@@ -382,12 +395,12 @@ def generate_recipe_configs(args):
                 base_config_matches.append(config_name)
                 logger.info(f"Config '{config_name}' matches base config - will be flagged as base config equivalent")
         
-        recipe.log.log_dir = "/nemo-workspace/autoconfigurator/logs/base_config"
+        recipe.log.log_dir = os.path.join(base_log_path, "base_config")
         logger.info(f"Found {len(matching_files)} matching configs. Using original log_dir: {recipe.log.log_dir}")
     else:
         config_values = extract_all_values(base_config)
         new_log_dir = create_log_dir_name(args.model, config_values)
-        recipe.log.log_dir = f"/nemo-workspace/autoconfigurator/logs/{new_log_dir}"
+        recipe.log.log_dir = os.path.join(base_log_path, new_log_dir)
         logger.info(f"No matching configs found. Updated log_dir to: {recipe.log.log_dir}")
 
     return {
@@ -527,6 +540,9 @@ def run_pretraining_only(
             'skipped_configs': skipped_configs,
             'status': 'no_configs_to_run'
         }
+
+    logger.info("Executor Settings...")
+    logger.info(executor_config)
 
     executor = lepton_executor(
         nodes=base_config.trainer.num_nodes,

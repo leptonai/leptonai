@@ -39,9 +39,11 @@ class ExtractionPatterns:
     
     # GPU resource patterns
     GPU_RESOURCE_PATTERNS = [
-        r'gpu\.(\d+)x([a-zA-Z0-9]+)',  # gpu.8xh200, gpu.4xh100
-        r'(\d+)x([a-zA-Z0-9]+)',       # 8xh200, 4xh100
-        r'(\d+)x?',                    # Just count: 8x, 8
+    r'gpu\.(\d+)x([a-zA-Z0-9\-]+)',         # gpu.8xh200, gpu.4xh100, gpu.2xa100-40gb
+    r'gpu\.([a-zA-Z0-9\-]+)\.(\w+)',        # gpu.a10.6xlarge
+    r'gpu\.([a-zA-Z0-9\-]+)',               # gpu.a10, gpu.a100-40gb, gpu.h100-sxm
+    r'(\d+)x([a-zA-Z0-9\-]+)',              # 8xh200, 4xh100, 2xa100-40gb
+    r'(\d+)x?',                             # Just count: 8x, 8
     ]
     
     # Precision patterns

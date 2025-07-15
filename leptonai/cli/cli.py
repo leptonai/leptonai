@@ -44,7 +44,7 @@ LOGIN_LOGO = """
 """
 
 
-# @click.version_option(leptonai.__version__, "-v", "--version")
+@click.version_option(leptonai.__version__, "-v", "--version")
 @click_group(context_settings=CONTEXT_SETTINGS)
 def lep():
     """

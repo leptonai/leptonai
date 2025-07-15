@@ -1,5 +1,6 @@
 import pickle
 import base64
+import re
 from typing import List, Optional
 import click
 import sys
@@ -43,6 +44,179 @@ except ImportError as e:
     NEMO_AVAILABLE = False
 
 
+# ============================================================================
+# GPU RESOURCE PATTERNS AND VALIDATION
+# ============================================================================
+
+GPU_RESOURCE_PATTERNS = [
+    # Enhanced patterns to handle all the new formats
+    r'gpu\.(\d+)x([a-zA-Z0-9\-]+)',         # gpu.8xh200, gpu.4xh100, gpu.2xa100-40gb
+    r'gpu\.([a-zA-Z0-9\-]+)\.(\w+)',        # gpu.a10.6xlarge
+    r'gpu\.([a-zA-Z0-9\-]+)',               # gpu.a10, gpu.a100-40gb, gpu.h100-sxm
+    r'(\d+)x([a-zA-Z0-9\-]+)',              # 8xh200, 4xh100, 2xa100-40gb
+    r'(\d+)x?',                             # Just count: 8x, 8
+]
+
+def validate_resource_shape(ctx, param, value):
+    """Validate resource shape format against known patterns."""
+    if value is None:
+        return value
+    
+    # Check if it matches any of our known patterns
+    for pattern in GPU_RESOURCE_PATTERNS:
+        if re.match(pattern, value, re.IGNORECASE):
+            return value
+    
+    # If no pattern matches, show error with examples
+    examples = [
+        "gpu.8xh200", "gpu.4xh100", "gpu.2xa100-40gb", "gpu.8xa100-80gb",
+        "gpu.a10", "gpu.a10.6xlarge", "gpu.a100-40gb", "gpu.h100-sxm"
+    ]
+    
+    raise click.BadParameter(
+        f"Invalid resource shape format: '{value}'\n"
+        f"Valid formats include: {', '.join(examples[:5])}...\n"
+        f"Pattern should match: gpu.[count]x[type] or gpu.[type] or gpu.[type].[size]"
+    )
+
+
+def validate_resource_shape_or_memory(ctx, param, value):
+    """Validate that either resource_shape or memory_per_gpu is provided."""
+    # This is called for both resource_shape and memory_per_gpu
+    # We need to check if at least one is provided after all params are processed
+    if not hasattr(ctx, '_resource_validation_params'):
+        ctx._resource_validation_params = {}
+    
+    ctx._resource_validation_params[param.name] = value
+    
+    # Check if we have both parameters processed
+    if len(ctx._resource_validation_params) == 2:
+        resource_shape = ctx._resource_validation_params.get('resource_shape')
+        memory_per_gpu = ctx._resource_validation_params.get('memory_per_gpu')
+        
+        if not resource_shape and not memory_per_gpu:
+            raise click.BadParameter(
+                "Either --resource-shape or --memory-per-gpu must be provided.\n"
+                "Examples:\n"
+                "  --resource-shape gpu.8xh200\n"
+                "  --memory-per-gpu 141.0"
+            )
+    
+    # Apply resource_shape validation if this is the resource_shape parameter
+    if param.name == 'resource_shape' and value:
+        return validate_resource_shape(ctx, param, value)
+    
+    return value
+
+
+# ============================================================================
+# CUSTOM CLICK TYPES FOR ROBUST MULTIPLE VALUE HANDLING
+# ============================================================================
+
+class IntListType(click.ParamType):
+    """Custom type for comma-separated integers with robust error handling."""
+    name = "int_list"
+    
+    def convert(self, value, param, ctx):
+        if value is None:
+            return None
+            
+        if isinstance(value, list):
+            return value
+        
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+                
+            if ',' in value:
+                try:
+                    result = []
+                    for x in value.split(','):
+                        x = x.strip()
+                        if x:
+                            int_val = int(x)
+                            if int_val <= 0:
+                                self.fail(f"All values must be positive integers, got: {int_val}", param, ctx)
+                            result.append(int_val)
+                    return result
+                except ValueError as e:
+                    self.fail(f"Invalid integer in list '{value}': {e}", param, ctx)
+            else:
+                try:
+                    int_val = int(value)
+                    if int_val <= 0:
+                        self.fail(f"Value must be a positive integer, got: {int_val}", param, ctx)
+                    return [int_val]
+                except ValueError:
+                    self.fail(f"Invalid integer: '{value}'", param, ctx)
+        
+        if isinstance(value, int):
+            if value <= 0:
+                self.fail(f"Value must be a positive integer, got: {value}", param, ctx)
+            return [value]
+        
+        self.fail(f"Invalid value type: {type(value)}", param, ctx)
+
+
+class IntListOrAutoType(click.ParamType):
+    """Custom type for comma-separated integers or 'auto' with robust error handling."""
+    name = "int_list_or_auto"
+    
+    def convert(self, value, param, ctx):
+        if value is None:
+            return None
+            
+        if isinstance(value, list):
+            return value
+            
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+                
+            if value.lower() == 'auto':
+                return 'auto'
+            
+            if ',' in value:
+                try:
+                    result = []
+                    for x in value.split(','):
+                        x = x.strip()
+                        if x:
+                            if x.lower() == 'auto':
+                                self.fail(f"Cannot mix 'auto' with specific values in '{value}'", param, ctx)
+                            int_val = int(x)
+                            if int_val <= 0:
+                                self.fail(f"All values must be positive integers, got: {int_val}", param, ctx)
+                            result.append(int_val)
+                    return result
+                except ValueError as e:
+                    self.fail(f"Invalid integer in list '{value}': {e}", param, ctx)
+            else:
+                try:
+                    int_val = int(value)
+                    if int_val <= 0:
+                        self.fail(f"Value must be a positive integer, got: {int_val}", param, ctx)
+                    return [int_val]
+                except ValueError:
+                    self.fail(f"Invalid value: '{value}'. Use 'auto' or positive integers.", param, ctx)
+        
+        if isinstance(value, int):
+            if value <= 0:
+                self.fail(f"Value must be a positive integer, got: {value}", param, ctx)
+            return [value]
+        
+        self.fail(f"Invalid value type: {type(value)}", param, ctx)
+
+INT_LIST = IntListType()
+INT_LIST_OR_AUTO = IntListOrAutoType()
+
+
+# ============================================================================
+# AUTOTUNE ARGS CLASS
+# ============================================================================
+
 class AutoTuneArgs:
     """Class to hold all AutoTune arguments and handle serialization."""
     
@@ -59,7 +233,7 @@ class AutoTuneArgs:
         self.min_model_parallel_size = kwargs.get('min_model_parallel_size', 1)
         self.max_steps_per_run = kwargs.get('max_steps_per_run', 10)
         self.max_minutes_per_run = kwargs.get('max_minutes_per_run', 10)
-        self.num_tokens_in_b = kwargs.get('num_tokens_in_b', 840)
+        self.num_tokens_in_b = kwargs.get('num_tokens_in_b', 15000)
         self.vocab_size = kwargs.get('vocab_size', 32000)
         self.seq_length = kwargs.get('seq_length', 8192)
         self.global_batch_sizes = kwargs.get('global_batch_sizes', [512])
@@ -80,7 +254,8 @@ class AutoTuneArgs:
         self.wandb_api_key = kwargs.get('wandb_api_key', None)
         self.torch_home = kwargs.get('torch_home', '/nemo-workspace/.cache')
         self.pythonpath = kwargs.get('pythonpath', '/nemo-workspace/nemo-run:$PYTHONPATH')
-        self.memory_per_gpu = kwargs.get('memory_per_gpu', None) #custom GPU
+        self.memory_per_gpu = kwargs.get('memory_per_gpu', None)
+        self.logs_subdir = kwargs.get('logs_subdir', 'autoconfigurator/logs')
         
         # Metadata from generation results (populated after generate)
         self.metadata = kwargs.get('metadata', {})
@@ -196,7 +371,7 @@ class AutoTuneArgs:
             'max_steps': self.max_steps,
             'get_results': self.get_results,
             'sequential': self.sequential,
-            # New executor properties
+            # executor properties
             'resource_shape': self.resource_shape,
             'container_image': self.container_image,
             'nemo_run_dir': self.nemo_run_dir,
@@ -208,9 +383,14 @@ class AutoTuneArgs:
             'torch_home': self.torch_home,
             'pythonpath': self.pythonpath,
             'memory_per_gpu': self.memory_per_gpu,
+            'logs_subdir': self.logs_subdir,
             'metadata': processed_metadata,
         }
 
+    def get_full_logs_path(self):
+        """Get the full logs path by combining mount_path and logs_subdir."""
+        return os.path.join(self.mount_path, self.logs_subdir)
+        
     @classmethod
     def from_dict(cls, data):
         """Create from dictionary loaded from JSON."""
@@ -306,9 +486,13 @@ class AutoTuneArgs:
             'hf_token': self.hf_token,
             'wandb_api_key': self.wandb_api_key,
             'torch_home': self.torch_home,
-            'pythonpath': self.pythonpath
+            'pythonpath': self.pythonpath,
         }
 
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 def get_args_file_path(model, output_dir="generated_configs"):
     """Get the standard path for the args file."""
@@ -342,6 +526,10 @@ def update_args_with_performance_results(model_name, performance_dict, output_di
     return args_file_path
 
 
+# ============================================================================
+# DISPLAY FUNCTIONS
+# ============================================================================
+
 def _display_memory_analysis(memory_analysis):
     if not memory_analysis:
         console.print("[yellow]No memory analysis available[/yellow]")
@@ -349,7 +537,7 @@ def _display_memory_analysis(memory_analysis):
     
     console.print(f"\n[cyan] CUDA Memory Analysis & Run Status[/cyan]")
     table = Table(show_header=True, show_lines=True, title="Memory Usage Analysis & Execution Status")
-    table.add_column("Configuration", style="cyan", width=40)  # Made wider since we removed config_str
+    table.add_column("Configuration", style="cyan", width=40)
     table.add_column("Memory Status", style="white", width=12)
     table.add_column("Run Status", style="white", width=12)
     table.add_column("Est. Usage (GB)", style="blue", width=15)
@@ -396,31 +584,14 @@ def _display_memory_analysis(memory_analysis):
         console.print("[yellow]These configurations may cause CUDA OOM errors[/yellow]")
         console.print("[blue]To run them anyway: use 'lep autotune run --run-all'[/blue]")
         console.print("[blue] To fix: reduce micro batch sizes or increase parallelism[/blue]")
-    
-    console.print(table)
-    console.print(f"\n[cyan] Memory Analysis Summary:[/cyan]")
-    console.print(f" Safe configurations (will run): {safe_count}")
-    console.print(f" Potential OOM configurations (will be skipped): {oom_count}")
-    
-    if oom_count > 0:
-        console.print(f"\n[yellow]⚠ Warning: {oom_count} configurations will be SKIPPED during 'lep autotune run'[/yellow]")
-        console.print("[yellow]These configurations may cause CUDA OOM errors[/yellow]")
-        console.print("[blue] To run them anyway: use 'lep autotune run --run-all'[/blue]")
-        console.print("[blue] To fix: reduce micro batch sizes or increase parallelism[/blue]")
 
 
 def _display_configs_table(config_dir, model_name=None):
-    """
-    Display a table of configuration files with their details and status.
-    
-    Args:
-        config_dir: Directory containing configuration files
-        model_name: Model name (optional, will try to infer)
-    """
+    """Display a table of configuration files with their details and status."""
     # load args to get metadata
     try:
         if not model_name:
-            # Try to infer model name from directory structure
+            # try to infer model name from directory structure
             model_name = os.path.basename(config_dir)
         
         args_file_path = os.path.join(config_dir, "args.json")
@@ -591,7 +762,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     console.print("\n[cyan] Performance & Cost Analysis Summary[/cyan]")
     console.print("=" * 80)
     
-    # Best performing configuration
+    # best performing configuration
     console.print(f"\n[green]Best Performing Configuration: {best_config_name}[/green]")
     console.print(f"  M-TFLOPs/GPU: {best_config.get('m_tflops_gpu', 'N/A'):.2f}")
     console.print(f"  Time per Global Step: {best_config.get('time_per_global_step', 'N/A'):.4f}s")
@@ -623,7 +794,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
             console.print(f"  [green] Total Savings: ${cost_savings:,.2f}[/green]")
         else:
             console.print(f"  [red] Additional Cost: ${abs(cost_savings):,.2f}[/red]")
-    
+
     # worst performing configuration
     if worst_config_name != best_config_name:
         console.print(f"\n[red]Worst Performing Configuration: {worst_config_name}[/red]")
@@ -700,7 +871,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
 
 
 def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour):
-    """Analyze performance results - SUPER SIMPLIFIED with ONE extraction function."""
+    """Analyze performance results with multiple global batch sizes."""
     if not performance_dict:
         console.print("[yellow]No performance data to analyze[/yellow]")
         return
@@ -739,25 +910,13 @@ def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total
             'total_cost': total_cost,
             'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
         }
-  
+
     _analyze_performance_results_with_cost(config_analysis, args, total_steps, cost_per_gpu_hour)
 
 
-@click_group()
-def autotune():
-    """
-    AutoTune configurations for model throughput on DGX Cloud Lepton.
-
-    AutoTune automatically generates and tests multiple training configurations
-    to find optimal parallelism settings for your model and hardware setup to maximize pre training model throughput.
-    
-    For supported models, see: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/llm/recipes/__init__.py
-    """
-    if not NEMO_AVAILABLE:
-        console.print("[red]Error: NeMo is not properly installed or available.[/red]")
-        console.print("Please install NeMo before using AutoTune features.")
-        sys.exit(1)
-
+# ============================================================================
+# VALIDATION FUNCTIONS
+# ============================================================================
 
 def validate_model_callback(ctx, param, value):
     """Validate that the specified model exists in the llm module."""
@@ -784,25 +943,6 @@ def validate_model_callback(ctx, param, value):
             raise click.BadParameter(f"Error validating model: {e}")
 
 
-def validate_parallelism_sizes(ctx, param, value):
-    """Validate parallelism size inputs."""
-    if value == "auto":
-        return value
-    
-    if isinstance(value, (list, tuple)):
-        return list(value)
-    
-    if isinstance(value, str):
-        if value.strip().lower() == "auto":
-            return "auto"
-        try:
-            return [int(x.strip()) for x in value.split(",")]
-        except ValueError:
-            raise click.BadParameter(f"Invalid value: {value}. Use 'auto' or comma-separated integers.")
-    
-    return value
-
-
 def validate_positive_int(ctx, param, value):
     """Validate that a value is a positive integer."""
     if value is None:
@@ -825,41 +965,135 @@ def validate_positive_float(ctx, param, value):
     return value
 
 
+def _load_args_from_config_dir(config_dir, model=None):
+    """Load args from config directory, with model auto-detection if needed."""
+    if not os.path.exists(config_dir):
+        console.print(f"[red]Config directory not found: {config_dir}[/red]")
+        console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
+        sys.exit(1)
+    
+    # If model not provided, try to infer from directory structure
+    if not model:
+        subdirs = [d for d in os.listdir(config_dir) if os.path.isdir(os.path.join(config_dir, d))]
+        if len(subdirs) == 1:
+            model = subdirs[0]
+            console.print(f"[blue]Auto-detected model: {model}[/blue]")
+        elif len(subdirs) > 1:
+            console.print(f"[yellow]Multiple models found. Please specify --model. Available: {', '.join(subdirs)}[/yellow]")
+            sys.exit(1)
+        elif len(subdirs) == 0:
+            console.print(f"[red]No model directories found in: {config_dir}[/red]")
+            console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
+            sys.exit(1)
+    
+    args_file_path = get_args_file_path(model, config_dir)
+    if not os.path.exists(args_file_path):
+        console.print(f"[red]Arguments file not found: {args_file_path}[/red]")
+        console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
+        sys.exit(1)
+    
+    return AutoTuneArgs.load_from_file(args_file_path)
+
+
+# ============================================================================
+# CLICK COMMAND GROUP AND COMMANDS
+# ============================================================================
+
+@click_group()
+def autotune():
+    """
+    AutoTune configurations for model throughput on DGX Cloud Lepton.
+
+    AutoTune automatically generates and tests multiple training configurations
+    to find optimal parallelism settings for your model and hardware setup to maximize pre training model throughput.
+    
+    For supported models, see: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/llm/recipes/__init__.py
+    """
+    if not NEMO_AVAILABLE:
+        console.print("[red]Error: NeMo is not properly installed or available.[/red]")
+        console.print("Please install NeMo before using AutoTune features.")
+        sys.exit(1)
+
+
 @autotune.command()
-@click.option("--model", "-m", type=str, default="nemotron3_4b", callback=validate_model_callback, help="Model to pretrain.")
-@click.option("--nodes", "-n", type=int, default=1, callback=validate_positive_int, help="Number of nodes for training.")
-@click.option("--gpus-per-node", "--gpus_per_node", "gpus_per_node", type=int, default=8, callback=validate_positive_int, help="GPUs per node.")
-@click.option("--tensor-parallel-sizes", "--tensor_parallel_sizes", "tensor_parallel_sizes", type=int, multiple=True, default=[1, 2], help="Tensor parallel sizes to test.")
-@click.option("--virtual-pipeline-model-parallel-sizes", "--virtual_pipeline_model_parallel_sizes", "virtual_pipeline_model_parallel_size", type=int, multiple=True, default=None, help="virtual Pipline Model parallel sizes to test.")
-@click.option("--pipeline-parallel-sizes", "--pipeline_parallel_sizes", "pipeline_parallel_sizes", type=int, multiple=True, default=[1, 2], callback=validate_parallelism_sizes, help="Pipeline parallel sizes.")
-@click.option("--context-parallel-sizes", "--context_parallel_sizes", "context_parallel_sizes", type=int, multiple=True, default=[1, 2], help="Context parallel sizes to test.")
-@click.option("--micro-batch-sizes", "--micro_batch_sizes", "micro_batch_sizes", type=int, default=[1, 2, 4], multiple=True, callback=validate_parallelism_sizes, help="Micro batch sizes.")
+@click.option("--model", "-m", type=str, required=True, callback=validate_model_callback, 
+              help="[REQUIRED] Model to pretrain.")
+@click.option("--nodes", "-n", type=int, required=True, callback=validate_positive_int, 
+              help="[REQUIRED] Number of nodes for training.")
+@click.option("--gpus-per-node", "--gpus_per_node", "gpus_per_node", type=int, required=True, callback=validate_positive_int, 
+              help="[REQUIRED] GPUs per node.")
+@click.option("--mount-path", "--mount_path", "mount_path", type=str, required=True, 
+              help="[REQUIRED] Mount path in container.")
+@click.option("--mount-from", "--mount_from", "mount_from", type=str, required=True, 
+              help="[REQUIRED] Mount source.")
+@click.option("--node-group", "--node_group", "node_group", type=str, required=True, 
+              help="[REQUIRED] Node group for execution.")
+@click.option("--logs-subdir", "--logs_subdir", "logs_subdir", type=str, required=True, 
+              help="[REQUIRED] Logs subdirectory relative to mount-path. Example: autoconfigurator/logs")
+              
+# either resource_shape OR memory_per_gpu required
+@click.option("--resource-shape", "--resource_shape", "resource_shape", type=str, default=None, 
+              callback=validate_resource_shape_or_memory,
+              help="GPU resource shape. Examples: gpu.8xh200, gpu.4xh100, gpu.a100-40gb, gpu.2xa100-80gb")
+@click.option("--memory-per-gpu", "--memory_per_gpu", "memory_per_gpu", type=float, default=None, 
+              callback=validate_resource_shape_or_memory,
+              help="Custom GPU memory in GB (alternative to --resource-shape)")
+
+# multiple value options using our custom types
+@click.option("--tensor-parallel-sizes", "--tensor_parallel_sizes", "tensor_parallel_sizes", 
+              type=INT_LIST, default="1,2", 
+              help="Tensor parallel sizes. Use comma-separated: --tensor-parallel-sizes 4,8,16")
+
+@click.option("--pipeline-parallel-sizes", "--pipeline_parallel_sizes", "pipeline_parallel_sizes", 
+              type=INT_LIST_OR_AUTO, default="1,2",
+              help="Pipeline parallel sizes. Use 'auto' or comma-separated: --pipeline-parallel-sizes 1,2,4")
+
+@click.option("--context-parallel-sizes", "--context_parallel_sizes", "context_parallel_sizes", 
+              type=INT_LIST, default="1,2",
+              help="Context parallel sizes. Use comma-separated: --context-parallel-sizes 1,2,4")
+
+@click.option("--micro-batch-sizes", "--micro_batch_sizes", "micro_batch_sizes", 
+              type=INT_LIST_OR_AUTO, default="1,2,4",
+              help="Micro batch sizes. Use 'auto' or comma-separated: --micro-batch-sizes 1,2,4,8")
+
+@click.option("--global-batch-sizes", "--global_batch_sizes", "global_batch_sizes", 
+              type=INT_LIST_OR_AUTO, default="512",
+              help="Global batch sizes. Use 'auto' or comma-separated: --global-batch-sizes 64,128,256,512")
+
+@click.option("--virtual-pipeline-model-parallel-sizes", "--virtual_pipeline_model_parallel_sizes", "virtual_pipeline_model_parallel_sizes", 
+              type=INT_LIST, default=None,
+              help="Virtual pipeline sizes. Use comma-separated: --virtual-pipeline-model-parallel-sizes 2,4")
+
+# Single value options
 @click.option("--max-model-parallel-size", "--max_model_parallel_size", "max_model_parallel_size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
 @click.option("--min-model-parallel-size", "--min_model_parallel_size", "min_model_parallel_size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
 @click.option("--max-steps-per-run", "--max_steps_per_run", "max_steps_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
 @click.option("--max-minutes-per-run", "--max_minutes_per_run", "max_minutes_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum minutes per run for testing.")
-@click.option("--num-tokens-in-b", "--run_pretraining_only", "num_tokens_in_b", type=int, default=1000, callback=validate_positive_int, help="Number of tokens in billions.")
+@click.option("--num-tokens-in-b", "--num_tokens_in_b", "num_tokens_in_b", type=int, default=1000, callback=validate_positive_int, help="Number of tokens in billions.")
 @click.option("--vocab-size", "--vocab_size", "vocab_size", type=int, default=32000, callback=validate_positive_int, help="Vocabulary size.")
 @click.option("--seq-length", "--seq_length", "seq_length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
-@click.option("--global-batch-sizes", "--global_batch_sizes", "global_batch_sizes", type=int, multiple=True, default=[512], help="Global batch sizes to test.")
 @click.option("--val-check-interval", "--val_check_interval", "val_check_interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
 @click.option("--max-steps", "--max_steps", "max_steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
 @click.option("--output-dir", "--output_dir", "output_dir", type=str, default="generated_configs", help="Directory to save generated configurations.")
-# New dynamic executor options
-@click.option("--resource-shape", "--resource_shape", "resource_shape", type=str, default="gpu.8xh200", help="GPU resource shape (e.g., gpu.8xh200, gpu.4xh100).")
+
+# new dynamic executor options
 @click.option("--container-image", "--container_image", "container_image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")
 @click.option("--nemo-run-dir", "--nemo_run_dir", "nemo_run_dir", type=str, default="/nemo-workspace/nemo-run", help="Directory for nemo-run.")
-@click.option("--mount-path", "--mount_path", "mount_path", type=str, default="/nemo-workspace", help="Mount path in container.")
-@click.option("--mount-from", "--mount_from", "mount_from", type=str, default="node-nfs:shared", help="Mount source.")
-@click.option("--node-group", "--node_group", "node_group", type=str, default="nebius-h200-01", help="Node group for execution.")
 @click.option("--hf-token", "--hf_token", "hf_token", type=str, default=None, help="HuggingFace token (optional).")
 @click.option("--wandb-api-key", "--wandb_api_key", "wandb_api_key", type=str, default=None, help="Weights & Biases API key (optional).")
 @click.option("--torch-home", "--torch_home", "torch_home", type=str, default="/nemo-workspace/.cache", help="PyTorch cache directory.")
 @click.option("--pythonpath", type=str, default="/nemo-workspace/nemo-run:$PYTHONPATH", help="Python path configuration.")
-@click.option("--memory-per-gpu", "--memory_per_gpu", "memory_per_gpu", type=float, default=None, help="Custom GPU memory in GB (overrides auto-detection from resource-shape).")
 def generate(**kwargs):
-    """Generate AutoTune configurations for NeMo pretraining - OPTIMIZED VERSION."""
+    """Generate AutoTune configurations for NeMo pretraining."""
     console.print(f"Generating AutoTune configurations for model: [bold]{kwargs['model']}[/bold]")
+    
+    # print the received values for debugging
+    console.print(f"[blue]Received parameters:[/blue]")
+    console.print(f"  Global batch sizes: {kwargs['global_batch_sizes']}")
+    console.print(f"  Tensor parallel sizes: {kwargs['tensor_parallel_sizes']}")
+    console.print(f"  Pipeline parallel sizes: {kwargs['pipeline_parallel_sizes']}")
+    console.print(f"  Context parallel sizes: {kwargs['context_parallel_sizes']}")
+    console.print(f"  Micro batch sizes: {kwargs['micro_batch_sizes']}")
     
     # ONE FUNCTION CALL to get all info: GPU specs, model size, etc.
     gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(kwargs['resource_shape'], kwargs.get('memory_per_gpu'))
@@ -917,9 +1151,6 @@ def generate(**kwargs):
         if result['base_config_matches']:
             console.print(f"[blue]Found {len(result['base_config_matches'])} matching configurations: {', '.join(result['base_config_matches'])}[/blue]")
         
-        model_config_dir = os.path.join(kwargs['output_dir'], args.model)
-        # _display_configs_table(model_config_dir, args.model)
-        
     except ValueError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
         sys.exit(1)
@@ -930,8 +1161,8 @@ def generate(**kwargs):
 
 
 @autotune.command()
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
+@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
 @click.option("--sequential", is_flag=True, default=False, help="Run configurations sequentially instead of in parallel.")
 @click.option("--run-all", "--run_all", "run_all", is_flag=True, default=False, help="Run all configurations including those with potential CUDA OOM risk.")
 def run(config_dir, model, sequential, run_all):
@@ -1011,14 +1242,14 @@ def run(config_dir, model, sequential, run_all):
 
 
 @autotune.command()
-@click.option("--path", "-p", type=str, required=True, help="Path to AutoConfigurator logs directory.")
-@click.option("--output-file", "--output_file", "output_file", type=str, help="Specific file path to save results (optional).")
+@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
+@click.option("--path", "-p", type=str, required=True, help="[REQUIRED] Path to AutoConfigurator logs directory.")
+@click.option("--log-prefix", "--log_prefix", "log_prefix", type=str, required=True, help="[REQUIRED] Log file prefix for result files.")
+@click.option("--output-file", "--output_file", "output_file", type=str, required=True, help="[REQUIRED] File path to save results.")
 @click.option("--top-n", "--top_n", "top_n", type=int, default=10, callback=validate_positive_int, help="Number of top configurations to display.")
-@click.option("--log-prefix", "--log_prefix", "log_prefix", type=str, required=True, help="Log file prefix for result files.")
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
 @click.option("--force-reconstruct", is_flag=True, default=False, help="Force reconstruction instead of using saved objects.")
-def results(path, output_file, top_n, log_prefix, config_dir, model, force_reconstruct):
+def results(config_dir, model, path, log_prefix, output_file, top_n,force_reconstruct):
     """Collect and display AutoConfigurator results."""
     console.print(f"Collecting AutoTune results from: [bold]{path}[/bold]")
     
@@ -1072,10 +1303,7 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
             console.print("[blue]Performance results saved![/blue]")
         
         console.print(f"[green]Results analysis completed successfully![/green]")
-        if output_file:
-            console.print(f"[green]Results saved to: {output_file}[/green]")
-        else:
-            console.print(f"[green]Results displayed in terminal[/green]")
+        console.print(f"[green]Results saved to: {output_file}[/green]")
         console.print(f"[green]Analyzed top {metadata.get('num_configs_generated', 'Unknown')} configurations[/green]")
         
     except Exception as e:
@@ -1085,8 +1313,8 @@ def results(path, output_file, top_n, log_prefix, config_dir, model, force_recon
 
 
 @autotune.command(name="analyse-results")
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
+@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
 @click.option("--cost-per-gpu-hour", "--cost_per_gpu_hour", "cost_per_gpu_hour", type=float, default=4.0, callback=validate_positive_float, help="Cost per GPU hour in USD (default: $4.0 for H100).")
 def analyse_results(config_dir, model, cost_per_gpu_hour):
     """Analyze AutoTune performance results and compare configurations with cost analysis."""
@@ -1100,7 +1328,7 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         if not args.has_performance_results():
             console.print("[yellow]No performance results found in args.json[/yellow]")
             console.print("[yellow]Please run 'lep autotune results' first to generate performance data[/yellow]")
-            console.print(f"[yellow]Example: lep autotune results --path /path/to/logs --log-prefix nemo[/yellow]")
+            console.print(f"[yellow]Example: lep autotune results --config-dir {config_dir} --model {model} --path /path/to/logs --log-prefix nemo --output-file results.txt[/yellow]")
             sys.exit(1)
         
         performance_dict = args.get_performance_dict()
@@ -1185,7 +1413,7 @@ def list_models():
 @click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
 @click.option("--safety-margin", "--safety_margin", "safety_margin", type=float, default=5.0, callback=validate_positive_float, help="Safety margin in GB to leave unused (default: 5.0).")
 def check_memory(config_dir, model, safety_margin):
-    """Check CUDA memory usage for all generated configurations - OPTIMIZED VERSION."""
+    """Check CUDA memory usage for all generated configurations."""
     console.print(f" Analyzing CUDA memory usage for configurations...")
     
     try:
@@ -1235,36 +1463,6 @@ def check_memory(config_dir, model, safety_margin):
         console.print(f"[red] Error analyzing memory: {e}[/red]")
         logger.error(f"Memory analysis failed: {e}")
         sys.exit(1)
-
-
-def _load_args_from_config_dir(config_dir, model=None):
-    """Load args from config directory, with model auto-detection if needed."""
-    if not os.path.exists(config_dir):
-        console.print(f"[red]Config directory not found: {config_dir}[/red]")
-        console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
-        sys.exit(1)
-    
-    # if model not provided, try to infer from directory structure
-    if not model:
-        subdirs = [d for d in os.listdir(config_dir) if os.path.isdir(os.path.join(config_dir, d))]
-        if len(subdirs) == 1:
-            model = subdirs[0]
-            console.print(f"[blue]Auto-detected model: {model}[/blue]")
-        elif len(subdirs) > 1:
-            console.print(f"[yellow]Multiple models found. Please specify --model. Available: {', '.join(subdirs)}[/yellow]")
-            sys.exit(1)
-        elif len(subdirs) == 0:
-            console.print(f"[red]No model directories found in: {config_dir}[/red]")
-            console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
-            sys.exit(1)
-    
-    args_file_path = get_args_file_path(model, config_dir)
-    if not os.path.exists(args_file_path):
-        console.print(f"[red]Arguments file not found: {args_file_path}[/red]")
-        console.print("[yellow]Tip: Run 'lep autotune generate' first to create configurations[/yellow]")
-        sys.exit(1)
-    
-    return AutoTuneArgs.load_from_file(args_file_path)
 
 
 def add_command(cli_group):
