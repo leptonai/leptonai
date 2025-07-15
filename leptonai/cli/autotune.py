@@ -389,7 +389,7 @@ class AutoTuneArgs:
 
     def get_full_logs_path(self):
         """Get the full logs path by combining mount_path and logs_subdir."""
-        return os.path.join(self.mount_path, self.logs_subdir)
+        return os.path.join(self.mount_path, self.logs_subdir, model_name)
         
     @classmethod
     def from_dict(cls, data):
