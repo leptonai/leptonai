@@ -597,9 +597,6 @@ def create(
         # For CLI passed in command, we will prepend it with /bin/bash -c
         command = ["/bin/bash", "-c", command]
         job_spec.container.command = command
-    elif not job_spec.container.command:
-        console.print("You did not specify a command to run the job.")
-        sys.exit(1)
 
     # Set container image
     if container_image:
