@@ -117,7 +117,7 @@ def _filter_jobs(
 
         # Skip if name pattern filter is specified and job name doesn't match any of the patterns
         if name_patterns and not any(
-            n.lower() in job.metadata.name.lower() for n in name_patterns
+            n.lower() in job.metadata.id_.lower() for n in name_patterns
         ):
             continue
 
