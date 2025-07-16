@@ -27,6 +27,7 @@ from .queue import QueueAPI
 from .pod import PodAPI
 from .ingress import IngressAPI
 from .storage import StorageAPI
+from .template import TemplateAPI
 
 
 from .utils import (
@@ -148,6 +149,7 @@ class APIClient(object):
         self.storage = StorageAPI(self)
         self.object_storage = ObjectStorageAPI(self)
         self.log = LogAPI(self)
+        self.template = TemplateAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
