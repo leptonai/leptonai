@@ -990,22 +990,22 @@ def autotune():
               help="[REQUIRED] Model to pretrain.")
 @click.option("--nodes", "-n", type=int, required=True, callback=validate_positive_int, 
               help="[REQUIRED] Number of nodes for training.")
-@click.option("--gpus-per-node", "--gpus_per_node", "gpus_per_node", type=int, required=True, callback=validate_positive_int, 
+@click.option("--gpus-per-node", type=int, required=True, callback=validate_positive_int, 
               help="[REQUIRED] GPUs per node.")
-@click.option("--mount-path", "--mount_path", "mount_path", type=str, required=True, 
+@click.option("--mount-path", type=str, required=True, 
               help="[REQUIRED] Mount path in container.")
-@click.option("--mount-from", "--mount_from", "mount_from", type=str, required=True, 
+@click.option("--mount-from", type=str, required=True, 
               help="[REQUIRED] Mount source.")
-@click.option("--node-group", "--node_group", "node_group", type=str, required=True, 
+@click.option("--node-group", type=str, required=True, 
               help="[REQUIRED] Node group for execution.")
-@click.option("--logs-subdir", "--logs_subdir", "logs_subdir", type=str, required=True, 
+@click.option("--logs-subdir", type=str, required=True, 
               help="[REQUIRED] Logs subdirectory relative to mount-path. Example: autoconfigurator/logs")
               
 # either resource_shape OR memory_per_gpu required
-@click.option("--resource-shape", "--resource_shape", "resource_shape", type=str, default=None, 
+@click.option("--resource-shape", type=str, default=None, 
               callback=validate_resource_shape_or_memory,
               help="GPU resource shape. Examples: gpu.8xh200, gpu.4xh100, gpu.a100-40gb, gpu.2xa100-80gb")
-@click.option("--memory-per-gpu", "--memory_per_gpu", "memory_per_gpu", type=float, default=None, 
+@click.option("--memory-per-gpu", type=float, default=None, 
               callback=validate_resource_shape_or_memory,
               help="Custom GPU memory in GB (alternative to --resource-shape)")
 
