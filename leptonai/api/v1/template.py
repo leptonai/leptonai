@@ -9,4 +9,4 @@ here to minimize divergence between v1 and v2.
 
 from ..v2.template import TemplateAPI  # re-export
 
-__all__ = ["TemplateAPI"] 
+__all__ = ["TemplateAPI"]

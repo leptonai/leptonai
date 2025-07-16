@@ -1,7 +1,7 @@
 import warnings
 from enum import Enum
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, field_validator
+from typing import Optional, List, Any
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
@@ -28,13 +28,13 @@ class LeptonJobUserSpec(BaseModel):
     affinity: Optional[LeptonResourceAffinity] = None
     container: LeptonContainer = LeptonContainer()
     shared_memory_size: Optional[int] = None
-    completions: int = 1
-    parallelism: int = 1
+    completions: Optional[int] = 1
+    parallelism: Optional[int] = 1
     max_failure_retry: Optional[int] = None
     max_job_failure_retry: Optional[int] = None
-    envs: List[EnvVar] = []
-    mounts: List[Mount] = []
-    image_pull_secrets: List[str] = []
+    envs: Optional[List[EnvVar]] = []
+    mounts: Optional[List[Mount]] = []
+    image_pull_secrets: Optional[List[str]] = []
     ttl_seconds_after_finished: Optional[int] = None
     intra_job_communication: Optional[bool] = None
     privileged: Optional[bool] = None
@@ -43,6 +43,12 @@ class LeptonJobUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
+
+    # --- ensure backend-required defaults when value is null/absent when using templates ---
+    @field_validator("completions", "parallelism", mode="before")
+    @classmethod
+    def _none_to_one(cls, v: Any) -> int:  # noqa: ANN401
+        return 1 if v is None else v
 
 
 DefaultTTLSecondsAfterFinished: int = 600
