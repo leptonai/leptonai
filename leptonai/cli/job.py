@@ -424,6 +424,7 @@ def make_container_port_from_string(port_str: str):
     "-qp",
     "queue_priority",
     callback=_validate_queue_priority,
+    default="mid-4000",
     help=(
         "Set the priority for this job (feature available only for dedicated node"
         " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
