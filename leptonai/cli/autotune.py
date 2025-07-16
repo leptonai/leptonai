@@ -708,35 +708,50 @@ def _display_configs_table(config_dir, model_name=None):
     else:
         console.print(f"Configuration files: {len(json_files)}")
         console.print("[yellow]No metadata available. Re-run 'lep autotune generate' for detailed status.[/yellow]")
+    
 
-
-def _analyze_performance_results_with_cost(performance_dict, args, total_steps, cost_per_gpu_hour):
-    """Analyze and compare performance results with cost calculations."""
+def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_node_hour):
+    """Analyze performance results with multiple global batch sizes."""
     if not performance_dict:
         console.print("[yellow]No performance data to analyze[/yellow]")
         return
     
     total_gpus = args.nodes * args.gpus_per_node
-    
+
     # calculate cost and time for each configuration
     config_analysis = {}
     for config_name, config_data in performance_dict.items():
         time_per_step = config_data.get('time_per_global_step', 0)
         m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
         
+        extracted_values = extract_all_values(config_name)
+        gbs = extracted_values.get('gbs')
+        print(f"{config_name}, {gbs}")
+        if gbs is None:
+            gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
+            print("GBS could not be extracted")
+            logger.warning(f"Could not extract GBS from {config_name}, using {gbs}")
+        
+        # calculate tokens per step for this specific config
+        tokens_per_step = args.seq_length * gbs
+        total_steps = total_tokens / tokens_per_step
+        
         # calculate total training time and cost
         total_training_time_seconds = time_per_step * total_steps
         total_training_time_hours = total_training_time_seconds / 3600
-        total_cost = total_training_time_hours * cost_per_gpu_hour * total_gpus
+        total_cost = total_training_time_hours * cost_per_node_hour * args.nodes
         
         config_analysis[config_name] = {
             **config_data,
+            'gbs': gbs,
+            'tokens_per_step': tokens_per_step,
+            'total_steps': total_steps,
             'total_training_time_hours': total_training_time_hours,
             'total_training_time_days': total_training_time_hours / 24,
             'total_cost': total_cost,
             'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
         }
-    
+
     # sort configurations by training time (ascending - best first)
     sorted_configs = sorted(
         config_analysis.items(),
@@ -752,12 +767,12 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     base_config_matches = args.metadata.get('base_config_matches', [])
     base_config_name = None
     base_config = None
-    
     # look for base config in performance results
     for config_name, config_data in config_analysis.items():
         if config_name in base_config_matches or config_name == 'base_config':
             base_config_name = config_name
             base_config = config_data
+            print(f"Base Config in results is {base_config_name}")
             break
     
     console.print("\n[cyan] Performance & Cost Analysis Summary[/cyan]")
@@ -866,49 +881,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     
     console.print("\n[green]Cost analysis completed successfully![/green]")
 
-
-def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour):
-    """Analyze performance results with multiple global batch sizes."""
-    if not performance_dict:
-        console.print("[yellow]No performance data to analyze[/yellow]")
-        return
-    
-    total_gpus = args.nodes * args.gpus_per_node
-
-    # calculate cost and time for each configuration
-    config_analysis = {}
-    for config_name, config_data in performance_dict.items():
-        time_per_step = config_data.get('time_per_global_step', 0)
-        m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
-        
-        extracted_values = extract_all_values(config_name)
-        gbs = extracted_values.get('gbs')
-
-        if gbs is None:
-            gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
-            logger.warning(f"Could not extract GBS from {config_name}, using {gbs}")
-        
-        # calculate tokens per step for this specific config
-        tokens_per_step = args.seq_length * gbs
-        total_steps = total_tokens / tokens_per_step
-        
-        # calculate total training time and cost
-        total_training_time_seconds = time_per_step * total_steps
-        total_training_time_hours = total_training_time_seconds / 3600
-        total_cost = total_training_time_hours * cost_per_gpu_hour * total_gpus
-        
-        config_analysis[config_name] = {
-            **config_data,
-            'gbs': gbs,
-            'tokens_per_step': tokens_per_step,
-            'total_steps': total_steps,
-            'total_training_time_hours': total_training_time_hours,
-            'total_training_time_days': total_training_time_hours / 24,
-            'total_cost': total_cost,
-            'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
-        }
-
-    _analyze_performance_results_with_cost(config_analysis, args, total_steps, cost_per_gpu_hour)
+    # _analyze_performance_results_with_cost(config_analysis, args, total_steps, cost_per_node_hour)
 
 
 # ============================================================================
@@ -1066,7 +1039,7 @@ def autotune():
 @click.option("--min-model-parallel-size", "--min_model_parallel_size", "min_model_parallel_size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
 @click.option("--max-steps-per-run", "--max_steps_per_run", "max_steps_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
 @click.option("--max-minutes-per-run", "--max_minutes_per_run", "max_minutes_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum minutes per run for testing.")
-@click.option("--num-tokens-in-b", "--num_tokens_in_b", "num_tokens_in_b", type=int, default=1000, callback=validate_positive_int, help="Number of tokens in billions.")
+@click.option("--num-tokens-in-b", "--num_tokens_in_b", "num_tokens_in_b", type=int, default=15000, callback=validate_positive_int, help="Number of tokens in billions.")
 @click.option("--vocab-size", "--vocab_size", "vocab_size", type=int, default=32000, callback=validate_positive_int, help="Vocabulary size.")
 @click.option("--seq-length", "--seq_length", "seq_length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
 @click.option("--val-check-interval", "--val_check_interval", "val_check_interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
@@ -1257,7 +1230,6 @@ def results(config_dir, model, path, log_prefix, output_file, top_n,force_recons
             sys.exit(1)
         
         args = _load_args_from_config_dir(config_dir, model)
-        
         console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
         console.print(f"  Resources: {args.nodes} nodes × {args.gpus_per_node} GPUs = {args.nodes * args.gpus_per_node} total GPUs")
         console.print(f"Resource shape: {args.resource_shape}")
@@ -1310,10 +1282,10 @@ def results(config_dir, model, path, log_prefix, output_file, top_n,force_recons
 
 
 @autotune.command(name="analyse-results")
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
-@click.option("--cost-per-gpu-hour", "--cost_per_gpu_hour", "cost_per_gpu_hour", type=float, default=4.0, callback=validate_positive_float, help="Cost per GPU hour in USD (default: $4.0 for H100).")
-def analyse_results(config_dir, model, cost_per_gpu_hour):
+@click.option("--cost-per-node-hour", type=float, default=50.0, callback=validate_positive_float, help="Cost per node hour in USD (default: $50.0 for H100).")
+def analyse_results(config_dir, model, cost_per_node_hour):
     """Analyze AutoTune performance results and compare configurations with cost analysis."""
     console.print(f"Analyzing AutoTune performance results with cost analysis...")
     
@@ -1330,7 +1302,6 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         
         performance_dict = args.get_performance_dict()
         console.print(f"[green]Found performance results for {len(performance_dict)} configurations[/green]")
-        
         total_tokens = args.num_tokens_in_b * 1_000_000_000
 
         console.print(f"\n[cyan] Training Configuration for Cost Analysis[/cyan]")
@@ -1339,10 +1310,10 @@ def analyse_results(config_dir, model, cost_per_gpu_hour):
         console.print(f"  Global batch sizes tested: {args.global_batch_sizes}")
         console.print(f"  Total GPUs: {args.nodes * args.gpus_per_node}")
         console.print(f"Resource shape: {args.resource_shape}")
-        console.print(f"  Cost per GPU hour: ${cost_per_gpu_hour:.2f}")
+        console.print(f"  Cost per node hour: ${cost_per_node_hour:.2f}")
         
         # for each config, extract GBS from config name and calculate cost
-        _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_gpu_hour)
+        _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_node_hour)
         
     except Exception as e:
         console.print(f"[red]Error analyzing results: {e}[/red]")
