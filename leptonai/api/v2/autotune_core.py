@@ -166,18 +166,18 @@ def check_cuda_oom_risk(
     available_memory_gb = gpu_memory_gb - safety_margin_gb
 
     # Extract config values
-    tp_size = config_values.get('tp', 1)
-    pp_size = config_values.get('pp', 1)
-    cp_size = config_values.get('cp', 1)
-    micro_batch_size = config_values.get('mbs', 1)
-    seq_length = config_values.get('seq_length', 8192)
+    tp_size = config_values.get('tp')
+    pp_size = config_values.get('pp')
+    cp_size = config_values.get('cp')
+    micro_batch_size = config_values.get('mbs')
+    seq_length = config_values.get('seq_length')
 
     # Get precision
     if base_config_dict:
         base_values = extract_all_values(base_config_dict)
-        precision = base_values.get('precision', 'bf16')
+        precision = base_values.get('precision')
     else:
-        precision = config_values.get('precision', 'bf16')
+        precision = config_values.get('precision')
 
     # Use conservative memory estimation
     estimated_usage_gb = estimate_model_memory_usage_conservative(
