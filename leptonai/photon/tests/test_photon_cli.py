@@ -30,7 +30,9 @@ summarization_model = "hf:jotamunz/billsum_tiny_summarization"
 sentence_similarity_model = (
     "hf:sentence-transformers/paraphrase-albert-small-v2@b8a76dc"
 )
-text2text_generation_model = "hf:sshleifer/bart-tiny-random@69bce92?task=text2text-generation"
+text2text_generation_model = (
+    "hf:text2text-generation:sshleifer/bart-tiny-random@69bce92"
+)
 sentiment_analysis_model = "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2"
 audio_classification_model = "hf:anton-l/wav2vec2-random-tiny-classifier"
 depth_estimation_model = "hf:hf-tiny-model-private/tiny-random-GLPNForDepthEstimation"
