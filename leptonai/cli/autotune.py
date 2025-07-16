@@ -389,7 +389,7 @@ class AutoTuneArgs:
 
     def get_full_logs_path(self):
         """Get the full logs path by combining mount_path and logs_subdir."""
-        return os.path.join(self.mount_path, self.logs_subdir, model_name)
+        return os.path.join(self.mount_path, self.logs_subdir, self.model)
         
     @classmethod
     def from_dict(cls, data):
@@ -737,12 +737,13 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
             'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
         }
     
-    # sort configurations by m_tflops_gpu (descending - best first)
+    # sort configurations by training time (ascending - best first)
     sorted_configs = sorted(
         config_analysis.items(),
-        key=lambda x: x[1].get('m_tflops_gpu', 0),
-        reverse=True
+        key=lambda x: x[1].get('total_training_time_hours', float('inf')),
+        reverse=False
     )
+
     
     best_config_name, best_config = sorted_configs[0]
     worst_config_name, worst_config = sorted_configs[-1]
@@ -768,7 +769,6 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     console.print(f"  Time per Global Step: {best_config.get('time_per_global_step', 'N/A'):.4f}s")
     console.print(f"  Total Training Time: {best_config.get('total_training_time_days', 'N/A'):.1f} days")
     console.print(f"  Total Training Cost: ${best_config.get('total_cost', 'N/A'):,.2f}")
-    console.print(f"  Cost per TFLOP: ${best_config.get('cost_per_tflop', 'N/A'):.2f}")
     
     # base config comparison (if available)
     if base_config and base_config_name != best_config_name:
@@ -777,7 +777,6 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  Time per Global Step: {base_config.get('time_per_global_step', 'N/A'):.4f}s")
         console.print(f"  Total Training Time: {base_config.get('total_training_time_days', 'N/A'):.1f} days")
         console.print(f"  Total Training Cost: ${base_config.get('total_cost', 'N/A'):,.2f}")
-        console.print(f"  Cost per TFLOP: ${base_config.get('cost_per_tflop', 'N/A'):.2f}")
         
         # performance and cost comparison vs base
         tflops_improvement = ((best_config.get('m_tflops_gpu', 0) - base_config.get('m_tflops_gpu', 0)) / base_config.get('m_tflops_gpu', 1)) * 100
@@ -802,7 +801,6 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
         console.print(f"  Time per Global Step: {worst_config.get('time_per_global_step', 'N/A'):.4f}s")
         console.print(f"  Total Training Time: {worst_config.get('total_training_time_days', 'N/A'):.1f} days")
         console.print(f"  Total Training Cost: ${worst_config.get('total_cost', 'N/A'):,.2f}")
-        console.print(f"  Cost per TFLOP: ${worst_config.get('cost_per_tflop', 'N/A'):.2f}")
         
         # performance comparison best vs worst
         time_diff = worst_config.get('total_training_time_hours', 0) - best_config.get('total_training_time_hours', 0)
@@ -819,7 +817,7 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     console.print(f"\n[cyan] Top 5 Configurations - Performance & Cost Analysis[/cyan]")
     table = Table(show_header=True, show_lines=True, title="Performance & Cost Ranking")
     table.add_column("Rank", style="yellow", width=6)
-    table.add_column("Configuration", style="cyan", width=20)
+    table.add_column("Configuration", style="cyan", width=70)
     table.add_column("M-TFLOPs/GPU", style="green", width=12)
     table.add_column("Training Days", style="blue", width=12)
     table.add_column("Total Cost", style="red", width=12)
@@ -850,7 +848,6 @@ def _analyze_performance_results_with_cost(performance_dict, args, total_steps, 
     most_efficient_name, most_efficient_data = most_efficient
     
     console.print(f"Most Cost-Efficient: {most_efficient_name}")
-    console.print(f"  Cost per TFLOP: ${most_efficient_data.get('cost_per_tflop', 'N/A'):.2f}")
     console.print(f"  Total Cost: ${most_efficient_data.get('total_cost', 'N/A'):,.2f}")
     console.print(f"  M-TFLOPs/GPU: {most_efficient_data.get('m_tflops_gpu', 'N/A'):.2f}")
     

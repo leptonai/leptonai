@@ -320,7 +320,7 @@ class UnifiedExtractor:
         Returns:
             Tuple of (gpu_type, gpu_count, memory_per_gpu_gb)
         """
-        #defaults
+        # defaults
         gpu_type = "h100"
         gpu_count = 8
         
@@ -334,6 +334,7 @@ class UnifiedExtractor:
                 elif len(match.groups()) == 1:
                     gpu_count = int(match.group(1))
                     break
+        
         if memory_per_gpu is not None:
             memory_gb = memory_per_gpu
             logger.info(f"Using custom GPU memory: {memory_per_gpu}GB")
@@ -348,19 +349,13 @@ class UnifiedExtractor:
     @staticmethod
     def extract_config_values_unified(source: Union[str, Dict[str, Any], object]) -> Dict[str, Any]:
         """
-        Unified configuration value extraction that handles ALL extraction needs.
-        Enhanced to handle live objects including nemo_run.config.Partial objects.
+        Simplified unified configuration value extraction.
         
         Args:
             source: Config name string, config dict, or live config object
             
         Returns:
-            Dictionary with ALL extracted values including:
-            - Parallelism: tp, pp, cp, ep, vp
-            - Batch sizes: mbs, gbs
-            - Model info: model_size_b, precision
-            - Hardware: nodes, seq_length
-            - GPU info: gpu_type, gpu_count, gpu_memory_gb (if resource_shape provided)
+            Dictionary with ALL extracted values
         """
         default_values = {
             'tp': 1, 'pp': 1, 'cp': 1, 'ep': 1, 'vp': None,
@@ -368,154 +363,192 @@ class UnifiedExtractor:
             'model_size_b': None, 'precision': 'bf16'
         }
         
-        # case 1: string (config name in new format)
-        if isinstance(source, str):
-            values = default_values.copy()
-            
-            logger.debug(f"Parsing config name: '{source}'")
+        values = default_values.copy()
         
-            values['model_size_b'] = UnifiedExtractor.extract_model_size_unified(source, "config_name")
-            values['precision'] = UnifiedExtractor.extract_precision_unified(source)
-            
-            for key, pattern in ExtractionPatterns.CONFIG_NAME_PATTERNS.items():
-                if key == 'vp':
-                    # special handling for virtual pipeline with better error handling
-                    vp_val = UnifiedExtractor.extract_value_with_patterns(source, [pattern], str)
-                    if vp_val:
-                        if vp_val.lower() == 'none':
-                            values['vp'] = None
-                        else:
-                            try:
-                                values['vp'] = int(vp_val)
-                            except ValueError:
-                                logger.warning(f"Could not parse vp value '{vp_val}' as int from config '{source}', using None")
-                                values['vp'] = None
-                    else:
-                        values['vp'] = None
-                else:
-                    # extract with proper error handling
-                    try:
-                        extracted = UnifiedExtractor.extract_value_with_patterns(source, [pattern], int)
-                        if extracted is not None:
-                            values[key] = extracted
-                    except ValueError as e:
-                        logger.warning(f"Could not parse {key} from config '{source}': {e}")
-            logger.debug(f"Extracted from config name '{source}': {values}")
+        # Extract model info that works for all types
+        values['model_size_b'] = UnifiedExtractor.extract_model_size_unified(source)
+        values['precision'] = UnifiedExtractor.extract_precision_unified(source)
+        
+        # Case 1: String (config name) - use regex patterns
+        if isinstance(source, str):
+            return UnifiedExtractor._extract_from_config_name(source, values)
+        
+        # Case 2: Dictionary - handle both types
+        elif isinstance(source, dict):
+            return UnifiedExtractor._extract_from_dict(source, values)
+        
+        # Case 3: Live object - direct attribute access
+        else:
+            return UnifiedExtractor._extract_from_live_object(source, values)
+
+    @staticmethod
+    def _extract_from_config_name(source: str, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract values from config name string using regex patterns."""
+        for key, pattern in ExtractionPatterns.CONFIG_NAME_PATTERNS.items():
+            if key == 'vp':
+                vp_val = UnifiedExtractor.extract_value_with_patterns(source, [pattern], str)
+                values['vp'] = None if not vp_val or vp_val.lower() == 'none' else int(vp_val)
+            else:
+                extracted = UnifiedExtractor.extract_value_with_patterns(source, [pattern], int)
+                if extracted is not None:
+                    values[key] = extracted
+        
+        logger.debug(f"Extracted from config name '{source}': {values}")
+        return values
+
+    @staticmethod
+    def _extract_from_dict(source: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract values from dictionary (either pre-extracted or raw config)."""
+        # Case 1: Already-extracted values dictionary
+        if any(key in source for key in ['tp', 'pp', 'cp', 'mbs', 'gbs']):
+            values.update({k: v for k, v in source.items() if k in values})
+            logger.debug(f"Using already-extracted values: {values}")
             return values
         
-        # case 2: live config object (has attributes) - Enhanced handling
-        elif not isinstance(source, dict) and hasattr(source, '__dict__'):
-            values = default_values.copy()
-            
-            # check if this is a nemo_run.config.Partial object
-            if type(source).__name__ == 'Partial':
-                logger.debug(f"Processing nemo_run.config.Partial object")
-                
-                # for Partial objects, try to access the actual config
-                if hasattr(source, '__fn_or_cls__'):
-                    # this might be a recipe function, try to get its arguments
-                    if hasattr(source, '__arguments__'):
-                        # convert to dict and process as config dict
-                        partial_dict = {
-                            '__arguments__': source.__arguments__
-                        }
-                        return UnifiedExtractor.extract_config_values_unified(partial_dict)
-                
-                # fallback: convert Partial to dict and process
-                try:
-                    source_dict = {k: v for k, v in source.__dict__.items() if not k.startswith('_')}
-                    if source_dict:
-                        return UnifiedExtractor.extract_config_values_unified(source_dict)
-                except Exception as e:
-                    logger.debug(f"Failed to convert Partial to dict: {e}")
-            
-            # extract model size and precision using enhanced functions that handle live objects
-            values['model_size_b'] = UnifiedExtractor.extract_model_size_unified(source, "live_object")
-            values['precision'] = UnifiedExtractor.extract_precision_unified(source)
-            
-            # extract from trainer
+        # Case 2: Raw config dictionary with __arguments__
+        if '__arguments__' not in source:
+            logger.debug(f"No __arguments__ found, using defaults: {values}")
+            return values
+        
+        arguments = source['__arguments__']
+        
+        # Extract trainer values (handles both string and Config object)
+        trainer_values = UnifiedExtractor._extract_trainer_values(arguments.get('trainer', ''))
+        values.update(trainer_values)
+        
+        # Extract data values (handles both string and Config object)
+        data_values = UnifiedExtractor._extract_data_values(arguments.get('data', ''))
+        values.update(data_values)
+        
+        logger.debug(f"Extracted from config dict: {values}")
+        return values
+
+    @staticmethod
+    def _extract_from_live_object(source: object, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract values from live Config object using direct attribute access."""
+        # Handle Partial objects
+        if type(source).__name__ == 'Partial' and hasattr(source, '__arguments__'):
+            partial_dict = {'__arguments__': source.__arguments__}
+            return UnifiedExtractor._extract_from_dict(partial_dict, values)
+        
+        # Direct attribute access
+        try:
+            # Extract trainer attributes
             if hasattr(source, 'trainer'):
                 trainer = source.trainer
                 if hasattr(trainer, 'num_nodes'):
                     values['nodes'] = trainer.num_nodes
                 
-                # extract strategy params
                 if hasattr(trainer, 'strategy'):
                     strategy = trainer.strategy
                     strategy_mapping = {
                         'tensor_model_parallel_size': 'tp',
-                        'pipeline_model_parallel_size': 'pp',
+                        'pipeline_model_parallel_size': 'pp', 
                         'context_parallel_size': 'cp',
                         'expert_model_parallel_size': 'ep',
                         'virtual_pipeline_model_parallel_size': 'vp'
                     }
-                    
                     for attr, key in strategy_mapping.items():
                         if hasattr(strategy, attr):
                             values[key] = getattr(strategy, attr)
             
-            # extract from data
+            # Extract data attributes
             if hasattr(source, 'data'):
                 data = source.data
                 data_mapping = {
                     'micro_batch_size': 'mbs',
-                    'global_batch_size': 'gbs',
+                    'global_batch_size': 'gbs', 
                     'seq_length': 'seq_length'
                 }
-                
                 for attr, key in data_mapping.items():
                     if hasattr(data, attr):
                         values[key] = getattr(data, attr)
-            
-            logger.debug(f"Extracted from {type(source).__name__} object: {values}")
-            return values
+                        
+        except Exception as e:
+            logger.debug(f"Failed direct attribute access: {e}")
         
-        # case 3: Dictionary (config dict or already-extracted values)
-        elif isinstance(source, dict):
-            values = default_values.copy()
-            
-            # case 3a: already-extracted values dictionary (has keys like 'tp', 'pp', etc.)
-            if any(key in source for key in ['tp', 'pp', 'cp', 'mbs', 'gbs']):
-                # This is already an extracted values dict, just validate and return
-                for key in default_values.keys():
-                    if key in source:
-                        values[key] = source[key]
-                logger.debug(f"Using already-extracted values: {values}")
-                return values
-            
-            # case 3b: Raw config dictionary with __arguments__
-            # extract model size and precision using enhanced functions
-            values['model_size_b'] = UnifiedExtractor.extract_model_size_unified(source, "config_dict")
-            values['precision'] = UnifiedExtractor.extract_precision_unified(source)
-            if '__arguments__' in source:
-                arguments = source['__arguments__']
-                trainer_str = arguments.get('trainer', '')
-                if isinstance(trainer_str, str):
-                    trainer_params = UnifiedExtractor._extract_trainer_params_optimized(trainer_str)
-                    strategy = trainer_params.get('strategy', {})
-                    
-                    values.update({
-                        'tp': strategy.get('tensor_model_parallel_size', 1),
-                        'pp': strategy.get('pipeline_model_parallel_size', 1),
-                        'cp': strategy.get('context_parallel_size', 1),
-                        'ep': strategy.get('expert_model_parallel_size', 1),
-                        'vp': strategy.get('virtual_pipeline_model_parallel_size', None),
-                        'nodes': trainer_params.get('num_nodes', 1)
-                    })
-                data_str = arguments.get('data', '')
-                if isinstance(data_str, str):
-                    data_params = UnifiedExtractor._extract_data_params_optimized(data_str)
-                    values.update({
-                        'mbs': data_params.get('micro_batch_size', 1),
-                        'gbs': data_params.get('global_batch_size', 512),
-                        'seq_length': data_params.get('seq_length', 8192)
-                    })
-            
-            logger.debug(f"Extracted from config dict: {values}")
-            return values
+        logger.debug(f"Extracted from {type(source).__name__} object: {values}")
+        return values
+
+    @staticmethod
+    def _extract_trainer_values(trainer_obj) -> Dict[str, Any]:
+        """Extract trainer values from either string or Config object."""
+        if not trainer_obj:
+            return {}
+        
+        # Try direct attribute access first (for Config objects)
+        if hasattr(trainer_obj, 'num_nodes') or hasattr(trainer_obj, 'strategy'):
+            try:
+                result = {}
+                if hasattr(trainer_obj, 'num_nodes'):
+                    result['nodes'] = trainer_obj.num_nodes
+                if hasattr(trainer_obj, 'strategy'):
+                    strategy = trainer_obj.strategy
+                    if hasattr(strategy, 'tensor_model_parallel_size'):
+                        result['tp'] = strategy.tensor_model_parallel_size
+                    if hasattr(strategy, 'pipeline_model_parallel_size'):
+                        result['pp'] = strategy.pipeline_model_parallel_size
+                    if hasattr(strategy, 'context_parallel_size'):
+                        result['cp'] = strategy.context_parallel_size
+                    if hasattr(strategy, 'expert_model_parallel_size'):
+                        result['ep'] = strategy.expert_model_parallel_size
+                    if hasattr(strategy, 'virtual_pipeline_model_parallel_size'):
+                        result['vp'] = strategy.virtual_pipeline_model_parallel_size
                 
-        logger.warning(f"Could not extract from {type(source).__name__}, using defaults")
-        return default_values
+                logger.debug(f"Direct extraction from trainer Config object: {result}")
+                return result
+            except Exception as e:
+                logger.debug(f"Direct trainer extraction failed: {e}")
+        
+        # Fall back to string parsing
+        trainer_str = str(trainer_obj) if not isinstance(trainer_obj, str) else trainer_obj
+        trainer_params = UnifiedExtractor._extract_trainer_params_optimized(trainer_str)
+        strategy = trainer_params.get('strategy', {})
+        
+        result = {
+            'tp': strategy.get('tensor_model_parallel_size', 1),
+            'pp': strategy.get('pipeline_model_parallel_size', 1),
+            'cp': strategy.get('context_parallel_size', 1),
+            'ep': strategy.get('expert_model_parallel_size', 1),
+            'vp': strategy.get('virtual_pipeline_model_parallel_size', None),
+            'nodes': trainer_params.get('num_nodes', 1)
+        }
+        logger.debug(f"String extraction from trainer: {result}")
+        return result
+
+    @staticmethod
+    def _extract_data_values(data_obj) -> Dict[str, Any]:
+        """Extract data values from either string or Config object."""
+        if not data_obj:
+            return {}
+        
+        # Try direct attribute access first (for Config objects)
+        if hasattr(data_obj, 'micro_batch_size') or hasattr(data_obj, 'global_batch_size') or hasattr(data_obj, 'seq_length'):
+            try:
+                result = {}
+                if hasattr(data_obj, 'micro_batch_size'):
+                    result['mbs'] = data_obj.micro_batch_size
+                if hasattr(data_obj, 'global_batch_size'):
+                    result['gbs'] = data_obj.global_batch_size
+                if hasattr(data_obj, 'seq_length'):
+                    result['seq_length'] = data_obj.seq_length
+                
+                logger.debug(f"Direct extraction from data Config object: {result}")
+                return result
+            except Exception as e:
+                logger.debug(f"Direct data extraction failed: {e}")
+        
+        # Fall back to string parsing
+        data_str = str(data_obj) if not isinstance(data_obj, str) else data_obj
+        data_params = UnifiedExtractor._extract_data_params_optimized(data_str)
+        
+        result = {
+            'mbs': data_params.get('micro_batch_size', 1),
+            'gbs': data_params.get('global_batch_size', 512),
+            'seq_length': data_params.get('seq_length', 8192)
+        }
+        logger.debug(f"String extraction from data: {result}")
+        return result
     
     @staticmethod
     def _extract_data_params_optimized(data_str: str) -> Dict[str, Any]:
@@ -588,7 +621,6 @@ class UnifiedExtractor:
             params['strategy'] = strategy_params
         
         return params
-
 # ========== PUBLIC API FUNCTIONS ==========
 
 def get_supported_models() -> List[str]:

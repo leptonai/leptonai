@@ -305,7 +305,9 @@ def generate_recipe_configs(args):
             f"Supported models: {', '.join(supported_models)}\n"
             f"For the latest list, check: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/llm/recipes/__init__.py"
         )
-    
+
+    base_log_path = args.get_full_logs_path()
+
     recipe = partial(model_class.pretrain_recipe, num_nodes=args.nodes, num_gpus_per_node=args.gpus_per_node)()
     seq_length = getattr(args, 'seq_length', 8192)
     val_check_interval = getattr(args, 'val_check_interval', 50)
@@ -320,6 +322,8 @@ def generate_recipe_configs(args):
     recipe.trainer.strategy.ckpt_async_save = False
     recipe.resume = run.Config(AutoResume)
     recipe.log.ckpt.save_last = False
+    recipe.log.log_dir = os.path.join(base_log_path, "base_config")
+    
     # checkpoint_callback = run.Config(ModelCheckpoint, every_n_train_steps=1000000)
     # recipe.trainer.callbacks.append(checkpoint_callback)
 
@@ -328,7 +332,6 @@ def generate_recipe_configs(args):
         args.resource_shape, getattr(args, 'memory_per_gpu', None)
     )
 
-    base_log_path = args.get_full_logs_path()
     logger.info(f"Using dynamic log path: {base_log_path}")
     logger.info(f"  Mount path: {args.mount_path}")
     logger.info(f"  Logs subdir: {args.logs_subdir}")
@@ -354,12 +357,6 @@ def generate_recipe_configs(args):
 
     base_config, configs = generate_configs(runner)
     num_configs_generated = len(configs)
-
-
-
-    print("debug")
-    print(base_config)
-
 
     logger.info("Performing CUDA OOM analysis for all configurations...")
     memory_analysis = validate_configurations_memory(
@@ -394,8 +391,6 @@ def generate_recipe_configs(args):
             if config_name in configs:
                 base_config_matches.append(config_name)
                 logger.info(f"Config '{config_name}' matches base config - will be flagged as base config equivalent")
-        
-        recipe.log.log_dir = os.path.join(base_log_path, "base_config")
         logger.info(f"Found {len(matching_files)} matching configs. Using original log_dir: {recipe.log.log_dir}")
     else:
         config_values = extract_all_values(base_config)
@@ -564,12 +559,12 @@ def run_pretraining_only(
         idx = 1
         for config_name, recipe in configs_to_run.items():
             if config_name in base_config_matches:
-                exp.add(recipe, executor=executor, name=f'{config_name}')
+                exp.add(recipe, executor=executor, name=f'base-config')
                 logger.info(f"Added {config_name} as base_config_equivalent (matches base config)")
             else:
                 exp.add(recipe, executor=executor, name=f'config-{idx}')
                 logger.info(f"Added {config_name} as config-{idx}")
-            idx = idx + 1
+                idx = idx + 1
 
         exp.run(sequential=sequential)
     
