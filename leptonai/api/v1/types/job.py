@@ -50,6 +50,11 @@ class LeptonJobUserSpec(BaseModel):
     def _none_to_one(cls, v: Any) -> int:  # noqa: ANN401
         return 1 if v is None else v
 
+    @field_validator("envs", "mounts", "image_pull_secrets", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any):  # noqa: ANN401
+        return [] if v is None else v
+
 
 DefaultTTLSecondsAfterFinished: int = 600
 
