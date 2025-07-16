@@ -221,9 +221,9 @@ class AutoTuneArgs:
     """Class to hold all AutoTune arguments and handle serialization."""
     
     def __init__(self, **kwargs):
-        self.model = kwargs.get('model', 'nemotron3_4b')
-        self.nodes = kwargs.get('nodes', 1)
-        self.gpus_per_node = kwargs.get('gpus_per_node', 8)
+        self.model = kwargs.get('model')
+        self.nodes = kwargs.get('nodes')
+        self.gpus_per_node = kwargs.get('gpus_per_node')
         self.tensor_parallel_sizes = kwargs.get('tensor_parallel_sizes', [1, 2])
         self.pipeline_parallel_sizes = kwargs.get('pipeline_parallel_sizes', 'auto')
         self.context_parallel_sizes = kwargs.get('context_parallel_sizes', [1, 2])
@@ -244,18 +244,18 @@ class AutoTuneArgs:
         self.get_results = kwargs.get('get_results', False)
         self.sequential = kwargs.get('sequential', False)
         # dynamic properties for executor
-        self.resource_shape = kwargs.get('resource_shape', 'gpu.8xh200')
-        self.container_image = kwargs.get('container_image', 'nvcr.io/nvidia/nemo:25.02')
+        self.resource_shape = kwargs.get('resource_shape')
+        self.container_image = kwargs.get('container_image', 'nvcr.io/nvidia/nemo:25.04')
         self.nemo_run_dir = kwargs.get('nemo_run_dir', '/nemo-workspace/nemo-run')
-        self.mount_path = kwargs.get('mount_path', '/nemo-workspace')
-        self.mount_from = kwargs.get('mount_from', 'node-nfs:shared')
-        self.node_group = kwargs.get('node_group', 'nebius-h200-01')
+        self.mount_path = kwargs.get('mount_path')
+        self.mount_from = kwargs.get('mount_from')
+        self.node_group = kwargs.get('node_group')
         self.hf_token = kwargs.get('hf_token', None)
         self.wandb_api_key = kwargs.get('wandb_api_key', None)
         self.torch_home = kwargs.get('torch_home', '/nemo-workspace/.cache')
         self.pythonpath = kwargs.get('pythonpath', '/nemo-workspace/nemo-run:$PYTHONPATH')
-        self.memory_per_gpu = kwargs.get('memory_per_gpu', None)
-        self.logs_subdir = kwargs.get('logs_subdir', 'autoconfigurator/logs')
+        self.memory_per_gpu = kwargs.get('memory_per_gpu')
+        self.logs_subdir = kwargs.get('logs_subdir')
         
         # Metadata from generation results (populated after generate)
         self.metadata = kwargs.get('metadata', {})
@@ -986,7 +986,7 @@ def autotune():
 
 
 @autotune.command()
-@click.option("--model", "-m", type=str, required=True, callback=validate_model_callback, 
+@click.option("--model", type=str, required=True, callback=validate_model_callback, 
               help="[REQUIRED] Model to pretrain.")
 @click.option("--nodes", "-n", type=int, required=True, callback=validate_positive_int, 
               help="[REQUIRED] Number of nodes for training.")
@@ -1010,48 +1010,48 @@ def autotune():
               help="Custom GPU memory in GB (alternative to --resource-shape)")
 
 # multiple value options using our custom types
-@click.option("--tensor-parallel-sizes", "--tensor_parallel_sizes", "tensor_parallel_sizes", 
+@click.option("--tensor-parallel-sizes", 
               type=INT_LIST, default="1,2", 
               help="Tensor parallel sizes. Use comma-separated: --tensor-parallel-sizes 4,8,16")
 
-@click.option("--pipeline-parallel-sizes", "--pipeline_parallel_sizes", "pipeline_parallel_sizes", 
+@click.option("--pipeline-parallel-sizes",
               type=INT_LIST_OR_AUTO, default="1,2",
               help="Pipeline parallel sizes. Use 'auto' or comma-separated: --pipeline-parallel-sizes 1,2,4")
 
-@click.option("--context-parallel-sizes", "--context_parallel_sizes", "context_parallel_sizes", 
+@click.option("--context-parallel-sizes",
               type=INT_LIST, default="1,2",
               help="Context parallel sizes. Use comma-separated: --context-parallel-sizes 1,2,4")
 
-@click.option("--micro-batch-sizes", "--micro_batch_sizes", "micro_batch_sizes", 
+@click.option("--micro-batch-sizes",
               type=INT_LIST_OR_AUTO, default="1,2,4",
               help="Micro batch sizes. Use 'auto' or comma-separated: --micro-batch-sizes 1,2,4,8")
 
-@click.option("--global-batch-sizes", "--global_batch_sizes", "global_batch_sizes", 
+@click.option("--global-batch-sizes",
               type=INT_LIST_OR_AUTO, default="512",
               help="Global batch sizes. Use 'auto' or comma-separated: --global-batch-sizes 64,128,256,512")
 
-@click.option("--virtual-pipeline-model-parallel-sizes", "--virtual_pipeline_model_parallel_sizes", "virtual_pipeline_model_parallel_sizes", 
+@click.option("--virtual-pipeline-model-parallel-sizes",
               type=INT_LIST, default=None,
               help="Virtual pipeline sizes. Use comma-separated: --virtual-pipeline-model-parallel-sizes 2,4")
 
 # Single value options
-@click.option("--max-model-parallel-size", "--max_model_parallel_size", "max_model_parallel_size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
-@click.option("--min-model-parallel-size", "--min_model_parallel_size", "min_model_parallel_size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
-@click.option("--max-steps-per-run", "--max_steps_per_run", "max_steps_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
-@click.option("--max-minutes-per-run", "--max_minutes_per_run", "max_minutes_per_run", type=int, default=10, callback=validate_positive_int, help="Maximum minutes per run for testing.")
-@click.option("--num-tokens-in-b", "--num_tokens_in_b", "num_tokens_in_b", type=int, default=15000, callback=validate_positive_int, help="Number of tokens in billions.")
-@click.option("--vocab-size", "--vocab_size", "vocab_size", type=int, default=32000, callback=validate_positive_int, help="Vocabulary size.")
-@click.option("--seq-length", "--seq_length", "seq_length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
-@click.option("--val-check-interval", "--val_check_interval", "val_check_interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
-@click.option("--max-steps", "--max_steps", "max_steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
-@click.option("--output-dir", "--output_dir", "output_dir", type=str, default="generated_configs", help="Directory to save generated configurations.")
+@click.option("--max-model-parallel-size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
+@click.option("--min-model-parallel-size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
+@click.option("--max-steps-per-run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
+@click.option("--max-minutes-per-run", type=int, default=10, callback=validate_positive_int, help="Maximum minutes per run for testing.")
+@click.option("--num-tokens-in-b", type=int, default=15000, callback=validate_positive_int, help="Number of tokens in billions.")
+@click.option("--vocab-size", type=int, default=32000, callback=validate_positive_int, help="Vocabulary size.")
+@click.option("--seq-length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
+@click.option("--val-check-interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
+@click.option("--max-steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
+@click.option("--output-dir", type=str, default="generated_configs", help="Directory to save generated configurations.")
 
 # new dynamic executor options
-@click.option("--container-image", "--container_image", "container_image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")
-@click.option("--nemo-run-dir", "--nemo_run_dir", "nemo_run_dir", type=str, default="/nemo-workspace/nemo-run", help="Directory for nemo-run.")
-@click.option("--hf-token", "--hf_token", "hf_token", type=str, default=None, help="HuggingFace token (optional).")
-@click.option("--wandb-api-key", "--wandb_api_key", "wandb_api_key", type=str, default=None, help="Weights & Biases API key (optional).")
-@click.option("--torch-home", "--torch_home", "torch_home", type=str, default="/nemo-workspace/.cache", help="PyTorch cache directory.")
+@click.option("--container-image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")
+@click.option("--nemo-run-dir", type=str, default="/nemo-workspace/nemo-run", help="Directory for nemo-run.")
+@click.option("--hf-token", type=str, default=None, help="HuggingFace token (optional).")
+@click.option("--wandb-api-key", type=str, default=None, help="Weights & Biases API key (optional).")
+@click.option("--torch-home", type=str, default="/nemo-workspace/.cache", help="PyTorch cache directory.")
 @click.option("--pythonpath", type=str, default="/nemo-workspace/nemo-run:$PYTHONPATH", help="Python path configuration.")
 def generate(**kwargs):
     """Generate AutoTune configurations for NeMo pretraining."""
@@ -1131,7 +1131,7 @@ def generate(**kwargs):
 
 
 @autotune.command()
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
 @click.option("--sequential", is_flag=True, default=False, help="Run configurations sequentially instead of in parallel.")
 @click.option("--run-all", "--run_all", "run_all", is_flag=True, default=False, help="Run all configurations including those with potential CUDA OOM risk.")
@@ -1212,12 +1212,12 @@ def run(config_dir, model, sequential, run_all):
 
 
 @autotune.command()
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
+@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
 @click.option("--path", "-p", type=str, required=True, help="[REQUIRED] Path to AutoConfigurator logs directory.")
-@click.option("--log-prefix", "--log_prefix", "log_prefix", type=str, required=True, help="[REQUIRED] Log file prefix for result files.")
-@click.option("--output-file", "--output_file", "output_file", type=str, required=True, help="[REQUIRED] File path to save results.")
-@click.option("--top-n", "--top_n", "top_n", type=int, default=10, callback=validate_positive_int, help="Number of top configurations to display.")
+@click.option("--log-prefix", type=str, required=True, help="[REQUIRED] Log file prefix for result files.")
+@click.option("--output-file", type=str, required=True, help="[REQUIRED] File path to save results.")
+@click.option("--top-n", type=int, default=10, callback=validate_positive_int, help="Number of top configurations to display.")
 @click.option("--force-reconstruct", is_flag=True, default=False, help="Force reconstruction instead of using saved objects.")
 def results(config_dir, model, path, log_prefix, output_file, top_n,force_reconstruct):
     """Collect and display AutoConfigurator results."""
@@ -1322,7 +1322,7 @@ def analyse_results(config_dir, model, cost_per_node_hour):
 
 
 @autotune.command()
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
+@click.option("--config-dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
 def list_configs(config_dir, model):
     """List generated AutoTune configurations with detailed status."""
@@ -1377,9 +1377,9 @@ def list_models():
 
 
 @autotune.command(name="check-memory")
-@click.option("--config-dir", "--config_dir", "config_dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
+@click.option("--config-dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
-@click.option("--safety-margin", "--safety_margin", "safety_margin", type=float, default=5.0, callback=validate_positive_float, help="Safety margin in GB to leave unused (default: 5.0).")
+@click.option("--safety-margin", type=float, default=5.0, callback=validate_positive_float, help="Safety margin in GB to leave unused (default: 5.0).")
 def check_memory(config_dir, model, safety_margin):
     """Check CUDA memory usage for all generated configurations."""
     console.print(f" Analyzing CUDA memory usage for configurations...")
