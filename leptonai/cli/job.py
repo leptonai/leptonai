@@ -36,7 +36,7 @@ def _display_jobs_table(jobs: List[LeptonJob], *, detail: bool = False):
     table.add_column("ID")
     table.add_column("CreatedAt")
     table.add_column("State")
-    table.add_column("Owner")
+    table.add_column("User ID")
     table.add_column("NodeGroup")
 
     if detail:
@@ -813,7 +813,7 @@ def list_command(state, user, name_or_id, node_group, detail):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -858,6 +858,14 @@ def remove_all(state, user, name, node_group):
     job_filtered = _filter_jobs(
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
+
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: remove-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
 
     _display_jobs_table(job_filtered)
 
@@ -905,7 +913,7 @@ def remove_all(state, user, name, node_group):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -950,6 +958,14 @@ def stop_all(state, user, name, node_group):
     job_filtered = _filter_jobs(
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
+
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: stop-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
 
     _display_jobs_table(job_filtered)
 
