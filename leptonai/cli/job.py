@@ -30,7 +30,7 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob]):
+def _display_jobs_table(jobs: List[LeptonJob], *, detail: bool = False):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name")
     table.add_column("ID")
@@ -39,6 +39,12 @@ def _display_jobs_table(jobs: List[LeptonJob]):
     table.add_column("Owner")
     table.add_column("NodeGroup")
 
+    if detail:
+        table.add_column("Workers", justify="right")
+        table.add_column("Shape")
+
+    total_workers = 0  # Keep track of total workers across jobs
+
     for job in jobs:
         ng_str = (
             "\n".join(job.spec.affinity.allowed_dedicated_node_groups).lower()
@@ -46,7 +52,8 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             else ""
         )
         status = job.status
-        table.add_row(
+
+        base_cols = [
             job.metadata.name,
             job.metadata.id_,
             (
@@ -59,7 +66,21 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             f"{status.state}",
             job.metadata.owner,
             ng_str,
-        )
+        ]
+
+        if detail:
+            workers = job.spec.completions or job.spec.parallelism or 1
+            shape = job.spec.resource_shape or "-"
+            base_cols.extend([str(workers), shape])
+
+            total_workers += workers  # Accumulate workers when detail is requested
+
+        table.add_row(*base_cols)
+
+    # After populating table, print total workers if detail view is enabled
+    if detail:
+        console.print(f"Total Workers: [cyan]{total_workers}[/]")
+
     table.title = "Jobs"
     console.print(table)
 
@@ -739,7 +760,13 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(state, user, name_or_id, node_group):
+# Detail flag
+@click.option(
+    "--detail",
+    is_flag=True,
+    help="Show additional columns (Workers, Resource Shape).",
+)
+def list_command(state, user, name_or_id, node_group, detail):
     """
     Lists all jobs in the current workspace.
 
@@ -764,7 +791,7 @@ def list_command(state, user, name_or_id, node_group):
         node_group_patterns=node_group,
     )
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, detail=detail)
 
 
 @job.command()
