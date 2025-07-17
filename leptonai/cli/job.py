@@ -261,6 +261,18 @@ def make_container_port_from_string(port_str: str):
     ),
     type=str,
 )
+# Template-based creation options
+@click.option(
+    "--template",
+    "-t",
+    help="template ID to render the job specification from.",
+    type=str,
+)
+@click.option(
+    "--run",
+    help='Command string ("run") to substitute into the template.',
+    type=str,
+)
 # Container specification options
 @click.option(
     "--container-image",
@@ -480,6 +492,8 @@ def make_container_port_from_string(port_str: str):
 def create(
     name,
     file,
+    template,
+    run,
     container_image,
     container_port,
     command,
@@ -512,8 +526,20 @@ def create(
     # Initialize API client
     client = APIClient()
 
-    # Load job specification from file if provided
-    if file:
+    # Load job specification from template or file
+    if run is not None and template is None:
+        console.print("[red]Error[/]: --run can only be used together with --template.")
+        sys.exit(1)
+
+    if template:
+        try:
+            payload = {"run": run} if run else {}
+            rendered_job = client.template.render(template, payload)
+            job_spec = rendered_job.spec
+        except Exception as e:
+            console.print(f"[red]Failed to render template[/]: {e}")
+            sys.exit(1)
+    elif file:
         try:
             with open(file, "r") as f:
                 content = f.read()
