@@ -378,8 +378,8 @@ def generate_recipe_configs(args):
     # Save generated configs and check for matches
     save_generated_configs(args.model, base_config, configs)
     
-    base_config_path = f"generated_configs/{args.model}/base_config.json"
-    generated_configs_dir = f"generated_configs/{args.model}"
+    base_config_path = f"/nemo-workspace/autotuner/generated_configs/{args.model}/base_config.json"
+    generated_configs_dir = f"/nemo-workspace/autotuner/generated_configs/{args.model}"
 
     has_matches, matching_files = check_config_matches(base_config_path, generated_configs_dir)
     
@@ -416,10 +416,9 @@ def save_generated_configs(model_name: str, base_config, configs: Dict):
         base_config: Base configuration object
         configs: Dictionary of configuration objects
     """
-    os.makedirs("generated_configs", exist_ok=True)
-    model_dir = os.path.join("generated_configs", model_name)
+    os.makedirs("/nemo-workspace/autotuner/generated_configs", exist_ok=True)
+    model_dir = os.path.join("/nemo-workspace/autotuner/generated_configs", model_name)
     os.makedirs(model_dir, exist_ok=True)
-
     with open(os.path.join(model_dir, "base_config.json"), "w") as f:
         json.dump(base_config.__dict__, f, indent=4, default=str)
 

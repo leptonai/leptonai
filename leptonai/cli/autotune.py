@@ -494,14 +494,14 @@ class AutoTuneArgs:
 # UTILITY FUNCTIONS
 # ============================================================================
 
-def get_args_file_path(model, output_dir="generated_configs"):
+def get_args_file_path(model, config_dir):
     """Get the standard path for the args file."""
-    return os.path.join(output_dir, model, "args.json")
+    return os.path.join(config_dir, model, "args.json")
 
 
-def update_args_with_generation_metadata(model_name, result, output_dir="generated_configs"):
+def update_args_with_generation_metadata(model_name, result, config_dir):
     """Update the args.json file with generation metadata."""
-    args_file_path = get_args_file_path(model_name, output_dir)
+    args_file_path = get_args_file_path(model_name, config_dir)
     
     # Load existing args
     args = AutoTuneArgs.load_from_file(args_file_path)
@@ -512,9 +512,9 @@ def update_args_with_generation_metadata(model_name, result, output_dir="generat
     return args_file_path
 
 
-def update_args_with_performance_results(model_name, performance_dict, output_dir="generated_configs"):
+def update_args_with_performance_results(model_name, performance_dict, config_dir):
     """Update the args.json file with performance results."""
-    args_file_path = get_args_file_path(model_name, output_dir)
+    args_file_path = get_args_file_path(model_name, config_dir)
     
     # Load existing args
     args = AutoTuneArgs.load_from_file(args_file_path)
@@ -1044,7 +1044,7 @@ def autotune():
 @click.option("--seq-length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
 @click.option("--val-check-interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
 @click.option("--max-steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
-@click.option("--output-dir", type=str, default="generated_configs", help="Directory to save generated configurations.")
+@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory to save generated configurations.")
 
 # new dynamic executor options
 @click.option("--container-image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")
@@ -1088,7 +1088,7 @@ def generate(**kwargs):
         
         console.print("[green]Configuration validation passed![/green]")
         
-        args_file_path = get_args_file_path(args.model, kwargs['output_dir'])
+        args_file_path = get_args_file_path(args.model, kwargs['config_dir'])
         args.save_to_file(args_file_path)
         console.print(f"[blue]Arguments saved to: {args_file_path}[/blue]")
         
@@ -1096,11 +1096,11 @@ def generate(**kwargs):
 
         result = generate_recipe_configs(args)
     
-        update_args_with_generation_metadata(args.model, result, kwargs['output_dir'])
+        update_args_with_generation_metadata(args.model, result, kwargs['config_dir'])
         console.print(f"[blue]Metadata and objects saved to: {args_file_path}[/blue]")
         
         console.print("[green]Configurations generated successfully![/green]")
-        console.print(f"Saved to: {os.path.join(kwargs['output_dir'], args.model)}")
+        console.print(f"Saved to: {os.path.join(kwargs['config_dir'], args.model)}")
         console.print(f"Generated {result['num_configs_generated']} configurations")
         
         memory_analysis = result.get('memory_analysis', {})
@@ -1186,7 +1186,7 @@ def run(config_dir, model, sequential, run_all):
             memory_analysis=memory_analysis,
             run_all=run_all
         )
-        
+            
         if run_result['status'] == 'no_configs_to_run':
             console.print("[red] No configurations were run![/red]")
             console.print("[yellow]All configurations were filtered out due to potential CUDA OOM.[/yellow]")
@@ -1322,7 +1322,7 @@ def analyse_results(config_dir, model, cost_per_node_hour):
 
 
 @autotune.command()
-@click.option("--config-dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
+@click.option("--config-dir", type=str, help="Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
 def list_configs(config_dir, model):
     """List generated AutoTune configurations with detailed status."""
@@ -1377,7 +1377,7 @@ def list_models():
 
 
 @autotune.command(name="check-memory")
-@click.option("--config-dir", type=str, default="generated_configs", help="Directory containing generated configurations.")
+@click.option("--config-dir", type=str, help="Directory containing generated configurations.")
 @click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
 @click.option("--safety-margin", type=float, default=5.0, callback=validate_positive_float, help="Safety margin in GB to leave unused (default: 5.0).")
 def check_memory(config_dir, model, safety_margin):
