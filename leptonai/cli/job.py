@@ -14,6 +14,7 @@ from .util import (
     check,
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
+    build_dashboard_job_url,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -30,7 +31,7 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob]):
+def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name / ID")
     table.add_column("Created At")
@@ -52,8 +53,11 @@ def _display_jobs_table(jobs: List[LeptonJob]):
 
         # Combine name and ID into a single two-line cell
         # Apply rich markup: bold green for name, dim color for ID
+        # Construct hyperlink for job ID
+        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
         name_id_cell = (
-            f"[bold green]{job.metadata.name}[/]\n[bright_black]{job.metadata.id_}[/]"
+            f"[bold green]{job.metadata.name}[/]\n"
+            f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
         )
         workers = job.spec.completions or job.spec.parallelism or 1
         shape = job.spec.resource_shape or "-"
@@ -793,7 +797,7 @@ def list_command(state, user, name_or_id, node_group):
         node_group_patterns=node_group,
     )
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
 
 @job.command()
@@ -869,7 +873,7 @@ def remove_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -969,7 +973,7 @@ def stop_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
