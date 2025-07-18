@@ -51,9 +51,6 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         )
         status = job.status
 
-        # Combine name and ID into a single two-line cell
-        # Apply rich markup: bold green for name, dim color for ID
-        # Construct hyperlink for job ID
         job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
         name_id_cell = (
             f"[bold green]{job.metadata.name}[/]\n"

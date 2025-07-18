@@ -218,6 +218,4 @@ def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
     Example output:
         https://dashboard.dgxc-lepton.nvidia.com/workspace/<ws>/compute/jobs/detail/<job>/replicas/list
     """
-    return (
-        f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"
-    )
+    return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"
