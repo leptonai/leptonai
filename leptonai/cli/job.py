@@ -33,11 +33,11 @@ from leptonai.api.v2.client import APIClient
 def _display_jobs_table(jobs: List[LeptonJob]):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name / ID")
-    table.add_column("CreatedAt")
+    table.add_column("Created At")
     table.add_column("State")
     table.add_column("User ID")
-    table.add_column("NodeGroup")
-    table.add_column("Workers", justify="right")
+    table.add_column("Node Group")
+    table.add_column("Workers")
     table.add_column("Shape")
 
     shape_totals = {}
@@ -72,15 +72,25 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             str(workers),
             shape,
         ]
-        shape_totals[shape] = shape_totals.get(shape, 0) + workers
+        # Count workers towards utilization only if job is actively consuming resources
+        if status.state in {
+            LeptonJobState.Running,
+            LeptonJobState.Restarting,
+            LeptonJobState.Deleting,
+        }:
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
         table.add_row(*base_cols)
 
     table.title = "Jobs"
     console.print(table)
 
-    console.print("[bold]Resource Utilization Summary:[/]")
+    console.print(
+        "[bold]Resource Utilization Summary for above jobs "
+        "(Running / Restarting / Deleting only):[/]"
+    )
     for shape, count in sorted(shape_totals.items()):
         console.print(f"  {shape}: [cyan]{count}[/]")
+    console.print("\n")
 
 
 def _filter_jobs(
