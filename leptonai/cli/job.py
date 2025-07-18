@@ -30,20 +30,17 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob], *, detail: bool = False):
+def _display_jobs_table(jobs: List[LeptonJob]):
     table = Table(show_header=True, show_lines=True)
-    table.add_column("Name")
-    table.add_column("ID")
+    table.add_column("Name / ID")
     table.add_column("CreatedAt")
     table.add_column("State")
     table.add_column("User ID")
     table.add_column("NodeGroup")
+    table.add_column("Workers", justify="right")
+    table.add_column("Shape")
 
-    if detail:
-        table.add_column("Workers", justify="right")
-        table.add_column("Shape")
-
-    total_workers = 0  # Keep track of total workers across jobs
+    shape_totals = {}
 
     for job in jobs:
         ng_str = (
@@ -53,9 +50,15 @@ def _display_jobs_table(jobs: List[LeptonJob], *, detail: bool = False):
         )
         status = job.status
 
+        # Combine name and ID into a single two-line cell
+        # Apply rich markup: bold green for name, dim color for ID
+        name_id_cell = (
+            f"[bold green]{job.metadata.name}[/]\n[bright_black]{job.metadata.id_}[/]"
+        )
+        workers = job.spec.completions or job.spec.parallelism or 1
+        shape = job.spec.resource_shape or "-"
         base_cols = [
-            job.metadata.name,
-            job.metadata.id_,
+            name_id_cell,
             (
                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
                     "%Y-%m-%d\n%H:%M:%S"
@@ -66,23 +69,18 @@ def _display_jobs_table(jobs: List[LeptonJob], *, detail: bool = False):
             f"{status.state}",
             job.metadata.owner,
             ng_str,
+            str(workers),
+            shape,
         ]
-
-        if detail:
-            workers = job.spec.completions or job.spec.parallelism or 1
-            shape = job.spec.resource_shape or "-"
-            base_cols.extend([str(workers), shape])
-
-            total_workers += workers  # Accumulate workers when detail is requested
-
+        shape_totals[shape] = shape_totals.get(shape, 0) + workers
         table.add_row(*base_cols)
-
-    # After populating table, print total workers if detail view is enabled
-    if detail:
-        console.print(f"Total Workers: [cyan]{total_workers}[/]")
 
     table.title = "Jobs"
     console.print(table)
+
+    console.print("[bold]Resource Utilization Summary:[/]")
+    for shape, count in sorted(shape_totals.items()):
+        console.print(f"  {shape}: [cyan]{count}[/]")
 
 
 def _filter_jobs(
@@ -760,13 +758,7 @@ def create(
     required=False,
     multiple=True,
 )
-# Detail flag
-@click.option(
-    "--detail",
-    is_flag=True,
-    help="Show additional columns (Workers, Resource Shape).",
-)
-def list_command(state, user, name_or_id, node_group, detail):
+def list_command(state, user, name_or_id, node_group):
     """
     Lists all jobs in the current workspace.
 
@@ -791,7 +783,7 @@ def list_command(state, user, name_or_id, node_group, detail):
         node_group_patterns=node_group,
     )
 
-    _display_jobs_table(job_filtered, detail=detail)
+    _display_jobs_table(job_filtered)
 
 
 @job.command()
