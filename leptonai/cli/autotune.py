@@ -1,47 +1,117 @@
 import pickle
 import base64
 import re
-from typing import List, Optional
 import click
 import sys
 import os
 import json
 import datetime
+import logging
+from contextlib import contextmanager
+from typing import Dict, Any, List, Optional, Tuple
+from rich.console import Console
+from rich.table import Table
+from rich import print as rprint
 
 from loguru import logger
-from rich.table import Table
 
 from .util import (
     console,
     click_group,
 )
 
-from leptonai.api.v2.autotune_core import (
+from leptonai.api.v2.autotune import (
     generate_recipe_configs,
     run_pretraining_only,
-    get_results_with_output,
     check_cuda_oom_risk,
     validate_configurations_memory,
+    estimate_model_memory_usage_conservative,
+    lepton_executor,
 )
 
-from leptonai.api.v2.autotune_utils import (
+from leptonai.util.autotune import (
     validate_all_configs,
     check_config_matches,
     extract_all_values,          
-    extract_gpu_specs,
+    extract_gpu_specs_unified,
     create_log_dir_name,
     get_supported_models,
     validate_model_support,
 )
 
+# Check NeMo availability
 try:
-    from nemo.collections import llm
-    import nemo_run as run
+    from nemo.collections.llm.tools.auto_configurator import get_results
     NEMO_AVAILABLE = True
-except ImportError as e:
-    logger.error(f"Failed to import NeMo modules: {e}")
-    logger.error("Please ensure NeMo is properly installed")
+except ImportError:
     NEMO_AVAILABLE = False
+
+from .autotune_display import (
+    _display_memory_analysis,
+    _display_configs_table,
+    display_performance_analysis,
+)
+
+console = Console()
+
+@contextmanager
+def capture_output_to_file(output_file: str, mode: str = 'w', show_in_terminal: bool = True):
+    """
+    Context manager to capture all console output and redirect to file.
+    
+    Args:
+        output_file: Path to output file
+        mode: File mode ('w' for write, 'a' for append)
+        show_in_terminal: Whether to also show output in terminal
+    """
+    if output_file:
+        # Only create directory if there is a directory path
+        output_dir = os.path.dirname(output_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Store original stdout and console
+        original_stdout = sys.stdout
+        original_console = console
+        
+        try:
+            with open(output_file, mode) as f:
+                if show_in_terminal:
+                    # Create a console that writes to both file and terminal
+                    file_console = Console(file=f, force_terminal=True)
+                else:
+                    # Create a console that only writes to file
+                    file_console = Console(file=f, force_terminal=False)
+                
+                # Replace the global console temporarily
+                import leptonai.cli.autotune_display
+                leptonai.cli.autotune_display.console = file_console
+                
+                # Also capture stdout for any print statements
+                sys.stdout = f
+                
+                yield file_console
+                
+        finally:
+            # Restore original stdout and console
+            sys.stdout = original_stdout
+            leptonai.cli.autotune_display.console = original_console
+    else:
+        yield console
+
+
+def capture_all_output_to_file(output_file: str, show_in_terminal: bool = True):
+    """
+    Helper function to capture all output to a file with proper formatting.
+    
+    Args:
+        output_file: Path to output file
+        show_in_terminal: Whether to also show output in terminal
+    
+    Returns:
+        Context manager for output capture
+    """
+    return capture_output_to_file(output_file, mode='w', show_in_terminal=show_in_terminal)
 
 
 # ============================================================================
@@ -227,6 +297,7 @@ class AutoTuneArgs:
         self.tensor_parallel_sizes = kwargs.get('tensor_parallel_sizes', [1, 2])
         self.pipeline_parallel_sizes = kwargs.get('pipeline_parallel_sizes', 'auto')
         self.context_parallel_sizes = kwargs.get('context_parallel_sizes', [1, 2])
+        self.expert_parallel_sizes = kwargs.get('expert_parallel_sizes', [1])
         self.virtual_pipeline_model_parallel_sizes = kwargs.get('virtual_pipeline_model_parallel_sizes', None)
         self.micro_batch_sizes = kwargs.get('micro_batch_sizes', 'auto')
         self.max_model_parallel_size = kwargs.get('max_model_parallel_size', 8)
@@ -357,6 +428,7 @@ class AutoTuneArgs:
             'tensor_parallel_sizes': self.tensor_parallel_sizes,
             'pipeline_parallel_sizes': self.pipeline_parallel_sizes,
             'context_parallel_sizes': self.context_parallel_sizes,
+            'expert_parallel_sizes': self.expert_parallel_sizes,
             'virtual_pipeline_model_parallel_sizes': self.virtual_pipeline_model_parallel_sizes,
             'micro_batch_sizes': self.micro_batch_sizes,
             'max_model_parallel_size': self.max_model_parallel_size,
@@ -530,364 +602,6 @@ def update_args_with_performance_results(model_name, performance_dict, config_di
 # DISPLAY FUNCTIONS
 # ============================================================================
 
-def _display_memory_analysis(memory_analysis):
-    if not memory_analysis:
-        console.print("[yellow]No memory analysis available[/yellow]")
-        return
-    
-    console.print(f"\n[cyan] CUDA Memory Analysis & Run Status[/cyan]")
-    table = Table(show_header=True, show_lines=True, title="Memory Usage Analysis & Execution Status")
-    table.add_column("Configuration", style="cyan", width=40)
-    table.add_column("Memory Status", style="white", width=12)
-    table.add_column("Run Status", style="white", width=12)
-    table.add_column("Est. Usage (GB)", style="blue", width=15)
-    table.add_column("GPU Memory (GB)", style="green", width=15)
-    
-    oom_count = 0
-    safe_count = 0
-    
-    for config_name, analysis in memory_analysis.items():
-        will_oom = analysis.get('will_oom', False)
-        usage_gb = analysis.get('estimated_usage_gb', 0)
-        total_gb = analysis.get('total_gpu_memory_gb', 0)
-        config_values = analysis.get('config_values', {})
-        
-        if will_oom:
-            memory_status = "[red]⚠ OOM Risk[/red]"
-            run_status = "[red]Skip[/red]"
-            oom_count += 1
-        else:
-            memory_status = "[green]Safe[/green]"
-            run_status = "[green]▶ Run[/green]"
-            safe_count += 1
-        
-        if config_name != "base_config" and all(v in [1, 512, 8192] for v in [
-            config_values.get('tp', 1), config_values.get('mbs', 1), config_values.get('gbs', 512)
-        ]):
-            config_values = extract_all_values(config_name)
-        
-        table.add_row(
-            config_name,
-            memory_status,
-            run_status,
-            f"{usage_gb:.1f}",
-            f"{total_gb:.0f}"
-        )
-    
-    console.print(table)
-    console.print(f"\n[cyan]Memory Analysis Summary:[/cyan]")
-    console.print(f"Safe configurations (will run): {safe_count}")
-    console.print(f"Potential OOM configurations (will be skipped): {oom_count}")
-    
-    if oom_count > 0:
-        console.print(f"\n[yellow]⚠ Warning: {oom_count} configurations will be SKIPPED during 'lep autotune run'[/yellow]")
-        console.print("[yellow]These configurations may cause CUDA OOM errors[/yellow]")
-        console.print("[blue]To run them anyway: use 'lep autotune run --run-all'[/blue]")
-        console.print("[blue] To fix: reduce micro batch sizes or increase parallelism[/blue]")
-
-
-def _display_configs_table(config_dir, model_name=None):
-    """Display a table of configuration files with their details and status."""
-    # load args to get metadata
-    try:
-        if not model_name:
-            # try to infer model name from directory structure
-            model_name = os.path.basename(config_dir)
-        
-        args_file_path = os.path.join(config_dir, "args.json")
-        if os.path.exists(args_file_path):
-            args = AutoTuneArgs.load_from_file(args_file_path)
-            metadata = args.metadata
-            has_metadata = bool(metadata)
-        else:
-            console.print(f"[yellow]No args.json found in {config_dir}[/yellow]")
-            metadata = {}
-            has_metadata = False
-            args = None
-            
-    except Exception as e:
-        console.print(f"[yellow]Could not load metadata: {e}[/yellow]")
-        metadata = {}
-        has_metadata = False
-        args = None
-    
-    # get configuration files (exclude args.json)
-    all_files = os.listdir(config_dir)
-    json_files = [f for f in all_files if f.endswith('.json') and f not in ['args.json']]
-    
-    if not json_files:
-        console.print(f"[yellow]No configuration files found in: {config_dir}[/yellow]")
-        return
-    
-    base_config_matches = metadata.get('base_config_matches', [])
-    config_names = metadata.get('config_names', [])
-    num_configs_generated = metadata.get('num_configs_generated', len(json_files) - 1)
-    total_gpus = metadata.get('total_gpus', 'Unknown')
-    generation_timestamp = metadata.get('generation_timestamp', 'Unknown')
-    
-    table = Table(show_header=True, show_lines=True, title=f"Configuration Files - {model_name or 'Unknown Model'}")
-    table.add_column("Filename", style="cyan")
-    table.add_column("Status", style="green")  
-    table.add_column("Size", style="white")
-    
-    for filename in sorted(json_files):
-        filepath = os.path.join(config_dir, filename)
-        
-        try:
-            stat = os.stat(filepath)
-            size = f"{stat.st_size:,} bytes"
-        except Exception as e:
-            size = f"[red]Error: {e}[/red]"
-        
-        if filename == "base_config.json":
-            if base_config_matches:
-                status = f"[yellow]Base Config (equivalent to: {', '.join(base_config_matches)})[/yellow]"
-            else:
-                status = "[bold green]Base Config[/bold green]"
-        else:
-            config_name = filename.replace('.json', '')
-            
-            if has_metadata:
-                if config_name in base_config_matches:
-                    status = "[blue]Base Config Match[/blue]"
-                elif config_name in config_names:
-                    status = "[green]Generated[/green]"
-                else:
-                    status = "[dim]Unknown[/dim]"
-            else:
-                status = "[green]Generated[/green]"
-        
-        table.add_row(filename, status, size)
-    
-    console.print(table)
-    
-    console.print(f"\n[cyan]📋 Summary:[/cyan]")
-    if has_metadata:
-        console.print(f"Model: {model_name}")
-        console.print(f"Total GPUs: {total_gpus}")
-        if args and hasattr(args, 'global_batch_sizes'):
-            console.print(f"Global batch sizes: {args.global_batch_sizes}")
-        if args and hasattr(args, 'resource_shape'):
-            console.print(f"Resource shape: {args.resource_shape}")
-        console.print(f"Generated configurations: {num_configs_generated}")
-        console.print(f"Base config matches: {len(base_config_matches)}")
-        console.print(f"Configuration files: {len(json_files)}")
-        
-        if generation_timestamp != 'Unknown':
-            console.print(f"Generated: {generation_timestamp}")
-        
-        # show memory analysis if available
-        if args and args.has_memory_analysis():
-            memory_analysis = args.get_memory_analysis()
-            _display_memory_analysis(memory_analysis)
-            
-            # note about run behavior
-            oom_configs = [name for name, analysis in memory_analysis.items() if analysis.get("will_oom", False)]
-            if oom_configs:
-                console.print(f"\n[yellow]Run Behavior Notes:[/yellow]")
-                console.print(f"  • By default, 'lep autotune run' will SKIP the {len(oom_configs)} flagged configuration(s)")
-                console.print(f"  • Use 'lep autotune run --run-all' to run ALL configurations including potential OOM ones")
-                console.print(f"  • Use 'lep autotune check-memory' to see detailed memory breakdown")
-        
-        # show performance results status
-        if args and args.has_performance_results():
-            results_timestamp = metadata.get('results_timestamp', 'Unknown')
-            performance_dict = args.get_performance_dict()
-            console.print(f"Performance Results: Available ({len(performance_dict)} configs)")
-            if results_timestamp != 'Unknown':
-                console.print(f"Results analyzed: {results_timestamp}")
-            console.print("[green] Use 'lep autotune analyse-results' to analyze performance[/green]")
-        else:
-            console.print("[yellow]Performance Results: Not available[/yellow]")
-            console.print("[yellow]Run 'lep autotune results' to generate performance data[/yellow]")
-        
-        if base_config_matches:
-            console.print(f"\n[yellow]Note:[/yellow] Base config is equivalent to: {', '.join(base_config_matches)}")
-            console.print("[yellow]These configurations will not be run separately during training.[/yellow]")
-            
-    else:
-        console.print(f"Configuration files: {len(json_files)}")
-        console.print("[yellow]No metadata available. Re-run 'lep autotune generate' for detailed status.[/yellow]")
-    
-
-def _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_node_hour):
-    """Analyze performance results with multiple global batch sizes."""
-    if not performance_dict:
-        console.print("[yellow]No performance data to analyze[/yellow]")
-        return
-    
-    total_gpus = args.nodes * args.gpus_per_node
-
-    # calculate cost and time for each configuration
-    config_analysis = {}
-    for config_name, config_data in performance_dict.items():
-        time_per_step = config_data.get('time_per_global_step', 0)
-        m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
-        
-        extracted_values = extract_all_values(config_name)
-        gbs = extracted_values.get('gbs')
-        print(f"{config_name}, {gbs}")
-        if gbs is None:
-            gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
-            print("GBS could not be extracted")
-            logger.warning(f"Could not extract GBS from {config_name}, using {gbs}")
-        
-        # calculate tokens per step for this specific config
-        tokens_per_step = args.seq_length * gbs
-        total_steps = total_tokens / tokens_per_step
-        
-        # calculate total training time and cost
-        total_training_time_seconds = time_per_step * total_steps
-        total_training_time_hours = total_training_time_seconds / 3600
-        total_cost = total_training_time_hours * cost_per_node_hour * args.nodes
-        
-        config_analysis[config_name] = {
-            **config_data,
-            'gbs': gbs,
-            'tokens_per_step': tokens_per_step,
-            'total_steps': total_steps,
-            'total_training_time_hours': total_training_time_hours,
-            'total_training_time_days': total_training_time_hours / 24,
-            'total_cost': total_cost,
-            'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
-        }
-
-    # sort configurations by training time (ascending - best first)
-    sorted_configs = sorted(
-        config_analysis.items(),
-        key=lambda x: x[1].get('total_training_time_hours', float('inf')),
-        reverse=False
-    )
-
-    
-    best_config_name, best_config = sorted_configs[0]
-    worst_config_name, worst_config = sorted_configs[-1]
-    
-    # find base config (if exists)
-    base_config_matches = args.metadata.get('base_config_matches', [])
-    base_config_name = None
-    base_config = None
-    # look for base config in performance results
-    for config_name, config_data in config_analysis.items():
-        if config_name in base_config_matches or config_name == 'base_config':
-            base_config_name = config_name
-            base_config = config_data
-            print(f"Base Config in results is {base_config_name}")
-            break
-    
-    console.print("\n[cyan] Performance & Cost Analysis Summary[/cyan]")
-    console.print("=" * 80)
-    
-    # best performing configuration
-    console.print(f"\n[green]Best Performing Configuration: {best_config_name}[/green]")
-    console.print(f"  M-TFLOPs/GPU: {best_config.get('m_tflops_gpu', 'N/A'):.2f}")
-    console.print(f"  Time per Global Step: {best_config.get('time_per_global_step', 'N/A'):.4f}s")
-    console.print(f"  Total Training Time: {best_config.get('total_training_time_days', 'N/A'):.1f} days")
-    console.print(f"  Total Training Cost: ${best_config.get('total_cost', 'N/A'):,.2f}")
-    
-    # base config comparison (if available)
-    if base_config and base_config_name != best_config_name:
-        console.print(f"\n[blue]Base Configuration: {base_config_name}[/blue]")
-        console.print(f"  M-TFLOPs/GPU: {base_config.get('m_tflops_gpu', 'N/A'):.2f}")
-        console.print(f"  Time per Global Step: {base_config.get('time_per_global_step', 'N/A'):.4f}s")
-        console.print(f"  Total Training Time: {base_config.get('total_training_time_days', 'N/A'):.1f} days")
-        console.print(f"  Total Training Cost: ${base_config.get('total_cost', 'N/A'):,.2f}")
-        
-        # performance and cost comparison vs base
-        tflops_improvement = ((best_config.get('m_tflops_gpu', 0) - base_config.get('m_tflops_gpu', 0)) / base_config.get('m_tflops_gpu', 1)) * 100
-        time_savings = base_config.get('total_training_time_hours', 0) - best_config.get('total_training_time_hours', 0)
-        cost_savings = base_config.get('total_cost', 0) - best_config.get('total_cost', 0)
-        cost_savings_percent = (cost_savings / base_config.get('total_cost', 1)) * 100
-        
-        console.print(f"\n[yellow]Best vs Base Performance & Cost Savings:[/yellow]")
-        console.print(f"  M-TFLOPs/GPU improvement: {tflops_improvement:+.1f}%")
-        console.print(f"  Training time savings: {time_savings:.1f} hours ({time_savings/24:.1f} days)")
-        console.print(f"  Cost savings: ${cost_savings:,.2f} ({cost_savings_percent:+.1f}%)")
-        
-        if cost_savings > 0:
-            console.print(f"  [green] Total Savings: ${cost_savings:,.2f}[/green]")
-        else:
-            console.print(f"  [red] Additional Cost: ${abs(cost_savings):,.2f}[/red]")
-
-    # worst performing configuration
-    if worst_config_name != best_config_name:
-        console.print(f"\n[red]Worst Performing Configuration: {worst_config_name}[/red]")
-        console.print(f"  M-TFLOPs/GPU: {worst_config.get('m_tflops_gpu', 'N/A'):.2f}")
-        console.print(f"  Time per Global Step: {worst_config.get('time_per_global_step', 'N/A'):.4f}s")
-        console.print(f"  Total Training Time: {worst_config.get('total_training_time_days', 'N/A'):.1f} days")
-        console.print(f"  Total Training Cost: ${worst_config.get('total_cost', 'N/A'):,.2f}")
-        
-        # performance comparison best vs worst
-        time_diff = worst_config.get('total_training_time_hours', 0) - best_config.get('total_training_time_hours', 0)
-        cost_diff = worst_config.get('total_cost', 0) - best_config.get('total_cost', 0)
-        tflops_diff = ((best_config.get('m_tflops_gpu', 0) - worst_config.get('m_tflops_gpu', 0)) / worst_config.get('m_tflops_gpu', 1)) * 100
-        
-        console.print(f"\n[yellow] Best vs Worst Performance & Cost Difference:[/yellow]")
-        console.print(f"  M-TFLOPs/GPU difference: {tflops_diff:+.1f}%")
-        console.print(f"  Training time difference: {time_diff:.1f} hours ({time_diff/24:.1f} days)")
-        console.print(f"  Cost difference: ${cost_diff:,.2f}")
-        console.print(f"  [red]Potential waste with worst config: ${cost_diff:,.2f}[/red]")
-    
-    # create comprehensive performance & cost table
-    console.print(f"\n[cyan] Top 5 Configurations - Performance & Cost Analysis[/cyan]")
-    table = Table(show_header=True, show_lines=True, title="Performance & Cost Ranking")
-    table.add_column("Rank", style="yellow", width=6)
-    table.add_column("Configuration", style="cyan", width=70)
-    table.add_column("M-TFLOPs/GPU", style="green", width=12)
-    table.add_column("Training Days", style="blue", width=12)
-    table.add_column("Total Cost", style="red", width=12)
-    table.add_column("Status", style="white", width=15)
-    
-    for i, (config_name, config_data) in enumerate(sorted_configs[:5], 1):
-        status = "Generated"
-        if config_name in base_config_matches or config_name == 'base_config':
-            status = "Base Config"
-        elif i == 1:
-            status = " Best"
-        
-        table.add_row(
-            str(i),
-            config_name,
-            f"{config_data.get('m_tflops_gpu', 0):.2f}",
-            f"{config_data.get('total_training_time_days', 0):.1f}",
-            f"${config_data.get('total_cost', 0):,.0f}",
-            status
-        )
-    
-    console.print(table)
-    
-    console.print(f"\n[cyan] Cost Efficiency Analysis[/cyan]")
-    console.print("=" * 50)
-    
-    most_efficient = min(config_analysis.items(), key=lambda x: x[1].get('cost_per_tflop', float('inf')))
-    most_efficient_name, most_efficient_data = most_efficient
-    
-    console.print(f"Most Cost-Efficient: {most_efficient_name}")
-    console.print(f"  Total Cost: ${most_efficient_data.get('total_cost', 'N/A'):,.2f}")
-    console.print(f"  M-TFLOPs/GPU: {most_efficient_data.get('m_tflops_gpu', 'N/A'):.2f}")
-    
-    # recommendations
-    console.print(f"\n[cyan] Recommendations[/cyan]")
-    console.print("=" * 40)
-    console.print(f"Best Performance: '{best_config_name}'")
-    console.print(f"Most Cost-Efficient: '{most_efficient_name}'")
-    
-    if base_config:
-        if base_config_name != best_config_name:
-            savings = base_config.get('total_cost', 0) - best_config.get('total_cost', 0)
-            console.print(f"Switch from base config to save: ${savings:,.2f}")
-        else:
-            console.print(f"Base config is already optimal!")
-    
-    console.print("\n[green]Cost analysis completed successfully![/green]")
-
-    # _analyze_performance_results_with_cost(config_analysis, args, total_steps, cost_per_node_hour)
-
-
-# ============================================================================
-# VALIDATION FUNCTIONS
-# ============================================================================
-
 def validate_model_callback(ctx, param, value):
     """Validate that the specified model exists in the llm module."""
     if value is None:
@@ -965,9 +679,86 @@ def _load_args_from_config_dir(config_dir, model=None):
     return AutoTuneArgs.load_from_file(args_file_path)
 
 
+def calculate_performance_analysis(performance_dict, args, total_tokens, cost_per_node_hour):
+    """Calculate performance and cost analysis for all configurations."""
+    if not performance_dict:
+        return None
+    total_gpus = args.nodes * args.gpus_per_node
+    config_analysis = {}
+    for config_name, config_data in performance_dict.items():
+        time_per_step = config_data.get('time_per_global_step', 0)
+        m_tflops_gpu = config_data.get('m_tflops_gpu', 0)
+        extracted_values = extract_all_values(config_name)
+        gbs = extracted_values.get('gbs')
+        if gbs is None:
+            gbs = args.global_batch_sizes[0] if args.global_batch_sizes else 512
+        tokens_per_step = args.seq_length * gbs
+        total_steps = total_tokens / tokens_per_step
+        total_training_time_seconds = time_per_step * total_steps
+        total_training_time_hours = total_training_time_seconds / 3600
+        total_cost = total_training_time_hours * cost_per_node_hour * args.nodes
+        config_analysis[config_name] = {
+            **config_data,
+            'gbs': gbs,
+            'tokens_per_step': tokens_per_step,
+            'total_steps': total_steps,
+            'total_training_time_hours': total_training_time_hours,
+            'total_training_time_days': total_training_time_hours / 24,
+            'total_cost': total_cost,
+            'cost_per_tflop': total_cost / (m_tflops_gpu * total_gpus) if m_tflops_gpu > 0 else float('inf')
+        }
+    sorted_configs = sorted(
+        config_analysis.items(),
+        key=lambda x: x[1].get('total_training_time_hours', float('inf')),
+        reverse=False
+    )
+    return {
+        'config_analysis': config_analysis,
+        'sorted_configs': sorted_configs,
+        'args': args
+    }
+
+
 # ============================================================================
 # CLICK COMMAND GROUP AND COMMANDS
 # ============================================================================
+
+def common_options(f):
+    f = click.option("--model", type=str, required=True, callback=validate_model_callback, help="[REQUIRED] Model to pretrain.")(f)
+    f = click.option("--nodes", "-n", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] Number of nodes for training.")(f)
+    f = click.option("--gpus-per-node", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] GPUs per node.")(f)
+    f = click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount path in container.")(f)
+    f = click.option("--mount-from", type=str, required=True, help="[REQUIRED] Mount source.")(f)
+    f = click.option("--node-group", type=str, required=True, help="[REQUIRED] Node group for execution.")(f)
+    f = click.option("--logs-subdir", type=str, required=True, help="[REQUIRED] Logs subdirectory relative to mount-path. Example: autoconfigurator/logs")(f)
+    return f
+
+def config_model_options(f):
+    f = click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory to save/generated configurations.")(f)
+    f = click.option("--model", type=str, required=True, callback=validate_model_callback, help="[REQUIRED] Model to pretrain.")(f)
+    return f
+
+def batch_size_options(f):
+    f = click.option("--micro-batch-sizes", type=INT_LIST_OR_AUTO, default="1,2,4", help="Micro batch sizes. Use 'auto' or comma-separated: --micro-batch-sizes 1,2,4,8")(f)
+    f = click.option("--global-batch-sizes", type=INT_LIST_OR_AUTO, default="512", help="Global batch sizes. Use 'auto' or comma-separated: --global-batch-sizes 64,128,256,512")(f)
+    return f
+
+def parallelism_options(f):
+    f = click.option("--tensor-parallel-sizes", type=INT_LIST, default="1,2", help="Tensor parallel sizes. Use comma-separated: --tensor-parallel-sizes 4,8,16")(f)
+    f = click.option("--pipeline-parallel-sizes", type=INT_LIST_OR_AUTO, default="1,2", help="Pipeline parallel sizes. Use 'auto' or comma-separated: --pipeline-parallel-sizes 1,2,4")(f)
+    f = click.option("--context-parallel-sizes", type=INT_LIST, default="1,2", help="Context parallel sizes. Use comma-separated: --context-parallel-sizes 1,2,4")(f)
+    f = click.option("--expert-parallel-sizes", type=INT_LIST, default="1", help="Expert parallel sizes. Use comma-separated: --expert-parallel-sizes 1,2,4")(f)
+    f = click.option("--virtual-pipeline-model-parallel-sizes", type=INT_LIST, default=None, help="Virtual pipeline sizes. Use comma-separated: --virtual-pipeline-model-parallel-sizes 2,4")(f)
+    return f
+
+def dynamic_executor_options(f):
+    f = click.option("--container-image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")(f)
+    f = click.option("--nemo-run-dir", type=str, default="/nemo-workspace/nemo-run", help="Directory for nemo-run.")(f)
+    f = click.option("--hf-token", type=str, default=None, help="HuggingFace token (optional).") (f)
+    f = click.option("--wandb-api-key", type=str, default=None, help="Weights & Biases API key (optional).") (f)
+    f = click.option("--torch-home", type=str, default="/nemo-workspace/.cache", help="PyTorch cache directory.")(f)
+    f = click.option("--pythonpath", type=str, default="/nemo-workspace/nemo-run:$PYTHONPATH", help="Python path configuration.")(f)
+    return f
 
 @click_group()
 def autotune():
@@ -986,55 +777,13 @@ def autotune():
 
 
 @autotune.command()
-@click.option("--model", type=str, required=True, callback=validate_model_callback, 
-              help="[REQUIRED] Model to pretrain.")
-@click.option("--nodes", "-n", type=int, required=True, callback=validate_positive_int, 
-              help="[REQUIRED] Number of nodes for training.")
-@click.option("--gpus-per-node", type=int, required=True, callback=validate_positive_int, 
-              help="[REQUIRED] GPUs per node.")
-@click.option("--mount-path", type=str, required=True, 
-              help="[REQUIRED] Mount path in container.")
-@click.option("--mount-from", type=str, required=True, 
-              help="[REQUIRED] Mount source.")
-@click.option("--node-group", type=str, required=True, 
-              help="[REQUIRED] Node group for execution.")
-@click.option("--logs-subdir", type=str, required=True, 
-              help="[REQUIRED] Logs subdirectory relative to mount-path. Example: autoconfigurator/logs")
-              
-# either resource_shape OR memory_per_gpu required
-@click.option("--resource-shape", type=str, default=None, 
-              callback=validate_resource_shape_or_memory,
-              help="GPU resource shape. Examples: gpu.8xh200, gpu.4xh100, gpu.a100-40gb, gpu.2xa100-80gb")
-@click.option("--memory-per-gpu", type=float, default=None, 
-              callback=validate_resource_shape_or_memory,
-              help="Custom GPU memory in GB (alternative to --resource-shape)")
-
-# multiple value options using our custom types
-@click.option("--tensor-parallel-sizes", 
-              type=INT_LIST, default="1,2", 
-              help="Tensor parallel sizes. Use comma-separated: --tensor-parallel-sizes 4,8,16")
-
-@click.option("--pipeline-parallel-sizes",
-              type=INT_LIST_OR_AUTO, default="1,2",
-              help="Pipeline parallel sizes. Use 'auto' or comma-separated: --pipeline-parallel-sizes 1,2,4")
-
-@click.option("--context-parallel-sizes",
-              type=INT_LIST, default="1,2",
-              help="Context parallel sizes. Use comma-separated: --context-parallel-sizes 1,2,4")
-
-@click.option("--micro-batch-sizes",
-              type=INT_LIST_OR_AUTO, default="1,2,4",
-              help="Micro batch sizes. Use 'auto' or comma-separated: --micro-batch-sizes 1,2,4,8")
-
-@click.option("--global-batch-sizes",
-              type=INT_LIST_OR_AUTO, default="512",
-              help="Global batch sizes. Use 'auto' or comma-separated: --global-batch-sizes 64,128,256,512")
-
-@click.option("--virtual-pipeline-model-parallel-sizes",
-              type=INT_LIST, default=None,
-              help="Virtual pipeline sizes. Use comma-separated: --virtual-pipeline-model-parallel-sizes 2,4")
-
-# Single value options
+@config_model_options
+@common_options
+@batch_size_options
+@parallelism_options
+@dynamic_executor_options
+@click.option("--resource-shape", type=str, default=None, callback=validate_resource_shape_or_memory, help="GPU resource shape. Examples: gpu.8xh200, gpu.4xh100, gpu.a100-40gb, gpu.2xa100-80gb")
+@click.option("--memory-per-gpu", type=float, default=None, callback=validate_resource_shape_or_memory, help="Custom GPU memory in GB (alternative to --resource-shape)")
 @click.option("--max-model-parallel-size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
 @click.option("--min-model-parallel-size", type=int, default=1, callback=validate_positive_int, help="Minimum model parallel size.")
 @click.option("--max-steps-per-run", type=int, default=10, callback=validate_positive_int, help="Maximum steps per run for testing.")
@@ -1044,15 +793,6 @@ def autotune():
 @click.option("--seq-length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
 @click.option("--val-check-interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
 @click.option("--max-steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
-@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory to save generated configurations.")
-
-# new dynamic executor options
-@click.option("--container-image", type=str, default="nvcr.io/nvidia/nemo:25.02", help="Docker container image to use.")
-@click.option("--nemo-run-dir", type=str, default="/nemo-workspace/nemo-run", help="Directory for nemo-run.")
-@click.option("--hf-token", type=str, default=None, help="HuggingFace token (optional).")
-@click.option("--wandb-api-key", type=str, default=None, help="Weights & Biases API key (optional).")
-@click.option("--torch-home", type=str, default="/nemo-workspace/.cache", help="PyTorch cache directory.")
-@click.option("--pythonpath", type=str, default="/nemo-workspace/nemo-run:$PYTHONPATH", help="Python path configuration.")
 def generate(**kwargs):
     """Generate AutoTune configurations for NeMo pretraining."""
     console.print(f"Generating AutoTune configurations for model: [bold]{kwargs['model']}[/bold]")
@@ -1063,10 +803,11 @@ def generate(**kwargs):
     console.print(f"  Tensor parallel sizes: {kwargs['tensor_parallel_sizes']}")
     console.print(f"  Pipeline parallel sizes: {kwargs['pipeline_parallel_sizes']}")
     console.print(f"  Context parallel sizes: {kwargs['context_parallel_sizes']}")
+    console.print(f"  Expert parallel sizes: {kwargs['expert_parallel_sizes']}")
     console.print(f"  Micro batch sizes: {kwargs['micro_batch_sizes']}")
     
     # ONE FUNCTION CALL to get all info: GPU specs, model size, etc.
-    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(kwargs['resource_shape'], kwargs.get('memory_per_gpu'))
+    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs_unified(kwargs['resource_shape'], kwargs.get('memory_per_gpu'))
     model_info = extract_all_values(kwargs['model'])
     model_size_b = model_info.get('model_size_b')
     
@@ -1131,8 +872,7 @@ def generate(**kwargs):
 
 
 @autotune.command()
-@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
+@config_model_options
 @click.option("--sequential", is_flag=True, default=False, help="Run configurations sequentially instead of in parallel.")
 @click.option("--run-all", "--run_all", "run_all", is_flag=True, default=False, help="Run all configurations including those with potential CUDA OOM risk.")
 def run(config_dir, model, sequential, run_all):
@@ -1212,68 +952,105 @@ def run(config_dir, model, sequential, run_all):
 
 
 @autotune.command()
-@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
+@config_model_options
 @click.option("--path", "-p", type=str, required=True, help="[REQUIRED] Path to AutoConfigurator logs directory.")
 @click.option("--log-prefix", type=str, required=True, help="[REQUIRED] Log file prefix for result files.")
 @click.option("--output-file", type=str, required=True, help="[REQUIRED] File path to save results.")
 @click.option("--top-n", type=int, default=10, callback=validate_positive_int, help="Number of top configurations to display.")
 @click.option("--force-reconstruct", is_flag=True, default=False, help="Force reconstruction instead of using saved objects.")
-def results(config_dir, model, path, log_prefix, output_file, top_n,force_reconstruct):
-    """Collect and display AutoConfigurator results."""
-    console.print(f"Collecting AutoTune results from: [bold]{path}[/bold]")
+@click.option("--cost-per-node-hour", type=float, default=32.0, callback=validate_positive_float, help="Cost per node hour in USD (default: $32.0 for H100).")
+@click.option("--quiet", is_flag=True, default=False, help="Only save to file, don't show output in terminal.")
+def results(config_dir, model, path, log_prefix, output_file, top_n, force_reconstruct, cost_per_node_hour, quiet):
+    """Collect, analyze, and display AutoConfigurator results in one step."""
     
     try:
         if not os.path.exists(path):
             console.print(f"[red]Logs directory not found: {path}[/red]")
             console.print("[yellow]Tip: Run 'lep autotune run' first to generate training logs[/yellow]")
             sys.exit(1)
-        
-        args = _load_args_from_config_dir(config_dir, model)
-        console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
-        console.print(f"  Resources: {args.nodes} nodes × {args.gpus_per_node} GPUs = {args.nodes * args.gpus_per_node} total GPUs")
-        console.print(f"Resource shape: {args.resource_shape}")
-        console.print(f"  Batch sizes: micro={args.micro_batch_sizes}, global={args.global_batch_sizes}")
-        console.print(f"  Sequence length: {args.seq_length}")
-        console.print(f"  Training: max_steps={args.max_steps}, val_check_interval={args.val_check_interval}")
-        
-        if not force_reconstruct and args.has_valid_objects():
-            console.print("[blue]Using saved AutoConfigurator objects from args.json[/blue]")
-            base_config = args.get_base_config()
-            runner = args.get_runner()
-            metadata = args.metadata
-        else:
-            if force_reconstruct:
-                console.print("[yellow]Force reconstruction requested - reconstructing AutoConfigurator configuration...[/yellow]")
-            else:
-                console.print("[yellow]Saved objects not available - reconstructing AutoConfigurator configuration...[/yellow]")
             
-            config_result = generate_recipe_configs(args)
-            base_config = config_result['base_config']
-            runner = config_result['runner']
-            metadata = args.metadata
-
-        console.print("[yellow]Analyzing training results...[/yellow]")
-
-        performance_dict = get_results_with_output(
-            base_config=base_config,
-            runner=runner,
-            path_to_logs=path,
-            log_file_prefix=log_prefix,
-            num_configs_generated=metadata.get('num_configs_generated'),   
-            base_config_matches=metadata.get('base_config_matches', []),       
-            output_file=output_file,
-            output_top_n=top_n
-        )
+        args = _load_args_from_config_dir(config_dir, model)
         
-        if performance_dict:
-            console.print("[blue]Saving performance results to args.json...[/blue]")
-            update_args_with_performance_results(args.model, performance_dict, config_dir)
-            console.print("[blue]Performance results saved![/blue]")
+        # Use the context manager to capture ALL output to the file
+        with capture_all_output_to_file(output_file, show_in_terminal=not quiet) as file_console:
+            file_console.print("=" * 80)
+            file_console.print("AUTOTUNE RESULTS - COMPLETE ANALYSIS")
+            file_console.print("=" * 80)
+            file_console.print(f"Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            file_console.print(f"Model: {args.model}")
+            file_console.print(f"Logs path: {path}")
+            file_console.print(f"Log prefix: {log_prefix}")
+            file_console.print("=" * 80)
+            
+            file_console.print(f"Collecting AutoTune results from: [bold]{path}[/bold]")
+            file_console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
+            file_console.print(f"  Resources: {args.nodes} nodes × {args.gpus_per_node} GPUs = {args.nodes * args.gpus_per_node} total GPUs")
+            file_console.print(f"Resource shape: {args.resource_shape}")
+            file_console.print(f"  Batch sizes: micro={args.micro_batch_sizes}, global={args.global_batch_sizes}")
+            file_console.print(f"  Sequence length: {args.seq_length}")
+            file_console.print(f"  Training: max_steps={args.max_steps}, val_check_interval={args.val_check_interval}")
+            
+            if not force_reconstruct and args.has_valid_objects():
+                file_console.print("[blue]Using saved AutoConfigurator objects from args.json[/blue]")
+                base_config = args.get_base_config()
+                runner = args.get_runner()
+                metadata = args.metadata
+            else:
+                if force_reconstruct:
+                    file_console.print("[yellow]Force reconstruction requested - reconstructing AutoConfigurator configuration...[/yellow]")
+                else:
+                    file_console.print("[yellow]Saved objects not available - reconstructing AutoConfigurator configuration...[/yellow]")
+                config_result = generate_recipe_configs(args)
+                base_config = config_result['base_config']
+                runner = config_result['runner']
+                metadata = args.metadata
+            
+            file_console.print("[yellow]Analyzing training results...[/yellow]")
+            
+            # Get results directly (output will be captured by our context manager)
+            file_console.print(f"Collecting AutoConfigurator results...")
+            file_console.print(f"Displaying top {top_n} results:")
+            
+            base_config_matches = metadata.get('base_config_matches', [])
+            if base_config_matches:
+                file_console.print(f"Note: Base config is equivalent to: {', '.join(base_config_matches)}")
+            
+            performance_dict = get_results(
+                base_config=base_config,
+                train_config=runner,
+                path_to_save=path,
+                output_top_n=top_n,
+                log_file_prefix=log_prefix,
+            )
+            
+            file_console.print(f"Results collection completed. Total configs: {metadata.get('num_configs_generated')}, Base config matches: {len(base_config_matches)}")
+            
+            if performance_dict:
+                file_console.print("[blue]Saving performance results to args.json...[/blue]")
+                update_args_with_performance_results(args.model, performance_dict, config_dir)
+                file_console.print("[blue]Performance results saved![/blue]")
+            
+            file_console.print(f"[green]Results analysis completed successfully![/green]")
+            file_console.print(f"[green]Analyzed top {metadata.get('num_configs_generated', 'Unknown')} configurations[/green]")
+            
+            # --- Performance Analysis and Display ---
+            if performance_dict:
+                args = _load_args_from_config_dir(config_dir, model)
+                total_tokens = args.num_tokens_in_b * 1_000_000_000
+                analysis_data = calculate_performance_analysis(performance_dict, args, total_tokens, cost_per_node_hour)
+                display_performance_analysis(analysis_data)
+            
+            file_console.print("=" * 80)
+            file_console.print("END OF AUTOTUNE RESULTS")
+            file_console.print("=" * 80)
         
-        console.print(f"[green]Results analysis completed successfully![/green]")
-        console.print(f"[green]Results saved to: {output_file}[/green]")
-        console.print(f"[green]Analyzed top {metadata.get('num_configs_generated', 'Unknown')} configurations[/green]")
+        # Show summary in terminal (unless quiet mode)
+        if not quiet:
+            console.print(f"[green]✅ Results analysis completed successfully![/green]")
+            console.print(f"[green]📁 All results saved to: {output_file}[/green]")
+            console.print(f"[green]📊 Analyzed {metadata.get('num_configs_generated', 'Unknown')} configurations[/green]")
+        else:
+            console.print(f"[green]✅ Results saved to: {output_file}[/green]")
         
     except Exception as e:
         console.print(f"[red]Error during results analysis: {e}[/red]")
@@ -1281,49 +1058,8 @@ def results(config_dir, model, path, log_prefix, output_file, top_n,force_recons
         sys.exit(1)
 
 
-@autotune.command(name="analyse-results")
-@click.option("--config-dir", type=str, required=True, help="[REQUIRED] Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, required=True, help="[REQUIRED] Model name.")
-@click.option("--cost-per-node-hour", type=float, default=50.0, callback=validate_positive_float, help="Cost per node hour in USD (default: $50.0 for H100).")
-def analyse_results(config_dir, model, cost_per_node_hour):
-    """Analyze AutoTune performance results and compare configurations with cost analysis."""
-    console.print(f"Analyzing AutoTune performance results with cost analysis...")
-    
-    try:
-        args = _load_args_from_config_dir(config_dir, model)
-        
-        console.print(f"[blue]Loaded configuration for model: {args.model}[/blue]")
-        
-        if not args.has_performance_results():
-            console.print("[yellow]No performance results found in args.json[/yellow]")
-            console.print("[yellow]Please run 'lep autotune results' first to generate performance data[/yellow]")
-            console.print(f"[yellow]Example: lep autotune results --config-dir {config_dir} --model {model} --path /path/to/logs --log-prefix nemo --output-file results.txt[/yellow]")
-            sys.exit(1)
-        
-        performance_dict = args.get_performance_dict()
-        console.print(f"[green]Found performance results for {len(performance_dict)} configurations[/green]")
-        total_tokens = args.num_tokens_in_b * 1_000_000_000
-
-        console.print(f"\n[cyan] Training Configuration for Cost Analysis[/cyan]")
-        console.print(f"  Total tokens to train: {total_tokens:,} ({args.num_tokens_in_b}B)")
-        console.print(f"  Sequence length: {args.seq_length:,}")
-        console.print(f"  Global batch sizes tested: {args.global_batch_sizes}")
-        console.print(f"  Total GPUs: {args.nodes * args.gpus_per_node}")
-        console.print(f"Resource shape: {args.resource_shape}")
-        console.print(f"  Cost per node hour: ${cost_per_node_hour:.2f}")
-        
-        # for each config, extract GBS from config name and calculate cost
-        _analyze_performance_results_with_multiple_gbs(performance_dict, args, total_tokens, cost_per_node_hour)
-        
-    except Exception as e:
-        console.print(f"[red]Error analyzing results: {e}[/red]")
-        logger.error(f"Results analysis failed: {e}")
-        sys.exit(1)
-
-
 @autotune.command()
-@click.option("--config-dir", type=str, help="Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
+@config_model_options
 def list_configs(config_dir, model):
     """List generated AutoTune configurations with detailed status."""
     try:
@@ -1373,63 +1109,6 @@ def list_models():
     except Exception as e:
         console.print(f"[red]Error listing models: {e}[/red]")
         console.print("[link]Please check: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/llm/recipes/__init__.py[/link]")
-        sys.exit(1)
-
-
-@autotune.command(name="check-memory")
-@click.option("--config-dir", type=str, help="Directory containing generated configurations.")
-@click.option("--model", "-m", type=str, help="Model name (will be inferred if not provided).")
-@click.option("--safety-margin", type=float, default=5.0, callback=validate_positive_float, help="Safety margin in GB to leave unused (default: 5.0).")
-def check_memory(config_dir, model, safety_margin):
-    """Check CUDA memory usage for all generated configurations."""
-    console.print(f" Analyzing CUDA memory usage for configurations...")
-    
-    try:
-        args = _load_args_from_config_dir(config_dir, model)
-        
-        # ONE FUNCTION CALL to get all info: GPU specs, model size, etc.
-        gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(args.resource_shape, getattr(args, 'memory_per_gpu', None))
-        model_info = extract_all_values(args.model)
-        model_size_b = model_info.get('model_size_b')
-        
-        console.print(f"[blue] Configuration Summary:[/blue]")
-        console.print(f"  Model: [cyan]{args.model}[/cyan] ({model_size_b}B parameters)" if model_size_b else f"  Model: [cyan]{args.model}[/cyan]")
-        console.print(f"  Resource: [blue]{args.resource_shape}[/blue] ({gpu_type.upper()}, {gpu_memory_gb}GB per GPU)")
-        console.print(f"  Safety margin: [yellow]{safety_margin:.1f} GB[/yellow]")
-        
-        if args.has_memory_analysis():
-            console.print("[green] Using existing memory analysis from generation[/green]")
-            memory_analysis = args.get_memory_analysis()
-        else:
-            console.print("[yellow]⚙ No existing memory analysis found. Performing fresh analysis...[/yellow]")
-            
-            result = generate_recipe_configs(args)
-            memory_analysis = result.get('memory_analysis', {})
-            
-            if not memory_analysis:
-                console.print("[red] Failed to generate memory analysis[/red]")
-                sys.exit(1)
-        
-        _display_memory_analysis(memory_analysis)
-        
-        oom_configs = [name for name, analysis in memory_analysis.items() if analysis.get("will_oom", False)]
-        safe_configs = [name for name, analysis in memory_analysis.items() if not analysis.get("will_oom", False)]
-        
-        console.print(f"\n[cyan]🎯 Recommendations:[/cyan]")
-        if safe_configs:
-            console.print(f" Safe configurations to use: {len(safe_configs)}")
-            console.print(f"  Examples: {', '.join(safe_configs[:3])}{'...' if len(safe_configs) > 3 else ''}")
-        
-        if oom_configs:
-            console.print(f"⚠ Configurations to avoid: {len(oom_configs)}")
-            console.print(f"  These may cause CUDA OOM: {', '.join(oom_configs[:3])}{'...' if len(oom_configs) > 3 else ''}")
-            console.print("[yellow] Consider reducing micro batch sizes or adjusting parallelism settings[/yellow]")
-        
-        console.print("\n[green] Memory analysis completed successfully![/green]")
-        
-    except Exception as e:
-        console.print(f"[red] Error analyzing memory: {e}[/red]")
-        logger.error(f"Memory analysis failed: {e}")
         sys.exit(1)
 
 

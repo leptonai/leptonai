@@ -18,13 +18,13 @@ import nemo_run as run
 from nemo.lightning.resume import AutoResume
 
 # Import the unified extraction system
-from .autotune_utils import (
+from leptonai.util.autotune import (
     validate_all_configs,
     check_config_matches,
     extract_all_values,
-    extract_gpu_specs,
+    extract_gpu_specs_unified,
     create_log_dir_name,
-    UnifiedExtractor
+    get_supported_models
 )
 
 logging.basicConfig(
@@ -162,7 +162,7 @@ def check_cuda_oom_risk(
     """
 
     # Use unified GPU specs extraction
-    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(resource_shape, memory_per_gpu)
+    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs_unified(resource_shape, memory_per_gpu)
     available_memory_gb = gpu_memory_gb - safety_margin_gb
 
     # Extract config values
@@ -298,7 +298,6 @@ def generate_recipe_configs(args):
     
     model_class = getattr(llm, args.model, None)
     if model_class is None:
-        from .autotune_utils import get_supported_models
         supported_models = get_supported_models()
         raise ValueError(
             f"Model {args.model} not found in llm module. \n"
@@ -328,7 +327,7 @@ def generate_recipe_configs(args):
     # recipe.trainer.callbacks.append(checkpoint_callback)
 
     # Use unified GPU specs extraction
-    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs(
+    gpu_type, gpu_count, gpu_memory_gb = extract_gpu_specs_unified(
         args.resource_shape, getattr(args, 'memory_per_gpu', None)
     )
 
@@ -344,6 +343,7 @@ def generate_recipe_configs(args):
         tensor_parallel_sizes=args.tensor_parallel_sizes,
         pipeline_parallel_sizes=args.pipeline_parallel_sizes,
         context_parallel_sizes=args.context_parallel_sizes,
+        expert_parallel_sizes=args.expert_parallel_sizes,
         micro_batch_sizes=args.micro_batch_sizes,
         global_batch_sizes=args.global_batch_sizes,
         max_model_parallel_size=args.max_model_parallel_size,
@@ -581,99 +581,3 @@ def run_pretraining_only(
         'skipped_configs': skipped_configs,
         'status': 'completed'
     }
-
-def get_results_with_output(
-    base_config,
-    runner,
-    path_to_logs: str,
-    log_file_prefix: str,
-    num_configs_generated: int,
-    base_config_matches: List[str] = None,
-    output_file: Optional[str] = None,
-    output_top_n: int = 10
-):
-    """
-    Get AutoConfigurator results with optional file output.
-    
-    Args:
-        base_config: Base configuration object
-        runner: AutoConfigurator runner
-        path_to_logs: Path to logs directory
-        log_file_prefix: Log file prefix
-        num_configs_generated: Total number of configs generated
-        base_config_matches: List of config names that match base config
-        output_file: Optional output file path
-        output_top_n: Number of top configurations to display in terminal
-        
-    Returns:
-        dict: Performance dictionary with configuration results
-    """
-    logger.info("Collecting AutoConfigurator results...")
-    
-    if base_config_matches is None:
-        base_config_matches = []
-    
-    if output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        logger.info(f"Results will be saved to: {output_file}")
-        original_stdout = sys.stdout
-        try:
-            with open(output_file, 'w') as f:
-                sys.stdout = f
-                logger.info("=" * 80)
-                logger.info("AUTOTUNE RESULTS - ALL CONFIGURATIONS")
-                logger.info("=" * 80)
-                logger.info(f"Total configurations generated: {num_configs_generated}")
-                if base_config_matches:
-                    logger.info(f"Base config matches found: {', '.join(base_config_matches)}")
-                logger.info("=" * 80)
-                
-                performance_dict = get_results(
-                    base_config=base_config,
-                    train_config=runner,
-                    path_to_save=path_to_logs,
-                    output_top_n=output_top_n,
-                    log_file_prefix=log_file_prefix,
-                )
-                
-                logger.info("=" * 80)
-                logger.info("END OF RESULTS")
-                logger.info("=" * 80)
-                
-        finally:
-            sys.stdout = original_stdout
-        
-        logger.info(f"All {num_configs_generated} configuration results saved to {output_file}")
-
-        if output_top_n and output_top_n > 0:
-            logger.info(f"Displaying top {output_top_n} results in terminal:")
-            logger.info(f"\n{'='*60}")
-            logger.info(f"TOP {output_top_n} AUTOTUNE RESULTS (Terminal Display)")
-            logger.info(f"{'='*60}")
-            if base_config_matches:
-                logger.info(f"Note: Base config is equivalent to: {', '.join(base_config_matches)}")
-            
-            performance_dict = get_results(
-                base_config=base_config,
-                train_config=runner,
-                path_to_save=path_to_logs,
-                output_top_n=output_top_n,
-                log_file_prefix=log_file_prefix,
-            )
-    else:
-        logger.info(f"Displaying top {output_top_n} results in terminal:")
-        if base_config_matches:
-            logger.info(f"Note: Base config is equivalent to: {', '.join(base_config_matches)}")
-        
-        performance_dict = get_results(
-            base_config=base_config,
-            train_config=runner,
-            path_to_save=path_to_logs,
-            output_top_n=output_top_n,
-            log_file_prefix=log_file_prefix,
-        )
-        logger.info(f"Results displayed in terminal using path: {path_to_logs} with prefix: {log_file_prefix}")
-        
-    logger.info(f"Results collection completed. Total configs: {num_configs_generated}, Base config matches: {len(base_config_matches)}")
-
-    return performance_dict
