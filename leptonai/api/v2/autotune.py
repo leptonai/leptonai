@@ -376,10 +376,10 @@ def generate_recipe_configs(args):
         logger.warning(f"  Number of configurations with potential OOM: {len(oom_configs)}")
 
     # Save generated configs and check for matches
-    save_generated_configs(args.model, base_config, configs)
+    save_generated_configs(args, base_config, configs)
     
-    base_config_path = f"/nemo-workspace/autotuner/generated_configs/{args.model}/base_config.json"
-    generated_configs_dir = f"/nemo-workspace/autotuner/generated_configs/{args.model}"
+    base_config_path = os.path.join(args.config_dir, args.model, "base_config.json")
+    generated_configs_dir = os.path.join(args.config_dir, args.model)
 
     has_matches, matching_files = check_config_matches(base_config_path, generated_configs_dir)
     
@@ -407,17 +407,17 @@ def generate_recipe_configs(args):
         'memory_analysis': memory_analysis
     }
 
-def save_generated_configs(model_name: str, base_config, configs: Dict):
+def save_generated_configs(args, base_config, configs: Dict):
     """
     Save generated configurations to disk.
 
     Args:
-        model_name: Name of the model
+        args: AutoTuneArgs object containing config_dir and model
         base_config: Base configuration object
         configs: Dictionary of configuration objects
     """
-    os.makedirs("/nemo-workspace/autotuner/generated_configs", exist_ok=True)
-    model_dir = os.path.join("/nemo-workspace/autotuner/generated_configs", model_name)
+    os.makedirs(args.config_dir, exist_ok=True)
+    model_dir = os.path.join(args.config_dir, args.model)
     os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(model_dir, "base_config.json"), "w") as f:
         json.dump(base_config.__dict__, f, indent=4, default=str)

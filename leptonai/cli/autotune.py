@@ -327,6 +327,7 @@ class AutoTuneArgs:
         self.pythonpath = kwargs.get('pythonpath', '/nemo-workspace/nemo-run:$PYTHONPATH')
         self.memory_per_gpu = kwargs.get('memory_per_gpu')
         self.logs_subdir = kwargs.get('logs_subdir')
+        self.config_dir = kwargs.get('config_dir')
         
         # Metadata from generation results (populated after generate)
         self.metadata = kwargs.get('metadata', {})
@@ -456,6 +457,7 @@ class AutoTuneArgs:
             'pythonpath': self.pythonpath,
             'memory_per_gpu': self.memory_per_gpu,
             'logs_subdir': self.logs_subdir,
+            'config_dir': self.config_dir,
             'metadata': processed_metadata,
         }
 
@@ -836,7 +838,7 @@ def generate(**kwargs):
         console.print("[yellow]Generating configurations...[/yellow]")
 
         result = generate_recipe_configs(args)
-    
+
         update_args_with_generation_metadata(args.model, result, kwargs['config_dir'])
         console.print(f"[blue]Metadata and objects saved to: {args_file_path}[/blue]")
         
