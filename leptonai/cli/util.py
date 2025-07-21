@@ -12,6 +12,8 @@ from loguru import logger
 from rich.console import Console
 from leptonai.api.v2.client import APIClient
 
+from leptonai.config import DASHBOARD_URL
+
 
 console = Console(highlight=False)
 
@@ -204,3 +206,16 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
         )
         sys.exit(1)
     return valid_nodes_id
+
+
+def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
+    """Return full dashboard URL for a given job.
+
+    Args:
+        workspace_id: Current workspace ID.
+        job_id: Job's metadata.id_.
+
+    Example output:
+        https://dashboard.dgxc-lepton.nvidia.com/workspace/<ws>/compute/jobs/detail/<job>/replicas/list
+    """
+    return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"

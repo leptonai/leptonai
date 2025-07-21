@@ -14,6 +14,7 @@ from .util import (
     check,
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
+    build_dashboard_job_url,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -30,14 +31,17 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob]):
+def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
     table = Table(show_header=True, show_lines=True)
-    table.add_column("Name")
-    table.add_column("ID")
-    table.add_column("CreatedAt")
+    table.add_column("Name / ID")
+    table.add_column("Created At")
     table.add_column("State")
-    table.add_column("Owner")
-    table.add_column("NodeGroup")
+    table.add_column("User ID")
+    table.add_column("Node Group")
+    table.add_column("Workers")
+    table.add_column("Shape")
+
+    shape_totals = {}
 
     for job in jobs:
         ng_str = (
@@ -46,9 +50,16 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             else ""
         )
         status = job.status
-        table.add_row(
-            job.metadata.name,
-            job.metadata.id_,
+
+        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
+        name_id_cell = (
+            f"[bold #76b900]{job.metadata.name}[/]\n"
+            f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
+        )
+        workers = job.spec.completions or job.spec.parallelism or 1
+        shape = job.spec.resource_shape or "-"
+        base_cols = [
+            name_id_cell,
             (
                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
                     "%Y-%m-%d\n%H:%M:%S"
@@ -59,9 +70,30 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             f"{status.state}",
             job.metadata.owner,
             ng_str,
-        )
+            str(workers),
+            shape,
+        ]
+        # Count workers towards utilization only if job is actively consuming resources
+        if status.state in {
+            LeptonJobState.Running,
+            LeptonJobState.Restarting,
+            LeptonJobState.Deleting,
+        }:
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
+        table.add_row(*base_cols)
+
     table.title = "Jobs"
     console.print(table)
+
+    # Print worker count per resource shape
+    num_jobs = len(jobs)
+    console.print(
+        f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/] job{'s' if num_jobs!=1 else ''} "
+        "(Running / Restarting / Deleting only):[/]"
+    )
+    for shape, count in sorted(shape_totals.items()):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
+    console.print("\n")
 
 
 def _filter_jobs(
@@ -764,7 +796,7 @@ def list_command(state, user, name_or_id, node_group):
         node_group_patterns=node_group,
     )
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
 
 @job.command()
@@ -786,7 +818,7 @@ def list_command(state, user, name_or_id, node_group):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -832,7 +864,15 @@ def remove_all(state, user, name, node_group):
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
 
-    _display_jobs_table(job_filtered)
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: remove-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
+
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -878,7 +918,7 @@ def remove_all(state, user, name, node_group):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -924,7 +964,15 @@ def stop_all(state, user, name, node_group):
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
 
-    _display_jobs_table(job_filtered)
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: stop-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
+
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
