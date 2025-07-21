@@ -53,7 +53,7 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
 
         job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
         name_id_cell = (
-            f"[bold green]{job.metadata.name}[/]\n"
+            f"[bold #76b900]{job.metadata.name}[/]\n"
             f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
         )
         workers = job.spec.completions or job.spec.parallelism or 1
@@ -85,12 +85,14 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
     table.title = "Jobs"
     console.print(table)
 
+    # Print worker count per resource shape
+    num_jobs = len(jobs)
     console.print(
-        "[bold]Resource Utilization Summary for above jobs "
+        f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/] job{'s' if num_jobs!=1 else ''} "
         "(Running / Restarting / Deleting only):[/]"
     )
     for shape, count in sorted(shape_totals.items()):
-        console.print(f"  {shape}: [cyan]{count}[/]")
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
     console.print("\n")
 
 
