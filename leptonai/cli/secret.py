@@ -101,9 +101,7 @@ def remove(name):
     existing_secrets = client.secret.list_all()
 
     if not existing_secrets or name not in existing_secrets:
-        console.print(
-            f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]"
-        )
+        console.print(f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]")
         return
 
     client.secret.delete(name)
