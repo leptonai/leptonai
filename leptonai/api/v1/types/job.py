@@ -1,7 +1,7 @@
 import warnings
 from enum import Enum
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, field_validator
+from typing import Optional, List, Any
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
@@ -26,7 +26,6 @@ class LeptonJobTimeSchedule(BaseModel):
 
     start_at: Optional[int] = None  # StartAt is unix time in seconds
 
-
 class LeptonJobUserSpec(BaseModel):
     """
     The desired state of a Lepton Job.
@@ -36,13 +35,13 @@ class LeptonJobUserSpec(BaseModel):
     affinity: Optional[LeptonResourceAffinity] = None
     container: LeptonContainer = LeptonContainer()
     shared_memory_size: Optional[int] = None
-    completions: int = 1
-    parallelism: int = 1
+    completions: Optional[int] = 1
+    parallelism: Optional[int] = 1
     max_failure_retry: Optional[int] = None
     max_job_failure_retry: Optional[int] = None
-    envs: List[EnvVar] = []
-    mounts: List[Mount] = []
-    image_pull_secrets: List[str] = []
+    envs: Optional[List[EnvVar]] = []
+    mounts: Optional[List[Mount]] = []
+    image_pull_secrets: Optional[List[str]] = []
     ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None
     privileged: Optional[bool] = None
@@ -52,6 +51,21 @@ class LeptonJobUserSpec(BaseModel):
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
     time_schedule: Optional[LeptonJobTimeSchedule] = None
+
+    # --- ensure backend-required defaults when value is null/absent when using templates ---
+    @field_validator("completions", "parallelism", mode="before")
+    @classmethod
+    def _none_to_one(cls, v: Any) -> int:  # noqa: ANN401
+        return 1 if v is None else v
+
+    @field_validator("envs", "mounts", "image_pull_secrets", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any):  # noqa: ANN401
+        return [] if v is None else v
+
+
+
+
 
 
 class LeptonJobState(str, Enum):

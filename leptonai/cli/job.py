@@ -17,6 +17,7 @@ from .util import (
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
     _get_newest_job_by_name,
+    build_dashboard_job_url,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -34,14 +35,17 @@ from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConf
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob]):
+def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
     table = Table(show_header=True, show_lines=True)
-    table.add_column("Name")
-    table.add_column("ID")
-    table.add_column("CreatedAt")
+    table.add_column("Name / ID")
+    table.add_column("Created At")
     table.add_column("State")
-    table.add_column("Owner")
-    table.add_column("NodeGroup")
+    table.add_column("User ID")
+    table.add_column("Node Group")
+    table.add_column("Workers")
+    table.add_column("Shape")
+
+    shape_totals = {}
 
     for job in jobs:
         ng_str = (
@@ -50,9 +54,16 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             else ""
         )
         status = job.status
-        table.add_row(
-            job.metadata.name,
-            job.metadata.id_,
+
+        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
+        name_id_cell = (
+            f"[bold #76b900]{job.metadata.name}[/]\n"
+            f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
+        )
+        workers = job.spec.completions or job.spec.parallelism or 1
+        shape = job.spec.resource_shape or "-"
+        base_cols = [
+            name_id_cell,
             (
                 datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
                     "%Y-%m-%d\n%H:%M:%S"
@@ -63,9 +74,30 @@ def _display_jobs_table(jobs: List[LeptonJob]):
             f"{status.state}",
             job.metadata.owner,
             ng_str,
-        )
+            str(workers),
+            shape,
+        ]
+        # Count workers towards utilization only if job is actively consuming resources
+        if status.state in {
+            LeptonJobState.Running,
+            LeptonJobState.Restarting,
+            LeptonJobState.Deleting,
+        }:
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
+        table.add_row(*base_cols)
+
     table.title = "Jobs"
     console.print(table)
+
+    # Print worker count per resource shape
+    num_jobs = len(jobs)
+    console.print(
+        f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/] job{'s' if num_jobs!=1 else ''} "
+        "(Running / Restarting / Deleting only):[/]"
+    )
+    for shape, count in sorted(shape_totals.items()):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
+    console.print("\n")
 
 
 def _filter_jobs(
@@ -121,7 +153,7 @@ def _filter_jobs(
 
         # Skip if name pattern filter is specified and job name doesn't match any of the patterns
         if name_patterns and not any(
-            n.lower() in job.metadata.name.lower() for n in name_patterns
+            n.lower() in job.metadata.id_.lower() for n in name_patterns
         ):
             continue
 
@@ -274,6 +306,18 @@ def make_container_port_from_string(port_str: str):
         "If specified, load the job spec from the file. Any explicitly passed in arg"
         " will update the spec based on the file."
     ),
+    type=str,
+)
+# Template-based creation options
+@click.option(
+    "--template",
+    "-t",
+    help="template ID to render the job specification from.",
+    type=str,
+)
+@click.option(
+    "--run",
+    help='Command string ("run") to substitute into the template.',
     type=str,
 )
 # Container specification options
@@ -439,6 +483,7 @@ def make_container_port_from_string(port_str: str):
     "-qp",
     "queue_priority",
     callback=_validate_queue_priority,
+    default="mid-4000",
     help=(
         "Set the priority for this job (feature available only for dedicated node"
         " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
@@ -503,6 +548,8 @@ def make_container_port_from_string(port_str: str):
 def create(
     name,
     file,
+    template,
+    run,
     container_image,
     container_port,
     command,
@@ -536,8 +583,20 @@ def create(
     # Initialize API client
     client = APIClient()
 
-    # Load job specification from file if provided
-    if file:
+    # Load job specification from template or file
+    if run is not None and template is None:
+        console.print("[red]Error[/]: --run can only be used together with --template.")
+        sys.exit(1)
+
+    if template:
+        try:
+            payload = {"run": run} if run else {}
+            rendered_job = client.template.render(template, payload)
+            job_spec = rendered_job.spec
+        except Exception as e:
+            console.print(f"[red]Failed to render template[/]: {e}")
+            sys.exit(1)
+    elif file:
         try:
             with open(file, "r") as f:
                 content = f.read()
@@ -622,9 +681,6 @@ def create(
         # For CLI passed in command, we will prepend it with /bin/bash -c
         command = ["/bin/bash", "-c", command]
         job_spec.container.command = command
-    elif not job_spec.container.command:
-        console.print("You did not specify a command to run the job.")
-        sys.exit(1)
 
     # Set container image
     if container_image:
@@ -794,7 +850,7 @@ def list_command(state, user, name_or_id, node_group):
         node_group_patterns=node_group,
     )
 
-    _display_jobs_table(job_filtered)
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
 
 @job.command()
@@ -816,7 +872,7 @@ def list_command(state, user, name_or_id, node_group):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -862,7 +918,15 @@ def remove_all(state, user, name, node_group):
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
 
-    _display_jobs_table(job_filtered)
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: remove-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
+
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -908,7 +972,7 @@ def remove_all(state, user, name, node_group):
     "--user",
     "-u",
     help=(
-        "Filter jobs by exact username match. Case-sensitive. "
+        "Filter jobs by exact user ID match. Case-sensitive. "
         "Can specify multiple users. For safety, this is an exact match. "
         "This option is required to prevent accidental operations on other users' jobs."
     ),
@@ -954,7 +1018,15 @@ def stop_all(state, user, name, node_group):
         jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
     )
 
-    _display_jobs_table(job_filtered)
+    if len(job_filtered) == 0:
+        console.print(
+            "[yellow]No jobs matched your filters.[/]\n"
+            "[cyan]Note[/]: stop-all requires an exact match for '--user' "
+            "(User ID shown in `lep job list`). Please verify your input."
+        )
+        sys.exit(0)
+
+    _display_jobs_table(job_filtered, client.get_workspace_id())
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -1173,7 +1245,7 @@ def log(id, replica):
     """
     Gets the log of a job. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
-    list of replicas, use `lep job status`.
+    list of replicas, use `lep job replicas`.
     """
     client = APIClient()
 
@@ -1204,7 +1276,6 @@ def log(id, replica):
         console.print(
             "End of log. It seems that the job has not started, or already finished."
         )
-        console.print(f"Use `lep job status -n {id}` to check the status of the job.")
 
 
 @job.command()

@@ -217,7 +217,7 @@ def _is_rocm() -> bool:
 
 
 # Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.25.6"
+BASE_IMAGE_VERSION = "0.25.9"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
@@ -370,6 +370,7 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
     "LEPTON_WORKSPACE_ORIGIN_URL",
     "LEPTON_CLASSIC",
+    "LEPTON_DASHBOARD_URL",
 }
 
 if "LEPTON_ALLOW_ORIGINS" in os.environ:
@@ -381,7 +382,10 @@ else:
 # Note: LEPTON_DEPLOYMENT_URL is temporarily removed to reduce workspace URL dependency
 # This may be restored in the future if we implement a more flexible URL handling mechanism
 
-# LEPTON_DASHBOARD_URL = "https://dashboard.dgxc-lepton.nvidia.com"
+# Base URL for Lepton web dashboard. Can be overridden via LEPTON_DASHBOARD_URL env.
+DASHBOARD_URL = os.environ.get(
+    "LEPTON_DASHBOARD_URL", "https://dashboard.dgxc-lepton.nvidia.com"
+)
 
 # LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
 # LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
