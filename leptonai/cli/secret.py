@@ -92,12 +92,20 @@ def list_command():
 
 
 @secret.command()
-@click.option("--name", "-n", help="Secret name")
+@click.option("--name", "-n", help="Secret name", required=True)
 def remove(name):
     """
     Removes the secret with the given name.
     """
     client = APIClient()
+    existing_secrets = client.secret.list_all()
+
+    if not existing_secrets or name not in existing_secrets:
+        console.print(
+            f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]"
+        )
+        return
+
     client.secret.delete(name)
     console.print(f"Secret [green]{name}[/] deleted successfully.")
 
