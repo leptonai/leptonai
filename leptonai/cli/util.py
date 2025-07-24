@@ -208,6 +208,7 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
         sys.exit(1)
     return valid_nodes_id
 
+
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     client = APIClient()
     job_list = client.job.list_all()
@@ -224,6 +225,7 @@ def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     )
 
     return jobs_sorted_by_created_at[-1]
+
 
 def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
     """Return full dashboard URL for a given job.

@@ -26,6 +26,7 @@ class LeptonJobTimeSchedule(BaseModel):
 
     start_at: Optional[int] = None  # StartAt is unix time in seconds
 
+
 class LeptonJobUserSpec(BaseModel):
     """
     The desired state of a Lepton Job.
@@ -62,10 +63,6 @@ class LeptonJobUserSpec(BaseModel):
     @classmethod
     def _none_to_empty(cls, v: Any):  # noqa: ANN401
         return [] if v is None else v
-
-
-
-
 
 
 class LeptonJobState(str, Enum):
