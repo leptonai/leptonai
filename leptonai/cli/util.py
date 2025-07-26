@@ -271,16 +271,28 @@ def make_container_ports_from_str_list(
     ]
 
     # Ensure at most one proxy across all ports
-    proxy_count = sum(
-        1
-        for cp in parsed_ports
-        if cp.expose_strategies
-        and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
-    )
-    if proxy_count > 1:
-        raise ValueError(
-            "Only one container port may use the 'proxy' strategy within a single job."
+    if not strategy_free:
+        proxy_count = sum(
+            1
+            for cp in parsed_ports
+            if cp.expose_strategies
+            and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
         )
+        if proxy_count > 1:
+            raise ValueError(
+                "Only one container port may use the 'proxy' strategy within a single"
+                " job."
+            )
+
+    # Ensure no duplicate container_port numbers
+    seen_ports = set()
+    for cp in parsed_ports:
+        if cp.container_port in seen_ports:
+            raise ValueError(
+                f"Duplicate container port '{cp.container_port}' detected in definition"
+                " list."
+            )
+        seen_ports.add(cp.container_port)
 
     return parsed_ports
 
