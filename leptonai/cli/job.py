@@ -15,6 +15,7 @@ from .util import (
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
     build_dashboard_job_url,
+    make_container_ports_from_str_list,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -275,62 +276,6 @@ def job():
 
 
 
-def make_container_port_from_string(port_str: str) -> ContainerPort:
-    """Parse --container-port value.
-
-    Expected format: <port>:<protocol>:<strategy>[:strategy]
-    * <port>      — integer 1-65535
-    * <protocol>  — tcp | udp | sctp
-    * <strategy>  — proxy | hostmap (case-insensitive)
-    One or two strategies may be specified. Order is not significant beyond the first two fixed segments.
-    """
-
-    parts = [p.strip() for p in port_str.split(":") if p.strip()]
-    if len(parts) < 3:
-        raise ValueError(
-            f"Invalid port definition '{port_str}'. Format must be <port>:<protocol>:<strategy>[:strategy]."
-        )
-
-    try:
-        port_num = int(parts[0])
-    except ValueError:
-        raise ValueError(f"First segment must be an integer port, got '{parts[0]}'.")
-
-    proto = parts[1]
-
-    has_proxy = False
-    has_host = False
-
-    for seg in parts[2:]:
-        seg_lower = seg.lower()
-        if seg_lower == "proxy":
-            if has_proxy:
-                raise ValueError("Duplicate 'proxy' strategy in definition.")
-            has_proxy = True
-        elif seg_lower in {"hostmap", "host-mapping", "hostmapping", "host", "host-map"}: 
-            if has_host:
-                raise ValueError("Duplicate 'hostmap' strategy in definition.")
-            has_host = True
-        else:
-            raise ValueError(f"Unknown strategy '{seg}' in '{port_str}'. Use proxy or hostmap.")
-
-    if not (has_proxy or has_host):
-        raise ValueError("At least one exposure strategy (proxy or hostmap) must be specified.")
-
-    strategies = []
-    if has_proxy:
-        strategies.append(ContainerPortExposeStrategy.INGRESS_PROXY)
-    if has_host:
-        strategies.append(ContainerPortExposeStrategy.HOST_PORT_MAPPING)
-
-    return ContainerPort(
-        name=None,
-        container_port=port_num,
-        protocol=proto.upper(),
-        expose_strategies=strategies,
-    )
-
-
 @job.command()
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
@@ -366,22 +311,7 @@ def make_container_port_from_string(port_str: str) -> ContainerPort:
 @click.option(
     "--container-port",
     type=str,
-    help=(
-        "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n"
-        "  <port>     : 1-65535\n"
-        "  <protocol> : tcp | udp | sctp\n"
-        "  <strategy> : proxy | hostmap\n"
-        "              - hostmap: host port (random 40000-65535) mapped on node IP\n"
-        "              - proxy  : generate public URL; only ONE port in a job can enable proxy\n\n"
-        "Examples:\n"
-        "  8080:tcp:proxy                -> proxy only\n"
-        "  8080:udp:hostmap             -> host mapping only\n"
-        "  8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will take effect)\n"
-        "\n"
-        "Notice: Exposing container ports may increase your service's security risk. "
-        "Please implement appropriate authentication and security controls; you are solely responsible for the "
-        "security of any services exposed."
-    ),
+    help="Ports to expose for the job, in the format <portnumber>:<protocol(tcp/udp/sctp)>.",
     multiple=True,
 )
 @click.option(
@@ -729,16 +659,10 @@ def create(
 
     # Configure container ports
     if container_port:
-        parsed_ports = [make_container_port_from_string(p) for p in container_port]
-
-        # Ensure at most one proxy across all ports
-        proxy_count = sum(
-            1
-            for cp in parsed_ports
-            if cp.expose_strategies and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
-        )
-        if proxy_count > 1:
-            console.print("[red]Error[/]: Only one container port may use the 'proxy' strategy within a single job.")
+        try:
+            parsed_ports = make_container_ports_from_str_list(container_port, strategy_free=True)
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
             sys.exit(1)
 
         job_spec.container.ports = parsed_ports
