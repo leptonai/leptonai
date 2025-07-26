@@ -178,7 +178,10 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
 
     return node_group_ids
 
-def make_container_port_from_string(port_str: str, *, strategy_free: bool = False) -> ContainerPort:
+
+def make_container_port_from_string(
+    port_str: str, *, strategy_free: bool = False
+) -> ContainerPort:
     """Parse --container-port value.
 
     Expected format: <port>:<protocol>:<strategy>[:strategy]
@@ -203,7 +206,8 @@ def make_container_port_from_string(port_str: str, *, strategy_free: bool = Fals
     else:
         if len(parts) < 3:
             raise ValueError(
-                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>:<strategy>[:strategy]."
+                f"Invalid port definition '{port_str}'. Expected"
+                " <port>:<protocol>:<strategy>[:strategy]."
             )
 
     try:
@@ -222,16 +226,25 @@ def make_container_port_from_string(port_str: str, *, strategy_free: bool = Fals
             if has_proxy:
                 raise ValueError("Duplicate 'proxy' strategy in definition.")
             has_proxy = True
-        elif seg_lower in {"hostmap", "host-mapping", "hostmapping", "host", "host-map"}: 
+        elif seg_lower in {
+            "hostmap",
+            "host-mapping",
+            "hostmapping",
+            "host",
+            "host-map",
+        }:
             if has_host:
                 raise ValueError("Duplicate 'hostmap' strategy in definition.")
             has_host = True
         else:
-            raise ValueError(f"Unknown strategy '{seg}' in '{port_str}'. Use proxy or hostmap.")
-
+            raise ValueError(
+                f"Unknown strategy '{seg}' in '{port_str}'. Use proxy or hostmap."
+            )
 
     if not strategy_free and not (has_proxy or has_host):
-        raise ValueError("At least one exposure strategy (proxy or hostmap) must be specified.")
+        raise ValueError(
+            "At least one exposure strategy (proxy or hostmap) must be specified."
+        )
 
     strategies = []
     if has_proxy:
@@ -247,19 +260,27 @@ def make_container_port_from_string(port_str: str, *, strategy_free: bool = Fals
     )
 
 
-def make_container_ports_from_str_list(port_strings: List[str], *, strategy_free: bool = False) -> List[ContainerPort]:
+def make_container_ports_from_str_list(
+    port_strings: List[str], *, strategy_free: bool = False
+) -> List[ContainerPort]:
     """Convert list of CLI strings to ContainerPort list, ensuring rules like single proxy."""
 
-    parsed_ports = [make_container_port_from_string(p, strategy_free=strategy_free) for p in port_strings]
+    parsed_ports = [
+        make_container_port_from_string(p, strategy_free=strategy_free)
+        for p in port_strings
+    ]
 
     # Ensure at most one proxy across all ports
     proxy_count = sum(
         1
         for cp in parsed_ports
-        if cp.expose_strategies and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
+        if cp.expose_strategies
+        and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
     )
     if proxy_count > 1:
-        raise ValueError("Only one container port may use the 'proxy' strategy within a single job.")
+        raise ValueError(
+            "Only one container port may use the 'proxy' strategy within a single job."
+        )
 
     return parsed_ports
 

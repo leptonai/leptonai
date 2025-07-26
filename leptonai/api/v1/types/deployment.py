@@ -36,6 +36,8 @@ class Mount(BaseModel):
 class ContainerPortExposeStrategy(str, Enum):
     HOST_PORT_MAPPING = "HostPortMapping"
     INGRESS_PROXY = "IngressProxy"
+
+
 class ContainerPort(BaseModel):
     """
     The port spec of a Lepton Job.
@@ -47,7 +49,6 @@ class ContainerPort(BaseModel):
     protocol: Optional[str] = None
     host_port: Optional[int] = None
     enable_load_balancer: Optional[bool] = None
-    
 
     @compatible_field_validator("container_port")
     def validate_container_port(cls, v):

@@ -158,20 +158,17 @@ def pod():
     "--container-port",
     type=str,
     help=(
-        "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n"
-        "  <port>     : 1-65535\n"
-        "  <protocol> : tcp | udp | sctp\n"
-        "  <strategy> : proxy | hostmap\n"
-        "              - hostmap: host port (random 40000-65535) mapped on node IP\n"
-        "              - proxy  : generate public URL; only ONE port in a job can enable proxy\n\n"
-        "Examples:\n"
-        "  8080:tcp:proxy                -> proxy only\n"
-        "  8080:udp:hostmap             -> host mapping only\n"
-        "  8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will take effect)\n"
-        "\n"
-        "Notice: Exposing container ports may increase your service's security risk. "
-        "Please implement appropriate authentication and security controls; you are solely responsible for the "
-        "security of any services exposed."
+        "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n "
+        " <port>     : 1-65535\n  <protocol> : tcp | udp | sctp\n  <strategy> : proxy |"
+        " hostmap\n              - hostmap: host port (random 40000-65535) mapped on"
+        " node IP\n              - proxy  : generate public URL; only ONE port in a job"
+        " can enable proxy\n\nExamples:\n  8080:tcp:proxy                -> proxy"
+        " only\n  8080:udp:hostmap             -> host mapping only\n "
+        " 8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will"
+        " take effect)\n\nNotice: Exposing container ports may increase your service's"
+        " security risk. Please implement appropriate authentication and security"
+        " controls; you are solely responsible for the security of any services"
+        " exposed."
     ),
     multiple=True,
 )

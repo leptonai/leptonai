@@ -94,8 +94,8 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
     # Print worker count per resource shape
     num_jobs = len(jobs)
     console.print(
-        f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/] job{'s' if num_jobs!=1 else ''} "
-        "(Running / Restarting / Deleting only):[/]"
+        f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/]"
+        f" job{'s' if num_jobs!=1 else ''} (Running / Restarting / Deleting only):[/]"
     )
     for shape, count in sorted(shape_totals.items()):
         console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
@@ -274,8 +274,6 @@ def job():
     pass
 
 
-
-
 @job.command()
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
@@ -311,7 +309,10 @@ def job():
 @click.option(
     "--container-port",
     type=str,
-    help="Ports to expose for the job, in the format <portnumber>:<protocol(tcp/udp/sctp)>.",
+    help=(
+        "Ports to expose for the job, in the format"
+        " <portnumber>:<protocol(tcp/udp/sctp)>."
+    ),
     multiple=True,
 )
 @click.option(
@@ -660,7 +661,9 @@ def create(
     # Configure container ports
     if container_port:
         try:
-            parsed_ports = make_container_ports_from_str_list(container_port, strategy_free=True)
+            parsed_ports = make_container_ports_from_str_list(
+                container_port, strategy_free=True
+            )
         except ValueError as e:
             console.print(f"[red]Error[/]: {e}")
             sys.exit(1)
@@ -668,15 +671,21 @@ def create(
         job_spec.container.ports = parsed_ports
 
         # Summarize configured strategies for user confirmation
-        strategies_set = {s.value for cp in parsed_ports for s in (cp.expose_strategies or [])}
-        ports_msg = ", ".join(f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports)
-        console.print(
-            f"Configured container ports: [cyan]{ports_msg}[/] with strategies [cyan]{', '.join(sorted(strategies_set))}[/]"
+        strategies_set = {
+            s.value for cp in parsed_ports for s in (cp.expose_strategies or [])
+        }
+        ports_msg = ", ".join(
+            f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports
         )
         console.print(
-            "[yellow]Notice:[/] Exposing container ports may increase your service's security risk. "
-            "Please implement appropriate authentication and security controls; you are solely responsible for the "
-            "security of any services exposed."
+            f"Configured container ports: [cyan]{ports_msg}[/] with strategies"
+            f" [cyan]{', '.join(sorted(strategies_set))}[/]"
+        )
+        console.print(
+            "[yellow]Notice:[/] Exposing container ports may increase your service's"
+            " security risk. Please implement appropriate authentication and security"
+            " controls; you are solely responsible for the security of any services"
+            " exposed."
         )
     # Set environment variables and secrets
     if env or secret:
