@@ -192,9 +192,13 @@ def make_container_port_from_string(port_str: str, *, strategy_free: bool = Fals
 
     # Validate minimal segments
     if strategy_free:
+        if len(parts) > 2:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
+            )
         if len(parts) < 2:
             raise ValueError(
-                f"Invalid port definition '{port_str}'. Expected <port>:<protocol> or with strategies."
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
             )
     else:
         if len(parts) < 3:
