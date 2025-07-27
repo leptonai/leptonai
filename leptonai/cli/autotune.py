@@ -183,6 +183,7 @@ def batch_size_options(f):
 
 def parallelism_options(f):
     f = click.option("--tensor-parallel-sizes", type=INT_LIST, default="1,2", help="Tensor parallel sizes (comma-separated). ")(f)
+    f = click.option("--virtual-pipeline-parallel-sizes", type=INT_LIST, default=None, help="Virtual pipeline sizes (comma-separated). ")(f)
     f = click.option("--pipeline-parallel-sizes", type=INT_LIST_OR_AUTO, default="1,2", help="Pipeline parallel sizes (comma-separated or 'auto').")(f)
     f = click.option("--context-parallel-sizes", type=INT_LIST, default="1,2", help="Context parallel sizes (comma-separated). ")(f)
     f = click.option("--expert-parallel-sizes", type=INT_LIST, default="1", help="Expert parallel sizes (comma-separated). ")(f)
