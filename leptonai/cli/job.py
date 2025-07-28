@@ -29,8 +29,6 @@ from leptonai.api.v1.types.job import (
     ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import (
-    ContainerPort,
-    ContainerPortExposeStrategy,
     QueueConfig,
     LeptonLog,
 )
