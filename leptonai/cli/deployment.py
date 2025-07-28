@@ -874,8 +874,19 @@ def create(
                     f" set the secret, and specify it with --secret {k}. Otherwise,"
                     " the deployment may fail."
                 )
-        spec.envs = make_env_vars_from_strings(env_list, secret_list)
-        spec.mounts = make_mounts_from_strings(mount_list)
+
+        # Fix: Only override mounts and envs if CLI arguments were provided
+        # If no CLI arguments for env/mount are given and we loaded from file, preserve existing values
+        if env_list or secret_list or not file:
+            # CLI args provided or no file loaded - use CLI args
+            spec.envs = make_env_vars_from_strings(env_list, secret_list)
+        # else: preserve existing spec.envs from loaded file
+
+        if mount_list or not file:
+            # CLI args provided or no file loaded - use CLI args
+            spec.mounts = make_mounts_from_strings(mount_list)
+        # else: preserve existing spec.mounts from loaded file
+
         spec.api_tokens = make_token_vars_from_config(public, tokens)
         spec.image_pull_secrets = list(image_pull_secrets)
         spec.auto_scaler = AutoScaler(
