@@ -13,7 +13,6 @@ import sys
 import json
 from datetime import datetime
 import re
-import shlex
 
 import click
 from loguru import logger
