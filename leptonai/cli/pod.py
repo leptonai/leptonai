@@ -161,7 +161,7 @@ def pod():
         "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n "
         " <port>     : 1-65535\n  <protocol> : tcp | udp | sctp\n  <strategy> : proxy |"
         " hostmap\n              - hostmap: host port (random 40000-65535) mapped on"
-        " node IP\n              - proxy  : generate public URL; only ONE port in a job"
+        " node IP\n              - proxy  : generate public URL; only ONE port"
         " can enable proxy\n\nExamples:\n  8080:tcp:proxy                -> proxy"
         " only\n  8080:udp:hostmap             -> host mapping only\n "
         " 8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will"
