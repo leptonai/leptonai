@@ -725,7 +725,9 @@ def create(
             )
             sys.exit(1)
 
-        wrapped_cmd = ["/bin/bash", "-c", container_command] if container_command else None
+        wrapped_cmd = (
+            ["/bin/bash", "-c", container_command] if container_command else None
+        )
         spec.container = LeptonContainer(
             image=container_image,
             command=wrapped_cmd,
