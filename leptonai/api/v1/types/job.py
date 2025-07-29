@@ -17,6 +17,7 @@ from .deployment import (
 
 class ReservationConfig(BaseModel):
     reservation_id: Optional[str] = None
+    allow_burst_to_other_reservations: Optional[bool] = None
 
 
 class LeptonJobUserSpec(BaseModel):
