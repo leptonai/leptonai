@@ -526,8 +526,9 @@ def make_container_port_from_string(port_str: str):
     is_flag=True,
     default=False,
     help=(
-        "If set, the job can temporarily use free resources from nodes reserved by other reservations. "
-        "Be aware that when a new workload bound to those reservations starts, your job may be evicted."
+        "If set, the job can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your job may be evicted."
     ),
 )
 def create(
@@ -705,7 +706,8 @@ def create(
     if with_reservation or allow_burst_to_other_reservation:
         if not node_groups:
             console.print(
-                "[red]Error[/]: Reservation-related flags are only supported when --node-group is specified."
+                "[red]Error[/]: Reservation-related flags are only supported when"
+                " --node-group is specified."
             )
             sys.exit(1)
 
