@@ -13,7 +13,6 @@ import sys
 import json
 from datetime import datetime
 import re
-import shlex
 
 import click
 from loguru import logger
@@ -206,13 +205,21 @@ def create(
         if deployment_user_spec.container is None:
             deployment_user_spec.container = LeptonContainer(
                 image=container_image,
-                command=shlex.split(container_command) if container_command else None,
+                command=(
+                    ["/bin/bash", "-c", container_command]
+                    if container_command
+                    else None
+                ),
             )
         else:
             if container_image:
                 deployment_user_spec.container.image = container_image
             if container_command:
-                deployment_user_spec.container.command = shlex.split(container_command)
+                deployment_user_spec.container.command = [
+                    "/bin/bash",
+                    "-c",
+                    container_command,
+                ]
 
     if resource_shape:
         if deployment_user_spec.resource_requirement is None:

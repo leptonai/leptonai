@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 import re
-import shlex
 import sys
 from typing import List, Optional, Union
 
@@ -725,9 +724,12 @@ def create(
             )
             sys.exit(1)
 
+        wrapped_cmd = (
+            ["/bin/bash", "-c", container_command] if container_command else None
+        )
         spec.container = LeptonContainer(
             image=container_image,
-            command=shlex.split(container_command) if container_command else None,
+            command=wrapped_cmd,
         )
         if container_port:
             spec.container.ports = [ContainerPort(container_port=container_port)]
