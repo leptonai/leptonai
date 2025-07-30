@@ -3,7 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 import click
@@ -13,7 +13,10 @@ from rich.console import Console
 from leptonai.api.v2.client import APIClient
 
 from leptonai.config import DASHBOARD_URL
-
+from leptonai.api.v1.types.deployment import (
+    ContainerPort,
+    ContainerPortExposeStrategy,
+)
 
 console = Console(highlight=False)
 
@@ -174,6 +177,129 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
         sys.exit(1)
 
     return node_group_ids
+
+
+def make_container_port_from_string(
+    port_str: str, *, strategy_free: bool = False
+) -> ContainerPort:
+    """Parse --container-port value.
+
+    Expected format: <port>:<protocol>:<strategy>[:strategy]
+    * <port>      — integer 1-65535
+    * <protocol>  — tcp | udp | sctp
+    * <strategy>  — proxy | hostmap (case-insensitive)
+    One or two strategies may be specified. Order is not significant beyond the first two fixed segments.
+    """
+
+    parts = [p.strip() for p in port_str.split(":")]
+    # Check for empty segments
+    if "" in parts:
+        raise ValueError(
+            f"Invalid port definition '{port_str}'. Empty segments are not allowed."
+        )
+
+    # Validate minimal segments
+    if strategy_free:
+        if len(parts) > 2:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
+            )
+        if len(parts) < 2:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
+            )
+    else:
+        if len(parts) < 3:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected"
+                " <port>:<protocol>:<strategy>[:strategy]."
+            )
+
+    try:
+        port_num = int(parts[0])
+    except ValueError:
+        raise ValueError(f"First segment must be an integer port, got '{parts[0]}'.")
+
+    proto = parts[1]
+
+    has_proxy = False
+    has_host = False
+
+    for seg in parts[2:]:
+        seg_lower = seg.lower()
+        if seg_lower == "proxy":
+            if has_proxy:
+                raise ValueError("Duplicate 'proxy' strategy in definition.")
+            has_proxy = True
+        elif seg_lower in {
+            "hostmap",
+            "host-mapping",
+            "hostmapping",
+            "host",
+            "host-map",
+        }:
+            if has_host:
+                raise ValueError("Duplicate 'hostmap' strategy in definition.")
+            has_host = True
+        else:
+            raise ValueError(
+                f"Unknown strategy '{seg}' in '{port_str}'. Use proxy or hostmap."
+            )
+
+    if not strategy_free and not (has_proxy or has_host):
+        raise ValueError(
+            "At least one exposure strategy (proxy or hostmap) must be specified."
+        )
+
+    strategies = []
+    if has_proxy:
+        strategies.append(ContainerPortExposeStrategy.INGRESS_PROXY)
+    if has_host:
+        strategies.append(ContainerPortExposeStrategy.HOST_PORT_MAPPING)
+
+    return ContainerPort(
+        name=None,
+        container_port=port_num,
+        protocol=proto.upper(),
+        expose_strategies=strategies,
+    )
+
+
+def make_container_ports_from_str_list(
+    port_strings: List[str], *, strategy_free: bool = False
+) -> List[ContainerPort]:
+    """Convert list of CLI strings to ContainerPort list, ensuring rules like single proxy."""
+
+    parsed_ports = [
+        make_container_port_from_string(p, strategy_free=strategy_free)
+        for p in port_strings
+    ]
+
+    # Ensure at most one proxy across all ports
+    if not strategy_free:
+        proxy_count = sum(
+            1
+            for cp in parsed_ports
+            if cp.expose_strategies
+            and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
+        )
+        if proxy_count > 1:
+            raise ValueError(
+                "Only one container port may use the 'proxy' strategy within a single"
+                " job."
+            )
+
+    # Ensure no duplicate container_port numbers
+    seen_ports = set()
+    for cp in parsed_ports:
+        if cp.container_port in seen_ports:
+            raise ValueError(
+                f"Duplicate container port '{cp.container_port}' detected in definition"
+                " list."
+            )
+        seen_ports.add(cp.container_port)
+
+    return parsed_ports
 
 
 def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):

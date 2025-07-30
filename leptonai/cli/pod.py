@@ -33,6 +33,7 @@ from .util import (
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
 )
+from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
@@ -152,6 +153,24 @@ def pod():
     type=str,
     multiple=True,
 )
+@click.option(
+    "--container-port",
+    type=str,
+    help=(
+        "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n "
+        " <port>     : 1-65535\n  <protocol> : tcp | udp | sctp\n  <strategy> : proxy |"
+        " hostmap\n              - hostmap: host port (random 40000-65535) mapped on"
+        " node IP\n              - proxy  : generate public URL; only ONE port"
+        " can enable proxy\n\nExamples:\n  8080:tcp:proxy                -> proxy"
+        " only\n  8080:udp:hostmap             -> host mapping only\n "
+        " 8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will"
+        " take effect)\n\nNotice: Exposing container ports may increase your service's"
+        " security risk. Please implement appropriate authentication and security"
+        " controls; you are solely responsible for the security of any services"
+        " exposed."
+    ),
+    multiple=True,
+)
 def create(
     name,
     file,
@@ -163,6 +182,7 @@ def create(
     node_groups,
     container_image,
     container_command,
+    container_port,
     log_collection,
     node_ids,
 ):
@@ -238,6 +258,36 @@ def create(
         deployment_user_spec.resource_requirement.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
+        )
+
+    # Configure container ports first (ensure container exists)
+    if container_port:
+        try:
+            parsed_ports = make_container_ports_from_str_list(list(container_port))
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
+            sys.exit(1)
+
+        if deployment_user_spec.container is None:
+            deployment_user_spec.container = LeptonContainer()
+        deployment_user_spec.container.ports = parsed_ports
+
+        # Summarize configured strategies for user confirmation
+        strategies_set = {
+            s.value for cp in parsed_ports for s in (cp.expose_strategies or [])
+        }
+        ports_msg = ", ".join(
+            f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports
+        )
+        console.print(
+            f"Configured container ports: [cyan]{ports_msg}[/] with strategies"
+            f" [cyan]{', '.join(sorted(strategies_set))}[/]"
+        )
+        console.print(
+            "[yellow]Notice:[/] Exposing container ports may increase your service's"
+            " security risk. Please implement appropriate authentication and security"
+            " controls; you are solely responsible for the security of any services"
+            " exposed."
         )
 
     if mount:

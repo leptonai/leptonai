@@ -15,6 +15,7 @@ from .util import (
     _get_valid_nodegroup_ids,
     _get_valid_node_ids,
     build_dashboard_job_url,
+    make_container_ports_from_str_list,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -27,7 +28,10 @@ from leptonai.api.v1.types.job import (
     LeptonJobState,
     ReservationConfig,
 )
-from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
+from leptonai.api.v1.types.deployment import (
+    QueueConfig,
+    LeptonLog,
+)
 from leptonai.api.v2.client import APIClient
 
 
@@ -268,20 +272,6 @@ def job():
     pass
 
 
-def make_container_port_from_string(port_str: str):
-    parts = port_str.split(":")
-    if len(parts) == 2:
-        try:
-            port = int(parts[0].strip())
-        except ValueError:
-            raise ValueError(
-                f"Invalid port definition: {port_str}. Port must be an integer."
-            )
-        return ContainerPort(container_port=port, protocol=parts[1].strip())
-    else:
-        raise ValueError(f"Invalid port definition: {port_str}")
-
-
 @job.command()
 @click.option("--name", "-n", help="Job name", type=str, required=True)
 @click.option(
@@ -317,7 +307,10 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--container-port",
     type=str,
-    help="Ports to expose for the job, in the format portnumber[:protocol].",
+    help=(
+        "Ports to expose for the job, in the format"
+        " <portnumber>:<protocol(tcp/udp/sctp)>."
+    ),
     multiple=True,
 )
 @click.option(
@@ -676,9 +669,15 @@ def create(
 
     # Configure container ports
     if container_port:
-        job_spec.container.ports = [
-            make_container_port_from_string(p) for p in container_port
-        ]
+        try:
+            parsed_ports = make_container_ports_from_str_list(
+                container_port, strategy_free=True
+            )
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
+            sys.exit(1)
+
+        job_spec.container.ports = parsed_ports
 
     # Set environment variables and secrets
     if env or secret:
@@ -731,7 +730,6 @@ def create(
 
     # Log job specification for debugging
     logger.trace(json.dumps(job.model_dump(), indent=2))
-
     # Create job and display success message
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
