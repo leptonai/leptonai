@@ -265,6 +265,24 @@ def create(
             deployment_user_spec.container = LeptonContainer()
         deployment_user_spec.container.ports = parsed_ports
 
+        # Summarize configured strategies for user confirmation
+        strategies_set = {
+            s.value for cp in parsed_ports for s in (cp.expose_strategies or [])
+        }
+        ports_msg = ", ".join(
+            f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports
+        )
+        console.print(
+            f"Configured container ports: [cyan]{ports_msg}[/] with strategies"
+            f" [cyan]{', '.join(sorted(strategies_set))}[/]"
+        )
+        console.print(
+            "[yellow]Notice:[/] Exposing container ports may increase your service's"
+            " security risk. Please implement appropriate authentication and security"
+            " controls; you are solely responsible for the security of any services"
+            " exposed."
+        )
+        
     if mount:
         deployment_user_spec.mounts = make_mounts_from_strings(mount)
 

@@ -193,6 +193,11 @@ def make_container_port_from_string(
 
     parts = [p.strip() for p in port_str.split(":") if p.strip()]
 
+    if "" in parts:
+        raise ValueError(
+            f"Invalid port definition '{port_str}'. Empty segments are not allowed."
+        )
+        
     # Validate minimal segments
     if strategy_free:
         if len(parts) > 2:
@@ -215,7 +220,7 @@ def make_container_port_from_string(
     except ValueError:
         raise ValueError(f"First segment must be an integer port, got '{parts[0]}'.")
 
-    proto = parts[1] if len(parts) >= 2 else "tcp"
+    proto = parts[1]
 
     has_proxy = False
     has_host = False
