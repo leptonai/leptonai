@@ -327,6 +327,7 @@ ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED
 
 # Valid resource shapes
 VALID_SHAPES = [
+    "gpu.small",
     "cpu.small",
     "cpu.medium",
     "cpu.large",
