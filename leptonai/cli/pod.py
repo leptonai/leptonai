@@ -57,7 +57,7 @@ def pod():
 
 
 @pod.command()
-@click.option("--name", "-n", type=str, help="Name of the pod to create.")
+@click.option("--name", "-n", type=str, help="Name of the pod to create.", required=True)
 @click.option(
     "--file",
     "-f",
