@@ -355,7 +355,7 @@ def list_command(pattern):
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
     for index, pod in enumerate(pods):
-        ports = (pod.spec.container.ports if pod.spec.container else None)
+        ports = pod.spec.container.ports if pod.spec.container else None
         if not ports:
             continue
 
