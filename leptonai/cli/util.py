@@ -191,13 +191,13 @@ def make_container_port_from_string(
     One or two strategies may be specified. Order is not significant beyond the first two fixed segments.
     """
 
-    parts = [p.strip() for p in port_str.split(":") if p.strip()]
-
+    parts = [p.strip() for p in port_str.split(":")]
+    # Check for empty segments
     if "" in parts:
         raise ValueError(
             f"Invalid port definition '{port_str}'. Empty segments are not allowed."
         )
-        
+
     # Validate minimal segments
     if strategy_free:
         if len(parts) > 2:
