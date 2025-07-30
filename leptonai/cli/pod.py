@@ -405,7 +405,10 @@ def list_command(pattern):
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
     for index, pod in enumerate(pods):
-        ports = pod.spec.container.ports
+        ports = pod.spec.container.ports if pod.spec.container else None
+        if not ports:
+            continue
+
         port_pairs = [(p.container_port, p.host_port) for p in ports]
         if len(port_pairs) not in [2, 3]:
             console.print(
