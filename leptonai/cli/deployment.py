@@ -306,7 +306,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 
 
 @deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the endpoint being created.", required=True)
+@click.option(
+    "--name", "-n", type=str, help="Name of the endpoint being created.", required=True
+)
 @click.option(
     "--file",
     "-f",
