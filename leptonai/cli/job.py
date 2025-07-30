@@ -521,6 +521,16 @@ def make_container_port_from_string(port_str: str):
         " scheduled as usual."
     ),
 )
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the job can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your job may be evicted."
+    ),
+)
 def create(
     name,
     file,
@@ -549,6 +559,7 @@ def create(
     visibility,
     shared_memory_size,
     with_reservation,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates a job.
@@ -692,14 +703,22 @@ def create(
         job_spec.shared_memory_size = shared_memory_size
 
     # Configure reservation if specified
-    if with_reservation:
+    if with_reservation or allow_burst_to_other_reservation:
         if not node_groups:
             console.print(
-                "[red] Error[/]: --with-reservation is only supported for dedicated"
-                " node groups"
+                "[red]Error[/]: Reservation-related flags are only supported when"
+                " --node-group is specified."
             )
             sys.exit(1)
-        job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
+
+        # Initialize config if needed
+        job_spec.reservation_config = job_spec.reservation_config or ReservationConfig()
+
+        if with_reservation:
+            job_spec.reservation_config.reservation_id = with_reservation
+
+        if allow_burst_to_other_reservation:
+            job_spec.reservation_config.allow_burst_to_other_reservations = True
 
     # Create job with metadata
     job = LeptonJob(
