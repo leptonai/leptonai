@@ -42,6 +42,7 @@ from ..api.v1.types.deployment import (
     ContainerPort,
     AutoscalerTargetThroughput,
     LeptonLog,
+    ReservationConfig,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -601,6 +602,24 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help="Specify the shared memory size for this endpoint, in MiB.",
 )
+@click.option(
+    "--with-reservation",
+    type=str,
+    help=(
+        "Assign the endpoint to a specific reserved compute resource using a"
+        " reservation ID (only applicable to dedicated node groups)."
+    ),
+)
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the endpoint can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your endpoint may be evicted."
+    ),
+)
 def create(
     name,
     file,
@@ -633,6 +652,8 @@ def create(
     log_collection,
     node_ids,
     shared_memory_size,
+    with_reservation,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -841,6 +862,22 @@ def create(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+
+    if with_reservation or allow_burst_to_other_reservation:
+        if not node_groups:
+            console.print(
+                "[red]Error[/]: Reservation-related flags are only supported when "
+                "--node-group is specified."
+            )
+            sys.exit(1)
+
+        spec.reservation_config = spec.reservation_config or ReservationConfig()
+
+        if with_reservation:
+            spec.reservation_config.reservation_id = with_reservation
+
+        if allow_burst_to_other_reservation:
+            spec.reservation_config.allow_burst_to_other_reservations = True
 
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list

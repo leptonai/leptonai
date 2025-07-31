@@ -12,12 +12,8 @@ from .deployment import (
     Mount,
     LeptonLog,
     QueueConfig,
+    ReservationConfig,
 )
-
-
-class ReservationConfig(BaseModel):
-    reservation_id: Optional[str] = None
-    allow_burst_to_other_reservations: Optional[bool] = None
 
 
 class LeptonJobUserSpec(BaseModel):

@@ -37,7 +37,12 @@ from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement, LeptonLog, LeptonContainer
+from ..api.v1.types.deployment import (
+    ResourceRequirement,
+    LeptonLog,
+    LeptonContainer,
+    ReservationConfig,
+)
 
 
 console = Console(highlight=False)
@@ -173,6 +178,24 @@ def pod():
     ),
     multiple=True,
 )
+@click.option(
+    "--with-reservation",
+    type=str,
+    help=(
+        "Assign the pod to a specific reserved compute resource using a reservation ID "
+        "(only applicable to dedicated node groups)."
+    ),
+)
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the pod can temporarily use free resources from nodes reserved by "
+        "other reservations. Be aware that when a new workload bound to those "
+        "reservations starts, your pod may be evicted."
+    ),
+)
 def create(
     name,
     file,
@@ -187,6 +210,8 @@ def create(
     container_port,
     log_collection,
     node_ids,
+    with_reservation,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -261,6 +286,26 @@ def create(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
+
+    if with_reservation or allow_burst_to_other_reservation:
+        if not node_groups:
+            console.print(
+                "[red]Error[/]: Reservation-related flags are only supported when "
+                "--node-group is specified."
+            )
+            sys.exit(1)
+
+        deployment_user_spec.reservation_config = (
+            deployment_user_spec.reservation_config or ReservationConfig()
+        )
+
+        if with_reservation:
+            deployment_user_spec.reservation_config.reservation_id = with_reservation
+
+        if allow_burst_to_other_reservation:
+            deployment_user_spec.reservation_config.allow_burst_to_other_reservations = (
+                True
+            )
 
     # Configure container ports first (ensure container exists)
     if container_port:
