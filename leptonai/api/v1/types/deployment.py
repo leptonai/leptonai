@@ -14,6 +14,8 @@ DEFAULT_STORAGE_VOLUME_NAME = "default"
 class ReservationConfig(BaseModel):
     reservation_id: Optional[str] = None
     allow_burst_to_other_reservations: Optional[bool] = None
+
+
 class EnvValue(BaseModel):
     secret_name_ref: Optional[str] = None
 

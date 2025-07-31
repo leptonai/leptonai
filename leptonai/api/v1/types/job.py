@@ -16,8 +16,6 @@ from .deployment import (
 )
 
 
-
-
 class LeptonJobUserSpec(BaseModel):
     """
     The desired state of a Lepton Job.

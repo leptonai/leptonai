@@ -606,8 +606,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--with-reservation",
     type=str,
     help=(
-        "Assign the endpoint to a specific reserved compute resource using a reservation ID "
-        "(only applicable to dedicated node groups)."
+        "Assign the endpoint to a specific reserved compute resource using a"
+        " reservation ID (only applicable to dedicated node groups)."
     ),
 )
 @click.option(
@@ -615,9 +615,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     is_flag=True,
     default=False,
     help=(
-        "If set, the endpoint can temporarily use free resources from nodes reserved by "
-        "other reservations. Be aware that when a new workload bound to those reservations "
-        "starts, your endpoint may be evicted."
+        "If set, the endpoint can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your endpoint may be evicted."
     ),
 )
 def create(
