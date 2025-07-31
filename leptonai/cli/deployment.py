@@ -42,8 +42,8 @@ from ..api.v1.types.deployment import (
     ContainerPort,
     AutoscalerTargetThroughput,
     LeptonLog,
+    ReservationConfig,
 )
-from leptonai.api.v1.types.job import ReservationConfig
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
 

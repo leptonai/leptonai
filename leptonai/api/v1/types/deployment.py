@@ -2,7 +2,6 @@ import warnings
 from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from .job import ReservationConfig
 
 from leptonai.config import compatible_field_validator, v2only_field_validator
 
@@ -12,6 +11,9 @@ from .common import Metadata
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
 
+class ReservationConfig(BaseModel):
+    reservation_id: Optional[str] = None
+    allow_burst_to_other_reservations: Optional[bool] = None
 class EnvValue(BaseModel):
     secret_name_ref: Optional[str] = None
 
