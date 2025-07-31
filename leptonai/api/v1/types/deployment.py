@@ -2,6 +2,7 @@ import warnings
 from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from .job import ReservationConfig
 
 from leptonai.config import compatible_field_validator, v2only_field_validator
 
@@ -246,6 +247,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     api_tokens: Optional[List[TokenVar]] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
+    reservation_config: Optional[ReservationConfig] = None
     image_pull_secrets: Optional[List[str]] = None
     health: Optional[HealthCheck] = None
     is_pod: Optional[bool] = None
