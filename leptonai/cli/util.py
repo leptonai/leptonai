@@ -440,7 +440,8 @@ def apply_nodegroup_and_queue_config(
         # Deployment/Pod-style spec – resource_requirement must exist beforehand
         if getattr(spec, "resource_requirement", None) is None:
             raise ValueError(
-                "for endpoint_user_spec, resource_requirement must be set before applying node group / queue / reservation flags."
+                "for endpoint_user_spec, resource_requirement must be set before"
+                " applying node group / queue / reservation flags."
             )
         holder = spec.resource_requirement
 
@@ -449,23 +450,26 @@ def apply_nodegroup_and_queue_config(
         node_group_ids = _get_valid_nodegroup_ids(
             node_groups, need_queue_priority=has_queue_flags
         )
-        valid_node_ids = _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
 
         holder.affinity = LeptonResourceAffinity(
             allowed_dedicated_node_groups=node_group_ids,
             allowed_nodes_in_node_group=valid_node_ids,
         )
 
-    elif (has_queue_flags or has_reservation_flags):
+    elif has_queue_flags or has_reservation_flags:
         affinity = getattr(holder, "affinity", None)
         enabled = affinity and affinity.allowed_dedicated_node_groups
         if not enabled:
             raise ValueError(
-                "queue/preempt/reservation flags require --node-group (dedicated node group)."
+                "queue/preempt/reservation flags require --node-group (dedicated node"
+                " group)."
             )
 
     if has_queue_flags:
-        spec.queue_config =  spec.queue_config or QueueConfig()
+        spec.queue_config = spec.queue_config or QueueConfig()
         spec.queue_config.priority_class = queue_priority or "mid-4000"
         if can_be_preempted is not None:
             spec.queue_config.can_be_preempted = can_be_preempted
