@@ -30,8 +30,8 @@ from leptonai.api.v1 import types
 from .util import (
     click_group,
     _get_only_replica_public_ip,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
@@ -161,6 +161,28 @@ def pod():
     multiple=True,
 )
 @click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    default=None,
+    help="Set the priority for this pod (dedicated node groups only).",
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help="Allow this pod to be preempted by higher priority workloads.",
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help="Allow this pod to preempt lower priority workloads.",
+)
+@click.option(
     "--container-port",
     type=str,
     help=(
@@ -210,6 +232,9 @@ def create(
     container_port,
     log_collection,
     node_ids,
+    queue_priority,
+    can_be_preempted,
+    can_preempt,
     with_reservation,
     allow_burst_to_other_reservation,
 ):
@@ -276,36 +301,21 @@ def create(
         else:
             deployment_user_spec.resource_requirement.resource_shape = resource_shape
 
-    if node_groups:
-        node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=deployment_user_spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-        # make sure affinity is initialized
-        deployment_user_spec.resource_requirement.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
-        )
-
-    if with_reservation or allow_burst_to_other_reservation:
-        if not node_groups:
-            console.print(
-                "[red]Error[/]: Reservation-related flags are only supported when "
-                "--node-group is specified."
-            )
-            sys.exit(1)
-
-        deployment_user_spec.reservation_config = (
-            deployment_user_spec.reservation_config or ReservationConfig()
-        )
-
-        if with_reservation:
-            deployment_user_spec.reservation_config.reservation_id = with_reservation
-
-        if allow_burst_to_other_reservation:
-            deployment_user_spec.reservation_config.allow_burst_to_other_reservations = (
-                True
-            )
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # Configure container ports first (ensure container exists)
     if container_port:
