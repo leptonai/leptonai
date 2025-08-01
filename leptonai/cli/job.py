@@ -12,8 +12,6 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
     build_dashboard_job_url,
     make_container_ports_from_str_list,
     _validate_queue_priority,
@@ -26,12 +24,9 @@ from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
-    LeptonResourceAffinity,
     LeptonJobState,
-    ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import (
-    QueueConfig,
     LeptonLog,
 )
 from leptonai.api.v2.client import APIClient
