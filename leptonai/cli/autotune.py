@@ -4,8 +4,19 @@ import re
 import logging
 from rich.console import Console
 from .util import click_group
-from nemo.collections.llm.tools.autotuner import runner as autotuner_runner
 from nemo.collections.llm.tools.autotuner.args import AutoTuneArgs
+from nemo.collections.llm.tools.autotuner.core.predictive_config_builder import list_models as list_models_impl
+
+# Import data launcher functions
+import sys
+import os
+
+from nemo.collections.llm.tools.autotuner.launcher import (
+    launch_generate_remote,
+    launch_run_remote,
+    launch_results_remote,
+    launch_list_configs_remote
+)
 
 logger = logging.getLogger(__name__)
 
@@ -163,12 +174,10 @@ INT_LIST_OR_AUTO = IntListOrAutoType()
 
 def common_options(f):
     f = click.option("--model", type=str, required=True, callback=validate_model_callback, help="[REQUIRED] Model to pretrain.")(f)
-    f = click.option("--nodes", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] Number of nodes for training.")(f)
-    f = click.option("--gpus-per-node", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] GPUs per node.")(f)
-    f = click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount path in container.")(f)
     f = click.option("--mount-from", type=str, required=True, help="[REQUIRED] Mount source.")(f)
-    f = click.option("--node-group", type=str, required=True, help="[REQUIRED] Node group for execution.")(f)
-    f = click.option("--logs-subdir", type=str, required=True, help="[REQUIRED] Logs subdirectory relative to mount-path.")(f)
+    f = click.option("--mount-source-path", type=str, required=True, help="[REQUIRED] Mount source path.")(f)
+    f = click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount destination path.")(f)
+    f = click.option("--launcher-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")(f)
     return f
 
 def config_model_options(f):
@@ -182,12 +191,11 @@ def batch_size_options(f):
     return f
 
 def parallelism_options(f):
-    f = click.option("--tensor-parallel-sizes", type=INT_LIST, default="1,2", help="Tensor parallel sizes (comma-separated). ")(f)
-    f = click.option("--virtual-pipeline-parallel-sizes", type=INT_LIST, default=None, help="Virtual pipeline sizes (comma-separated). ")(f)
+    f = click.option("--tensor-parallel-sizes", type=INT_LIST, default="1,2", help="Tensor parallel sizes (comma-separated).")(f)
     f = click.option("--pipeline-parallel-sizes", type=INT_LIST_OR_AUTO, default="1,2", help="Pipeline parallel sizes (comma-separated or 'auto').")(f)
-    f = click.option("--context-parallel-sizes", type=INT_LIST, default="1,2", help="Context parallel sizes (comma-separated). ")(f)
-    f = click.option("--expert-parallel-sizes", type=INT_LIST, default="1", help="Expert parallel sizes (comma-separated). ")(f)
-    f = click.option("--virtual-pipeline-model-parallel-sizes", type=INT_LIST, default=None, help="Virtual pipeline sizes (comma-separated). ")(f)
+    f = click.option("--context-parallel-sizes", type=INT_LIST, default="1,2", help="Context parallel sizes (comma-separated).")(f)
+    f = click.option("--expert-parallel-sizes", type=INT_LIST, default="1", help="Expert parallel sizes (comma-separated).")(f)
+    f = click.option("--virtual-pipeline-model-parallel-sizes", type=INT_LIST, default="1,2", help="Virtual pipeline parallel sizes (comma-separated).")(f)
     return f
 
 def dynamic_executor_options(f):
@@ -218,6 +226,8 @@ def autotune():
 @batch_size_options
 @parallelism_options
 @dynamic_executor_options
+@click.option("--nodes", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] Number of nodes for training.")
+@click.option("--gpus-per-node", type=int, required=True, callback=validate_positive_int, help="[REQUIRED] GPUs per node.")
 @click.option("--resource-shape", type=str, default=None, callback=validate_resource_shape_or_memory, help="GPU resource shape. Examples: gpu.8xh200, gpu.4xh100, gpu.a100-40gb, gpu.2xa100-80gb")
 @click.option("--memory-per-gpu", type=float, default=None, callback=validate_resource_shape_or_memory, help="Custom GPU memory in GB (alternative to --resource-shape)")
 @click.option("--max-model-parallel-size", type=int, default=32, callback=validate_positive_int, help="Maximum model parallel size.")
@@ -229,11 +239,20 @@ def autotune():
 @click.option("--seq-length", type=int, default=8192, callback=validate_positive_int, help="Sequence length for the model.")
 @click.option("--val-check-interval", type=int, default=50, callback=validate_positive_int, help="Validation check interval.")
 @click.option("--max-steps", type=int, default=10, callback=validate_positive_int, help="Maximum training steps.")
+@click.option("--logs-subdir", type=str, required=True, help="[REQUIRED] Logs subdirectory relative to mount-path.")
+@click.option("--launcher-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")
+@click.option("--training-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")
 def generate(**kwargs):
     """Generate AutoTune configurations for NeMo pretraining."""
-    args = AutoTuneArgs(**kwargs)
     try:
-        result = autotuner_runner.generate(args)
+        args_dict = {}
+        for key, value in kwargs.items():
+            snake_key = key.replace('-', '_')
+            args_dict[snake_key] = value
+        
+        result = launch_generate_remote(args_dict, kwargs['launcher_node_group'], kwargs['training_node_group'],
+                                      kwargs['mount_from'], kwargs['mount_source_path'], kwargs['mount_path'])
+        console.print(f"[green]Configuration generation completed![/green]")
     except Exception as e:
         console.print(f"[red]Error generating configurations: {e}[/red]")
         logger.error(f"Configuration generation failed: {e}")
@@ -241,55 +260,64 @@ def generate(**kwargs):
 
 @autotune.command()
 @config_model_options
+@click.option("--launcher-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")
+@click.option("--training-node-group", type=str, required=True, help="[REQUIRED] Node group for training jobs (GPU jobs).")
 @click.option("--sequential", is_flag=True, default=False, help="Run configurations sequentially instead of in parallel.")
 @click.option("--run-all", is_flag=True, default=False, help="Run all configurations including those with potential CUDA OOM risk.")
-def run(config_dir, model, sequential, run_all):
+@click.option("--mount-from", type=str, required=True, help="[REQUIRED] Mount source.")
+@click.option("--mount-source-path", type=str, required=True, help="[REQUIRED] Mount source path.")
+@click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount destination path.")
+def run(config_dir, model, sequential, run_all, launcher_node_group, training_node_group, mount_from, mount_source_path, mount_path):
     """Run AutoTune pretraining with generated configurations."""
     try:
-        args = AutoTuneArgs.load_from_file(f"{config_dir}/{model}/args.json")
-        args.sequential = sequential
-        args.metadata['run_all'] = run_all
-        result = autotuner_runner.run(args)
+        result = launch_run_remote(config_dir, model, mount_from, mount_source_path, mount_path, launcher_node_group, training_node_group, sequential, run_all)
+        console.print(f"[green]AutoTune pretraining completed![/green]")
     except Exception as e:
         console.print(f"[red]Error running AutoTune pretraining: {e}[/red]")
         sys.exit(1)
 
 @autotune.command()
 @config_model_options
+@click.option("--launcher-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")
 @click.option("--path", "-p", type=str, required=True, help="[REQUIRED] Path to AutoConfigurator logs directory.")
-@click.option("--log-prefix", type=str, required=True, help="[REQUIRED] Log file prefix for result files.")
-@click.option("--top-n", type=int, default=10, callback=validate_positive_int, help="Number of top configurations to display.")
-@click.option("--force-reconstruct", is_flag=True, default=False, help="Force reconstruction instead of using saved objects.")
-@click.option("--cost-per-node-hour", type=float, default=24.0, callback=validate_positive_float, help="Cost per node hour in USD (default: $24.0 for H100).")
-@click.option("--quiet", is_flag=True, default=False, help="Only save to file, don't show output in terminal.")
-def results(config_dir, model, path, log_prefix, top_n, force_reconstruct, cost_per_node_hour, quiet):
-    """Analyze AutoTune training results, performance."""
+@click.option("--log-prefix", type=str, default="", help="Log file prefix to search for (default: '')")
+@click.option("--top-n", type=int, default=5, help="Number of top configurations to display (default: 5)")
+@click.option("--force-reconstruct", is_flag=True, default=False, help="Force reconstruction of config objects")
+@click.option("--cost-per-gpu-hour", type=float, default=3.0, help="Cost per GPU per hour for cost analysis (default: 3.0)")
+@click.option("--quiet", is_flag=True, default=False, help="Suppress verbose output")
+@click.option("--mount-from", type=str, required=True, help="[REQUIRED] Mount source.")
+@click.option("--mount-source-path", type=str, required=True, help="[REQUIRED] Mount source path.")
+@click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount destination path.")
+def results(config_dir, model, path, log_prefix, top_n, force_reconstruct, cost_per_gpu_hour, quiet, launcher_node_group, mount_from, mount_source_path, mount_path):
+    """Analyze AutoTune results and display performance analysis."""
     try:
-        args = AutoTuneArgs.load_from_file(f"{config_dir}/{model}/args.json")
-        autotuner_runner.results(args, path, log_prefix, top_n, force_reconstruct, cost_per_node_hour, quiet)
+        result = launch_results_remote(config_dir, model, path, log_prefix, mount_from, mount_source_path, mount_path, launcher_node_group, top_n, force_reconstruct, cost_per_gpu_hour, quiet)
         console.print(f"[green]Results analysis completed![/green]")
     except Exception as e:
-        console.print(f"[red]Error during results analysis: {e}[/red]")
-        logger.error(f"Results analysis failed: {e}")
+        console.print(f"[red]Error analyzing results: {e}[/red]")
         sys.exit(1)
-
 
 @autotune.command()
 @config_model_options
-def list_configs(config_dir, model):
+@click.option("--launcher-node-group", type=str, required=True, help="[REQUIRED] Node group for launcher jobs (CPU jobs).")
+@click.option("--mount-from", type=str, required=True, help="[REQUIRED] Mount source.")
+@click.option("--mount-source-path", type=str, required=True, help="[REQUIRED] Mount source path.")
+@click.option("--mount-path", type=str, required=True, help="[REQUIRED] Mount destination path.")
+def list_configs(config_dir, model, launcher_node_group, mount_from, mount_source_path, mount_path):
     """List generated AutoTune configurations with detailed status."""
     try:
-        autotuner_runner.list_configs(config_dir, model)
+        result = launch_list_configs_remote(config_dir, model, mount_from, mount_source_path, mount_path, launcher_node_group)
+        console.print(f"[green]Configuration listing completed![/green]")
     except Exception as e:
         console.print(f"[red]Error listing configs: {e}[/red]")
         sys.exit(1)
-
 
 @autotune.command(name="list-models")
 def list_models():
     """List all supported models for AutoTune."""
     try:
-        models = autotuner_runner.list_models()
+        list_models_impl()
+        console.print(f"[green]Models listing completed![/green]")
     except Exception as e:
         console.print(f"[red]Error listing models: {e}[/red]")
         sys.exit(1)
