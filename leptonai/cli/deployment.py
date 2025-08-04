@@ -14,8 +14,8 @@ from .util import (
     console,
     check,
     click_group,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
 )
 
 from leptonai.config import (
@@ -27,7 +27,6 @@ from leptonai.config import (
 from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata, LeptonVisibility
 from ..api.v1.types.deployment import (
@@ -42,7 +41,6 @@ from ..api.v1.types.deployment import (
     ContainerPort,
     AutoscalerTargetThroughput,
     LeptonLog,
-    ReservationConfig,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -597,6 +595,29 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=str,
     multiple=True,
 )
+# queue / preempt options (matching job.py style)
+@click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    default=None,
+    help="Set the priority for this endpoint (dedicated node groups only).",
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help="Allow this endpoint to be preempted by higher priority workloads.",
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help="Allow this endpoint to preempt lower priority workloads.",
+)
 @click.option(
     "--shared-memory-size",
     type=int,
@@ -651,6 +672,9 @@ def create(
     autoscale_qpm,
     log_collection,
     node_ids,
+    queue_priority,
+    can_be_preempted,
+    can_preempt,
     shared_memory_size,
     with_reservation,
     allow_burst_to_other_reservation,
@@ -852,32 +876,21 @@ def create(
     if shared_memory_size is not None:
         spec.resource_requirement.shared_memory_size = shared_memory_size
 
-    if node_groups:
-        node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-        spec.resource_requirement.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
-        )
-
-    if with_reservation or allow_burst_to_other_reservation:
-        if not node_groups:
-            console.print(
-                "[red]Error[/]: Reservation-related flags are only supported when "
-                "--node-group is specified."
-            )
-            sys.exit(1)
-
-        spec.reservation_config = spec.reservation_config or ReservationConfig()
-
-        if with_reservation:
-            spec.reservation_config.reservation_id = with_reservation
-
-        if allow_burst_to_other_reservation:
-            spec.reservation_config.allow_burst_to_other_reservations = True
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list
@@ -916,8 +929,6 @@ def create(
                     " the deployment may fail."
                 )
 
-        # Fix: Only override mounts and envs if CLI arguments were provided
-        # If no CLI arguments for env/mount are given and we loaded from file, preserve existing values
         if env_list or secret_list or not file:
             # CLI args provided or no file loaded - use CLI args
             spec.envs = make_env_vars_from_strings(env_list, secret_list)

@@ -12,10 +12,10 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
     build_dashboard_job_url,
     make_container_ports_from_str_list,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
 )
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
@@ -24,12 +24,9 @@ from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobUserSpec,
-    LeptonResourceAffinity,
     LeptonJobState,
-    ReservationConfig,
 )
 from leptonai.api.v1.types.deployment import (
-    QueueConfig,
     LeptonLog,
 )
 from leptonai.api.v2.client import APIClient
@@ -200,63 +197,6 @@ def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     )
 
     return jobs_sorted_by_created_at[-1]
-
-
-def _validate_queue_priority(ctx, param, value):
-    if value is None:
-        return value
-
-    priority_mapping = {
-        "l": "low-1000",
-        "low": "low-1000",
-        "low-1": "low-1000",
-        "low-2": "low-2000",
-        "low-3": "low-3000",
-        "m": "mid-4000",
-        "mid": "mid-4000",
-        "mid-4": "mid-4000",
-        "mid-5": "mid-5000",
-        "mid-6": "mid-6000",
-        "h": "high-7000",
-        "high": "high-7000",
-        "high-7": "high-7000",
-        "high-8": "high-8000",
-        "high-9": "high-9000",
-    }
-    # Allow direct use of canonical priority strings such as "mid-6000"
-    priority_mapping.update({v: v for v in priority_mapping.values()})
-    num_priority_mapping = {
-        1: "low-1000",
-        2: "low-2000",
-        3: "low-3000",
-        4: "mid-4000",
-        5: "mid-5000",
-        6: "mid-6000",
-        7: "high-7000",
-        8: "high-8000",
-        9: "high-9000",
-    }
-
-    # Check if the value is a recognized keyword
-    if isinstance(value, str):
-        value_lower = value.lower()
-        if value_lower in priority_mapping:
-            return priority_mapping[value_lower]
-
-    # Check if the value is a valid integer within the range
-    try:
-        priority = int(value)
-        if 1 <= priority <= 9:
-            return num_priority_mapping[priority]
-    except ValueError:
-        pass
-
-    # Raise an error for invalid input
-    sorted_options = sorted(priority_mapping.items(), key=lambda x: x[1])
-    valid_options = "".join(f"\n  {k:<10} -> Priority: {v}" for k, v in sorted_options)
-    raise click.BadParameter(
-        f"Invalid priority. Use 1-9, or one of the following options: {valid_options}."
-    )
 
 
 @click_group()
@@ -585,49 +525,21 @@ def create(
     else:
         job_spec = LeptonJobUserSpec()
 
-    # Configure node groups and queue priority
-    if node_groups or queue_priority or can_be_preempted or can_preempt:
-        # Validate queue priority configuration
-        if (
-            queue_priority or can_be_preempted is not None or can_preempt is not None
-        ) and not node_groups:
-            console.print(
-                "[red]Queue priority, can-be-preempted and can-preempt are only"
-                " available for dedicated node groups[/red]\n[green]please use them"
-                " with --node-group[/green]"
-            )
-            sys.exit(1)
-
-        # Get valid node group IDs
-        node_group_ids = _get_valid_nodegroup_ids(
-            node_groups,
-            need_queue_priority=(
-                queue_priority is not None
-                or can_be_preempted is not None
-                or can_preempt is not None
-            ),
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=job_spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-
-        # Get valid node IDs if specified
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
-        )
-
-        # Configure resource affinity
-        job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
-        job_spec.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
-        )
-
-        # Set queue configuration if priority is specified
-        if queue_priority or can_be_preempted is not None or can_preempt is not None:
-            job_spec.queue_config = job_spec.queue_config or QueueConfig()
-            job_spec.queue_config.priority_class = queue_priority or "mid-4000"
-            if can_be_preempted is not None:
-                job_spec.queue_config.can_be_preempted = can_be_preempted
-            if can_preempt is not None:
-                job_spec.queue_config.can_preempt = can_preempt
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # Set resource shape
     if resource_shape:
@@ -699,24 +611,6 @@ def create(
         job_spec.log = LeptonLog(enable_collection=log_collection)
     if shared_memory_size is not None:
         job_spec.shared_memory_size = shared_memory_size
-
-    # Configure reservation if specified
-    if with_reservation or allow_burst_to_other_reservation:
-        if not node_groups:
-            console.print(
-                "[red]Error[/]: Reservation-related flags are only supported when"
-                " --node-group is specified."
-            )
-            sys.exit(1)
-
-        # Initialize config if needed
-        job_spec.reservation_config = job_spec.reservation_config or ReservationConfig()
-
-        if with_reservation:
-            job_spec.reservation_config.reservation_id = with_reservation
-
-        if allow_burst_to_other_reservation:
-            job_spec.reservation_config.allow_burst_to_other_reservations = True
 
     # Create job with metadata
     job = LeptonJob(
