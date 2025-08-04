@@ -61,12 +61,11 @@ class JobAPI(APIResourse):
         while True:
             params = dict(params_base)
             params["page"] = current_page
-            params_base["page_size"] = 500
+            params["page_size"] = 500
             response = self._get("/jobs", params=params)
             data = response.json()
             items_raw = data.get("jobs", data) if isinstance(data, dict) else data
             items = [LeptonJob(**item) for item in items_raw]
-            print(f"Page {current_page} has {len(items)} items")
             if not items:
                 break
             results.extend(items)
