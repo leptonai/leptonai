@@ -564,10 +564,16 @@ def ssh(name):
     client = APIClient()
 
     pod = client.deployment.get(name)
-    ports = pod.spec.container.ports
+    logger.trace(json.dumps(pod.model_dump(), indent=2))
+    ports = pod.status.container_port_status
     if pod.status.state not in ("Running", "Ready"):
         console.print("This pod is not running or is not ready.")
         sys.exit(1)
+
+    notice_msg = (
+        "[yellow]Notice[/]: lep pod output may only work for default image and default"
+        " command"
+    )
 
     public_ip = _get_only_replica_public_ip(pod.metadata.name)
 
@@ -597,19 +603,23 @@ def ssh(name):
                     console.print(
                         f"[red]SSH command failed with exit statu[/] {e.returncode}"
                     )
+                    console.print(notice_msg)
                     console.print(
                         "[red]Error output:"
                         f" {e.stderr if e.stderr else 'No error output captured.'}[/]"
                     )
+                    console.print(notice_msg)
             except Exception as e:
                 console.print(f"[red]An unexpected error occurred: {str(e)}[/]")
+                console.print(notice_msg)
 
     if not ssh_flag:
         console.print(
             "SSH port not found, you can choose to use the web terminal to access the"
             " pod."
-            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+            f"https://dashboard.dgxc-lepton.nvidia.com/workspace/{client.get_workspace_id()}/compute/pods/detail/{name}/terminal"
         )
+        console.print(notice_msg)
         sys.exit(1)
 
 
