@@ -477,9 +477,7 @@ def apply_nodegroup_and_queue_config(
             spec.queue_config.can_preempt = can_preempt
 
     if has_reservation_flags:
-        spec.reservation_config = getattr(
-            spec, "reservation_config", ReservationConfig()
-        )
+        spec.reservation_config = spec.reservation_config or ReservationConfig()
         if with_reservation:
             spec.reservation_config.reservation_id = with_reservation
         if allow_burst:
