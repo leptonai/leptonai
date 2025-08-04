@@ -63,11 +63,27 @@ class ContainerPort(BaseModel):
 
     @compatible_field_validator("protocol")
     def validate_protocol(cls, v):
-        if v and v.lower() not in ["tcp", "udp", "sctp"]:
-            raise ValueError(
-                f"Invalid protocol: {v}. Protocol must be either TCP, UDP, or SCTP."
-            )
-        return v if v is None else v.upper()
+        return _validate_protocol_value(v)
+
+
+class ContainerPortStatus(BaseModel):
+    name: Optional[str] = None
+    container_port: int
+    host_port: Optional[int] = None
+    external_endpoint: Optional[str] = None
+    protocol: Optional[str] = None
+
+    @compatible_field_validator("protocol")
+    def validate_protocol(cls, v):
+        return _validate_protocol_value(v)
+
+
+def _validate_protocol_value(v: Optional[str]):
+    if v and v.lower() not in ["tcp", "udp", "sctp"]:
+        raise ValueError(
+            f"Invalid protocol: {v}. Protocol must be either TCP, UDP, or SCTP."
+        )
+    return v if v is None else v.upper()
 
 
 class LeptonContainer(BaseModel):
@@ -303,6 +319,7 @@ class AutoScalerStatus(BaseModel):
 class LeptonDeploymentStatus(BaseModel):
     state: LeptonDeploymentState
     endpoint: DeploymentEndpoint
+    container_port_status: Optional[List[ContainerPortStatus]] = None
     autoscaler_status: Optional[AutoScalerStatus] = None
     with_system_photon: Optional[bool] = None
     is_system: Optional[bool] = None
