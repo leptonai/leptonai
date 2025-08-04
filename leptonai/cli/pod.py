@@ -609,7 +609,7 @@ def ssh(name):
         console.print(
             "SSH port not found, you can choose to use the web terminal to access the"
             " pod."
-            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+            f"https://dashboard.dgxc-lepton.nvidia.com/workspace/{client.get_workspace_id()}/compute/pods/detail/{name}/terminal"
         )
         console.print(notice_msg)
         sys.exit(1)
