@@ -140,8 +140,11 @@ def logout(purge):
     """
     Logout of the DGX Cloud Lepton.
     """
-    WorkspaceRecord.logout(purge=purge)
-    console.print("[green]Logged out[/]")
+    try:
+        WorkspaceRecord.logout(purge=purge)
+        console.print("[green]Logged out[/]")
+    except RuntimeError as e:
+        console.print(f"[yellow]{e}[/]")
 
 
 @workspace.command(name="list")

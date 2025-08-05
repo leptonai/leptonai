@@ -233,6 +233,8 @@ class WorkspaceRecord(object):
                 cls.remove(cls._singleton_record.current_workspace)
             else:
                 cls._singleton_record.current_workspace = None
+        else:
+            raise RuntimeError("You are not logged in to any workspace.")
         cls._save_to_file()
 
     @classmethod
