@@ -21,6 +21,9 @@ from typing import Generic, TypeVar
 # cache into. As a result, we create the cache directory when we need to write to it.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
 
+VERSION_CHECK_FILE: Path = CACHE_DIR / "latest_version_check"
+VERSION_CHECK_INTERVAL_SEC: int = 60 * 60 * 24  # 24h
+
 ################################################################################
 # Configurations you can change to customize Lepton's behavior.
 ################################################################################
