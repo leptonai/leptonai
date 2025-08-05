@@ -797,7 +797,17 @@ def create(
     if spec.container is not None:
         deployment_template = PhotonDeploymentTemplate()
 
-    # default timeout
+    # Detect if the loaded spec already contains autoscaler settings
+    spec_has_autoscale = spec.auto_scaler is not None and (
+        spec.auto_scaler.target_gpu_utilization_percentage is not None
+        or spec.auto_scaler.target_throughput is not None
+        or (
+            spec.auto_scaler.scale_down is not None
+            and spec.auto_scaler.scale_down.no_traffic_timeout is not None
+        )
+    )
+
+    # default timeout (only if user passed nothing AND spec has no autoscale)
     if (
         no_traffic_timeout is None
         and DEFAULT_TIMEOUT
@@ -806,16 +816,13 @@ def create(
         and autoscale_down is None
         and autoscale_gpu_util is None
         and autoscale_qpm is None
+        and not spec_has_autoscale
     ):
         console.print(
-            "\nLepton is currently set to use a default timeout of [green]1"
-            " hour[/]. This means that when there is no traffic for more than an"
-            " hour, your endpoint will automatically scale down to zero. This is"
-            " to assist auto-release of unused debug endpoints.\n- If you would"
-            " like to run a long-running photon (e.g. for production), [green]set"
-            " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
-            " default timeout, set the environment variable"
-            " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
+            "\nLepton is currently set to use a default timeout of [green]1 hour[/]."
+            " When there is no traffic for more than an hour, the endpoint will"
+            " automatically scale down to zero. Use --no-traffic-timeout 0 to disable,"
+            " or set LEPTON_DEFAULT_TIMEOUT=false to turn off this default.\n"
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
 
@@ -941,17 +948,23 @@ def create(
 
         spec.api_tokens = make_token_vars_from_config(public, tokens)
         spec.image_pull_secrets = list(image_pull_secrets)
-        spec.auto_scaler = AutoScaler(
-            scale_down=(
-                ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                if no_traffic_timeout
-                else None
-            ),
-            target_gpu_utilization_percentage=target_gpu_utilization,
-            target_throughput=(
-                AutoscalerTargetThroughput(qpm=threshold) if threshold else None
-            ),
-        )
+        # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
+        if any([
+            no_traffic_timeout is not None,
+            target_gpu_utilization is not None,
+            threshold is not None,
+        ]):
+            spec.auto_scaler = AutoScaler(
+                scale_down=(
+                    ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                    if no_traffic_timeout is not None
+                    else None
+                ),
+                target_gpu_utilization_percentage=target_gpu_utilization,
+                target_throughput=(
+                    AutoscalerTargetThroughput(qpm=threshold) if threshold else None
+                ),
+            )
 
         spec.health = HealthCheck(
             liveness=(
