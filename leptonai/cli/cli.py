@@ -1,4 +1,6 @@
 from datetime import datetime
+import time
+from pathlib import Path
 
 import click
 import sys
@@ -54,7 +56,10 @@ def lep():
 
     `pip install -U leptonai`
     """
-    pass
+    try:
+        check_lepton_version()
+    except Exception:
+        pass
 
 
 # Add subcommands
@@ -272,6 +277,63 @@ def logout(purge):
     """
     WorkspaceRecord.logout(purge=purge)
     console.print("[green]Logged out[/]")
+
+
+def check_lepton_version():
+    """Notify user if a newer leptonai release is available on PyPI."""
+
+    from leptonai.config import VERSION_CHECK_FILE, VERSION_CHECK_INTERVAL_SEC
+
+    interval_sec = VERSION_CHECK_INTERVAL_SEC
+    cache_file: Path = VERSION_CHECK_FILE
+
+    def _read_last() -> float:
+        try:
+            return float(cache_file.read_text()) if cache_file.exists() else 0.0
+        except Exception:
+            return 0.0
+
+    def _write_now() -> None:
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            cache_file.write_text(str(time.time()))
+        except Exception:
+            pass
+
+    if time.time() - _read_last() < interval_sec:
+        return
+
+    # Local package version
+    try:
+        from importlib.metadata import version as _v
+
+        local_ver = _v("leptonai")
+    except Exception:
+        local_ver = getattr(leptonai, "__version__", "0.0.0")
+
+    # Remote latest version
+    try:
+        import requests
+
+        resp = requests.get("https://pypi.org/pypi/leptonai/json", timeout=2)
+        resp.raise_for_status()
+        latest_ver = resp.json()["info"]["version"]
+    except Exception:
+        return  # silent if network / PyPI unreachable
+
+    try:
+        from packaging.version import Version
+
+        logger.trace(f"Local version: {local_ver}, latest version: {latest_ver}")
+        if Version(local_ver) < Version(latest_ver):
+            console.print(
+                f"[yellow]A newer version of leptonai ({latest_ver}) is available. You"
+                f" are using {local_ver}. Run `pip install -U leptonai` to upgrade.[/]"
+            )
+    except Exception:
+        pass
+
+    _write_now()
 
 
 if __name__ == "__main__":
