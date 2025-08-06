@@ -183,20 +183,13 @@ def _filter_jobs(
 
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     client = APIClient()
-    job_list = client.job.list_all()
-    cur_job_list = []
-    for job in job_list:
-        if job.metadata.name == job_name:
-            cur_job_list.append(job)
 
-    if len(cur_job_list) == 0:
+    job_list = client.job.list_all(q=job_name)
+    exact_matches = [j for j in job_list if j.metadata.name == job_name]
+
+    if not exact_matches:
         return None
-
-    jobs_sorted_by_created_at = sorted(
-        cur_job_list, key=lambda job: job.metadata.created_at
-    )
-
-    return jobs_sorted_by_created_at[-1]
+    return max(exact_matches, key=lambda j: j.metadata.created_at)
 
 
 @click_group()
@@ -1017,8 +1010,9 @@ def get(name, id, path):
     "--name",
     "-n",
     help=(
-        "The name of the job to remove. If multiple jobs share the same name, all of"
-        " them will be removed."
+        "The name of the job to remove. If multiple jobs share the same name, only the"
+        " newest one will be removed. Please use remove-all if you want remove multiple"
+        " jobs with the same name."
     ),
     required=False,
 )
