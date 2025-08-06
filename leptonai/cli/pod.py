@@ -471,7 +471,7 @@ def list_command(pattern):
                 ssh_ports[index] = port_pair
             elif port_pair[0] == TCP_PORT:
                 tcp_ports[index] = port_pair
-            elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
+            elif port_pair[0] == TCP_JUPYTER_PORT:
                 tcp_ports_jupyterlab[index] = port_pair
 
     pod_ips = [None] * pods_count
