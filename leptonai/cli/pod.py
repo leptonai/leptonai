@@ -460,30 +460,19 @@ def list_command(pattern):
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
     for index, pod in enumerate(pods):
-        ports = pod.spec.container.ports if pod.spec.container else None
+        ports = pod.status.container_port_status if pod.status else None
         if not ports:
             continue
 
         port_pairs = [(p.container_port, p.host_port) for p in ports]
-        if len(port_pairs) not in [2, 3]:
-            console.print(
-                f"Pod {pod.metadata.name} does not have exactly two or three ports."
-                f" This is not supported. it has \n {port_pairs}"
-            )
-            continue
 
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
                 ssh_ports[index] = port_pair
             elif port_pair[0] == TCP_PORT:
                 tcp_ports[index] = port_pair
-            elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
+            elif port_pair[0] == TCP_JUPYTER_PORT:
                 tcp_ports_jupyterlab[index] = port_pair
-            else:
-                console.print(
-                    f"Warning: Pod [red]{pod.metadata.name}[/] has an unsupported port"
-                    f" [red]{port_pair}.[/]"
-                )
 
     pod_ips = [None] * pods_count
     for index, pod in enumerate(pods):
