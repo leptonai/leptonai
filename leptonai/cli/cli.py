@@ -213,11 +213,26 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
     api_client = WorkspaceRecord.client()
 
     try:
-        info = api_client.info()
-        console.print(f"Logged in to your workspace [blue]{info.workspace_name}[/].")
-        console.print(f"\t      tier: {info.workspace_tier}")
-        console.print(f"\tbuild time: {info.build_time}")
-        console.print(f"\t   version: {api_client.version()}")
+        # Retry info() in case the new token is not yet propagated.
+        retries = 10
+        while True:
+            try:
+                if retries == 7:
+                    console.print("[bold]Loading workspace...[/bold]")
+                info = api_client.info()
+                console.print(
+                    f"Logged in to your workspace [blue]{info.workspace_name}[/]."
+                )
+                console.print(f"\t      tier: {info.workspace_tier}")
+                console.print(f"\tbuild time: {info.build_time}")
+                console.print(f"\t   version: {api_client.version()}")
+                break
+            except WorkspaceUnauthorizedError:
+                retries -= 1
+                if retries <= 0:
+                    raise
+                time.sleep(3)
+                continue
 
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
@@ -226,9 +241,11 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [bold]Invalid Workspace Access Detected[/]
         [white]Workspace ID:[/white] {e.workspace_id}
 
+        [#76B900]If you are logging in with a fresh token, please wait for 2-3 minutes and try again.[/#76B900]
+
         [white]Note: If you are trying to login to a Lepton classic workspace, please use:[/white]
         [#76B900]'lep login -c <workspace-id>:<token> --lepton-classic'[/#76B900]
-        [white]Make sure to include the --lepton-classic or -l flag.[/white]
+        [white]Make sure to include the --lepton-classic or -l flag. (Ignore if you are DGXC User)[/white]
 
         [bold]To resolve this issue:[/bold]
         1. [#76B900]Verify your login credentials above.[/#76B900]
