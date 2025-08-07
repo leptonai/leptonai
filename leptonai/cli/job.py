@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 import click
 from datetime import datetime
 import json
@@ -688,16 +688,21 @@ def list_command(state, user, name_or_id, node_group):
     lep job list -s queue -u alice -n train -ng h100
     """
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name_or_id:
+        list_params["q"] = list(name_or_id)
+
+    jobs = client.job.list_all(**list_params)
     logger.trace(f"Jobs: {jobs}")
 
-    job_filtered = _filter_jobs(
-        jobs,
-        state,
-        user_patterns=user,
-        name_patterns=name_or_id,
-        node_group_patterns=node_group,
-    )
+    if node_group:
+        job_filtered = _filter_jobs(jobs, None, node_group_patterns=node_group)
+    else:
+        job_filtered = jobs
 
     _display_jobs_table(job_filtered, client.get_workspace_id())
 
@@ -762,9 +767,21 @@ def remove_all(state, user, name, node_group):
         sys.exit(1)
 
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name:
+        list_params["q"] = list(name)
+
+    jobs = client.job.list_all(**list_params)
+
     job_filtered = _filter_jobs(
-        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+        jobs,
+        None,
+        node_group_patterns=node_group,
+        exact_users=user,
     )
 
     if len(job_filtered) == 0:
@@ -862,9 +879,21 @@ def stop_all(state, user, name, node_group):
         sys.exit(1)
 
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name:
+        list_params["q"] = list(name)
+
+    jobs = client.job.list_all(**list_params)
+
     job_filtered = _filter_jobs(
-        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+        jobs,
+        None,
+        node_group_patterns=node_group,
+        exact_users=user,
     )
 
     if len(job_filtered) == 0:
