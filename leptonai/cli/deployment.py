@@ -16,6 +16,7 @@ from .util import (
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    build_dashboard_deployment_url,
 )
 
 from leptonai.config import (
@@ -1016,51 +1017,108 @@ def list_command(pattern):
     client = APIClient()
 
     deployments = client.deployment.list_all()
-    # For the photon id field, we will show either the photon id, or the container
-    # image name if the deployment is an arbitrary container.
-    # Note: for pods, we will not show them here.
-    records = [
-        (
-            (d.metadata.name),
-            (
-                d.spec.photon_id
-                if d.spec.photon_id is not None
-                else (d.spec.container.image or "（unknown）")
-            ),
-            d.metadata.created_at
-            / 1000,  # convert to seconds from milliseconds # type: ignore
-            d.status,
+    workspace_id = client.get_workspace_id()
+    table = Table(
+        title="Endpoints",
+        show_lines=True,
+        show_header=True,
+    )
+    table.add_column("Name / ID")
+    table.add_column("Created At")
+    table.add_column("State")
+    table.add_column("User ID")
+    table.add_column("Node Group")
+    table.add_column("Replicas")
+    table.add_column("Shape")
+
+    shape_totals = {}
+
+    def _is_active_state(state_str: str) -> bool:
+        return state_str in {"Ready", "Starting", "Updating", "Scaling", "Deleting"}
+
+    count = 0
+    for d in deployments:
+        # Skip pods
+        if d.spec and getattr(d.spec, "is_pod", False):
+            continue
+
+        name = d.metadata.name if d.metadata else "-"
+        dep_id = d.metadata.id_ if d.metadata else "-"
+
+        if pattern is not None and (name is None or not re.search(pattern, name)):
+            continue
+
+        created_ts = (
+            datetime.fromtimestamp((d.metadata.created_at or 0) / 1000).strftime(
+                "%Y-%m-%d\n%H:%M:%S"
+            )
+            if d.metadata and d.metadata.created_at
+            else "N/A"
         )
-        for d in deployments
-        if not (d.spec.is_pod or False)
-    ]
-    if len(records) == 0:
+        state = d.status.state.value if d.status and d.status.state else "-"
+        owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
+
+        # Node group(s)
+        ng_list = []
+        rr = d.spec.resource_requirement if d.spec else None
+        if rr and rr.affinity and rr.affinity.allowed_dedicated_node_groups:
+            ng_list = rr.affinity.allowed_dedicated_node_groups
+        ng_str = "\n".join(ng_list).lower() if ng_list else ""
+
+        # Replicas display: only desired; fallback to 0
+        desired = (
+            d.status.autoscaler_status.desired_replicas
+            if d.status
+            and d.status.autoscaler_status
+            and d.status.autoscaler_status.desired_replicas is not None
+            else None
+        )
+        desired_disp = str(desired if desired is not None else 0)
+
+        # Shape
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+
+        # Name / ID with dashboard link on ID
+        dep_url = build_dashboard_deployment_url(workspace_id, dep_id)
+        name_id_cell = (
+            f"[bold #76b900]{name}[/]\n[link={dep_url}][bright_black]{dep_id}[/][/link]"
+        )
+
+        table.add_row(
+            name_id_cell,
+            created_ts,
+            f"{state}",
+            owner or "",
+            ng_str,
+            desired_disp,
+            shape,
+        )
+
+        # Utilization count: use desired only; fallback to 0
+        workers = desired if desired is not None else 0
+        if _is_active_state(state):
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
+
+        count += 1
+
+    if count == 0:
         console.print(
             "No endpoints found. Use `lep endpoint create` to create endpoints."
         )
-        return 0
+        return
 
-    table = Table(
-        title="endpoints",
-        show_lines=True,
-        show_header=True,
-        header_style="bold magenta",
-    )
-    table.add_column("name")
-    table.add_column("photon id")
-    table.add_column("created at")
-    table.add_column("status")
-    for name, photon_id, created_at, status in records:
-        if pattern is not None and (name is None or not re.search(pattern, name)):
-            continue
-        table.add_row(
-            name,
-            photon_id,
-            datetime.fromtimestamp(created_at).strftime("%Y-%m-%d\n%H:%M:%S"),
-            status.state,
-        )
     console.print(table)
-    return 0
+
+    console.print(
+        f"[bold]Resource Utilization Summary for above [cyan]{count}[/]"
+        f" endpoint{'s' if count!=1 else ''} (Ready / Starting / Updating / Scaling /"
+        " Deleting only):[/]"
+    )
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
+    console.print("\n")
 
 
 @deployment.command()
