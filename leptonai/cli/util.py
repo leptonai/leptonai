@@ -347,6 +347,15 @@ def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
     return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"
 
 
+def build_dashboard_deployment_url(workspace_id: str, deployment_id: str) -> str:
+    """Return full dashboard URL for a given deployment.
+
+    Example output:
+        https://dashboard.dgxc-lepton.nvidia.com/workspace/<ws>/compute/deployments/detail/<deployment>/demo
+    """
+    return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/deployments/detail/{deployment_id}/demo"
+
+
 def _validate_queue_priority(ctx, param, value):
     """Validate and normalize --queue-priority.
 
