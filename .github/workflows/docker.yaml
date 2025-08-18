@@ -14,18 +14,11 @@ on:
         description: "Is this a release build"
         type: boolean
         default: false
-      nightly:
-        description: "Whether to install nightly version of torch"
-        type: boolean
-        default: false
-      build_rocm_base:
-        description: "Whether to (re)build rocm base images"
-        type: boolean
-        default: false
-      is_rocm_release:
-        description: "Is this a rocm release build"
-        type: boolean
-        default: false
+      platform:
+        description: "Platform to build"
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
 
 jobs:
   build_matrix:
@@ -46,74 +39,39 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,amd64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Compute Vars
         id: vars
         env:
           ECR_REPOSITORY: lepton
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: echo "base_image=${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}" >> $GITHUB_OUTPUT
-      - name: Compute ROCm Vars
-        id: rocm_vars
-        env:
-          ECR_REPOSITORY: lepton
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: echo "rocm_base_image=${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-rocm-py${{ matrix.python_version }}" >> $GITHUB_OUTPUT
+        run: echo "base_image=${ECR_REGISTRY}/${ECR_REPOSITORY}:photon-py${{ matrix.python_version }}-cardy" >> $GITHUB_OUTPUT
       - name: Build Base Images
         if: inputs.build_base
         run: |
-          if [ "${{ inputs.nightly }}" == 'true' ]; then
-            tag="${{ steps.vars.outputs.base_image }}-nightly"
-            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=1 --build-arg CUDA_VERSION=12.1.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
-          else
-            tag="${{ steps.vars.outputs.base_image }}"
-            docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --build-arg TORCH_NIGHTLY=0 --build-arg CUDA_VERSION=12.1.0 --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
-          fi
+          tag="${{ steps.vars.outputs.base_image }}"
 
           if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
+              docker buildx build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }} --push
+          else
+              docker buildx build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }}
           fi
       - name: Build Runner Images
         env:
           VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
         run: |
           echo "HEAD SHA=$(git rev-parse --short HEAD)"
+          echo "VERSION_TAG=0.21.0"
 
-          if [ "${{ inputs.nightly }}" == 'true' ]; then
-            base_tag="${{ steps.vars.outputs.base_image }}-nightly"
-            VERSION_TAG="nightly"
+          base_tag="${{ steps.vars.outputs.base_image }}"
+          tag="${{ steps.vars.outputs.base_image }}-runner-0.16.0"
+
+          if [ "${{ inputs.is_release }}" == 'true' ]; then
+              docker buildx build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }} --push
           else
-            base_tag="${{ steps.vars.outputs.base_image }}"
+              docker buildx build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }}
           fi
-
-          echo "VERSION_TAG=${VERSION_TAG}"
-
-          tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
-          docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}"
-          if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
-          fi
-          docker rmi ${tag}
-      - name: Build ROCm Base Images
-        if: inputs.build_rocm_base
-        run: |
-          tag="${{ steps.rocm_vars.outputs.rocm_base_image }}"
-          docker build . \
-              --build-arg PYTHON_VERSION=${{ matrix.python_version }} \
-              --build-arg ROCM_VERSION=5.6 \
-              --file leptonai/photon/dockerfiles/photon-rocm-py.Dockerfile --tag "${tag}"
-
-          if [ "${{ inputs.is_rocm_release }}" == 'true' ]; then
-              docker push ${tag}
-          fi
-      - name: Build ROCm Runner Images
-        env:
-          VERSION_TAG: ${{ github.event.inputs.version || github.sha }}
-        run: |
-          echo "HEAD SHA=$(git rev-parse --short HEAD)"
-          base_tag="${{ steps.rocm_vars.outputs.rocm_base_image }}"
-          tag="${{ steps.rocm_vars.outputs.rocm_base_image }}-runner-${VERSION_TAG}"
-          docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-rocm-runner.Dockerfile --tag "${tag}"
-          if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
-          fi
-          docker rmi ${tag}
