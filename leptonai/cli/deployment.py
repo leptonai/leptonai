@@ -946,8 +946,12 @@ def create(
             spec.mounts = make_mounts_from_strings(mount_list)
         # else: preserve existing spec.mounts from loaded file
 
-        spec.api_tokens = make_token_vars_from_config(public, tokens)
-        spec.image_pull_secrets = list(image_pull_secrets)
+        if tokens or not file:
+            spec.api_tokens = make_token_vars_from_config(public, tokens)
+
+        if image_pull_secrets or not file:
+            # CLI args provided or no file loaded - use CLI args
+            spec.image_pull_secrets = list(image_pull_secrets)
         # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
         if any([
             no_traffic_timeout is not None,
