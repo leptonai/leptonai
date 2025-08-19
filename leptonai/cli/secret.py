@@ -48,7 +48,7 @@ def create(name, value):
         check(
             n not in LEPTON_RESERVED_ENV_NAMES,
             "You have used a reserved secret name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            f"used by Lepton internally: {n}. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}",
         )
