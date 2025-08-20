@@ -92,7 +92,9 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/]"
         f" job{'s' if num_jobs!=1 else ''} (Running / Restarting / Deleting only):[/]"
     )
-    for shape, count in sorted(shape_totals.items()):
+    for shape, count in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
         console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
     console.print("\n")
 
