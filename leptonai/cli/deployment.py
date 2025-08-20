@@ -1047,7 +1047,6 @@ def create(
             spec.api_tokens = make_token_vars_from_config(public, tokens)
 
         if image_pull_secrets or not file:
-            # CLI args provided or no file loaded - use CLI args
             spec.image_pull_secrets = list(image_pull_secrets)
         # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
         if any([
@@ -1067,13 +1066,12 @@ def create(
                 ),
             )
 
-        spec.health = HealthCheck(
-            liveness=(
-                HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
-                if initial_delay_seconds
-                else None
+        if initial_delay_seconds is not None:
+            spec.health = HealthCheck(
+                liveness=(
+                    HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                )
             )
-        )
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
