@@ -296,7 +296,7 @@ def upload(
         console.print("Cannot use --progress without --rsync")
         sys.exit(1)
     if auto_recover != 1 and not rsync:
-        console.print("Cannot use --auto_recover without --rsync")
+        console.print("Cannot use --auto-recover without --rsync")
 
     if rsync:
         console.print(
