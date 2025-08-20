@@ -1067,13 +1067,15 @@ def create(
                 ),
             )
 
-        spec.health = HealthCheck(
-            liveness=(
-                HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
-                if initial_delay_seconds
-                else None
+        # Only override health if CLI argument was provided
+        if initial_delay_seconds is not None:
+            spec.health = HealthCheck(
+                liveness=(
+                    HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                    if initial_delay_seconds
+                    else None
+                )
             )
-        )
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
