@@ -258,6 +258,15 @@ class QueueConfig(BaseModel):
     can_preempt: Optional[bool] = None
 
 
+class SchedulingToggle(str, Enum):
+    Required = "Required"
+    Preferred = "Preferred"
+
+
+class DeploymentSchedulingPolicy(BaseModel):
+    replica_spread: Optional[SchedulingToggle] = None
+
+
 class LeptonDeploymentUserSpec(BaseModel):
     photon_namespace: Optional[str] = None
     photon_id: Optional[str] = None
@@ -277,6 +286,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     routing_policy: Optional[LeptonRoutingPolicy] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
+    scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
 
 
 class LeptonDeploymentState(str, Enum):
