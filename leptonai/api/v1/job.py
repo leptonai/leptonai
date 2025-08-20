@@ -20,6 +20,7 @@ class JobAPI(APIResourse):
         q: Optional[str] = None,
         query: Optional[str] = None,
         status: Optional[List[str]] = None,
+        node_groups: Optional[List[str]] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         created_by: Optional[List[str]] = None,
@@ -41,6 +42,8 @@ class JobAPI(APIResourse):
             params_base["query"] = query
         if status:
             params_base["status"] = status
+        if node_groups:
+            params_base["node_groups"] = node_groups
         if created_by:
             params_base["created_by"] = created_by
 
