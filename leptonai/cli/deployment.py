@@ -233,7 +233,8 @@ def _normalize_replica_spread(ctx, param, value):
     if v in ("preferred", "p"):
         return "preferred"
     raise click.BadParameter(
-        "Invalid value for --replica-spread. Accepts: required|preferred or shorthand r|p."
+        "Invalid value for --replica-spread. Accepts: required|preferred or shorthand"
+        " r|p."
     )
 
 
@@ -757,14 +758,13 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--replica-spread",
     callback=_normalize_replica_spread,
     help=(
-        "Controls how endpoint replicas are distributed across different nodes to improve availability, "
-        "but it may lead to resource fragmentation.\n\n"
-        "Preferred (p): Attempts to spread replicas across different nodes when possible.\n"
-        "Required (r): Enforces strict replica spreading where each replica must be scheduled on a different node. "
-        "Replicas cannot start if there are not enough nodes.\n\n"
-        "Usage examples:\n"
-        "  --replica-spread required/r   (strict)\n"
-        "  --replica-spread preferred/p  (soft)\n"
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
     ),
     default=None,
 )
@@ -1113,9 +1113,7 @@ def create(
                 if replica_spread.lower() == "required"
                 else SchedulingToggle.Preferred
             )
-            spec.scheduling_policy = DeploymentSchedulingPolicy(
-                replica_spread=toggle
-            )
+            spec.scheduling_policy = DeploymentSchedulingPolicy(replica_spread=toggle)
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
@@ -1551,14 +1549,13 @@ def log(name, replica):
     "--replica-spread",
     callback=_normalize_replica_spread,
     help=(
-        "Controls how endpoint replicas are distributed across different nodes to improve availability, "
-        "but it may lead to resource fragmentation.\n\n"
-        "Preferred (p): Attempts to spread replicas across different nodes when possible.\n"
-        "Required (r): Enforces strict replica spreading where each replica must be scheduled on a different node. "
-        "Replicas cannot start if there are not enough nodes.\n\n"
-        "Usage examples:\n"
-        "  --replica-spread required/r   (strict)\n"
-        "  --replica-spread preferred/p  (soft)\n"
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
     ),
     default=None,
 )
