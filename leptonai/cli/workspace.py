@@ -6,7 +6,6 @@ from typing import Optional
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
-from loguru import logger
 
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
