@@ -175,7 +175,9 @@ def list_command(debug):
             name_line = name_text if name_text else "-"
         id_line_plain = f"[bright_black]{id_text}[/]" if id_text else "-"
         id_line = (
-            f"[link={dashboard_url}]{id_line_plain}[/link]" if id_text and dashboard_url else id_line_plain
+            f"[link={dashboard_url}]{id_line_plain}[/link]"
+            if id_text and dashboard_url
+            else id_line_plain
         )
         name_id_cell = f"{name_line}\n{id_line}"
         # Build masked token
@@ -194,7 +196,10 @@ def list_command(debug):
                 if refreshed is not None:
                     info.token_expires_at = refreshed
             except Exception as e:
-                logger.trace(f"Failed to refresh token expires at for workspace {info.id_} with error: {e}")
+                logger.trace(
+                    f"Failed to refresh token expires at for workspace {info.id_} with"
+                    f" error: {e}"
+                )
                 pass
         if getattr(info, "token_expires_at", None):
             try:
@@ -232,11 +237,11 @@ def list_command(debug):
     table.title = "Workspaces"
     console.print(table)
     console.print(
-        "\n[bright_black]Hint[/]: 'Expires' shows the token expiration. If the token is expired or"
-        " close to expiring, please re-issue a new token in the dashboard and run"
-        " `lep login -c <workspace_id>:<new_token>` again.\n"
-        "[bright_black]Note[/]: token expiration is available only for DGXC workspaces. If no expiration info is shown,"
-        " the token may already be expired."
+        "\n[bright_black]Hint[/]: 'Expires' shows the token expiration. If the token is"
+        " expired or close to expiring, please re-issue a new token in the dashboard"
+        " and run `lep login -c <workspace_id>:<new_token>`"
+        " again.\n[bright_black]Note[/]: token expiration is available only for DGXC"
+        " workspaces. If no expiration info is shown, the token may already be expired."
     )
 
 

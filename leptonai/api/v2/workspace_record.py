@@ -121,7 +121,8 @@ class WorkspaceRecord(object):
         )
         token_expires_at = (
             None
-            if workspace_id not in cls._singleton_record.workspaces or could_be_new_token
+            if workspace_id not in cls._singleton_record.workspaces
+            or could_be_new_token
             else cls._singleton_record.workspaces[workspace_id].token_expires_at
         )
 
@@ -140,8 +141,9 @@ class WorkspaceRecord(object):
                 )
             except RuntimeError as e:
                 logger.trace(
-                    f"Failed to fetch workspace display name (workspace_id={workspace_id}, "
-                    f"url={url}, is_lepton_classic={is_lepton_classic}): {e}"
+                    "Failed to fetch workspace display name"
+                    f" (workspace_id={workspace_id}, url={url},"
+                    f" is_lepton_classic={is_lepton_classic}): {e}"
                 )
                 display_name = None
         if token_expires_at is None and not is_lepton_classic:
@@ -153,7 +155,8 @@ class WorkspaceRecord(object):
                 )
             except RuntimeError as e:
                 logger.trace(
-                    f"Failed to fetch token expiration (workspace_id={workspace_id}, url={url}): {e}"
+                    f"Failed to fetch token expiration (workspace_id={workspace_id},"
+                    f" url={url}): {e}"
                 )
                 token_expires_at = None
         if url is None:
@@ -191,7 +194,12 @@ class WorkspaceRecord(object):
         """
         try:
             cls.set(
-                workspace_id, auth_token, url, workspace_origin_url, is_lepton_classic, could_be_new_token
+                workspace_id,
+                auth_token,
+                url,
+                workspace_origin_url,
+                is_lepton_classic,
+                could_be_new_token,
             )
         except WorkspaceNotCreatedYet:
             _print_workspace_not_created_yet_message(workspace_id)
@@ -278,7 +286,9 @@ class WorkspaceRecord(object):
         return current_workspace.id_ if current_workspace else None
 
     @classmethod
-    def get_dashboard_base_url(cls, workspace_id: Optional[str] = None) -> Optional[str]:
+    def get_dashboard_base_url(
+        cls, workspace_id: Optional[str] = None
+    ) -> Optional[str]:
         """
         Returns the base dashboard URL derived from the current workspace URL.
         """
@@ -291,7 +301,9 @@ class WorkspaceRecord(object):
         return base
 
     @classmethod
-    def refresh_token_expires_at(cls, workspace_id: Optional[str] = None) -> Optional[int]:
+    def refresh_token_expires_at(
+        cls, workspace_id: Optional[str] = None
+    ) -> Optional[int]:
         info = cls.get(workspace_id) if workspace_id else cls.current()
         if not info or info.is_lepton_classic:
             return None
@@ -303,6 +315,7 @@ class WorkspaceRecord(object):
         info.token_expires_at = token_expires_at
         cls._save_to_file()
         return token_expires_at
+
 
 # When importing, read the content of the workspace info file as initialization.
 WorkspaceRecord._load_workspace_record()

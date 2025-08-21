@@ -136,7 +136,7 @@ class APIClient(object):
             )
             or _get_workspace_origin_url(url)
         )
-        
+
         token_expires_at = (
             getattr(WorkspaceRecord.get(workspace_id), "token_expires_at", None)
             if WorkspaceRecord.has(workspace_id)
@@ -154,14 +154,16 @@ class APIClient(object):
             now_ms = int(time.time() * 1000)
             if now_ms >= self.token_expires_at:
                 logger.warning(
-                    "Workspace token has expired. Please issue a new token and run `lep workspace login` again."
+                    "Workspace token has expired. Please issue a new token and run `lep"
+                    " workspace login` again."
                 )
             else:
                 ms_left = self.token_expires_at - now_ms
                 days_left = (ms_left + 86_400_000 - 1) // 86_400_000  # ceil to days
                 if days_left < 10:
                     logger.warning(
-                        f"Workspace token will expire in {days_left} day(s). Please re-issue a new token and run `lep workspace login` again."
+                        f"Workspace token will expire in {days_left} day(s). Please"
+                        " re-issue a new token and run `lep workspace login` again."
                     )
 
         # Creates a connection for us to use.
@@ -270,7 +272,7 @@ class APIClient(object):
                 workspace_url=self.url,
                 auth_token=auth_token_hint,
             )
-        
+
         if response.status_code == 403:
             raise WorkspaceForbiddenError(
                 workspace_id=self.workspace_id,

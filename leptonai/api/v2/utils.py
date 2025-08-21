@@ -52,6 +52,7 @@ class WorkspaceNotFoundError(WorkspaceError):
             auth_token,
         )
 
+
 class WorkspaceForbiddenError(WorkspaceError):
     def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
         super().__init__(
@@ -60,6 +61,7 @@ class WorkspaceForbiddenError(WorkspaceError):
             workspace_url,
             auth_token,
         )
+
 
 class WorkspaceNotCreatedYet(WorkspaceError):
     """
@@ -126,9 +128,8 @@ def _get_workspace_display_name(
             )
         return content["display_name"]
 
-def _get_token_expires_at(
-    workspace_id, url=None, token=None
-) -> Optional[int]:
+
+def _get_token_expires_at(workspace_id, url=None, token=None) -> Optional[int]:
     """
     Gets the token expires at from the given workspace_id. This calls Lepton's backend server
     to get the token expires at.
@@ -168,6 +169,7 @@ def _get_token_expires_at(
         if not candidate_expires:
             raise RuntimeError("No match tokens info.")
         return min(candidate_expires)
+
 
 _workspace_url_cache: Dict[str, str] = {}
 

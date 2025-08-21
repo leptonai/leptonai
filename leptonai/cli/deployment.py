@@ -237,7 +237,9 @@ def deployment():
     pass
 
 
-def _print_deployments_table(deployments, dashboard_base_url: Optional[str] = None) -> None:
+def _print_deployments_table(
+    deployments, dashboard_base_url: Optional[str] = None
+) -> None:
     table = Table(
         title="Endpoints",
         show_lines=True,
@@ -294,11 +296,10 @@ def _print_deployments_table(deployments, dashboard_base_url: Optional[str] = No
         dep_url = None
         if dashboard_base_url:
             dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
-        name_id_cell = (
-            f"[bold #76b900]{name}[/]\n"
-            + (
-                f"[link={dep_url}][bright_black]{dep_id}[/][/link]" if dep_url else f"[bright_black]{dep_id}[/]"
-            )
+        name_id_cell = f"[bold #76b900]{name}[/]\n" + (
+            f"[link={dep_url}][bright_black]{dep_id}[/][/link]"
+            if dep_url
+            else f"[bright_black]{dep_id}[/]"
         )
 
         table.add_row(
@@ -1134,7 +1135,9 @@ def list_command(name):
             and d.metadata.name
             and any(n in d.metadata.name.lower() for n in lowered)
         ]
-    _print_deployments_table(deployments, dashboard_base_url=client.get_dashboard_base_url())
+    _print_deployments_table(
+        deployments, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
 
 @deployment.command()

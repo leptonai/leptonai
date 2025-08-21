@@ -6,7 +6,11 @@ import click
 import sys
 import webbrowser
 
-from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError, WorkspaceForbiddenError
+from leptonai.api.v2.utils import (
+    WorkspaceUnauthorizedError,
+    WorkspaceNotFoundError,
+    WorkspaceForbiddenError,
+)
 from .util import console
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
