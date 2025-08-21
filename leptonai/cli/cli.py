@@ -6,7 +6,7 @@ import click
 import sys
 import webbrowser
 
-from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
+from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError, WorkspaceForbiddenError
 from .util import console
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
@@ -122,6 +122,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=lepton_classic,
+            could_be_new_token=True,
         )
     else:
         if WorkspaceRecord.current():
@@ -214,10 +215,10 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
 
     try:
         # Retry info() in case the new token is not yet propagated.
-        retries = 10
+        retries = 20
         while True:
             try:
-                if retries == 7:
+                if retries == 16:
                     console.print("[bold]Loading workspace...[/bold]")
                 info = api_client.info()
                 console.print(
@@ -281,6 +282,18 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         2. [green]Please check the login info you just used above[/green]
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
+        """)
+
+    except WorkspaceForbiddenError as e:
+        console.print("\n", e)
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"""
+        [red bold]Workspace Forbidden access[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+        
+        [red]You may using an invalid token or the token is expired.[/red]
+        [red]Please re-issue a new token and run `lep workspace login` again.[/red]
         """)
 
 

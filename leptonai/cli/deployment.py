@@ -16,7 +16,6 @@ from .util import (
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
-    build_dashboard_deployment_url,
 )
 
 from leptonai.config import (
@@ -238,7 +237,7 @@ def deployment():
     pass
 
 
-def _print_deployments_table(deployments, workspace_id: str) -> None:
+def _print_deployments_table(deployments, dashboard_base_url: Optional[str] = None) -> None:
     table = Table(
         title="Endpoints",
         show_lines=True,
@@ -292,9 +291,14 @@ def _print_deployments_table(deployments, workspace_id: str) -> None:
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
 
-        dep_url = build_dashboard_deployment_url(workspace_id, dep_id)
+        dep_url = None
+        if dashboard_base_url:
+            dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
         name_id_cell = (
-            f"[bold #76b900]{name}[/]\n[link={dep_url}][bright_black]{dep_id}[/][/link]"
+            f"[bold #76b900]{name}[/]\n"
+            + (
+                f"[link={dep_url}][bright_black]{dep_id}[/][/link]" if dep_url else f"[bright_black]{dep_id}[/]"
+            )
         )
 
         table.add_row(
@@ -1130,8 +1134,7 @@ def list_command(name):
             and d.metadata.name
             and any(n in d.metadata.name.lower() for n in lowered)
         ]
-    workspace_id = client.get_workspace_id()
-    _print_deployments_table(deployments, workspace_id)
+    _print_deployments_table(deployments, dashboard_base_url=client.get_dashboard_base_url())
 
 
 @deployment.command()
