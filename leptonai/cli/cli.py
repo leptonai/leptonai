@@ -33,7 +33,6 @@ from .util import click_group
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 LOGIN_LOGO = """
-
                             [#76B900]N V I D I A[/]
 
                         [white] D G X  C L O U D[/]
@@ -44,7 +43,6 @@ LOGIN_LOGO = """
         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
 
 """
 
@@ -225,12 +223,14 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                 if retries == 16:
                     console.print("[bold]Loading workspace...[/bold]")
                 info = api_client.info()
-                console.print(
-                    f"Logged in to your workspace [blue]{info.workspace_name}[/]."
-                )
-                console.print(f"\t      tier: {info.workspace_tier}")
-                console.print(f"\tbuild time: {info.build_time}")
-                console.print(f"\t   version: {api_client.version()}")
+                ws_name = info.workspace_name
+                tier = info.workspace_tier
+                version = ".".join(str(v) for v in api_client.version())
+
+                indent = " " * 17  # match logo's left margin for alignment
+                console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
+                console.print(f"{indent}{'Tier':>12}: {tier}")
+                console.print(f"{indent}{'Version':>12}: {version}\n")
                 break
             except WorkspaceUnauthorizedError:
                 retries -= 1
