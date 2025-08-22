@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 import re
-import shlex
 import sys
 from typing import List, Optional, Union
 
@@ -15,8 +14,8 @@ from .util import (
     console,
     check,
     click_group,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
 )
 
 from leptonai.config import (
@@ -28,7 +27,6 @@ from leptonai.config import (
 from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata, LeptonVisibility
 from ..api.v1.types.deployment import (
@@ -239,6 +237,108 @@ def deployment():
     pass
 
 
+def _print_deployments_table(
+    deployments, dashboard_base_url: Optional[str] = None
+) -> None:
+    table = Table(
+        title="Endpoints",
+        show_lines=True,
+        show_header=True,
+    )
+    table.add_column("Name / ID")
+    table.add_column("Created At")
+    table.add_column("State")
+    table.add_column("User ID")
+    table.add_column("Node Group")
+    table.add_column("Replicas")
+    table.add_column("Shape")
+
+    shape_totals = {}
+
+    def _is_active_state(state_str: str) -> bool:
+        return state_str in {"Ready", "Starting", "Updating", "Scaling", "Deleting"}
+
+    count = 0
+    for d in deployments:
+        if d.spec and getattr(d.spec, "is_pod", False):
+            continue
+
+        name = d.metadata.name if d.metadata else "-"
+        dep_id = d.metadata.id_ if d.metadata else "-"
+
+        created_ts = (
+            datetime.fromtimestamp((d.metadata.created_at or 0) / 1000).strftime(
+                "%Y-%m-%d\n%H:%M:%S"
+            )
+            if d.metadata and d.metadata.created_at
+            else "N/A"
+        )
+        state = d.status.state.value if d.status and d.status.state else "-"
+        owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
+
+        ng_list = []
+        rr = d.spec.resource_requirement if d.spec else None
+        if rr and rr.affinity and rr.affinity.allowed_dedicated_node_groups:
+            ng_list = rr.affinity.allowed_dedicated_node_groups
+        ng_str = "\n".join(ng_list).lower() if ng_list else ""
+
+        desired = (
+            d.status.autoscaler_status.desired_replicas
+            if d.status
+            and d.status.autoscaler_status
+            and d.status.autoscaler_status.desired_replicas is not None
+            else None
+        )
+        desired_disp = str(desired if desired is not None else 0)
+
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+
+        dep_url = None
+        if dashboard_base_url:
+            dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
+        name_id_cell = f"[bold #76b900]{name}[/]\n" + (
+            f"[link={dep_url}][bright_black]{dep_id}[/][/link]"
+            if dep_url
+            else f"[bright_black]{dep_id}[/]"
+        )
+
+        table.add_row(
+            name_id_cell,
+            created_ts,
+            f"{state}",
+            owner or "",
+            ng_str,
+            desired_disp,
+            shape,
+        )
+
+        # Utilization summary uses desired only
+        workers = desired if desired is not None else 0
+        if _is_active_state(state):
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
+
+        count += 1
+
+    if count == 0:
+        console.print(
+            "No endpoints found. Use `lep endpoint create` to create endpoints."
+        )
+        return
+
+    console.print(table)
+
+    console.print(
+        f"[bold]Resource Utilization Summary for above [cyan]{count}[/]"
+        f" endpoint{'s' if count!=1 else ''} (Ready / Starting / Updating / Scaling /"
+        " Deleting only):[/]"
+    )
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
+    console.print("\n")
+
+
 # Visible alias group for deployment commands
 @click_group()
 def endpoint():
@@ -307,7 +407,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 
 
 @deployment.command()
-@click.option("--name", "-n", type=str, help="Name of the endpoint being created.")
+@click.option(
+    "--name", "-n", type=str, help="Name of the endpoint being created.", required=True
+)
 @click.option(
     "--file",
     "-f",
@@ -595,10 +697,51 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=str,
     multiple=True,
 )
+# queue / preempt options (matching job.py style)
+@click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    default=None,
+    help="Set the priority for this endpoint (dedicated node groups only).",
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help="Allow this endpoint to be preempted by higher priority workloads.",
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help="Allow this endpoint to preempt lower priority workloads.",
+)
 @click.option(
     "--shared-memory-size",
     type=int,
     help="Specify the shared memory size for this endpoint, in MiB.",
+)
+@click.option(
+    "--with-reservation",
+    type=str,
+    help=(
+        "Assign the endpoint to a specific reserved compute resource using a"
+        " reservation ID (only applicable to dedicated node groups)."
+    ),
+)
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the endpoint can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your endpoint may be evicted."
+    ),
 )
 def create(
     name,
@@ -631,7 +774,12 @@ def create(
     autoscale_qpm,
     log_collection,
     node_ids,
+    queue_priority,
+    can_be_preempted,
+    can_preempt,
     shared_memory_size,
+    with_reservation,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -725,9 +873,12 @@ def create(
             )
             sys.exit(1)
 
+        wrapped_cmd = (
+            ["/bin/bash", "-c", container_command] if container_command else None
+        )
         spec.container = LeptonContainer(
             image=container_image,
-            command=shlex.split(container_command) if container_command else None,
+            command=wrapped_cmd,
         )
         if container_port:
             spec.container.ports = [ContainerPort(container_port=container_port)]
@@ -748,7 +899,17 @@ def create(
     if spec.container is not None:
         deployment_template = PhotonDeploymentTemplate()
 
-    # default timeout
+    # Detect if the loaded spec already contains autoscaler settings
+    spec_has_autoscale = spec.auto_scaler is not None and (
+        spec.auto_scaler.target_gpu_utilization_percentage is not None
+        or spec.auto_scaler.target_throughput is not None
+        or (
+            spec.auto_scaler.scale_down is not None
+            and spec.auto_scaler.scale_down.no_traffic_timeout is not None
+        )
+    )
+
+    # default timeout (only if user passed nothing AND spec has no autoscale)
     if (
         no_traffic_timeout is None
         and DEFAULT_TIMEOUT
@@ -757,16 +918,13 @@ def create(
         and autoscale_down is None
         and autoscale_gpu_util is None
         and autoscale_qpm is None
+        and not spec_has_autoscale
     ):
         console.print(
-            "\nLepton is currently set to use a default timeout of [green]1"
-            " hour[/]. This means that when there is no traffic for more than an"
-            " hour, your endpoint will automatically scale down to zero. This is"
-            " to assist auto-release of unused debug endpoints.\n- If you would"
-            " like to run a long-running photon (e.g. for production), [green]set"
-            " --no-traffic-timeout to 0[/].\n- If you would like to turn off"
-            " default timeout, set the environment variable"
-            " [green]LEPTON_DEFAULT_TIMEOUT=false[/].\n"
+            "\nLepton is currently set to use a default timeout of [green]1 hour[/]."
+            " When there is no traffic for more than an hour, the endpoint will"
+            " automatically scale down to zero. Use --no-traffic-timeout 0 to disable,"
+            " or set LEPTON_DEFAULT_TIMEOUT=false to turn off this default.\n"
         )
         no_traffic_timeout = DEFAULT_TIMEOUT
 
@@ -827,16 +985,21 @@ def create(
     if shared_memory_size is not None:
         spec.resource_requirement.shared_memory_size = shared_memory_size
 
-    if node_groups:
-        node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        # _get_valid_node_ids will return None if node_group_ids is None
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-        spec.resource_requirement.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
-        )
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list
@@ -874,29 +1037,46 @@ def create(
                     f" set the secret, and specify it with --secret {k}. Otherwise,"
                     " the deployment may fail."
                 )
-        spec.envs = make_env_vars_from_strings(env_list, secret_list)
-        spec.mounts = make_mounts_from_strings(mount_list)
-        spec.api_tokens = make_token_vars_from_config(public, tokens)
-        spec.image_pull_secrets = list(image_pull_secrets)
-        spec.auto_scaler = AutoScaler(
-            scale_down=(
-                ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                if no_traffic_timeout
-                else None
-            ),
-            target_gpu_utilization_percentage=target_gpu_utilization,
-            target_throughput=(
-                AutoscalerTargetThroughput(qpm=threshold) if threshold else None
-            ),
-        )
 
-        spec.health = HealthCheck(
-            liveness=(
-                HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
-                if initial_delay_seconds
-                else None
+        if env_list or secret_list or not file:
+            # CLI args provided or no file loaded - use CLI args
+            spec.envs = make_env_vars_from_strings(env_list, secret_list)
+        # else: preserve existing spec.envs from loaded file
+
+        if mount_list or not file:
+            # CLI args provided or no file loaded - use CLI args
+            spec.mounts = make_mounts_from_strings(mount_list)
+        # else: preserve existing spec.mounts from loaded file
+
+        if tokens or not file:
+            spec.api_tokens = make_token_vars_from_config(public, tokens)
+
+        if image_pull_secrets or not file:
+            spec.image_pull_secrets = list(image_pull_secrets)
+        # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
+        if any([
+            no_traffic_timeout is not None,
+            target_gpu_utilization is not None,
+            threshold is not None,
+        ]):
+            spec.auto_scaler = AutoScaler(
+                scale_down=(
+                    ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                    if no_traffic_timeout is not None
+                    else None
+                ),
+                target_gpu_utilization_percentage=target_gpu_utilization,
+                target_throughput=(
+                    AutoscalerTargetThroughput(qpm=threshold) if threshold else None
+                ),
             )
-        )
+
+        if initial_delay_seconds is not None:
+            spec.health = HealthCheck(
+                liveness=(
+                    HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                )
+            )
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
@@ -927,64 +1107,35 @@ def create(
 
 @deployment.command(name="list")
 @click.option(
-    "--pattern",
-    "-p",
-    help="Regular expression pattern to filter endpoint names.",
-    default=None,
+    "--name",
+    "-n",
+    help=(
+        "Filter endpoints by name (case-insensitive substring). Can be specified"
+        " multiple times."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
 )
-def list_command(pattern):
+def list_command(name):
     """
     Lists all endpoints in the current workspace.
     """
 
     client = APIClient()
-
     deployments = client.deployment.list_all()
-    # For the photon id field, we will show either the photon id, or the container
-    # image name if the deployment is an arbitrary container.
-    # Note: for pods, we will not show them here.
-    records = [
-        (
-            (d.metadata.name),
-            (
-                d.spec.photon_id
-                if d.spec.photon_id is not None
-                else (d.spec.container.image or "（unknown）")
-            ),
-            d.metadata.created_at
-            / 1000,  # convert to seconds from milliseconds # type: ignore
-            d.status,
-        )
-        for d in deployments
-        if not (d.spec.is_pod or False)
-    ]
-    if len(records) == 0:
-        console.print(
-            "No endpoints found. Use `lep endpoint create` to create endpoints."
-        )
-        return 0
-
-    table = Table(
-        title="endpoints",
-        show_lines=True,
-        show_header=True,
-        header_style="bold magenta",
+    if name:
+        lowered = [x.lower() for x in name]
+        deployments = [
+            d
+            for d in deployments
+            if d.metadata
+            and d.metadata.name
+            and any(n in d.metadata.name.lower() for n in lowered)
+        ]
+    _print_deployments_table(
+        deployments, dashboard_base_url=client.get_dashboard_base_url()
     )
-    table.add_column("name")
-    table.add_column("photon id")
-    table.add_column("created at")
-    table.add_column("status")
-    for name, photon_id, created_at, status in records:
-        if pattern is not None and (name is None or not re.search(pattern, name)):
-            continue
-        table.add_row(
-            name,
-            photon_id,
-            datetime.fromtimestamp(created_at).strftime("%Y-%m-%d\n%H:%M:%S"),
-            status.state,
-        )
-    console.print(table)
-    return 0
 
 
 @deployment.command()

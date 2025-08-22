@@ -13,9 +13,64 @@ class JobAPI(APIResourse):
             name_or_job if isinstance(name_or_job, str) else name_or_job.metadata.id_
         )
 
-    def list_all(self) -> List[LeptonJob]:
-        responses = self._get("/jobs")
-        return self.ensure_list(responses, LeptonJob)
+    def list_all(
+        self,
+        *,
+        job_query_mode: str = "alive_only",
+        q: Optional[str] = None,
+        query: Optional[str] = None,
+        status: Optional[List[str]] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        created_by: Optional[List[str]] = None,
+    ) -> List[LeptonJob]:
+        """List jobs with optional server-side filtering.
+
+        Mirrors backend query parameters (see OpenAPI docs):
+        - job_query_mode: alive_only | archive_only | alive_and_archive
+        - q           : substring match for job name
+        - query       : label selector
+        - status      : list of job states
+        - page / page_size: pagination controls
+        - created_by  : list of creator emails
+        """
+        params_base = {"job_query_mode": job_query_mode}
+        if q:
+            params_base["q"] = q
+        if query:
+            params_base["query"] = query
+        if status:
+            params_base["status"] = status
+        if created_by:
+            params_base["created_by"] = created_by
+
+        # If user explicitly specifies page or page_size, do single request
+        if page is not None or page_size is not None:
+            if page is not None:
+                params_base["page"] = page
+            if page_size is not None:
+                params_base["page_size"] = page_size
+            response = self._get("/jobs", params=params_base)
+            data = response.json()
+            items_raw = data.get("jobs", data) if isinstance(data, dict) else data
+            return [LeptonJob(**item) for item in items_raw]
+
+        # Otherwise auto-paginate until empty result set
+        results: List[LeptonJob] = []
+        current_page = 1
+        while True:
+            params = dict(params_base)
+            params["page"] = current_page
+            params["page_size"] = 500
+            response = self._get("/jobs", params=params)
+            data = response.json()
+            items_raw = data.get("jobs", data) if isinstance(data, dict) else data
+            items = [LeptonJob(**item) for item in items_raw]
+            if not items:
+                break
+            results.extend(items)
+            current_page += 1
+        return results
 
     def list_matching(self, pattern: str):
         params = {

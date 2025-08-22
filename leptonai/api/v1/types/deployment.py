@@ -11,6 +11,11 @@ from .common import Metadata
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
 
+class ReservationConfig(BaseModel):
+    reservation_id: Optional[str] = None
+    allow_burst_to_other_reservations: Optional[bool] = None
+
+
 class EnvValue(BaseModel):
     secret_name_ref: Optional[str] = None
 
@@ -33,12 +38,19 @@ class Mount(BaseModel):
     mount_options: Optional[MountOptions] = None
 
 
+class ContainerPortExposeStrategy(str, Enum):
+    HOST_PORT_MAPPING = "HostPortMapping"
+    INGRESS_PROXY = "IngressProxy"
+
+
 class ContainerPort(BaseModel):
     """
     The port spec of a Lepton Job.
     """
 
+    name: Optional[str] = None
     container_port: int
+    expose_strategies: Optional[List[ContainerPortExposeStrategy]] = None
     protocol: Optional[str] = None
     host_port: Optional[int] = None
     enable_load_balancer: Optional[bool] = None
@@ -51,11 +63,27 @@ class ContainerPort(BaseModel):
 
     @compatible_field_validator("protocol")
     def validate_protocol(cls, v):
-        if v and v.lower() not in ["tcp", "udp", "sctp"]:
-            raise ValueError(
-                f"Invalid protocol: {v}. Protocol must be either TCP, UDP, or SCTP."
-            )
-        return v if v is None else v.upper()
+        return _validate_protocol_value(v)
+
+
+class ContainerPortStatus(BaseModel):
+    name: Optional[str] = None
+    container_port: int
+    host_port: Optional[int] = None
+    external_endpoint: Optional[str] = None
+    protocol: Optional[str] = None
+
+    @compatible_field_validator("protocol")
+    def validate_protocol(cls, v):
+        return _validate_protocol_value(v)
+
+
+def _validate_protocol_value(v: Optional[str]):
+    if v and v.lower() not in ["tcp", "udp", "sctp"]:
+        raise ValueError(
+            f"Invalid protocol: {v}. Protocol must be either TCP, UDP, or SCTP."
+        )
+    return v if v is None else v.upper()
 
 
 class LeptonContainer(BaseModel):
@@ -239,6 +267,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     api_tokens: Optional[List[TokenVar]] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
+    reservation_config: Optional[ReservationConfig] = None
     image_pull_secrets: Optional[List[str]] = None
     health: Optional[HealthCheck] = None
     is_pod: Optional[bool] = None
@@ -290,6 +319,7 @@ class AutoScalerStatus(BaseModel):
 class LeptonDeploymentStatus(BaseModel):
     state: LeptonDeploymentState
     endpoint: DeploymentEndpoint
+    container_port_status: Optional[List[ContainerPortStatus]] = None
     autoscaler_status: Optional[AutoScalerStatus] = None
     with_system_photon: Optional[bool] = None
     is_system: Optional[bool] = None

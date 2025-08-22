@@ -12,6 +12,7 @@ from .deployment import (
     Mount,
     LeptonLog,
     QueueConfig,
+    ReservationConfig,
 )
 
 DefaultTTLSecondsAfterFinished: int = 600
@@ -20,12 +21,10 @@ DefaultTTLSecondsAfterFinished: int = 600
 class ReservationConfig(BaseModel):
     reservation_id: Optional[str] = None
 
-
 class LeptonJobTimeSchedule(BaseModel):
     """Schedule for job execution time."""
 
     start_at: Optional[int] = None  # StartAt is unix time in seconds
-
 
 class LeptonJobUserSpec(BaseModel):
     """

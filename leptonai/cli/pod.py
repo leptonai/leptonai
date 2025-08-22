@@ -13,7 +13,6 @@ import sys
 import json
 from datetime import datetime
 import re
-import shlex
 
 import click
 from loguru import logger
@@ -31,13 +30,17 @@ from leptonai.api.v1 import types
 from .util import (
     click_group,
     _get_only_replica_public_ip,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
 )
+from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.affinity import LeptonResourceAffinity
-from ..api.v1.types.deployment import ResourceRequirement, LeptonLog, LeptonContainer
+from ..api.v1.types.deployment import (
+    ResourceRequirement,
+    LeptonLog,
+    LeptonContainer,
+)
 
 
 console = Console(highlight=False)
@@ -58,7 +61,9 @@ def pod():
 
 
 @pod.command()
-@click.option("--name", "-n", type=str, help="Name of the pod to create.")
+@click.option(
+    "--name", "-n", type=str, help="Name of the pod to create.", required=True
+)
 @click.option(
     "--file",
     "-f",
@@ -153,6 +158,64 @@ def pod():
     type=str,
     multiple=True,
 )
+@click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    default=None,
+    help="Set the priority for this pod (dedicated node groups only).",
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help="Allow this pod to be preempted by higher priority workloads.",
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help="Allow this pod to preempt lower priority workloads.",
+)
+@click.option(
+    "--container-port",
+    type=str,
+    help=(
+        "Container ports to expose. Format: <port>:<protocol>:<strategy>[:strategy].\n "
+        " <port>     : 1-65535\n  <protocol> : tcp | udp | sctp\n  <strategy> : proxy |"
+        " hostmap\n              - hostmap: host port (random 40000-65535) mapped on"
+        " node IP\n              - proxy  : generate public URL; only ONE port"
+        " can enable proxy\n\nExamples:\n  8080:tcp:proxy                -> proxy"
+        " only\n  8080:udp:hostmap             -> host mapping only\n "
+        " 8080:tcp:proxy:hostmap       -> both strategies (note: only first proxy will"
+        " take effect)\n\nNotice: Exposing container ports may increase your service's"
+        " security risk. Please implement appropriate authentication and security"
+        " controls; you are solely responsible for the security of any services"
+        " exposed."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--with-reservation",
+    type=str,
+    help=(
+        "Assign the pod to a specific reserved compute resource using a reservation ID "
+        "(only applicable to dedicated node groups)."
+    ),
+)
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the pod can temporarily use free resources from nodes reserved by "
+        "other reservations. Be aware that when a new workload bound to those "
+        "reservations starts, your pod may be evicted."
+    ),
+)
 def create(
     name,
     file,
@@ -164,8 +227,14 @@ def create(
     node_groups,
     container_image,
     container_command,
+    container_port,
     log_collection,
     node_ids,
+    queue_priority,
+    can_be_preempted,
+    can_preempt,
+    with_reservation,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
@@ -206,13 +275,21 @@ def create(
         if deployment_user_spec.container is None:
             deployment_user_spec.container = LeptonContainer(
                 image=container_image,
-                command=shlex.split(container_command) if container_command else None,
+                command=(
+                    ["/bin/bash", "-c", container_command]
+                    if container_command
+                    else None
+                ),
             )
         else:
             if container_image:
                 deployment_user_spec.container.image = container_image
             if container_command:
-                deployment_user_spec.container.command = shlex.split(container_command)
+                deployment_user_spec.container.command = [
+                    "/bin/bash",
+                    "-c",
+                    container_command,
+                ]
 
     if resource_shape:
         if deployment_user_spec.resource_requirement is None:
@@ -222,15 +299,50 @@ def create(
         else:
             deployment_user_spec.resource_requirement.resource_shape = resource_shape
 
-    if node_groups:
-        node_group_ids = _get_valid_nodegroup_ids(node_groups)
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=deployment_user_spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-        # make sure affinity is initialized
-        deployment_user_spec.resource_requirement.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
+
+    # Configure container ports first (ensure container exists)
+    if container_port:
+        try:
+            parsed_ports = make_container_ports_from_str_list(list(container_port))
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
+            sys.exit(1)
+
+        if deployment_user_spec.container is None:
+            deployment_user_spec.container = LeptonContainer()
+        deployment_user_spec.container.ports = parsed_ports
+
+        # Summarize configured strategies for user confirmation
+        strategies_set = {
+            s.value for cp in parsed_ports for s in (cp.expose_strategies or [])
+        }
+        ports_msg = ", ".join(
+            f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports
+        )
+        console.print(
+            f"Configured container ports: [cyan]{ports_msg}[/] with strategies"
+            f" [cyan]{', '.join(sorted(strategies_set))}[/]"
+        )
+        console.print(
+            "[yellow]Notice:[/] Exposing container ports may increase your service's"
+            " security risk. Please implement appropriate authentication and security"
+            " controls; you are solely responsible for the security of any services"
+            " exposed."
         )
 
     if mount:
@@ -348,27 +460,19 @@ def list_command(pattern):
     tcp_ports = [None] * pods_count
     tcp_ports_jupyterlab = [None] * pods_count
     for index, pod in enumerate(pods):
-        ports = pod.spec.container.ports
-        port_pairs = [(p.container_port, p.host_port) for p in ports]
-        if len(port_pairs) not in [2, 3]:
-            console.print(
-                f"Pod {pod.metadata.name} does not have exactly two or three ports."
-                f" This is not supported. it has \n {port_pairs}"
-            )
+        ports = pod.status.container_port_status if pod.status else None
+        if not ports:
             continue
+
+        port_pairs = [(p.container_port, p.host_port) for p in ports]
 
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
                 ssh_ports[index] = port_pair
             elif port_pair[0] == TCP_PORT:
                 tcp_ports[index] = port_pair
-            elif len(port_pairs) == 3 and port_pair[0] == TCP_JUPYTER_PORT:
+            elif port_pair[0] == TCP_JUPYTER_PORT:
                 tcp_ports_jupyterlab[index] = port_pair
-            else:
-                console.print(
-                    f"Warning: Pod [red]{pod.metadata.name}[/] has an unsupported port"
-                    f" [red]{port_pair}.[/]"
-                )
 
     pod_ips = [None] * pods_count
     for index, pod in enumerate(pods):
@@ -449,10 +553,16 @@ def ssh(name):
     client = APIClient()
 
     pod = client.deployment.get(name)
-    ports = pod.spec.container.ports
+    logger.trace(json.dumps(pod.model_dump(), indent=2))
+    ports = pod.status.container_port_status
     if pod.status.state not in ("Running", "Ready"):
         console.print("This pod is not running or is not ready.")
         sys.exit(1)
+
+    notice_msg = (
+        "[yellow]Notice[/]: lep pod output may only work for default image and default"
+        " command"
+    )
 
     public_ip = _get_only_replica_public_ip(pod.metadata.name)
 
@@ -482,19 +592,23 @@ def ssh(name):
                     console.print(
                         f"[red]SSH command failed with exit statu[/] {e.returncode}"
                     )
+                    console.print(notice_msg)
                     console.print(
                         "[red]Error output:"
                         f" {e.stderr if e.stderr else 'No error output captured.'}[/]"
                     )
+                    console.print(notice_msg)
             except Exception as e:
                 console.print(f"[red]An unexpected error occurred: {str(e)}[/]")
+                console.print(notice_msg)
 
     if not ssh_flag:
         console.print(
             "SSH port not found, you can choose to use the web terminal to access the"
             " pod."
-            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+            f"https://dashboard.dgxc-lepton.nvidia.com/workspace/{client.get_workspace_id()}/compute/pods/detail/{name}/terminal"
         )
+        console.print(notice_msg)
         sys.exit(1)
 
 

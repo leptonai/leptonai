@@ -48,7 +48,7 @@ def create(name, value):
         check(
             n not in LEPTON_RESERVED_ENV_NAMES,
             "You have used a reserved secret name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            f"used by Lepton internally: {n}. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}",
         )
@@ -92,12 +92,18 @@ def list_command():
 
 
 @secret.command()
-@click.option("--name", "-n", help="Secret name")
+@click.option("--name", "-n", help="Secret name", required=True)
 def remove(name):
     """
     Removes the secret with the given name.
     """
     client = APIClient()
+    existing_secrets = client.secret.list_all()
+
+    if not existing_secrets or name not in existing_secrets:
+        console.print(f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]")
+        return
+
     client.secret.delete(name)
     console.print(f"Secret [green]{name}[/] deleted successfully.")
 

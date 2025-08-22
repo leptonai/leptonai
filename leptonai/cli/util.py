@@ -3,7 +3,7 @@ Common utilities for the CLI.
 """
 
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 import click
@@ -13,8 +13,10 @@ from rich.console import Console
 from leptonai.api.v1.types.job import LeptonJob
 from leptonai.api.v2.client import APIClient
 
-from leptonai.config import DASHBOARD_URL
-
+from leptonai.api.v1.types.deployment import (
+    ContainerPort,
+    ContainerPortExposeStrategy,
+)
 
 console = Console(highlight=False)
 
@@ -177,6 +179,129 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
     return node_group_ids
 
 
+def make_container_port_from_string(
+    port_str: str, *, strategy_free: bool = False
+) -> ContainerPort:
+    """Parse --container-port value.
+
+    Expected format: <port>:<protocol>:<strategy>[:strategy]
+    * <port>      — integer 1-65535
+    * <protocol>  — tcp | udp | sctp
+    * <strategy>  — proxy | hostmap (case-insensitive)
+    One or two strategies may be specified. Order is not significant beyond the first two fixed segments.
+    """
+
+    parts = [p.strip() for p in port_str.split(":")]
+    # Check for empty segments
+    if "" in parts:
+        raise ValueError(
+            f"Invalid port definition '{port_str}'. Empty segments are not allowed."
+        )
+
+    # Validate minimal segments
+    if strategy_free:
+        if len(parts) > 2:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
+            )
+        if len(parts) < 2:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected <port>:<protocol>"
+            )
+    else:
+        if len(parts) < 3:
+            raise ValueError(
+                f"Invalid port definition '{port_str}'. Expected"
+                " <port>:<protocol>:<strategy>[:strategy]."
+            )
+
+    try:
+        port_num = int(parts[0])
+    except ValueError:
+        raise ValueError(f"First segment must be an integer port, got '{parts[0]}'.")
+
+    proto = parts[1]
+
+    has_proxy = False
+    has_host = False
+
+    for seg in parts[2:]:
+        seg_lower = seg.lower()
+        if seg_lower == "proxy":
+            if has_proxy:
+                raise ValueError("Duplicate 'proxy' strategy in definition.")
+            has_proxy = True
+        elif seg_lower in {
+            "hostmap",
+            "host-mapping",
+            "hostmapping",
+            "host",
+            "host-map",
+        }:
+            if has_host:
+                raise ValueError("Duplicate 'hostmap' strategy in definition.")
+            has_host = True
+        else:
+            raise ValueError(
+                f"Unknown strategy '{seg}' in '{port_str}'. Use proxy or hostmap."
+            )
+
+    if not strategy_free and not (has_proxy or has_host):
+        raise ValueError(
+            "At least one exposure strategy (proxy or hostmap) must be specified."
+        )
+
+    strategies = []
+    if has_proxy:
+        strategies.append(ContainerPortExposeStrategy.INGRESS_PROXY)
+    if has_host:
+        strategies.append(ContainerPortExposeStrategy.HOST_PORT_MAPPING)
+
+    return ContainerPort(
+        name=None,
+        container_port=port_num,
+        protocol=proto.upper(),
+        expose_strategies=strategies,
+    )
+
+
+def make_container_ports_from_str_list(
+    port_strings: List[str], *, strategy_free: bool = False
+) -> List[ContainerPort]:
+    """Convert list of CLI strings to ContainerPort list, ensuring rules like single proxy."""
+
+    parsed_ports = [
+        make_container_port_from_string(p, strategy_free=strategy_free)
+        for p in port_strings
+    ]
+
+    # Ensure at most one proxy across all ports
+    if not strategy_free:
+        proxy_count = sum(
+            1
+            for cp in parsed_ports
+            if cp.expose_strategies
+            and ContainerPortExposeStrategy.INGRESS_PROXY in cp.expose_strategies
+        )
+        if proxy_count > 1:
+            raise ValueError(
+                "Only one container port may use the 'proxy' strategy within a single"
+                " job."
+            )
+
+    # Ensure no duplicate container_port numbers
+    seen_ports = set()
+    for cp in parsed_ports:
+        if cp.container_port in seen_ports:
+            raise ValueError(
+                f"Duplicate container port '{cp.container_port}' detected in definition"
+                " list."
+            )
+        seen_ports.add(cp.container_port)
+
+    return parsed_ports
+
+
 def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     if (
         not node_group_ids
@@ -211,30 +336,149 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
 
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
     client = APIClient()
-    job_list = client.job.list_all()
-    cur_job_list = []
-    for job in job_list:
-        if job.metadata.name == job_name:
-            cur_job_list.append(job)
 
-    if len(cur_job_list) == 0:
+    job_list = client.job.list_all(q=job_name)
+    exact_matches = [j for j in job_list if j.metadata.name == job_name]
+
+    if not exact_matches:
         return None
-
-    jobs_sorted_by_created_at = sorted(
-        cur_job_list, key=lambda job: job.metadata.created_at
-    )
-
-    return jobs_sorted_by_created_at[-1]
+    return max(exact_matches, key=lambda j: j.metadata.created_at)
 
 
-def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
-    """Return full dashboard URL for a given job.
+def _validate_queue_priority(ctx, param, value):
+    """Validate and normalize --queue-priority.
 
-    Args:
-        workspace_id: Current workspace ID.
-        job_id: Job's metadata.id_.
-
-    Example output:
-        https://dashboard.dgxc-lepton.nvidia.com/workspace/<ws>/compute/jobs/detail/<job>/replicas/list
+    Accepted input examples: low / l / low-1, mid / 5, high-9, 7, mid-4000.
+    Always returns canonical strings such as 'mid-4000'.
     """
-    return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"
+
+    if value is None:
+        return value
+
+    canonical = {
+        "l": "low-1000",
+        "low": "low-1000",
+        "low-1": "low-1000",
+        "low-2": "low-2000",
+        "low-3": "low-3000",
+        "m": "mid-4000",
+        "mid": "mid-4000",
+        "mid-4": "mid-4000",
+        "mid-5": "mid-5000",
+        "mid-6": "mid-6000",
+        "h": "high-7000",
+        "high": "high-7000",
+        "high-7": "high-7000",
+        "high-8": "high-8000",
+        "high-9": "high-9000",
+    }
+
+    # allow direct canonical strings
+    canonical.update({v: v for v in canonical.values()})
+
+    numeric_map = {
+        1: "low-1000",
+        2: "low-2000",
+        3: "low-3000",
+        4: "mid-4000",
+        5: "mid-5000",
+        6: "mid-6000",
+        7: "high-7000",
+        8: "high-8000",
+        9: "high-9000",
+    }
+
+    if isinstance(value, str):
+        v = value.lower()
+        if v in canonical:
+            return canonical[v]
+
+    try:
+        num = int(value)
+        if 1 <= num <= 9:
+            return numeric_map[num]
+    except (TypeError, ValueError):
+        pass
+
+    opts = ", ".join(
+        sorted(set(list(canonical.keys()) + [str(n) for n in numeric_map]))
+    )
+    raise ValueError(f"invalid priority '{value}'. valid options: {opts}")
+
+
+def apply_nodegroup_and_queue_config(
+    *,
+    spec,
+    node_groups,
+    node_ids,
+    queue_priority,
+    can_be_preempted,
+    can_preempt,
+    with_reservation,
+    allow_burst,
+):
+    """Mutate *spec* to attach affinity / QueueConfig / ReservationConfig.
+
+    Raises ValueError when required dedicated node group info is missing."""
+
+    from leptonai.api.v1.types.affinity import LeptonResourceAffinity
+    from leptonai.api.v1.types.deployment import QueueConfig, ReservationConfig
+
+    # Determine flags presence
+    has_queue_flags = (
+        queue_priority is not None
+        or can_be_preempted is not None
+        or can_preempt is not None
+    )
+    has_reservation_flags = bool(with_reservation or allow_burst)
+
+    if hasattr(spec, "affinity"):
+        holder = spec
+    else:
+        # Deployment/Pod-style spec – resource_requirement must exist beforehand
+        if getattr(spec, "resource_requirement", None) is None:
+            raise ValueError(
+                "for endpoint_user_spec, resource_requirement must be set before"
+                " applying node group / queue / reservation flags."
+            )
+        holder = spec.resource_requirement
+
+    # Step 1: node group handling
+    if node_groups:
+        node_group_ids = _get_valid_nodegroup_ids(
+            node_groups, need_queue_priority=has_queue_flags
+        )
+        valid_node_ids = (
+            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
+        )
+
+        holder.affinity = LeptonResourceAffinity(
+            allowed_dedicated_node_groups=node_group_ids,
+            allowed_nodes_in_node_group=valid_node_ids,
+        )
+
+    elif has_queue_flags or has_reservation_flags:
+        affinity = getattr(holder, "affinity", None)
+        enabled = affinity and affinity.allowed_dedicated_node_groups
+        if not enabled:
+            raise ValueError(
+                "queue/preempt/reservation flags require --node-group (dedicated node"
+                " group)."
+            )
+
+    if has_queue_flags:
+        spec.queue_config = spec.queue_config or QueueConfig()
+        spec.queue_config.priority_class = queue_priority or "mid-4000"
+        if can_be_preempted is not None:
+            spec.queue_config.can_be_preempted = can_be_preempted
+        if can_preempt is not None:
+            spec.queue_config.can_preempt = can_preempt
+
+    if has_reservation_flags:
+        spec.reservation_config = spec.reservation_config or ReservationConfig()
+        if with_reservation:
+            spec.reservation_config.reservation_id = with_reservation
+        if allow_burst:
+            spec.reservation_config.allow_burst_to_other_reservations = True
+
+    return spec

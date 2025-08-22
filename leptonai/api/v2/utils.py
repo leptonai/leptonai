@@ -53,6 +53,16 @@ class WorkspaceNotFoundError(WorkspaceError):
         )
 
 
+class WorkspaceForbiddenError(WorkspaceError):
+    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+        super().__init__(
+            "Forbidden access to the workspace",
+            workspace_id,
+            workspace_url,
+            auth_token,
+        )
+
+
 class WorkspaceNotCreatedYet(WorkspaceError):
     """
     An exception that is raised when a workspace is not created yet.
@@ -117,6 +127,48 @@ def _get_workspace_display_name(
                 f" response: {res}."
             )
         return content["display_name"]
+
+
+def _get_token_expires_at(workspace_id, url=None, token=None) -> Optional[int]:
+    """
+    Gets the token expires at from the given workspace_id. This calls Lepton's backend server
+    to get the token expires at.
+    """
+    # Build resolver URL
+    url = DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id if url is None else url
+    url += "/tokens"
+
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    res = requests.get(url, headers=headers)
+    if not res.ok:
+        raise RuntimeError(
+            f"Lepton server returned an error: {res.status_code} {res.content}."
+        )
+    elif res.content == b"":
+        raise RuntimeError(f"Cannot find the workspace with id {workspace_id}.")
+    else:
+        content = res.json()
+        if not isinstance(content, list):
+            raise RuntimeError("Unable to get tokens info.")
+
+        if not token:
+            raise RuntimeError("Unable to match tokens info.")
+
+        candidate_expires: list[int] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            mv = item.get("masked_value")
+            ea = item.get("expires_at")
+            if not isinstance(mv, str) or "..." not in mv or not isinstance(ea, int):
+                continue
+            left, right = mv.split("...", 1)
+            if token.startswith(left) and token.endswith(right):
+                candidate_expires.append(ea)
+
+        if not candidate_expires:
+            raise RuntimeError("No match tokens info.")
+        return min(candidate_expires)
 
 
 _workspace_url_cache: Dict[str, str] = {}

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 import click
 from datetime import datetime, timezone
 import json
@@ -14,11 +14,14 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    _get_valid_nodegroup_ids,
-    _get_valid_node_ids,
+    make_container_ports_from_str_list,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
     _get_newest_job_by_name,
-    build_dashboard_job_url,
 )
+
+from .util import make_container_port_from_string  # noqa: F401
+
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
 
@@ -27,15 +30,17 @@ from leptonai.api.v1.types.job import (
     LeptonJob,
     LeptonJobTimeSchedule,
     LeptonJobUserSpec,
-    LeptonResourceAffinity,
     LeptonJobState,
-    ReservationConfig,
 )
-from leptonai.api.v1.types.deployment import ContainerPort, LeptonLog, QueueConfig
+from leptonai.api.v1.types.deployment import (
+    LeptonLog,
+)
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
+def _display_jobs_table(
+    jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
+):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name / ID")
     table.add_column("Created At")
@@ -55,10 +60,13 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         )
         status = job.status
 
-        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
-        name_id_cell = (
-            f"[bold #76b900]{job.metadata.name}[/]\n"
+        job_url = None
+        if dashboard_base_url:
+            job_url = f"{dashboard_base_url}/compute/jobs/detail/{job.metadata.id_}/replicas/list"
+        name_id_cell = f"[bold #76b900]{job.metadata.name}[/]\n" + (
             f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
+            if job_url
+            else f"[bright_black]{job.metadata.id_}[/]"
         )
         workers = job.spec.completions or job.spec.parallelism or 1
         shape = job.spec.resource_shape or "-"
@@ -95,7 +103,9 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/]"
         f" job{'s' if num_jobs!=1 else ''} (Running / Restarting / Deleting only):[/]"
     )
-    for shape, count in sorted(shape_totals.items()):
+    for shape, count in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
         console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
     console.print("\n")
 
@@ -183,7 +193,6 @@ def _filter_jobs(
 
     return filtered_jobs
 
-
 _supported_time_formats_job_schedule = """
     Supported formats:
         - Full Date and Time:
@@ -213,62 +222,6 @@ _supported_time_formats_job_schedule = """
         """
 
 
-def _validate_queue_priority(ctx, param, value):
-    if value is None:
-        return value
-
-    priority_mapping = {
-        "l": "low-1000",
-        "low": "low-1000",
-        "low-1": "low-1000",
-        "low-2": "low-2000",
-        "low-3": "low-3000",
-        "m": "mid-4000",
-        "mid": "mid-4000",
-        "mid-4": "mid-4000",
-        "mid-5": "mid-5000",
-        "mid-6": "mid-6000",
-        "h": "high-7000",
-        "high": "high-7000",
-        "high-7": "high-7000",
-        "high-8": "high-8000",
-        "high-9": "high-9000",
-    }
-    # Allow direct use of canonical priority strings such as "mid-6000"
-    priority_mapping.update({v: v for v in priority_mapping.values()})
-    num_priority_mapping = {
-        1: "low-1000",
-        2: "low-2000",
-        3: "low-3000",
-        4: "mid-4000",
-        5: "mid-5000",
-        6: "mid-6000",
-        7: "high-7000",
-        8: "high-8000",
-        9: "high-9000",
-    }
-
-    # Check if the value is a recognized keyword
-    if isinstance(value, str):
-        value_lower = value.lower()
-        if value_lower in priority_mapping:
-            return priority_mapping[value_lower]
-
-    # Check if the value is a valid integer within the range
-    try:
-        priority = int(value)
-        if 1 <= priority <= 9:
-            return num_priority_mapping[priority]
-    except ValueError:
-        pass
-
-    # Raise an error for invalid input
-    sorted_options = sorted(priority_mapping.items(), key=lambda x: x[1])
-    valid_options = "".join(f"\n  {k:<10} -> Priority: {v}" for k, v in sorted_options)
-    raise click.BadParameter(
-        f"Invalid priority. Use 1-9, or one of the following options: {valid_options}."
-    )
-
 
 @click_group()
 def job():
@@ -281,20 +234,6 @@ def job():
     the documentation for more details.
     """
     pass
-
-
-def make_container_port_from_string(port_str: str):
-    parts = port_str.split(":")
-    if len(parts) == 2:
-        try:
-            port = int(parts[0].strip())
-        except ValueError:
-            raise ValueError(
-                f"Invalid port definition: {port_str}. Port must be an integer."
-            )
-        return ContainerPort(container_port=port, protocol=parts[1].strip())
-    else:
-        raise ValueError(f"Invalid port definition: {port_str}")
 
 
 @job.command()
@@ -332,7 +271,10 @@ def make_container_port_from_string(port_str: str):
 @click.option(
     "--container-port",
     type=str,
-    help="Ports to expose for the job, in the format portnumber[:protocol].",
+    help=(
+        "Ports to expose for the job, in the format"
+        " <portnumber>:<protocol(tcp/udp/sctp)>."
+    ),
     multiple=True,
 )
 @click.option(
@@ -483,7 +425,6 @@ def make_container_port_from_string(port_str: str):
     "-qp",
     "queue_priority",
     callback=_validate_queue_priority,
-    default="mid-4000",
     help=(
         "Set the priority for this job (feature available only for dedicated node"
         " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
@@ -545,6 +486,16 @@ def make_container_port_from_string(port_str: str):
     )
     + _supported_time_formats_job_schedule,
 )
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help=(
+        "If set, the job can temporarily use free resources from nodes reserved by"
+        " other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your job may be evicted."
+    ),
+)
 def create(
     name,
     file,
@@ -574,6 +525,7 @@ def create(
     shared_memory_size,
     with_reservation,
     start_at,
+    allow_burst_to_other_reservation,
 ):
     """
     Creates a job.
@@ -607,49 +559,21 @@ def create(
     else:
         job_spec = LeptonJobUserSpec()
 
-    # Configure node groups and queue priority
-    if node_groups or queue_priority or can_be_preempted or can_preempt:
-        # Validate queue priority configuration
-        if (
-            queue_priority or can_be_preempted is not None or can_preempt is not None
-        ) and not node_groups:
-            console.print(
-                "[red]Queue priority, can-be-preempted and can-preempt are only"
-                " available for dedicated node groups[/red]\n[green]please use them"
-                " with --node-group[/green]"
-            )
-            sys.exit(1)
-
-        # Get valid node group IDs
-        node_group_ids = _get_valid_nodegroup_ids(
-            node_groups,
-            need_queue_priority=(
-                queue_priority is not None
-                or can_be_preempted is not None
-                or can_preempt is not None
-            ),
+    # Apply shared node group / queue / reservation config
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=job_spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
         )
-
-        # Get valid node IDs if specified
-        valid_node_ids = (
-            _get_valid_node_ids(node_group_ids, node_ids) if node_ids else None
-        )
-
-        # Configure resource affinity
-        job_spec.affinity = job_spec.affinity or LeptonResourceAffinity()
-        job_spec.affinity = LeptonResourceAffinity(
-            allowed_dedicated_node_groups=node_group_ids,
-            allowed_nodes_in_node_group=valid_node_ids,
-        )
-
-        # Set queue configuration if priority is specified
-        if queue_priority or can_be_preempted is not None or can_preempt is not None:
-            job_spec.queue_config = job_spec.queue_config or QueueConfig()
-            job_spec.queue_config.priority_class = queue_priority or "mid-4000"
-            if can_be_preempted is not None:
-                job_spec.queue_config.can_be_preempted = can_be_preempted
-            if can_preempt is not None:
-                job_spec.queue_config.can_preempt = can_preempt
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # Set resource shape
     if resource_shape:
@@ -690,9 +614,15 @@ def create(
 
     # Configure container ports
     if container_port:
-        job_spec.container.ports = [
-            make_container_port_from_string(p) for p in container_port
-        ]
+        try:
+            parsed_ports = make_container_ports_from_str_list(
+                container_port, strategy_free=True
+            )
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
+            sys.exit(1)
+
+        job_spec.container.ports = parsed_ports
 
     # Set environment variables and secrets
     if env or secret:
@@ -745,16 +675,6 @@ def create(
             sys.exit(1)
         job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
 
-    # Configure reservation if specified
-    if with_reservation:
-        if not node_groups:
-            console.print(
-                "[red] Error[/]: --with-reservation is only supported for dedicated"
-                " node groups"
-            )
-            sys.exit(1)
-        job_spec.reservation_config = ReservationConfig(reservation_id=with_reservation)
-
     # Create job with metadata
     job = LeptonJob(
         spec=job_spec,
@@ -766,7 +686,6 @@ def create(
 
     # Log job specification for debugging
     logger.trace(json.dumps(job.model_dump(), indent=2))
-
     # Create job and display success message
     created_job = client.job.create(job)
     new_job_id = created_job.metadata.id_
@@ -839,18 +758,25 @@ def list_command(state, user, name_or_id, node_group):
     lep job list -s queue -u alice -n train -ng h100
     """
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name_or_id:
+        list_params["q"] = list(name_or_id)
+
+    jobs = client.job.list_all(**list_params)
     logger.trace(f"Jobs: {jobs}")
 
-    job_filtered = _filter_jobs(
-        jobs,
-        state,
-        user_patterns=user,
-        name_patterns=name_or_id,
-        node_group_patterns=node_group,
-    )
+    if node_group:
+        job_filtered = _filter_jobs(jobs, None, node_group_patterns=node_group)
+    else:
+        job_filtered = jobs
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
 
 @job.command()
@@ -913,9 +839,21 @@ def remove_all(state, user, name, node_group):
         sys.exit(1)
 
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name:
+        list_params["q"] = list(name)
+
+    jobs = client.job.list_all(**list_params)
+
     job_filtered = _filter_jobs(
-        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+        jobs,
+        None,
+        node_group_patterns=node_group,
+        exact_users=user,
     )
 
     if len(job_filtered) == 0:
@@ -926,7 +864,9 @@ def remove_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -1013,9 +953,21 @@ def stop_all(state, user, name, node_group):
         sys.exit(1)
 
     client = APIClient()
-    jobs = client.job.list_all()
+    list_params: dict[str, Any] = {}
+    if state:
+        list_params["status"] = list(state)
+    if user:
+        list_params["created_by"] = list(user)
+    if name:
+        list_params["q"] = list(name)
+
+    jobs = client.job.list_all(**list_params)
+
     job_filtered = _filter_jobs(
-        jobs, state, node_group_patterns=node_group, exact_users=user, exact_names=name
+        jobs,
+        None,
+        node_group_patterns=node_group,
+        exact_users=user,
     )
 
     if len(job_filtered) == 0:
@@ -1026,7 +978,9 @@ def stop_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -1161,8 +1115,9 @@ def get(name, id, path):
     "--name",
     "-n",
     help=(
-        "The name of the job to remove. If multiple jobs share the same name, all of"
-        " them will be removed."
+        "The name of the job to remove. If multiple jobs share the same name, only the"
+        " newest one will be removed. Please use remove-all if you want remove multiple"
+        " jobs with the same name."
     ),
     required=False,
 )

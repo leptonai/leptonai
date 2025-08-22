@@ -21,6 +21,9 @@ from typing import Generic, TypeVar
 # cache into. As a result, we create the cache directory when we need to write to it.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
 
+VERSION_CHECK_FILE: Path = CACHE_DIR / "latest_version_check"
+VERSION_CHECK_INTERVAL_SEC: int = 60 * 60 * 24  # 24h
+
 ################################################################################
 # Configurations you can change to customize Lepton's behavior.
 ################################################################################
@@ -217,7 +220,7 @@ def _is_rocm() -> bool:
 
 
 # Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.25.9"
+BASE_IMAGE_VERSION = "0.26.1"
 BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
@@ -370,7 +373,6 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
     "LEPTON_WORKSPACE_ORIGIN_URL",
     "LEPTON_CLASSIC",
-    "LEPTON_DASHBOARD_URL",
 }
 
 if "LEPTON_ALLOW_ORIGINS" in os.environ:
@@ -382,19 +384,7 @@ else:
 # Note: LEPTON_DEPLOYMENT_URL is temporarily removed to reduce workspace URL dependency
 # This may be restored in the future if we implement a more flexible URL handling mechanism
 
-# Base URL for Lepton web dashboard. Can be overridden via LEPTON_DASHBOARD_URL env.
-DASHBOARD_URL = os.environ.get(
-    "LEPTON_DASHBOARD_URL", "https://dashboard.dgxc-lepton.nvidia.com"
-)
-
-# LEPTON_WORKSPACE_URL is used to get the web url for the workspace. Append "/dashboard" for the workspace dashboard.
-# LEPTON_WORKSPACE_URL = LEPTON_DASHBOARD_URL + "/workspace/{workspace_id}"
-
-# LEPTON_DEPLOYMENT_URL is used to get the web url for the deployment.
-# Append "/demo", "/api", "/metrics", "/events", "/replicas/list" for the deployment dashboard functions.
-# LEPTON_DEPLOYMENT_URL = (
-#     LEPTON_WORKSPACE_URL + "/compute/deployments/detail/{deployment_name}"
-# )
+# Dashboard URL related environment variables/configs are deprecated and removed.
 
 PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
 

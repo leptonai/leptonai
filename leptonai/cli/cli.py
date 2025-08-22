@@ -1,10 +1,16 @@
 from datetime import datetime
+import time
+from pathlib import Path
 
 import click
 import sys
 import webbrowser
 
-from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
+from leptonai.api.v2.utils import (
+    WorkspaceUnauthorizedError,
+    WorkspaceNotFoundError,
+    WorkspaceForbiddenError,
+)
 from .util import console
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
@@ -27,7 +33,6 @@ from .util import click_group
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 LOGIN_LOGO = """
-
                             [#76B900]N V I D I A[/]
 
                         [white] D G X  C L O U D[/]
@@ -38,7 +43,6 @@ LOGIN_LOGO = """
         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
 
 """
 
@@ -54,7 +58,10 @@ def lep():
 
     `pip install -U leptonai`
     """
-    pass
+    try:
+        check_lepton_version()
+    except Exception:
+        pass
 
 
 # Add subcommands
@@ -117,6 +124,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=lepton_classic,
+            could_be_new_token=True,
         )
     else:
         if WorkspaceRecord.current():
@@ -208,11 +216,28 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
     api_client = WorkspaceRecord.client()
 
     try:
-        info = api_client.info()
-        console.print(f"Logged in to your workspace [blue]{info.workspace_name}[/].")
-        console.print(f"\t      tier: {info.workspace_tier}")
-        console.print(f"\tbuild time: {info.build_time}")
-        console.print(f"\t   version: {api_client.version()}")
+        # Retry info() in case the new token is not yet propagated.
+        retries = 20
+        while True:
+            try:
+                if retries == 16:
+                    console.print("[bold]Loading workspace...[/bold]")
+                info = api_client.info()
+                ws_name = info.workspace_name
+                tier = info.workspace_tier
+                version = ".".join(str(v) for v in api_client.version())
+
+                indent = " " * 17  # match logo's left margin for alignment
+                console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
+                console.print(f"{indent}{'Tier':>12}: {tier}")
+                console.print(f"{indent}{'Version':>12}: {version}\n")
+                break
+            except WorkspaceUnauthorizedError:
+                retries -= 1
+                if retries <= 0:
+                    raise
+                time.sleep(3)
+                continue
 
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
@@ -221,9 +246,11 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [bold]Invalid Workspace Access Detected[/]
         [white]Workspace ID:[/white] {e.workspace_id}
 
+        [#76B900]If you are logging in with a fresh token, please wait for 2-3 minutes and try again.[/#76B900]
+
         [white]Note: If you are trying to login to a Lepton classic workspace, please use:[/white]
         [#76B900]'lep login -c <workspace-id>:<token> --lepton-classic'[/#76B900]
-        [white]Make sure to include the --lepton-classic or -l flag.[/white]
+        [white]Make sure to include the --lepton-classic or -l flag. (Ignore if you are DGXC User)[/white]
 
         [bold]To resolve this issue:[/bold]
         1. [#76B900]Verify your login credentials above.[/#76B900]
@@ -261,6 +288,18 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
         """)
 
+    except WorkspaceForbiddenError as e:
+        console.print("\n", e)
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"""
+        [red bold]Workspace Forbidden access[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+        
+        [red]You may using an invalid token or the token is expired.[/red]
+        [red]Please re-issue a new token and run `lep workspace login` again.[/red]
+        """)
+
 
 @lep.command()
 @click.option(
@@ -270,8 +309,68 @@ def logout(purge):
     """
     Logout of the DGX Cloud Lepton.
     """
-    WorkspaceRecord.logout(purge=purge)
-    console.print("[green]Logged out[/]")
+    try:
+        WorkspaceRecord.logout(purge=purge)
+        console.print("[green]Logged out[/]")
+    except RuntimeError as e:
+        console.print(f"[yellow]{e}[/]")
+
+
+def check_lepton_version():
+    """Notify user if a newer leptonai release is available on PyPI."""
+
+    from leptonai.config import VERSION_CHECK_FILE, VERSION_CHECK_INTERVAL_SEC
+
+    interval_sec = VERSION_CHECK_INTERVAL_SEC
+    cache_file: Path = VERSION_CHECK_FILE
+
+    def _read_last() -> float:
+        try:
+            return float(cache_file.read_text()) if cache_file.exists() else 0.0
+        except Exception:
+            return 0.0
+
+    def _write_now() -> None:
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            cache_file.write_text(str(time.time()))
+        except Exception:
+            pass
+
+    if time.time() - _read_last() < interval_sec:
+        return
+
+    # Local package version
+    try:
+        from importlib.metadata import version as _v
+
+        local_ver = _v("leptonai")
+    except Exception:
+        local_ver = getattr(leptonai, "__version__", "0.0.0")
+
+    # Remote latest version
+    try:
+        import requests
+
+        resp = requests.get("https://pypi.org/pypi/leptonai/json", timeout=2)
+        resp.raise_for_status()
+        latest_ver = resp.json()["info"]["version"]
+    except Exception:
+        return  # silent if network / PyPI unreachable
+
+    try:
+        from packaging.version import Version
+
+        logger.trace(f"Local version: {local_ver}, latest version: {latest_ver}")
+        if Version(local_ver) < Version(latest_ver):
+            console.print(
+                f"[yellow]A newer version of leptonai ({latest_ver}) is available. You"
+                f" are using {local_ver}. Run `pip install -U leptonai` to upgrade.[/]"
+            )
+    except Exception:
+        pass
+
+    _write_now()
 
 
 if __name__ == "__main__":
