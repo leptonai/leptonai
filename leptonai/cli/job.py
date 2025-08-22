@@ -1231,7 +1231,8 @@ def stop(id):
         LeptonJobState.Archived,
     ]:
         console.print(
-            f"[yellow]⚠ Job [bold]{id}[/] is already {cur_job.status.state}. No action taken.[/]"
+            f"[yellow]⚠ Job [bold]{id}[/] is already {cur_job.status.state}. No action"
+            " taken.[/]"
         )
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": True}})
