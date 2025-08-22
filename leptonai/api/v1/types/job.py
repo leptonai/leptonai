@@ -18,10 +18,6 @@ from .deployment import (
 DefaultTTLSecondsAfterFinished: int = 600
 
 
-class ReservationConfig(BaseModel):
-    reservation_id: Optional[str] = None
-
-
 class LeptonJobTimeSchedule(BaseModel):
     """Schedule for job execution time."""
 
