@@ -193,6 +193,7 @@ def _filter_jobs(
 
     return filtered_jobs
 
+
 _supported_time_formats_job_schedule = """
     Supported formats:
         - Full Date and Time:
@@ -220,7 +221,6 @@ _supported_time_formats_job_schedule = """
         - UTC:2024/12/25 13:10:01
         - utc:tomorrow 13:10
         """
-
 
 
 @click_group()
