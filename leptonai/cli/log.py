@@ -52,26 +52,28 @@ _supported_formats_log = """
 def _preprocess_time(
     input_time, local_time=False, epoch=False, supported_formats=_supported_formats_log
 ):
-    """Convert user input time string to datetime object or epoch timestamp.
+    """Parse user time input into a timezone-aware datetime (UTC by default) or a
+    nanosecond epoch timestamp.
 
-    This function handles various time input formats:
-    - Relative time keywords (can be combined with specific times):
-      * today/td, yesterday/yd, tomorrow/tm
-        Format: [keyword] [HH:MM:SS]
-        Examples:
-        - today (defaults to midnight)
-        - today 13:10 (1:10 PM)
-        - yesterday 13:10:05 (1:10:05 PM)
-    - Standard time formats:
-      * YYYY/MM/DD HH:MM:SS
-      * YYYY-MM-DD HH:MM:SS
+    Supported inputs:
+    - Keywords (can be combined with time of day):
+      - now
+      - today / td
+      - yesterday / yd
+      - tomorrow / tm
+      Examples: "today", "today 01", "today 01:10", "today 01:10:01.123456"
 
-    Args:
-        input_time: Time string in any supported format
-        epoch: If True, returns nanosecond timestamp; if False, returns datetime object
+    - Standard formats (microseconds optional):
+      - YYYY-MM-DD HH:MM:SS[.ffffff]
+      - YYYY/MM/DD HH:MM:SS[.ffffff]
 
-    Returns:
-        Union[datetime, int]: Datetime object or nanosecond timestamp
+    Behavior:
+    - Parsed as UTC by default; if local_time=True, parse/convert in local timezone.
+    - If epoch=True, return a nanosecond timestamp; otherwise return a datetime.
+    - If epoch=True and input starts with "search_before,", subtract an extra 2 days
+      from the resulting timestamp (used by historical search windows).
+
+    On invalid formats, prints supported formats and exits the program.
     """
     if epoch:
         search_time_offset_ns = 0
@@ -212,13 +214,13 @@ def log():
     "--start",
     type=str,
     default=None,
-    help="The start time in ISO format.",
+    help="The start time in ISO format. " + _supported_formats_log,
 )
 @click.option(
     "--end",
     type=str,
     default=None,
-    help="The end time in ISO format.",
+    help="The end time in ISO format. " + _supported_formats_log,
 )
 @click.option(
     "--limit",
