@@ -5,6 +5,7 @@ such as http sessions.
 """
 
 import os
+import time
 import re
 import requests
 from typing import Optional, Union, Dict, Tuple
@@ -31,6 +32,7 @@ from .template import TemplateAPI
 
 
 from .utils import (
+    WorkspaceForbiddenError,
     _get_full_workspace_api_url,
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
@@ -135,11 +137,35 @@ class APIClient(object):
             or _get_workspace_origin_url(url)
         )
 
+        token_expires_at = (
+            getattr(WorkspaceRecord.get(workspace_id), "token_expires_at", None)
+            if WorkspaceRecord.has(workspace_id)
+            else None
+        )
+
         self.workspace_id: str = workspace_id
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
         self.workspace_origin_url: Optional[str] = workspace_origin_url
         self.is_lepton_classic: Optional[bool] = is_lepton_classic
+        self.token_expires_at: Optional[int] = token_expires_at
+
+        if not self.is_lepton_classic and self.token_expires_at is not None:
+            now_ms = int(time.time() * 1000)
+            if now_ms >= self.token_expires_at:
+                logger.warning(
+                    "Workspace token has expired. Please issue a new token and run `lep"
+                    " workspace login` again."
+                )
+            else:
+                ms_left = self.token_expires_at - now_ms
+                days_left = (ms_left + 86_400_000 - 1) // 86_400_000  # ceil to days
+                if days_left < 10:
+                    logger.warning(
+                        f"Workspace token will expire in {days_left} day(s). Please"
+                        " re-issue a new token and run `lep workspace login` again."
+                    )
+
         # Creates a connection for us to use.
         self._header = {}
         if self.auth_token:
@@ -246,6 +272,14 @@ class APIClient(object):
                 workspace_url=self.url,
                 auth_token=auth_token_hint,
             )
+
+        if response.status_code == 403:
+            raise WorkspaceForbiddenError(
+                workspace_id=self.workspace_id,
+                workspace_url=self.url,
+                auth_token=auth_token_hint,
+            )
+
         return ws_api.ensure_type(response, WorkspaceInfo)
 
     def version(self) -> Optional[Tuple[int, int, int]]:
@@ -277,3 +311,14 @@ class APIClient(object):
 
     def get_workspace_name(self) -> Union[str, None]:
         return WorkspaceRecord.current().display_name
+
+    def get_dashboard_base_url(self) -> Optional[str]:
+        """
+        Returns the base dashboard URL derived from the current workspace URL.
+        """
+        if self.is_lepton_classic:
+            return None
+        base = (self.url or "").replace("://gateway", "://dashboard", 1)
+        base = base.replace("/api/v2", "", 1)
+        base = base.replace("/workspaces", "/workspace", 1)
+        return base

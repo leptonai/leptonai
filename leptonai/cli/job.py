@@ -12,7 +12,6 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    build_dashboard_job_url,
     make_container_ports_from_str_list,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
@@ -32,7 +31,9 @@ from leptonai.api.v1.types.deployment import (
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
+def _display_jobs_table(
+    jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
+):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name / ID")
     table.add_column("Created At")
@@ -52,10 +53,13 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         )
         status = job.status
 
-        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
-        name_id_cell = (
-            f"[bold #76b900]{job.metadata.name}[/]\n"
+        job_url = None
+        if dashboard_base_url:
+            job_url = f"{dashboard_base_url}/compute/jobs/detail/{job.metadata.id_}/replicas/list"
+        name_id_cell = f"[bold #76b900]{job.metadata.name}[/]\n" + (
             f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
+            if job_url
+            else f"[bright_black]{job.metadata.id_}[/]"
         )
         workers = job.spec.completions or job.spec.parallelism or 1
         shape = job.spec.resource_shape or "-"
@@ -706,7 +710,9 @@ def list_command(state, user, name_or_id, node_group):
     else:
         job_filtered = jobs
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
 
 @job.command()
@@ -794,7 +800,9 @@ def remove_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -906,7 +914,9 @@ def stop_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 

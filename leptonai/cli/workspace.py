@@ -3,6 +3,7 @@ from datetime import datetime
 import click
 from typing import Optional
 
+from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
@@ -156,24 +157,74 @@ def list_command(debug):
     """
     workspace_list = WorkspaceRecord.workspaces()
     current_workspace = WorkspaceRecord.current()
-    table = Table()
-    table.add_column("ID")
-    table.add_column("Name")
+    table = Table(show_lines=True)
+    table.add_column("Name / ID")
     table.add_column("URL")
     table.add_column("Auth Token")
+    table.add_column("Expires")
     if debug:
         table.add_column("Origin URL")
         table.add_column("Lepton classic")
     for info in workspace_list:
+        name_text = info.display_name or ""
+        id_text = info.id_ or ""
+        dashboard_url = WorkspaceRecord.get_dashboard_base_url(info.id_)
+        if current_workspace and info.id_ == current_workspace.id_:
+            name_line = f"[green]{name_text or '-'}[/]"
+        else:
+            name_line = name_text if name_text else "-"
+        id_line_plain = f"[bright_black]{id_text}[/]" if id_text else "-"
+        id_line = (
+            f"[link={dashboard_url}]{id_line_plain}[/link]"
+            if id_text and dashboard_url
+            else id_line_plain
+        )
+        name_id_cell = f"{name_line}\n{id_line}"
+        # Build masked token
+        token_cell = (
+            info.auth_token[:2] + "****" + info.auth_token[-2:]
+            if info.auth_token
+            else ""
+        )
+        # Build expires cell
+        expires_cell = "-"
+        # If missing, try to refresh once from server
+        if getattr(info, "token_expires_at", None) is None:
+            logger.trace(f"Refreshing token expires at for workspace {info.id_}")
+            try:
+                refreshed = WorkspaceRecord.refresh_token_expires_at(info.id_)
+                if refreshed is not None:
+                    info.token_expires_at = refreshed
+            except Exception as e:
+                logger.trace(
+                    f"Failed to refresh token expires at for workspace {info.id_} with"
+                    f" error: {e}"
+                )
+                pass
+        if getattr(info, "token_expires_at", None):
+            try:
+                expires_dt = datetime.fromtimestamp(info.token_expires_at / 1000)
+                total_sec = (expires_dt - datetime.now()).total_seconds()
+                if total_sec < 0:
+                    expires_cell = "[red]expired[/]"
+                else:
+                    days_left = int((total_sec + 86399) // 86400)
+                    if days_left == 0:
+                        expires_cell = "[red]<1 day left[/]"
+                    elif days_left < 10:
+                        expires_cell = f"[yellow]{days_left} days left[/]"
+                    elif days_left >= 30:
+                        expires_cell = f"[green]{days_left} days left[/]"
+                    else:
+                        expires_cell = f"{days_left} days left"
+            except Exception:
+                expires_cell = "-"
+
         row_data = [
-            info.id_,
-            info.display_name,
+            name_id_cell,
             info.url,
-            (
-                info.auth_token[:2] + "****" + info.auth_token[-2:]
-                if info.auth_token
-                else ""
-            ),
+            token_cell,
+            expires_cell,
         ]
         if debug:
             row_data.extend([
@@ -183,8 +234,15 @@ def list_command(debug):
         table.add_row(*row_data)
     if current_workspace:
         console.print(f"Current workspace: [green]{current_workspace.id_}[/]")
-    console.print("All workspaces:")
+    table.title = "Workspaces"
     console.print(table)
+    console.print(
+        "\n[bright_black]Hint[/]: 'Expires' shows the token expiration. If the token is"
+        " expired or close to expiring, please re-issue a new token in the dashboard"
+        " and run `lep login -c <workspace_id>:<new_token>`"
+        " again.\n[bright_black]Note[/]: token expiration is available only for DGXC"
+        " workspaces. If no expiration info is shown, the token may already be expired."
+    )
 
 
 @workspace.command()
