@@ -18,7 +18,7 @@ from ..api.v2.client import APIClient
 _max_upload_file_size_limit = 4995 * 1024 * 1024
 
 
-@click_group()
+@click_group(hidden=True)
 def objectstore():
     """
     Manage the object store on the Lepton AI cloud. (beta)
