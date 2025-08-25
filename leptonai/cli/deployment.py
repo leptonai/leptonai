@@ -1602,7 +1602,11 @@ def update(
         no_traffic_timeout = 0
         target_gpu_utilization = 0
 
-    autoscaler_flag = no_traffic_timeout is not None or autoscale_gpu_util is not None or threshold is not None
+    autoscaler_flag = (
+        no_traffic_timeout is not None
+        or autoscale_gpu_util is not None
+        or threshold is not None
+    )
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
@@ -1624,10 +1628,14 @@ def update(
                     else None
                 ),
                 target_gpu_utilization_percentage=(
-                    target_gpu_utilization if target_gpu_utilization is not None else None
+                    target_gpu_utilization
+                    if target_gpu_utilization is not None
+                    else None
                 ),
                 target_throughput=(
-                    AutoscalerTargetThroughput(qpm=threshold) if threshold is not None else None
+                    AutoscalerTargetThroughput(qpm=threshold)
+                    if threshold is not None
+                    else None
                 ),
             )
             if autoscaler_flag
