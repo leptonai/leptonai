@@ -242,8 +242,9 @@ def job():
     "--file",
     "-f",
     help=(
-        "If specified, load the job spec from the file. Any explicitly passed in arg"
-        " will update the spec based on the file."
+        "If provided, load the job spec from this JSON file before applying CLI overrides. "
+        "The file can be obtained from the dashboard's UI → CLI → 'Use spec file', or by running: "
+        "`lep job get -i <job_id> --path <download_path>`."
     ),
     type=str,
 )
