@@ -1583,20 +1583,26 @@ def update(
         min_replicas = replicas
         max_replicas = replicas
         no_traffic_timeout = timeout
+        target_gpu_utilization = 0
+        threshold = 0
 
     if autoscale_gpu_util:
         parts = autoscale_gpu_util.split(",")
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
         target_gpu_utilization = int(parts[2].rstrip("%"))
+        no_traffic_timeout = 0
+        threshold = 0
 
     if autoscale_qpm:
         parts = autoscale_qpm.split(",")
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
         threshold = float(parts[2])
+        no_traffic_timeout = 0
+        target_gpu_utilization = 0
 
-    autoscaler_flag = no_traffic_timeout or autoscale_gpu_util or threshold
+    autoscaler_flag = no_traffic_timeout is not None or autoscale_gpu_util is not None or threshold is not None
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
@@ -1614,14 +1620,14 @@ def update(
             AutoScaler(
                 scale_down=(
                     ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                    if no_traffic_timeout
+                    if no_traffic_timeout is not None
                     else None
                 ),
                 target_gpu_utilization_percentage=(
-                    target_gpu_utilization if autoscale_gpu_util else None
+                    target_gpu_utilization if target_gpu_utilization is not None else None
                 ),
                 target_throughput=(
-                    AutoscalerTargetThroughput(qpm=threshold) if threshold else None
+                    AutoscalerTargetThroughput(qpm=threshold) if threshold is not None else None
                 ),
             )
             if autoscaler_flag
