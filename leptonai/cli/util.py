@@ -10,6 +10,7 @@ import click
 from loguru import logger
 
 from rich.console import Console
+from leptonai.api.v1.types.job import LeptonJob
 from leptonai.api.v2.client import APIClient
 
 from leptonai.api.v1.types.deployment import (
@@ -331,6 +332,17 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
         )
         sys.exit(1)
     return valid_nodes_id
+
+
+def _get_newest_job_by_name(job_name: str) -> LeptonJob:
+    client = APIClient()
+
+    job_list = client.job.list_all(q=job_name)
+    exact_matches = [j for j in job_list if j.metadata.name == job_name]
+
+    if not exact_matches:
+        return None
+    return max(exact_matches, key=lambda j: j.metadata.created_at)
 
 
 def _validate_queue_priority(ctx, param, value):

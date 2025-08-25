@@ -15,6 +15,14 @@ from .deployment import (
     ReservationConfig,
 )
 
+DefaultTTLSecondsAfterFinished: int = 600
+
+
+class LeptonJobTimeSchedule(BaseModel):
+    """Schedule for job execution time."""
+
+    start_at: Optional[int] = None  # StartAt is unix time in seconds
+
 
 class LeptonJobUserSpec(BaseModel):
     """
@@ -32,7 +40,7 @@ class LeptonJobUserSpec(BaseModel):
     envs: Optional[List[EnvVar]] = []
     mounts: Optional[List[Mount]] = []
     image_pull_secrets: Optional[List[str]] = []
-    ttl_seconds_after_finished: Optional[int] = None
+    ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None
     privileged: Optional[bool] = None
     metrics: Optional[LeptonMetrics] = None
@@ -40,6 +48,7 @@ class LeptonJobUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
+    time_schedule: Optional[LeptonJobTimeSchedule] = None
 
     # --- ensure backend-required defaults when value is null/absent when using templates ---
     @field_validator("completions", "parallelism", mode="before")
@@ -51,9 +60,6 @@ class LeptonJobUserSpec(BaseModel):
     @classmethod
     def _none_to_empty(cls, v: Any):  # noqa: ANN401
         return [] if v is None else v
-
-
-DefaultTTLSecondsAfterFinished: int = 600
 
 
 class LeptonJobState(str, Enum):
