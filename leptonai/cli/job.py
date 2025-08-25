@@ -1222,9 +1222,17 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
-    if cur_job.spec.stopped is True:
+    if cur_job.spec.stopped is True or cur_job.status.state in [
+        LeptonJobState.Stopped,
+        LeptonJobState.Stopping,
+        LeptonJobState.Failed,
+        LeptonJobState.Deleting,
+        LeptonJobState.Deleted,
+        LeptonJobState.Archived,
+    ]:
         console.print(
-            f"[yellow]⚠ Job [bold]{id}[/] is already stopped. No action taken.[/]"
+            f"[yellow]⚠ Job [bold]{id}[/] is already {cur_job.status.state}. No action"
+            " taken.[/]"
         )
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": True}})
