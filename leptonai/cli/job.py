@@ -1229,6 +1229,7 @@ def stop(id):
         LeptonJobState.Deleting,
         LeptonJobState.Deleted,
         LeptonJobState.Archived,
+        LeptonJobState.Completed,
     ]:
         console.print(
             f"[yellow]⚠ Job [bold]{id}[/] is already {cur_job.status.state}. No action"
