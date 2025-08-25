@@ -11,7 +11,7 @@ from leptonai.api.v2.client import APIClient
 from .util import console, click_group
 
 
-@click_group()
+@click_group(hidden=True)
 def kv():
     """
     Manage KV stores on the DGX Cloud Lepton.
