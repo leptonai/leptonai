@@ -29,6 +29,7 @@ from ..v1.pod import PodAPI
 from ..v1.ingress import IngressAPI
 from ..v1.storage import StorageAPI
 from .template import TemplateAPI
+from ..v1.raycluster import RayClusterAPI
 
 
 from .utils import (
@@ -216,6 +217,7 @@ class APIClient(object):
         self.object_storage = ObjectStorageAPI(self)
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
+        self.raycluster = RayClusterAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
