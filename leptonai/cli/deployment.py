@@ -421,9 +421,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         resolve_path=True,
     ),
     help=(
-        "If provided, load the endpoint spec from this JSON file before applying CLI overrides. "
-        "The file can be obtained from the dashboard's UI → CLI → 'Use spec file', or by running: "
-        "`lep endpoint get -i <endpoint_id> --path <download_path>`."
+        "If provided, load the endpoint spec from this JSON file before applying CLI"
+        " overrides. The file can be obtained from the dashboard's UI → CLI → 'Use spec"
+        " file', or by running: `lep endpoint get -i <endpoint_id> --path"
+        " <download_path>`."
     ),
     required=False,
 )
