@@ -588,11 +588,11 @@ def create(
         sys.exit(1)
 
     # Configure worker settings
-    if num_workers > 0:
+    if num_workers is not None and num_workers > 0:
         job_spec.completions = num_workers
         job_spec.parallelism = num_workers
         job_spec.intra_job_communication = True
-    elif num_workers == 0:
+    elif num_workers is not None and num_workers <= 0:
         console.print("[red]Error: --num-workers must be greater than 0.[/]")
         sys.exit(1)
     elif intra_job_communication:
@@ -649,7 +649,10 @@ def create(
         job_spec.log = LeptonLog(enable_collection=log_collection)
     if shared_memory_size is not None:
         if shared_memory_size < 0:
-            console.print("[red]Error: --shared-memory-size must be greater than or equal to 0.[/]")
+            console.print(
+                "[red]Error: --shared-memory-size must be greater than or equal to"
+                " 0.[/]"
+            )
             sys.exit(1)
         job_spec.shared_memory_size = shared_memory_size
     if start_at:
