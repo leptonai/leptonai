@@ -57,8 +57,8 @@ class ContainerPort(BaseModel):
 
     @compatible_field_validator("container_port")
     def validate_container_port(cls, v):
-        if v < 0 or v > 65535:
-            raise ValueError("Invalid port number. Port must be between 0 and 65535.")
+        if v is None or v <= 0 or v > 65535:
+            raise ValueError("Invalid port number. Port must be between 1 and 65535.")
         return v
 
     @compatible_field_validator("protocol")
