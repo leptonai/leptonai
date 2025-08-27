@@ -385,10 +385,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     """
     Adds the workspace token as a secret environment variable.
     """
-    from ..api.v1.types.common import SecretItem
+    from ..api.v1.types.secret import SecretItem
 
     secrets = client.secret.list_all()
-    if "LEPTON_WORKSPACE_TOKEN" not in secrets:
+    existing_names = {s.name for s in secrets}
+    if "LEPTON_WORKSPACE_TOKEN" not in existing_names:
         current_ws = WorkspaceRecord.current()
         if current_ws is None:
             console.print(

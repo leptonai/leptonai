@@ -169,6 +169,41 @@ class APIResourse(object):
 
         return valid_items
 
+    def ensure_items(
+        self,
+        items_raw: List[Dict[str, Any]],
+        EnsuredType: Type[BaseModel],
+        *,
+        skip_invalid: bool = True,
+    ) -> List[BaseModel]:
+        """
+        Ensure a raw list of dict items can be converted to ``EnsuredType``.
+
+        Mirrors ensure_list's fault tolerance behavior but accepts pre-parsed lists.
+        """
+        if not skip_invalid:
+            return [EnsuredType(**item) for item in items_raw]
+
+        valid_items: List[BaseModel] = []
+        errors: List[str] = []
+        for idx, raw in enumerate(items_raw):
+            try:
+                valid_items.append(EnsuredType(**raw))
+            except Exception as e:
+                errors.append(f"\n index {idx}: {e}\nitem: {raw}")
+
+        if errors:
+            import sys
+
+            sys.stderr.write(
+                f"[lepton-error] Skipped {len(errors)} invalid item(s) when parsing"
+                " list items:"
+                + "".join(errors)
+                + "\n"
+            )
+
+        return valid_items
+
     def ensure_ok(self, response) -> bool:
         """
         Utility function to ensure that the response is ok.
