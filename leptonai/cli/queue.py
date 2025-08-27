@@ -14,7 +14,7 @@ from .util import (
 from ..api.v2.client import APIClient
 
 
-@click_group()
+@click_group(hidden=True)
 def queue():
     """
     Manage queues on the DGX Cloud Lepton.

@@ -69,7 +69,7 @@ def _get_most_recent_photon_id_or_none(name: str, public_photon: bool) -> Option
     return photon_ids[0] if photon_ids else None
 
 
-@click_group()
+@click_group(hidden=True)
 def photon():
     """
     Manages photons locally and on the DGX Cloud Lepton.
