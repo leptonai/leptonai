@@ -79,6 +79,7 @@ def login(
                 auth_token=auth_token,
                 url=workspace_url,
                 workspace_origin_url=workspace_origin_url,
+                could_be_new_token=True,
             )
         else:
             WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url, is_lepton_classic=lepton_classic)  # type: ignore
