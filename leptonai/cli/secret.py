@@ -74,9 +74,7 @@ def create(name, value, public_key):
 
     secret_item_list = []
     for cur_name, cur_value in zip(name, value):
-        visibility = (
-            LeptonVisibility.PUBLIC if public_key else LeptonVisibility.PRIVATE
-        )
+        visibility = LeptonVisibility.PUBLIC if public_key else LeptonVisibility.PRIVATE
         secret_item_list.append(
             SecretItem(name=cur_name, value=cur_value, visibility=visibility)
         )
