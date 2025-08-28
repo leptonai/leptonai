@@ -53,7 +53,7 @@ class JobAPI(APIResourse):
             response = self._get("/jobs", params=params_base)
             data = response.json()
             items_raw = data.get("jobs", data) if isinstance(data, dict) else data
-            return [LeptonJob(**item) for item in items_raw]
+            return self.ensure_items(items_raw, LeptonJob)
 
         # Otherwise auto-paginate until empty result set
         results: List[LeptonJob] = []
@@ -65,7 +65,7 @@ class JobAPI(APIResourse):
             response = self._get("/jobs", params=params)
             data = response.json()
             items_raw = data.get("jobs", data) if isinstance(data, dict) else data
-            items = [LeptonJob(**item) for item in items_raw]
+            items = self.ensure_items(items_raw, LeptonJob)
             if not items:
                 break
             results.extend(items)
