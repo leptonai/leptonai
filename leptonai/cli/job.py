@@ -864,6 +864,7 @@ def remove_all(state, user, name, node_group):
         None,
         node_group_patterns=node_group,
         exact_users=user,
+        exact_names=name,
     )
 
     if len(job_filtered) == 0:
@@ -978,6 +979,7 @@ def stop_all(state, user, name, node_group):
         None,
         node_group_patterns=node_group,
         exact_users=user,
+        exact_names=name,
     )
 
     if len(job_filtered) == 0:
