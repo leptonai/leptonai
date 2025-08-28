@@ -41,6 +41,8 @@ from ..api.v1.types.deployment import (
     ContainerPort,
     AutoscalerTargetThroughput,
     LeptonLog,
+    DeploymentSchedulingPolicy,
+    SchedulingToggle,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
 
@@ -219,6 +221,20 @@ def is_positive_number(value):
         return num > 0
     except ValueError:
         return False
+
+
+def _normalize_replica_spread(ctx, param, value):
+    if value is None:
+        return None
+    v = value.strip().lower()
+    if v in ("required", "r"):
+        return "required"
+    if v in ("preferred", "p"):
+        return "preferred"
+    raise click.BadParameter(
+        "Invalid value for --replica-spread. Accepts: required|preferred or shorthand"
+        " r|p."
+    )
 
 
 @click_group(hidden=True)
@@ -744,6 +760,20 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " reservations starts, your endpoint may be evicted."
     ),
 )
+@click.option(
+    "--replica-spread",
+    callback=_normalize_replica_spread,
+    help=(
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
+    ),
+    default=None,
+)
 def create(
     name,
     file,
@@ -781,6 +811,7 @@ def create(
     shared_memory_size,
     with_reservation,
     allow_burst_to_other_reservation,
+    replica_spread,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -1078,6 +1109,15 @@ def create(
                     HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
                 )
             )
+
+        # Scheduling policy: replica spread
+        if replica_spread is not None:
+            toggle = (
+                SchedulingToggle.Required
+                if replica_spread.lower() == "required"
+                else SchedulingToggle.Preferred
+            )
+            spec.scheduling_policy = DeploymentSchedulingPolicy(replica_spread=toggle)
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
@@ -1510,6 +1550,20 @@ def log(name, replica):
     type=int,
     help="Update the shared memory size for this endpoint, in MiB.",
 )
+@click.option(
+    "--replica-spread",
+    callback=_normalize_replica_spread,
+    help=(
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
+    ),
+    default=None,
+)
 def update(
     name,
     id,
@@ -1526,6 +1580,7 @@ def update(
     autoscale_qpm,
     log_collection,
     shared_memory_size,
+    replica_spread,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1643,6 +1698,16 @@ def update(
             else None
         ),
     )
+
+    if replica_spread is not None:
+        toggle = (
+            SchedulingToggle.Required
+            if replica_spread.lower() == "required"
+            else SchedulingToggle.Preferred
+        )
+        lepton_deployment_spec.scheduling_policy = DeploymentSchedulingPolicy(
+            replica_spread=toggle
+        )
 
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
