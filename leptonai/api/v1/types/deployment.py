@@ -216,6 +216,17 @@ class AutoScaler(BaseModel):
         return v
 
 
+# Multi-node inference support (minimal fields for CLI usage)
+class MultiNodeSpec(BaseModel):
+    """
+    Minimal multi-node configuration:
+    - replicas: number of leader-worker groups
+    - workers_per_replica: number of workers per group (excluding the leader)
+    """
+    replicas: Optional[int] = None
+    workers_per_replica: Optional[int] = None
+
+
 class TokenValue(BaseModel):
     token_name_ref: str
 
@@ -277,6 +288,10 @@ class LeptonDeploymentUserSpec(BaseModel):
     routing_policy: Optional[LeptonRoutingPolicy] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
+
+    # Multi-node fields
+    deployment_mode: Optional[str] = None  # Expected values: "SingleNode" | "MultiNode"
+    multi_node: Optional[MultiNodeSpec] = None
 
 
 class LeptonDeploymentState(str, Enum):
