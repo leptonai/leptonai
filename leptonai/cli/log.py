@@ -246,7 +246,7 @@ def log():
 @click.option(
     "--query",
     type=str,
-    default=None,
+    default="",
     help="Specify the query string",
 )
 def log_command(

@@ -16,7 +16,7 @@ class LogAPI(APIResourse):
         start: str = None,
         end: str = None,
         limit: int = 5000,
-        q: str = None,
+        q: str = "",
     ) -> str:
         query_kwargs = {}
         if start and end:
