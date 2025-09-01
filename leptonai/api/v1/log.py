@@ -25,6 +25,8 @@ class LogAPI(APIResourse):
             query_kwargs["timestamps"] = True
             query_kwargs["direction"] = "backward"
             query_kwargs["limit"] = limit
+            if not replica and q is None:
+                q = ""
             query_kwargs["q"] = q
         elif start or end:
             raise RuntimeError(
