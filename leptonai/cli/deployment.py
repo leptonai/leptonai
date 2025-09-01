@@ -1660,9 +1660,9 @@ def update(
         target_gpu_utilization = 0
 
     autoscaler_flag = (
-        no_traffic_timeout is not None
-        or autoscale_gpu_util is not None
-        or threshold is not None
+        (no_traffic_timeout > 0)
+        or (target_gpu_utilization > 0)
+        or (threshold > 0)
     )
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
