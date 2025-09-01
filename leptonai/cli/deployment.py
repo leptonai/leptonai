@@ -1640,29 +1640,29 @@ def update(
         min_replicas = replicas
         max_replicas = replicas
         no_traffic_timeout = timeout
-        target_gpu_utilization = 0
-        threshold = 0
+        target_gpu_utilization = None
+        threshold = None
 
     if autoscale_gpu_util:
         parts = autoscale_gpu_util.split(",")
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
         target_gpu_utilization = int(parts[2].rstrip("%"))
-        no_traffic_timeout = 0
-        threshold = 0
+        no_traffic_timeout = None
+        threshold = None
 
     if autoscale_qpm:
         parts = autoscale_qpm.split(",")
         min_replicas = int(parts[0])
         max_replicas = int(parts[1])
         threshold = float(parts[2])
-        no_traffic_timeout = 0
-        target_gpu_utilization = 0
+        no_traffic_timeout = None
+        target_gpu_utilization = None
 
     autoscaler_flag = (
-        no_traffic_timeout is not None
-        or autoscale_gpu_util is not None
-        or threshold is not None
+        (no_traffic_timeout is not None)
+        or (autoscale_gpu_util is not None)
+        or (threshold is not None)
     )
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
