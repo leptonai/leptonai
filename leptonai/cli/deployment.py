@@ -160,11 +160,11 @@ def validate_autoscale_options(ctx, param, value):
         try:
             replicas = int(parts[0])
             timeout = int(parts[1].rstrip("s"))
-            if replicas < 0 or timeout < 0:
+            if replicas < 0 or timeout < 60:
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
-                "Replicas and timeout should be positive integers."
+                "Replicas and timeout should be positive integers and timeout should be at least 60 seconds."
             )
 
     if param.name == "autoscale_gpu_util" and value:
@@ -183,12 +183,12 @@ def validate_autoscale_options(ctx, param, value):
             min_replica = int(parts[0])
             max_replica = int(parts[1])
             threshold = int(parts[2].rstrip("%"))
-            if min_replica < 0 or max_replica < 0 or not (0 <= threshold <= 99):
+            if min_replica < 0 or max_replica < 0 or not (0 < threshold <= 99):
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
                 "Min_replica, max_replica should be positive integers and threshold"
-                " should be between 0 and 99."
+                " should be between 1 and 99."
             )
 
     if param.name == "autoscale_qpm" and value:
@@ -204,12 +204,12 @@ def validate_autoscale_options(ctx, param, value):
             min_replica = int(parts[0])
             max_replica = int(parts[1])
             threshold = float(parts[2])
-            if min_replica < 0 or max_replica < 0 or threshold < 0:
+            if min_replica < 0 or max_replica < 0 or threshold <= 0:
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
                 "Min_replica and max_replica should be positive integers and threshold"
-                " should be a positive number."
+                " should be a positive number. Threshold should be greater than 0."
             )
 
     return value
