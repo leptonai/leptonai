@@ -127,6 +127,17 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             could_be_new_token=True,
         )
     else:
+        if workspace_url or lepton_classic or workspace_origin_url:
+            console.print(
+                "[bold red]Invalid usage:[/bold red] --workspace-url,"
+                " --workspace-origin-url, and --lepton-classic must be used together"
+                " with --credentials.\n[white]Either provide credentials or remove"
+                " these options to avoid misconfiguring local"
+                " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep login -c"
+                " <workspace_id>:<auth_token> [--workspace-url <url>]"
+                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+            )
+            sys.exit(1)
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
             current_ws = WorkspaceRecord.current()
