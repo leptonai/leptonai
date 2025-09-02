@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import click
+import sys
 from typing import Optional
 
 from loguru import logger
@@ -68,6 +69,19 @@ def login(
     if workspace_id is None:
         # If workspace_id is not given and current workspace is present, we will
         # simply print the info.
+        if auth_token or workspace_url or workspace_origin_url or lepton_classic:
+            console.print(
+                "\n[bold red]Invalid usage:[/bold red] --auth-token,"
+                " --workspace-url,"
+                " --workspace-origin-url, and --lepton-classic must be used together"
+                " with --workspace-id.\n[white]Either provide workspace id or remove"
+                " these options to avoid misconfiguring local"
+                " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep workspace"
+                " login -i <workspace_id> [--auth-token <auth_token>]"
+                " [--workspace-url <url>]"
+                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+            )
+            sys.exit(1)
         if WorkspaceRecord.current():
             pass
     elif WorkspaceRecord.has(workspace_id):
@@ -90,6 +104,7 @@ def login(
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=lepton_classic,
+            could_be_new_token=True,
         )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
