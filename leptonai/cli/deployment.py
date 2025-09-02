@@ -1455,16 +1455,6 @@ def log(name, replica):
     ),
 )
 @click.option(
-    "--no-traffic-timeout",
-    type=int,
-    default=None,
-    help=(
-        "If specified, the endpoint will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Set to 0 to explicitly change"
-        " the endpoint to have no timeout."
-    ),
-)
-@click.option(
     "--visibility",
     type=str,
     help=(
@@ -1549,6 +1539,7 @@ def log(name, replica):
 @click.option(
     "--shared-memory-size",
     type=int,
+    default=None,
     help="Update the shared memory size for this endpoint, in MiB.",
 )
 @click.option(
@@ -1573,7 +1564,6 @@ def update(
     public,
     tokens,
     remove_tokens,
-    no_traffic_timeout,
     visibility,
     replicas_static,
     autoscale_down,
@@ -1624,60 +1614,45 @@ def update(
     elif len(tokens) == 0:
         # None means no change
         tokens = None
-
-    max_replicas = None
-    target_gpu_utilization = 0
-    no_traffic_timeout = no_traffic_timeout if no_traffic_timeout else 0
-    threshold = 0
-    if replicas_static is not None:
-        min_replicas = replicas_static
-        max_replicas = replicas_static
-
-    if autoscale_down:
-        parts = autoscale_down.split(",")
-        replicas = int(parts[0])
-        timeout = int(parts[1].rstrip("s"))
-        min_replicas = replicas
-        max_replicas = replicas
-        no_traffic_timeout = timeout
-        target_gpu_utilization = 0
-        threshold = 0
-
-    if autoscale_gpu_util:
-        parts = autoscale_gpu_util.split(",")
-        min_replicas = int(parts[0])
-        max_replicas = int(parts[1])
-        target_gpu_utilization = int(parts[2].rstrip("%"))
-        no_traffic_timeout = 0
-        threshold = 0
-
-    if autoscale_qpm:
-        parts = autoscale_qpm.split(",")
-        min_replicas = int(parts[0])
-        max_replicas = int(parts[1])
-        threshold = float(parts[2])
-        no_traffic_timeout = 0
-        target_gpu_utilization = 0
-
+    
     autoscaler_flag = (
-        no_traffic_timeout is not None
+        replicas_static is not None 
+        or autoscale_down is not None
         or autoscale_gpu_util is not None
-        or threshold is not None
+        or autoscale_qpm is not None
     )
+    
+    temp_auto_scaler = None
+    max_replicas = None
+    if autoscaler_flag:
+        target_gpu_utilization = 0
+        no_traffic_timeout = 0
+        threshold = 0
+        if replicas_static is not None:
+            min_replicas = replicas_static
+            max_replicas = replicas_static
 
-    lepton_deployment_spec = LeptonDeploymentUserSpec(
-        photon_id=id,
-        resource_requirement=ResourceRequirement(
-            min_replicas=min_replicas,
-            max_replicas=max_replicas,
-            resource_shape=resource_shape,
-            shared_memory_size=shared_memory_size,
-        ),
-        api_tokens=make_token_vars_from_config(
-            is_public=public,
-            tokens=tokens,
-        ),
-        auto_scaler=(
+        if autoscale_down:
+            parts = autoscale_down.split(",")
+            replicas = int(parts[0])
+            timeout = int(parts[1].rstrip("s"))
+            min_replicas = replicas
+            max_replicas = replicas
+            no_traffic_timeout = timeout
+
+        if autoscale_gpu_util:
+            parts = autoscale_gpu_util.split(",")
+            min_replicas = int(parts[0])
+            max_replicas = int(parts[1])
+            target_gpu_utilization = int(parts[2].rstrip("%"))
+
+        if autoscale_qpm:
+            parts = autoscale_qpm.split(",")
+            min_replicas = int(parts[0])
+            max_replicas = int(parts[1])
+            threshold = float(parts[2])
+
+        temp_auto_scaler=(
             AutoScaler(
                 scale_down=(
                     ScaleDown(no_traffic_timeout=no_traffic_timeout)
@@ -1695,9 +1670,22 @@ def update(
                     else None
                 ),
             )
-            if autoscaler_flag
-            else None
+        )
+
+    update_resource_requirement_flag = any(x is not None for x in (min_replicas, max_replicas, resource_shape, shared_memory_size))
+    lepton_deployment_spec = LeptonDeploymentUserSpec(
+        photon_id=id,
+        resource_requirement=ResourceRequirement(
+            min_replicas=min_replicas,
+            max_replicas=max_replicas,
+            resource_shape=resource_shape,
+            shared_memory_size=shared_memory_size,
+        ) if update_resource_requirement_flag else None,
+        api_tokens=make_token_vars_from_config(
+            is_public=public,
+            tokens=tokens,
         ),
+        auto_scaler= temp_auto_scaler,
     )
 
     if replica_spread is not None:
