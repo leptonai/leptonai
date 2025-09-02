@@ -1,6 +1,16 @@
 from pydantic import BaseModel
 from requests import Response
-from typing import TYPE_CHECKING, Dict, Optional, Union, List, Any, TypeVar, Type, NoReturn
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Optional,
+    Union,
+    List,
+    Any,
+    TypeVar,
+    Type,
+    NoReturn,
+)
 
 if TYPE_CHECKING:
     # only used for type hinting, but avoids circular imports
