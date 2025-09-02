@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from .common import Metadata
+from .auth import AuthConfig
 
 
 class LeastRequestLoadBalancer(BaseModel):
@@ -25,15 +26,6 @@ class WorkspaceTierRateLimiter(BaseModel):
 
 class RateLimitConfig(BaseModel):
     workspace_tier_ratelimiter: Optional[WorkspaceTierRateLimiter] = None
-
-
-class LeptonWorkspaceTokenAuth(BaseModel):
-    remove_authorization_header: Optional[bool] = None
-
-
-class AuthConfig(BaseModel):
-    lepton_workspace_token_auth: Optional[LeptonWorkspaceTokenAuth] = None
-    ip_allowlist: Optional[List[str]] = None
 
 
 class LeptonIngressLocality(BaseModel):
