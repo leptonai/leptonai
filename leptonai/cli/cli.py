@@ -222,7 +222,9 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                     " <workspace_id>:<auth_token>[/]"
                 )
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token, could_be_new_token=True)
+        WorkspaceRecord.set_or_exit(
+            workspace_id, auth_token=auth_token, could_be_new_token=True
+        )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
 
