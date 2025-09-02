@@ -10,20 +10,17 @@ from .types.replica import Replica
 
 
 def make_token_vars_from_config(
-    is_public: Optional[bool], 
-    tokens: Optional[List[str]]
+    is_public: Optional[bool], tokens: Optional[List[str]]
 ) -> Optional[List[TokenVar]]:
     # Note that None is different from [] here. None means that the tokens are not
     # changed, while [] means that the tokens are cleared (aka, no tokens)
-    
+
     # If no changes to tokens are requested, return None (no change)
     if tokens is None:
         return None
-    
+
     # Build token list: always include workspace token, plus any additional tokens
-    final_tokens = [
-        TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))
-    ]
+    final_tokens = [TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))]
     if tokens:
         final_tokens.extend([TokenVar(value=token) for token in tokens])
     return final_tokens

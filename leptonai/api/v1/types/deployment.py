@@ -7,7 +7,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
-from ..api.v1.types.ingress import AuthConfig
+from ..ingress import AuthConfig
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 

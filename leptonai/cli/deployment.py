@@ -241,24 +241,24 @@ def _normalize_replica_spread(ctx, param, value):
 def _parse_ip_whitelist(ip_whitelist_values):
     """
     Parse IP whitelist values, handling both comma-separated and individual values.
-    
+
     Args:
         ip_whitelist_values: List of strings, each potentially containing comma-separated IPs
-        
+
     Returns:
         List of individual IP addresses/CIDR ranges
     """
     if not ip_whitelist_values:
         return []
-    
+
     parsed_ips = []
     for value in ip_whitelist_values:
         # Split by comma and strip whitespace
-        ips = [ip.strip() for ip in value.split(',')]
+        ips = [ip.strip() for ip in value.split(",")]
         # Filter out empty strings
         ips = [ip for ip in ips if ip]
         parsed_ips.extend(ips)
-    
+
     return parsed_ips
 
 
@@ -569,9 +569,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the endpoint. See docs for details "
-        "on access control. These are completely independent of IP access control "
-        "(--public and --ip-whitelist)."
+        "Additional tokens that can be used to access the endpoint. See docs for"
+        " details on access control. These are completely independent of IP access"
+        " control (--public and --ip-whitelist)."
     ),
     multiple=True,
 )
@@ -1138,7 +1138,7 @@ def create(
         if public or ip_whitelist:
             if spec.auth_config is None:
                 spec.auth_config = AuthConfig()
-            
+
             if public:
                 # Public means accessible from any IP (no IP restrictions)
                 spec.auth_config.ip_allowlist = []
@@ -1185,8 +1185,6 @@ def create(
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
-
-
 
     except ValueError as e:
         console.print(
@@ -1804,7 +1802,7 @@ def update(
     if public is not None or ip_whitelist is not None:
         if lepton_deployment_spec.auth_config is None:
             lepton_deployment_spec.auth_config = AuthConfig()
-        
+
         if public:
             # Public means accessible from any IP (no IP restrictions)
             lepton_deployment_spec.auth_config.ip_allowlist = []
