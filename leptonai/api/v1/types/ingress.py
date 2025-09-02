@@ -33,6 +33,7 @@ class LeptonWorkspaceTokenAuth(BaseModel):
 
 class AuthConfig(BaseModel):
     lepton_workspace_token_auth: Optional[LeptonWorkspaceTokenAuth] = None
+    ip_allowlist: Optional[List[str]] = None
 
 
 class LeptonIngressLocality(BaseModel):

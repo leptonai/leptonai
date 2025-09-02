@@ -7,6 +7,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
+from ..api.v1.types.ingress import AuthConfig
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
@@ -287,6 +288,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
+    auth_config: Optional[AuthConfig] = None
 
 
 class LeptonDeploymentState(str, Enum):
