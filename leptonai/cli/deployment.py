@@ -164,7 +164,8 @@ def validate_autoscale_options(ctx, param, value):
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
-                "Replicas and timeout should be positive integers and timeout should be at least 60 seconds."
+                "Replicas and timeout should be positive integers and timeout should be"
+                " at least 60 seconds."
             )
 
     if param.name == "autoscale_gpu_util" and value:
