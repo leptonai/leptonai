@@ -104,6 +104,7 @@ def login(
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=lepton_classic,
+            could_be_new_token=True,
         )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
