@@ -1614,14 +1614,14 @@ def update(
     elif len(tokens) == 0:
         # None means no change
         tokens = None
-    
+
     autoscaler_flag = (
-        replicas_static is not None 
+        replicas_static is not None
         or autoscale_down is not None
         or autoscale_gpu_util is not None
         or autoscale_qpm is not None
     )
-    
+
     temp_auto_scaler = None
     max_replicas = None
     if autoscaler_flag:
@@ -1652,40 +1652,43 @@ def update(
             max_replicas = int(parts[1])
             threshold = float(parts[2])
 
-        temp_auto_scaler=(
-            AutoScaler(
-                scale_down=(
-                    ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                    if no_traffic_timeout is not None
-                    else None
-                ),
-                target_gpu_utilization_percentage=(
-                    target_gpu_utilization
-                    if target_gpu_utilization is not None
-                    else None
-                ),
-                target_throughput=(
-                    AutoscalerTargetThroughput(qpm=threshold)
-                    if threshold is not None
-                    else None
-                ),
-            )
+        temp_auto_scaler = AutoScaler(
+            scale_down=(
+                ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                if no_traffic_timeout is not None
+                else None
+            ),
+            target_gpu_utilization_percentage=(
+                target_gpu_utilization if target_gpu_utilization is not None else None
+            ),
+            target_throughput=(
+                AutoscalerTargetThroughput(qpm=threshold)
+                if threshold is not None
+                else None
+            ),
         )
 
-    update_resource_requirement_flag = any(x is not None for x in (min_replicas, max_replicas, resource_shape, shared_memory_size))
+    update_resource_requirement_flag = any(
+        x is not None
+        for x in (min_replicas, max_replicas, resource_shape, shared_memory_size)
+    )
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
-        resource_requirement=ResourceRequirement(
-            min_replicas=min_replicas,
-            max_replicas=max_replicas,
-            resource_shape=resource_shape,
-            shared_memory_size=shared_memory_size,
-        ) if update_resource_requirement_flag else None,
+        resource_requirement=(
+            ResourceRequirement(
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+                resource_shape=resource_shape,
+                shared_memory_size=shared_memory_size,
+            )
+            if update_resource_requirement_flag
+            else None
+        ),
         api_tokens=make_token_vars_from_config(
             is_public=public,
             tokens=tokens,
         ),
-        auto_scaler= temp_auto_scaler,
+        auto_scaler=temp_auto_scaler,
     )
 
     if replica_spread is not None:
@@ -1725,7 +1728,7 @@ def update(
         if will_restart:
 
             confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-                "This update will trigger a rolling restart. Are you sure you want"
+                "This update will trigger a rolling restart. Are you sure you want to"
                 " continue?",
                 default=True,
             )
@@ -1752,7 +1755,7 @@ def update(
         name_or_deployment=name,
         spec=new_lepton_deployment,
     )
-    console.print(f"Endpiont [green]{name}[/] updated.")
+    console.print(f"Endpoint [green]{name}[/] updated.")
 
 
 @deployment.command()
