@@ -87,13 +87,13 @@ def click_group(*args, **kwargs):
                     )
                 elif status == 403:
                     console.print(
-                        f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow] This"
-                        " may be caused by insufficient permissions or an expired"
-                        " workspace token.\n\n[white]Check your local workspace info and"
-                        " token:[/white]\n [dim]lep workspace list[/dim]\n [dim]lep"
-                        " workspace token[/dim]\nIf your token has expired, generate a"
-                        " new token in the workspace dashboard, then login again with"
-                        " `lep login -c <workspace_id>:<new_token>`.\n"
+                        f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                        " This may be caused by insufficient permissions or an expired"
+                        " workspace token.\n\n[white]Check your local workspace info"
+                        " and token:[/white]\n [dim]lep workspace list[/dim]\n"
+                        " [dim]lep workspace token[/dim]\nIf your token has expired,"
+                        " generate a new token in the workspace dashboard, then login"
+                        " again with `lep login -c <workspace_id>:<new_token>`.\n"
                     )
                 elif status == 404:
                     console.print(f"[red]404 Not Found[/]:{text}")
