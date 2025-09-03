@@ -176,7 +176,7 @@ def validate_autoscale_options(ctx, param, value):
             and (parts[2].rstrip("%").isdigit())
         ):
             raise click.BadParameter(
-                "Invalid format for --autoscale-gpu_util. Expected format:"
+                "Invalid format for --autoscale-gpu-util. Expected format:"
                 " <min_replica>,<max_replica>,<threshold>% or"
                 " <min_replica>,<max_replica>,<threshold>"
             )
