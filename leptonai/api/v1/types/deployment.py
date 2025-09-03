@@ -184,8 +184,10 @@ class ScaleDown(BaseModel):
 
     @compatible_field_validator("no_traffic_timeout")
     def validate_no_traffic_timeout(cls, v):
-        if v is not None and v < 0:
-            raise ValueError(f"no_traffic_timeout must be non-negative. Found {v}.")
+        if v is not None and v < 60:
+            raise ValueError(
+                f"no_traffic_timeout must be at least 60 seconds. Found {v}."
+            )
         return v
 
     @compatible_field_validator("not_ready_timeout")
@@ -200,6 +202,12 @@ class AutoscalerTargetThroughput(BaseModel):
     paths: Optional[List[str]] = None
     methods: Optional[List[str]] = None
 
+    @compatible_field_validator("qpm")
+    def validate_qpm(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError(f"qpm must be a positive number. Found {v}.")
+        return v
+
 
 class AutoScaler(BaseModel):
     scale_down: Optional[ScaleDown] = None
@@ -208,7 +216,7 @@ class AutoScaler(BaseModel):
 
     @compatible_field_validator("target_gpu_utilization_percentage")
     def validate_target_gpu_utilization_percentage(cls, v):
-        if v is not None and (v < 0 or v > 100):
+        if v is not None and (v < 1 or v > 100):
             raise ValueError(
                 "target_gpu_utilization_percentage must be between 0 and 100. Found"
                 f" {v}."
