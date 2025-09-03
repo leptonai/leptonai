@@ -51,9 +51,7 @@ class JobAPI(APIResourse):
             if page_size is not None:
                 params_base["page_size"] = page_size
             response = self._get("/jobs", params=params_base)
-            data = response.json()
-            items_raw = data.get("jobs", data) if isinstance(data, dict) else data
-            return self.ensure_items(items_raw, LeptonJob)
+            return self.ensure_list(response, LeptonJob, list_key="jobs")
 
         # Otherwise auto-paginate until empty result set
         results: List[LeptonJob] = []
@@ -63,9 +61,7 @@ class JobAPI(APIResourse):
             params["page"] = current_page
             params["page_size"] = 500
             response = self._get("/jobs", params=params)
-            data = response.json()
-            items_raw = data.get("jobs", data) if isinstance(data, dict) else data
-            items = self.ensure_items(items_raw, LeptonJob)
+            items = self.ensure_list(response, LeptonJob, list_key="jobs")
             if not items:
                 break
             results.extend(items)
