@@ -28,6 +28,7 @@ from . import storage
 from . import workspace
 from . import ingress
 from . import log
+from . import raycluster
 
 from .util import click_group
 
@@ -79,6 +80,7 @@ node.add_command(lep)
 
 ingress.add_command(lep)
 log.add_command(lep)
+raycluster.add_command(lep)
 
 
 @lep.command()
