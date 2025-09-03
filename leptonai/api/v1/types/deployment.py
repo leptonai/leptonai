@@ -186,7 +186,7 @@ class ScaleDown(BaseModel):
     def validate_no_traffic_timeout(cls, v):
         if v is not None and v < 60:
             raise ValueError(
-                "no_traffic_timeout must be non-negative. and at least 60 seconds."
+                "no_traffic_timeout must be at least 60 seconds."
                 f" Found {v}."
             )
         return v
