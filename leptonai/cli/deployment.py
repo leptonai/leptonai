@@ -45,6 +45,7 @@ from ..api.v1.types.deployment import (
     SchedulingToggle,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
+from ..api.v1.types.ingress import AuthConfig
 
 
 def _same_major_version(version_str_list: List[str]) -> bool:
@@ -227,15 +228,39 @@ def is_positive_number(value):
 def _normalize_replica_spread(ctx, param, value):
     if value is None:
         return None
-    v = value.strip().lower()
-    if v in ("required", "r"):
+    if value.lower() in ["required", "r"]:
         return "required"
-    if v in ("preferred", "p"):
+    elif value.lower() in ["preferred", "p"]:
         return "preferred"
-    raise click.BadParameter(
-        "Invalid value for --replica-spread. Accepts: required|preferred or shorthand"
-        " r|p."
-    )
+    else:
+        raise click.BadParameter(
+            f"Invalid replica spread value: {value}. "
+            "Use 'required'/'r' or 'preferred'/'p'."
+        )
+
+
+def _parse_ip_whitelist(ip_whitelist_values):
+    """
+    Parse IP whitelist values, handling both comma-separated and individual values.
+
+    Args:
+        ip_whitelist_values: List of strings, each potentially containing comma-separated IPs
+
+    Returns:
+        List of individual IP addresses/CIDR ranges
+    """
+    if not ip_whitelist_values:
+        return []
+
+    parsed_ips = []
+    for value in ip_whitelist_values:
+        # Split by comma and strip whitespace
+        ips = [ip.strip() for ip in value.split(",")]
+        # Filter out empty strings
+        ips = [ip for ip in ips if ip]
+        parsed_ips.extend(ips)
+
+    return parsed_ips
 
 
 @click_group(hidden=True)
@@ -524,15 +549,30 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "If specified, the photon will be publicly accessible. See docs for details "
-        "on access control."
+        "If specified, the endpoint will be accessible from any IP address. "
+        "This is equivalent to --ip-whitelist with an empty list. "
+        "Mutually exclusive with --ip-whitelist."
     ),
+)
+@click.option(
+    "--ip-whitelist",
+    help=(
+        "IP addresses or CIDR ranges that are allowed to access the endpoint. "
+        "Can be specified multiple times or as comma-separated values. "
+        "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
+        "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
+        "Mutually exclusive with --public. This sets the IP allowlist in the "
+        "deployment's authentication configuration. "
+        "Note: --tokens are completely independent of IP access control."
+    ),
+    multiple=True,
 )
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the photon. See docs for details "
-        "on access control."
+        "Additional tokens that can be used to access the endpoint. See docs for"
+        " details on access control. These are completely independent of IP access"
+        " control (--public and --ip-whitelist)."
     ),
     multiple=True,
 )
@@ -791,6 +831,7 @@ def create(
     env,
     secret,
     public,
+    ip_whitelist,
     tokens,
     no_traffic_timeout,
     target_gpu_utilization,
@@ -819,6 +860,15 @@ def create(
     Creates an endpoint from either a photon or container image.
     """
     client = APIClient()
+
+    # Validate that public and ip-whitelist are mutually exclusive
+    if public and ip_whitelist:
+        console.print(
+            "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
+            "Use --public for public access or --ip-whitelist for restricted access. "
+            "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
 
     # Load spec from file if provided
     if file:
@@ -1084,6 +1134,19 @@ def create(
 
         if tokens or not file:
             spec.api_tokens = make_token_vars_from_config(public, tokens)
+
+        # Set IP access control in auth_config (independent of tokens)
+        if public or ip_whitelist:
+            if spec.auth_config is None:
+                spec.auth_config = AuthConfig()
+
+            if public:
+                # Public means accessible from any IP (no IP restrictions)
+                spec.auth_config.ip_allowlist = []
+            elif ip_whitelist:
+                # IP whitelist means only accessible from specified IPs
+                parsed_ips = _parse_ip_whitelist(ip_whitelist)
+                spec.auth_config.ip_allowlist = parsed_ips
 
         if image_pull_secrets or not file:
             spec.image_pull_secrets = list(image_pull_secrets)
@@ -1436,6 +1499,18 @@ def log(name, replica):
     ),
 )
 @click.option(
+    "--ip-whitelist",
+    help=(
+        "IP addresses or CIDR ranges that are allowed to access the endpoint. "
+        "Can be specified multiple times or as comma-separated values. "
+        "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
+        "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
+        "Mutually exclusive with --public. This sets the IP allowlist in the "
+        "deployment's authentication configuration."
+    ),
+    multiple=True,
+)
+@click.option(
     "--tokens",
     help=(
         "Access tokens that can be used to access the endpoint. See docs for"
@@ -1563,6 +1638,7 @@ def update(
     min_replicas,
     resource_shape,
     public,
+    ip_whitelist,
     tokens,
     remove_tokens,
     visibility,
@@ -1582,6 +1658,15 @@ def update(
 
     client = APIClient()
     lepton_deployment = client.deployment.get(name)
+
+    # Validate that public and ip-whitelist are mutually exclusive
+    if public and ip_whitelist:
+        console.print(
+            "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
+            "Use --public for public access or --ip-whitelist for restricted access. "
+            "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
 
     if id == "latest":
         current_photon_id = lepton_deployment.spec.photon_id
@@ -1704,6 +1789,20 @@ def update(
 
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
+
+    # Set IP access control in auth_config (independent of tokens)
+    if public is not None or ip_whitelist is not None:
+        if lepton_deployment_spec.auth_config is None:
+            lepton_deployment_spec.auth_config = AuthConfig()
+
+        if public:
+            # Public means accessible from any IP (no IP restrictions)
+            lepton_deployment_spec.auth_config.ip_allowlist = []
+        elif ip_whitelist is not None:
+            # IP whitelist means only accessible from specified IPs
+            parsed_ips = _parse_ip_whitelist(ip_whitelist)
+            lepton_deployment_spec.auth_config.ip_allowlist = parsed_ips
+
     new_lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
