@@ -31,6 +31,7 @@ def _print_rayclusters_table(rayclusters) -> None:
     table = Table(title="Ray Clusters", show_lines=True, show_header=True)
     table.add_column("Name")
     table.add_column("Created At")
+    table.add_column("Created By")
     table.add_column("State")
     table.add_column("Head Node Group")
     table.add_column("Worker Group Name")
@@ -48,6 +49,9 @@ def _print_rayclusters_table(rayclusters) -> None:
             )
             if rc.metadata and rc.metadata.created_at
             else "N/A"
+        )
+        created_by = (
+            rc.metadata.created_by if rc.metadata and rc.metadata.created_by else "-"
         )
 
         state = rc.status.state.value if rc.status and rc.status.state else "-"
@@ -83,6 +87,7 @@ def _print_rayclusters_table(rayclusters) -> None:
         table.add_row(
             f"{name}",
             created_ts,
+            created_by,
             state,
             head_node_group,
             ", ".join(worker_group_names),
