@@ -47,5 +47,7 @@ class Metadata(BaseModel):
 
 
 class SecretItem(BaseModel):
+    # Deprecated shim to keep backward-compat import paths working until callers migrate.
+    # Prefer importing from leptonai.api.v1.types.secret import SecretItem
     name: str
     value: str

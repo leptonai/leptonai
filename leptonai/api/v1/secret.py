@@ -2,13 +2,13 @@ from typing import List
 
 from .api_resource import APIResourse
 
-from .types.common import SecretItem
+from .types.secret import SecretItem
 
 
 class SecretAPI(APIResourse):
-    def list_all(self):
-        response = self._get("/secrets")
-        return self.ensure_json(response)
+    def list_all(self) -> List[SecretItem]:
+        response = self._get("/usersecrets")
+        return self.ensure_list(response, SecretItem)
 
     def create(self, secrets: List[SecretItem]) -> bool:
         response = self._post("/secrets", json=self.safe_json(secrets))

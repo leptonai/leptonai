@@ -127,6 +127,17 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             could_be_new_token=True,
         )
     else:
+        if workspace_url or lepton_classic or workspace_origin_url:
+            console.print(
+                "[bold red]Invalid usage:[/bold red] --workspace-url,"
+                " --workspace-origin-url, and --lepton-classic must be used together"
+                " with --credentials.\n[white]Either provide credentials or remove"
+                " these options to avoid misconfiguring local"
+                " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep login -c"
+                " <workspace_id>:<auth_token> [--workspace-url <url>]"
+                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+            )
+            sys.exit(1)
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
             current_ws = WorkspaceRecord.current()
@@ -211,7 +222,9 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                     " <workspace_id>:<auth_token>[/]"
                 )
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
+        WorkspaceRecord.set_or_exit(
+            workspace_id, auth_token=auth_token, could_be_new_token=True
+        )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
 
@@ -254,22 +267,22 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [white]Make sure to include the --lepton-classic or -l flag. (Ignore if you are DGXC User)[/white]
 
         [bold]To resolve this issue:[/bold]
-        1. [#76B900]Verify your login credentials above.[/#76B900]
+            1. [#76B900]Verify your login credentials above.[/#76B900]
 
         [white]If using 'lep login' and encountering this error, you might be logging in with
         an invalid local credential.[/white]
-        2. [white]To directly login, use:[/white]
-            [#76B900]'lep login -c <workspace_id>:<auth_token>'[/#76B900]
+            2. [white]To directly login, use:[/white]
+                [#76B900]'lep login -c <workspace_id>:<auth_token>'[/#76B900]
 
-        3. [white]Or list and remove the invalid local workspace credential with:[/white]
-            [#76B900]'lep workspace list'[/#76B900]
-            [#76B900]'lep workspace remove -i <workspace_id>'[/#76B900]
-            [white]Then, log in again with:[/white]
-            [#76B900]'lep login'[/#76B900]
+            3. [white]Or list and remove the invalid local workspace credential with:[/white]
+                [#76B900]'lep workspace list'[/#76B900]
+                [#76B900]'lep workspace remove -i <workspace_id>'[/#76B900]
+                [white]Then, log in again with:[/white]
+                [#76B900]'lep login'[/#76B900]
 
-        4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
-           [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
-           (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
+            4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
+            [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
+            (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
 
     except WorkspaceNotFoundError as e:

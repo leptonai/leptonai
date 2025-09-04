@@ -334,6 +334,19 @@ def log_command(
             sys.exit(1)
         job = job.metadata.id_
 
+    if (job or deployment) and replica:
+        replicas = (
+            client.job.get_replicas(job)
+            if job
+            else client.deployment.get_replicas(deployment)
+        )
+        if replica not in [replica.metadata.id_ for replica in replicas]:
+            console.print(
+                f"[bold red]Warning:[/bold red] No replica named '{replica}' found for"
+                f" {job if job else deployment}."
+            )
+            sys.exit(1)
+
     def fetch_log(start, end, limit):
         unix_start = _preprocess_time(start, epoch=True)
         unix_end = _preprocess_time(end, epoch=True)
