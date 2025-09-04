@@ -783,7 +783,6 @@ def list_command(state, user, name_or_id, node_group):
     _display_jobs_table(jobs, client.get_workspace_id())
 
 
-
 @job.command()
 @click.option(
     "--state",
