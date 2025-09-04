@@ -817,17 +817,13 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--multi-node-replicas",
     type=int,
     default=None,
-    help=(
-        "Number of leader-worker groups (replicas) for multi-node."
-    ),
+    help="Number of leader-worker groups (replicas) for multi-node.",
 )
 @click.option(
     "--multi-node-workers",
     type=int,
     default=None,
-    help=(
-        "Number of workers per replica (excluding the leader) for multi-node."
-    ),
+    help="Number of workers per replica (excluding the leader) for multi-node.",
 )
 @click.option(
     "--replica-spread",
@@ -1112,7 +1108,9 @@ def create(
                 # Pass through as-is to allow forward compatibility
                 normalized_mode = dm
         # If user provided multi-node numbers but no mode, default to MultiNode
-        if normalized_mode is None and (multi_node_replicas is not None or multi_node_workers is not None):
+        if normalized_mode is None and (
+            multi_node_replicas is not None or multi_node_workers is not None
+        ):
             normalized_mode = "MultiNode"
 
         if normalized_mode is not None:
