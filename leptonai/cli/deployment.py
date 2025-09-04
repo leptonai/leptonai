@@ -828,6 +828,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     help=(
         "Number of workers per replica (excluding the leader) for multi-node."
     ),
+)
 @click.option(
     "--replica-spread",
     callback=_normalize_replica_spread,

@@ -230,6 +230,7 @@ class MultiNodeSpec(BaseModel):
     - replicas: number of leader-worker groups
     - workers_per_replica: number of workers per group (excluding the leader)
     """
+
     replicas: Optional[int] = None
     workers_per_replica: Optional[int] = None
 
