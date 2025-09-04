@@ -10,12 +10,14 @@ from pydantic import BaseModel, Field
 from threading import Lock
 from typing import Optional, Union, Dict, TYPE_CHECKING, List
 import yaml
+from loguru import logger
 
 from leptonai.config import CACHE_DIR
 from leptonai.util import create_cached_dir_if_needed
 from .utils import (
     _get_full_workspace_api_url,
     _get_workspace_display_name,
+    _get_token_expires_at,
     WorkspaceNotCreatedYet,
     _get_workspace_origin_url,
     _print_workspace_not_created_yet_message,
@@ -33,6 +35,7 @@ class LocalWorkspaceInfo(BaseModel):
     auth_token: Optional[str] = None
     workspace_origin_url: Optional[str] = None
     is_lepton_classic: Optional[bool] = False
+    token_expires_at: Optional[int] = None
 
 
 class _LocalWorkspaceRecord(BaseModel):
@@ -106,6 +109,7 @@ class WorkspaceRecord(object):
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
         is_lepton_classic: Optional[bool] = None,
+        could_be_new_token: Optional[bool] = False,
     ):
         """
         Sets a workspace by adding it to the workspace info file.
@@ -115,7 +119,12 @@ class WorkspaceRecord(object):
             if workspace_id not in cls._singleton_record.workspaces
             else cls._singleton_record.workspaces[workspace_id].display_name
         )
-        # print(cls._singleton_record.workspaces[workspace_id])
+        token_expires_at = (
+            None
+            if workspace_id not in cls._singleton_record.workspaces
+            or could_be_new_token
+            else cls._singleton_record.workspaces[workspace_id].token_expires_at
+        )
 
         # _get_workspace_display_name is called in two scenarios:
         # 1. Initial CLI login without URL (for both DGXC and CLASSIC workspaces will use default urls)
@@ -130,9 +139,26 @@ class WorkspaceRecord(object):
                     is_lepton_classic=is_lepton_classic,
                     token=auth_token,
                 )
-            except RuntimeError:
+            except RuntimeError as e:
+                logger.trace(
+                    "Failed to fetch workspace display name"
+                    f" (workspace_id={workspace_id}, url={url},"
+                    f" is_lepton_classic={is_lepton_classic}): {e}"
+                )
                 display_name = None
-
+        if token_expires_at is None and not is_lepton_classic:
+            try:
+                token_expires_at = _get_token_expires_at(
+                    workspace_id,
+                    url=url,
+                    token=auth_token,
+                )
+            except RuntimeError as e:
+                logger.trace(
+                    f"Failed to fetch token expiration (workspace_id={workspace_id},"
+                    f" url={url}): {e}"
+                )
+                token_expires_at = None
         if url is None:
             url = _get_full_workspace_api_url(
                 workspace_id, is_lepton_classic=is_lepton_classic
@@ -147,6 +173,7 @@ class WorkspaceRecord(object):
             auth_token=auth_token,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=is_lepton_classic,
+            token_expires_at=token_expires_at,
         )
         cls._singleton_record.current_workspace = workspace_id
         cls._save_to_file()
@@ -159,6 +186,7 @@ class WorkspaceRecord(object):
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
         is_lepton_classic: Optional[bool] = None,
+        could_be_new_token: Optional[bool] = False,
     ):
         """
         Sets a workspace, and if it is not set up yet, print a message and exit.
@@ -166,7 +194,12 @@ class WorkspaceRecord(object):
         """
         try:
             cls.set(
-                workspace_id, auth_token, url, workspace_origin_url, is_lepton_classic
+                workspace_id,
+                auth_token,
+                url,
+                workspace_origin_url,
+                is_lepton_classic,
+                could_be_new_token,
             )
         except WorkspaceNotCreatedYet:
             _print_workspace_not_created_yet_message(workspace_id)
@@ -251,6 +284,37 @@ class WorkspaceRecord(object):
     def get_current_workspace_id(cls) -> Optional[str]:
         current_workspace = cls.current()
         return current_workspace.id_ if current_workspace else None
+
+    @classmethod
+    def get_dashboard_base_url(
+        cls, workspace_id: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Returns the base dashboard URL derived from the current workspace URL.
+        """
+        info = cls.get(workspace_id) if workspace_id else cls.current()
+        if not info or info.is_lepton_classic:
+            return None
+        base = (info.url or "").replace("://gateway", "://dashboard", 1)
+        base = base.replace("/api/v2", "", 1)
+        base = base.replace("/workspaces", "/workspace", 1)
+        return base
+
+    @classmethod
+    def refresh_token_expires_at(
+        cls, workspace_id: Optional[str] = None
+    ) -> Optional[int]:
+        info = cls.get(workspace_id) if workspace_id else cls.current()
+        if not info or info.is_lepton_classic:
+            return None
+        token_expires_at = _get_token_expires_at(
+            workspace_id,
+            url=info.url,
+            token=info.auth_token,
+        )
+        info.token_expires_at = token_expires_at
+        cls._save_to_file()
+        return token_expires_at
 
 
 # When importing, read the content of the workspace info file as initialization.

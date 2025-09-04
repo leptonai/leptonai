@@ -13,7 +13,8 @@ from .util import (
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 from ..api.v2.client import APIClient
-from ..api.v1.types.common import SecretItem
+from ..api.v1.types.common import LeptonVisibility
+from ..api.v1.types.secret import SecretItem
 
 
 @click_group()
@@ -36,7 +37,13 @@ def secret():
 @secret.command()
 @click.option("--name", "-n", help="Secret name", multiple=True)
 @click.option("--value", "-v", help="Secret value", multiple=True)
-def create(name, value):
+@click.option(
+    "--public-key",
+    is_flag=True,
+    help="Make the secret public (default is private).",
+    default=False,
+)
+def create(name, value, public_key):
     """
     Creates secrets with the given name and value. The name and value can be
     specified multiple times to create multiple secrets, e.g.:
@@ -48,7 +55,7 @@ def create(name, value):
         check(
             n not in LEPTON_RESERVED_ENV_NAMES,
             "You have used a reserved secret name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            f"used by Lepton internally: {n}. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}",
         )
@@ -56,9 +63,10 @@ def create(name, value):
     existing_secrets = client.secret.list_all()
 
     if existing_secrets:
+        existing_names = {s.name for s in existing_secrets}
         for n in name:
             check(
-                n not in existing_secrets,
+                n not in existing_names,
                 f"Secret with name [red]{n}[/] already exists. Please use a"
                 " different name or remove the existing secret with `lep secret"
                 " remove` first.",
@@ -66,7 +74,10 @@ def create(name, value):
 
     secret_item_list = []
     for cur_name, cur_value in zip(name, value):
-        secret_item_list.append(SecretItem(name=cur_name, value=cur_value))
+        visibility = LeptonVisibility.PUBLIC if public_key else LeptonVisibility.PRIVATE
+        secret_item_list.append(
+            SecretItem(name=cur_name, value=cur_value, visibility=visibility)
+        )
 
     client.secret.create(secret_item_list)
     console.print(
@@ -82,12 +93,17 @@ def list_command():
     """
     client = APIClient()
     secrets = client.secret.list_all()
-    secrets.sort()
+    secrets.sort(key=lambda s: s.name)
     table = Table(title="Secrets", show_lines=True)
-    table.add_column("ID")
-    table.add_column("Value")
-    for secret in secrets:
-        table.add_row(secret, "(hidden)")
+    table.add_column("Name")
+    table.add_column("Tags")
+    table.add_column("Owner")
+    table.add_column("Visibility")
+    for s in secrets:
+        tags = ",".join(s.tags) if s.tags else ""
+        owner = s.owner or ""
+        visibility = s.visibility.value if getattr(s, "visibility", None) else ""
+        table.add_row(s.name, tags, owner, visibility)
     console.print(table)
 
 
@@ -99,8 +115,8 @@ def remove(name):
     """
     client = APIClient()
     existing_secrets = client.secret.list_all()
-
-    if not existing_secrets or name not in existing_secrets:
+    existing_names = {s.name for s in existing_secrets}
+    if not existing_secrets or name not in existing_names:
         console.print(f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]")
         return
 

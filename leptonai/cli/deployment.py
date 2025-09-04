@@ -41,8 +41,11 @@ from ..api.v1.types.deployment import (
     ContainerPort,
     AutoscalerTargetThroughput,
     LeptonLog,
+    DeploymentSchedulingPolicy,
+    SchedulingToggle,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
+from ..api.v1.types.ingress import AuthConfig
 
 
 def _same_major_version(version_str_list: List[str]) -> bool:
@@ -158,11 +161,12 @@ def validate_autoscale_options(ctx, param, value):
         try:
             replicas = int(parts[0])
             timeout = int(parts[1].rstrip("s"))
-            if replicas < 0 or timeout < 0:
+            if replicas < 0 or timeout < 60:
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
-                "Replicas and timeout should be positive integers."
+                "Replicas and timeout should be positive integers and timeout should be"
+                " at least 60 seconds."
             )
 
     if param.name == "autoscale_gpu_util" and value:
@@ -173,7 +177,7 @@ def validate_autoscale_options(ctx, param, value):
             and (parts[2].rstrip("%").isdigit())
         ):
             raise click.BadParameter(
-                "Invalid format for --autoscale-gpu_util. Expected format:"
+                "Invalid format for --autoscale-gpu-util. Expected format:"
                 " <min_replica>,<max_replica>,<threshold>% or"
                 " <min_replica>,<max_replica>,<threshold>"
             )
@@ -181,12 +185,12 @@ def validate_autoscale_options(ctx, param, value):
             min_replica = int(parts[0])
             max_replica = int(parts[1])
             threshold = int(parts[2].rstrip("%"))
-            if min_replica < 0 or max_replica < 0 or not (0 <= threshold <= 99):
+            if min_replica < 0 or max_replica < 0 or not (0 < threshold <= 99):
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
                 "Min_replica, max_replica should be positive integers and threshold"
-                " should be between 0 and 99."
+                " should be between 1 and 99."
             )
 
     if param.name == "autoscale_qpm" and value:
@@ -202,12 +206,12 @@ def validate_autoscale_options(ctx, param, value):
             min_replica = int(parts[0])
             max_replica = int(parts[1])
             threshold = float(parts[2])
-            if min_replica < 0 or max_replica < 0 or threshold < 0:
+            if min_replica < 0 or max_replica < 0 or threshold <= 0:
                 raise ValueError
         except ValueError:
             raise click.BadParameter(
                 "Min_replica and max_replica should be positive integers and threshold"
-                " should be a positive number."
+                " should be a positive number. Threshold should be greater than 0."
             )
 
     return value
@@ -219,6 +223,44 @@ def is_positive_number(value):
         return num > 0
     except ValueError:
         return False
+
+
+def _normalize_replica_spread(ctx, param, value):
+    if value is None:
+        return None
+    if value.lower() in ["required", "r"]:
+        return "required"
+    elif value.lower() in ["preferred", "p"]:
+        return "preferred"
+    else:
+        raise click.BadParameter(
+            f"Invalid replica spread value: {value}. "
+            "Use 'required'/'r' or 'preferred'/'p'."
+        )
+
+
+def _parse_ip_whitelist(ip_whitelist_values):
+    """
+    Parse IP whitelist values, handling both comma-separated and individual values.
+
+    Args:
+        ip_whitelist_values: List of strings, each potentially containing comma-separated IPs
+
+    Returns:
+        List of individual IP addresses/CIDR ranges
+    """
+    if not ip_whitelist_values:
+        return []
+
+    parsed_ips = []
+    for value in ip_whitelist_values:
+        # Split by comma and strip whitespace
+        ips = [ip.strip() for ip in value.split(",")]
+        # Filter out empty strings
+        ips = [ip for ip in ips if ip]
+        parsed_ips.extend(ips)
+
+    return parsed_ips
 
 
 @click_group(hidden=True)
@@ -235,6 +277,108 @@ def deployment():
     DGX Cloud Lepton.
     """
     pass
+
+
+def _print_deployments_table(
+    deployments, dashboard_base_url: Optional[str] = None
+) -> None:
+    table = Table(
+        title="Endpoints",
+        show_lines=True,
+        show_header=True,
+    )
+    table.add_column("Name / ID")
+    table.add_column("Created At")
+    table.add_column("State")
+    table.add_column("User ID")
+    table.add_column("Node Group")
+    table.add_column("Replicas")
+    table.add_column("Shape")
+
+    shape_totals = {}
+
+    def _is_active_state(state_str: str) -> bool:
+        return state_str in {"Ready", "Starting", "Updating", "Scaling", "Deleting"}
+
+    count = 0
+    for d in deployments:
+        if d.spec and getattr(d.spec, "is_pod", False):
+            continue
+
+        name = d.metadata.name if d.metadata else "-"
+        dep_id = d.metadata.id_ if d.metadata else "-"
+
+        created_ts = (
+            datetime.fromtimestamp((d.metadata.created_at or 0) / 1000).strftime(
+                "%Y-%m-%d\n%H:%M:%S"
+            )
+            if d.metadata and d.metadata.created_at
+            else "N/A"
+        )
+        state = d.status.state.value if d.status and d.status.state else "-"
+        owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
+
+        ng_list = []
+        rr = d.spec.resource_requirement if d.spec else None
+        if rr and rr.affinity and rr.affinity.allowed_dedicated_node_groups:
+            ng_list = rr.affinity.allowed_dedicated_node_groups
+        ng_str = "\n".join(ng_list).lower() if ng_list else ""
+
+        desired = (
+            d.status.autoscaler_status.desired_replicas
+            if d.status
+            and d.status.autoscaler_status
+            and d.status.autoscaler_status.desired_replicas is not None
+            else None
+        )
+        desired_disp = str(desired if desired is not None else 0)
+
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+
+        dep_url = None
+        if dashboard_base_url:
+            dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
+        name_id_cell = f"[bold #76b900]{name}[/]\n" + (
+            f"[link={dep_url}][bright_black]{dep_id}[/][/link]"
+            if dep_url
+            else f"[bright_black]{dep_id}[/]"
+        )
+
+        table.add_row(
+            name_id_cell,
+            created_ts,
+            f"{state}",
+            owner or "",
+            ng_str,
+            desired_disp,
+            shape,
+        )
+
+        # Utilization summary uses desired only
+        workers = desired if desired is not None else 0
+        if _is_active_state(state):
+            shape_totals[shape] = shape_totals.get(shape, 0) + workers
+
+        count += 1
+
+    if count == 0:
+        console.print(
+            "No endpoints found. Use `lep endpoint create` to create endpoints."
+        )
+        return
+
+    console.print(table)
+
+    console.print(
+        f"[bold]Resource Utilization Summary for above [cyan]{count}[/]"
+        f" endpoint{'s' if count!=1 else ''} (Ready / Starting / Updating / Scaling /"
+        " Deleting only):[/]"
+    )
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
+    console.print("\n")
 
 
 # Visible alias group for deployment commands
@@ -283,10 +427,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     """
     Adds the workspace token as a secret environment variable.
     """
-    from ..api.v1.types.common import SecretItem
+    from ..api.v1.types.secret import SecretItem
 
     secrets = client.secret.list_all()
-    if "LEPTON_WORKSPACE_TOKEN" not in secrets:
+    existing_names = {s.name for s in secrets}
+    if "LEPTON_WORKSPACE_TOKEN" not in existing_names:
         current_ws = WorkspaceRecord.current()
         if current_ws is None:
             console.print(
@@ -319,9 +464,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         resolve_path=True,
     ),
     help=(
-        "If specified, load the endpoint spec from this JSON file before applying "
-        "additional CLI overrides. The file should contain a LeptonDeploymentUserSpec "
-        "JSON produced by `lep endpoint get -p`."
+        "If provided, load the endpoint spec from this JSON file before applying CLI"
+        " overrides. The file can be obtained from the dashboard's UI → CLI → 'Use spec"
+        " file', or by running: `lep endpoint get -i <endpoint_id> --path"
+        " <download_path>`."
     ),
     required=False,
 )
@@ -403,15 +549,30 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "If specified, the photon will be publicly accessible. See docs for details "
-        "on access control."
+        "If specified, the endpoint will be accessible from any IP address. "
+        "This is equivalent to --ip-whitelist with an empty list. "
+        "Mutually exclusive with --ip-whitelist."
     ),
+)
+@click.option(
+    "--ip-whitelist",
+    help=(
+        "IP addresses or CIDR ranges that are allowed to access the endpoint. "
+        "Can be specified multiple times or as comma-separated values. "
+        "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
+        "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
+        "Mutually exclusive with --public. This sets the IP allowlist in the "
+        "deployment's authentication configuration. "
+        "Note: --tokens are completely independent of IP access control."
+    ),
+    multiple=True,
 )
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the photon. See docs for details "
-        "on access control."
+        "Additional tokens that can be used to access the endpoint. See docs for"
+        " details on access control. These are completely independent of IP access"
+        " control (--public and --ip-whitelist)."
     ),
     multiple=True,
 )
@@ -641,6 +802,20 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " reservations starts, your endpoint may be evicted."
     ),
 )
+@click.option(
+    "--replica-spread",
+    callback=_normalize_replica_spread,
+    help=(
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
+    ),
+    default=None,
+)
 def create(
     name,
     file,
@@ -656,6 +831,7 @@ def create(
     env,
     secret,
     public,
+    ip_whitelist,
     tokens,
     no_traffic_timeout,
     target_gpu_utilization,
@@ -678,11 +854,21 @@ def create(
     shared_memory_size,
     with_reservation,
     allow_burst_to_other_reservation,
+    replica_spread,
 ):
     """
     Creates an endpoint from either a photon or container image.
     """
     client = APIClient()
+
+    # Validate that public and ip-whitelist are mutually exclusive
+    if public and ip_whitelist:
+        console.print(
+            "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
+            "Use --public for public access or --ip-whitelist for restricted access. "
+            "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
 
     # Load spec from file if provided
     if file:
@@ -946,8 +1132,24 @@ def create(
             spec.mounts = make_mounts_from_strings(mount_list)
         # else: preserve existing spec.mounts from loaded file
 
-        spec.api_tokens = make_token_vars_from_config(public, tokens)
-        spec.image_pull_secrets = list(image_pull_secrets)
+        if tokens or not file:
+            spec.api_tokens = make_token_vars_from_config(public, tokens)
+
+        # Set IP access control in auth_config (independent of tokens)
+        if public or ip_whitelist:
+            if spec.auth_config is None:
+                spec.auth_config = AuthConfig()
+
+            if public:
+                # Public means accessible from any IP (no IP restrictions)
+                spec.auth_config.ip_allowlist = []
+            elif ip_whitelist:
+                # IP whitelist means only accessible from specified IPs
+                parsed_ips = _parse_ip_whitelist(ip_whitelist)
+                spec.auth_config.ip_allowlist = parsed_ips
+
+        if image_pull_secrets or not file:
+            spec.image_pull_secrets = list(image_pull_secrets)
         # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
         if any([
             no_traffic_timeout is not None,
@@ -966,13 +1168,21 @@ def create(
                 ),
             )
 
-        spec.health = HealthCheck(
-            liveness=(
-                HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
-                if initial_delay_seconds
-                else None
+        if initial_delay_seconds is not None:
+            spec.health = HealthCheck(
+                liveness=(
+                    HealthCheckLiveness(initial_delay_seconds=initial_delay_seconds)
+                )
             )
-        )
+
+        # Scheduling policy: replica spread
+        if replica_spread is not None:
+            toggle = (
+                SchedulingToggle.Required
+                if replica_spread.lower() == "required"
+                else SchedulingToggle.Preferred
+            )
+            spec.scheduling_policy = DeploymentSchedulingPolicy(replica_spread=toggle)
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
@@ -1003,64 +1213,35 @@ def create(
 
 @deployment.command(name="list")
 @click.option(
-    "--pattern",
-    "-p",
-    help="Regular expression pattern to filter endpoint names.",
-    default=None,
+    "--name",
+    "-n",
+    help=(
+        "Filter endpoints by name (case-insensitive substring). Can be specified"
+        " multiple times."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
 )
-def list_command(pattern):
+def list_command(name):
     """
     Lists all endpoints in the current workspace.
     """
 
     client = APIClient()
-
     deployments = client.deployment.list_all()
-    # For the photon id field, we will show either the photon id, or the container
-    # image name if the deployment is an arbitrary container.
-    # Note: for pods, we will not show them here.
-    records = [
-        (
-            (d.metadata.name),
-            (
-                d.spec.photon_id
-                if d.spec.photon_id is not None
-                else (d.spec.container.image or "（unknown）")
-            ),
-            d.metadata.created_at
-            / 1000,  # convert to seconds from milliseconds # type: ignore
-            d.status,
-        )
-        for d in deployments
-        if not (d.spec.is_pod or False)
-    ]
-    if len(records) == 0:
-        console.print(
-            "No endpoints found. Use `lep endpoint create` to create endpoints."
-        )
-        return 0
-
-    table = Table(
-        title="endpoints",
-        show_lines=True,
-        show_header=True,
-        header_style="bold magenta",
+    if name:
+        lowered = [x.lower() for x in name]
+        deployments = [
+            d
+            for d in deployments
+            if d.metadata
+            and d.metadata.name
+            and any(n in d.metadata.name.lower() for n in lowered)
+        ]
+    _print_deployments_table(
+        deployments, dashboard_base_url=client.get_dashboard_base_url()
     )
-    table.add_column("name")
-    table.add_column("photon id")
-    table.add_column("created at")
-    table.add_column("status")
-    for name, photon_id, created_at, status in records:
-        if pattern is not None and (name is None or not re.search(pattern, name)):
-            continue
-        table.add_row(
-            name,
-            photon_id,
-            datetime.fromtimestamp(created_at).strftime("%Y-%m-%d\n%H:%M:%S"),
-            status.state,
-        )
-    console.print(table)
-    return 0
 
 
 @deployment.command()
@@ -1318,6 +1499,18 @@ def log(name, replica):
     ),
 )
 @click.option(
+    "--ip-whitelist",
+    help=(
+        "IP addresses or CIDR ranges that are allowed to access the endpoint. "
+        "Can be specified multiple times or as comma-separated values. "
+        "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
+        "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
+        "Mutually exclusive with --public. This sets the IP allowlist in the "
+        "deployment's authentication configuration."
+    ),
+    multiple=True,
+)
+@click.option(
     "--tokens",
     help=(
         "Access tokens that can be used to access the endpoint. See docs for"
@@ -1335,16 +1528,6 @@ def log(name, replica):
         "If specified, all additional tokens will be removed, and the endpoint will"
         " be either public (if --public) is specified, or only accessible with the"
         " workspace token (if --public is not specified)."
-    ),
-)
-@click.option(
-    "--no-traffic-timeout",
-    type=int,
-    default=None,
-    help=(
-        "If specified, the endpoint will be scaled down to 0 replicas after the"
-        " specified number of seconds without traffic. Set to 0 to explicitly change"
-        " the endpoint to have no timeout."
     ),
 )
 @click.option(
@@ -1432,7 +1615,22 @@ def log(name, replica):
 @click.option(
     "--shared-memory-size",
     type=int,
+    default=None,
     help="Update the shared memory size for this endpoint, in MiB.",
+)
+@click.option(
+    "--replica-spread",
+    callback=_normalize_replica_spread,
+    help=(
+        "Controls how endpoint replicas are distributed across different nodes to"
+        " improve availability, but it may lead to resource fragmentation.\n\nPreferred"
+        " (p): Attempts to spread replicas across different nodes when"
+        " possible.\nRequired (r): Enforces strict replica spreading where each replica"
+        " must be scheduled on a different node. Replicas cannot start if there are not"
+        " enough nodes.\n\nUsage examples:\n  --replica-spread required/r   (strict)\n "
+        " --replica-spread preferred/p  (soft)\n"
+    ),
+    default=None,
 )
 def update(
     name,
@@ -1440,9 +1638,9 @@ def update(
     min_replicas,
     resource_shape,
     public,
+    ip_whitelist,
     tokens,
     remove_tokens,
-    no_traffic_timeout,
     visibility,
     replicas_static,
     autoscale_down,
@@ -1450,6 +1648,7 @@ def update(
     autoscale_qpm,
     log_collection,
     shared_memory_size,
+    replica_spread,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1459,6 +1658,15 @@ def update(
 
     client = APIClient()
     lepton_deployment = client.deployment.get(name)
+
+    # Validate that public and ip-whitelist are mutually exclusive
+    if public and ip_whitelist:
+        console.print(
+            "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
+            "Use --public for public access or --ip-whitelist for restricted access. "
+            "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
 
     if id == "latest":
         current_photon_id = lepton_deployment.spec.photon_id
@@ -1493,69 +1701,108 @@ def update(
         # None means no change
         tokens = None
 
+    autoscaler_flag = (
+        replicas_static is not None
+        or autoscale_down is not None
+        or autoscale_gpu_util is not None
+        or autoscale_qpm is not None
+    )
+
+    temp_auto_scaler = None
     max_replicas = None
-    target_gpu_utilization = 0
-    no_traffic_timeout = no_traffic_timeout if no_traffic_timeout else 0
-    threshold = 0
-    if replicas_static is not None:
-        min_replicas = replicas_static
-        max_replicas = replicas_static
+    if autoscaler_flag:
+        target_gpu_utilization = 0
+        no_traffic_timeout = 0
+        threshold = 0
+        if replicas_static is not None:
+            min_replicas = replicas_static
+            max_replicas = replicas_static
 
-    if autoscale_down:
-        parts = autoscale_down.split(",")
-        replicas = int(parts[0])
-        timeout = int(parts[1].rstrip("s"))
-        min_replicas = replicas
-        max_replicas = replicas
-        no_traffic_timeout = timeout
+        if autoscale_down:
+            parts = autoscale_down.split(",")
+            replicas = int(parts[0])
+            timeout = int(parts[1].rstrip("s"))
+            min_replicas = replicas
+            max_replicas = replicas
+            no_traffic_timeout = timeout
 
-    if autoscale_gpu_util:
-        parts = autoscale_gpu_util.split(",")
-        min_replicas = int(parts[0])
-        max_replicas = int(parts[1])
-        target_gpu_utilization = int(parts[2].rstrip("%"))
+        if autoscale_gpu_util:
+            parts = autoscale_gpu_util.split(",")
+            min_replicas = int(parts[0])
+            max_replicas = int(parts[1])
+            target_gpu_utilization = int(parts[2].rstrip("%"))
 
-    if autoscale_qpm:
-        parts = autoscale_qpm.split(",")
-        min_replicas = int(parts[0])
-        max_replicas = int(parts[1])
-        threshold = float(parts[2])
+        if autoscale_qpm:
+            parts = autoscale_qpm.split(",")
+            min_replicas = int(parts[0])
+            max_replicas = int(parts[1])
+            threshold = float(parts[2])
 
-    autoscaler_flag = no_traffic_timeout or autoscale_gpu_util or threshold
+        temp_auto_scaler = AutoScaler(
+            scale_down=(
+                ScaleDown(no_traffic_timeout=no_traffic_timeout)
+                if no_traffic_timeout is not None
+                else None
+            ),
+            target_gpu_utilization_percentage=(
+                target_gpu_utilization if target_gpu_utilization is not None else None
+            ),
+            target_throughput=(
+                AutoscalerTargetThroughput(qpm=threshold)
+                if threshold is not None
+                else None
+            ),
+        )
 
+    update_resource_requirement_flag = any(
+        x is not None
+        for x in (min_replicas, max_replicas, resource_shape, shared_memory_size)
+    )
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
-        resource_requirement=ResourceRequirement(
-            min_replicas=min_replicas,
-            max_replicas=max_replicas,
-            resource_shape=resource_shape,
-            shared_memory_size=shared_memory_size,
+        resource_requirement=(
+            ResourceRequirement(
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+                resource_shape=resource_shape,
+                shared_memory_size=shared_memory_size,
+            )
+            if update_resource_requirement_flag
+            else None
         ),
         api_tokens=make_token_vars_from_config(
             is_public=public,
             tokens=tokens,
         ),
-        auto_scaler=(
-            AutoScaler(
-                scale_down=(
-                    ScaleDown(no_traffic_timeout=no_traffic_timeout)
-                    if no_traffic_timeout
-                    else None
-                ),
-                target_gpu_utilization_percentage=(
-                    target_gpu_utilization if autoscale_gpu_util else None
-                ),
-                target_throughput=(
-                    AutoscalerTargetThroughput(qpm=threshold) if threshold else None
-                ),
-            )
-            if autoscaler_flag
-            else None
-        ),
+        auto_scaler=temp_auto_scaler,
     )
+
+    if replica_spread is not None:
+        toggle = (
+            SchedulingToggle.Required
+            if replica_spread.lower() == "required"
+            else SchedulingToggle.Preferred
+        )
+        lepton_deployment_spec.scheduling_policy = DeploymentSchedulingPolicy(
+            replica_spread=toggle
+        )
 
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
+
+    # Set IP access control in auth_config (independent of tokens)
+    if public is not None or ip_whitelist is not None:
+        if lepton_deployment_spec.auth_config is None:
+            lepton_deployment_spec.auth_config = AuthConfig()
+
+        if public:
+            # Public means accessible from any IP (no IP restrictions)
+            lepton_deployment_spec.auth_config.ip_allowlist = []
+        elif ip_whitelist is not None:
+            # IP whitelist means only accessible from specified IPs
+            parsed_ips = _parse_ip_whitelist(ip_whitelist)
+            lepton_deployment_spec.auth_config.ip_allowlist = parsed_ips
+
     new_lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
@@ -1581,7 +1828,7 @@ def update(
         if will_restart:
 
             confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-                "This update will trigger a rolling restart. Are you sure you want"
+                "This update will trigger a rolling restart. Are you sure you want to"
                 " continue?",
                 default=True,
             )
@@ -1608,7 +1855,7 @@ def update(
         name_or_deployment=name,
         spec=new_lepton_deployment,
     )
-    console.print(f"Endpiont [green]{name}[/] updated.")
+    console.print(f"Endpoint [green]{name}[/] updated.")
 
 
 @deployment.command()

@@ -6,7 +6,11 @@ import click
 import sys
 import webbrowser
 
-from leptonai.api.v2.utils import WorkspaceUnauthorizedError, WorkspaceNotFoundError
+from leptonai.api.v2.utils import (
+    WorkspaceUnauthorizedError,
+    WorkspaceNotFoundError,
+    WorkspaceForbiddenError,
+)
 from .util import console
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
@@ -29,7 +33,6 @@ from .util import click_group
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 LOGIN_LOGO = """
-
                             [#76B900]N V I D I A[/]
 
                         [white] D G X  C L O U D[/]
@@ -40,7 +43,6 @@ LOGIN_LOGO = """
         [#76B900]██║     ██╔══╝  ██╔═══╝    ██║   ██║   ██║██║╚██╗██║[/]
         [#76B900]███████╗███████╗██║        ██║   ╚██████╔╝██║ ╚████║[/]
         [#76B900]╚══════╝╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝[/]
-
 
 """
 
@@ -122,8 +124,20 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             is_lepton_classic=lepton_classic,
+            could_be_new_token=True,
         )
     else:
+        if workspace_url or lepton_classic or workspace_origin_url:
+            console.print(
+                "[bold red]Invalid usage:[/bold red] --workspace-url,"
+                " --workspace-origin-url, and --lepton-classic must be used together"
+                " with --credentials.\n[white]Either provide credentials or remove"
+                " these options to avoid misconfiguring local"
+                " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep login -c"
+                " <workspace_id>:<auth_token> [--workspace-url <url>]"
+                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+            )
+            sys.exit(1)
         if WorkspaceRecord.current():
             # Already logged in. Notify the user the login status.
             current_ws = WorkspaceRecord.current()
@@ -208,24 +222,29 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                     " <workspace_id>:<auth_token>[/]"
                 )
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(workspace_id, auth_token=auth_token)
+        WorkspaceRecord.set_or_exit(
+            workspace_id, auth_token=auth_token, could_be_new_token=True
+        )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
 
     try:
         # Retry info() in case the new token is not yet propagated.
-        retries = 10
+        retries = 20
         while True:
             try:
-                if retries == 7:
+                if retries == 16:
                     console.print("[bold]Loading workspace...[/bold]")
                 info = api_client.info()
-                console.print(
-                    f"Logged in to your workspace [blue]{info.workspace_name}[/]."
-                )
-                console.print(f"\t      tier: {info.workspace_tier}")
-                console.print(f"\tbuild time: {info.build_time}")
-                console.print(f"\t   version: {api_client.version()}")
+                ws_name = info.workspace_name
+                tier = info.workspace_tier
+
+                indent = " " * 17  # match logo's left margin for alignment
+                console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
+                console.print(f"{indent}{'Tier':>12}: {tier}")
+                if api_client.version() is not None:
+                    version = ".".join(str(v) for v in api_client.version())
+                    console.print(f"{indent}{'Version':>12}: {version}\n")
                 break
             except WorkspaceUnauthorizedError:
                 retries -= 1
@@ -248,22 +267,22 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [white]Make sure to include the --lepton-classic or -l flag. (Ignore if you are DGXC User)[/white]
 
         [bold]To resolve this issue:[/bold]
-        1. [#76B900]Verify your login credentials above.[/#76B900]
+            1. [#76B900]Verify your login credentials above.[/#76B900]
 
         [white]If using 'lep login' and encountering this error, you might be logging in with
         an invalid local credential.[/white]
-        2. [white]To directly login, use:[/white]
-            [#76B900]'lep login -c <workspace_id>:<auth_token>'[/#76B900]
+            2. [white]To directly login, use:[/white]
+                [#76B900]'lep login -c <workspace_id>:<auth_token>'[/#76B900]
 
-        3. [white]Or list and remove the invalid local workspace credential with:[/white]
-            [#76B900]'lep workspace list'[/#76B900]
-            [#76B900]'lep workspace remove -i <workspace_id>'[/#76B900]
-            [white]Then, log in again with:[/white]
-            [#76B900]'lep login'[/#76B900]
+            3. [white]Or list and remove the invalid local workspace credential with:[/white]
+                [#76B900]'lep workspace list'[/#76B900]
+                [#76B900]'lep workspace remove -i <workspace_id>'[/#76B900]
+                [white]Then, log in again with:[/white]
+                [#76B900]'lep login'[/#76B900]
 
-        4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
-           [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
-           (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
+            4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
+            [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
+            (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
 
     except WorkspaceNotFoundError as e:
@@ -281,6 +300,18 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         2. [green]Please check the login info you just used above[/green]
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
+        """)
+
+    except WorkspaceForbiddenError as e:
+        console.print("\n", e)
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"""
+        [red bold]Workspace Forbidden access[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+        
+        [red]You may using an invalid token or the token is expired.[/red]
+        [red]Please re-issue a new token and run `lep workspace login` again.[/red]
         """)
 
 

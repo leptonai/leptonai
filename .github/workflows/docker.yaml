@@ -14,6 +14,11 @@ on:
         description: "Is this a release build"
         type: boolean
         default: false
+      platform:
+        description: "Platform to build"
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
 
 jobs:
   build_matrix:
@@ -34,6 +39,11 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,amd64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Compute Vars
         id: vars
         env:
@@ -45,10 +55,10 @@ jobs:
         run: |
           tag="${{ steps.vars.outputs.base_image }}"
 
-          docker build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}"
-
           if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
+              docker buildx build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }} --push
+          else
+              docker buildx build . --build-arg PYTHON_VERSION=${{ matrix.python_version }} --file leptonai/photon/dockerfiles/photon-py.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }}
           fi
       - name: Build Runner Images
         env:
@@ -60,12 +70,12 @@ jobs:
           base_tag="${{ steps.vars.outputs.base_image }}"
           tag="${{ steps.vars.outputs.base_image }}-runner-${VERSION_TAG}"
 
-          docker build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}"
-
           if [ "${{ inputs.is_release }}" == 'true' ]; then
-              docker push ${tag}
+              docker buildx build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }} --push
+          else
+              docker buildx build . --build-arg BASE_IMAGE="${base_tag}" --file leptonai/photon/dockerfiles/photon-runner.Dockerfile --tag "${tag}" --platform ${{ inputs.platform }}
           fi
 
-          docker rmi ${tag}
-          docker rmi ${base_tag}
+          docker rmi ${tag} 2>/dev/null || true
+          docker rmi ${base_tag} 2>/dev/null || true
 

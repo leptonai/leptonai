@@ -2,7 +2,7 @@ import re
 import sys
 import os
 
-from .job import _get_newest_job_by_name
+from .util import _get_newest_job_by_name
 from .util import click_group, console
 
 from ..api.v2.client import APIClient
@@ -16,7 +16,7 @@ from rich.progress import Progress
 str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
-supported_formats = """
+_supported_formats_log = """
         Please note that all times must be in UTC. 
         Keywords such as “now,” “today,” and “yesterday” will be interpreted as UTC timestamps. 
         For example, “now” corresponds to datetime.now(timezone.utc).
@@ -49,9 +49,31 @@ supported_formats = """
         """
 
 
-def _preprocess_time(input_time, epoch=False):
-    """
-    Preprocesses custom time formats like YD (yesterday) or TD (today).
+def _preprocess_time(
+    input_time, local_time=False, epoch=False, supported_formats=_supported_formats_log
+):
+    """Parse user time input into a timezone-aware datetime (UTC by default) or a
+    nanosecond epoch timestamp.
+
+    Supported inputs:
+    - Keywords (can be combined with time of day):
+      - now
+      - today / td
+      - yesterday / yd
+      - tomorrow / tm
+      Examples: "today", "today 01", "today 01:10", "today 01:10:01.123456"
+
+    - Standard formats (microseconds optional):
+      - YYYY-MM-DD HH:MM:SS[.ffffff]
+      - YYYY/MM/DD HH:MM:SS[.ffffff]
+
+    Behavior:
+    - Parsed as UTC by default; if local_time=True, parse/convert in local timezone.
+    - If epoch=True, return a nanosecond timestamp; otherwise return a datetime.
+    - If epoch=True and input starts with "search_before,", subtract an extra 2 days
+      from the resulting timestamp (used by historical search windows).
+
+    On invalid formats, prints supported formats and exits the program.
     """
     if epoch:
         search_time_offset_ns = 0
@@ -60,7 +82,8 @@ def _preprocess_time(input_time, epoch=False):
             console.print(input_time)
             search_time_offset_ns = -2 * 24 * 60 * 60 * 1_000_000_000
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc) if not local_time else datetime.now().astimezone()
+
     input_time = input_time.replace("/", "-")
 
     input_time = re.sub(
@@ -75,16 +98,21 @@ def _preprocess_time(input_time, epoch=False):
     input_time = input_time.lower().replace(
         "yd", (now - timedelta(days=1)).strftime(str_date_format), 1
     )
+    input_time = input_time.lower().replace(
+        "tomorrow", (now + timedelta(days=1)).strftime(str_date_format), 1
+    )
+    input_time = input_time.lower().replace(
+        "tm", (now + timedelta(days=1)).strftime(str_date_format), 1
+    )
     if input_time.lower() == "now":
         input_time = now.strftime(str_time_format)
-    if input_time.lower() == "today":
-        input_time = now.to_date_string()
-    if input_time.lower() == "yesterday":
-        input_time = now.to_date_string()
 
     # Parse the time and ensure it uses the utc timezone
     try:
-        parsed_time = datetime.fromisoformat(input_time).replace(tzinfo=timezone.utc)
+        parsed_time = datetime.fromisoformat(input_time)
+        if not local_time:
+            parsed_time = parsed_time.replace(tzinfo=timezone.utc)
+
     except ValueError:
         console.print(
             "[red]Invalid time format. Supported formats are:[/]\n" + supported_formats
@@ -97,15 +125,21 @@ def _preprocess_time(input_time, epoch=False):
     return parsed_time
 
 
-def _epoch_to_utc_time_str(nanoseconds):
-    """
-    Convert a timestamp in nanoseconds to the utc time
+def _epoch_to_time_str(nanoseconds, local_time=False):
+    """Convert a nanosecond timestamp to a formatted time string.
 
     Args:
-        nanoseconds (int or str): The timestamp in nanoseconds.
+        nanoseconds (int or str): Timestamp in nanoseconds since epoch
+        local_time (bool): If True, convert to local timezone; if False, use UTC
 
     Returns:
-        str: The utc time string.
+        str: Formatted time string in format 'YYYY-MM-DD HH:MM:SS.ffffff'
+
+    Examples:
+        >>> _epoch_to_time_str(1710928800000000000)  # UTC
+        '2024-03-20 10:00:00.000000'
+        >>> _epoch_to_time_str(1710928800000000000, local_time=True)  # Local time
+        '2024-03-20 03:00:00.000000'  # Example for Los Angeles (UTC-7)
     """
     if isinstance(nanoseconds, str):
         nanoseconds = int(nanoseconds)
@@ -113,9 +147,12 @@ def _epoch_to_utc_time_str(nanoseconds):
     # Convert nanoseconds to seconds
     seconds = nanoseconds / 1e9
     # Create an aware UTC datetime object
-    utc_time = datetime.fromtimestamp(seconds, tz=timezone.utc)
+    if local_time:
+        time_obj = datetime.fromtimestamp(seconds)
+    else:
+        time_obj = datetime.fromtimestamp(seconds, tz=timezone.utc)
 
-    return utc_time.strftime(str_time_format)
+    return time_obj.strftime(str_time_format)
 
 
 def safe_load_json(string):
@@ -177,13 +214,13 @@ def log():
     "--start",
     type=str,
     default=None,
-    help="The start time in ISO format.",
+    help="The start time in ISO format. " + _supported_formats_log,
 )
 @click.option(
     "--end",
     type=str,
     default=None,
-    help="The end time in ISO format.",
+    help="The end time in ISO format. " + _supported_formats_log,
 )
 @click.option(
     "--limit",
@@ -297,6 +334,19 @@ def log_command(
             sys.exit(1)
         job = job.metadata.id_
 
+    if (job or deployment) and replica:
+        replicas = (
+            client.job.get_replicas(job)
+            if job
+            else client.deployment.get_replicas(deployment)
+        )
+        if replica not in [replica.metadata.id_ for replica in replicas]:
+            console.print(
+                f"[bold red]Warning:[/bold red] No replica named '{replica}' found for"
+                f" {job if job else deployment}."
+            )
+            sys.exit(1)
+
     def fetch_log(start, end, limit):
         unix_start = _preprocess_time(start, epoch=True)
         unix_end = _preprocess_time(end, epoch=True)
@@ -352,11 +402,9 @@ def log_command(
         log_list = fetch_log(start, end, limit)
 
         first_utc_time = (
-            _epoch_to_utc_time_str(log_list[-1][0]) if len(log_list) > 0 else start
+            _epoch_to_time_str(log_list[-1][0]) if len(log_list) > 0 else start
         )
-        last_utc_time = (
-            _epoch_to_utc_time_str(log_list[0][0]) if len(log_list) > 0 else end
-        )
+        last_utc_time = _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
 
         if path:
             directory = os.path.dirname(path)
@@ -372,7 +420,7 @@ def log_command(
                     f"UTC|{last_utc_time} | total {len(log_list)} lines \n"
                 )
                 for log in reversed(log_list):
-                    utc_time = _epoch_to_utc_time_str(log[0])
+                    utc_time = _epoch_to_time_str(log[0])
                     cur_line = safe_load_json(log[1])
                     f.write(f"{utc_time}｜{cur_line}\n")
             console.print(
@@ -381,7 +429,7 @@ def log_command(
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                utc_time = _epoch_to_utc_time_str(log[0])
+                utc_time = _epoch_to_time_str(log[0])
                 cur_line = safe_load_json(log[1])
                 console.print(f"[green]{utc_time}|[/]", end="")
                 console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)

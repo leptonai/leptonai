@@ -1,28 +1,34 @@
 from typing import List, Optional, Any
 import click
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import sys
 
 from loguru import logger
 from rich.table import Table
 
+from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
+
 from .util import (
     console,
     click_group,
     catch_deprecated_flag,
     check,
-    build_dashboard_job_url,
     make_container_ports_from_str_list,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    _get_newest_job_by_name,
 )
+
+from .util import make_container_port_from_string  # noqa: F401
+
 from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import BASE_IMAGE, VALID_SHAPES
 
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.job import (
     LeptonJob,
+    LeptonJobTimeSchedule,
     LeptonJobUserSpec,
     LeptonJobState,
 )
@@ -32,7 +38,9 @@ from leptonai.api.v1.types.deployment import (
 from leptonai.api.v2.client import APIClient
 
 
-def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
+def _display_jobs_table(
+    jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
+):
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name / ID")
     table.add_column("Created At")
@@ -52,10 +60,13 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         )
         status = job.status
 
-        job_url = build_dashboard_job_url(workspace_id, job.metadata.id_)
-        name_id_cell = (
-            f"[bold #76b900]{job.metadata.name}[/]\n"
+        job_url = None
+        if dashboard_base_url:
+            job_url = f"{dashboard_base_url}/compute/jobs/detail/{job.metadata.id_}/replicas/list"
+        name_id_cell = f"[bold #76b900]{job.metadata.name}[/]\n" + (
             f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
+            if job_url
+            else f"[bright_black]{job.metadata.id_}[/]"
         )
         workers = job.spec.completions or job.spec.parallelism or 1
         shape = job.spec.resource_shape or "-"
@@ -92,7 +103,9 @@ def _display_jobs_table(jobs: List[LeptonJob], workspace_id: str):
         f"[bold]Resource Utilization Summary for above [cyan]{num_jobs}[/]"
         f" job{'s' if num_jobs!=1 else ''} (Running / Restarting / Deleting only):[/]"
     )
-    for shape, count in sorted(shape_totals.items()):
+    for shape, count in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
         console.print(f"  [bright_black]{shape}[/] : [bold cyan]{count}[/]")
     console.print("\n")
 
@@ -181,15 +194,33 @@ def _filter_jobs(
     return filtered_jobs
 
 
-def _get_newest_job_by_name(job_name: str) -> LeptonJob:
-    client = APIClient()
+_supported_time_formats_job_schedule = """
+    Supported formats:
+        - Full Date and Time:
+          Format: YYYY/MM/DD HH:MM:SS
+          Example: 2024/12/25 13:10:01
 
-    job_list = client.job.list_all(q=job_name)
-    exact_matches = [j for j in job_list if j.metadata.name == job_name]
+          Alternate Format: YYYY-MM-DD HH:MM:SS
+          Example: 2024-12-25 13:10:01
 
-    if not exact_matches:
-        return None
-    return max(exact_matches, key=lambda j: j.metadata.created_at)
+        - today or td:
+          Example Variations:
+          today (defaults to midnight of the current day)
+          today 01 (1 AM of the current day)
+          today 01:10 (1:10 AM of the current day)
+          today 01:10:05 (1:10:05 AM of the current day)
+
+        - tomorrow or tm:
+            Example Variations:
+            tomorrow (defaults to midnight of the next day)
+            tomorrow 13 (1 PM of the next day)
+            tomorrow 13:10 (1:10 PM of the next day)
+            tomorrow 13:10:05 (1:10:05 PM of the next day)
+
+        Note: By default, all times are interpreted in your local timezone. To specify UTC time, prefix your input with 'UTC:' or 'utc:'. For example:
+        - UTC:2024/12/25 13:10:01
+        - utc:tomorrow 13:10
+        """
 
 
 @click_group()
@@ -211,8 +242,9 @@ def job():
     "--file",
     "-f",
     help=(
-        "If specified, load the job spec from the file. Any explicitly passed in arg"
-        " will update the spec based on the file."
+        "If provided, load the job spec from this JSON file before applying CLI"
+        " overrides. The file can be obtained from the dashboard's UI → CLI → 'Use spec"
+        " file', or by running: `lep job get -i <job_id> --path <download_path>`."
     ),
     type=str,
 )
@@ -447,6 +479,15 @@ def job():
     ),
 )
 @click.option(
+    "--start-at",
+    type=str,
+    help=(
+        "Schedule the job to start at a specific time. If not specified, the job"
+        " will start immediately."
+    )
+    + _supported_time_formats_job_schedule,
+)
+@click.option(
     "--allow-burst-to-other-reservation",
     is_flag=True,
     default=False,
@@ -484,6 +525,7 @@ def create(
     visibility,
     shared_memory_size,
     with_reservation,
+    start_at,
     allow_burst_to_other_reservation,
 ):
     """
@@ -546,10 +588,13 @@ def create(
         sys.exit(1)
 
     # Configure worker settings
-    if num_workers:
+    if num_workers is not None and num_workers > 0:
         job_spec.completions = num_workers
         job_spec.parallelism = num_workers
         job_spec.intra_job_communication = True
+    elif num_workers is not None and num_workers <= 0:
+        console.print("[red]Error: --num-workers must be greater than 0.[/]")
+        sys.exit(1)
     elif intra_job_communication:
         job_spec.intra_job_communication = intra_job_communication
 
@@ -603,7 +648,42 @@ def create(
     if log_collection is not None:
         job_spec.log = LeptonLog(enable_collection=log_collection)
     if shared_memory_size is not None:
+        if shared_memory_size < 0:
+            console.print(
+                "[red]Error: --shared-memory-size must be greater than or equal to"
+                " 0.[/]"
+            )
+            sys.exit(1)
         job_spec.shared_memory_size = shared_memory_size
+    if start_at:
+        use_local_timezone = not (
+            start_at.startswith("UTC:") or start_at.startswith("utc:")
+        )
+        current_time = int(datetime.now().astimezone().timestamp())
+        if not use_local_timezone:
+            start_at = start_at.split(":")[1]
+            current_time = int(datetime.now(timezone.utc).timestamp())
+
+        start_at = (
+            _preprocess_time(
+                start_at,
+                local_time=use_local_timezone,
+                epoch=True,
+                supported_formats=_supported_time_formats_job_schedule,
+            )
+            / 1000000000
+        )
+
+        if start_at < current_time:
+            console.print(
+                "\n[red]Error:[/red] Start time"
+                f" [red]{_epoch_to_time_str(start_at * 1000000000, local_time=use_local_timezone)}[/]"
+                " is earlier than"
+                " current time"
+                f" [green]{_epoch_to_time_str(current_time * 1000000000, local_time=use_local_timezone)}[/]\n"
+            )
+            sys.exit(1)
+        job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
 
     # Create job with metadata
     job = LeptonJob(
@@ -699,9 +779,9 @@ def list_command(state, user, name_or_id, node_group):
         list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
-    logger.trace(f"Jobs: {jobs}")
 
     _display_jobs_table(jobs, client.get_workspace_id())
+
 
 
 @job.command()
@@ -775,7 +855,12 @@ def remove_all(state, user, name, node_group):
         list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
-    job_filtered = _filter_jobs(jobs, exact_users=user)
+
+    job_filtered = _filter_jobs(
+        jobs,
+        exact_users=user,
+        exact_names=name,
+    )
 
     if len(job_filtered) == 0:
         console.print(
@@ -785,7 +870,9 @@ def remove_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -883,7 +970,12 @@ def stop_all(state, user, name, node_group):
         list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
-    job_filtered = _filter_jobs(jobs, exact_users=user)
+
+    job_filtered = _filter_jobs(
+        jobs,
+        exact_users=user,
+        exact_names=name,
+    )
 
     if len(job_filtered) == 0:
         console.print(
@@ -893,7 +985,9 @@ def stop_all(state, user, name, node_group):
         )
         sys.exit(0)
 
-    _display_jobs_table(job_filtered, client.get_workspace_id())
+    _display_jobs_table(
+        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
+    )
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
@@ -1199,9 +1293,18 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
-    if cur_job.spec.stopped is True:
+    if cur_job.spec.stopped is True or cur_job.status.state in [
+        LeptonJobState.Stopped,
+        LeptonJobState.Stopping,
+        LeptonJobState.Failed,
+        LeptonJobState.Deleting,
+        LeptonJobState.Deleted,
+        LeptonJobState.Archived,
+        LeptonJobState.Completed,
+    ]:
         console.print(
-            f"[yellow]⚠ Job [bold]{id}[/] is already stopped. No action taken.[/]"
+            f"[yellow]⚠ Job [bold]{id}[/] is already {cur_job.status.state}. No action"
+            " taken.[/]"
         )
         sys.exit(0)
     client.job.update(id, spec={"spec": {"stopped": True}})

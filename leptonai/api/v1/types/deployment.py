@@ -7,6 +7,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
+from .auth import AuthConfig
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
@@ -57,8 +58,8 @@ class ContainerPort(BaseModel):
 
     @compatible_field_validator("container_port")
     def validate_container_port(cls, v):
-        if v < 0 or v > 65535:
-            raise ValueError("Invalid port number. Port must be between 0 and 65535.")
+        if v is None or v <= 0 or v > 65535:
+            raise ValueError("Invalid port number. Port must be between 1 and 65535.")
         return v
 
     @compatible_field_validator("protocol")
@@ -200,6 +201,12 @@ class AutoscalerTargetThroughput(BaseModel):
     paths: Optional[List[str]] = None
     methods: Optional[List[str]] = None
 
+    @compatible_field_validator("qpm")
+    def validate_qpm(cls, v):
+        if v is not None and v < 0:
+            raise ValueError(f"qpm must be non-negative. Found {v}.")
+        return v
+
 
 class AutoScaler(BaseModel):
     scale_down: Optional[ScaleDown] = None
@@ -258,6 +265,15 @@ class QueueConfig(BaseModel):
     can_preempt: Optional[bool] = None
 
 
+class SchedulingToggle(str, Enum):
+    Required = "Required"
+    Preferred = "Preferred"
+
+
+class DeploymentSchedulingPolicy(BaseModel):
+    replica_spread: Optional[SchedulingToggle] = None
+
+
 class LeptonDeploymentUserSpec(BaseModel):
     photon_namespace: Optional[str] = None
     photon_id: Optional[str] = None
@@ -277,6 +293,8 @@ class LeptonDeploymentUserSpec(BaseModel):
     routing_policy: Optional[LeptonRoutingPolicy] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
+    scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
+    auth_config: Optional[AuthConfig] = None
 
 
 class LeptonDeploymentState(str, Enum):

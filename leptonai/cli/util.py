@@ -3,16 +3,18 @@ Common utilities for the CLI.
 """
 
 import sys
+import traceback
 from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 import click
 from loguru import logger
+from leptonai.api.v1.api_resource import ClientError, ServerError
 
 from rich.console import Console
+from leptonai.api.v1.types.job import LeptonJob
 from leptonai.api.v2.client import APIClient
 
-from leptonai.config import DASHBOARD_URL
 from leptonai.api.v1.types.deployment import (
     ContainerPort,
     ContainerPortExposeStrategy,
@@ -65,6 +67,51 @@ def click_group(*args, **kwargs):
             # always return the full command name
             _, cmd, args = super().resolve_command(ctx, args)
             return cmd.name, cmd, args
+
+        def invoke(self, ctx):
+            try:
+                return super().invoke(ctx)
+            except ClientError as e:
+                resp = getattr(e, "response", None)
+                status = getattr(resp, "status_code", None)
+                text = getattr(resp, "text", str(e))
+                if status == 401:
+                    console.print(
+                        f"\n[red]401 Unauthorized[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                        " This may be caused by an invalid or mismatched workspace"
+                        " token.\n[white] \n Check your local workspace info and"
+                        " token:[/white]\n [dim]lep workspace list[/dim]\n [dim]lep"
+                        " workspace token[/dim]\nGenerate a new token in your"
+                        " workspace dashboard, then login again with lep login -c"
+                        " <workspace_id>:<new_token>.\n"
+                    )
+                elif status == 403:
+                    console.print(
+                        f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                        " This may be caused by insufficient permissions or an expired"
+                        " workspace token.\n\n[white]Check your local workspace info"
+                        " and token:[/white]\n [dim]lep workspace list[/dim]\n"
+                        " [dim]lep workspace token[/dim]\nIf your token has expired,"
+                        " generate a new token in the workspace dashboard, then login"
+                        " again with `lep login -c <workspace_id>:<new_token>`.\n"
+                    )
+                elif status == 404:
+                    console.print(f"[red]404 Not Found[/]:{text}")
+                else:
+                    console.print(f"[red]{status} Error[/]: {text}")
+                sys.exit(1)
+            except ServerError as e:
+                resp = getattr(e, "response", None)
+                status = getattr(resp, "status_code", None)
+                text = getattr(resp, "text", str(e))
+                console.print(f"[red]{status} Error[/]: {text}")
+                sys.exit(1)
+            except (click.ClickException, click.exceptions.Exit):
+                raise
+            except Exception as e:
+                console.print(f"[red]Unexpected error[/]: {e}")
+                console.print(traceback.format_exc())
+                sys.exit(1)
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
 
@@ -334,17 +381,15 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     return valid_nodes_id
 
 
-def build_dashboard_job_url(workspace_id: str, job_id: str) -> str:
-    """Return full dashboard URL for a given job.
+def _get_newest_job_by_name(job_name: str) -> LeptonJob:
+    client = APIClient()
 
-    Args:
-        workspace_id: Current workspace ID.
-        job_id: Job's metadata.id_.
+    job_list = client.job.list_all(q=job_name)
+    exact_matches = [j for j in job_list if j.metadata.name == job_name]
 
-    Example output:
-        https://dashboard.dgxc-lepton.nvidia.com/workspace/<ws>/compute/jobs/detail/<job>/replicas/list
-    """
-    return f"{DASHBOARD_URL}/workspace/{workspace_id}/compute/jobs/detail/{job_id}/replicas/list"
+    if not exact_matches:
+        return None
+    return max(exact_matches, key=lambda j: j.metadata.created_at)
 
 
 def _validate_queue_priority(ctx, param, value):

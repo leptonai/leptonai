@@ -55,7 +55,7 @@ def print_dir_contents(dir_path, dir_infos):
     console.print(f"{num_directories} {dir_tense}, {num_files} {file_tense}")
 
 
-@click_group()
+@click_group(hidden=True)
 def storage():
     """
     Manage File storage on the Lepton AI cloud.
@@ -284,8 +284,6 @@ def upload(
     file will be uploaded to that directory with its local name.
     """
     # if the remote path is a directory, upload the file with its local name to that directory
-    client = APIClient()
-
     if remote_path[-1] == "/":
         remote_path = remote_path + local_path.split("/")[-1]
 
@@ -296,7 +294,11 @@ def upload(
         console.print("Cannot use --progress without --rsync")
         sys.exit(1)
     if auto_recover != 1 and not rsync:
-        console.print("Cannot use --auto_recover without --rsync")
+        console.print("Cannot use --auto-recover without --rsync")
+        sys.exit(1)
+
+    # Initialize API client only after validating flags to fail fast without IO/API access
+    client = APIClient()
 
     if rsync:
         console.print(

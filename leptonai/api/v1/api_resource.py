@@ -1,6 +1,16 @@
 from pydantic import BaseModel
 from requests import Response
-from typing import TYPE_CHECKING, Dict, Union, List, Any, TypeVar, Type, NoReturn
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Optional,
+    Union,
+    List,
+    Any,
+    TypeVar,
+    Type,
+    NoReturn,
+)
 
 if TYPE_CHECKING:
     # only used for type hinting, but avoids circular imports
@@ -126,8 +136,7 @@ class APIResourse(object):
         self,
         response,
         EnsuredType: Type[T],
-        *,
-        skip_invalid: bool = True,
+        list_key: Optional[str] = None,
     ) -> List[T]:
         """
         Ensure the response JSON is a list convertible to ``EnsuredType``.
@@ -135,23 +144,21 @@ class APIResourse(object):
         Args:
             response: ``requests.Response`` object.
             EnsuredType: Pydantic model class the items should map to.
-            skip_invalid: When ``True``, invalid items are skipped with a warning; when
-                ``False`` (default), any validation error raises immediately, matching
-                previous behaviour.
+            list_key: Optional key to the list in the response JSON.
         """
 
         self._raise_if_not_ok(response)
 
-        if not skip_invalid:
-            try:
-                return [EnsuredType(**item) for item in response.json()]
-            except Exception as e:
-                self._print_programming_error(response, e)
-
         valid_items = []
         errors: List[str] = []
 
-        for idx, raw in enumerate(response.json()):
+        if list_key:
+            data = response.json()
+            items_raw = data.get(list_key, data) if isinstance(data, dict) else data
+        else:
+            items_raw = response.json()
+
+        for idx, raw in enumerate(items_raw):
             try:
                 valid_items.append(EnsuredType(**raw))
             except Exception as e:
