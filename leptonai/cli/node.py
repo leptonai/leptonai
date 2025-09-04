@@ -1,5 +1,7 @@
+import json
 import click
 
+from loguru import logger
 from rich.table import Table
 
 from .util import (
@@ -142,7 +144,7 @@ def list_command(detail=False, node_group=None):
     """
     client = APIClient()
     node_groups = client.nodegroup.list_all()
-
+    filtered_node_groups = node_groups
     if node_group:
         # filters: values from -ng; this is a tuple from click, iterate directly
         filters = node_group
@@ -157,12 +159,10 @@ def list_command(detail=False, node_group=None):
                 for filter_value in filters
             )
         ]
-        node_groups = filtered_node_groups
 
-    console.print(
-        "\n If a node appears available but is actually in use, it is currently"
-        " handling only CPU workloads, with all GPUs remaining idle."
-    )
+    if len(filtered_node_groups) == 0:
+        console.print(f"\nNode group(s): [yellow]{', '.join(node_group)}[/yellow] is not found. current node groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n")
+
 
     # Create base table
     table = Table(title="Node Groups", show_lines=True)
@@ -174,7 +174,7 @@ def list_command(detail=False, node_group=None):
     table.add_column("Ready Nodes")
 
     # Add extra column for detailed view
-    for node_group in node_groups:
+    for node_group in filtered_node_groups:
         node_group_name = node_group.metadata.name
         node_group_id = node_group.metadata.id_
         ready_nodes = str(node_group.status.ready_nodes or 0)
@@ -209,6 +209,11 @@ def list_command(detail=False, node_group=None):
             )
 
     console.print(table)
+
+    console.print(
+        "[dim]Note:[/dim] If a node appears available but is actually in use, it is currently"
+        " handling only CPU workloads, with all GPUs remaining idle.\n"
+    )
 
 
 def add_command(cli_group):
