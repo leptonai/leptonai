@@ -4,9 +4,7 @@ from .types.shape import Shape
 
 
 class ResourceShapeAPI(APIResourse):
-    def list_shapes(
-        self, node_group: Optional[str] = None
-    ) -> List[Shape]:
+    def list_shapes(self, node_group: Optional[str] = None) -> List[Shape]:
         """List resource shapes.
 
         Args:
