@@ -120,6 +120,82 @@ def _format_node_details(node):
     )
 
 
+def _format_shape_entry(shape):
+    """Format a single Shape into two parts: (shape cell text, detailed cell text).
+
+    Both parts are two lines to ensure intra-row alignment:
+      - Shapes:   line1 = name, line2 = colored availability tags
+      - Detailed: line1 = description (or empty), line2 = colored resource spec
+    """
+    spec = getattr(shape, "spec", None)
+    meta = getattr(shape, "metadata", None)
+
+    # Name preference: spec.name -> metadata.name -> metadata.id_
+    name = (
+        (getattr(spec, "name", None) if spec else None)
+        or (getattr(meta, "name", None) if meta else None)
+        or (getattr(meta, "id_", None) if meta else None)
+        or "(unnamed)"
+    )
+
+    description = getattr(spec, "description", None)
+    listable = set((getattr(spec, "listable_in", None) or [])) if spec else set()
+    listable_lower = {str(x).lower() for x in listable}
+
+    # Build availability tags
+    pod_tag = "[green]pod[/green]" if "pod" in listable_lower else "[dim]pod[/dim]"
+    endpoint_tag = (
+        "[cyan]endpoint[/cyan]"
+        if "deployment" in listable_lower
+        else "[dim]endpoint[/dim]"
+    )
+    job_tag = "[magenta]job[/magenta]" if "job" in listable_lower else "[dim]job[/dim]"
+
+    shape_cell_lines = [f"[bold]{name}[/bold]", f"{pod_tag}  {endpoint_tag}  {job_tag}"]
+
+    # Detailed column with more colors
+    cpu = getattr(spec, "cpu", None)
+    mem = getattr(spec, "memory_in_mb", None)
+    eph = getattr(spec, "ephemeral_storage_in_gb", None)
+    acc_type = getattr(spec, "accelerator_type", None)
+    acc_num = getattr(spec, "accelerator_num", None)
+    acc_frac = getattr(spec, "accelerator_fraction", None)
+    acc_mem = getattr(spec, "accelerator_memory_in_mb", None)
+    price = getattr(spec, "price", None)
+
+    # line1 of details: description (optional)
+    detail_line1 = str(description) if description else ""
+
+    # line2 of details: colorized resource spec
+    spec_parts = []
+    if cpu is not None:
+        spec_parts.append(f"[dim]cpu[/dim]=[cyan]{int(cpu)}[/cyan]")
+    if mem is not None:
+        spec_parts.append(f"[dim]mem[/dim]={mem}MB")
+    if eph is not None:
+        spec_parts.append(f"[dim]ephemeral storage[/dim]=[blue]{eph}GB[/blue]")
+
+    acc_parts = []
+    if acc_type:
+        acc_parts.append(f"[yellow]{acc_type}[/yellow]")
+    if acc_num is not None:
+        acc_parts.append(f"x{int(acc_num)}")
+    elif acc_frac is not None:
+        acc_parts.append(f"fraction={acc_frac}")
+    if acc_mem is not None:
+        acc_parts.append(f"{acc_mem}MB")
+    if acc_parts:
+        spec_parts.append("[dim]acc[/dim]=" + " ".join(acc_parts))
+
+    if price is not None:
+        spec_parts.append(f"[dim]${price}[/dim]")
+
+    detail_line2 = ", ".join(spec_parts)
+
+    detail_text = "\n".join([detail_line1, detail_line2])
+    return "\n".join(shape_cell_lines), detail_text
+
+
 @node.command(name="list")
 @click.option("--detail", "-d", help="Show all the nodes", is_flag=True)
 @click.option(
@@ -207,6 +283,82 @@ def list_command(detail=False, node_group=None):
                 f"[blue]{stats['used']}[/blue]/{ready_nodes}",
                 ready_nodes,
             )
+
+    console.print(table)
+
+
+@node.command(name="resource-shape")
+@click.option(
+    "--node-group",
+    "-ng",
+    help=(
+        "Show resource shapes for specific node groups by their IDs or names. Can use"
+        " partial name/ID (e.g., 'h100' will match any name/ID containing 'h100'). Can"
+        " specify multiple values."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def resource_shape_command(node_group=None):
+    """
+    List resource shapes per node group.
+
+    Columns:
+      - Node Group: name on first line, id on second line
+      - Shapes: one shape per block, first line is name, second line shows colored availability for pod/endpoint/job
+      - Detailed: description and colored resource details
+    """
+    client = APIClient()
+    node_groups = client.nodegroup.list_all()
+
+    if node_group:
+        filters = node_group
+        node_groups = [
+            ng
+            for ng in node_groups
+            if any((f in ng.metadata.id_) or (f in ng.metadata.name) for f in filters)
+        ]
+
+    table = Table(title="Resource Shapes by Node Group", show_lines=True)
+    table.add_column("Node Group")
+    table.add_column("Shapes")
+    table.add_column("Detailed")
+
+    wanted = {"pod", "deployment", "job"}
+
+    for ng in node_groups:
+        ng_name = ng.metadata.name
+        ng_id = ng.metadata.id_
+
+        shapes = client.shapes.list_shapes(node_group=ng_id)
+        # Fallback to name if ID returns nothing
+        if not shapes:
+            try:
+                shapes = client.shapes.list_shapes(node_group=ng_name)
+            except Exception:
+                shapes = []
+
+        # NodeGroup column: name on first line, id on second line (only show on the first row per group)
+        filtered = []
+        for sh in shapes:
+            spec = getattr(sh, "spec", None)
+            listable = set((getattr(spec, "listable_in", None) or []))
+            listable_lower = {str(x).lower() for x in listable}
+            if listable_lower & wanted:
+                filtered.append(sh)
+
+        if not filtered:
+            nodegroup_text = f"{ng_name}\n[dim]{ng_id}[/dim]"
+            table.add_row(nodegroup_text, "[yellow]- none[/yellow]", "")
+            continue
+
+        first = True
+        for sh in filtered:
+            shape_text, detail_text = _format_shape_entry(sh)
+            nodegroup_text = f"{ng_name}\n[dim]{ng_id}[/dim]" if first else ""
+            table.add_row(nodegroup_text, shape_text, detail_text)
+            first = False
 
     console.print(table)
 
