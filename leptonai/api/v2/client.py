@@ -160,8 +160,8 @@ class APIClient(object):
                 now_ms = int(time.time() * 1000)
                 if now_ms >= self.token_expires_at:
                     logger.warning(
-                        "Workspace token has expired. Please issue a new token and run `lep"
-                        " workspace login` again."
+                        "Workspace token has expired. Please issue a new token and run"
+                        " `lep workspace login` again."
                     )
                     HAS_WARNED_TOKEN_EXPIRE = True
                 else:

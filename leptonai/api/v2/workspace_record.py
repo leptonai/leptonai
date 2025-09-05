@@ -121,9 +121,10 @@ class WorkspaceRecord(object):
         )
         token_expires_at = (
             None
-            if 
-            (workspace_id not in cls._singleton_record.workspaces
-            or could_be_new_token)
+            if (
+                workspace_id not in cls._singleton_record.workspaces
+                or could_be_new_token
+            )
             else cls._singleton_record.workspaces[workspace_id].token_expires_at
         )
 
@@ -303,7 +304,8 @@ class WorkspaceRecord(object):
 
     @classmethod
     def refresh_token_expires_at(
-        cls, workspace_id: Optional[str] = None,
+        cls,
+        workspace_id: Optional[str] = None,
         skip_if_token_exists: Optional[bool] = False,
     ) -> Optional[int]:
         workspace_id = workspace_id if workspace_id else cls.get_current_workspace_id()
@@ -316,7 +318,7 @@ class WorkspaceRecord(object):
         )
         if skip_flag:
             return cls.get(workspace_id).token_expires_at
-            
+
         info = cls.get(workspace_id)
         if not info or info.is_lepton_classic:
             return None
