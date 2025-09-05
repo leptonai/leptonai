@@ -123,9 +123,8 @@ def _format_node_details(node):
 def _format_shape_entry(shape):
     """Format a single Shape into two parts: (shape cell text, detailed cell text).
 
-    Both parts are two lines to ensure intra-row alignment:
-      - Shapes:   line1 = name, line2 = colored availability tags
-      - Detailed: line1 = description (or empty), line2 = colored resource spec
+    Shapes column: two lines (name, colored availability tags)
+    Detailed column: single line colored resource spec
     """
     spec = getattr(shape, "spec", None)
     meta = getattr(shape, "metadata", None)
@@ -138,7 +137,6 @@ def _format_shape_entry(shape):
         or "(unnamed)"
     )
 
-    description = getattr(spec, "description", None)
     listable = set((getattr(spec, "listable_in", None) or [])) if spec else set()
     listable_lower = {str(x).lower() for x in listable}
 
@@ -163,17 +161,10 @@ def _format_shape_entry(shape):
     acc_mem = getattr(spec, "accelerator_memory_in_mb", None)
     price = getattr(spec, "price", None)
 
-    # line1 of details: description (optional)
-    detail_line1 = str(description) if description else ""
-
-    # line2 of details: colorized resource spec
-    spec_parts = []
+    # details: two lines -> line1: cpu + acc, line2: others (mem/eph/price)
+    cpu_acc_parts = []
     if cpu is not None:
-        spec_parts.append(f"[dim]cpu[/dim]=[cyan]{int(cpu)}[/cyan]")
-    if mem is not None:
-        spec_parts.append(f"[dim]mem[/dim]={mem}MB")
-    if eph is not None:
-        spec_parts.append(f"[dim]ephemeral storage[/dim]=[blue]{eph}GB[/blue]")
+        cpu_acc_parts.append(f"cpu x [cyan]{int(cpu)}[/cyan]")
 
     acc_parts = []
     if acc_type:
@@ -185,14 +176,19 @@ def _format_shape_entry(shape):
     if acc_mem is not None:
         acc_parts.append(f"{acc_mem}MB")
     if acc_parts:
-        spec_parts.append("[dim]acc[/dim]=" + " ".join(acc_parts))
+        cpu_acc_parts.append("acc: " + " ".join(acc_parts))
 
+    other_parts = []
+    if mem is not None:
+        other_parts.append(f"[dim]mem={mem}MB[/dim]")
+    if eph is not None:
+        other_parts.append(f"[dim]ephemeral storage={eph}GB[/dim]")
     if price is not None:
-        spec_parts.append(f"[dim]${price}[/dim]")
+        other_parts.append(f"[dim]${price}[/dim]")
 
-    detail_line2 = ", ".join(spec_parts)
-
-    detail_text = "\n".join([detail_line1, detail_line2])
+    top_line = ", ".join(cpu_acc_parts)
+    bottom_line = ", ".join(other_parts)
+    detail_text = "\n".join([top_line, bottom_line])
     return "\n".join(shape_cell_lines), detail_text
 
 
