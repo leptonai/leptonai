@@ -4,7 +4,7 @@ Common utilities for the CLI.
 
 import sys
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import click
@@ -121,6 +121,17 @@ def is_valid_url(candidate_str: str) -> bool:
     return parsed.scheme != "" and parsed.netloc != ""
 
 
+# Singleton API client for CLI process
+_client_singleton: Optional[APIClient] = None
+
+
+def get_client() -> APIClient:
+    global _client_singleton
+    if _client_singleton is None:
+        _client_singleton = APIClient()
+    return _client_singleton
+
+
 def check(condition: Any, message: str) -> None:
     """
     Checks a condition and prints a message if the condition is false.
@@ -185,7 +196,7 @@ def sizeof_fmt(num, suffix="B"):
 
 
 def _get_only_replica_public_ip(name: str):
-    client = APIClient()
+    client = get_client()
     replicas = client.deployment.get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 
@@ -196,7 +207,7 @@ def _get_only_replica_public_ip(name: str):
 
 
 def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
-    client = APIClient()
+    client = get_client()
     valid_ng = client.nodegroup.list_all()
 
     valid_ng_map: Dict[str, str] = {ng.metadata.name: ng for ng in valid_ng}
@@ -358,7 +369,7 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     ):
         return None
     node_ids_set = set(node_ids)
-    client = APIClient()
+    client = get_client()
     valid_nodes_id = set()
     for ng_id in node_group_ids:
         cur_all_nodes = client.nodegroup.list_nodes(name_or_ng=ng_id)
@@ -382,7 +393,7 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
 
 
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
-    client = APIClient()
+    client = get_client()
 
     job_list = client.job.list_all(q=job_name)
     exact_matches = [j for j in job_list if j.metadata.name == job_name]

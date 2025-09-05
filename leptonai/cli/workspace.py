@@ -207,16 +207,7 @@ def list_command(debug):
         # If missing, try to refresh once from server
         if getattr(info, "token_expires_at", None) is None:
             logger.trace(f"Refreshing token expires at for workspace {info.id_}")
-            try:
-                refreshed = WorkspaceRecord.refresh_token_expires_at(info.id_)
-                if refreshed is not None:
-                    info.token_expires_at = refreshed
-            except Exception as e:
-                logger.trace(
-                    f"Failed to refresh token expires at for workspace {info.id_} with"
-                    f" error: {e}"
-                )
-                pass
+            info.token_expires_at = WorkspaceRecord.refresh_token_expires_at(info.id_)
         if getattr(info, "token_expires_at", None):
             try:
                 expires_dt = datetime.fromtimestamp(info.token_expires_at / 1000)

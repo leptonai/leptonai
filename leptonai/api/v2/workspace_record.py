@@ -121,8 +121,9 @@ class WorkspaceRecord(object):
         )
         token_expires_at = (
             None
-            if workspace_id not in cls._singleton_record.workspaces
-            or could_be_new_token
+            if 
+            (workspace_id not in cls._singleton_record.workspaces
+            or could_be_new_token)
             else cls._singleton_record.workspaces[workspace_id].token_expires_at
         )
 
@@ -302,16 +303,35 @@ class WorkspaceRecord(object):
 
     @classmethod
     def refresh_token_expires_at(
-        cls, workspace_id: Optional[str] = None
+        cls, workspace_id: Optional[str] = None,
+        skip_if_token_exists: Optional[bool] = False,
     ) -> Optional[int]:
-        info = cls.get(workspace_id) if workspace_id else cls.current()
+        workspace_id = workspace_id if workspace_id else cls.get_current_workspace_id()
+
+        skip_flag = (
+            skip_if_token_exists
+            or workspace_id is None
+            or not cls.has(workspace_id)
+            or cls.get(workspace_id).token_expires_at is not None
+        )
+        if skip_flag:
+            return cls.get(workspace_id).token_expires_at
+            
+        info = cls.get(workspace_id)
         if not info or info.is_lepton_classic:
             return None
-        token_expires_at = _get_token_expires_at(
-            workspace_id,
-            url=info.url,
-            token=info.auth_token,
-        )
+        try:
+            token_expires_at = _get_token_expires_at(
+                workspace_id,
+                url=info.url,
+                token=info.auth_token,
+            )
+        except Exception as e:
+            logger.trace(
+                f"Failed to refresh token expires at for workspace {workspace_id} with"
+                f" error: {e}"
+            )
+            return None
         info.token_expires_at = token_expires_at
         cls._save_to_file()
         return token_expires_at

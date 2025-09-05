@@ -242,8 +242,10 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                 indent = " " * 17  # match logo's left margin for alignment
                 console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
                 console.print(f"{indent}{'Tier':>12}: {tier}")
-                if api_client.version() is not None:
-                    version = ".".join(str(v) for v in api_client.version())
+                WorkspaceRecord.refresh_token_expires_at(skip_if_token_exists=True)
+                version_info_list = api_client.version(info)
+                if version_info_list is not None:
+                    version = ".".join(str(v) for v in version_info_list)
                     console.print(f"{indent}{'Version':>12}: {version}\n")
                 break
             except WorkspaceUnauthorizedError:
