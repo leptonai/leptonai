@@ -1,7 +1,6 @@
 from typing import Optional, List
 from ..v1.api_resource import APIResourse
-from .types.shape import Shape, ShapeSpec
-from leptonai.api.v1.types.common import Metadata
+from .types.shape import Shape
 
 
 class ResourceShapeAPI(APIResourse):
