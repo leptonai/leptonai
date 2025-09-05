@@ -42,6 +42,10 @@ from .workspace_record import WorkspaceRecord
 from loguru import logger
 
 
+# Token expiry warning: warn at most once per process
+HAS_WARNED_TOKEN_EXPIRE: bool = False
+
+
 class APIClient(object):
     """
     A Lepton API client that is associated with a workspace. This class holds all
@@ -151,20 +155,24 @@ class APIClient(object):
         self.token_expires_at: Optional[int] = token_expires_at
 
         if not self.is_lepton_classic and self.token_expires_at is not None:
-            now_ms = int(time.time() * 1000)
-            if now_ms >= self.token_expires_at:
-                logger.warning(
-                    "Workspace token has expired. Please issue a new token and run `lep"
-                    " workspace login` again."
-                )
-            else:
-                ms_left = self.token_expires_at - now_ms
-                days_left = (ms_left + 86_400_000 - 1) // 86_400_000  # ceil to days
-                if days_left < 10:
+            global HAS_WARNED_TOKEN_EXPIRE
+            if not HAS_WARNED_TOKEN_EXPIRE:
+                now_ms = int(time.time() * 1000)
+                if now_ms >= self.token_expires_at:
                     logger.warning(
-                        f"Workspace token will expire in {days_left} day(s). Please"
-                        " re-issue a new token and run `lep workspace login` again."
+                        "Workspace token has expired. Please issue a new token and run"
+                        " `lep workspace login` again."
                     )
+                    HAS_WARNED_TOKEN_EXPIRE = True
+                else:
+                    ms_left = self.token_expires_at - now_ms
+                    days_left = (ms_left + 86_400_000 - 1) // 86_400_000  # ceil to days
+                    if days_left < 10:
+                        logger.warning(
+                            f"Workspace token will expire in {days_left} day(s). Please"
+                            " re-issue a new token and run `lep workspace login` again."
+                        )
+                        HAS_WARNED_TOKEN_EXPIRE = True
 
         # Creates a connection for us to use.
         self._header = {}
@@ -252,7 +260,6 @@ class APIClient(object):
         """
         ws_api = APIResourse(self)
         response = self._get("/workspace")
-
         auth_token_hint = (
             self.auth_token[:2] + "****" + self.auth_token[-2:]
             if self.auth_token
@@ -282,12 +289,12 @@ class APIClient(object):
 
         return ws_api.ensure_type(response, WorkspaceInfo)
 
-    def version(self) -> Optional[Tuple[int, int, int]]:
+    def version(self, info=None) -> Optional[Tuple[int, int, int]]:
         """
         Returns a tuple of (major, minor, patch) of the workspace version, or if
         this is a dev workspace, returns None.
         """
-        info = self.info()
+        info = info if info else self.info()
         _semver_pattern = re.compile(
             r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"  # noqa: E501
             # noqa: W605
