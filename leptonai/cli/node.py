@@ -7,6 +7,8 @@ from rich.table import Table
 from .util import (
     console,
     click_group,
+    get_client,
+    find_matching_node_groups,
 )
 from ..api.v2.client import APIClient
 
@@ -142,27 +144,19 @@ def list_command(detail=False, node_group=None):
 
     If the --detail or -d option is provided, additional information about each node will be displayed.
     """
-    client = APIClient()
+    client = get_client()
+
     node_groups = client.nodegroup.list_all()
     filtered_node_groups = node_groups
     if node_group:
-        # filters: values from -ng; this is a tuple from click, iterate directly
-        filters = node_group
-        filtered_node_groups = [
-            ng
-            for ng in node_groups
-            # include the group if any filter matches its id or name
-            # we traverse groups once, so a group matching multiple filters
-            # is included only once and original order is preserved
-            if any(
-                (filter_value in ng.metadata.id_) or (filter_value in ng.metadata.name)
-                for filter_value in filters
-            )
-        ]
+        filtered_node_groups = find_matching_node_groups(list(node_group), node_groups)
 
     if len(filtered_node_groups) == 0:
-        console.print(f"\nNode group(s): [yellow]{', '.join(node_group)}[/yellow] is not found. current node groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n")
-
+        console.print(
+            f"\nNode group(s) [yellow]{', '.join(node_group)}[/yellow] not found."
+            " current node"
+            f" groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n"
+        )
 
     # Create base table
     table = Table(title="Node Groups", show_lines=True)
@@ -211,8 +205,8 @@ def list_command(detail=False, node_group=None):
     console.print(table)
 
     console.print(
-        "[dim]Note:[/dim] If a node appears available but is actually in use, it is currently"
-        " handling only CPU workloads, with all GPUs remaining idle.\n"
+        "[dim]Note:[/dim] If a node appears available but is actually in use, it is"
+        " currently handling only CPU workloads, with all GPUs remaining idle.\n"
     )
 
 
