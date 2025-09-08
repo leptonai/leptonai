@@ -286,6 +286,8 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
             (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
+        sys.exit(1)
+        
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
@@ -303,6 +305,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
         """)
+        sys.exit(1)
 
     except WorkspaceForbiddenError as e:
         console.print("\n", e)
@@ -315,6 +318,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [red]You may using an invalid token or the token is expired.[/red]
         [red]Please re-issue a new token and run `lep workspace login` again.[/red]
         """)
+        sys.exit(1)
 
 
 @lep.command()
