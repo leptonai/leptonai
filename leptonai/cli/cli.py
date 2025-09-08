@@ -287,7 +287,6 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
         sys.exit(1)
-        
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
