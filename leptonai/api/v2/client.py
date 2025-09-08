@@ -99,8 +99,8 @@ class APIClient(object):
                 "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
                 " environment, or use commandline `lep login` to log in to a "
                 " workspace. If you do not know your workspace credentials, go to"
-                " https://dashboard.dgxc-lepton.nvidia.com/credentials and login with the"
-                " credential string."
+                " https://dashboard.dgxc-lepton.nvidia.com/credentials and login with"
+                " the credential string."
             )
         # If workspace_id contains colon, it is a credential that also contains the token.
         if ":" in workspace_id and not auth_token:
