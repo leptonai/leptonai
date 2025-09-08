@@ -210,7 +210,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             console.print(
                 "It seems that you are running in a non-GUI environment. You can"
                 " manually obtain credentials from"
-                " [green]https://dashboard.lepton.ai/credentials[/] and copy it"
+                f" [green]{credentials_page_url}[/] and copy it"
                 r" over, or use `lep login -c \[credentials]` to log in."  # noqa: W605
             )
         while not credentials:

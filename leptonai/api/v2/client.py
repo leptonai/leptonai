@@ -66,7 +66,7 @@ class APIClient(object):
         order:
         - If workspace_id is given, log in to the given workspace. Workspace id could
         also include the token as a complete credential string, which you can obtain
-        from https://dashboard.lepton.ai/credentials.
+        from https://dashboard.dgxc-lepton.nvidia.com/credentials.
         - If workspace_id is not given, but there is LEPTON_WORKSPACE_ID in the environment,
         log into that workspace. We will look for LEPTON_WORKSPACE_TOKEN as the auth token,
         and LEPTON_WORKSPACE_URL as the workspace url, if they exist.
@@ -99,8 +99,8 @@ class APIClient(object):
                 "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
                 " environment, or use commandline `lep login` to log in to a "
                 " workspace. If you do not know your workspace credentials, go to"
-                " https://dashboard.lepton.ai/credentials and login with the"
-                " credential string."
+                " https://dashboard.dgxc-lepton.nvidia.com/credentials and login with"
+                " the credential string."
             )
         # If workspace_id contains colon, it is a credential that also contains the token.
         if ":" in workspace_id and not auth_token:
