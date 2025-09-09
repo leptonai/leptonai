@@ -568,10 +568,15 @@ def ssh(name):
     public_ip = _get_only_replica_public_ip(pod.metadata.name)
 
     if not public_ip:
+        dashboard_base_url = client.get_dashboard_base_url()
         console.print(
             "No public IP is found, you can choose to use the web terminal to access"
             " the pod."
-            f"https://dashboard.lepton.ai/workspace/stable/compute/pods/detail/{name}/terminal"
+            + (
+                f"\n{dashboard_base_url}/compute/pods/detail/{name}/terminal \n"
+                if dashboard_base_url
+                else ""
+            )
         )
         sys.exit(0)
 
@@ -604,10 +609,15 @@ def ssh(name):
                 console.print(notice_msg)
 
     if not ssh_flag:
+        dashboard_base_url = client.get_dashboard_base_url()
         console.print(
             "SSH port not found, you can choose to use the web terminal to access the"
             " pod."
-            f"https://dashboard.dgxc-lepton.nvidia.com/workspace/{client.get_workspace_id()}/compute/pods/detail/{name}/terminal"
+            + (
+                f"\n{dashboard_base_url}/compute/pods/detail/{name}/terminal \n"
+                if dashboard_base_url
+                else ""
+            )
         )
         console.print(notice_msg)
         sys.exit(1)
