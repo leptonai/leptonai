@@ -741,7 +741,6 @@ def create(
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -774,7 +773,7 @@ def list_command(state, user, name_or_id, node_group):
     if user:
         list_params["created_by"] = list(user)
     if name_or_id:
-        list_params["q"] = list(name_or_id)
+        list_params["q"] = name_or_id
 
     jobs = client.job.list_all(**list_params)
 
@@ -824,7 +823,6 @@ def list_command(state, user, name_or_id, node_group):
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -854,7 +852,7 @@ def remove_all(state, user, name, node_group):
     if user:
         list_params["created_by"] = list(user)
     if name:
-        list_params["q"] = list(name)
+        list_params["q"] = name
 
     jobs = client.job.list_all(**list_params)
 
@@ -939,7 +937,6 @@ def remove_all(state, user, name, node_group):
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -969,7 +966,7 @@ def stop_all(state, user, name, node_group):
     if user:
         list_params["created_by"] = list(user)
     if name:
-        list_params["q"] = list(name)
+        list_params["q"] = name
 
     jobs = client.job.list_all(**list_params)
 
