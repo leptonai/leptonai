@@ -32,7 +32,7 @@ class TestWorkspaceCli(unittest.TestCase):
     def test_workspace_logout(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["workspace", "logout"])
-        self.assertIn("You are not logged in to any workspace.", result.output.lower())
+        self.assertIn("not logged in to any workspace.", result.output.lower())
         self.assertEqual(result.exit_code, 0)
 
 
