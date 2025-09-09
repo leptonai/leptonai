@@ -42,6 +42,56 @@ def click_group(*args, **kwargs):
     can be shortened to `lep depl` as `depl` uniquely identifies the `deployment` command.
     """
 
+    class _ValidatedCommand(click.Command):
+        """Global guard: forbid empty or whitespace-only string values from CLI.
+
+        This validates only values provided from COMMANDLINE source, and supports
+        both single-value and multiple=True options. It does not change default
+        values or environment-derived values.
+        """
+
+        def invoke(self, ctx):
+            def _is_blank_str(v):
+                return isinstance(v, str) and v.strip() == ""
+
+            for param_name, param_value in ctx.params.items():
+                # Only enforce for values explicitly provided on the command line
+                try:
+                    src = ctx.get_parameter_source(param_name)
+                except Exception:
+                    src = None
+                if src != click.core.ParameterSource.COMMANDLINE:
+                    continue
+
+                # Single string value
+                if _is_blank_str(param_value):
+                    param_obj = next(
+                        (p for p in self.params if getattr(p, "name", None) == param_name),
+                        None,
+                    )
+                    msg = (
+                        "must not be empty or only whitespace. Omit the flag instead of "
+                        "passing an empty string."
+                    )
+                    if param_obj is not None:
+                        raise click.BadParameter(msg, param=param_obj)
+                    ctx.fail(f"Option '--{param_name}' {msg}")
+
+                # Multiple values
+                if isinstance(param_value, (list, tuple)) and any(
+                    _is_blank_str(x) for x in param_value
+                ):
+                    param_obj = next(
+                        (p for p in self.params if getattr(p, "name", None) == param_name),
+                        None,
+                    )
+                    msg = "contains empty value(s). Remove empty items."
+                    if param_obj is not None:
+                        raise click.BadParameter(msg, param=param_obj)
+                    ctx.fail(f"Option '--{param_name}' {msg}")
+
+            return super().invoke(ctx)
+
     class ClickAliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
             rv = click.Group.get_command(self, ctx, cmd_name)
@@ -67,6 +117,18 @@ def click_group(*args, **kwargs):
             # always return the full command name
             _, cmd, args = super().resolve_command(ctx, args)
             return cmd.name, cmd, args
+
+        def command(self, *c_args, **c_kwargs):
+            # Ensure all commands under this group use the empty-string guard by default
+            if "cls" not in c_kwargs:
+                c_kwargs["cls"] = _ValidatedCommand
+            return super().command(*c_args, **c_kwargs)
+
+        def group(self, *g_args, **g_kwargs):
+            # Ensure nested groups also inherit this group's behavior
+            if "cls" not in g_kwargs:
+                g_kwargs["cls"] = ClickAliasedGroup
+            return super().group(*g_args, **g_kwargs)
 
         def invoke(self, ctx):
             try:
