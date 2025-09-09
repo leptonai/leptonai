@@ -65,7 +65,8 @@ class TestNodeCli(unittest.TestCase):
             return _FakeAPIClient(groups=[ng], nodes_map={ng.metadata.id_: nodes})
 
         runner = CliRunner()
-        with patch("leptonai.cli.node.APIClient", side_effect=_fake_client_factory):
+        with patch("leptonai.cli.util.get_client", side_effect=_fake_client_factory), \
+        patch("leptonai.cli.node.APIClient", side_effect=_fake_client_factory):
             result = runner.invoke(cli, ["node", "list", "-ng", "sw-qa", "-ng", "200"])
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
