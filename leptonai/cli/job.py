@@ -40,6 +40,35 @@ from leptonai.api.v1.types.deployment import (
 from leptonai.api.v2.client import APIClient
 
 
+def _warn_state_patterns(ctx, param, value):
+    """Click callback: best-effort validation for --state patterns.
+
+    - value: tuple[str]; case-insensitive substring match against known states
+    - if none of the provided patterns match any known state, print a Warning with available states
+    - does NOT normalize or block; returns value as-is
+    """
+    if not value:
+        return value
+    try:
+        from leptonai.api.v1.types.job import LeptonJobState
+
+        known_states = [s.value for s in LeptonJobState if s.value != "UNK"]
+        known_lower = [s.lower() for s in known_states]
+        unmatched = [
+            p for p in value if not any((p or "").lower() in s for s in known_lower)
+        ]
+        if unmatched:
+            console.print(
+                "[yellow]Warning:[/yellow] No job states containing "
+                + ", ".join(f"[bold]{u}[/bold]" for u in unmatched)
+                + ". Available: "
+                + ", ".join(known_states)
+            )
+    except Exception:
+        return value
+    return value
+
+
 def _display_jobs_table(
     jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
 ):
@@ -721,6 +750,7 @@ def create(
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
@@ -808,6 +838,7 @@ def list_command(state, user, name_or_id, node_group):
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
@@ -927,6 +958,7 @@ def remove_all(state, user, name, node_group):
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
