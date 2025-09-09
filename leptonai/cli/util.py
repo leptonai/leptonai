@@ -66,12 +66,16 @@ def click_group(*args, **kwargs):
                 # Single string value
                 if _is_blank_str(param_value):
                     param_obj = next(
-                        (p for p in self.params if getattr(p, "name", None) == param_name),
+                        (
+                            p
+                            for p in self.params
+                            if getattr(p, "name", None) == param_name
+                        ),
                         None,
                     )
                     msg = (
-                        "must not be empty or only whitespace. Omit the flag instead of "
-                        "passing an empty string."
+                        "must not be empty or only whitespace. Omit the flag instead of"
+                        " passing an empty string."
                     )
                     if param_obj is not None:
                         raise click.BadParameter(msg, param=param_obj)
@@ -82,7 +86,11 @@ def click_group(*args, **kwargs):
                     _is_blank_str(x) for x in param_value
                 ):
                     param_obj = next(
-                        (p for p in self.params if getattr(p, "name", None) == param_name),
+                        (
+                            p
+                            for p in self.params
+                            if getattr(p, "name", None) == param_name
+                        ),
                         None,
                     )
                     msg = "contains empty value(s). Remove empty items."
