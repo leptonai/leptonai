@@ -775,17 +775,12 @@ def list_command(state, user, name_or_id, node_group):
         list_params["created_by"] = list(user)
     if name_or_id:
         list_params["q"] = list(name_or_id)
+    if node_group:
+        list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
 
-    if node_group:
-        job_filtered = _filter_jobs(jobs, None, node_group_patterns=node_group)
-    else:
-        job_filtered = jobs
-
-    _display_jobs_table(
-        job_filtered, dashboard_base_url=client.get_dashboard_base_url()
-    )
+    _display_jobs_table(jobs, client.get_workspace_id())
 
 
 @job.command()
@@ -855,13 +850,13 @@ def remove_all(state, user, name, node_group):
         list_params["created_by"] = list(user)
     if name:
         list_params["q"] = list(name)
+    if node_group:
+        list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
 
     job_filtered = _filter_jobs(
         jobs,
-        None,
-        node_group_patterns=node_group,
         exact_users=user,
         exact_names=name,
     )
@@ -970,13 +965,13 @@ def stop_all(state, user, name, node_group):
         list_params["created_by"] = list(user)
     if name:
         list_params["q"] = list(name)
+    if node_group:
+        list_params["node_groups"] = list(node_group)
 
     jobs = client.job.list_all(**list_params)
 
     job_filtered = _filter_jobs(
         jobs,
-        None,
-        node_group_patterns=node_group,
         exact_users=user,
         exact_names=name,
     )
