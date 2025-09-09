@@ -237,6 +237,30 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
     return node_group_ids
 
 
+def resolve_node_groups(node_group_terms: List[str], is_exact_match: bool = False):
+    client = get_client()
+    node_groups = client.nodegroup.list_all()
+    filtered_node_groups = node_groups
+    if node_group_terms:
+        filtered_node_groups = find_matching_node_groups(
+            list(node_group_terms), node_groups, is_exact_match=is_exact_match
+        )
+
+    if len(filtered_node_groups) == 0:
+        phrase = (
+            "with name/id equal to" if is_exact_match else "with name/id containing"
+        )
+        terms_str = ", ".join(f"[bold]{t}[/bold]" for t in node_group_terms)
+        avail_str = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in node_groups)
+        )
+        console.print(
+            f"[yellow]Warning:[/yellow] No node groups {phrase} {terms_str}.\n"
+            f"Available node groups: {avail_str}"
+        )
+    return filtered_node_groups
+
+
 def find_matching_node_groups(
     terms: List[str], all_node_groups=None, *, is_exact_match: bool = False
 ):

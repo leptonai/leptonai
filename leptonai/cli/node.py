@@ -1,14 +1,12 @@
-import json
 import click
 
-from loguru import logger
 from rich.table import Table
 
 from .util import (
     console,
     click_group,
     get_client,
-    find_matching_node_groups,
+    resolve_node_groups,
 )
 from ..api.v2.client import APIClient
 
@@ -218,17 +216,10 @@ def list_command(detail=False, node_group=None):
     """
     client = get_client()
 
-    node_groups = client.nodegroup.list_all()
-    filtered_node_groups = node_groups
     if node_group:
-        filtered_node_groups = find_matching_node_groups(list(node_group), node_groups)
-
-    if len(filtered_node_groups) == 0:
-        console.print(
-            f"\nNode group(s) [yellow]{', '.join(node_group)}[/yellow] not found."
-            " current node"
-            f" groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n"
-        )
+        filtered_node_groups = resolve_node_groups(node_group, is_exact_match=False)
+    else:
+        filtered_node_groups = client.nodegroup.list_all()
 
     # Create base table
     table = Table(title="Node Groups", show_lines=True)

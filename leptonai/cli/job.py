@@ -14,12 +14,12 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
-    find_matching_node_groups,
     get_client,
     make_container_ports_from_str_list,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
     _get_newest_job_by_name,
+    resolve_node_groups,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -771,17 +771,8 @@ def list_command(state, user, name_or_id, node_group):
     """
     client = get_client()
 
-    node_groups = client.nodegroup.list_all()
-    filtered_node_groups = node_groups
     if node_group:
-        filtered_node_groups = find_matching_node_groups(list(node_group), node_groups)
-
-    if len(filtered_node_groups) == 0:
-        console.print(
-            f"\nNode group(s) [yellow]{', '.join(node_group)}[/yellow] not found."
-            " current node"
-            f" groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n"
-        )
+        resolve_node_groups(node_group, is_exact_match=False)
 
     list_params: dict[str, Any] = {}
     if state:
@@ -861,20 +852,11 @@ def remove_all(state, user, name, node_group):
     if not state and not user and not name and not node_group:
         console.print("[red]Error[/]: You must provide at least one filter.")
         sys.exit(1)
-    
+
     client = get_client()
 
-    node_groups = client.nodegroup.list_all()
-    filtered_node_groups = node_groups
     if node_group:
-        filtered_node_groups = find_matching_node_groups(list(node_group), node_groups, is_exact_match=True)
-
-    if len(filtered_node_groups) == 0:
-        console.print(
-            f"\nNode group(s) [yellow]{', '.join(node_group)}[/yellow] not found."
-            " current node"
-            f" groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n"
-        )
+        resolve_node_groups(node_group, is_exact_match=True)
 
     list_params: dict[str, Any] = {}
     if state:
@@ -992,17 +974,8 @@ def stop_all(state, user, name, node_group):
 
     client = get_client()
 
-    node_groups = client.nodegroup.list_all()
-    filtered_node_groups = node_groups
     if node_group:
-        filtered_node_groups = find_matching_node_groups(list(node_group), node_groups, is_exact_match=True)
-
-    if len(filtered_node_groups) == 0:
-        console.print(
-            f"\nNode group(s) [yellow]{', '.join(node_group)}[/yellow] not found."
-            " current node"
-            f" groups:\n{', '.join([ng.metadata.name for ng in node_groups])}\n"
-        )
+        resolve_node_groups(node_group, is_exact_match=True)
 
     list_params: dict[str, Any] = {}
     if state:
