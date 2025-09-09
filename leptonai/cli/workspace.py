@@ -104,6 +104,7 @@ def login(
                 " --auth-token."
             )
             sys.exit(1)
+            
         WorkspaceRecord.set_or_exit(
             workspace_id,
             auth_token=auth_token,
