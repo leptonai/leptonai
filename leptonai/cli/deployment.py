@@ -291,7 +291,7 @@ def _print_deployments_table(
     table.add_column("Created At")
     table.add_column("State")
     table.add_column("User ID")
-    table.add_column("Node Group")
+    table.add_column("Node Group ID")
     table.add_column("Replicas")
     table.add_column("Shape")
 
