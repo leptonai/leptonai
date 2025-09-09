@@ -46,7 +46,7 @@ def _display_jobs_table(
     table.add_column("Created At")
     table.add_column("State")
     table.add_column("User ID")
-    table.add_column("Node Group")
+    table.add_column("Node Group ID")
     table.add_column("Workers")
     table.add_column("Shape")
 
