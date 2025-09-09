@@ -98,6 +98,12 @@ def login(
         else:
             WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url, is_lepton_classic=lepton_classic)  # type: ignore
     else:
+        if not auth_token:
+            console.print(
+                f"[red]Error[/]: Workspace '{workspace_id}' not found; please provide"
+                " --auth-token."
+            )
+            sys.exit(1)
         WorkspaceRecord.set_or_exit(
             workspace_id,
             auth_token=auth_token,
