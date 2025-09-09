@@ -237,6 +237,61 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
     return node_group_ids
 
 
+def resolve_node_groups(node_group_terms: List[str], is_exact_match: bool = False):
+    client = get_client()
+    node_groups = client.nodegroup.list_all()
+    filtered_node_groups = node_groups
+    if node_group_terms:
+        filtered_node_groups = find_matching_node_groups(
+            list(node_group_terms), node_groups, is_exact_match=is_exact_match
+        )
+
+    if len(filtered_node_groups) == 0:
+        phrase = (
+            "with name/id equal to" if is_exact_match else "with name/id containing"
+        )
+        terms_str = ", ".join(f"[bold]{t}[/bold]" for t in node_group_terms)
+        avail_str = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in node_groups)
+        )
+        console.print(
+            f"[yellow]Warning:[/yellow] No node groups {phrase} {terms_str}.\n"
+            f"Available node groups: {avail_str}"
+        )
+    return filtered_node_groups
+
+
+def find_matching_node_groups(
+    terms: List[str], all_node_groups=None, *, is_exact_match: bool = False
+):
+    """Return node groups whose id or name matches any of given terms.
+
+    - terms: patterns to match (empty -> empty result)
+    - all_node_groups: optional pre-fetched list to search; if None, fetch all
+    - is_exact_match: if True, require exact id/name match; otherwise substring match
+    - preserves original order; de-duplicates by node group id
+    """
+    if not terms:
+        return []
+    if not all_node_groups:
+        client = get_client()
+        all_node_groups = client.nodegroup.list_all()
+
+    seen_ids = set()
+    matches = []
+    for ng in all_node_groups:
+        if is_exact_match:
+            ok = any((t == ng.metadata.id_) or (t == ng.metadata.name) for t in terms)
+        else:
+            ok = any((t in ng.metadata.id_) or (t in ng.metadata.name) for t in terms)
+        if ok:
+            if ng.metadata.id_ in seen_ids:
+                continue
+            seen_ids.add(ng.metadata.id_)
+            matches.append(ng)
+    return matches
+
+
 def make_container_port_from_string(
     port_str: str, *, strategy_free: bool = False
 ) -> ContainerPort:

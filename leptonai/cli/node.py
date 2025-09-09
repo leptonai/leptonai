@@ -5,6 +5,8 @@ from rich.table import Table
 from .util import (
     console,
     click_group,
+    get_client,
+    resolve_node_groups,
 )
 from ..api.v2.client import APIClient
 
@@ -212,29 +214,12 @@ def list_command(detail=False, node_group=None):
 
     If the --detail or -d option is provided, additional information about each node will be displayed.
     """
-    client = APIClient()
-    node_groups = client.nodegroup.list_all()
+    client = get_client()
 
     if node_group:
-        # filters: values from -ng; this is a tuple from click, iterate directly
-        filters = node_group
-        filtered_node_groups = [
-            ng
-            for ng in node_groups
-            # include the group if any filter matches its id or name
-            # we traverse groups once, so a group matching multiple filters
-            # is included only once and original order is preserved
-            if any(
-                (filter_value in ng.metadata.id_) or (filter_value in ng.metadata.name)
-                for filter_value in filters
-            )
-        ]
-        node_groups = filtered_node_groups
-
-    console.print(
-        "\n If a node appears available but is actually in use, it is currently"
-        " handling only CPU workloads, with all GPUs remaining idle."
-    )
+        filtered_node_groups = resolve_node_groups(node_group, is_exact_match=False)
+    else:
+        filtered_node_groups = client.nodegroup.list_all()
 
     # Create base table
     table = Table(title="Node Groups", show_lines=True)
@@ -246,7 +231,7 @@ def list_command(detail=False, node_group=None):
     table.add_column("Ready Nodes")
 
     # Add extra column for detailed view
-    for node_group in node_groups:
+    for node_group in filtered_node_groups:
         node_group_name = node_group.metadata.name
         node_group_id = node_group.metadata.id_
         ready_nodes = str(node_group.status.ready_nodes or 0)
@@ -281,6 +266,11 @@ def list_command(detail=False, node_group=None):
             )
 
     console.print(table)
+
+    console.print(
+        "[dim]Note:[/dim] If a node appears available but is actually in use, it is"
+        " currently handling only CPU workloads, with all GPUs remaining idle.\n"
+    )
 
 
 @node.command(name="resource-shape")

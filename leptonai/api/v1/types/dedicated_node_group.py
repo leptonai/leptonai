@@ -9,6 +9,7 @@ import warnings
 class VolumeFrom(str, Enum):
     Local = "local"
     Remote = "remote"
+    NFS = "nfs"
     Unknown = "UNK"
 
     @classmethod
