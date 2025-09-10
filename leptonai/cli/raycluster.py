@@ -18,6 +18,22 @@ from ..api.v1.types.raycluster import (
 from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 
+DEFAULT_RAY_IMAGE = "ray:2.48.0-py312-gpu"
+DEFAULT_RAY_IMAGES = {
+    "2.46.0": "2.46.0",
+    "2.46.0-py310-gpu": "2.46.0",
+    "2.46.0-py311-gpu": "2.46.0",
+    "2.46.0-py312-gpu": "2.46.0",
+    "2.47.0": "2.47.0",
+    "2.47.0-py310-gpu": "2.47.0",
+    "2.47.0-py311-gpu": "2.47.0",
+    "2.47.0-py312-gpu": "2.47.0",
+    "2.48.0": "2.48.0",
+    "2.48.0-py310-gpu": "2.48.0",
+    "2.48.0-py311-gpu": "2.48.0",
+    "2.48.0-py312-gpu": "2.48.0",
+}
+
 
 @click_group()
 def raycluster():
@@ -61,7 +77,7 @@ def _print_rayclusters_table(rayclusters) -> None:
             if rc.spec
             and rc.spec.head_group_spec
             and rc.spec.head_group_spec.affinity
-            and rc.spec.head_group_spec.affinity.allowed_dedicated_node_groups
+            and len(rc.spec.head_group_spec.affinity.allowed_dedicated_node_groups) > 0
             else "-"
         )
         worker_group_names = (
@@ -73,6 +89,7 @@ def _print_rayclusters_table(rayclusters) -> None:
             [
                 wg.affinity.allowed_dedicated_node_groups[0]
                 for wg in rc.spec.worker_group_specs
+                if wg.affinity and len(wg.affinity.allowed_dedicated_node_groups) > 0
             ]
             if rc.spec and rc.spec.worker_group_specs
             else "-"
@@ -90,9 +107,17 @@ def _print_rayclusters_table(rayclusters) -> None:
             created_by,
             state,
             head_node_group,
-            ", ".join(worker_group_names),
+            (
+                ", ".join(worker_group_names)
+                if isinstance(worker_group_names, list) and len(worker_group_names) > 0
+                else "-"
+            ),
             workers_disp,
-            ", ".join(worker_node_groups),
+            (
+                ", ".join(worker_node_groups)
+                if isinstance(worker_node_groups, list) and len(worker_node_groups) > 0
+                else "-"
+            ),
             ray_image,
         )
         count += 1
@@ -161,7 +186,11 @@ def list_command(name):
     ),
     required=False,
 )
-@click.option("--image", type=str, help="Ray cluster container image.")
+@click.option(
+    "--image",
+    type=str,
+    help=f"Ray cluster container image. Default: {DEFAULT_RAY_IMAGE}",
+)
 @click.option(
     "--image-pull-secrets",
     type=str,
@@ -212,6 +241,14 @@ def list_command(name):
     ),
 )
 @click.option(
+    "--head-allowed-nodes",
+    type=str,
+    help=(
+        "Comma-separated node names within the specified head dedicated node group "
+        "(affinity)."
+    ),
+)
+@click.option(
     "--worker-group-name",
     type=str,
     help="Name of the worker group (if specifying via flags).",
@@ -259,9 +296,17 @@ def list_command(name):
     ),
 )
 @click.option(
+    "--worker-allowed-nodes",
+    type=str,
+    help=(
+        "Comma-separated node names within the specified worker dedicated node group "
+        "(affinity)."
+    ),
+)
+@click.option(
     "--worker-min-replicas",
     type=int,
-    help="Minimum replicas for the worker node group.",
+    help="Minimum replicas for the worker node group. Default: 1",
 )
 @click.option(
     "--visibility",
@@ -283,6 +328,7 @@ def create(
     head_env,
     head_secret,
     head_node_group,
+    head_allowed_nodes,
     worker_group_name,
     worker_resource_shape,
     worker_shared_memory_size,
@@ -290,6 +336,7 @@ def create(
     worker_env,
     worker_secret,
     worker_node_group,
+    worker_allowed_nodes,
     worker_min_replicas,
     visibility,
 ):
@@ -312,17 +359,14 @@ def create(
         spec = LeptonRayClusterUserSpec()
 
     # Top-level spec overrides
+    spec.image = DEFAULT_RAY_IMAGE
     if image is not None:
         spec.image = image
-    if spec.image is None or spec.image == "":
-        console.print("[red]Ray image is required.[/]")
-        sys.exit(1)
 
     if image_pull_secrets:
         spec.image_pull_secrets = list(image_pull_secrets)
 
-    if ray_version is not None:
-        spec.ray_version = ray_version
+    spec.ray_version = DEFAULT_RAY_IMAGES.get(spec.image, ray_version)
     if spec.ray_version is None or spec.ray_version == "":
         console.print("[red]Ray version is required.[/]")
         sys.exit(1)
@@ -365,6 +409,13 @@ def create(
         console.print("[red]Head node group is required and must be exactly one.[/]")
         sys.exit(1)
 
+    if head_allowed_nodes:
+        head_nodes_flat: list[str] = [
+            x.strip() for x in head_allowed_nodes.split(",") if x.strip()
+        ]
+        if head_nodes_flat:
+            spec.head_group_spec.affinity.allowed_nodes_in_node_group = head_nodes_flat
+
     # Worker group: ensure exists, apply overrides, validate shape, then apply affinity/name/replicas
     if spec.worker_group_specs is None or len(spec.worker_group_specs) == 0:
         spec.worker_group_specs = [RayWorkerGroupSpec()]
@@ -398,7 +449,7 @@ def create(
     if worker_min_replicas is not None:
         worker_spec.min_replicas = worker_min_replicas
     if worker_spec.min_replicas is None or worker_spec.min_replicas <= 0:
-        console.print("[red]Worker min replicas must be a positive integer.[/]")
+        worker_spec.min_replicas = 1
         sys.exit(1)
 
     if worker_spec.affinity is None:
@@ -410,6 +461,13 @@ def create(
     if len(worker_spec.affinity.allowed_dedicated_node_groups) != 1:
         console.print("[red]Worker node group is required and must be exactly one.[/]")
         sys.exit(1)
+
+    if worker_allowed_nodes:
+        worker_nodes_flat: list[str] = [
+            x.strip() for x in worker_allowed_nodes.split(",") if x.strip()
+        ]
+        if worker_nodes_flat:
+            worker_spec.affinity.allowed_nodes_in_node_group = worker_nodes_flat
 
     try:
         lepton_raycluster = LeptonRayCluster(
