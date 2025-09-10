@@ -6,7 +6,7 @@ import click
 from rich.table import Table
 from rich.pretty import Pretty
 
-from .util import console, click_group
+from .util import console, click_group, apply_nodegroup_and_queue_config
 from ..api.v2.client import APIClient
 from ..api.v1.types.common import LeptonVisibility, Metadata
 from ..api.v1.types.raycluster import (
@@ -20,18 +20,18 @@ from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 
 DEFAULT_RAY_IMAGE = "ray:2.48.0-py312-gpu"
 DEFAULT_RAY_IMAGES = {
-    "2.46.0": "2.46.0",
-    "2.46.0-py310-gpu": "2.46.0",
-    "2.46.0-py311-gpu": "2.46.0",
-    "2.46.0-py312-gpu": "2.46.0",
-    "2.47.0": "2.47.0",
-    "2.47.0-py310-gpu": "2.47.0",
-    "2.47.0-py311-gpu": "2.47.0",
-    "2.47.0-py312-gpu": "2.47.0",
-    "2.48.0": "2.48.0",
-    "2.48.0-py310-gpu": "2.48.0",
-    "2.48.0-py311-gpu": "2.48.0",
-    "2.48.0-py312-gpu": "2.48.0",
+    "ray:2.46.0": "2.46.0",
+    "ray:2.46.0-py310-gpu": "2.46.0",
+    "ray:2.46.0-py311-gpu": "2.46.0",
+    "ray:2.46.0-py312-gpu": "2.46.0",
+    "ray:2.47.0": "2.47.0",
+    "ray:2.47.0-py310-gpu": "2.47.0",
+    "ray:2.47.0-py311-gpu": "2.47.0",
+    "ray:2.47.0-py312-gpu": "2.47.0",
+    "ray:2.48.0": "2.48.0",
+    "ray:2.48.0-py310-gpu": "2.48.0",
+    "ray:2.48.0-py311-gpu": "2.48.0",
+    "ray:2.48.0-py312-gpu": "2.48.0",
 }
 
 
@@ -366,7 +366,13 @@ def create(
     if image_pull_secrets:
         spec.image_pull_secrets = list(image_pull_secrets)
 
+    if ray_version is not None and spec.image in DEFAULT_RAY_IMAGES:
+        console.print(
+            f"[red]Cannot specify ray version for default image: {spec.image}.[/]"
+        )
+        sys.exit(1)
     spec.ray_version = DEFAULT_RAY_IMAGES.get(spec.image, ray_version)
+
     if spec.ray_version is None or spec.ray_version == "":
         console.print("[red]Ray version is required.[/]")
         sys.exit(1)
@@ -397,15 +403,27 @@ def create(
     if head_mount:
         spec.head_group_spec.mounts = make_mounts_from_strings(list(head_mount))
 
-    if spec.head_group_spec.affinity is None:
-        spec.head_group_spec.affinity = LeptonResourceAffinity()
-    if spec.head_group_spec.affinity.allowed_dedicated_node_groups is None:
-        spec.head_group_spec.affinity.allowed_dedicated_node_groups = []
-    if head_node_group:
-        spec.head_group_spec.affinity.allowed_dedicated_node_groups = list(
-            head_node_group
-        )
-    if len(spec.head_group_spec.affinity.allowed_dedicated_node_groups) != 1:
+    # Resolve head node group names to IDs via shared utility when provided via flags
+    if head_node_group is None or head_node_group == "":
+        console.print("[red]Head node group is required.[/]")
+        sys.exit(1)
+
+    apply_nodegroup_and_queue_config(
+        spec=spec.head_group_spec,
+        node_groups=list(head_node_group),
+        node_ids=None,
+        queue_priority=None,
+        can_be_preempted=None,
+        can_preempt=None,
+        with_reservation=None,
+        allow_burst=None,
+    )
+    # Validate head node group presence and cardinality
+    if (
+        not spec.head_group_spec.affinity
+        or not spec.head_group_spec.affinity.allowed_dedicated_node_groups
+        or len(spec.head_group_spec.affinity.allowed_dedicated_node_groups) != 1
+    ):
         console.print("[red]Head node group is required and must be exactly one.[/]")
         sys.exit(1)
 
@@ -450,15 +468,28 @@ def create(
         worker_spec.min_replicas = worker_min_replicas
     if worker_spec.min_replicas is None or worker_spec.min_replicas <= 0:
         worker_spec.min_replicas = 1
+
+    # Resolve worker node group names to IDs via shared utility when provided via flags
+    if worker_node_group is None or worker_node_group == "":
+        console.print("[red]Worker node group is required.[/]")
         sys.exit(1)
 
-    if worker_spec.affinity is None:
-        worker_spec.affinity = LeptonResourceAffinity()
-    if worker_spec.affinity.allowed_dedicated_node_groups is None:
-        worker_spec.affinity.allowed_dedicated_node_groups = []
-    if worker_node_group:
-        worker_spec.affinity.allowed_dedicated_node_groups = list(worker_node_group)
-    if len(worker_spec.affinity.allowed_dedicated_node_groups) != 1:
+    apply_nodegroup_and_queue_config(
+        spec=worker_spec,
+        node_groups=list(worker_node_group),
+        node_ids=None,
+        queue_priority=None,
+        can_be_preempted=None,
+        can_preempt=None,
+        with_reservation=None,
+        allow_burst=None,
+    )
+    # Validate worker node group presence and cardinality
+    if (
+        not worker_spec.affinity
+        or not worker_spec.affinity.allowed_dedicated_node_groups
+        or len(worker_spec.affinity.allowed_dedicated_node_groups) != 1
+    ):
         console.print("[red]Worker node group is required and must be exactly one.[/]")
         sys.exit(1)
 
