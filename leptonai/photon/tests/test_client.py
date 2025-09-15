@@ -381,7 +381,8 @@ class TestClientTimeout(unittest.TestCase):
 
         # timeout
         proc, port = photon_run_local_server_simple(StreamingLongPhoton)
-        client = Client(local(port=port), timeout=0.5)
+        client = Client(local(port=port),
+                    timeout=httpx.Timeout(read=0.2, connect=5.0, write=5.0))
         with self.assertRaises(httpx.ReadTimeout):
             result = client.run()
             for _ in result:
