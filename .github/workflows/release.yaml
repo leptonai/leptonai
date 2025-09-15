@@ -24,7 +24,7 @@ on:
 
 jobs:
   build-package:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
@@ -51,11 +51,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: self-hosted
+          - runner: ubuntu-latest
             python_version: "3.10"
           - runner: macos-latest
             python_version: "3.12"
-          - runner: self-hosted
+          - runner: ubuntu-latest
             python_version: "3.13"
     runs-on: ${{matrix.runner}}
     steps:
