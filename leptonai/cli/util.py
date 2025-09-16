@@ -4,7 +4,7 @@ Common utilities for the CLI.
 
 import sys
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import click
@@ -121,6 +121,17 @@ def is_valid_url(candidate_str: str) -> bool:
     return parsed.scheme != "" and parsed.netloc != ""
 
 
+# Singleton API client for CLI process
+_client_singleton: Optional[APIClient] = None
+
+
+def get_client() -> APIClient:
+    global _client_singleton
+    if _client_singleton is None:
+        _client_singleton = APIClient()
+    return _client_singleton
+
+
 def check(condition: Any, message: str) -> None:
     """
     Checks a condition and prints a message if the condition is false.
@@ -185,7 +196,7 @@ def sizeof_fmt(num, suffix="B"):
 
 
 def _get_only_replica_public_ip(name: str):
-    client = APIClient()
+    client = get_client()
     replicas = client.deployment.get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 
@@ -196,7 +207,7 @@ def _get_only_replica_public_ip(name: str):
 
 
 def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
-    client = APIClient()
+    client = get_client()
     valid_ng = client.nodegroup.list_all()
 
     valid_ng_map: Dict[str, str] = {ng.metadata.name: ng for ng in valid_ng}
@@ -224,6 +235,61 @@ def _get_valid_nodegroup_ids(node_groups: [str], need_queue_priority=False):
         sys.exit(1)
 
     return node_group_ids
+
+
+def resolve_node_groups(node_group_terms: List[str], is_exact_match: bool = False):
+    client = get_client()
+    node_groups = client.nodegroup.list_all()
+    filtered_node_groups = node_groups
+    if node_group_terms:
+        filtered_node_groups = find_matching_node_groups(
+            list(node_group_terms), node_groups, is_exact_match=is_exact_match
+        )
+
+    if len(filtered_node_groups) == 0:
+        phrase = (
+            "with name/id equal to" if is_exact_match else "with name/id containing"
+        )
+        terms_str = ", ".join(f"[bold]{t}[/bold]" for t in node_group_terms)
+        avail_str = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in node_groups)
+        )
+        console.print(
+            f"[yellow]Warning:[/yellow] No node groups {phrase} {terms_str}.\n"
+            f"Available node groups: {avail_str}"
+        )
+    return filtered_node_groups
+
+
+def find_matching_node_groups(
+    terms: List[str], all_node_groups=None, *, is_exact_match: bool = False
+):
+    """Return node groups whose id or name matches any of given terms.
+
+    - terms: patterns to match (empty -> empty result)
+    - all_node_groups: optional pre-fetched list to search; if None, fetch all
+    - is_exact_match: if True, require exact id/name match; otherwise substring match
+    - preserves original order; de-duplicates by node group id
+    """
+    if not terms:
+        return []
+    if not all_node_groups:
+        client = get_client()
+        all_node_groups = client.nodegroup.list_all()
+
+    seen_ids = set()
+    matches = []
+    for ng in all_node_groups:
+        if is_exact_match:
+            ok = any((t == ng.metadata.id_) or (t == ng.metadata.name) for t in terms)
+        else:
+            ok = any((t in ng.metadata.id_) or (t in ng.metadata.name) for t in terms)
+        if ok:
+            if ng.metadata.id_ in seen_ids:
+                continue
+            seen_ids.add(ng.metadata.id_)
+            matches.append(ng)
+    return matches
 
 
 def make_container_port_from_string(
@@ -358,7 +424,7 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     ):
         return None
     node_ids_set = set(node_ids)
-    client = APIClient()
+    client = get_client()
     valid_nodes_id = set()
     for ng_id in node_group_ids:
         cur_all_nodes = client.nodegroup.list_nodes(name_or_ng=ng_id)
@@ -382,7 +448,7 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
 
 
 def _get_newest_job_by_name(job_name: str) -> LeptonJob:
-    client = APIClient()
+    client = get_client()
 
     job_list = client.job.list_all(q=job_name)
     exact_matches = [j for j in job_list if j.metadata.name == job_name]

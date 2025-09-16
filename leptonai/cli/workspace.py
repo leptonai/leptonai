@@ -98,6 +98,13 @@ def login(
         else:
             WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url, is_lepton_classic=lepton_classic)  # type: ignore
     else:
+        if not auth_token:
+            console.print(
+                f"[red]Error[/]: Workspace '{workspace_id}' not found; please provide"
+                " --auth-token."
+            )
+            sys.exit(1)
+
         WorkspaceRecord.set_or_exit(
             workspace_id,
             auth_token=auth_token,
@@ -207,16 +214,7 @@ def list_command(debug):
         # If missing, try to refresh once from server
         if getattr(info, "token_expires_at", None) is None:
             logger.trace(f"Refreshing token expires at for workspace {info.id_}")
-            try:
-                refreshed = WorkspaceRecord.refresh_token_expires_at(info.id_)
-                if refreshed is not None:
-                    info.token_expires_at = refreshed
-            except Exception as e:
-                logger.trace(
-                    f"Failed to refresh token expires at for workspace {info.id_} with"
-                    f" error: {e}"
-                )
-                pass
+            info.token_expires_at = WorkspaceRecord.refresh_token_expires_at(info.id_)
         if getattr(info, "token_expires_at", None):
             try:
                 expires_dt = datetime.fromtimestamp(info.token_expires_at / 1000)

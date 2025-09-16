@@ -14,10 +14,12 @@ from .util import (
     click_group,
     catch_deprecated_flag,
     check,
+    get_client,
     make_container_ports_from_str_list,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
     _get_newest_job_by_name,
+    resolve_node_groups,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -38,6 +40,35 @@ from leptonai.api.v1.types.deployment import (
 from leptonai.api.v2.client import APIClient
 
 
+def _warn_state_patterns(ctx, param, value):
+    """Click callback: best-effort validation for --state patterns.
+
+    - value: tuple[str]; case-insensitive substring match against known states
+    - if none of the provided patterns match any known state, print a Warning with available states
+    - does NOT normalize or block; returns value as-is
+    """
+    if not value:
+        return value
+    try:
+        from leptonai.api.v1.types.job import LeptonJobState
+
+        known_states = [s.value for s in LeptonJobState if s.value != "UNK"]
+        known_lower = [s.lower() for s in known_states]
+        unmatched = [
+            p for p in value if not any((p or "").lower() in s for s in known_lower)
+        ]
+        if unmatched:
+            console.print(
+                "[yellow]Warning:[/yellow] No job states containing "
+                + ", ".join(f"[bold]{u}[/bold]" for u in unmatched)
+                + ". Available: "
+                + ", ".join(known_states)
+            )
+    except Exception:
+        return value
+    return value
+
+
 def _display_jobs_table(
     jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
 ):
@@ -46,7 +77,7 @@ def _display_jobs_table(
     table.add_column("Created At")
     table.add_column("State")
     table.add_column("User ID")
-    table.add_column("Node Group")
+    table.add_column("Node Group ID")
     table.add_column("Workers")
     table.add_column("Shape")
 
@@ -719,6 +750,7 @@ def create(
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
@@ -741,7 +773,6 @@ def create(
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -767,16 +798,21 @@ def list_command(state, user, name_or_id, node_group):
     Multiple filters can be combined. For example:
     lep job list -s queue -u alice -n train -ng h100
     """
-    client = APIClient()
+    client = get_client()
+
+    if node_group:
+        resolve_node_groups(node_group, is_exact_match=False)
+
     list_params: dict[str, Any] = {}
     if state:
         list_params["status"] = list(state)
     if user:
         list_params["created_by"] = list(user)
     if name_or_id:
-        list_params["q"] = list(name_or_id)
+        list_params["q"] = name_or_id
     if node_group:
         list_params["node_groups"] = list(node_group)
+
 
     jobs = client.job.list_all(**list_params)
 
@@ -797,6 +833,7 @@ def list_command(state, user, name_or_id, node_group):
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
@@ -819,7 +856,6 @@ def list_command(state, user, name_or_id, node_group):
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -842,14 +878,18 @@ def remove_all(state, user, name, node_group):
         console.print("[red]Error[/]: You must provide at least one filter.")
         sys.exit(1)
 
-    client = APIClient()
+    client = get_client()
+
+    if node_group:
+        resolve_node_groups(node_group, is_exact_match=True)
+
     list_params: dict[str, Any] = {}
     if state:
         list_params["status"] = list(state)
     if user:
         list_params["created_by"] = list(user)
     if name:
-        list_params["q"] = list(name)
+        list_params["q"] = name
     if node_group:
         list_params["node_groups"] = list(node_group)
 
@@ -912,6 +952,7 @@ def remove_all(state, user, name, node_group):
     type=str,
     required=False,
     multiple=True,
+    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
@@ -934,7 +975,6 @@ def remove_all(state, user, name, node_group):
     ),
     type=str,
     required=False,
-    multiple=True,
 )
 @click.option(
     "--node-group",
@@ -957,14 +997,18 @@ def stop_all(state, user, name, node_group):
         console.print("[red]Error[/]: You must provide at least one filter.")
         sys.exit(1)
 
-    client = APIClient()
+    client = get_client()
+
+    if node_group:
+        resolve_node_groups(node_group, is_exact_match=True)
+
     list_params: dict[str, Any] = {}
     if state:
         list_params["status"] = list(state)
     if user:
         list_params["created_by"] = list(user)
     if name:
-        list_params["q"] = list(name)
+        list_params["q"] = name
     if node_group:
         list_params["node_groups"] = list(node_group)
 

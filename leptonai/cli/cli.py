@@ -210,7 +210,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             console.print(
                 "It seems that you are running in a non-GUI environment. You can"
                 " manually obtain credentials from"
-                " [green]https://dashboard.lepton.ai/credentials[/] and copy it"
+                f" [green]{credentials_page_url}[/] and copy it"
                 r" over, or use `lep login -c \[credentials]` to log in."  # noqa: W605
             )
         while not credentials:
@@ -242,8 +242,10 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                 indent = " " * 17  # match logo's left margin for alignment
                 console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
                 console.print(f"{indent}{'Tier':>12}: {tier}")
-                if api_client.version() is not None:
-                    version = ".".join(str(v) for v in api_client.version())
+                WorkspaceRecord.refresh_token_expires_at(skip_if_token_exists=True)
+                version_info_list = api_client.version(info)
+                if version_info_list is not None:
+                    version = ".".join(str(v) for v in version_info_list)
                     console.print(f"{indent}{'Version':>12}: {version}\n")
                 break
             except WorkspaceUnauthorizedError:
@@ -284,6 +286,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
             (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
         """)
+        sys.exit(1)
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
@@ -301,6 +304,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
         """)
+        sys.exit(1)
 
     except WorkspaceForbiddenError as e:
         console.print("\n", e)
@@ -313,6 +317,7 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         [red]You may using an invalid token or the token is expired.[/red]
         [red]Please re-issue a new token and run `lep workspace login` again.[/red]
         """)
+        sys.exit(1)
 
 
 @lep.command()
