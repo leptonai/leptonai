@@ -813,7 +813,6 @@ def list_command(state, user, name_or_id, node_group):
     if node_group:
         list_params["node_groups"] = list(node_group)
 
-
     jobs = client.job.list_all(**list_params)
 
     _display_jobs_table(jobs, client.get_workspace_id())
