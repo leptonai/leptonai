@@ -11,7 +11,6 @@ class ShapeSpec(BaseModel):
     # Visibility / listing
     listable_in: Optional[List[str]] = None
 
-
     # CPU and memory
     cpu: Optional[float] = None
     memory_in_mb: Optional[int] = None
