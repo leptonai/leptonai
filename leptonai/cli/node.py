@@ -161,7 +161,6 @@ def _format_shape_entry(shape):
     acc_num = getattr(spec, "accelerator_num", None)
     acc_frac = getattr(spec, "accelerator_fraction", None)
     acc_mem = getattr(spec, "accelerator_memory_in_mb", None)
-    price = getattr(spec, "price", None)
 
     # details: two lines -> line1: cpu + acc, line2: others (mem/eph/price)
     cpu_acc_parts = []
@@ -185,8 +184,6 @@ def _format_shape_entry(shape):
         other_parts.append(f"[dim]mem={mem}MB[/dim]")
     if eph is not None:
         other_parts.append(f"[dim]ephemeral storage={eph}GB[/dim]")
-    if price is not None:
-        other_parts.append(f"[dim]${price}[/dim]")
 
     top_line = ", ".join(cpu_acc_parts)
     bottom_line = ", ".join(other_parts)

@@ -11,9 +11,6 @@ class ShapeSpec(BaseModel):
     # Visibility / listing
     listable_in: Optional[List[str]] = None
 
-    # Billing
-    price: Optional[float] = None
-
     # CPU and memory
     cpu: Optional[float] = None
     memory_in_mb: Optional[int] = None
