@@ -11,9 +11,9 @@ class SecretAPI(APIResourse):
         return self.ensure_list(response, SecretItem)
 
     def create(self, secrets: List[SecretItem]) -> bool:
-        response = self._post("/secrets", json=self.safe_json(secrets))
+        response = self._post("/usersecrets", json=self.safe_json(secrets))
         return self.ensure_ok(response)
 
     def delete(self, name: str) -> bool:
-        response = self._delete(f"/secrets/{name}")
+        response = self._delete(f"/usersecrets/{name}")
         return self.ensure_ok(response)
