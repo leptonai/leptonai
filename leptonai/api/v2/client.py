@@ -30,6 +30,7 @@ from ..v1.ingress import IngressAPI
 from ..v1.storage import StorageAPI
 from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
+from ..v1.raycluster import RayClusterAPI
 
 
 from .utils import (
@@ -226,6 +227,7 @@ class APIClient(object):
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
         self.shapes = ResourceShapeAPI(self)
+        self.raycluster = RayClusterAPI(self)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
