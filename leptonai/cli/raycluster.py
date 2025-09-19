@@ -1,8 +1,14 @@
 import json
+import shlex
 from datetime import datetime
 import sys
+import warnings
+import urllib3
+import yaml
+import asyncio
 
 import click
+from ray.job_submission import JobSubmissionClient, JobStatus
 from rich.table import Table
 from rich.pretty import Pretty
 
@@ -15,7 +21,6 @@ from ..api.v1.types.raycluster import (
     RayHeadGroupSpec,
     RayWorkerGroupSpec,
 )
-from ..api.v1.types.affinity import LeptonResourceAffinity
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 
 DEFAULT_RAY_IMAGE = "ray:2.48.0-py312-gpu"
@@ -705,6 +710,231 @@ def update(name, file, worker_group_name, min_replicas):
     lepton_rc = LeptonRayCluster(spec=spec)
     client.raycluster.update(name_or_raycluster=name, spec=lepton_rc)
     console.print(f"Ray cluster [green]{name}[/] updated.")
+
+
+@raycluster.command()
+@click.option(
+    "--name", "-n", help="The raycluster name to submit a job to.", required=True
+)
+@click.option(
+    "--submission-id",
+    type=str,
+    required=False,
+    help="Submission ID to specify for the job.",
+)
+@click.option(
+    "--runtime-env",
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True
+    ),
+    required=False,
+    help="Path to a YAML file containing a runtime_env definition.",
+)
+@click.option(
+    "--runtime-env-json",
+    type=str,
+    required=False,
+    help="JSON-serialized runtime_env dictionary.",
+)
+@click.option(
+    "--working-dir",
+    type=str,
+    required=False,
+    help=(
+        "Directory or remote URI (.zip) for working_dir. If specified, overrides the "
+        "option in --runtime-env."
+    ),
+)
+@click.option(
+    "--metadata-json",
+    type=str,
+    required=False,
+    help="JSON-serialized dictionary of metadata to attach to the job.",
+)
+@click.option(
+    "--entrypoint-num-cpus",
+    type=float,
+    required=False,
+    help="CPU cores to reserve for entrypoint.",
+)
+@click.option(
+    "--entrypoint-num-gpus",
+    type=float,
+    required=False,
+    help="GPUs to reserve for entrypoint.",
+)
+@click.option(
+    "--entrypoint-memory",
+    type=int,
+    required=False,
+    help="Memory (bytes) to reserve for entrypoint.",
+)
+@click.option(
+    "--entrypoint-resources",
+    type=str,
+    required=False,
+    help="JSON-serialized dict of custom resources to reserve for entrypoint.",
+)
+@click.option(
+    "--no-wait",
+    is_flag=True,
+    default=False,
+    help="Do not stream logs or wait for job completion.",
+)
+@click.argument("entrypoint", nargs=-1, type=click.UNPROCESSED)
+def submit(
+    name,
+    submission_id,
+    runtime_env,
+    runtime_env_json,
+    working_dir,
+    metadata_json,
+    entrypoint_num_cpus,
+    entrypoint_num_gpus,
+    entrypoint_memory,
+    entrypoint_resources,
+    no_wait,
+    entrypoint,
+):
+    """
+    Submits a job to a Ray cluster.
+
+    Usage: lep raycluster submit -n <cluster> -- <entrypoint command>
+    Everything after "--" is treated as the entrypoint command, just like native Ray.
+    """
+    base_client = APIClient()
+
+    try:
+        _ = base_client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
+
+    # Determine address (use cluster dashboard URL)
+    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
+
+    # Suppress urllib3 InsecureRequestWarning when verify=False (unverified HTTPS)
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+
+    submission_client = JobSubmissionClient(
+        address=ray_head_dashboard_url,
+        headers={
+            "Authorization": f"Bearer {base_client.token()}",
+            "origin": base_client.get_dashboard_base_url(),
+        },
+        verify=False,  # TODO: make this more secure
+    )
+
+    if not entrypoint or len(entrypoint) == 0:
+        console.print("[red]Entry point command is required. Provide it after -- .[/]")
+        sys.exit(1)
+
+    entrypoint_cmd = shlex.join(entrypoint)
+
+    # Build runtime_env
+    runtime_env_dict = None
+    if runtime_env and runtime_env_json:
+        console.print(
+            "[red]Specify only one of --runtime-env or --runtime-env-json.[/]"
+        )
+        sys.exit(1)
+    if runtime_env:
+        try:
+            with open(runtime_env, "r") as f:
+                runtime_env_dict = yaml.safe_load(f) or {}
+            if not isinstance(runtime_env_dict, dict):
+                raise ValueError("runtime_env must be a mapping")
+        except Exception as e:
+            console.print(f"[red]Failed to load runtime_env YAML: {e}[/]")
+            sys.exit(1)
+    if runtime_env_json:
+        try:
+            runtime_env_dict = json.loads(runtime_env_json)
+            if not isinstance(runtime_env_dict, dict):
+                raise ValueError("runtime_env JSON must be a dict")
+        except Exception as e:
+            console.print(f"[red]Failed to parse runtime_env JSON: {e}[/]")
+            sys.exit(1)
+    if working_dir:
+        runtime_env_dict = runtime_env_dict or {}
+        runtime_env_dict["working_dir"] = working_dir
+
+    # Build metadata
+    metadata_dict = None
+    if metadata_json:
+        try:
+            metadata_dict = json.loads(metadata_json)
+            if not isinstance(metadata_dict, dict):
+                raise ValueError("metadata JSON must be a dict")
+        except Exception as e:
+            console.print(f"[red]Failed to parse metadata JSON: {e}[/]")
+            sys.exit(1)
+
+    # Build entrypoint resources
+    entrypoint_resources_dict = None
+    if entrypoint_resources:
+        try:
+            entrypoint_resources_dict = json.loads(entrypoint_resources)
+            if not isinstance(entrypoint_resources_dict, dict):
+                raise ValueError("entrypoint_resources must be a dict")
+        except Exception as e:
+            console.print(f"[red]Failed to parse entrypoint_resources JSON: {e}[/]")
+            sys.exit(1)
+
+    try:
+        submit_kwargs = dict(entrypoint=entrypoint_cmd)
+        if submission_id is not None:
+            submit_kwargs["submission_id"] = submission_id
+        if runtime_env_dict is not None:
+            submit_kwargs["runtime_env"] = runtime_env_dict
+        if metadata_dict is not None:
+            submit_kwargs["metadata"] = metadata_dict
+        if entrypoint_num_cpus is not None:
+            submit_kwargs["entrypoint_num_cpus"] = entrypoint_num_cpus
+        if entrypoint_num_gpus is not None:
+            submit_kwargs["entrypoint_num_gpus"] = entrypoint_num_gpus
+        if entrypoint_memory is not None:
+            submit_kwargs["entrypoint_memory"] = entrypoint_memory
+        if entrypoint_resources_dict is not None:
+            submit_kwargs["entrypoint_resources"] = entrypoint_resources_dict
+        job_id_ret = submission_client.submit_job(**submit_kwargs)
+        console.print(
+            f"Job submitted to [green]{name}[/] with id [blue]{job_id_ret}[/]."
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to submit job to {name}: {e}[/]")
+        sys.exit(1)
+
+    if no_wait:
+        return
+
+    console.print(f"Streaming logs for job [blue]{job_id_ret}[/] (Ctrl+C to stop)...")
+    try:
+
+        async def _stream_logs() -> None:
+            async for chunk in submission_client.tail_job_logs(job_id_ret):
+                sys.stdout.write(chunk)
+                sys.stdout.flush()
+
+        asyncio.run(_stream_logs())
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Log streaming interrupted by user.[/]")
+        return
+    except Exception as e:
+        console.print(f"[red]Failed to stream logs: {e}[/]")
+
+    try:
+        status = submission_client.get_job_status(job_id_ret)
+        console.print(
+            f"Job [blue]{job_id_ret}[/] finished with status: [green]{status.value}[/]"
+        )
+        if status != JobStatus.SUCCEEDED:
+            sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to retrieve job status: {e}[/]")
 
 
 def add_command(cli_group):
