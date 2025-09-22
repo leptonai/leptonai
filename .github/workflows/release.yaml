@@ -100,7 +100,7 @@ jobs:
   publish-pypi:
     if: inputs.publish_pypi
     needs: test-package
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Python Environment
         uses: actions/setup-python@v4
