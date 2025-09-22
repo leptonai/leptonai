@@ -227,18 +227,36 @@ def list_command(detail=False, node_group=None):
     table.add_column("Used Nodes")
     table.add_column("Ready Nodes")
 
-    # Add extra column for detailed view
-    for node_group in filtered_node_groups:
+    nodes_results = []
+    if filtered_node_groups:
+        results_or_errors = client.nodegroup.batch_fetch_nodes(
+            filtered_node_groups,
+            concurrency=min(8, len(filtered_node_groups)),
+            return_exceptions=True,
+        )
+
+        for idx, item in enumerate(results_or_errors):
+            if isinstance(item, Exception):
+                ng = filtered_node_groups[idx]
+                name = getattr(getattr(ng, "metadata", None), "name", "unknown")
+                id_ = getattr(getattr(ng, "metadata", None), "id_", "-")
+                console.print(
+                    f"[dim]Warning:[/dim] Failed to fetch node list for {name} ({id_}): {item}"
+                )
+                nodes_results.append([])
+            else:
+                nodes_results.append(item)
+
+
+    for idx, node_group in enumerate(filtered_node_groups):
         node_group_name = node_group.metadata.name
         node_group_id = node_group.metadata.id_
         ready_nodes = str(node_group.status.ready_nodes or 0)
 
-        # Get node list and calculate statistics
-        nodes = client.nodegroup.list_nodes(node_group)
+        nodes = nodes_results[idx] if idx < len(nodes_results) else []
         stats = _get_node_stats(nodes)
 
         if detail:
-            # Format node details by category
             used_details = "\n".join(stats["used_nodes_details"])
             unhealthy_details = "\n".join(stats["unhealthy_nodes_details"])
             available_details = "\n".join(stats["available_nodes_details"])
