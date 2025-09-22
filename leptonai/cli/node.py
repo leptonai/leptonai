@@ -241,12 +241,12 @@ def list_command(detail=False, node_group=None):
                 name = getattr(getattr(ng, "metadata", None), "name", "unknown")
                 id_ = getattr(getattr(ng, "metadata", None), "id_", "-")
                 console.print(
-                    f"[dim]Warning:[/dim] Failed to fetch node list for {name} ({id_}): {item}"
+                    f"[dim]Warning:[/dim] Failed to fetch node list for {name} ({id_}):"
+                    f" {item}"
                 )
                 nodes_results.append([])
             else:
                 nodes_results.append(item)
-
 
     for idx, node_group in enumerate(filtered_node_groups):
         node_group_name = node_group.metadata.name
