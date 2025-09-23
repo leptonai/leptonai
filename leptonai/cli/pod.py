@@ -628,7 +628,7 @@ def ssh(name):
 @click.option("--name", "-n", help="The endpoint name to stop.", required=True)
 def stop(name):
     """
-    Stops a deployment by its name.
+    Stops a pod by its name.
     """
     client = APIClient()
     endpoint = client.deployment.get(name)
@@ -639,12 +639,12 @@ def stop(name):
         LeptonDeploymentState.NotReady,
     ]:
         console.print(
-            f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No"
+            f"[yellow]⚠ Pod [green]{name}[/] is {endpoint.status.state}. No"
             " action taken.[/]"
         )
         sys.exit(0)
     client.deployment.stop(name)
-    console.print(f"Deployment [green]{name}[/] stopped successfully.")
+    console.print(f"Pod [green]{name}[/] stopped successfully.")
 
 
 def add_command(cli_group):
