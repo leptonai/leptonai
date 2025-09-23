@@ -270,9 +270,9 @@ def list_command(detail=False, node_group=None):
 
     console.print(table)
     console.print(
-        "\n[dim]Note:[/dim] 'Fully available' means the node has no workloads (CPU or GPU)"
-        " and is Ready. Nodes with CPU-only workloads or partially used GPUs are not"
-        " counted here, but may still accept small/fractional jobs depending on"
+        "\n[dim]Note:[/dim] 'Fully available' means the node has no workloads (CPU or"
+        " GPU) and is Ready. Nodes with CPU-only workloads or partially used GPUs are"
+        " not counted here, but may still accept small/fractional jobs depending on"
         " scheduler policies."
     )
 
