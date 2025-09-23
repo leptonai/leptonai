@@ -78,7 +78,28 @@ class DeploymentAPI(APIResourse):
             json=self.safe_json(spec),
         )
         return self.ensure_type(response, LeptonDeployment)
+    
+    def stop(self, name_or_deployment: Union[str, LeptonDeployment]) -> LeptonDeployment:
+        """Scale the deployment down to zero replicas via PATCH.
 
+        This issues a partial update equivalent to:
+        {
+          "spec": { "resource_requirement": { "min_replicas": 0 } }
+        }
+        """
+        payload = {
+            "spec": {
+                "resource_requirement": {
+                    "min_replicas": 0,
+                }
+            }
+        }
+        response = self._patch(
+            f"/deployments/{self._to_name(name_or_deployment)}",
+            json=payload,
+        )
+        return self.ensure_type(response, LeptonDeployment)
+        
     def delete(self, name_or_deployment: Union[str, LeptonDeployment]) -> bool:
         response = self._delete(f"/deployments/{self._to_name(name_or_deployment)}")
         return self.ensure_ok(response)

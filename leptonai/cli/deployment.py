@@ -34,6 +34,7 @@ from ..api.v1.types.deployment import (
     HealthCheck,
     HealthCheckLiveness,
     LeptonDeployment,
+    LeptonDeploymentState,
     LeptonDeploymentUserSpec,
     LeptonContainer,
     ResourceRequirement,
@@ -1887,16 +1888,6 @@ def events(name):
     console.print(table)
 
 
-def add_command(cli_group):
-    # Clone commands from hidden `deployment` group to visible `endpoint` group.
-    for _name, _cmd in deployment.commands.items():
-        if _name not in endpoint.commands:
-            endpoint.add_command(_cmd, name=_name)
-
-    # Register groups: keep `deployment` for backward-compatibility (hidden), add visible `endpoint`.
-    cli_group.add_command(deployment, name="deployment")
-    cli_group.add_command(endpoint, name="endpoint")
-
 
 @deployment.command()
 @click.option("--name", "-n", help="Endpoint name", required=True, type=str)
@@ -1952,3 +1943,28 @@ def get(name, path):
         except Exception as e:
             console.print(f"[red]Failed to save spec: {e}[/]")
             sys.exit(1)
+
+@deployment.command()
+@click.option("--name", "-n", help="The endpoint name to stop.", required=True)
+def stop(name):
+    """
+    Stops a deployment by its name.
+    """
+    client = APIClient()
+    endpoint = client.deployment.get(name)
+    if endpoint.status.state in [LeptonDeploymentState.Stopped, LeptonDeploymentState.Stopping, LeptonDeploymentState.Deleting, LeptonDeploymentState.NotReady]:
+        console.print(f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No action taken.[/]")
+        sys.exit(0)
+    client.deployment.stop(name)
+    console.print(f"Deployment [green]{name}[/] stopped successfully.")
+
+
+def add_command(cli_group):
+    # Clone commands from hidden `deployment` group to visible `endpoint` group.
+    for _name, _cmd in deployment.commands.items():
+        if _name not in endpoint.commands:
+            endpoint.add_command(_cmd, name=_name)
+
+    # Register groups: keep `deployment` for backward-compatibility (hidden), add visible `endpoint`.
+    cli_group.add_command(deployment, name="deployment")
+    cli_group.add_command(endpoint, name="endpoint")
