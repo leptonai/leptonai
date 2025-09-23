@@ -26,6 +26,7 @@ def _is_node_used(node):
         return False
     return any((getattr(w, "type_", "") or "").lower() != "system" for w in workloads)
 
+
 def _is_node_unhealthy(node):
     """Check if a node is unhealthy"""
     return "Unhealthy" in node.status.status
