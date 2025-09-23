@@ -29,7 +29,7 @@ def _is_node_unhealthy(node):
     return "Unhealthy" in node.status.status
 
 
-def _is_node_available(node):
+def _is_node_available(node, skip_gpu_check=True):
     """
     Check if a node is available for use.
 
@@ -39,16 +39,22 @@ def _is_node_available(node):
     3. Is not marked as unschedulable (node.spec.unschedulable is False)
     4. Is not unhealthy (does not have 'Unhealthy' in node.status.status)
     """
-    gpu_used = False
-    if node.status.workloads:
-        for workload in node.status.workloads:
-            if workload.gpu_count and workload.gpu_count > 0:
-                gpu_used = True
+    resource_used = False
+    if not skip_gpu_check:
+
+        if node.status.workloads:
+            for workload in node.status.workloads:
+                if workload.gpu_count and workload.gpu_count > 0:
+                    resource_used = True
+    else:
+        if node.status.workloads and len(node.status.workloads) > 0:
+            resource_used = True
+
     return (
         not node.spec.unschedulable
         and "Ready" in node.status.status
         and "Unhealthy" not in node.status.status
-        and not gpu_used
+        and not resource_used
     )
 
 
@@ -222,7 +228,7 @@ def list_command(detail=False, node_group=None):
     table = Table(title="Node Groups", show_lines=True)
     table.add_column("Name")
     table.add_column("ID")
-    table.add_column("Available Nodes (All GPU available)")
+    table.add_column("Fully Available Nodes")
     table.add_column("Unhealthy Nodes")
     table.add_column("Used Nodes")
     table.add_column("Ready Nodes")
@@ -263,10 +269,11 @@ def list_command(detail=False, node_group=None):
             )
 
     console.print(table)
-
     console.print(
-        "[dim]Note:[/dim] If a node appears available but is actually in use, it is"
-        " currently handling only CPU workloads, with all GPUs remaining idle.\n"
+        "\n[dim]Note:[/dim] 'Fully available' means the node has no workloads (CPU or"
+        " GPU) and is Ready. Nodes with CPU-only workloads or partially used GPUs are"
+        " not counted here, but may still accept small/fractional jobs depending on"
+        " scheduler policies."
     )
 
 
