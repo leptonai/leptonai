@@ -228,7 +228,7 @@ def list_command(detail=False, node_group=None):
     table = Table(title="Node Groups", show_lines=True)
     table.add_column("Name")
     table.add_column("ID")
-    table.add_column("Available Nodes (No Workload)")
+    table.add_column("Fully Available Nodes")
     table.add_column("Unhealthy Nodes")
     table.add_column("Used Nodes")
     table.add_column("Ready Nodes")
@@ -269,6 +269,12 @@ def list_command(detail=False, node_group=None):
             )
 
     console.print(table)
+    console.print(
+        "\n[dim]Note:[/dim] 'Fully available' means the node has no workloads (CPU or GPU)"
+        " and is Ready. Nodes with CPU-only workloads or partially used GPUs are not"
+        " counted here, but may still accept small/fractional jobs depending on"
+        " scheduler policies."
+    )
 
 
 @node.command(name="resource-shape")
