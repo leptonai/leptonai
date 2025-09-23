@@ -1412,5 +1412,34 @@ def events(id, replica=None):
     console.print(table)
 
 
+
+@job.command(name="templates")
+def list_template():
+    """List all templates (public and private) with Name/ID/Owner."""
+    client = APIClient()
+    public_items = client.template.list_public()
+    private_items = client.template.list_private()
+
+    table = Table(title="Job Templates", show_lines=True)
+    table.add_column("Name / ID")
+    table.add_column("Owner")
+
+    def _emit_rows(items, show_owner: bool):
+        for t in items:
+            meta = t.metadata
+            if not meta:
+                table.add_row("[bold]-[/]\n[dim]-[/]", "")
+                continue
+            tid = meta.id_ or meta.name or "-"
+            name = meta.name or meta.id_ or "-"
+            owner = (meta.created_by or meta.owner or "") if show_owner else ""
+            table.add_row(f"[bold]{name}[/]\n[dim]{tid}[/]", str(owner))
+
+    _emit_rows(public_items, show_owner=False)
+    _emit_rows(private_items, show_owner=True)
+
+    console.print(table)
+
+
 def add_command(cli_group):
     cli_group.add_command(job)
