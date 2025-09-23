@@ -21,8 +21,10 @@ def node():
 
 def _is_node_used(node):
     """Check if a node is in use"""
-    return node.status.workloads and len(node.status.workloads) > 0
-
+    workloads = getattr(getattr(node, "status", None), "workloads", None)
+    if not workloads:
+        return False
+    return any((getattr(w, "type_", "") or "").lower() != "system" for w in workloads)
 
 def _is_node_unhealthy(node):
     """Check if a node is unhealthy"""
