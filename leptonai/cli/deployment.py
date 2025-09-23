@@ -1673,13 +1673,14 @@ def update(
             "Note that --tokens can be used with either option."
         )
         sys.exit(1)
-    
+
     if public is not None and public is False and len(tokens) == 0 or remove_tokens:
         console.print(
-            "[red]Error[/]: Cannot update a deployment from public access to token access without any tokens. "
+            "[red]Error[/]: Cannot update a deployment from public access to token"
+            " access without any tokens. "
         )
         sys.exit(1)
-    
+
     if id == "latest":
         current_photon_id = lepton_deployment.spec.photon_id
 

@@ -2,7 +2,7 @@ import warnings
 from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
-from .types.deployment import LeptonDeployment, TokenVar, TokenValue
+from .types.deployment import LeptonDeployment, TokenVar
 from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
@@ -24,7 +24,7 @@ def make_token_vars_from_config(
     # If no changes to tokens are requested, return None (no change)
     if tokens is None and is_public is None:
         return None
-        
+
     if is_public:
         return []
 
