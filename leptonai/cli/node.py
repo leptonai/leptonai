@@ -49,7 +49,7 @@ def _is_node_available(node, skip_gpu_check=True):
     else:
         if node.status.workloads and len(node.status.workloads) > 0:
             resource_used = True
-    
+
     return (
         not node.spec.unschedulable
         and "Ready" in node.status.status
