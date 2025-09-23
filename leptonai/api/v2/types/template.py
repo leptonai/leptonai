@@ -19,5 +19,3 @@ class LeptonTemplate(BaseModel):
     metadata: Optional[Metadata] = None
     spec: Optional[LeptonTemplateUserSpec] = None
     status: Optional[LeptonTemplateStatus] = None
-
-

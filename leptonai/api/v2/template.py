@@ -56,4 +56,3 @@ class TemplateAPI(APIResourse):
     def get_private(self, template_id: str) -> LeptonTemplate:
         response = self._get(f"/templates/private/{template_id}")
         return self.ensure_type(response, LeptonTemplate)
-    

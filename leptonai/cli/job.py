@@ -1412,7 +1412,6 @@ def events(id, replica=None):
     console.print(table)
 
 
-
 @job.command(name="templates")
 def list_template():
     """List all templates (public and private) with Name/ID/Owner."""
