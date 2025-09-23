@@ -615,6 +615,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--include-workspace-token",
     is_flag=True,
+    hidden=True,
     help=(
         "If specified, the workspace token will be included as an environment"
         " variable. This is used when the photon code uses Lepton SDK capabilities such"
@@ -867,6 +868,11 @@ def create(
             "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
             "Use --public for public access or --ip-whitelist for restricted access. "
             "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
+    if public is None and len(tokens) == 0:
+        console.print(
+            "[red]Error[/]: Cannot create a private deployment with no tokens. "
         )
         sys.exit(1)
 
@@ -1494,7 +1500,7 @@ def log(name, replica):
     help=(
         "If --public is specified, the endpoint will be made public. If --no-public"
         " is specified, the endpoint will be made non-public, with access tokens"
-        " being the workspace token and the tokens specified by --tokens. If neither is"
+        " specified by --tokens. If neither is"
         " specified, no change will be made to the access control of the endpoint."
     ),
 )
@@ -1515,8 +1521,7 @@ def log(name, replica):
     help=(
         "Access tokens that can be used to access the endpoint. See docs for"
         " details on access control. If no tokens is specified, we will not change the"
-        " tokens of the endpoint. If you want to remove all additional tokens, use"
-        "--remove-tokens."
+        " tokens of the endpoint. "
     ),
     multiple=True,
 )
@@ -1524,6 +1529,7 @@ def log(name, replica):
     "--remove-tokens",
     is_flag=True,
     default=False,
+    hidden=True,
     help=(
         "If specified, all additional tokens will be removed, and the endpoint will"
         " be either public (if --public) is specified, or only accessible with the"
@@ -1667,7 +1673,13 @@ def update(
             "Note that --tokens can be used with either option."
         )
         sys.exit(1)
-
+    
+    if public is not None and public is False and len(tokens) == 0 or remove_tokens:
+        console.print(
+            "[red]Error[/]: Cannot update a deployment from public access to token access without any tokens. "
+        )
+        sys.exit(1)
+    
     if id == "latest":
         current_photon_id = lepton_deployment.spec.photon_id
 

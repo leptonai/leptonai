@@ -15,12 +15,21 @@ def make_token_vars_from_config(
     # Note that None is different from [] here. None means that the tokens are not
     # changed, while [] means that the tokens are cleared (aka, no tokens)
 
+    if is_public and tokens:
+        raise ValueError(
+            "For access control, you cannot specify both is_public and token at the"
+            " same time. Please specify either is_public=True with no tokens passed"
+            " in, or is_public=False and tokens as a list."
+        )
     # If no changes to tokens are requested, return None (no change)
-    if tokens is None:
+    if tokens is None and is_public is None:
         return None
+        
+    if is_public:
+        return []
 
-    # Build token list: always include workspace token, plus any additional tokens
-    final_tokens = [TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))]
+    # Workspace token is no longer accessible
+    final_tokens = []
     if tokens:
         final_tokens.extend([TokenVar(value=token) for token in tokens])
     return final_tokens
