@@ -1888,7 +1888,6 @@ def events(name):
     console.print(table)
 
 
-
 @deployment.command()
 @click.option("--name", "-n", help="Endpoint name", required=True, type=str)
 @click.option(
@@ -1944,6 +1943,7 @@ def get(name, path):
             console.print(f"[red]Failed to save spec: {e}[/]")
             sys.exit(1)
 
+
 @deployment.command()
 @click.option("--name", "-n", help="The endpoint name to stop.", required=True)
 def stop(name):
@@ -1952,8 +1952,16 @@ def stop(name):
     """
     client = APIClient()
     endpoint = client.deployment.get(name)
-    if endpoint.status.state in [LeptonDeploymentState.Stopped, LeptonDeploymentState.Stopping, LeptonDeploymentState.Deleting, LeptonDeploymentState.NotReady]:
-        console.print(f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No action taken.[/]")
+    if endpoint.status.state in [
+        LeptonDeploymentState.Stopped,
+        LeptonDeploymentState.Stopping,
+        LeptonDeploymentState.Deleting,
+        LeptonDeploymentState.NotReady,
+    ]:
+        console.print(
+            f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No"
+            " action taken.[/]"
+        )
         sys.exit(0)
     client.deployment.stop(name)
     console.print(f"Deployment [green]{name}[/] stopped successfully.")
