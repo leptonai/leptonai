@@ -2,6 +2,8 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Dict, List
 
+from loguru import logger
+
 from leptonai.config import CompatibleRootModel
 
 
@@ -13,8 +15,14 @@ class ReplicaReadinessReason(str, Enum):
     NoCapacity = "NoCapacity"
     ConfigError = "ConfigError"
     SystemError = "SystemError"
-    Unknown = "Unknown"
     RequireReadinessApproval = "RequireReadinessApproval"
+    Queueing = "Queueing"
+    Unknown = "Unknown"
+
+    @classmethod
+    def _missing_(cls, value):
+        logger.trace(f"Unknown value: {value} for ReplicaReadinessReason")
+        return cls.Unknown
 
 
 class ReplicaReadinessIssue(BaseModel):

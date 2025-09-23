@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from .common import Metadata
-import warnings
+from loguru import logger
 
 
 class VolumeFrom(str, Enum):
@@ -14,7 +14,7 @@ class VolumeFrom(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        warnings.warn("You might be using an out of date SDK. consider updating.")
+        logger.trace(f"Unknown value: {value} for VolumeFrom")
         return cls.Unknown
 
 
@@ -26,7 +26,7 @@ class VolumeCreationMode(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        warnings.warn("You might be using an out of date SDK. consider updating.")
+        logger.trace(f"Unknown value: {value} for VolumeCreationMode")
         return cls.Unknown
 
 

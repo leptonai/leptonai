@@ -2,6 +2,8 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Dict, Optional
 
+from loguru import logger
+
 from .quota import TotalResource, TotalService
 
 
@@ -10,6 +12,12 @@ class WorkspaceState(str, Enum):
     Paused = "paused"
     AllPodsTerminated = "all-pods-terminated"
     Terminated = "terminated"
+    Unknown = "unknown"
+
+    @classmethod
+    def _missing_(cls, value):
+        logger.trace(f"Unknown value: {value} for WorkspaceState")
+        return cls.Unknown
 
 
 class Workloads(BaseModel):

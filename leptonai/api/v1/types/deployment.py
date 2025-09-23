@@ -2,6 +2,7 @@ import warnings
 from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from loguru import logger
 
 from leptonai.config import compatible_field_validator, v2only_field_validator
 
@@ -310,8 +311,7 @@ class LeptonDeploymentState(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        if value:
-            warnings.warn("You might be using an out of date SDK. consider updating.")
+        logger.trace(f"Unknown value: {value} for LeptonDeploymentState")
         return cls.Unknown
 
 
