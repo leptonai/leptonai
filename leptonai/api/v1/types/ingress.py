@@ -1,6 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel
 from typing import Optional, List
+from loguru import logger
 
 from .common import Metadata
 from .auth import AuthConfig
@@ -54,6 +55,12 @@ class CustomDomainValidationStatus(str, Enum):
     Pending = "pending"
     Active = "active"
     Failed = "failed"
+    Unknown = "unknown"
+
+    @classmethod
+    def _missing_(cls, value):
+        logger.trace(f"Unknown value: {value} for CustomDomainValidationStatus")
+        return cls.Unknown
 
 
 class LeptonIngressStatus(BaseModel):

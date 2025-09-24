@@ -1,7 +1,7 @@
-import warnings
 from enum import Enum
 from pydantic import BaseModel, field_validator
 from typing import Optional, List, Any
+from loguru import logger
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
@@ -80,8 +80,7 @@ class LeptonJobState(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        if value:
-            warnings.warn("You might be using an out of date SDK. consider updating.")
+        logger.trace(f"Unknown value: {value} for LeptonJobState")
         return cls.Unknown
 
 
