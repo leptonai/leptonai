@@ -570,7 +570,7 @@ def create(
     if run is not None and template is None:
         console.print("[red]Error[/]: --run can only be used together with --template.")
         sys.exit(1)
-    
+
     if template and file:
         console.print("[red]Error[/]: --template and --file cannot be used together.")
         sys.exit(1)

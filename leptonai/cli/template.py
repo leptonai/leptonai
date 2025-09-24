@@ -51,5 +51,3 @@ def list_command():
 
 def add_command(cli_group):
     cli_group.add_command(template)
-
-

@@ -278,7 +278,9 @@ def create(
             payload = {"run": run} if run else {}
             rendered = client.template.render(template, payload)
             spec_dict = rendered.spec.model_dump(by_alias=True, exclude_none=True)
-            spec_from_file = types.deployment.LeptonDeploymentUserSpec.model_validate(spec_dict)
+            spec_from_file = types.deployment.LeptonDeploymentUserSpec.model_validate(
+                spec_dict
+            )
         except Exception as e:
             console.print(f"[red]Failed to render pod template[/]: {e}")
             sys.exit(1)
@@ -295,7 +297,6 @@ def create(
             sys.exit(1)
 
     deployment_user_spec = spec_from_file or types.deployment.LeptonDeploymentUserSpec()
-
 
     if container_image or container_command:
         if container_image is None and not file:
