@@ -870,9 +870,9 @@ def create(
             "Note that --tokens can be used with either option."
         )
         sys.exit(1)
-    if public is None and len(tokens) == 0:
+    if public is None or public is False and len(tokens) == 0:
         console.print(
-            "[red]Error[/]: Cannot create a private deployment with no tokens. "
+            "[red]Error[/]: Cannot create a non-public access deployment with no tokens. "
         )
         sys.exit(1)
 
