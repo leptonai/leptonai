@@ -65,6 +65,17 @@ def pod():
     "--name", "-n", type=str, help="Name of the pod to create.", required=True
 )
 @click.option(
+    "--template",
+    "-t",
+    help="Template ID to render the pod specification from.",
+    type=str,
+)
+@click.option(
+    "--run",
+    help='Command string ("run") to substitute into the template.',
+    type=str,
+)
+@click.option(
     "--file",
     "-f",
     type=click.Path(
@@ -219,6 +230,8 @@ def pod():
 )
 def create(
     name,
+    template,
+    run,
     file,
     resource_shape,
     mount,
@@ -248,9 +261,30 @@ def create(
         )
         sys.exit(1)
 
-    # Load spec from file if provided
+    client = APIClient()
+
+    # Validate template/file mutual exclusivity
+    if run is not None and template is None:
+        console.print("[red]Error[/]: --run can only be used together with --template.")
+        sys.exit(1)
+
+    if template and file:
+        console.print("[red]Error[/]: --template and --file cannot be used together.")
+        sys.exit(1)
+
     spec_from_file = None
-    if file:
+    if template:
+        try:
+            payload = {"run": run} if run else {}
+            rendered = client.template.render(template, payload)
+            spec_dict = rendered.spec.model_dump(by_alias=True, exclude_none=True)
+            spec_from_file = types.deployment.LeptonDeploymentUserSpec.model_validate(
+                spec_dict
+            )
+        except Exception as e:
+            console.print(f"[red]Failed to render pod template[/]: {e}")
+            sys.exit(1)
+    elif file:
         try:
             with open(file, "r") as f:
                 spec_from_file = (
@@ -263,8 +297,6 @@ def create(
             sys.exit(1)
 
     deployment_user_spec = spec_from_file or types.deployment.LeptonDeploymentUserSpec()
-
-    client = APIClient()
 
     if container_image or container_command:
         if container_image is None and not file:
