@@ -872,11 +872,10 @@ def create(
         sys.exit(1)
     if public is None or public is False and not ip_whitelist and len(tokens) == 0:
         console.print(
-            "\n[red]Access configuration required[/]: non-public endpoints must specify access controls.\n"
-            "\n[white]Options:[/white]\n"
-            "  • [green]--public[/] – public access\n"
-            "  • [green]--tokens[/] – token-based auth (can be used alone)\n"
-            "  • [green]--ip-whitelist[/] – IP allowlist (can be used alone)\n"
+            "\n[red]Access configuration required[/]: non-public endpoints must specify"
+            " access controls.\n\n[white]Options:[/white]\n  • [green]--public[/] –"
+            " public access\n  • [green]--tokens[/] – token-based auth (can be used"
+            " alone)\n  • [green]--ip-whitelist[/] – IP allowlist (can be used alone)\n"
             "  • [green]--tokens[/] + [green]--ip-whitelist[/] – can be combined\n"
         )
         sys.exit(1)
