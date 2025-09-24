@@ -24,6 +24,12 @@ class LeptonJobTimeSchedule(BaseModel):
     start_at: Optional[int] = None  # StartAt is unix time in seconds
 
 
+class LeptonJobSegmentConfig(BaseModel):
+    """Segment configuration for segmented job execution."""
+
+    count_per_segment: int
+
+
 class LeptonJobUserSpec(BaseModel):
     """
     The desired state of a Lepton Job.
@@ -49,6 +55,7 @@ class LeptonJobUserSpec(BaseModel):
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
     time_schedule: Optional[LeptonJobTimeSchedule] = None
+    segment_config: Optional[LeptonJobSegmentConfig] = None
 
     # --- ensure backend-required defaults when value is null/absent when using templates ---
     @field_validator("completions", "parallelism", mode="before")
