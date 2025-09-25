@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from loguru import logger
 
@@ -13,6 +13,14 @@ class LeastRequestLoadBalancer(BaseModel):
 
 class LoadBalanceConfig(BaseModel):
     least_request: Optional[LeastRequestLoadBalancer] = None
+    maglev: Optional["MaglevLoadBalancer"] = None
+
+
+class MaglevLoadBalancer(BaseModel):
+    # Use hostname instead of resolved IP for hashing
+    use_hostname_for_hashing: Optional[bool] = Field(
+        default=None, alias="useHostnameForHashing"
+    )
 
 
 class LeptonIngressEndpoint(BaseModel):
