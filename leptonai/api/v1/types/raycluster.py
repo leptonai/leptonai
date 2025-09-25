@@ -7,7 +7,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
-from .deployment import EnvVar, Mount, QueueConfig
+from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig
 
 
 class RayUserSecurityContext(BaseModel):
@@ -49,6 +49,7 @@ class RayClusterCommonGroupSpec(BaseModel):
     mounts: Optional[List[Mount]] = None
     queue_config: Optional[QueueConfig] = None
     user_security_context: Optional[RayUserSecurityContext] = None
+    reservation_config: Optional[ReservationConfig] = None
 
     @compatible_field_validator("min_replicas")
     def validate_min_replicas(cls, min_replicas):
@@ -93,6 +94,14 @@ class RayWorkerGroupSpec(RayClusterCommonGroupSpec):
     """
 
     group_name: Optional[str] = None
+
+
+class RayAutoscaler(BaseModel):
+    """
+    Spec for the Ray autoscaler.
+    """
+
+    ray_worker_idle_timeout: Optional[int] = None
 
 
 class RayHeadInfo(BaseModel):
@@ -145,6 +154,7 @@ class LeptonRayClusterUserSpec(BaseModel):
     suspend: Optional[bool] = None
     head_group_spec: Optional[RayHeadGroupSpec] = None
     worker_group_specs: Optional[List[RayWorkerGroupSpec]] = None
+    autoscaler: Optional[RayAutoscaler] = None
 
 
 class LeptonRayClusterStatus(BaseModel):
