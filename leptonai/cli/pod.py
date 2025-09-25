@@ -37,6 +37,7 @@ from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.deployment import (
+    LeptonDeploymentState,
     ResourceRequirement,
     LeptonLog,
     LeptonContainer,
@@ -653,6 +654,29 @@ def ssh(name):
         )
         console.print(notice_msg)
         sys.exit(1)
+
+
+@pod.command()
+@click.option("--name", "-n", help="The endpoint name to stop.", required=True)
+def stop(name):
+    """
+    Stops a pod by its name.
+    """
+    client = APIClient()
+    endpoint = client.deployment.get(name)
+    if endpoint.status.state in [
+        LeptonDeploymentState.Stopped,
+        LeptonDeploymentState.Stopping,
+        LeptonDeploymentState.Deleting,
+        LeptonDeploymentState.NotReady,
+    ]:
+        console.print(
+            f"[yellow]⚠ Pod [green]{name}[/] is {endpoint.status.state}. No"
+            " action taken.[/]"
+        )
+        sys.exit(0)
+    client.deployment.stop(name)
+    console.print(f"Pod [green]{name}[/] stopped successfully.")
 
 
 def add_command(cli_group):
