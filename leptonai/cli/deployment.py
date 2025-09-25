@@ -45,7 +45,12 @@ from ..api.v1.types.deployment import (
     SchedulingToggle,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
-from ..api.v1.types.ingress import AuthConfig
+from ..api.v1.types.ingress import (
+    AuthConfig,
+    LoadBalanceConfig,
+    LeastRequestLoadBalancer,
+    MaglevLoadBalancer,
+)
 
 
 def _same_major_version(version_str_list: List[str]) -> bool:
@@ -816,6 +821,32 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
     default=None,
 )
+@click.option(
+    "--ingress-timeout-seconds",
+    type=int,
+    default=None,
+    help=(
+        "Ingress request timeout in seconds (300-6000). If not specified, defaults to"
+        " 300."
+    ),
+)
+@click.option(
+    "--load-balance",
+    type=click.Choice(
+        [
+            "least-request",
+            "maglev-default",
+            "maglev-by-host-name",
+            "maglev-by-ip-resolver",
+        ],
+        case_sensitive=False,
+    ),
+    default=None,
+    help=(
+        "Load balancing strategy: least-request | maglev-default | maglev-by-host-name"
+        " | maglev-by-ip-resolver"
+    ),
+)
 def create(
     name,
     file,
@@ -855,6 +886,8 @@ def create(
     with_reservation,
     allow_burst_to_other_reservation,
     replica_spread,
+    ingress_timeout_seconds,
+    load_balance,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -1186,6 +1219,30 @@ def create(
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
+
+        # Ingress timeout
+        if ingress_timeout_seconds is not None:
+            spec.ingress_timeout_seconds = ingress_timeout_seconds
+
+        # Load balancer config via unified enum
+        if load_balance:
+            lb = load_balance.lower()
+            if lb == "least-request":
+                spec.load_balance_config = LoadBalanceConfig(
+                    least_request=LeastRequestLoadBalancer()
+                )
+            elif lb == "maglev-default":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer()
+                )
+            elif lb == "maglev-by-host-name":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer(use_hostname_for_hashing=True)
+                )
+            elif lb == "maglev-by-ip-resolver":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer(use_hostname_for_hashing=False)
+                )
 
     except ValueError as e:
         console.print(
@@ -1632,6 +1689,29 @@ def log(name, replica):
     ),
     default=None,
 )
+@click.option(
+    "--ingress-timeout-seconds",
+    type=int,
+    default=None,
+    help="Ingress request timeout in seconds (300-6000).",
+)
+@click.option(
+    "--load-balance",
+    type=click.Choice(
+        [
+            "least-request",
+            "maglev-default",
+            "maglev-by-host-name",
+            "maglev-by-ip-resolver",
+        ],
+        case_sensitive=False,
+    ),
+    default=None,
+    help=(
+        "Load balancing strategy: least-request | maglev-default | maglev-by-host-name"
+        " | maglev-by-ip-resolver"
+    ),
+)
 def update(
     name,
     id,
@@ -1649,6 +1729,8 @@ def update(
     log_collection,
     shared_memory_size,
     replica_spread,
+    ingress_timeout_seconds,
+    load_balance,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1789,6 +1871,30 @@ def update(
 
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
+
+    # Ingress timeout
+    if ingress_timeout_seconds is not None:
+        lepton_deployment_spec.ingress_timeout_seconds = ingress_timeout_seconds
+
+    # Load balancer config via unified enum
+    if load_balance:
+        lb = load_balance.lower()
+        if lb == "least-request":
+            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
+                least_request=LeastRequestLoadBalancer()
+            )
+        elif lb == "maglev-default":
+            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
+                maglev=MaglevLoadBalancer()
+            )
+        elif lb == "maglev-by-host-name":
+            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
+                maglev=MaglevLoadBalancer(use_hostname_for_hashing=True)
+            )
+        elif lb == "maglev-by-ip-resolver":
+            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
+                maglev=MaglevLoadBalancer(use_hostname_for_hashing=False)
+            )
 
     # Set IP access control in auth_config (independent of tokens)
     if public is not None or ip_whitelist is not None:
