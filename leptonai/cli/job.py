@@ -33,6 +33,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobTimeSchedule,
     LeptonJobUserSpec,
     LeptonJobState,
+    LeptonJobSegmentConfig,
 )
 from leptonai.api.v1.types.deployment import (
     LeptonLog,
@@ -341,6 +342,16 @@ def job():
     type=int,
     default=None,
 )
+@click.option(
+    "--segment-count",
+    help=(
+        "Segment count for GB200 node groups. Must satisfy: 1 <= segment_count <"
+        " num_workers, and num_workers % segment_count == 0. Workers within the same"
+        " segment are scheduled into one NVL72 domain."
+    ),
+    type=int,
+    default=None,
+)
 
 # Failure handling options
 @click.option(
@@ -539,6 +550,7 @@ def create(
     resource_shape,
     node_groups,
     num_workers,
+    segment_count,
     max_failure_retry,
     max_job_failure_retry,
     env,
@@ -631,6 +643,21 @@ def create(
         sys.exit(1)
     elif intra_job_communication:
         job_spec.intra_job_communication = intra_job_communication
+
+    if segment_count is not None:
+        err = None
+        if not num_workers or num_workers <= 1:
+            err = "--segment-count requires --num-workers > 1."
+        elif not (1 <= segment_count < num_workers) or (
+            num_workers % segment_count != 0
+        ):
+            err = "segment-count must be in [1, num_workers) and divide num_workers."
+        if err:
+            console.print(f"[red]Error[/]: {err}")
+            sys.exit(1)
+        job_spec.segment_config = LeptonJobSegmentConfig(
+            count_per_segment=num_workers // segment_count
+        )
 
     # Set failure retry limits
     if max_failure_retry:
