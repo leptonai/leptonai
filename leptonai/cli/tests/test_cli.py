@@ -30,6 +30,14 @@ class TestLepCli(unittest.TestCase):
         self.assertEqual(v.output.strip(), f"lep, version {__version__}")
         self.assertEqual(version.output.strip(), f"lep, version {__version__}")
 
+    def test_reject_empty_string_option(self):
+        runner = CliRunner()
+        # Use a representative command that requires a string
+        # For example: `lep queue create --name ""` should fail
+        result = runner.invoke(cli, ["queue", "create", "--name", ""])  # type: ignore
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("empty", (result.output or "") + (result.stderr or ""))
+
 
 class TestPipSequences(unittest.TestCase):
     def test_sequence_correctness(self):
