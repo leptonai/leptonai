@@ -4,7 +4,7 @@ Common utilities for the CLI.
 
 import sys
 import traceback
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import click
@@ -596,6 +596,7 @@ def apply_nodegroup_and_queue_config(
 
     return spec
 
+
 def format_timestamp_ms(ms: Optional[int]) -> str:
     """Format millisecond epoch to 'YYYY-MM-DD\nHH:MM:SS'."""
     if not ms:
@@ -651,6 +652,3 @@ def make_name_id_cell(
         id_markup = f"[bright_black]{safe_id}[/]" if safe_id else ""
 
     return name_markup if not id_markup else f"{name_markup}\n{id_markup}"
-
-
- 

@@ -11,7 +11,6 @@ session, similar to a cloud VM but much more lightweight.
 import subprocess
 import sys
 import json
-from datetime import datetime
 import re
 
 import click
@@ -572,13 +571,18 @@ def list_command(pattern, detail):
 
         if detail:
             ssh_cmd = (
-                f"ssh -p {ssh_port[1]} root@{pod_ip}" if (pod_ip and ssh_port) else "Not Available"
+                f"ssh -p {ssh_port[1]} root@{pod_ip}"
+                if (pod_ip and ssh_port)
+                else "Not Available"
             )
             tcp_map = (
-                f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)" if tcp_port else "Not Available"
+                f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)"
+                if tcp_port
+                else "Not Available"
             )
             jupyter_map = (
-                f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
+                f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  ->"
+                " client)"
                 if tcp_port_jupyterlab
                 else "Not Available"
             )
@@ -588,7 +592,11 @@ def list_command(pattern, detail):
         # Node Group(s)
         ng_list = []
         rr = pod.spec.resource_requirement if pod.spec else None
-        if rr and getattr(rr, "affinity", None) and rr.affinity.allowed_dedicated_node_groups:
+        if (
+            rr
+            and getattr(rr, "affinity", None)
+            and rr.affinity.allowed_dedicated_node_groups
+        ):
             ng_list = rr.affinity.allowed_dedicated_node_groups
         ng_str = "\n".join(ng_list).lower() if ng_list else ""
 
@@ -634,19 +642,27 @@ def list_command(pattern, detail):
     for pod in pods:
         rr = pod.spec.resource_requirement if pod.spec else None
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
-        state_val = getattr(getattr(pod.status, "state", None), "value", getattr(pod.status, "state", None))
+        state_val = getattr(
+            getattr(pod.status, "state", None),
+            "value",
+            getattr(pod.status, "state", None),
+        )
         if state_val in active_states:
             shape_totals[shape] = shape_totals.get(shape, 0) + 1
 
     console.print(
-        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready / Running / Starting / Updating / Scaling / Deleting only):[/]"
+        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready"
+        " / Running / Starting / Updating / Scaling / Deleting only):[/]"
     )
-    for shape, total in sorted(shape_totals.items(), key=lambda kv: kv[1], reverse=True):
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
         console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
     console.print("\n")
     if detail:
         console.print(
-            "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab listens on."
+            "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
+            " listens on."
         )
     else:
         console.print(
