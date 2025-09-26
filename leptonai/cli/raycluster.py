@@ -20,6 +20,7 @@ from ..api.v1.types.raycluster import (
     LeptonRayClusterUserSpec,
     RayHeadGroupSpec,
     RayWorkerGroupSpec,
+    RayAutoscaler,
 )
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 
@@ -254,6 +255,17 @@ def list_command(name):
     ),
 )
 @click.option(
+    "--head-reservation",
+    type=str,
+    help="Reservation ID for the head node group.",
+)
+@click.option(
+    "--head-allow-burst-to-other-reservation",
+    type=click.BOOL,
+    default=False,
+    help="Allow the head node group to burst to other reservations.",
+)
+@click.option(
     "--worker-group-name",
     type=str,
     help="Name of the worker group (if specifying via flags).",
@@ -309,9 +321,36 @@ def list_command(name):
     ),
 )
 @click.option(
+    "--worker-reservation",
+    type=str,
+    help="Reservation ID for the worker node group.",
+)
+@click.option(
+    "--worker-allow-burst-to-other-reservation",
+    type=click.BOOL,
+    default=False,
+    help="Allow the worker node group to burst to other reservations.",
+)
+@click.option(
     "--worker-min-replicas",
     type=int,
     help="Minimum replicas for the worker node group. Default: 1",
+)
+@click.option(
+    "--worker-max-replicas",
+    type=int,
+    help="Maximum replicas for the worker node group.",
+)
+@click.option(
+    "--enable-autoscaler",
+    type=click.BOOL,
+    default=False,
+    help="Enable the Ray autoscaler.",
+)
+@click.option(
+    "--autoscaler-worker-idle-timeout",
+    type=int,
+    help="Timeout for worker idle timeout in seconds.",
 )
 @click.option(
     "--visibility",
@@ -334,6 +373,8 @@ def create(
     head_secret,
     head_node_group,
     head_allowed_nodes,
+    head_reservation,
+    head_allow_burst_to_other_reservation,
     worker_group_name,
     worker_resource_shape,
     worker_shared_memory_size,
@@ -342,7 +383,12 @@ def create(
     worker_secret,
     worker_node_group,
     worker_allowed_nodes,
+    worker_reservation,
+    worker_allow_burst_to_other_reservation,
     worker_min_replicas,
+    worker_max_replicas,
+    enable_autoscaler,
+    autoscaler_worker_idle_timeout,
     visibility,
 ):
     """
@@ -398,6 +444,9 @@ def create(
 
     if head_shared_memory_size is not None:
         spec.head_group_spec.shared_memory_size = head_shared_memory_size
+    if head_shared_memory_size is not None and head_shared_memory_size <= 0:
+        console.print("[red]Head shared memory size must be a positive integer.[/]")
+        sys.exit(1)
 
     spec.head_group_spec.min_replicas = 1
     # Head envs and mounts (only override when flags supplied)
@@ -420,8 +469,8 @@ def create(
         queue_priority=None,
         can_be_preempted=None,
         can_preempt=None,
-        with_reservation=None,
-        allow_burst=None,
+        with_reservation=head_reservation,
+        allow_burst=head_allow_burst_to_other_reservation,
     )
     # Validate head node group presence and cardinality
     if (
@@ -468,11 +517,18 @@ def create(
 
     if worker_shared_memory_size is not None:
         worker_spec.shared_memory_size = worker_shared_memory_size
+    if worker_shared_memory_size is not None and worker_shared_memory_size <= 0:
+        console.print("[red]Worker shared memory size must be a positive integer.[/]")
+        sys.exit(1)
 
+    worker_spec.min_replicas = 1
     if worker_min_replicas is not None:
         worker_spec.min_replicas = worker_min_replicas
     if worker_spec.min_replicas is None or worker_spec.min_replicas <= 0:
-        worker_spec.min_replicas = 1
+        console.print(
+            "[red]Worker min replicas is required and must be a positive integer.[/]"
+        )
+        sys.exit(1)
 
     # Resolve worker node group names to IDs via shared utility when provided via flags
     if worker_node_group is None or worker_node_group == "":
@@ -486,8 +542,8 @@ def create(
         queue_priority=None,
         can_be_preempted=None,
         can_preempt=None,
-        with_reservation=None,
-        allow_burst=None,
+        with_reservation=worker_reservation,
+        allow_burst=worker_allow_burst_to_other_reservation,
     )
     # Validate worker node group presence and cardinality
     if (
@@ -504,6 +560,39 @@ def create(
         ]
         if worker_nodes_flat:
             worker_spec.affinity.allowed_nodes_in_node_group = worker_nodes_flat
+
+    if enable_autoscaler:
+        if (
+            autoscaler_worker_idle_timeout is None
+            or autoscaler_worker_idle_timeout < 60
+        ):
+            console.print(
+                "[red]Autoscaler worker idle timeout is required and must be greater"
+                " than or equal to 60 seconds.[/]"
+            )
+            sys.exit(1)
+
+        if (
+            worker_max_replicas is None
+            or worker_max_replicas <= worker_spec.min_replicas
+        ):
+            console.print(
+                "[red]Worker max replicas is required and must be greater than worker"
+                " min replicas when autoscaler is enabled.[/]"
+            )
+            sys.exit(1)
+
+        worker_spec.max_replicas = worker_max_replicas
+        spec.autoscaler = RayAutoscaler(
+            ray_worker_idle_timeout=autoscaler_worker_idle_timeout,
+        )
+    else:
+        if worker_max_replicas is not None:
+            console.print(
+                "[red]Worker max replicas is only supported when autoscaler is"
+                " enabled.[/]"
+            )
+            sys.exit(1)
 
     try:
         lepton_raycluster = LeptonRayCluster(
@@ -610,102 +699,60 @@ def get(name, detail, path):
 @raycluster.command()
 @click.option("--name", "-n", help="The raycluster name to update.", required=True)
 @click.option(
-    "--file",
-    "-f",
-    type=click.Path(
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-    ),
-    help="Optionally load a Ray cluster user spec (spec-only) from this JSON file.",
-    required=False,
-)
-@click.option(
-    "--worker-group-name",
-    type=str,
-    help="Name of the worker group to update (required if using flags).",
-)
-@click.option(
     "--min-replicas",
     type=int,
-    help="New minimum replicas for the worker group (required if using flags).",
+    required=True,
+    help="New minimum replicas for the worker group.",
 )
-def update(name, file, worker_group_name, min_replicas):
+def update(name, min_replicas):
     """
-    Updates a Ray cluster worker group's min replicas, either from a file or flags.
-    If both file and flags are provided, flags override fields in the file.
+    Updates a Ray cluster worker group's min replicas.
+    The worker group name is inferred from the existing cluster when there is
+    exactly one worker group.
     """
     client = APIClient()
 
-    # Build a LeptonRayClusterUserSpec from file or flags
-    spec = None
+    # Fetch existing cluster to infer worker group name
+    try:
+        existing_rc = client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
 
-    if file:
-        try:
-            with open(file, "r") as f:
-                content = f.read()
-        except Exception as e:
-            console.print(f"Cannot read file [red]{file}[/]: {e}")
-            sys.exit(1)
+    # Ensure the existing cluster has exactly one worker group
+    if (
+        not existing_rc.spec
+        or not existing_rc.spec.worker_group_specs
+        or len(existing_rc.spec.worker_group_specs) != 1
+    ):
+        console.print(
+            "[red]This command supports clusters with exactly one worker group.[/]"
+        )
+        sys.exit(1)
 
-        try:
-            raw = json.loads(content)
-        except Exception as e:
-            console.print(f"Cannot parse JSON in [red]{file}[/]: {e}")
-            sys.exit(1)
+    # Extract existing worker group name and build a minimal user spec with new min_replicas
+    existing_wg = existing_rc.spec.worker_group_specs[0]
+    group_name = existing_wg.group_name if existing_wg else None
+    if group_name is None or not isinstance(group_name, str) or group_name == "":
+        console.print(
+            "[red]Existing worker group must have a valid non-empty group_name.[/]"
+        )
+        sys.exit(1)
 
-        # Only accept spec-only JSON (no top-level 'spec').
-        if not isinstance(raw, dict):
-            console.print(
-                "[red]Invalid spec file: must be a JSON object representing"
-                " LeptonRayClusterUserSpec.[/]"
+    if min_replicas is None or not isinstance(min_replicas, int) or min_replicas <= 0:
+        console.print(
+            "[red]--min-replicas is required and must be a positive integer.[/]"
+        )
+        sys.exit(1)
+
+    spec = LeptonRayClusterUserSpec(
+        worker_group_specs=[
+            RayWorkerGroupSpec(
+                group_name=group_name,
+                min_replicas=min_replicas,
             )
-            sys.exit(1)
-        try:
-            spec = LeptonRayClusterUserSpec.model_validate(raw)  # type: ignore[arg-type]
-        except Exception as e:
-            console.print(f"[red]Invalid spec content: {e}[/]")
-            sys.exit(1)
-
-    # Ensure the worker group spec exists and is exactly one item
-    if spec is None:
-        spec = LeptonRayClusterUserSpec()
-    if spec.worker_group_specs is None or len(spec.worker_group_specs) == 0:
-        spec.worker_group_specs = [RayWorkerGroupSpec()]
-    if len(spec.worker_group_specs) != 1:
-        console.print("[red]Only one worker group is supported for update.[/]")
-        sys.exit(1)
-
-    wg = spec.worker_group_specs[0]
-
-    # Apply CLI overrides
-    if worker_group_name is not None:
-        wg.group_name = worker_group_name
-    if (
-        wg.group_name is None
-        or not isinstance(wg.group_name, str)
-        or wg.group_name == ""
-    ):
-        console.print(
-            "[red]worker_group_specs[0].group_name is required and must be a non-empty"
-            " string.[/]"
-        )
-        sys.exit(1)
-
-    if min_replicas is not None:
-        wg.min_replicas = min_replicas
-    if (
-        wg.min_replicas is None
-        or not isinstance(wg.min_replicas, int)
-        or wg.min_replicas <= 0
-    ):
-        console.print(
-            "[red]worker_group_specs[0].min_replicas is required and must be a positive"
-            " integer.[/]"
-        )
-        sys.exit(1)
+        ]
+    )
 
     lepton_rc = LeptonRayCluster(spec=spec)
     client.raycluster.update(name_or_raycluster=name, spec=lepton_rc)
