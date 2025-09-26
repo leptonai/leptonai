@@ -12,6 +12,14 @@ from .auth import AuthConfig
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
 
+class UserSecurityContext(BaseModel):
+    """
+    User security context controlling user privileges within the container.
+    """
+
+    privileged: Optional[bool] = None
+
+
 class ReservationConfig(BaseModel):
     reservation_id: Optional[str] = None
     allow_burst_to_other_reservations: Optional[bool] = None
@@ -295,6 +303,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
     auth_config: Optional[AuthConfig] = None
+    user_security_context: Optional[UserSecurityContext] = None
 
 
 class LeptonDeploymentState(str, Enum):
