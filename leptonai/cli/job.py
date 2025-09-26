@@ -20,6 +20,9 @@ from .util import (
     apply_nodegroup_and_queue_config,
     _get_newest_job_by_name,
     resolve_node_groups,
+    make_name_id_cell,
+    colorize_state,
+    format_timestamp_ms,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -73,15 +76,17 @@ def _warn_state_patterns(ctx, param, value):
 def _display_jobs_table(
     jobs: List[LeptonJob], dashboard_base_url: Optional[str] = None
 ):
-    table = Table(show_header=True, show_lines=True)
-    table.add_column("Name / ID")
-    table.add_column("Created At")
-    table.add_column("State")
-    table.add_column("User ID")
-    table.add_column("Node Group ID")
-    table.add_column("Workers")
-    table.add_column("Shape")
+    headers = [
+        "Name / ID",
+        "Created At",
+        "State",
+        "User ID",
+        "Node Group ID",
+        "Workers",
+        "Shape",
+    ]
 
+    rows = []
     shape_totals = {}
 
     for job in jobs:
@@ -92,31 +97,33 @@ def _display_jobs_table(
         )
         status = job.status
 
-        job_url = None
-        if dashboard_base_url:
-            job_url = f"{dashboard_base_url}/compute/jobs/detail/{job.metadata.id_}/replicas/list"
-        name_id_cell = f"[bold #76b900]{job.metadata.name}[/]\n" + (
-            f"[link={job_url}][bright_black]{job.metadata.id_}[/][/link]"
-            if job_url
-            else f"[bright_black]{job.metadata.id_}[/]"
+        job_url = (
+            f"{dashboard_base_url}/compute/jobs/detail/{job.metadata.id_}/replicas/list"
+            if dashboard_base_url
+            else None
         )
+        name_id_cell = make_name_id_cell(
+            job.metadata.name,
+            job.metadata.id_,
+            link=job_url,
+            link_target="id",
+        )
+
         workers = job.spec.completions or job.spec.parallelism or 1
         shape = job.spec.resource_shape or "-"
-        base_cols = [
+        created_ts = format_timestamp_ms(job.metadata.created_at)
+        state_cell = colorize_state(getattr(status, "state", None))
+
+        rows.append([
             name_id_cell,
-            (
-                datetime.fromtimestamp(job.metadata.created_at / 1000).strftime(
-                    "%Y-%m-%d\n%H:%M:%S"
-                )
-                if job.metadata.created_at
-                else "N/A"
-            ),
-            f"{status.state}",
+            created_ts,
+            state_cell,
             job.metadata.owner,
             ng_str,
             str(workers),
             shape,
-        ]
+        ])
+
         # Count workers towards utilization only if job is actively consuming resources
         if status.state in {
             LeptonJobState.Running,
@@ -124,9 +131,12 @@ def _display_jobs_table(
             LeptonJobState.Deleting,
         }:
             shape_totals[shape] = shape_totals.get(shape, 0) + workers
-        table.add_row(*base_cols)
 
-    table.title = "Jobs"
+    table = Table(show_header=True, show_lines=True)
+    for h in headers:
+        table.add_column(h)
+    for row in rows:
+        table.add_row(*row)
     console.print(table)
 
     # Print worker count per resource shape
@@ -845,7 +855,7 @@ def list_command(state, user, name_or_id, node_group):
 
     jobs = client.job.list_all(**list_params)
 
-    _display_jobs_table(jobs, client.get_workspace_id())
+    _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
 
 @job.command()
