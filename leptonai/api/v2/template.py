@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional
 
+from leptonai.api.v1.types.deployment import LeptonDeployment
+
 from ..v1.api_resource import APIResourse
 from ..v1.types.job import LeptonJob
 from .types.template import LeptonTemplate
@@ -20,6 +22,7 @@ class TemplateAPI(APIResourse):
         template_id: str,
         payload: Dict[str, Any],
         is_private: Optional[bool] = None,
+        is_pod: Optional[bool] = None,
     ) -> LeptonJob:
         """Render a template.
 
@@ -37,6 +40,8 @@ class TemplateAPI(APIResourse):
             ns = "private" if is_private else "public"
 
         response = self._post(f"/templates/{ns}/{template_id}/render", json=payload)
+        if is_pod:
+            return self.ensure_type(response, LeptonDeployment)
         return self.ensure_type(response, LeptonJob)
 
     # Lists
