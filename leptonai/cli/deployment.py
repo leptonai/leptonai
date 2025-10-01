@@ -1668,6 +1668,18 @@ def log(name, replica):
     ),
     default=None,
 )
+@click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help="JSON string for cserve options (stored at spec.cserve).",
+)
 def update(
     name,
     id,
@@ -1685,6 +1697,8 @@ def update(
     log_collection,
     shared_memory_size,
     replica_spread,
+    cserve,
+    cserve_options,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1819,6 +1833,17 @@ def update(
         ),
         auto_scaler=temp_auto_scaler,
     )
+
+    # Minimal cserve update support: only set when both flags are provided; validate JSON only
+    if cserve and cserve_options is not None:
+        try:
+            cserve_options_obj = json.loads(cserve_options)
+        except json.JSONDecodeError:
+            console.print(
+                f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+            )
+            sys.exit(1)
+        lepton_deployment_spec.cserve = {"options": cserve_options_obj}
 
     if replica_spread is not None:
         toggle = (
