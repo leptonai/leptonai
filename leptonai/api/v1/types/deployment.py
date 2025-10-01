@@ -295,6 +295,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
     auth_config: Optional[AuthConfig] = None
+    cserve: Optional[dict] = None
 
 
 class LeptonDeploymentState(str, Enum):
