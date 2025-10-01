@@ -501,6 +501,22 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help=(
+        "Enable cserve mode and attach cserve options to the deployment spec."
+    ),
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help=(
+        "JSON string for cserve options (stored at spec.cserve)."
+    ),
+)
+@click.option(
     "--resource-shape",
     "-rs",
     type=str,
@@ -858,6 +874,8 @@ def create(
     container_image,
     container_port,
     container_command,
+    cserve,
+    cserve_options,
     resource_shape,
     min_replicas,
     max_replicas,
@@ -1262,6 +1280,14 @@ def create(
                 spec.user_security_context = LeptonUserSecurityContext(privileged=True)
             else:
                 spec.user_security_context.privileged = True
+        if cserve and cserve_options is not None:
+            try:
+                # Validate JSON and use parsed object for options
+                cserve_options_obj = json.loads(cserve_options)
+            except json.JSONDecodeError:
+                console.print(f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]")
+                sys.exit(1)
+            spec.cserve = {"options": cserve_options_obj}
 
     except ValueError as e:
         console.print(
