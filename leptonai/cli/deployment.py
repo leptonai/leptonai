@@ -504,17 +504,13 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--cserve",
     is_flag=True,
     default=False,
-    help=(
-        "Enable cserve mode and attach cserve options to the deployment spec."
-    ),
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
 )
 @click.option(
     "--cserve-options",
     type=str,
     default=None,
-    help=(
-        "JSON string for cserve options (stored at spec.cserve)."
-    ),
+    help="JSON string for cserve options (stored at spec.cserve).",
 )
 @click.option(
     "--resource-shape",
@@ -1285,7 +1281,9 @@ def create(
                 # Validate JSON and use parsed object for options
                 cserve_options_obj = json.loads(cserve_options)
             except json.JSONDecodeError:
-                console.print(f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]")
+                console.print(
+                    f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+                )
                 sys.exit(1)
             spec.cserve = {"options": cserve_options_obj}
 
