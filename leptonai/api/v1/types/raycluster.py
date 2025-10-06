@@ -10,8 +10,6 @@ from .common import Metadata, LeptonUserSecurityContext
 from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig
 
 
-
-
 class RayClusterCommonGroupSpec(BaseModel):
     """
     Base spec shared by head and worker groups.

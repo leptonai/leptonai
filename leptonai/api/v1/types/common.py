@@ -57,5 +57,6 @@ class LeptonUserSecurityContext(BaseModel):
     """
     User security context shared across deployment/job/raycluster.
     """
+
     no_specific_user: Optional[bool] = None
     privileged: Optional[bool] = None
