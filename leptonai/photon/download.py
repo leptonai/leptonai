@@ -63,7 +63,9 @@ def fetch_code_from_vcs(url, target_dir=None):
         if (autofilled_user or autofilled_passwd) and (auth_user and auth_passwd):
             parts = urlsplit(url)
             new_netloc = f"{auth_user}:{auth_passwd}@{parts.netloc}"
-            url = urlunsplit((parts.scheme, new_netloc, parts.path, parts.query, parts.fragment))
+            url = urlunsplit(
+                (parts.scheme, new_netloc, parts.path, parts.query, parts.fragment)
+            )
             link = Link(url)
             hidden_url = hide_url(url)
             logger.info(
