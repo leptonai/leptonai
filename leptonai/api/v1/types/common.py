@@ -51,3 +51,11 @@ class SecretItem(BaseModel):
     # Prefer importing from leptonai.api.v1.types.secret import SecretItem
     name: str
     value: str
+
+
+class LeptonUserSecurityContext(BaseModel):
+    """
+    User security context shared across deployment/job/raycluster.
+    """
+    no_specific_user: Optional[bool] = None
+    privileged: Optional[bool] = None
