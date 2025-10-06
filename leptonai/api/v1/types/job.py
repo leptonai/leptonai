@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 from loguru import logger
 
 from .affinity import LeptonResourceAffinity
-from .common import Metadata
+from .common import Metadata, LeptonUserSecurityContext
 from .deployment import (
     LeptonContainer,
     LeptonMetrics,
@@ -48,7 +48,7 @@ class LeptonJobUserSpec(BaseModel):
     image_pull_secrets: Optional[List[str]] = []
     ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None
-    privileged: Optional[bool] = None
+    user_security_context: Optional[LeptonUserSecurityContext] = None
     metrics: Optional[LeptonMetrics] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
