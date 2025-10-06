@@ -3,6 +3,7 @@ import os
 from loguru import logger
 
 from leptonai.config import CACHE_DIR
+from urllib.parse import urlsplit, urlunsplit
 
 
 def fetch_code_from_vcs(url, target_dir=None):
@@ -48,7 +49,8 @@ def fetch_code_from_vcs(url, target_dir=None):
 
     _, netloc, (auth_user, auth_passwd) = split_auth_netloc_from_url(url)
     # TODO: check if git@github.com format url works with user:token
-    if link.scheme in ("git+http", "git+https") and netloc.startswith("github.com"):
+    hostname, _ = parse_netloc(netloc)
+    if link.scheme in ("git+http", "git+https") and hostname == "github.com":
         autofilled_user = False
         if auth_user is None and os.environ.get("GITHUB_USER"):
             auth_user = os.environ.get("GITHUB_USER")
@@ -59,7 +61,9 @@ def fetch_code_from_vcs(url, target_dir=None):
             autofilled_passwd = True
         # TODO: handle the case that only one of user and passwd is resolved
         if (autofilled_user or autofilled_passwd) and (auth_user and auth_passwd):
-            url = url.replace(netloc, f"{auth_user}:{auth_passwd}@{netloc}")
+            parts = urlsplit(url)
+            new_netloc = f"{auth_user}:{auth_passwd}@{parts.netloc}"
+            url = urlunsplit((parts.scheme, new_netloc, parts.path, parts.query, parts.fragment))
             link = Link(url)
             hidden_url = hide_url(url)
             logger.info(
