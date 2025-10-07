@@ -13,10 +13,9 @@ from leptonai._internal.client_utils import (  # noqa
 from leptonai.api.v0.connection import Connection
 from leptonai.api.v1.workspace_record import WorkspaceRecord
 from leptonai.api.v1.utils import (
-    _get_full_workspace_url,
     _get_full_workspace_api_url,
 )
-from leptonai.config import DEFAULT_PORT
+from leptonai.config import DEFAULT_PORT, build_endpoint_url
 from leptonai.photon import FileParam  # noqa
 from leptonai.util import is_valid_url
 from .api.v0 import deployment
@@ -188,6 +187,22 @@ class PathTree(object):
                         self.debug_record,
                     )
                     self._method_cache[prefix] = "__intermediate__"
+                else:
+                    # If an earlier leaf path (function) exists at this prefix (e.g. "/foo"),
+                    # but now we need to add a nested path (e.g. "/foo/bar"), convert the
+                    # existing leaf into an intermediate PathTree, preserving the previous
+                    # function as the default "" child.
+                    if not isinstance(self._path_cache[prefix], PathTree):
+                        prev_func = self._path_cache[prefix]
+                        prev_method = self._method_cache[prefix]
+                        new_child = PathTree(
+                            (self.name + "." if self.name else "") + prefix,
+                            self.debug_record,
+                        )
+                        new_child._path_cache[""] = prev_func
+                        new_child._method_cache[""] = prev_method
+                        self._path_cache[prefix] = new_child
+                        self._method_cache[prefix] = "__intermediate__"
                 self._path_cache[prefix]._add(remaining, func, http_method)
             else:
                 # temporarily ignore this path if it is not a valid identifier.
@@ -289,33 +304,13 @@ class Client(object):
         if is_valid_url(workspace_or_url):
             self.url = workspace_or_url.rstrip("/")
         else:
-            url = _get_full_workspace_url(workspace_or_url, cached=True)
-            if not url:
-                raise ValueError(
-                    f"Workspace {workspace_or_url} does not exist or is not accessible."
-                )
-            else:
-                # construct the full url of the deployment.
-                if deployment is None:
-                    raise ValueError("You must specify the deployment name.")
-                insert_index = url.find(".")
-                if insert_index == -1:
-                    raise ValueError(
-                        f"Workspace {workspace_or_url} seems to have an invalid"
-                        f" url returned: {url}. Please report this as a bug."
-                    )
-                self.url = (
-                    url[:insert_index] + "-" + deployment + ".tin.lepton.run"
-                ).rstrip("/")
+            # https://<workspace_id>-<deployment_name>.xenon.lepton.run
+            if deployment is None:
+                raise ValueError("You must specify the deployment name.")
+            self.url = build_endpoint_url(workspace_or_url, deployment)
 
         headers = {}
-        # If we are simply using the current workspace, we will also automatically
-        # set the token as the current workspace token.
-        if (
-            token is None
-            and workspace_or_url == WorkspaceRecord.get_current_workspace_id()
-        ):
-            token = WorkspaceRecord.client().token()
+
         if token is not None:
             headers.update({"Authorization": f"Bearer {token}"})
 
@@ -578,12 +573,14 @@ class Client(object):
 
         :return: whether the deployment is healthily running.
         """
-        try:
-            res = self._get("/healthz")
-            self._get_proper_res_content(res)
-            return True
-        except (httpx.ConnectError, httpx.HTTPError):
-            return False
+        for path in ("/health", "/healthz"):
+            try:
+                res = self._get(path)
+                self._get_proper_res_content(res)
+                return True
+            except (httpx.ConnectError, httpx.HTTPError):
+                continue
+        return False
 
     def debug_record(self) -> List[str]:
         print("\n\n".join(self._debug_record))
