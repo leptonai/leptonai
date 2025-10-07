@@ -392,7 +392,8 @@ SSH_PORT = 2222
 TCP_PORT = 18888
 TCP_JUPYTER_PORT = 18889
 
-ENDPOINT_BASE_DOMAIN =  "xenon.lepton.run"
+ENDPOINT_BASE_DOMAIN = "xenon.lepton.run"
+
 
 def build_endpoint_url(workspace_id: str, deployment_name: str) -> str:
     """
@@ -401,4 +402,6 @@ def build_endpoint_url(workspace_id: str, deployment_name: str) -> str:
     """
     if not workspace_id or not deployment_name:
         raise ValueError("workspace_id and deployment_name must be non-empty")
-    return f"https://{workspace_id}-{deployment_name}.{ENDPOINT_BASE_DOMAIN}".rstrip("/")
+    return f"https://{workspace_id}-{deployment_name}.{ENDPOINT_BASE_DOMAIN}".rstrip(
+        "/"
+    )
